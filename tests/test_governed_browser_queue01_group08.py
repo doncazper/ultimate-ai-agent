@@ -185,6 +185,7 @@ def _service(
     readiness_provider=None,  # type: ignore[no-untyped-def]
     source_download_kernel=None,  # type: ignore[no-untyped-def]
     source_download_registry=None,  # type: ignore[no-untyped-def]
+    source_download_request=None,  # type: ignore[no-untyped-def]
     clock=utc_now,  # type: ignore[no-untyped-def]
 ):  # type: ignore[no-untyped-def]
     kernel, authority = _authorized_kernel(
@@ -200,6 +201,7 @@ def _service(
             quarantine_store=store,
             source_download_kernel=source_download_kernel,
             source_download_registry=source_download_registry,
+            source_download_request=source_download_request,
             clock=clock,
         ),
         kernel,
@@ -366,6 +368,7 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
         registry=upload_registry,
         source_download_kernel=download_kernel,
         source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
     )
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))

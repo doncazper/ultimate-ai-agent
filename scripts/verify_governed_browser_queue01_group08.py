@@ -44,6 +44,10 @@ def verify() -> list[str]:
         "tests/test_governed_browser_queue01_group08_review_repairs.py",
         failures,
     )
+    tests += _read(
+        "tests/test_governed_browser_queue01_group08_review_round05.py",
+        failures,
+    )
     doc = _read("docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md", failures)
     docs_readme = _read("docs/README.md", failures)
     docs_index = _read("docs/DOCUMENTATION_INDEX.md", failures)
@@ -66,8 +70,12 @@ def verify() -> list[str]:
             "source_download_receipt_ref",
             "source_download_recipe_ref",
             "source_download_registry",
+            "source_download_request",
             "terminal_receipt_by_ref",
+            "replay_if_terminal(expected_kernel_execution)",
             "source-download-receipt-required",
+            "recipe-expired",
+            "operation-authority-mismatch",
             "def _read_transfer_clock",
             "trusted-clock-invalid",
             "GOVERNED_ARTIFACT_READY_KERNEL_PROOF_REQUIRED",
@@ -132,6 +140,10 @@ def verify() -> list[str]:
             "test_upload_plan_requires_bound_source_ledger_and_registered_download_recipe",
             "test_full_bounded_text_payload_is_scanned_for_active_content",
             "test_invalid_service_clock_returns_a_content_free_blocked_receipt",
+            "test_upload_rejects_generic_receipt_without_recipe_bound_request_fingerprint",
+            "test_expired_recipe_is_preflight_blocked_without_poisoning_refresh",
+            "test_upload_rejects_an_expired_source_quarantine_recipe",
+            "test_execution_rejects_extra_artifact_transfer_operation_authority",
         ),
         "doc": (
             "10. Download quarantine and exact artifact-bound upload plans",
@@ -142,6 +154,9 @@ def verify() -> list[str]:
             "distinct prior download",
             "source download receipt",
             "registered source download recipe",
+            "recipe-bound kernel",
+            "unexpired",
+            "non-mutating preflight",
             "content-free terminal",
             "entire bounded text payload",
             "service clock cannot raise",

@@ -296,6 +296,7 @@ def test_upload_plan_must_match_receipt_fingerprint_and_plan_evidence(
         registry=upload_registry,
         source_download_kernel=download_kernel,
         source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
     )
     result = upload_service.execute(_exact(upload_request, upload_recipe))
     assert result.upload_plan is not None
@@ -356,6 +357,7 @@ def test_upload_plan_requires_bound_source_ledger_and_registered_download_recipe
         registry=upload_registry,
         source_download_kernel=download_kernel,
         source_download_registry=upload_registry,
+        source_download_request=_exact(download_request, download_recipe),
     )
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))

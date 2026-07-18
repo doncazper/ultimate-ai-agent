@@ -1356,6 +1356,7 @@ class ExactGovernedArtifactTransferService:
         quarantine_store: GovernedArtifactQuarantineStore,
         source_download_kernel: GovernedExternalActionKernel | None = None,
         source_download_registry: GovernedArtifactTransferRecipeRegistry | None = None,
+        source_download_request: ExactGovernedArtifactTransferRequest | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self._registry = registry
@@ -1363,6 +1364,13 @@ class ExactGovernedArtifactTransferService:
         self._store = quarantine_store
         self._source_download_kernel = source_download_kernel
         self._source_download_registry = source_download_registry
+        self._source_download_request = (
+            ExactGovernedArtifactTransferRequest.model_validate(
+                source_download_request.model_dump(mode="json")
+            )
+            if source_download_request is not None
+            else None
+        )
         self._clock = clock
 
     def execute(
@@ -1438,17 +1446,9 @@ class ExactGovernedArtifactTransferService:
                 operation=operation,
                 reason_ref=scope_reason,
             )
-        kernel_execution = ExternalActionExecutionRequest.model_validate(
-            {
-                **execution.model_dump(mode="json"),
-                "idempotency_ref": stable_governed_browser_ref(
-                    "idempotency-ref:governed-artifact-transfer",
-                    {
-                        "source_idempotency_ref": execution.idempotency_ref,
-                        "recipe_ref": recipe.recipe_ref,
-                    },
-                ),
-            }
+        kernel_execution = _artifact_transfer_kernel_execution(
+            execution,
+            recipe_ref=recipe.recipe_ref,
         )
         replay = self._kernel.replay_if_terminal(kernel_execution)
         if replay is not None:
@@ -1491,6 +1491,12 @@ class ExactGovernedArtifactTransferService:
                 request,
                 operation=operation,
                 reason_ref="reason-ref:governed-artifact:recipe-not-yet-valid",
+            )
+        if current_time >= recipe.expires_at:
+            return _preflight_blocked(
+                request,
+                operation=operation,
+                reason_ref="reason-ref:governed-artifact:recipe-expired",
             )
         captured_quarantine: ExactGovernedArtifactQuarantine | None = None
         captured_plan: ExactGovernedArtifactUploadPlan | None = None
@@ -1572,7 +1578,10 @@ class ExactGovernedArtifactTransferService:
                 assert recipe.content_fingerprint_ref is not None
                 assert recipe.source_download_receipt_ref is not None
                 assert recipe.source_download_recipe_ref is not None
-                if not self._source_download_receipt_is_valid(recipe):
+                if not self._source_download_receipt_is_valid(
+                    recipe,
+                    current_time=current_time,
+                ):
                     return _failed_dispatch(
                         dispatched_request,
                         "source-download-receipt-required",
@@ -1654,16 +1663,20 @@ class ExactGovernedArtifactTransferService:
     def _source_download_receipt_is_valid(
         self,
         recipe: GovernedArtifactTransferRecipe,
+        *,
+        current_time: datetime,
     ) -> bool:
         receipt_ref = recipe.source_download_receipt_ref
         source_recipe_ref = recipe.source_download_recipe_ref
         kernel = self._source_download_kernel
         source_registry = self._source_download_registry
+        source_request = self._source_download_request
         if (
             receipt_ref is None
             or source_recipe_ref is None
             or kernel is None
             or source_registry is None
+            or source_request is None
         ):
             return False
         source_recipe = source_registry.resolve(source_recipe_ref)
@@ -1683,9 +1696,24 @@ class ExactGovernedArtifactTransferService:
             or source_recipe.content_fingerprint_ref is not None
             or source_recipe.source_download_receipt_ref is not None
             or source_recipe.source_download_recipe_ref is not None
+            or not source_recipe.created_at <= current_time < source_recipe.expires_at
+            or source_request.recipe_ref != source_recipe_ref
+            or GovernedArtifactTransferOperation(source_request.operation)
+            != GovernedArtifactTransferOperation.download_quarantine
+            or source_request.artifact_ref != source_recipe.artifact_ref
+            or source_request.quarantine_ref != source_recipe.quarantine_ref
+            or source_request.download_transaction_ref
+            != source_recipe.download_transaction_ref
+            or source_request.execution_request.binding.transaction_ref
+            != source_recipe.transaction_ref
         ):
             return False
         try:
+            expected_kernel_execution = _artifact_transfer_kernel_execution(
+                source_request.execution_request,
+                recipe_ref=source_recipe.recipe_ref,
+            )
+            exact_replay = kernel.replay_if_terminal(expected_kernel_execution)
             receipt = kernel.terminal_receipt_by_ref(
                 transaction_ref=recipe.download_transaction_ref,
                 receipt_ref=receipt_ref,
@@ -1693,8 +1721,14 @@ class ExactGovernedArtifactTransferService:
         except Exception:
             return False
         if (
-            receipt is None
+            exact_replay is None
+            or receipt is None
             or receipt.replayed
+            or exact_replay.receipt_ref != receipt.receipt_ref
+            or exact_replay.transaction_ref != receipt.transaction_ref
+            or exact_replay.binding_ref != receipt.binding_ref
+            or exact_replay.state != receipt.state
+            or exact_replay.evidence_refs != receipt.evidence_refs
             or receipt.state != ExternalActionState.succeeded.value
             or receipt.transaction_ref != recipe.download_transaction_ref
             or receipt.receipt_ref != receipt_ref
@@ -1724,6 +1758,25 @@ class ExactGovernedArtifactTransferService:
         return True
 
 
+def _artifact_transfer_kernel_execution(
+    request: ExternalActionExecutionRequest,
+    *,
+    recipe_ref: str,
+) -> ExternalActionExecutionRequest:
+    return ExternalActionExecutionRequest.model_validate(
+        {
+            **request.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-artifact-transfer",
+                {
+                    "source_idempotency_ref": request.idempotency_ref,
+                    "recipe_ref": recipe_ref,
+                },
+            ),
+        }
+    )
+
+
 def _recipe_scope_reason(
     recipe: GovernedArtifactTransferRecipe,
     request: ExternalActionExecutionRequest,
@@ -1744,6 +1797,11 @@ def _recipe_scope_reason(
         required_resources.add(recipe.source_download_receipt_ref)
     if recipe.source_download_recipe_ref is not None:
         required_resources.add(recipe.source_download_recipe_ref)
+    bound_operation_refs = tuple(
+        ref
+        for ref in binding.resource_refs
+        if ref.startswith("artifact-transfer-operation-authority-ref:governed-browser:")
+    )
     checks = (
         (
             recipe.binding_ref == binding.binding_ref,
@@ -1772,6 +1830,10 @@ def _recipe_scope_reason(
         (
             binding.authority_capability == _required_capability(operation).value,
             "reason-ref:governed-artifact:capability-mismatch",
+        ),
+        (
+            bound_operation_refs == (recipe.operation_authority_ref,),
+            "reason-ref:governed-artifact:operation-authority-mismatch",
         ),
         (
             binding.human_present,
