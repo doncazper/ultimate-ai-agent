@@ -340,6 +340,50 @@ class ExternalActionTransactionStore:
         receipt = ExternalActionReceipt.model_validate_json(row[1])
         return receipt.model_copy(update={"replayed": True})
 
+    def terminal_receipt_by_ref(
+        self,
+        *,
+        transaction_ref: str,
+        receipt_ref: str,
+    ) -> ExternalActionReceipt | None:
+        """Read one exact stored terminal receipt without creating a replay."""
+
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT receipt_json FROM governed_external_actions "
+                "WHERE transaction_ref = ?",
+                (transaction_ref,),
+            ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        receipt = ExternalActionReceipt.model_validate_json(row[0])
+        payload = {
+            "transaction_ref": receipt.transaction_ref,
+            "intent_ref": receipt.intent_ref,
+            "binding_ref": receipt.binding_ref,
+            "state": receipt.state,
+            "approval_validation_ref": receipt.approval_validation_ref,
+            "authority_decision_ref": receipt.authority_decision_ref,
+            "budget_reservation_ref": receipt.budget_reservation_ref,
+            "budget_settlement_ref": receipt.budget_settlement_ref,
+            "evidence_refs": list(receipt.evidence_refs),
+            "reason_refs": list(receipt.reason_refs),
+        }
+        expected_receipt_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            payload,
+        )
+        if (
+            receipt.replayed
+            or receipt.transaction_ref != transaction_ref
+            or receipt.receipt_ref != receipt_ref
+            or receipt.receipt_ref != expected_receipt_ref
+        ):
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
+            )
+        return receipt
+
     def claim_start(self, transaction_ref: str) -> bool:
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -630,6 +674,19 @@ class GovernedExternalActionKernel:
         """Inspect an exact terminal transaction without creating or claiming it."""
 
         return self._store.replay_if_terminal(request)
+
+    def terminal_receipt_by_ref(
+        self,
+        *,
+        transaction_ref: str,
+        receipt_ref: str,
+    ) -> ExternalActionReceipt | None:
+        """Inspect one exact stored terminal receipt by its bound proof ref."""
+
+        return self._store.terminal_receipt_by_ref(
+            transaction_ref=transaction_ref,
+            receipt_ref=receipt_ref,
+        )
 
     def _activation_reasons(self, request: ExternalActionExecutionRequest) -> list[str]:
         if request.binding.target_kind == ExternalActionTargetKind.external.value:
