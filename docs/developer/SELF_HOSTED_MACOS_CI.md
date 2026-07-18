@@ -73,8 +73,10 @@ provider, connector, production, or AuthorityLease capability.
   making unrelated integration work inherit stale image drift.
 - Pytest keeps nine deterministic logical shards inside one job and one
   installed environment: one serialized Matrix resource preflight followed by
-  eight timing-balanced shards. Four isolated workers overlap subprocess-heavy
-  shard waits while avoiding the lock starvation and repeated
+  eight timing-balanced shards. Fixed-port owners and tests that copy, probe,
+  or execute the bounded Matrix Node runtime stay in that preflight instead of
+  competing with the parallel wave. Four isolated workers overlap other
+  subprocess-heavy shard waits while avoiding the lock starvation and repeated
   dependency installation caused by multiple runner jobs on one physical Mac.
   Every logical shard receives its own bounded `HOME`, `TEMP`, `TMP`, and
   `TMPDIR` below the run basetemp, so child processes cannot share runner-home

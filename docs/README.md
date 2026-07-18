@@ -20,7 +20,7 @@ enrolled remote account runtime, public release, and production authority
 remain blocked.
 
 The governed browser/external-actions program is now active after Messenger.
-Queue 01 items 01–11 are `implemented_inactive`: exact authority semantics, an
+Queue 01 items 01–12 are `implemented_inactive`: exact authority semantics, an
 injected isolated broker behind `WebAccessGateway`, an at-most-once
 external-action transaction kernel, a readable content-free Action Inbox
 execution envelope, and registered exact Evidence Recipes are locally
@@ -54,11 +54,16 @@ delete contracts. Legal consent requires an explicit instrument and decision;
 account creation cannot imply consent; delete binds one exact target. The
 contracts do not send, publish, create an account, record consent, delete,
 materialize payloads, open a browser, call a network, or mutate an external
+target. Item 12 adds exact plan-only purchase, booking, checkout/payment, and
+financial-transaction contracts bound to a counterparty, quote, currency,
+opaque payment-handle ref, amount, exact spend ceiling, operation-specific
+refs, rollback, and reconciliation. It does not resolve payment data, purchase,
+book, open checkout, pay, transfer funds, call a network, or mutate an external
 target. Queue 01 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06,
-Queue 01 items 01–07, Queue 01 items 01–08, Queue 01 items 01–09, and Queue 01
-items 01–10 remain prior accepted boundaries. See
+Queue 01 items 01–07, Queue 01 items 01–08, Queue 01 items 01–09, Queue 01
+items 01–10, and Queue 01 items 01–11 remain prior accepted boundaries. See
 `docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
-validation and Queue 01 items 12–13 remain separate required gates.
+validation and Queue 01 item 13 remain separate required gates.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
