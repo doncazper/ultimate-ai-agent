@@ -733,6 +733,21 @@ def test_macos_distribution_policy_rejects_unreviewed_filesystem_call() -> None:
         filesystem_drift,
         "Path.home(",
     )
+    path_instance_drift = source + "\nlayout.root.glob('**/*')\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        path_instance_drift,
+    )
+    module_call_drift = source + "\ntempfile.mkdtemp()\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        module_call_drift,
+    )
+    builtin_open_drift = source + '\nopen("/tmp/unreviewed", "w")\n'
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        builtin_open_drift,
+    )
 
 
 def test_macos_distribution_policy_ignores_unrelated_fixture_roots_but_fails_partial_lane(

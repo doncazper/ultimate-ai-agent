@@ -35,13 +35,48 @@ _SUBPROCESS_RUN = _SUBPROCESS_DOT + "run"
 _URLLIB_URLOPEN = "urllib.request" + ".urlopen"
 _HOST_CALL_PREFIXES = (
     "Path.",
+    "fcntl.",
     "os.",
+    "platform.",
+    "plistlib.",
+    "shutil.",
+    "signal.",
     _SOCKET_DOT,
+    "stat.",
     _SUBPROCESS_DOT,
     "sys.",
+    "tarfile.",
+    "tempfile.",
+    "time.",
     "urllib.",
     "webbrowser.",
     "root.",
+)
+_SENSITIVE_FILESYSTEM_METHODS = frozenset(
+    {
+        "chmod",
+        "exists",
+        "glob",
+        "is_dir",
+        "is_file",
+        "iterdir",
+        "joinpath",
+        "mkdir",
+        "open",
+        "read_bytes",
+        "read_text",
+        "relative_to",
+        "rename",
+        "replace",
+        "resolve",
+        "rglob",
+        "rmdir",
+        "stat",
+        "symlink_to",
+        "unlink",
+        "write_bytes",
+        "write_text",
+    }
 )
 _DYNAMIC_CALL_NAMES = frozenset(
     {
@@ -54,6 +89,7 @@ _DYNAMIC_CALL_NAMES = frozenset(
         "globals",
         "importlib.import_module",
         "locals",
+        "open",
         "setattr",
         "vars",
     }
@@ -65,6 +101,7 @@ _EXPECTED_CALL_COUNTS = {
         "os.access": 1,
         "run": 1,
         "self.opener.open": 2,
+        "shutil.which": 1,
         "urllib.parse.urlparse": 2,
         "urllib.request.Request": 1,
         "urllib.request.build_opener": 1,
@@ -72,12 +109,20 @@ _EXPECTED_CALL_COUNTS = {
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
         "Path": 13,
         "Path.home": 3,
+        "fcntl.flock": 2,
         "os.access": 2,
         "os.replace": 7,
+        "plistlib.load": 1,
         "root.joinpath": 1,
         "root.resolve": 1,
         "root.rglob": 1,
+        "shutil.copytree": 1,
+        "shutil.rmtree": 8,
+        "stat.S_IMODE": 2,
         _SUBPROCESS_RUN: 4,
+        "tarfile.open": 1,
+        "tempfile.TemporaryDirectory": 1,
+        "time.time": 1,
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
         "Path": 2,
@@ -87,13 +132,61 @@ _EXPECTED_CALL_COUNTS = {
         "os.execv": 1,
         "os.kill": 4,
         "os.replace": 2,
+        "platform.system": 1,
         _SOCKET_SOCKET: 1,
         _SUBPROCESS_POPEN: 1,
         _SUBPROCESS_RUN: 1,
+        "tempfile.TemporaryDirectory": 1,
+        "time.monotonic": 4,
+        "time.sleep": 2,
         "urllib.parse.quote": 1,
         "urllib.request.Request": 1,
         _URLLIB_URLOPEN: 1,
         "webbrowser.open": 2,
+    },
+}
+
+_EXPECTED_FILESYSTEM_METHOD_COUNTS = {
+    "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
+        "exists": 1,
+        "is_file": 1,
+        "mkdir": 1,
+        "open": 3,
+        "replace": 1,
+        "unlink": 4,
+    },
+    "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "chmod": 5,
+        "exists": 14,
+        "is_dir": 3,
+        "is_file": 9,
+        "iterdir": 1,
+        "joinpath": 2,
+        "mkdir": 14,
+        "open": 4,
+        "read_bytes": 1,
+        "read_text": 6,
+        "relative_to": 3,
+        "replace": 8,
+        "resolve": 4,
+        "rglob": 1,
+        "stat": 6,
+        "symlink_to": 1,
+        "unlink": 7,
+        "write_bytes": 1,
+        "write_text": 2,
+    },
+    "src/ultimate_ai_agent/distribution/macos/runtime.py": {
+        "chmod": 2,
+        "is_dir": 1,
+        "is_file": 5,
+        "mkdir": 4,
+        "open": 2,
+        "read_bytes": 1,
+        "read_text": 2,
+        "replace": 3,
+        "unlink": 5,
+        "write_text": 2,
     },
 }
 
@@ -102,6 +195,7 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "os.X_OK",
         "os.access",
         "os.environ",
+        "shutil.which",
         _SUBPROCESS_DOT + "CompletedProcess",
         _SUBPROCESS_DOT + "SubprocessError",
         _SUBPROCESS_RUN,
@@ -117,14 +211,27 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "urllib.request.build_opener",
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "fcntl.LOCK_EX",
+        "fcntl.LOCK_NB",
+        "fcntl.LOCK_UN",
+        "fcntl.flock",
         "os.W_OK",
         "os.X_OK",
         "os.access",
         "os.environ",
         "os.replace",
         "Path.home",
+        "plistlib.InvalidFileException",
+        "plistlib.load",
+        "shutil.copytree",
+        "shutil.rmtree",
+        "stat.S_IMODE",
         _SUBPROCESS_DOT + "DEVNULL",
         _SUBPROCESS_RUN,
+        "tarfile.TarError",
+        "tarfile.open",
+        "tempfile.TemporaryDirectory",
+        "time.time",
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
         "os.environ",
@@ -133,6 +240,9 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "os.execv",
         "os.kill",
         "os.replace",
+        "platform.system",
+        "signal.SIGKILL",
+        "signal.SIGTERM",
         "sys.executable",
         _SOCKET_DOT + "AF_INET",
         _SOCKET_DOT + "SOCK_STREAM",
@@ -140,6 +250,9 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         _SUBPROCESS_DOT + "DEVNULL",
         _SUBPROCESS_POPEN,
         _SUBPROCESS_RUN,
+        "tempfile.TemporaryDirectory",
+        "time.monotonic",
+        "time.sleep",
         "urllib.error",
         "urllib.error.URLError",
         "urllib.parse",
@@ -154,20 +267,32 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
 _EXPECTED_HOST_IMPORTS = {
     "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
         "os",
+        "shutil",
         "subprocess",
         "urllib.error",
         "urllib.parse",
         "urllib.request",
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "fcntl",
         "os",
+        "plistlib",
+        "shutil",
+        "stat",
         "subprocess",
+        "tarfile",
+        "tempfile",
+        "time",
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
         "os",
+        "platform",
+        "signal",
         "socket",
         "subprocess",
         "sys",
+        "tempfile",
+        "time",
         "urllib.error",
         "urllib.parse",
         "urllib.request",
@@ -177,11 +302,20 @@ _EXPECTED_HOST_IMPORTS = {
 _HOST_MODULE_NAMES = frozenset(
     {
         "builtins",
+        "fcntl",
         "importlib",
         "os",
+        "platform",
+        "plistlib",
+        "shutil",
+        "signal",
         "socket",
+        "stat",
         "subprocess",
         "sys",
+        "tarfile",
+        "tempfile",
+        "time",
         "urllib",
         "webbrowser",
     }
@@ -364,9 +498,18 @@ def macos_distribution_adapter_policy_failures(
                 (
                     "os.",
                     "Path.",
+                    "fcntl.",
+                    "platform.",
+                    "plistlib.",
+                    "shutil.",
+                    "signal.",
                     _SOCKET_DOT,
+                    "stat.",
                     _SUBPROCESS_DOT,
                     "sys.",
+                    "tarfile.",
+                    "tempfile.",
+                    "time.",
                     "urllib.error",
                     "urllib.parse",
                     "urllib.request",
@@ -378,6 +521,7 @@ def macos_distribution_adapter_policy_failures(
             failures.append(f"{rel_path}: unreviewed host-capability attribute")
 
     actual_counts: dict[str, int] = {}
+    actual_filesystem_method_counts: dict[str, int] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -389,6 +533,14 @@ def macos_distribution_adapter_policy_failures(
             actual_counts[call_name] = actual_counts.get(call_name, 0) + 1
         if call_name in _DYNAMIC_CALL_NAMES:
             failures.append(f"{rel_path}: dynamic host-capability access denied")
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in _SENSITIVE_FILESYSTEM_METHODS
+        ):
+            method_name = node.func.attr
+            actual_filesystem_method_counts[method_name] = (
+                actual_filesystem_method_counts.get(method_name, 0) + 1
+            )
         for keyword in node.keywords:
             if (
                 keyword.arg == "shell"
@@ -400,6 +552,11 @@ def macos_distribution_adapter_policy_failures(
     expected_counts = _EXPECTED_CALL_COUNTS[rel_path]
     if actual_counts != expected_counts:
         failures.append(f"{rel_path}: reviewed host-capability call shape changed")
+    if (
+        actual_filesystem_method_counts
+        != _EXPECTED_FILESYSTEM_METHOD_COUNTS[rel_path]
+    ):
+        failures.append(f"{rel_path}: reviewed filesystem method shape changed")
     allowed_url_lines = _ALLOWED_URL_LINES[rel_path]
     for line in source.splitlines():
         stripped = line.strip()
