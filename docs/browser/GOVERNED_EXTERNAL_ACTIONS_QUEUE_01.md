@@ -548,7 +548,8 @@ are rejected. Normalized singular or plural broad capability/authority tokens
 are rejected regardless of whether `all` or `any` appears before or after the
 scope token, including when separators split the scope or quantity token.
 Boundary matching keeps near-collision namespaces such as `alliance` and
-`anycast` valid. Only already SHA-256-pinned source refs are wrapped into
+`anycast`, `wildcardness`, and `completeanytaskforce` valid. Only already
+SHA-256-pinned source refs are wrapped into
 purpose-specific opaque refs before registration, so descriptive source
 identifiers cannot flow into a plan or receipt.
 
@@ -570,7 +571,10 @@ authority-envelope input therefore requires a different plan ref instead of
 silently rebinding the same serialized plan.
 
 The plan explicitly records that every operation needs separate later exact
-authority. Its returned step collection and dependency collections are
+authority. Deserialized plans require unique operation-authority refs and an
+immutable recipe snapshot matching the exact plan payload, validity window,
+dependencies, composer authority, and binding. Its returned step collection
+and dependency collections are
 immutable, so in-memory mutation cannot leave a stale plan ref attached to
 different ordered content. Composer authority is never inherited by a step, no step is
 authorized or executed, and no `complete_any_task` or wildcard grant exists.
@@ -582,7 +586,9 @@ exact external-action, approval-validation, policy-decision, budget-reservation,
 and budget-settlement proof lineages by recomputing the exact external-action
 receipt identity. A validated content-free recipe snapshot binds the receipt
 operation refs back to the exact plan payload, validity window, dependencies,
-and authority envelope. Every non-success receipt retains at least one safe
+and authority envelope. External receipt transaction, intent, and binding refs
+must also match the current composition request before any projection is
+created. Every non-success receipt retains at least one safe
 reason ref, including a composer fallback when the kernel reports an ambiguous
 outcome without one. It does not execute an operation,
 call a model, open or act in a browser, call a

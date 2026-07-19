@@ -51,12 +51,6 @@ MAX_GOVERNED_TASK_COMPOSITION_LIFETIME = timedelta(minutes=10)
 MAX_GOVERNED_TASK_COMPOSITION_STEPS = 8
 _HASH_PINNED_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
 _HASH_PINNED_REF_RE = re.compile(r".+:sha256:[0-9a-f]{64}")
-_BROAD_GRANT_FRAGMENTS = (
-    "complete_any_task",
-    "complete-any-task",
-    "complete.any.task",
-    "wildcard",
-)
 
 
 def _separator_tolerant_token_pattern(value: str) -> str:
@@ -74,6 +68,12 @@ _BROAD_SCOPE_GRANT_RE = re.compile(
     rf"(?:^|[^a-z0-9])(?:{_BROAD_SCOPE_TOKEN_PATTERN}[^a-z0-9]*"
     rf"{_BROAD_QUANTITY_TOKEN_PATTERN}|{_BROAD_QUANTITY_TOKEN_PATTERN}"
     rf"[^a-z0-9]*{_BROAD_SCOPE_TOKEN_PATTERN})(?:[^a-z0-9]|$)"
+)
+_BROAD_NAMED_GRANT_RE = re.compile(
+    rf"(?:^|[^a-z0-9])(?:{_separator_tolerant_token_pattern('wildcard')}|"
+    rf"{_separator_tolerant_token_pattern('complete')}[^a-z0-9]*"
+    rf"{_separator_tolerant_token_pattern('any')}[^a-z0-9]*"
+    rf"{_separator_tolerant_token_pattern('task')})(?:[^a-z0-9]|$)"
 )
 _REGISTERED_SOURCE_PREFIXES = {
     "source_recipe_ref": "source-recipe-ref:governed-task-composer:",
@@ -144,16 +144,10 @@ def _validate_hash_pinned_ref(
 
 def _deny_broad_grant_language(value: str, *, label: str) -> None:
     lowered = value.lower()
-    canonical = re.sub(r"[^a-z0-9]+", "", lowered)
-    canonical_broad_fragments = (
-        "completeanytask",
-        "wildcard",
-    )
     broad_scope_grant = _BROAD_SCOPE_GRANT_RE.search(lowered) is not None
     if (
         "*" in value
-        or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS)
-        or any(fragment in canonical for fragment in canonical_broad_fragments)
+        or _BROAD_NAMED_GRANT_RE.search(lowered) is not None
         or broad_scope_grant
     ):
         raise ValueError(f"GOVERNED_TASK_COMPOSER_BROAD_{label.upper()}_DENIED")
@@ -940,6 +934,7 @@ class GovernedTaskCompositionPlan(BaseModel):
     plan_ref: str
     plan_payload_ref: str
     recipe_ref: str
+    recipe_snapshot: GovernedTaskCompositionRecipe
     broad_intent_ref: str
     registry_ref: str
     composer_authority_ref: str
@@ -997,6 +992,11 @@ class GovernedTaskCompositionPlan(BaseModel):
         operation_refs = [step.operation_ref for step in self.steps]
         if len(set(operation_refs)) != len(operation_refs):
             raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_REUSE_DENIED")
+        operation_authority_refs = [
+            step.operation_authority_ref for step in self.steps
+        ]
+        if len(set(operation_authority_refs)) != len(operation_authority_refs):
+            raise ValueError("GOVERNED_TASK_COMPOSER_OPERATION_AUTHORITY_DUPLICATE")
         composition_steps = [
             GovernedTaskCompositionStep(
                 step_ref=step.step_ref,
@@ -1036,6 +1036,20 @@ class GovernedTaskCompositionPlan(BaseModel):
         )
         if self.envelope_ref != expected_envelope_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_ENVELOPE_REF_MISMATCH")
+        if (
+            self.recipe_snapshot.recipe_ref != self.recipe_ref
+            or self.recipe_snapshot.plan_ref != self.plan_ref
+            or self.recipe_snapshot.plan_payload_ref != self.plan_payload_ref
+            or self.recipe_snapshot.broad_intent_ref != self.broad_intent_ref
+            or self.recipe_snapshot.registry_ref != self.registry_ref
+            or self.recipe_snapshot.composer_authority_ref
+            != self.composer_authority_ref
+            or self.recipe_snapshot.binding_ref != self.binding_ref
+            or self.recipe_snapshot.created_at != self.created_at
+            or self.recipe_snapshot.expires_at != self.expires_at
+            or self.recipe_snapshot.steps != tuple(composition_steps)
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_RECIPE_MISMATCH")
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_task_composition_plan",
@@ -1627,6 +1641,7 @@ def _build_plan(
         plan_ref=recipe.plan_ref,
         plan_payload_ref=recipe.plan_payload_ref,
         recipe_ref=recipe.recipe_ref,
+        recipe_snapshot=recipe,
         broad_intent_ref=recipe.broad_intent_ref,
         registry_ref=recipe.registry_ref,
         composer_authority_ref=recipe.composer_authority_ref,
@@ -1713,6 +1728,20 @@ def _result_from_external_receipt(
     external_receipt: ExternalActionReceipt,
     plan: GovernedTaskCompositionPlan | None,
 ) -> ExactGovernedTaskCompositionResult:
+    execution = request.execution_request
+    if (
+        external_receipt.transaction_ref,
+        external_receipt.intent_ref,
+        external_receipt.binding_ref,
+    ) != (
+        execution.binding.transaction_ref,
+        execution.intent_ref,
+        recipe.binding_ref,
+    ) or recipe.binding_ref != execution.binding.binding_ref:
+        return _preflight_blocked(
+            request,
+            "reason-ref:governed-task-composer:external-receipt-scope-mismatch",
+        )
     state = ExternalActionState(external_receipt.state)
     if external_receipt.replayed and state == ExternalActionState.succeeded:
         status = GovernedTaskCompositionStatus.replayed_content_free

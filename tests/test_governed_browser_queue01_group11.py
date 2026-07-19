@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedTaskComposer,
     ExactGovernedTaskCompositionRequest,
     ExternalActionAuthorityBinding,
+    ExternalActionReceipt,
     ExternalActionTargetKind,
     ExternalActionTransactionStore,
     GovernedExternalActionKernel,
@@ -345,6 +346,7 @@ def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
         "authorities/all",
         "cap.ability:all",
         "any:auth.orities",
+        "authority:wild.card",
     ):
         with pytest.raises(ValueError, match="BROAD_INTENT"):
             governed_task_broad_intent_ref(intent_fingerprint=disguised_grant)
@@ -407,6 +409,8 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
         _pinned("company-capabilities-ref:source", "narrow-source"),
         _pinned("authority:alliance", "narrow-source"),
         _pinned("capability:anycast", "narrow-source"),
+        _pinned("source-authority-ref:wildcardness-policy", "narrow-source"),
+        _pinned("source-authority-ref:completeanytaskforce", "narrow-source"),
     ):
         assert build_registered_governed_task_operation(
             kind=GovernedTaskOperationKind.external_operation,
@@ -425,6 +429,8 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
         _pinned("any-capabilities-ref:source", "broad-source"),
         _pinned("cap.ability:all", "broad-source"),
         _pinned("any:cap.abilities", "broad-source"),
+        _pinned("source-authority-ref:wild.card", "broad-source"),
+        _pinned("source-authority-ref:complete.any.task", "broad-source"),
     ):
         with pytest.raises(ValueError, match="BROAD_OPERATION_AUTHORITY_REF"):
             build_registered_governed_task_operation(
@@ -731,6 +737,69 @@ def test_success_replay_is_content_free_and_idempotency_drift_is_denied(
     )
 
 
+def test_external_receipt_scope_must_match_current_composition_request(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="external-receipt-scope"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    exact = _exact(request, recipe)
+    result = composer.compose(exact)
+    assert result.plan is not None
+
+    external_payload = {
+        "transaction_ref": result.receipt.transaction_ref,
+        "intent_ref": result.receipt.intent_ref,
+        "binding_ref": result.receipt.binding_ref,
+        "state": result.receipt.external_action_state,
+        "approval_validation_ref": result.receipt.approval_validation_ref,
+        "authority_decision_ref": result.receipt.authority_decision_ref,
+        "budget_reservation_ref": result.receipt.budget_reservation_ref,
+        "budget_settlement_ref": result.receipt.budget_settlement_ref,
+        "evidence_refs": list(result.receipt.evidence_refs),
+        "reason_refs": list(result.receipt.external_action_reason_refs),
+    }
+    for field, drifted_ref in (
+        (
+            "transaction_ref",
+            _pinned("transaction-ref:governed-task-composer", "drifted"),
+        ),
+        (
+            "intent_ref",
+            _pinned("intent-ref:governed-external-action", "drifted"),
+        ),
+        (
+            "binding_ref",
+            _pinned("authority-binding-ref:governed-external-action", "drifted"),
+        ),
+    ):
+        drifted_payload = {**external_payload, field: drifted_ref}
+        external_receipt = ExternalActionReceipt(
+            receipt_ref=stable_governed_browser_ref(
+                "receipt-ref:governed-external-action",
+                drifted_payload,
+            ),
+            **drifted_payload,
+        )
+        blocked = task_composer_module._result_from_external_receipt(
+            request=exact,
+            recipe=recipe,
+            external_receipt=external_receipt,
+            plan=result.plan,
+        )
+        assert blocked.receipt.status == "preflight_blocked"
+        assert blocked.receipt.reason_refs == (
+            "reason-ref:governed-task-composer:external-receipt-scope-mismatch",
+        )
+        assert blocked.plan is None
+
+
 def test_expired_recipe_and_invalid_clock_fail_before_composition(
     tmp_path: Path,
 ) -> None:
@@ -901,8 +970,8 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
         composer_authority_ref=proof_ref_drift["composer_authority_ref"],
         binding_ref=proof_ref_drift["binding_ref"],
     )
-    rebound_plan = GovernedTaskCompositionPlan.model_validate(proof_ref_drift)
-    assert rebound_plan.plan_ref != result.plan.plan_ref
+    with pytest.raises(ValidationError, match="PLAN_RECIPE_MISMATCH"):
+        GovernedTaskCompositionPlan.model_validate(proof_ref_drift)
 
     duplicate_operation = result.plan.model_dump(mode="json")
     duplicate_operation["steps"][1] = {
@@ -921,6 +990,38 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
     ).step_ref
     with pytest.raises(ValidationError, match="OPERATION_REUSE_DENIED"):
         GovernedTaskCompositionPlan.model_validate(duplicate_operation)
+
+    duplicate_authority = result.plan.model_dump(mode="json")
+    first_step = duplicate_authority["steps"][0]
+    second_step = duplicate_authority["steps"][1]
+    registered_payload = {
+        "kind": second_step["kind"],
+        "source_recipe_ref": second_step["source_recipe_ref"],
+        "source_contract_ref": second_step["source_contract_ref"],
+        "source_binding_ref": second_step["source_binding_ref"],
+        "operation_authority_ref": first_step["operation_authority_ref"],
+        "required_capability": second_step["required_capability"],
+        "target_ref": second_step["target_ref"],
+        "schema_ref": second_step["schema_ref"],
+    }
+    provisional_operation = RegisteredGovernedTaskOperation.model_construct(
+        operation_ref="registered-operation-ref:governed-task-composer:pending",
+        **registered_payload,
+    )
+    second_step["operation_ref"] = stable_governed_browser_ref(
+        "registered-operation-ref:governed-task-composer",
+        provisional_operation.model_dump(mode="json", exclude={"operation_ref"}),
+    )
+    second_step["operation_authority_ref"] = first_step[
+        "operation_authority_ref"
+    ]
+    second_step["step_ref"] = build_governed_task_composition_step(
+        ordinal=second_step["ordinal"],
+        operation_ref=second_step["operation_ref"],
+        depends_on_step_refs=second_step["depends_on_step_refs"],
+    ).step_ref
+    with pytest.raises(ValidationError, match="OPERATION_AUTHORITY_DUPLICATE"):
+        GovernedTaskCompositionPlan.model_validate(duplicate_authority)
 
 
 def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
