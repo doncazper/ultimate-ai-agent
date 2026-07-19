@@ -662,8 +662,10 @@ def test_dispatch_cannot_start_when_worker_misses_the_deadline(
 
     assert receipt.state == ExternalActionState.outcome_ambiguous.value
     assert calls == 0
-    assert kernel._store.state_if_exact(request) == ExternalActionState.started
-    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
+    assert kernel._store.state_if_exact(request) == ExternalActionState.outcome_ambiguous
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
     allow_worker_start.set()
     terminal = _wait_for_terminal(kernel, request)
@@ -671,6 +673,79 @@ def test_dispatch_cannot_start_when_worker_misses_the_deadline(
     assert terminal.state == ExternalActionState.outcome_ambiguous.value
     assert terminal.budget_release_ref is not None
     assert terminal.budget_settlement_ref is None
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_worker_rechecks_expired_readiness_before_dispatch(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="worker-readiness-expired"))
+    readiness_expires_at = utc_now() + timedelta(seconds=1)
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        return build_external_action_readiness(
+            item,
+            status="ready",
+            observed_at=utc_now() - timedelta(seconds=1),
+            expires_at=readiness_expires_at,
+            broker_integrity_verified=True,
+            external_mutation_enabled=True,
+            safe_disable_active=False,
+            kill_switch_engaged=False,
+        )
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    kernel._dispatch_timeout_seconds = 2
+    worker_waiting = threading.Event()
+    allow_worker_start = threading.Event()
+    real_thread = threading.Thread
+    calls = 0
+
+    class DelayedThread:
+        def __init__(self, *, target, name, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._thread = real_thread(
+                target=self._run,
+                name=name,
+                daemon=daemon,
+            )
+
+        def _run(self) -> None:
+            worker_waiting.set()
+            assert allow_worker_start.wait(timeout=3)
+            self._target()
+
+        def start(self) -> None:
+            self._thread.start()
+
+    monkeypatch.setattr(transaction_module, "Thread", DelayedThread)
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(kernel.execute, request, dispatch=dispatch)
+        assert worker_waiting.wait(timeout=2)
+        time.sleep(
+            max(0.0, (readiness_expires_at - utc_now()).total_seconds()) + 0.05
+        )
+        allow_worker_start.set()
+        receipt = future.result(timeout=2)
+
+    assert calls == 0
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:readiness-fail-closed" in (
+        receipt.reason_refs
+    )
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 

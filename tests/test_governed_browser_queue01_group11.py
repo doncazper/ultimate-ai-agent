@@ -1040,6 +1040,33 @@ def test_missing_success_settlement_proof_returns_governed_non_success(
     assert result.plan is None
 
 
+def test_legacy_external_receipt_snapshot_omits_absent_release_proof(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="legacy-external-snapshot"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.external_receipt_snapshot is not None
+    legacy_payload = result.receipt.external_receipt_snapshot.model_dump(mode="json")
+    legacy_payload.pop("budget_release_ref", None)
+
+    restored = (
+        task_composer_module.GovernedTaskCompositionExternalReceiptSnapshot.model_validate(
+            legacy_payload
+        )
+    )
+
+    assert restored.budget_release_ref is None
+    assert restored.snapshot_ref == legacy_payload["snapshot_ref"]
+
+
 def test_expired_recipe_and_invalid_clock_fail_before_composition(
     tmp_path: Path,
 ) -> None:

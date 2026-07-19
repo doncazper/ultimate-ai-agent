@@ -44,8 +44,11 @@ them in individual lane services:
   when an arbitrary callback remains live, but the detached worker retains the
   sole durable/process slot through callback completion, budget settlement, and
   terminal close. A worker that has not begun dispatch by the caller deadline
-  is cancelled before invocation and releases the unused reservation; it cannot
-  start the callback after reporting timeout. Exceptions, invalid results,
+  is cancelled before invocation; the caller durably releases the unused
+  reservation and closes the slot before returning, so delayed worker progress
+  is not required for cleanup and it cannot start the callback after reporting
+  timeout. The worker also rechecks deadline and readiness authority immediately
+  before dispatch. Exceptions, invalid results,
   deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
   automatically retried, and no terminal receipt is written while a detached

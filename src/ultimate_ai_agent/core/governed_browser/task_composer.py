@@ -1089,7 +1089,10 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)

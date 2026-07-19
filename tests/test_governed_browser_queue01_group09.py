@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.governed_browser.external_operation_contracts as external_operation_module
 from scripts.verify_governed_browser_queue01_group09 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -24,6 +25,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedExternalOperationService,
     ExternalActionAuthorityBinding,
     ExternalActionTargetKind,
+    ExternalActionState,
     ExternalActionTransactionStore,
     GovernedExternalOperation,
     GovernedExternalActionKernel,
@@ -820,27 +822,28 @@ def test_operation_receipt_preserves_prestart_budget_release_proof(
 
 def test_failed_kernel_receipt_keeps_original_reason_identity(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     request, recipe, registry = _operation_context(
         operation=GovernedExternalOperation.send_communication,
         suffix="failed-kernel-reason-identity",
     )
-    current_time = utc_now()
-    reads = 0
-
-    def clock() -> datetime:
-        nonlocal reads
-        reads += 1
-        if reads == 4:
-            return datetime(2026, 7, 19, 12, 0, 0)
-        return current_time
-
     service, _ = _service(
         tmp_path,
         request=request,
         registry=registry,
-        clock=clock,
     )
+    kernel = service._kernel
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    failed_receipt = kernel._build_receipt(
+        kernel_execution,
+        ExternalActionState.failed,
+        [],
+    )
+    monkeypatch.setattr(kernel, "execute", lambda *args, **kwargs: failed_receipt)
 
     result = service.prepare(_exact(request, recipe))
 
@@ -850,6 +853,50 @@ def test_failed_kernel_receipt_keeps_original_reason_identity(
         "reason-ref:governed-external-operation:contract-preparation-failed"
     ]
     assert result.receipt.external_action_receipt_ref is not None
+
+
+def test_legacy_failed_operation_receipt_preserves_empty_kernel_reasons(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.send_communication,
+        suffix="legacy-failed-kernel-reasons",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    kernel = service._kernel
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    failed_receipt = kernel._build_receipt(
+        kernel_execution,
+        ExternalActionState.failed,
+        [],
+    )
+    monkeypatch.setattr(kernel, "execute", lambda *args, **kwargs: failed_receipt)
+    result = service.prepare(_exact(request, recipe))
+    legacy_payload = result.receipt.model_dump(mode="json")
+    legacy_payload.pop("external_action_reason_refs")
+    legacy_payload.pop("budget_release_ref", None)
+    legacy_payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        {key: value for key, value in legacy_payload.items() if key != "receipt_ref"},
+    )
+
+    restored = GovernedExternalOperationReceipt.model_validate(legacy_payload)
+
+    assert restored.external_action_reason_refs is None
+    assert restored.external_action_receipt_ref == (
+        result.receipt.external_action_receipt_ref
+    )
+    assert restored.reason_refs == [
+        "reason-ref:governed-external-operation:contract-preparation-failed"
+    ]
 
 
 def test_expired_recipe_is_non_mutating_preflight_denial(tmp_path: Path) -> None:

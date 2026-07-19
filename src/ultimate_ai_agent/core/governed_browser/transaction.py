@@ -1161,7 +1161,11 @@ class GovernedExternalActionKernel:
             # Adapter readiness is observed first, then approval and lease are
             # the final checks before the bounded dispatch handoff while
             # concurrent revocation is serialized by the authority lock.
-            post_claim_readiness_reasons = self._revalidation_reasons(request)
+            (
+                post_claim_readiness_reasons,
+                binding_deadline_monotonic,
+                readiness_deadline_monotonic,
+            ) = self._revalidation_reasons_and_deadlines(request)
             (
                 post_claim_authorization_reasons,
                 revalidated_approval_ref,
@@ -1235,16 +1239,15 @@ class GovernedExternalActionKernel:
                 ) = self._bounded_dispatch(
                     request,
                     dispatch,
-                    deferred_finalizer=lambda dispatch_invoked: (
-                        self._finalize_timed_out_dispatch(
-                            request,
-                            reservation_ref=reservation.reservation_ref,
-                            approval_validation=approval_validation,
-                            approval_validation_ref=approval_validation_ref,
-                            authority_decision_ref=authority_decision_ref,
-                            process_lock_fd=process_lock_fd,
-                            dispatch_invoked=dispatch_invoked,
-                        )
+                    binding_deadline_monotonic=binding_deadline_monotonic,
+                    readiness_deadline_monotonic=readiness_deadline_monotonic,
+                    deferred_finalizer=lambda: self._finalize_timed_out_dispatch(
+                        request,
+                        reservation_ref=reservation.reservation_ref,
+                        approval_validation=approval_validation,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        process_lock_fd=process_lock_fd,
                     ),
                 )
                 if dispatch_deferred:
@@ -1383,7 +1386,9 @@ class GovernedExternalActionKernel:
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
         *,
-        deferred_finalizer: Callable[[bool], None],
+        binding_deadline_monotonic: float | None,
+        readiness_deadline_monotonic: float | None,
+        deferred_finalizer: Callable[[], None],
     ) -> tuple[ExternalActionDispatchResult, list[str], bool, bool]:
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
@@ -1398,25 +1403,51 @@ class GovernedExternalActionKernel:
 
         def invoke() -> None:
             dispatch_permitted = False
+            worker_revalidation_reasons: list[str] = []
             with dispatch_start_lock:
+                start_check = monotonic()
+                if (
+                    binding_deadline_monotonic is None
+                    or start_check >= binding_deadline_monotonic
+                ):
+                    worker_revalidation_reasons.append(
+                        "reason-ref:governed-external-action:deadline-expired"
+                    )
+                if (
+                    readiness_deadline_monotonic is None
+                    or start_check >= readiness_deadline_monotonic
+                ):
+                    worker_revalidation_reasons.append(
+                        "reason-ref:governed-external-action:readiness-fail-closed"
+                    )
                 if (
                     not finalize_after_timeout.is_set()
-                    and monotonic() < dispatch_deadline
+                    and start_check < dispatch_deadline
+                    and not worker_revalidation_reasons
                 ):
                     dispatch_permitted = True
                     dispatch_started.set()
                     started = monotonic()
             if not dispatch_permitted:
+                if worker_revalidation_reasons:
+                    reason = "dispatch-start-revalidation-denied"
+                    reasons = [
+                        "reason-ref:governed-external-action:post-start-revalidation-denied",
+                        *worker_revalidation_reasons,
+                    ]
+                else:
+                    reason = "dispatch-timeout"
+                    reasons = [
+                        "reason-ref:governed-external-action:dispatch-timeout"
+                    ]
                 attempt = (
-                    self._ambiguous_dispatch_result(request, "dispatch-timeout"),
-                    ["reason-ref:governed-external-action:dispatch-timeout"],
+                    self._ambiguous_dispatch_result(request, reason),
+                    list(dict.fromkeys(reasons)),
                     False,
                 )
                 result_holder.append(attempt)
                 completed.set()
                 decision_made.wait()
-                if finalize_after_timeout.is_set():
-                    deferred_finalizer(False)
                 return
             succeeded = False
             raw_result: object | None = None
@@ -1455,7 +1486,7 @@ class GovernedExternalActionKernel:
             completed.set()
             decision_made.wait()
             if finalize_after_timeout.is_set():
-                deferred_finalizer(True)
+                deferred_finalizer()
 
         try:
             Thread(
@@ -1492,7 +1523,7 @@ class GovernedExternalActionKernel:
             self._ambiguous_dispatch_result(request, "dispatch-timeout"),
             ["reason-ref:governed-external-action:dispatch-timeout"],
             dispatch_was_started,
-            True,
+            dispatch_was_started,
         )
 
     def _finalize_timed_out_dispatch(
@@ -1504,21 +1535,10 @@ class GovernedExternalActionKernel:
         approval_validation_ref: str,
         authority_decision_ref: str,
         process_lock_fd: int,
-        dispatch_invoked: bool,
     ) -> None:
         dispatch_result = self._ambiguous_dispatch_result(request, "dispatch-timeout")
         reasons = ["reason-ref:governed-external-action:dispatch-timeout"]
         try:
-            if not dispatch_invoked:
-                self._finish_started_guard_failure(
-                    request,
-                    reservation_ref=reservation_ref,
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
-                    reason_refs=reasons,
-                    evidence_refs=list(dispatch_result.evidence_refs),
-                )
-                return
             with self._approval_authority.hold_validation_lock():
                 post_dispatch_readiness_reasons = self._revalidation_reasons(request)
                 (
@@ -1895,15 +1915,24 @@ class GovernedExternalActionKernel:
             return ["reason-ref:governed-external-action:policy-denied"]
         return []
 
-    def _revalidation_reasons(
+    def _revalidation_reasons_and_deadlines(
         self, request: ExternalActionExecutionRequest
-    ) -> list[str]:
+    ) -> tuple[list[str], float | None, float | None]:
+        checked_at = monotonic()
         try:
             now = self._clock()
         except Exception:
-            return ["reason-ref:governed-external-action:trusted-clock-failed"]
+            return (
+                ["reason-ref:governed-external-action:trusted-clock-failed"],
+                None,
+                None,
+            )
         if not hasattr(now, "tzinfo") or now.tzinfo is None:
-            return ["reason-ref:governed-external-action:trusted-clock-invalid"]
+            return (
+                ["reason-ref:governed-external-action:trusted-clock-invalid"],
+                None,
+                None,
+            )
         binding = request.binding
         reasons: list[str] = []
         if now >= binding.start_deadline:
@@ -1917,7 +1946,19 @@ class GovernedExternalActionKernel:
                 self._readiness_provider(request)
             )
         except Exception:
-            return ["reason-ref:governed-external-action:readiness-invalid"]
+            return (
+                ["reason-ref:governed-external-action:readiness-invalid"],
+                None,
+                None,
+            )
+        binding_deadline_monotonic = checked_at + max(
+            0.0,
+            (binding.start_deadline - now).total_seconds(),
+        )
+        readiness_deadline_monotonic = checked_at + max(
+            0.0,
+            (readiness.expires_at - now).total_seconds(),
+        )
         if readiness.binding_ref != binding.binding_ref:
             reasons.append(
                 "reason-ref:governed-external-action:readiness-binding-mismatch"
@@ -1962,7 +2003,17 @@ class GovernedExternalActionKernel:
         if readiness.kill_switch_engaged:
             reasons.append("reason-ref:governed-external-action:kill-switch-engaged")
         reasons.extend(readiness.adversarial_signals.reason_refs())
-        return list(dict.fromkeys(reasons))
+        return (
+            list(dict.fromkeys(reasons)),
+            binding_deadline_monotonic,
+            readiness_deadline_monotonic,
+        )
+
+    def _revalidation_reasons(
+        self, request: ExternalActionExecutionRequest
+    ) -> list[str]:
+        reasons, _, _ = self._revalidation_reasons_and_deadlines(request)
+        return reasons
 
     @staticmethod
     def _lease_is_exact(

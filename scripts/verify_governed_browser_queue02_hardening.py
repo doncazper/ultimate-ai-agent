@@ -160,6 +160,7 @@ def verify() -> list[str]:
             "test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded",
             "test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request",
             "test_dispatch_cannot_start_when_worker_misses_the_deadline",
+            "test_worker_rechecks_expired_readiness_before_dispatch",
             "test_concurrent_execute_never_clobbers_the_dispatch_owner",
             "test_restart_recovery_cannot_terminalize_a_fresh_live_start",
             "test_restart_recovery_uses_the_maximum_owner_dispatch_window",
@@ -188,6 +189,7 @@ def verify() -> list[str]:
             "test_operation_receipt_rejects_rebound_kernel_receipt_fields",
             "test_operation_receipt_preserves_prestart_budget_release_proof",
             "test_failed_kernel_receipt_keeps_original_reason_identity",
+            "test_legacy_failed_operation_receipt_preserves_empty_kernel_reasons",
         ),
         "doc": (
             "Queue 02",

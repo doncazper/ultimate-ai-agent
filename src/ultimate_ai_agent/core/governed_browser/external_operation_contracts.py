@@ -1024,6 +1024,11 @@ class GovernedExternalOperationReceipt(BaseModel):
         ):
             raise ValueError("GOVERNED_EXTERNAL_OPERATION_REPLAY_STATE_MISMATCH")
         if self.external_action_receipt_ref is not None:
+            legacy_external_action_reason_refs = (
+                ()
+                if status == GovernedExternalOperationContractStatus.failed
+                else tuple(self.reason_refs)
+            )
             external_receipt_payload = {
                 "transaction_ref": self.transaction_ref,
                 "intent_ref": self.intent_ref,
@@ -1037,7 +1042,7 @@ class GovernedExternalOperationReceipt(BaseModel):
                 "reason_refs": list(
                     self.external_action_reason_refs
                     if self.external_action_reason_refs is not None
-                    else self.reason_refs
+                    else legacy_external_action_reason_refs
                 ),
             }
             if self.budget_release_ref is not None:
