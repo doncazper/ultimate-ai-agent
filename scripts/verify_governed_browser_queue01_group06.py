@@ -166,6 +166,7 @@ def verify() -> list[str]:
             "test_non_mutating_keychain_preconditions_are_not_ambiguous",
             "test_expired_revalidation_persists_expiry_but_reports_failure",
             "test_request_normalization_failure_zeroizes_credential_material",
+            "test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer",
             "test_native_helper_bounds_stdin_and_disables_authentication_ui",
             "test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair",
         ),

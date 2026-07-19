@@ -215,6 +215,25 @@ class AuthorityBudgetStoreGate:
         allowed = (
             _semantic_budget_status(receipt) == AuthorityBudgetStatus.reserved.value
         )
+        if allowed and any(
+            item.reservation_ref == receipt.reservation_ref
+            and _semantic_budget_status(item)
+            in {
+                AuthorityBudgetStatus.released.value,
+                AuthorityBudgetStatus.settled.value,
+                AuthorityBudgetStatus.settled_overage.value,
+                AuthorityBudgetStatus.settled_cost_unresolved.value,
+            }
+            for item in self._store.list_receipts()
+        ):
+            return BudgetReservation(
+                allowed=False,
+                reservation_ref=receipt.reservation_ref,
+                receipt_ref=receipt.receipt_ref,
+                reason_refs=[
+                    "reason-ref:governed-external-action:budget-reservation-not-active"
+                ],
+            )
         return BudgetReservation(
             allowed=allowed,
             reservation_ref=receipt.reservation_ref,
@@ -1159,8 +1178,10 @@ class GovernedExternalActionKernel:
                 self._store.release_dispatch_slot(request, process_lock_fd)
                 process_lock_fd = None
 
-        def claim_start_or_release(reservation_ref: str) -> bool:
-            """Persist the exact start or release every resource owned here."""
+        def claim_start_or_terminal(
+            reservation_ref: str,
+        ) -> bool | ExternalActionReceipt:
+            """Persist the exact start or close a failed claim without dispatch."""
 
             try:
                 return self._store.claim_start(
@@ -1170,31 +1191,51 @@ class GovernedExternalActionKernel:
                 )
             except BaseException as start_error:
                 try:
-                    try:
-                        release = self._budget_gate.release(
-                            request,
-                            reservation_ref,
-                            (
-                                "reason-ref:governed-external-action:"
-                                "start-persistence-failed"
-                            ),
-                        )
-                    except BaseException:
-                        release = BudgetSettlement(
-                            allowed=False,
-                            reason_refs=[
-                                "reason-ref:governed-external-action:"
-                                "budget-release-failed"
-                            ],
-                        )
+                    release = self._budget_gate.release(
+                        request,
+                        reservation_ref,
+                        (
+                            "reason-ref:governed-external-action:"
+                            "start-persistence-failed"
+                        ),
+                    )
+                except BaseException:
+                    release = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=[
+                            "reason-ref:governed-external-action:"
+                            "budget-release-failed"
+                        ],
+                    )
+                reasons = [
+                    "reason-ref:governed-external-action:start-persistence-failed"
+                ]
+                if not release.allowed or release.receipt_ref is None:
+                    reasons.extend(
+                        [
+                            "reason-ref:governed-external-action:budget-release-unconfirmed",
+                            *release.reason_refs,
+                        ]
+                    )
+                try:
+                    return self._finish(
+                        request,
+                        ExternalActionState.blocked,
+                        list(dict.fromkeys(reasons)),
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        budget_reservation_ref=reservation_ref,
+                        budget_release_ref=(
+                            release.receipt_ref
+                            if release.allowed and release.receipt_ref is not None
+                            else None
+                        ),
+                        expected_state=ExternalActionState.prepared,
+                    )
+                except BaseException as terminal_error:
+                    raise terminal_error from start_error
                 finally:
                     release_dispatch_ownership()
-                if not release.allowed or release.receipt_ref is None:
-                    raise ExternalActionTransactionConflict(
-                        "GOVERNED_EXTERNAL_ACTION_START_PERSISTENCE_FAILED_"
-                        "BUDGET_RELEASE_UNCONFIRMED"
-                    ) from start_error
-                raise
 
         try:
             reservation = self._budget_gate.reserve(request, approval_validation)
@@ -1205,6 +1246,9 @@ class GovernedExternalActionKernel:
                     "reason-ref:governed-external-action:budget-reservation-failed"
                 ],
             )
+        except BaseException:
+            release_dispatch_ownership()
+            raise
         if (
             not reservation.allowed
             or reservation.reservation_ref is None
@@ -1284,17 +1328,6 @@ class GovernedExternalActionKernel:
         ]
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
-            start_claimed = claim_start_or_release(reservation.reservation_ref)
-            if not start_claimed:
-                try:
-                    return self._lost_start_claim_receipt(
-                        request,
-                        reservation_ref=reservation.reservation_ref,
-                        approval_validation_ref=approval_validation_ref,
-                        authority_decision_ref=authority_decision_ref,
-                    )
-                finally:
-                    release_dispatch_ownership()
             try:
                 release = self._budget_gate.release(
                     request,
@@ -1326,12 +1359,14 @@ class GovernedExternalActionKernel:
                     budget_release_ref=(
                         release.receipt_ref if release.allowed else None
                     ),
-                    expected_state=ExternalActionState.started,
+                    expected_state=ExternalActionState.prepared,
                 )
             finally:
                 release_dispatch_ownership()
 
-        start_claimed = claim_start_or_release(reservation.reservation_ref)
+        start_claimed = claim_start_or_terminal(reservation.reservation_ref)
+        if isinstance(start_claimed, ExternalActionReceipt):
+            return start_claimed
         if not start_claimed:
             try:
                 return self._lost_start_claim_receipt(

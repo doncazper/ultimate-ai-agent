@@ -548,8 +548,10 @@ def test_authority_revocation_race_after_reservation_blocks_start(
     )
     approval_proof_refs: list[tuple[bool, str]] = []
     authority_proof_refs: list[tuple[str, str]] = []
+    start_claims = 0
     original_validate = authority.validate
     original_evaluate = authority.evaluate_authority_scope
+    original_claim_start = kernel._store.claim_start
 
     def recording_validate(validation):  # type: ignore[no-untyped-def]
         decision = original_validate(validation)
@@ -569,12 +571,19 @@ def test_authority_revocation_race_after_reservation_blocks_start(
         authority_proof_refs.append((decision.outcome, decision.decision_ref))
         return decision
 
+    def recording_claim_start(*args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal start_claims
+        start_claims += 1
+        return original_claim_start(*args, **kwargs)
+
     authority.validate = recording_validate  # type: ignore[method-assign]
     authority.evaluate_authority_scope = recording_evaluate  # type: ignore[method-assign]
+    kernel._store.claim_start = recording_claim_start  # type: ignore[method-assign]
     authority_holder.append(authority)
     receipt = kernel.execute(request, dispatch=_success)
 
     assert receipt.state == ExternalActionState.blocked.value
+    assert start_claims == 0
     assert any(race in ref for ref in receipt.reason_refs)
     assert receipt.budget_release_ref is not None
     if race == "approval":
@@ -1332,13 +1341,20 @@ def test_start_persistence_failure_releases_unused_reservation_and_dispatch_slot
     kernel._store.claim_start = fail_start  # type: ignore[method-assign]
     kernel._budget_gate.release = record_release  # type: ignore[method-assign]
 
-    with pytest.raises(sqlite3.OperationalError, match="start persistence failure"):
-        kernel.execute(request, dispatch=dispatch)
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replay = kernel.execute(request, dispatch=dispatch)
 
     assert dispatch_calls == 0
     assert len(release_results) == 1
     assert release_results[0].allowed is True
     assert release_results[0].receipt_ref is not None
+    assert receipt.state == ExternalActionState.blocked.value
+    assert receipt.budget_release_ref == release_results[0].receipt_ref
+    assert "reason-ref:governed-external-action:start-persistence-failed" in (
+        receipt.reason_refs
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
@@ -1367,16 +1383,98 @@ def test_start_persistence_failure_surfaces_unconfirmed_budget_release(
         )
     )
 
-    with pytest.raises(
-        ExternalActionTransactionConflict,
-        match=(
-            "GOVERNED_EXTERNAL_ACTION_START_PERSISTENCE_FAILED_"
-            "BUDGET_RELEASE_UNCONFIRMED"
-        ),
-    ):
-        kernel.execute(request, dispatch=dispatch)
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replay = kernel.execute(request, dispatch=dispatch)
 
     assert dispatch_calls == 0
+    assert receipt.state == ExternalActionState.blocked.value
+    assert "reason-ref:governed-external-action:start-persistence-failed" in (
+        receipt.reason_refs
+    )
+    assert "reason-ref:governed-external-action:budget-release-unconfirmed" in (
+        receipt.reason_refs
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_reservation_cancellation_releases_dispatch_slot(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="reservation-cancelled"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+
+    def cancel_reservation(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise KeyboardInterrupt
+
+    kernel._budget_gate.reserve = cancel_reservation  # type: ignore[method-assign]
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=_success)
+
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_replayed_closed_reservation_is_not_active(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="closed-reservation-replay"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    approval = build_external_action_approval_request(request).to_validation_request(
+        request.approval_ref
+    )
+
+    reservation = kernel._budget_gate.reserve(request, approval)
+    assert reservation.allowed is True
+    assert reservation.reservation_ref is not None
+    release = kernel._budget_gate.release(
+        request,
+        reservation.reservation_ref,
+        "reason-ref:governed-external-action:test-unused-release",
+    )
+    replay = kernel._budget_gate.reserve(request, approval)
+
+    assert release.allowed is True
+    assert replay.allowed is False
+    assert replay.reservation_ref == reservation.reservation_ref
+    assert replay.reason_refs == (
+        "reason-ref:governed-external-action:budget-reservation-not-active",
+    )
+
+
+def test_failed_terminal_write_cannot_reactivate_released_reservation(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="released-reservation-terminal-failure"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_finish = kernel._store.finish
+    finish_calls = 0
+    dispatch_calls = 0
+
+    def fail_start(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise sqlite3.OperationalError("synthetic start persistence failure")
+
+    def fail_first_finish(*args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal finish_calls
+        finish_calls += 1
+        if finish_calls == 1:
+            raise sqlite3.OperationalError("synthetic terminal persistence failure")
+        return original_finish(*args, **kwargs)
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    kernel._store.claim_start = fail_start  # type: ignore[method-assign]
+    kernel._store.finish = fail_first_finish  # type: ignore[method-assign]
+
+    with pytest.raises(sqlite3.OperationalError, match="terminal persistence failure"):
+        kernel.execute(request, dispatch=dispatch)
+    receipt = kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_calls == 0
+    assert receipt.state == ExternalActionState.blocked.value
+    assert "reason-ref:governed-external-action:budget-reservation-not-active" in (
+        receipt.reason_refs
+    )
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 

@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
+from threading import RLock
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
@@ -1738,9 +1739,19 @@ class ExactGovernedArtifactTransferService:
             )
         captured_quarantine: ExactGovernedArtifactQuarantine | None = None
         captured_plan: ExactGovernedArtifactUploadPlan | None = None
+        owned_download_payload = (
+            bytearray(injected_download_payload)
+            if operation == GovernedArtifactTransferOperation.download_quarantine
+            and injected_download_payload is not None
+            else None
+        )
+        payload_handoff_lock = RLock()
+        payload_handoff_claimed = False
+        payload_handoff_closed = False
 
-        def dispatch(
+        def perform_dispatch(
             dispatched_request: ExternalActionExecutionRequest,
+            dispatch_download_payload: bytearray | None,
         ) -> ExternalActionDispatchResult:
             nonlocal captured_quarantine, captured_plan
             current_time, dispatch_clock_reason = _read_transfer_clock(self._clock)
@@ -1759,11 +1770,11 @@ class ExactGovernedArtifactTransferService:
                     "transfer-revalidation-failed",
                 )
             if operation == GovernedArtifactTransferOperation.download_quarantine:
-                assert injected_download_payload is not None
+                assert dispatch_download_payload is not None
                 try:
                     inspection = self._store.quarantine(
                         quarantine_ref=recipe.quarantine_ref,
-                        payload=injected_download_payload,
+                        payload=dispatch_download_payload,
                         declared_media_type=GovernedArtifactMediaType(
                             recipe.declared_media_type
                         ),
@@ -1879,7 +1890,37 @@ class ExactGovernedArtifactTransferService:
                 verified=True,
             )
 
-        external_receipt = self._kernel.execute(kernel_execution, dispatch=dispatch)
+        def dispatch(
+            dispatched_request: ExternalActionExecutionRequest,
+        ) -> ExternalActionDispatchResult:
+            nonlocal payload_handoff_claimed
+            dispatch_download_payload: bytearray | None = None
+            if owned_download_payload is not None:
+                with payload_handoff_lock:
+                    if payload_handoff_closed:
+                        raise RuntimeError("GOVERNED_ARTIFACT_PAYLOAD_HANDOFF_CLOSED")
+                    payload_handoff_claimed = True
+                    dispatch_download_payload = owned_download_payload
+            try:
+                return perform_dispatch(
+                    dispatched_request,
+                    dispatch_download_payload,
+                )
+            finally:
+                if dispatch_download_payload is not None:
+                    _zeroize_mutable_payload(dispatch_download_payload)
+
+        try:
+            external_receipt = self._kernel.execute(
+                kernel_execution,
+                dispatch=dispatch,
+            )
+        finally:
+            with payload_handoff_lock:
+                if not payload_handoff_claimed:
+                    payload_handoff_closed = True
+                    if owned_download_payload is not None:
+                        _zeroize_mutable_payload(owned_download_payload)
         if (
             external_receipt.replayed
             or external_receipt.state != ExternalActionState.succeeded.value

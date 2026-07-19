@@ -365,6 +365,30 @@ def test_success_receipt_is_exactly_bound_and_reconciliation_is_verified() -> No
     assert envelope.approval_validation_ref == receipt.approval_validation_ref
 
 
+def test_succeeded_receipt_with_ambiguous_settlement_requires_reconciliation() -> (
+    None
+):
+    request = _request(_binding(suffix="success-accounting-ambiguous"))
+    receipt = _receipt(
+        request,
+        ExternalActionState.succeeded,
+        reason_refs_override=[
+            "reason-ref:governed-external-action:budget-settlement-ambiguous"
+        ],
+    )
+
+    envelope = _envelope(request, receipt=receipt)
+
+    assert envelope.status == ExternalActionInboxStatus.reconciliation_required.value
+    assert (
+        envelope.reconciliation_status
+        == ExternalActionReconciliationStatus.required.value
+    )
+    assert envelope.reconciliation_required is True
+    assert envelope.retry_posture == ExternalActionRetryPosture.terminal_no_retry.value
+    assert envelope.automatic_retry_allowed is False
+
+
 def test_ambiguous_receipt_requires_manual_reconciliation_and_never_retries() -> None:
     request = _request(_binding(suffix="ambiguous"))
     receipt = _receipt(request, ExternalActionState.outcome_ambiguous)

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -479,3 +482,56 @@ def test_raw_upload_payload_is_denied_and_zeroized_before_transaction(
         ledger_before_raw_replay
         == (tmp_path / "kernel" / "transactions.sqlite3").read_bytes()
     )
+
+
+def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="timed-out-payload-handoff",
+    )
+    service, kernel, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    kernel._dispatch_timeout_seconds = 0.01
+    original_quarantine = store.quarantine
+    entered = Event()
+    proceed = Event()
+    dispatched_buffers: list[bytearray] = []
+
+    def delayed_quarantine(*, payload: bytearray, **kwargs):  # type: ignore[no-untyped-def]
+        dispatched_buffers.append(payload)
+        entered.set()
+        assert proceed.wait(timeout=2)
+        return original_quarantine(payload=payload, **kwargs)
+
+    monkeypatch.setattr(store, "quarantine", delayed_quarantine)
+    payload = bytearray(b"bounded timeout artifact")
+    expected_payload = bytes(payload)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(
+            service.execute,
+            _exact(request, recipe),
+            injected_download_payload=payload,
+        )
+        assert entered.wait(timeout=2)
+        result = future.result(timeout=2)
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert payload == bytearray(len(payload))
+    assert dispatched_buffers == [bytearray(expected_payload)]
+    assert dispatched_buffers[0] is not payload
+
+    proceed.set()
+    deadline = time.monotonic() + 2
+    while any(dispatched_buffers[0]) and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert dispatched_buffers[0] == bytearray(len(dispatched_buffers[0]))

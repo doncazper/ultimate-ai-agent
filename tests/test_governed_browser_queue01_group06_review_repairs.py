@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -348,6 +351,72 @@ def test_request_normalization_failure_zeroizes_credential_material(
 
     assert all(value == 0 for value in material)
     assert keychain.calls == []
+
+
+def test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, contexts, registry = _lifecycle_context()
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    kernel._dispatch_timeout_seconds = 0.01
+    keychain = _FakeKeychain()
+    original_store = keychain.store
+    entered = Event()
+    proceed = Event()
+    dispatched_buffers: list[bytearray] = []
+
+    def delayed_store(
+        registration,  # type: ignore[no-untyped-def]
+        *,
+        request_ref: str,
+        credential_material: bytearray,
+    ):
+        dispatched_buffers.append(credential_material)
+        entered.set()
+        assert proceed.wait(timeout=2)
+        return original_store(
+            registration,
+            request_ref=request_ref,
+            credential_material=credential_material,
+        )
+
+    monkeypatch.setattr(keychain, "store", delayed_store)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3"),
+    )
+    material = bytearray(range(32))
+    expected_material = bytes(material)
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(
+            service.execute,
+            exact,
+            credential_material=material,
+        )
+        assert entered.wait(timeout=2)
+        result = future.result(timeout=2)
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert material == bytearray(len(material))
+    assert dispatched_buffers == [bytearray(expected_material)]
+    assert dispatched_buffers[0] is not material
+
+    proceed.set()
+    deadline = time.monotonic() + 2
+    while any(dispatched_buffers[0]) and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert dispatched_buffers[0] == bytearray(len(dispatched_buffers[0]))
 
 
 def test_native_helper_bounds_stdin_and_disables_authentication_ui() -> None:

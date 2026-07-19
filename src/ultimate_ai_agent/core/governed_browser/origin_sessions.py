@@ -933,9 +933,24 @@ class ExactGovernedBrowserOriginSessionService:
                 "intent_ref": execution.intent_ref,
             },
         )
+        try:
+            owned_credential_material = (
+                bytearray(credential_material)
+                if operation
+                == GovernedBrowserOriginSessionOperation.enroll_credential
+                and credential_material is not None
+                else None
+            )
+        except BaseException:
+            _zeroize_optional(credential_material)
+            raise
+        credential_handoff_lock = RLock()
+        credential_handoff_claimed = False
+        credential_handoff_closed = False
 
-        def dispatch(
+        def perform_dispatch(
             item: ExternalActionExecutionRequest,
+            dispatch_credential_material: bytearray | None,
         ) -> ExternalActionDispatchResult:
             nonlocal captured_keychain, captured_session
             request_ref = stable_governed_browser_ref(
@@ -950,11 +965,11 @@ class ExactGovernedBrowserOriginSessionService:
                     operation
                     == GovernedBrowserOriginSessionOperation.enroll_credential
                 ):
-                    assert credential_material is not None
+                    assert dispatch_credential_material is not None
                     captured_keychain = self._keychain.store(
                         registration,
                         request_ref=request_ref,
-                        credential_material=credential_material,
+                        credential_material=dispatch_credential_material,
                     )
                 elif (
                     operation
@@ -1078,10 +1093,32 @@ class ExactGovernedBrowserOriginSessionService:
                 verified=True,
             )
 
+        def dispatch(
+            item: ExternalActionExecutionRequest,
+        ) -> ExternalActionDispatchResult:
+            nonlocal credential_handoff_claimed
+            dispatch_credential_material: bytearray | None = None
+            if owned_credential_material is not None:
+                with credential_handoff_lock:
+                    if credential_handoff_closed:
+                        raise RuntimeError(
+                            "GOVERNED_BROWSER_CREDENTIAL_HANDOFF_CLOSED"
+                        )
+                    credential_handoff_claimed = True
+                    dispatch_credential_material = owned_credential_material
+            try:
+                return perform_dispatch(item, dispatch_credential_material)
+            finally:
+                _zeroize_optional(dispatch_credential_material)
+
         try:
             external_receipt = self._kernel.execute(execution, dispatch=dispatch)
         finally:
             _zeroize_optional(credential_material)
+            with credential_handoff_lock:
+                if not credential_handoff_claimed:
+                    credential_handoff_closed = True
+                    _zeroize_optional(owned_credential_material)
         return _result_from_external_receipt(
             request=request,
             recipe=recipe,

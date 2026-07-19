@@ -134,6 +134,7 @@ def verify() -> list[str]:
             "test_shared_gates_block_before_quarantine_write",
             "test_invalid_download_payloads_fail_without_materialization",
             "test_raw_upload_payload_is_denied_and_zeroized_before_transaction",
+            "test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer",
             "test_exact_scope_real_targets_and_receipt_forgery_fail_closed",
             "test_quarantine_store_rejects_symlinks_substitution_and_unsafe_modes",
             "test_quarantine_writes_the_validated_immutable_payload_snapshot",
