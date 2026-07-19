@@ -562,7 +562,12 @@ def test_success_replay_and_idempotency_drift_are_content_free(
     drifted = service.prepare(
         _exact(
             request.model_copy(
-                update={"idempotency_ref": _ref("idempotency", "drifted")}
+                update={
+                    "idempotency_ref": stable_governed_browser_ref(
+                        "idempotency-ref:governed-financial-contract:drifted",
+                        {"source_idempotency_ref": request.idempotency_ref},
+                    )
+                }
             ),
             recipe,
         )
@@ -654,7 +659,7 @@ def test_expired_recipe_is_preflight_denial_but_prior_start_is_ambiguous(
     )
     store = ExternalActionTransactionStore(recovery_path / "transactions.sqlite3")
     store.prepare(kernel_request)
-    assert store.claim_start(request.binding.transaction_ref) is True
+    assert store.claim_start(kernel_request) is True
     recovered = recovery_service.prepare(_exact(request, recipe))
 
     assert recovered.receipt.status == "outcome_ambiguous"

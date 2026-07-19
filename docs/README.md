@@ -66,8 +66,13 @@ uses exact `prepare` authority to create a safe-ref-only plan; it cannot grant
 step, use a browser or network, or mutate an external target. Queue 01 items
 01–04 through 01–11 remain prior accepted boundaries, and Queue 01 items 01–12
 remain the prior accepted tenth-group boundary. See
-`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
-validation remains a separate required gate.
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`. Queue 02 adversarial hardening
+now closes the source hardening gate with repeated exact-scope
+revalidation, bounded dispatch, terminal compare-and-swap, concurrent-owner
+protection, hostile-state coverage, and a separate thirteen-lane all-inactive
+activation matrix in
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_02_HARDENING.md`. No live browser,
+network, external mutation, broad authority, or lane activation is added.
 
 Historical accepted evidence boundaries remain immutable: Queue 01 items
 01–03, Queue 01 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06,

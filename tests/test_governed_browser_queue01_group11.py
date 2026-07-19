@@ -259,9 +259,7 @@ def test_registered_operations_compose_into_exact_plan_only_projection(
         )
     assert result.plan is not None
     assert [step.ordinal for step in result.plan.steps] == [1, 2]
-    assert result.plan.steps[1].depends_on_step_refs == (
-        result.plan.steps[0].step_ref,
-    )
+    assert result.plan.steps[1].depends_on_step_refs == (result.plan.steps[0].step_ref,)
     with pytest.raises(AttributeError):
         result.plan.steps.append(result.plan.steps[0])  # type: ignore[attr-defined]
     with pytest.raises(AttributeError):
@@ -384,9 +382,7 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
         GovernedTaskOperationRegistry([operation, duplicate_authority])
     exact_sources = {
         "source_recipe_ref": _pinned("source-recipe-ref:source-system", "exact"),
-        "source_contract_ref": _pinned(
-            "source-contract-ref:source-system", "exact"
-        ),
+        "source_contract_ref": _pinned("source-contract-ref:source-system", "exact"),
         "source_binding_ref": _pinned("source-binding-ref:source-system", "exact"),
         "operation_authority_ref": _pinned(
             "source-authority-ref:source-system", "exact"
@@ -696,9 +692,11 @@ def test_ambiguous_kernel_outcome_receives_content_free_composer_reason(
     result = composer.compose(_exact(request, recipe))
 
     assert result.receipt.status == "outcome_ambiguous"
-    assert result.receipt.external_action_reason_refs == ()
+    assert result.receipt.external_action_reason_refs == (
+        "reason-ref:governed-external-action:dispatch-exception",
+    )
     assert result.receipt.reason_refs == (
-        "reason-ref:governed-task-composer:kernel-outcome_ambiguous",
+        "reason-ref:governed-external-action:dispatch-exception",
     )
     assert result.plan is None
 
@@ -721,7 +719,12 @@ def test_success_replay_is_content_free_and_idempotency_drift_is_denied(
         exact.model_copy(
             update={
                 "execution_request": request.model_copy(
-                    update={"idempotency_ref": _ref("idempotency", "drifted")}
+                    update={
+                        "idempotency_ref": stable_governed_browser_ref(
+                            "idempotency-ref:governed-task-composer:drifted",
+                            {"source_idempotency_ref": request.idempotency_ref},
+                        )
+                    }
                 )
             }
         )
@@ -942,11 +945,7 @@ def test_serialized_non_success_receipt_validates_retained_proof_scope(
         missing_context[field] = []
     missing_context["receipt_ref"] = stable_governed_browser_ref(
         "receipt-ref:governed-task-composition",
-        {
-            key: value
-            for key, value in missing_context.items()
-            if key != "receipt_ref"
-        },
+        {key: value for key, value in missing_context.items() if key != "receipt_ref"},
     )
     with pytest.raises(ValidationError, match="EXTERNAL_PROOF_CONTEXT_REQUIRED"):
         GovernedTaskCompositionReceipt.model_validate(missing_context)
@@ -982,11 +981,7 @@ def test_serialized_non_success_receipt_validates_retained_proof_scope(
         proof_drift[field] = drifted_ref
         proof_drift["receipt_ref"] = stable_governed_browser_ref(
             "receipt-ref:governed-task-composition",
-            {
-                key: value
-                for key, value in proof_drift.items()
-                if key != "receipt_ref"
-            },
+            {key: value for key, value in proof_drift.items() if key != "receipt_ref"},
         )
         with pytest.raises(ValidationError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
             GovernedTaskCompositionReceipt.model_validate(proof_drift)
@@ -1029,11 +1024,14 @@ def test_missing_success_settlement_proof_returns_governed_non_success(
 
     result = composer.compose(_exact(request, recipe))
 
-    assert result.receipt.status == "proof_incomplete"
-    assert result.receipt.external_action_state == "succeeded"
+    assert result.receipt.status == "outcome_ambiguous"
+    assert result.receipt.external_action_state == "outcome_ambiguous"
     assert result.receipt.budget_settlement_ref is None
     assert result.receipt.reason_refs == (
-        "reason-ref:governed-task-composer:kernel-proof_incomplete",
+        "reason-ref:governed-external-action:budget-settlement-ambiguous",
+    )
+    assert result.receipt.external_action_reason_refs == (
+        "reason-ref:governed-external-action:budget-settlement-ambiguous",
     )
     assert result.receipt.external_receipt_snapshot is not None
     assert result.plan is None
@@ -1251,9 +1249,7 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
         "registered-operation-ref:governed-task-composer",
         provisional_operation.model_dump(mode="json", exclude={"operation_ref"}),
     )
-    second_step["operation_authority_ref"] = first_step[
-        "operation_authority_ref"
-    ]
+    second_step["operation_authority_ref"] = first_step["operation_authority_ref"]
     second_step["step_ref"] = build_governed_task_composition_step(
         ordinal=second_step["ordinal"],
         operation_ref=second_step["operation_ref"],
@@ -1336,11 +1332,7 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
         proof_drift[field] = same_prefix_ref
         proof_drift["receipt_ref"] = stable_governed_browser_ref(
             "receipt-ref:governed-task-composition",
-            {
-                key: value
-                for key, value in proof_drift.items()
-                if key != "receipt_ref"
-            },
+            {key: value for key, value in proof_drift.items() if key != "receipt_ref"},
         )
         with pytest.raises(ValidationError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
             GovernedTaskCompositionReceipt.model_validate(proof_drift)

@@ -668,7 +668,12 @@ def test_idempotency_drift_returns_content_free_blocked_receipt(
     )
     first = service.prepare(_exact(request, recipe))
     drifted_request = request.model_copy(
-        update={"idempotency_ref": _ref("idempotency", "drifted")}
+        update={
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-external-operation:drifted",
+                {"source_idempotency_ref": request.idempotency_ref},
+            )
+        }
     )
 
     drifted = service.prepare(_exact(drifted_request, recipe))
@@ -810,7 +815,7 @@ def test_prior_started_transaction_remains_outcome_ambiguous_after_recipe_expiry
     prepared_state, prepared_receipt = store.prepare(kernel_request)
     assert prepared_state == "prepared"
     assert prepared_receipt is None
-    assert store.claim_start(request.binding.transaction_ref) is True
+    assert store.claim_start(kernel_request) is True
 
     result = service.prepare(_exact(request, recipe))
 

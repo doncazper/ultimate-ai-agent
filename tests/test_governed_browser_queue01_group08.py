@@ -373,7 +373,9 @@ def test_upload_is_an_exact_fingerprinted_plan_from_quarantine_only(
 
     result = upload_service.execute(_exact(upload_request, upload_recipe))
 
-    assert result.receipt.status == "upload_plan_ready"
+    assert result.receipt.status == "upload_plan_ready", result.model_dump_json(
+        indent=2
+    )
     assert result.upload_plan is not None
     assert result.upload_plan.artifact_fingerprint_verified is True
     assert result.upload_plan.quarantined_source_required is True

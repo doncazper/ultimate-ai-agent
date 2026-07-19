@@ -1,5 +1,14 @@
 """Governed browser and external-action contracts."""
 
+from .adversarial_hardening import (
+    GovernedBrowserActivationPosture as GovernedBrowserActivationPosture,
+    GovernedBrowserLaneActivationDecision as GovernedBrowserLaneActivationDecision,
+    GovernedBrowserLaneActivationEvidence as GovernedBrowserLaneActivationEvidence,
+    GovernedBrowserQueue02Lane as GovernedBrowserQueue02Lane,
+    decide_governed_browser_lane_activation as decide_governed_browser_lane_activation,
+    governed_browser_queue02_inactive_activation_matrix as governed_browser_queue02_inactive_activation_matrix,
+)
+
 from .action_inbox import (
     ExternalActionHandoffKind,
     ExternalActionInboxExecutionEnvelope,
@@ -70,6 +79,7 @@ from .browser_keychain import (
     governed_browser_keychain_item_ref,
 )
 from .contracts import (
+    ExternalActionAdversarialSignals as ExternalActionAdversarialSignals,
     ExternalActionAuthorityBinding,
     ExternalActionDispatchOutcome,
     ExternalActionDispatchResult,
@@ -80,6 +90,7 @@ from .contracts import (
     ExternalActionTargetKind,
     build_external_action_approval_request,
     build_external_action_authority_request,
+    build_external_action_readiness as build_external_action_readiness,
     stable_governed_browser_ref,
 )
 from .evidence_recipes import (

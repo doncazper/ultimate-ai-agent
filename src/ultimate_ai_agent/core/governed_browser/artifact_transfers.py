@@ -1984,13 +1984,13 @@ class ExactGovernedArtifactTransferService:
             or service_proof != expected_service_proof
             or len(receipt.evidence_refs) != 5
             or receipt.evidence_refs
-            != [
+            != (
                 recipe.artifact_ref,
                 recipe.quarantine_ref,
                 recipe.content_fingerprint_ref,
                 expected_projection.quarantine_projection_ref,
                 expected_service_proof.proof_ref,
-            ]
+            )
         ):
             return False
         return True
