@@ -567,6 +567,15 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "uses: actions/checkout@v4" in workflow
     assert "actions/checkout@" + "34e114876b0b11c390a56381ad16ebd13914f8d5" not in workflow
     assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
+    pinned_uv = (
+        ".macos-build-venv/bin/python -m pip install "
+        '--disable-pip-version-check "uv==0.11.21"'
+    )
+    exported_uv = 'echo "$PWD/.macos-build-venv/bin" >> "$GITHUB_PATH"'
+    assert pinned_uv in workflow
+    assert exported_uv in workflow
+    assert workflow.index(pinned_uv) < workflow.index(exported_uv)
+    assert workflow.index(exported_uv) < workflow.index("build_release_bundle.py")
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
     )
