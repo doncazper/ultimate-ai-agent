@@ -803,7 +803,7 @@ Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
-Progress: Queue 01 items 01–12 are implemented as inactive local-validation
+Progress: Queue 01 items 01–13 are implemented as inactive local-validation
 contracts: narrowed exact authority semantics, an injected isolated broker
 behind WebAccessGateway, an at-most-once transaction kernel, and a content-free
 Action Inbox execution envelope with readable consequences, receipt and
@@ -846,9 +846,14 @@ counterparty, quote, currency, opaque payment-handle ref, positive amount,
 spend ceiling, operation-specific refs and policy posture, rollback, and
 reconciliation. Payment-handle resolution, checkout, purchase, booking,
 payment, fund transfer, browser activity, live network, and external mutation
-remain disabled. Queue 01 item 13 and Queue 02 adversarial
-validation remain ordered
-prerequisites before any external activation. Queue 01 items 01–03 remain the
+remain disabled. Item 13 adds an immutable registered-operation composer for a
+hash-pinned broad-intent ref and at most eight unique, ordered, acyclic steps.
+Composition uses exact `prepare` authority and produces only a safe-ref plan;
+every step retains its own later exact authority requirement. No
+`complete_any_task` or wildcard grant, model call, operation execution, browser
+activity, live network, or external mutation is enabled. Queue 02 adversarial
+validation remains an ordered prerequisite before any external activation.
+Queue 01 items 01–03 remain the
 immutable first landed group; Queue 01 items 01–04 remain the prior accepted
 boundary; Queue 01 items 01–05 remain the prior accepted evidence-recipe
 boundary; Queue 01 items 01–06 remain the prior accepted fourth-group boundary;
@@ -859,6 +864,8 @@ seventh-group boundary. Item 10 is the separately verified eighth group.
 Queue 01 items 01–10 remain the prior accepted eighth-group boundary. Item 11
 is the separately verified ninth group. Queue 01 items 01–11 remain the prior
 accepted ninth-group boundary. Item 12 is the separately verified tenth group.
+Queue 01 items 01–12 remain that prior accepted boundary. Item 13 is the
+separately verified eleventh group.
 Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
 governed read-only fetch, provider shells and diagnostics, read-only provider
 adapter, browser observe, browser action dry-run, low-risk clicks,

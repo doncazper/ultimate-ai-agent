@@ -20,7 +20,7 @@ enrolled remote account runtime, public release, and production authority
 remain blocked.
 
 The governed browser/external-actions program is now active after Messenger.
-Queue 01 items 01–12 are `implemented_inactive`: exact authority semantics, an
+Queue 01 items 01–13 are `implemented_inactive`: exact authority semantics, an
 injected isolated broker behind `WebAccessGateway`, an at-most-once
 external-action transaction kernel, a readable content-free Action Inbox
 execution envelope, and registered exact Evidence Recipes are locally
@@ -59,11 +59,20 @@ financial-transaction contracts bound to a counterparty, quote, currency,
 opaque payment-handle ref, amount, exact spend ceiling, operation-specific
 refs, rollback, and reconciliation. It does not resolve payment data, purchase,
 book, open checkout, pay, transfer funds, call a network, or mutate an external
-target. Queue 01 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06,
-Queue 01 items 01–07, Queue 01 items 01–08, Queue 01 items 01–09, Queue 01
-items 01–10, and Queue 01 items 01–11 remain prior accepted boundaries. See
+target. Item 13 adds an exact registered-operation task composer that maps only
+a hash-pinned broad-intent ref to at most eight unique ordered operations. It
+uses exact `prepare` authority to create a safe-ref-only plan; it cannot grant
+`complete_any_task`, transfer authority into a step, call a model, execute a
+step, use a browser or network, or mutate an external target. Queue 01 items
+01–04 through 01–11 remain prior accepted boundaries, and Queue 01 items 01–12
+remain the prior accepted tenth-group boundary. See
 `docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md`; Queue 02 adversarial
-validation and Queue 01 item 13 remain separate required gates.
+validation remains a separate required gate.
+
+Historical accepted evidence boundaries remain immutable: Queue 01 items
+01–03, Queue 01 items 01–04, Queue 01 items 01–05, Queue 01 items 01–06,
+Queue 01 items 01–07, Queue 01 items 01–08, Queue 01 items 01–09, Queue 01
+items 01–10, Queue 01 items 01–11, and Queue 01 items 01–12.
 
 The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
