@@ -1132,6 +1132,16 @@ def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
     assert second.budget_release_ref is None
     assert second.budget_settlement_ref is None
 
+    replayed_second = second_kernel.execute(second_request, dispatch=dispatch)
+
+    assert calls == 1
+    assert replayed_second.replayed is True
+    assert replayed_second.receipt_ref == second.receipt_ref
+    durable_second = second_kernel._store.replay_if_terminal(second_request)
+    assert durable_second is not None
+    assert durable_second.receipt_ref == second.receipt_ref
+    assert durable_second.state == ExternalActionState.outcome_ambiguous.value
+
 
 def test_lost_start_claim_releases_only_a_distinct_unused_reservation(
     tmp_path,

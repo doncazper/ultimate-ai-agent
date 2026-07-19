@@ -1096,6 +1096,7 @@ class GovernedExternalActionKernel:
                 approval_validation_ref=approval_validation_ref,
                 authority_decision_ref=authority_decision.decision_ref,
                 evidence_refs=list(dispatch_result.evidence_refs),
+                expected_state=ExternalActionState.prepared,
             )
 
         def release_dispatch_ownership() -> None:

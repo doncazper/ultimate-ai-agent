@@ -591,6 +591,22 @@ def test_unknown_recipe_and_exact_request_drift_are_preflight_blocked(
     assert unknown.plan is None
     assert drifted.plan is None
 
+    forged_release = unknown.receipt.model_dump(mode="json")
+    forged_release["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        "unrelated-preflight-release",
+    )
+    forged_release["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {
+            key: value
+            for key, value in forged_release.items()
+            if key != "receipt_ref"
+        },
+    )
+    with pytest.raises(ValidationError, match="EXTERNAL_PROOF_CONTEXT_INVALID"):
+        GovernedTaskCompositionReceipt.model_validate(forged_release)
+
 
 def test_composition_request_rejects_contentful_refs_and_transaction_ids() -> None:
     request, recipe, _, _ = _composition_context(suffix="opaque-request")
@@ -1070,6 +1086,47 @@ def test_legacy_external_receipt_snapshot_preserves_absent_release_hash(
             task_composer_module.GovernedTaskCompositionExternalReceiptSnapshot.model_fields[
                 "budget_release_ref"
             ],
+            "exclude_if",
+            None,
+        )
+        is None
+    )
+
+
+def test_legacy_whole_receipt_preserves_absent_release_hash(tmp_path: Path) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="legacy-whole-receipt"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    legacy_payload = result.receipt.model_dump(mode="json")
+    legacy_payload.pop("budget_release_ref", None)
+    external_snapshot = legacy_payload["external_receipt_snapshot"]
+    assert isinstance(external_snapshot, dict)
+    external_snapshot.pop("budget_release_ref", None)
+    legacy_payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {
+            key: value
+            for key, value in legacy_payload.items()
+            if key != "receipt_ref"
+        },
+    )
+
+    restored = GovernedTaskCompositionReceipt.model_validate(legacy_payload)
+
+    assert restored.receipt_ref == result.receipt.receipt_ref
+    assert restored.budget_release_ref is None
+    assert restored.external_receipt_snapshot is not None
+    assert restored.external_receipt_snapshot.budget_release_ref is None
+    assert (
+        getattr(
+            GovernedTaskCompositionReceipt.model_fields["budget_release_ref"],
             "exclude_if",
             None,
         )

@@ -1081,6 +1081,21 @@ def _external_receipt_snapshot_identity_payload(snapshot: BaseModel) -> dict[str
     return payload
 
 
+def _task_composition_receipt_identity_payload(
+    receipt: BaseModel,
+) -> dict[str, Any]:
+    payload = receipt.model_dump(mode="json", exclude={"receipt_ref"})
+    if payload.get("budget_release_ref") is None:
+        payload.pop("budget_release_ref", None)
+    external_snapshot = payload.get("external_receipt_snapshot")
+    if (
+        isinstance(external_snapshot, dict)
+        and external_snapshot.get("budget_release_ref") is None
+    ):
+        external_snapshot.pop("budget_release_ref", None)
+    return payload
+
+
 class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     """Immutable content-free copy of one exact kernel receipt and proof chain."""
 
@@ -1288,10 +1303,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-    )
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     operation_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
@@ -1435,11 +1447,15 @@ class GovernedTaskCompositionReceipt(BaseModel):
             GovernedTaskCompositionStatus.plan_ready,
             GovernedTaskCompositionStatus.replayed_content_free,
         }
-        kernel_proof_refs = (
+        success_kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,
             self.budget_reservation_ref,
             self.budget_settlement_ref,
+        )
+        external_kernel_proof_refs = (
+            *success_kernel_proof_refs,
+            self.budget_release_ref,
         )
         if status == GovernedTaskCompositionStatus.plan_ready and self.replayed:
             raise ValueError("GOVERNED_TASK_COMPOSER_READY_STATE_MISMATCH")
@@ -1456,7 +1472,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 or self.external_receipt_snapshot is not None
                 or self.composer_authority_ref is not None
                 or self.envelope_ref is not None
-                or any(ref is not None for ref in kernel_proof_refs)
+                or any(ref is not None for ref in external_kernel_proof_refs)
                 or self.operation_refs
                 or self.evidence_refs
                 or self.external_action_reason_refs
@@ -1598,7 +1614,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
         if status in successful_statuses:
             if (
                 self.external_action_receipt_ref is None
-                or any(ref is None for ref in kernel_proof_refs)
+                or any(ref is None for ref in success_kernel_proof_refs)
             ):
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
             if self.external_action_reason_refs or self.reason_refs:
@@ -1632,7 +1648,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
             raise ValueError("GOVERNED_TASK_COMPOSER_REPLAY_STATE_MISMATCH")
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-task-composition",
-            self.model_dump(mode="json", exclude={"receipt_ref"}),
+            _task_composition_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_REF_MISMATCH")
@@ -2008,10 +2024,12 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-task-composition",
-        GovernedTaskCompositionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-task-composition:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        _task_composition_receipt_identity_payload(
+            GovernedTaskCompositionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-task-composition:pending",
+                **payload,
+            )
+        ),
     )
     return ExactGovernedTaskCompositionResult(
         receipt=GovernedTaskCompositionReceipt(
@@ -2111,10 +2129,12 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-task-composition",
-        GovernedTaskCompositionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-task-composition:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        _task_composition_receipt_identity_payload(
+            GovernedTaskCompositionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-task-composition:pending",
+                **payload,
+            )
+        ),
     )
     return ExactGovernedTaskCompositionResult(
         receipt=GovernedTaskCompositionReceipt(receipt_ref=receipt_ref, **payload),
