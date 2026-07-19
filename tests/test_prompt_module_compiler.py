@@ -1,0 +1,515 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+from jsonschema import Draft202012Validator
+
+from ultimate_ai_agent.core.prompt_compiler import (
+    PromptCompilationError,
+    PromptCompilationReceipt,
+    PromptModuleCompiler,
+    PromptModuleDefinition,
+    PromptModuleKind,
+    PromptModuleManifest,
+    PromptStabilityTier,
+    PromptVariableDefinition,
+    PromptVariableType,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CLI = ROOT / "scripts" / "dev" / "uaa_prompt_compiler.py"
+SCHEMA = ROOT / "docs" / "schemas" / "prompt_module_manifest.schema.json"
+FOUNDATION_MANIFEST = (
+    ROOT
+    / "docs"
+    / "prompts"
+    / "uaa_runtime_capability_foundation"
+    / "prompt_module_manifest.json"
+)
+
+
+def _module(
+    module_id: str,
+    source_ref: str,
+    *,
+    dependencies: list[str] | None = None,
+    required_variables: list[str] | None = None,
+) -> PromptModuleDefinition:
+    return PromptModuleDefinition(
+        module_id=module_id,
+        source_ref=source_ref,
+        kind=PromptModuleKind.developer,
+        stability_tier=PromptStabilityTier.stable_control_plane,
+        dependencies=dependencies or [],
+        required_variables=required_variables or [],
+    )
+
+
+def _manifest(
+    modules: list[PromptModuleDefinition],
+    *,
+    entries: list[str],
+    variables: dict[str, PromptVariableDefinition] | None = None,
+    max_module_bytes: int = 262_144,
+    max_compiled_bytes: int = 2_097_152,
+) -> PromptModuleManifest:
+    return PromptModuleManifest(
+        schema_ref="../../schemas/prompt_module_manifest.schema.json",
+        schema_version="uaa.prompt_module_bundle.v1",
+        bundle_id="test-prompt-bundle",
+        version="1.0.0",
+        entry_module_ids=entries,
+        variables=variables or {},
+        modules=modules,
+        max_module_bytes=max_module_bytes,
+        max_compiled_bytes=max_compiled_bytes,
+        stable_within_run=True,
+    )
+
+
+def _write(tmp_path: Path, name: str, text: str) -> str:
+    path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return name
+
+
+def _error_code(
+    compiler: PromptModuleCompiler,
+    manifest: PromptModuleManifest,
+    **kwargs: Any,
+) -> str:
+    with pytest.raises(PromptCompilationError) as raised:
+        compiler.compile(manifest, **kwargs)
+    return raised.value.reason_code
+
+
+def test_compilation_is_deterministic_and_dependencies_precede_dependents(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "a.md", "A")
+    _write(tmp_path, "b.md", "B")
+    _write(tmp_path, "final.md", "FINAL")
+    manifest = _manifest(
+        [
+            _module("final", "final.md", dependencies=["b", "a"]),
+            _module("b", "b.md"),
+            _module("a", "a.md"),
+        ],
+        entries=["final"],
+    )
+    compiler = PromptModuleCompiler(tmp_path)
+
+    first = compiler.compile(manifest)
+    second = compiler.compile(manifest)
+
+    assert first == second
+    assert first.receipt.ordered_module_ids == ["a", "b", "final"]
+    assert first.content.index("\nA\n") < first.content.index("\nB\n")
+    assert first.content.index("\nB\n") < first.content.index("\nFINAL\n")
+    assert first.receipt.compiled_artifact_hash.startswith("sha256:")
+
+
+def test_compilation_preserves_source_trailing_whitespace(tmp_path: Path) -> None:
+    source = "Markdown line break  \n\n"
+    _write(tmp_path, "source.md", source)
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+
+    artifact = PromptModuleCompiler(tmp_path).compile(manifest)
+
+    assert f"<!-- BEGIN source source.md -->\n{source}<!-- END source -->" in (
+        artifact.content
+    )
+
+
+def test_entry_selection_loads_only_transitive_dependencies(tmp_path: Path) -> None:
+    _write(tmp_path, "base.md", "BASE")
+    _write(tmp_path, "selected.md", "SELECTED")
+    _write(tmp_path, "unused.md", "{{ unused_secret }}")
+    manifest = _manifest(
+        [
+            _module("base", "base.md"),
+            _module("selected", "selected.md", dependencies=["base"]),
+            _module("unused", "unused.md", required_variables=["unused_secret"]),
+        ],
+        entries=["selected"],
+        variables={
+            "unused_secret": PromptVariableDefinition(type=PromptVariableType.string)
+        },
+    )
+
+    artifact = PromptModuleCompiler(tmp_path).compile(manifest)
+
+    assert artifact.receipt.ordered_module_ids == ["base", "selected"]
+    assert "unused" not in artifact.content
+
+
+def test_inactive_conditional_branch_does_not_require_its_value(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "conditional.md",
+        "{% if include_secret %}{{ secret }}{% else %}safe{% endif %}",
+    )
+    manifest = _manifest(
+        [
+            _module(
+                "conditional",
+                "conditional.md",
+                required_variables=["include_secret"],
+            )
+        ],
+        entries=["conditional"],
+        variables={
+            "include_secret": PromptVariableDefinition(type=PromptVariableType.boolean),
+            "secret": PromptVariableDefinition(type=PromptVariableType.string),
+        },
+    )
+
+    artifact = PromptModuleCompiler(tmp_path).compile(
+        manifest,
+        variables={"include_secret": False},
+    )
+
+    assert "\nsafe\n" in artifact.content
+
+
+def test_missing_dependency_and_global_cycle_fail_closed(tmp_path: Path) -> None:
+    _write(tmp_path, "a.md", "A")
+    _write(tmp_path, "b.md", "B")
+    compiler = PromptModuleCompiler(tmp_path)
+
+    missing = _manifest(
+        [_module("a", "a.md", dependencies=["missing"])],
+        entries=["a"],
+    )
+    assert _error_code(compiler, missing) == "PROMPT_DEPENDENCY_MISSING"
+
+    with pytest.raises(ValueError, match="cannot depend on itself"):
+        _manifest(
+            [
+                _module("a", "a.md"),
+                _module("b", "b.md", dependencies=["b"]),
+            ],
+            entries=["a"],
+        )
+
+    indirect_cycle = _manifest(
+        [
+            _module("a", "a.md"),
+            _module("b", "b.md", dependencies=["c"]),
+            _module("c", "a.md", dependencies=["b"]),
+        ],
+        entries=["a"],
+    )
+    assert _error_code(compiler, indirect_cycle) == "PROMPT_DEPENDENCY_CYCLE"
+
+
+def test_reverse_dependency_inspection_reports_blast_radius(tmp_path: Path) -> None:
+    for name in ("base", "one", "two", "other"):
+        _write(tmp_path, f"{name}.md", name)
+    manifest = _manifest(
+        [
+            _module("base", "base.md"),
+            _module("one", "one.md", dependencies=["base"]),
+            _module("two", "two.md", dependencies=["one"]),
+            _module("other", "other.md"),
+        ],
+        entries=["two"],
+    )
+
+    inspection = PromptModuleCompiler(tmp_path).inspect(
+        manifest,
+        changed_module_ids=["base"],
+    )
+
+    assert inspection.resolved_module_ids == ["base", "one", "two"]
+    assert inspection.reverse_dependencies["base"] == ["one"]
+    assert inspection.impacted_module_ids == ["base", "one", "two"]
+
+
+def test_strict_variables_and_conditions_render_without_receipt_leak(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "template.md",
+        "Hello {{ operator }}.\n{% if include_detail %}Detail {{ count }}."
+        "{% else %}No detail.{% endif %}",
+    )
+    variables = {
+        "operator": PromptVariableDefinition(type=PromptVariableType.string),
+        "include_detail": PromptVariableDefinition(type=PromptVariableType.boolean),
+        "count": PromptVariableDefinition(
+            type=PromptVariableType.integer,
+            allowed_values=[1, 2, 3],
+        ),
+    }
+    manifest = _manifest(
+        [
+            _module(
+                "template",
+                "template.md",
+                required_variables=["operator", "include_detail", "count"],
+            )
+        ],
+        entries=["template"],
+        variables=variables,
+    )
+    secret_value = "receipt-must-not-contain-this-value"
+
+    artifact = PromptModuleCompiler(tmp_path).compile(
+        manifest,
+        variables={"operator": secret_value, "include_detail": True, "count": 2},
+    )
+
+    assert f"Hello {secret_value}." in artifact.content
+    assert "Detail 2." in artifact.content
+    receipt_json = artifact.receipt.model_dump_json()
+    assert secret_value not in receipt_json
+    assert artifact.receipt.supplied_variable_names == [
+        "count",
+        "include_detail",
+        "operator",
+    ]
+    assert artifact.receipt.raw_prompt_included is False
+    assert artifact.receipt.variable_values_included is False
+    assert artifact.receipt.manifest_contract_hash.startswith("sha256:")
+
+
+def test_safe_authority_flags_are_required_in_durable_receipts(tmp_path: Path) -> None:
+    _write(tmp_path, "source.md", "source")
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+    payload = (
+        PromptModuleCompiler(tmp_path).compile(manifest).receipt.model_dump(mode="json")
+    )
+    payload.pop("automatic_pr_creation")
+
+    with pytest.raises(ValueError):
+        PromptCompilationReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("variables", "expected_code"),
+    [
+        ({"unknown": "value"}, "PROMPT_VARIABLE_UNKNOWN"),
+        ({"name": 3}, "PROMPT_VARIABLE_TYPE_INVALID"),
+        ({}, "PROMPT_MODULE_VARIABLE_REQUIRED"),
+    ],
+)
+def test_variable_contract_failures_are_stable(
+    tmp_path: Path,
+    variables: dict[str, Any],
+    expected_code: str,
+) -> None:
+    _write(tmp_path, "template.md", "{{ name }}")
+    manifest = _manifest(
+        [_module("template", "template.md", required_variables=["name"])],
+        entries=["template"],
+        variables={"name": PromptVariableDefinition(type=PromptVariableType.string)},
+    )
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest, variables=variables)
+        == expected_code
+    )
+
+
+@pytest.mark.parametrize(
+    ("definition", "value", "expected_code"),
+    [
+        (
+            PromptVariableDefinition(type=PromptVariableType.string, max_length=4),
+            "12345",
+            "PROMPT_VARIABLE_BUDGET_EXCEEDED",
+        ),
+        (
+            PromptVariableDefinition(type=PromptVariableType.string),
+            "{{ reserved }}",
+            "PROMPT_VARIABLE_CONTROL_TOKEN",
+        ),
+    ],
+)
+def test_string_variable_budget_and_control_tokens_fail_closed(
+    tmp_path: Path,
+    definition: PromptVariableDefinition,
+    value: str,
+    expected_code: str,
+) -> None:
+    _write(tmp_path, "template.md", "{{ value }}")
+    manifest = _manifest(
+        [_module("template", "template.md", required_variables=["value"])],
+        entries=["template"],
+        variables={"value": definition},
+    )
+
+    assert (
+        _error_code(
+            PromptModuleCompiler(tmp_path),
+            manifest,
+            variables={"value": value},
+        )
+        == expected_code
+    )
+
+
+def test_undeclared_template_variable_and_non_boolean_condition_are_rejected(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "undeclared.md", "{{ not_declared }}")
+    undeclared = _manifest(
+        [_module("template", "undeclared.md")],
+        entries=["template"],
+    )
+    compiler = PromptModuleCompiler(tmp_path)
+    assert _error_code(compiler, undeclared) == "PROMPT_TEMPLATE_VARIABLE_UNDECLARED"
+
+    _write(tmp_path, "condition.md", "{% if label %}yes{% endif %}")
+    wrong_condition = _manifest(
+        [_module("template", "condition.md", required_variables=["label"])],
+        entries=["template"],
+        variables={"label": PromptVariableDefinition(type=PromptVariableType.string)},
+    )
+    assert (
+        _error_code(compiler, wrong_condition, variables={"label": "yes"})
+        == "PROMPT_CONDITION_TYPE_INVALID"
+    )
+
+
+def test_source_path_and_size_budgets_fail_closed(tmp_path: Path) -> None:
+    _write(tmp_path, "small.md", "12345")
+    compiler = PromptModuleCompiler(tmp_path)
+    traversal = _manifest(
+        [_module("unsafe", "safe/../../outside.md")],
+        entries=["unsafe"],
+    )
+    assert _error_code(compiler, traversal) == "PROMPT_SOURCE_PATH_UNSAFE"
+
+    too_large = _manifest(
+        [_module("large", "small.md")],
+        entries=["large"],
+        max_module_bytes=4,
+    )
+    assert _error_code(compiler, too_large) == "PROMPT_MODULE_BUDGET_EXCEEDED"
+
+    compiled_too_large = _manifest(
+        [_module("large", "small.md")],
+        entries=["large"],
+        max_compiled_bytes=10,
+    )
+    assert (
+        _error_code(compiler, compiled_too_large) == "PROMPT_COMPILED_BUDGET_EXCEEDED"
+    )
+
+
+def test_manifest_policy_changes_are_visible_in_receipt_hash(tmp_path: Path) -> None:
+    _write(tmp_path, "source.md", "same source")
+    compiler = PromptModuleCompiler(tmp_path)
+    first = _manifest(
+        [_module("source", "source.md")],
+        entries=["source"],
+        max_compiled_bytes=1000,
+    )
+    second = _manifest(
+        [_module("source", "source.md")],
+        entries=["source"],
+        max_compiled_bytes=2000,
+    )
+
+    first_receipt = compiler.compile(first).receipt
+    second_receipt = compiler.compile(second).receipt
+
+    assert first_receipt.compiled_artifact_hash == second_receipt.compiled_artifact_hash
+    assert first_receipt.manifest_contract_hash != second_receipt.manifest_contract_hash
+
+
+def test_symlink_source_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / "target.md"
+    target.write_text("target", encoding="utf-8")
+    link = tmp_path / "link.md"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    manifest = _manifest([_module("linked", "link.md")], entries=["linked"])
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_PATH_UNSAFE"
+    )
+
+
+def test_symlink_manifest_is_rejected(tmp_path: Path) -> None:
+    _write(tmp_path, "source.md", "source")
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+    target = tmp_path / "manifest.json"
+    target.write_text(
+        json.dumps(manifest.model_dump(mode="json", by_alias=True)),
+        encoding="utf-8",
+    )
+    link = tmp_path / "manifest-link.json"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+
+    with pytest.raises(PromptCompilationError) as raised:
+        PromptModuleCompiler(tmp_path).load_manifest(link)
+
+    assert raised.value.reason_code == "PROMPT_MANIFEST_PATH_UNSAFE"
+
+
+def test_schema_accepts_dogfooded_foundation_manifest() -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
+
+    Draft202012Validator(schema).validate(manifest)
+
+
+def test_cli_compiles_checks_golden_and_never_prints_prompt_text(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "compiled.md"
+    receipt = tmp_path / "receipt.json"
+    prompt_fragment = "W19 extension/plugin callable graduation"
+
+    first = subprocess.run(
+        [
+            sys.executable,
+            str(CLI),
+            "compile",
+            "--manifest",
+            str(FOUNDATION_MANIFEST),
+            "--output",
+            str(output),
+            "--receipt",
+            str(receipt),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    checked = subprocess.run(
+        [
+            sys.executable,
+            str(CLI),
+            "compile",
+            "--manifest",
+            str(FOUNDATION_MANIFEST),
+            "--check-receipt",
+            str(receipt),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert prompt_fragment in output.read_text(encoding="utf-8")
+    assert prompt_fragment not in first.stdout
+    assert prompt_fragment not in checked.stdout
+    assert json.loads(checked.stdout)["golden_receipt_verified"] is True

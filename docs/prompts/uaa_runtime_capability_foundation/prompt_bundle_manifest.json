@@ -3,6 +3,7 @@
   "bundle_id": "uaa-runtime-capability-foundation-001",
   "version": "1.2.0",
   "purpose": "Finite merge-gated prompts for evidence-backed UAA agent-capability maturity while preserving exact governed local-first authority and WEB-HYBRID lanes.",
+  "prompt_module_manifest_ref": "docs/prompts/uaa_runtime_capability_foundation/prompt_module_manifest.json",
   "developer_prompt_refs": [
     "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md",
     "docs/prompts/uaa_runtime_capability_foundation/01_reference_gap_truth_and_age_adjusted_scoreboard.prompt.md",

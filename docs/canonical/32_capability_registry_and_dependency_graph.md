@@ -74,6 +74,20 @@ high_autonomy_external_execution
 - Foundation Gate blocked list.
 - Blast-radius report before foundation changes.
 
+## Prompt module dependency graph
+
+UAA also implements a separate composition-time graph for repository-owned
+prompt and skill instruction modules. `PromptModuleCompiler` validates missing
+dependencies and cycles, resolves only the selected entry modules and their
+transitive dependencies, emits deterministic dependency-first artifacts, and
+reports reverse-dependency blast radius. See
+`docs/runtime/UAA_PROMPT_MODULE_COMPILER.md`.
+
+This prompt graph is not the Capability Registry and cannot grant capability,
+skill, model, tool, connector, browser, shell, or pull-request authority.
+Modules typed as `skill` are build inputs only; automatic skill loading,
+runtime import, and execution remain blocked.
+
 ## Current blocked capabilities
 
 ```text

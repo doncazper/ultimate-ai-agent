@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PromptModuleManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/prompt_module_manifest.schema.json"
+    },
+    "schema_version": {
+      "const": "uaa.prompt_module_bundle.v1"
+    },
+    "bundle_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,119}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "entry_module_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "variables": {
+      "type": "object",
+      "default": {},
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,79}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/module"
+      }
+    },
+    "max_module_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2097152,
+      "default": 262144
+    },
+    "max_compiled_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8388608,
+      "default": 2097152
+    },
+    "stable_within_run": {
+      "const": true
+    }
+  },
+  "required": [
+    "$schema",
+    "schema_version",
+    "bundle_id",
+    "version",
+    "entry_module_ids",
+    "modules",
+    "stable_within_run"
+  ],
+  "$defs": {
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "integer",
+            "boolean"
+          ]
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        },
+        "default": {
+          "type": [
+            "string",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        },
+        "allowed_values": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": [
+              "string",
+              "integer",
+              "boolean"
+            ]
+          }
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536,
+          "default": 4096
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 240
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "module_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9._-]{0,79}$"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,399}$"
+        },
+        "kind": {
+          "enum": [
+            "system",
+            "developer",
+            "skill",
+            "context"
+          ]
+        },
+        "stability_tier": {
+          "enum": [
+            "stable_control_plane",
+            "reviewed_context",
+            "runtime_selected"
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_variables": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "module_id",
+        "source_ref",
+        "kind",
+        "stability_tier"
+      ]
+    }
+  }
+}

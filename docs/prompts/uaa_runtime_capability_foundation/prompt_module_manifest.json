@@ -1,0 +1,123 @@
+{
+  "$schema": "../../schemas/prompt_module_manifest.schema.json",
+  "schema_version": "uaa.prompt_module_bundle.v1",
+  "bundle_id": "uaa-runtime-capability-foundation-modules",
+  "version": "1.0.0",
+  "entry_module_ids": [
+    "phase-09"
+  ],
+  "variables": {},
+  "modules": [
+    {
+      "module_id": "pack-readme",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/README.md",
+      "kind": "context",
+      "stability_tier": "reviewed_context",
+      "dependencies": [],
+      "required_variables": []
+    },
+    {
+      "module_id": "orchestrator",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "pack-readme"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-01",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/01_reference_gap_truth_and_age_adjusted_scoreboard.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "orchestrator"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-02",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/02_productized_agent_loop_spine.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-01"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-03",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/03_durable_orchestration_progress_and_recovery.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-02"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-04",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/04_action_tool_code_lanes_and_approval_receipts.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-03"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-05",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/05_memory_learning_context_and_feedback.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-04"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-06",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/06_evidence_audit_receipts_and_observability.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-05"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-07",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/07_model_provider_research_and_external_info_posture.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-06"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-08",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/08_cockpit_cli_api_parity_and_operator_ux.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-07"
+      ],
+      "required_variables": []
+    },
+    {
+      "module_id": "phase-09",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/09_extensibility_ecosystem_and_final_hardening.prompt.md",
+      "kind": "developer",
+      "stability_tier": "stable_control_plane",
+      "dependencies": [
+        "phase-08"
+      ],
+      "required_variables": []
+    }
+  ],
+  "max_module_bytes": 524288,
+  "max_compiled_bytes": 4194304,
+  "stable_within_run": true
+}

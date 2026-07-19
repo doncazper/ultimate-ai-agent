@@ -83,6 +83,12 @@ The Control Center is the technical web shell, Founder Command Center is the
 user-facing product name, and the Founder Loop is the bounded product spine.
 Python Agent Core, PolicyEngine, LocalApprovalAuthority, route classification,
 OpenAPI checks, and Foundation Gate checks remain the authority boundaries.
+Repository-owned prompt composition now has a deterministic Python Core
+dependency compiler with strict variables, progressive entry closure,
+reverse-dependency inspection, and redacted golden receipts. It is a local
+build/inspection boundary and grants no model, skill-loading, context-injection,
+or pull-request authority; see
+`docs/runtime/UAA_PROMPT_MODULE_COMPILER.md`.
 Managed portable mission-evidence signing is documented in
 `docs/runtime/UAA_PORTABLE_MISSION_EVIDENCE_SIGNING.md`; it is a macOS-only,
 exact dispatcher-governed Ed25519 lane and is not signer identity, notarization,
