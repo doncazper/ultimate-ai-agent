@@ -1745,6 +1745,20 @@ def test_pytest_shard_evidence_retains_bounded_safe_test_refs(
     )
 
 
+def test_pytest_shard_summary_includes_bounded_collection_rejection_reason() -> None:
+    reason_ref = "reason-ref:ci:pytest-collection-evidence-unavailable"
+
+    lines = runner._pytest_shard_summary_lines(
+        {
+            "pytest_shard_evidence_status": "unavailable",
+            "pytest_collection_evidence_status": "rejected",
+            "pytest_collection_evidence_reason_ref": reason_ref,
+        }
+    )
+
+    assert lines[-1] == f"Pytest collection evidence reason: {reason_ref}"
+
+
 @pytest.mark.parametrize(
     "failed_test_refs",
     [

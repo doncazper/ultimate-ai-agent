@@ -637,8 +637,15 @@ def verify_no_forbidden_external_integrations() -> None:
             for line in content.splitlines():
                 stripped = line.strip()
                 if any(stripped.startswith(pattern) for pattern in forbidden_imports):
-                    if rel_path in allowed_stdlib_network_import_files and stripped.startswith(
-                        ("import urllib.request", "from urllib import request", "from urllib import error")
+                    if (
+                        rel_path in allowed_stdlib_network_import_files
+                        or rel_path in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
+                    ) and stripped.startswith(
+                        (
+                            "import urllib.request",
+                            "from urllib import request",
+                            "from urllib import error",
+                        )
                     ):
                         continue
                     print(f"FAIL: Forbidden external integration import in {p.relative_to(ROOT)}: {line}")

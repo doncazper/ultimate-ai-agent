@@ -26,6 +26,46 @@ class CollectionEvidenceError(ValueError):
     """A content-free pytest collection proof could not be validated."""
 
 
+_COLLECTION_EVIDENCE_REASON_REFS = {
+    "collection evidence input is unavailable": (
+        "reason-ref:ci:pytest-collection-evidence-unavailable"
+    ),
+    "collection evidence input is unsafe": (
+        "reason-ref:ci:pytest-collection-evidence-unsafe"
+    ),
+    "collection evidence input changed while read": (
+        "reason-ref:ci:pytest-collection-evidence-changed"
+    ),
+    "collection evidence input is malformed": (
+        "reason-ref:ci:pytest-collection-evidence-malformed"
+    ),
+    "collection aggregate evidence fields are invalid": (
+        "reason-ref:ci:pytest-collection-evidence-fields-invalid"
+    ),
+    "collection aggregate binding types are invalid": (
+        "reason-ref:ci:pytest-collection-evidence-types-invalid"
+    ),
+    "collection aggregate evidence binding is invalid": (
+        "reason-ref:ci:pytest-collection-evidence-binding-invalid"
+    ),
+    "collection aggregate counts are invalid": (
+        "reason-ref:ci:pytest-collection-evidence-counts-invalid"
+    ),
+    "collection aggregate digest is invalid": (
+        "reason-ref:ci:pytest-collection-evidence-digest-invalid"
+    ),
+}
+
+
+def collection_evidence_reason_ref(error: CollectionEvidenceError) -> str:
+    """Return a bounded diagnostic ref without exposing paths or test names."""
+
+    return _COLLECTION_EVIDENCE_REASON_REFS.get(
+        str(error),
+        "reason-ref:ci:pytest-collection-evidence-rejected",
+    )
+
+
 @dataclass(frozen=True)
 class ShardCollectionEvidence:
     shard_index: int
