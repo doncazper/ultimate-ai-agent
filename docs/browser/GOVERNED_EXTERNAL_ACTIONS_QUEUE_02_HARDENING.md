@@ -20,25 +20,30 @@ them in individual lane services:
   and content-free hostile-state signals;
 - exact approval, AuthorityLease, and readiness are revalidated before the
   durable start, after the start claim, and after dispatch; the existing
-  approval-authority lock serializes the final validation, synchronous dispatch,
-  and final validation against concurrent revocation, and the latest decision
-  proof is retained in the terminal receipt;
+  approval-authority lock serializes the final validation and bounded dispatch
+  handoff against concurrent revocation; normal completion retains the lock
+  through final validation, while a timed-out worker reacquires it after the
+  callback stops, and the latest decision proof is retained in the terminal
+  receipt;
 - allowed budget reservation, release, and settlement records require exact
   receipt proof, including on ledger replay where the original semantic status
   remains authoritative and a replayed denial cannot become an allow;
   pre-start blocks retain the release proof, and missing
   settlement proof becomes `outcome_ambiguous`; a post-start guard that proves
   dispatch was never invoked (including shared-capacity denial) releases unused
-  budget, while restart recovery settles the persisted reservation as
-  ambiguous; a lost start claim releases only a distinct losing reservation and
+  budget, while restart recovery reconciles an exact prior release before it
+  attempts ambiguous settlement of the persisted reservation; a lost start
+  claim releases only a distinct losing reservation and
   never releases the idempotent reservation still owned by the winning start;
   a pre-claim denial first owns the durable close transition before releasing,
   and a losing caller returns its own verified release proof even when the
   winner has already terminalized;
 - dispatch has one SQLite-backed nonblocking capacity slot plus a process-held
   OS file lock shared by every kernel instance using the transaction store and
-  a maximum thirty-second
-  deadline; exceptions, invalid results, deadline overruns, or capacity
+  a maximum thirty-second deadline; the caller returns at that deadline even
+  when an arbitrary callback remains live, but the detached worker retains the
+  sole durable/process slot through callback completion, budget settlement, and
+  terminal close. Exceptions, invalid results, deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
   automatically retried, and no terminal receipt is written while a detached
   callback remains live; a lock-protocol-marked stale SQLite slot is reaped
@@ -58,6 +63,9 @@ them in individual lane services:
   dispatch slot remains owned; if the budget ledger already contains the exact
   settlement from a crash between settlement and transaction close, recovery
   reuses that durable proof instead of conflicting or losing accounting truth;
+  if a no-dispatch guard already durably released the reservation before a
+  crash, recovery retains that exact release proof and does not falsely settle
+  the released reservation;
 - durable and returned external-action receipts recompute their own exact
   content-derived identity when read or deserialized, and bounded hostile reason
   sets keep terminal budget accounting failures explicit alongside an overflow
@@ -96,8 +104,8 @@ content-free; this evidence does not stand in for a live external facility.
 | unexpected pop-ups and downloads | Separate popup and download signals block dispatch. |
 | page mutation between approval and dispatch | Repeated readiness checks bind the exact snapshot and mutation signal. |
 | duplicate submission | One action, durable start ownership, idempotency, and duplicate-submit signals prevent retry. |
-| timeout after dispatch | Bounded dispatch returns non-retryable `outcome_ambiguous`. |
-| crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; after the dispatch-plus-settlement grace, orphan recovery, terminal replay, CAS writes, and mandatory settlement proof preserve ambiguity truth without redispatch. |
+| timeout after dispatch | Bounded dispatch returns non-retryable `outcome_ambiguous` at the deadline, retains sole ownership while the callback is live, and closes durably only after it stops. |
+| crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; ownership spans settlement and terminal close, while orphan recovery, terminal replay, prior release/settlement reconciliation, CAS writes, and mandatory accounting proof preserve ambiguity truth without redispatch. |
 | concurrent execution | Only the durable start owner dispatches; contenders cannot terminalize or clobber it. |
 | kill-switch races | Revalidation after start changes the result to ambiguous without retry. |
 | safe-disable races | Revalidation after start changes the result to ambiguous without retry. |

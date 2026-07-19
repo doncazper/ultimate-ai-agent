@@ -118,6 +118,10 @@ def verify() -> list[str]:
             "budget-settlement-ambiguous",
             "_semantic_budget_status",
             "_prior_settlement",
+            "reconcile_release",
+            "_finalize_timed_out_dispatch",
+            "_settle_and_finish_dispatch",
+            "dispatch_ownership_transferred",
             "recover_if_prior_start(request)",
         ),
         "hardening": (
@@ -171,7 +175,9 @@ def verify() -> list[str]:
             "test_browser_action_and_post_form_results_reject_cross_lane_receipts",
             "test_execute_automatically_recovers_a_stale_started_transaction",
             "test_recovery_reuses_a_prior_durable_settlement_proof",
+            "test_recovery_reuses_a_prior_durable_release_proof",
             "test_replayed_denied_budget_release_remains_denied",
+            "test_dispatch_slot_remains_owned_through_settlement_and_terminal_close",
             "test_terminal_compare_and_swap_rejects_overwrite",
             "test_reason_bounding_preserves_terminal_accounting_failures",
             "test_every_operator_receipt_contract_retains_budget_release_proof",
@@ -214,14 +220,14 @@ def verify() -> list[str]:
     )
     for relative, source in projection_sources.items():
         if release_projection_marker not in source:
-            failures.append(
-                f"Queue 02 budget release projection missing: {relative}"
-            )
+            failures.append(f"Queue 02 budget release projection missing: {relative}")
     if (
         '"budget_release_ref": (' not in origin_sessions
         or "external_receipt.budget_release_ref" not in origin_sessions
     ):
-        failures.append("Queue 02 budget release projection missing: origin_sessions.py")
+        failures.append(
+            "Queue 02 budget release projection missing: origin_sessions.py"
+        )
 
     campaign_markers = (
         "authority and capability confusion",

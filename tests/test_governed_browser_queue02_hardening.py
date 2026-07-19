@@ -88,6 +88,16 @@ def _signals(**updates: bool | int) -> ExternalActionAdversarialSignals:
     return ExternalActionAdversarialSignals.model_validate(payload)
 
 
+def _wait_for_terminal(kernel, request, *, timeout: float = 2.0):  # type: ignore[no-untyped-def]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        receipt = kernel._store.replay_if_terminal(request)
+        if receipt is not None:
+            return receipt
+        time.sleep(0.005)
+    raise AssertionError("governed external-action terminal receipt was not persisted")
+
+
 @pytest.mark.parametrize(
     ("signal", "case_number"),
     tuple((signal, index) for index, signal in enumerate(_BOOLEAN_ADVERSARIAL_SIGNALS)),
@@ -498,9 +508,7 @@ def test_authority_revocation_race_after_reservation_blocks_start(
     assert receipt.budget_release_ref is not None
     if race == "approval":
         assert receipt.approval_validation_ref in {
-            proof_ref
-            for allowed, proof_ref in approval_proof_refs
-            if not allowed
+            proof_ref for allowed, proof_ref in approval_proof_refs if not allowed
         }
     else:
         assert receipt.authority_decision_ref in {
@@ -546,22 +554,45 @@ def test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded(
     request = _request(_binding(suffix="timeout"))
     kernel, _ = _authorized_kernel(tmp_path, request)
     kernel._dispatch_timeout_seconds = 0.01
-    dispatch_stopped = False
+    dispatch_entered = threading.Event()
+    allow_dispatch_to_stop = threading.Event()
+    dispatch_stopped = threading.Event()
 
     def slow_dispatch(item):  # type: ignore[no-untyped-def]
-        nonlocal dispatch_stopped
-        time.sleep(0.08)
-        dispatch_stopped = True
+        dispatch_entered.set()
+        assert allow_dispatch_to_stop.wait(timeout=2)
+        dispatch_stopped.set()
         return _success(item)
 
+    started = time.monotonic()
     receipt = kernel.execute(request, dispatch=slow_dispatch)
+    elapsed = time.monotonic() - started
 
     assert receipt.state == ExternalActionState.outcome_ambiguous.value
-    assert dispatch_stopped is True
+    assert dispatch_entered.is_set()
+    assert dispatch_stopped.is_set() is False
+    assert elapsed < 0.2
     assert "reason-ref:governed-external-action:dispatch-timeout" in (
         receipt.reason_refs
     )
     assert receipt.automatic_retry_allowed is False
+    assert kernel._store.state_if_exact(request) == ExternalActionState.started
+    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+    started_at = kernel._store.started_at_if_exact(request)
+    assert started_at is not None
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+    assert kernel.recover_if_prior_start(request) is None
+    still_live = kernel.execute(request, dispatch=_success)
+    assert still_live.replayed is False
+    assert "reason-ref:governed-external-action:start-already-claimed" in (
+        still_live.reason_refs
+    )
+
+    allow_dispatch_to_stop.set()
+    assert dispatch_stopped.wait(timeout=2)
+    terminal = _wait_for_terminal(kernel, request)
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
     replay = kernel.execute(request, dispatch=_success)
     assert replay.replayed is True
     assert replay.state == ExternalActionState.outcome_ambiguous.value
@@ -584,6 +615,12 @@ def test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request(tmp_path) ->
 
     assert first.state == second.state == ExternalActionState.outcome_ambiguous.value
     assert first.evidence_refs != second.evidence_refs
+    assert _wait_for_terminal(first_kernel, first_request).state == (
+        ExternalActionState.outcome_ambiguous.value
+    )
+    assert _wait_for_terminal(second_kernel, second_request).state == (
+        ExternalActionState.outcome_ambiguous.value
+    )
 
 
 def test_concurrent_execute_never_clobbers_the_dispatch_owner(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -664,10 +701,13 @@ def test_restart_recovery_reaps_stale_process_slot_and_settles_budget(
     assert reservation.allowed is True
     assert reservation.reservation_ref is not None
     store.prepare(request)
-    assert store.claim_start(
-        request,
-        budget_reservation_ref=reservation.reservation_ref,
-    ) is True
+    assert (
+        store.claim_start(
+            request,
+            budget_reservation_ref=reservation.reservation_ref,
+        )
+        is True
+    )
     process_lock_fd = store.claim_dispatch_slot(request)
     assert process_lock_fd is not None
     store._release_dispatch_process_lock(process_lock_fd)
@@ -700,10 +740,13 @@ def test_execute_automatically_recovers_a_stale_started_transaction(
     assert reservation.allowed is True
     assert reservation.reservation_ref is not None
     kernel._store.prepare(request)
-    assert kernel._store.claim_start(
-        request,
-        budget_reservation_ref=reservation.reservation_ref,
-    ) is True
+    assert (
+        kernel._store.claim_start(
+            request,
+            budget_reservation_ref=reservation.reservation_ref,
+        )
+        is True
+    )
     started_at = kernel._store.started_at_if_exact(request)
     assert started_at is not None
     kernel._clock = lambda: started_at + timedelta(seconds=36)
@@ -732,10 +775,13 @@ def test_recovery_reuses_a_prior_durable_settlement_proof(tmp_path) -> None:  # 
     assert reservation.allowed is True
     assert reservation.reservation_ref is not None
     kernel._store.prepare(request)
-    assert kernel._store.claim_start(
-        request,
-        budget_reservation_ref=reservation.reservation_ref,
-    ) is True
+    assert (
+        kernel._store.claim_start(
+            request,
+            budget_reservation_ref=reservation.reservation_ref,
+        )
+        is True
+    )
     prior_settlement = kernel._budget_gate.settle(
         request,
         reservation.reservation_ref,
@@ -764,6 +810,81 @@ def test_recovery_reuses_a_prior_durable_settlement_proof(tmp_path) -> None:  # 
         for reason in recovered.reason_refs
         for marker in ("budget-settlement-ambiguous", "budget-settlement-failed")
     )
+
+
+def test_recovery_reuses_a_prior_durable_release_proof(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="prior-release-recovery"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    approval_validation = build_external_action_approval_request(
+        request
+    ).to_validation_request(request.approval_ref)
+    reservation = kernel._budget_gate.reserve(request, approval_validation)
+    assert reservation.allowed is True
+    assert reservation.reservation_ref is not None
+    kernel._store.prepare(request)
+    assert (
+        kernel._store.claim_start(
+            request,
+            budget_reservation_ref=reservation.reservation_ref,
+        )
+        is True
+    )
+    prior_release = kernel._budget_gate.release(
+        request,
+        reservation.reservation_ref,
+        "reason-ref:governed-external-action:test-no-dispatch",
+    )
+    assert prior_release.allowed is True
+    assert prior_release.receipt_ref is not None
+    started_at = kernel._store.started_at_if_exact(request)
+    assert started_at is not None
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+
+    recovered = kernel.recover_if_prior_start(request)
+
+    assert recovered is not None
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+    assert recovered.budget_release_ref == prior_release.receipt_ref
+    assert recovered.budget_settlement_ref is None
+    assert "reason-ref:governed-external-action:prior-start-release-reconciled" in (
+        recovered.reason_refs
+    )
+
+
+def test_dispatch_slot_remains_owned_through_settlement_and_terminal_close(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="settlement-owner"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    settlement_entered = threading.Event()
+    allow_settlement = threading.Event()
+    original_settle = kernel._budget_gate.settle
+
+    def blocking_settle(*args, **kwargs):  # type: ignore[no-untyped-def]
+        settlement_entered.set()
+        assert allow_settlement.wait(timeout=2)
+        return original_settle(*args, **kwargs)
+
+    kernel._budget_gate.settle = blocking_settle  # type: ignore[method-assign]
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        owner_future = pool.submit(kernel.execute, request, dispatch=_success)
+        assert settlement_entered.wait(timeout=2)
+        started_at = kernel._store.started_at_if_exact(request)
+        assert started_at is not None
+        kernel._clock = lambda: started_at + timedelta(seconds=36)
+        assert kernel._store.dispatch_slot_is_owned_by(request) is True
+        assert kernel.recover_if_prior_start(request) is None
+        assert kernel._store.state_if_exact(request) == ExternalActionState.started
+        contender = kernel.execute(request, dispatch=_success)
+        assert contender.replayed is False
+        assert "reason-ref:governed-external-action:start-already-claimed" in (
+            contender.reason_refs
+        )
+        allow_settlement.set()
+        receipt = owner_future.result(timeout=2)
+
+    assert receipt.state == ExternalActionState.succeeded.value
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
 def test_replayed_denied_budget_release_remains_denied(tmp_path) -> None:  # type: ignore[no-untyped-def]

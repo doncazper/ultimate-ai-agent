@@ -8,7 +8,7 @@ import sqlite3
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from threading import RLock
+from threading import Event, RLock, Thread
 from time import monotonic
 from typing import Protocol
 
@@ -115,6 +115,12 @@ class ExternalActionBudgetGate(Protocol):
         reason_ref: str,
     ) -> BudgetSettlement: ...
 
+    def reconcile_release(
+        self,
+        request: ExternalActionExecutionRequest,
+        reservation_ref: str,
+    ) -> BudgetSettlement | None: ...
+
     def settle(
         self,
         request: ExternalActionExecutionRequest,
@@ -144,6 +150,14 @@ class DenyByDefaultBudgetGate:
     ) -> BudgetSettlement:
         del request, reservation_ref, reason_ref
         return BudgetSettlement(allowed=False)
+
+    def reconcile_release(
+        self,
+        request: ExternalActionExecutionRequest,
+        reservation_ref: str,
+    ) -> BudgetSettlement | None:
+        del request, reservation_ref
+        return None
 
     def settle(
         self,
@@ -228,8 +242,36 @@ class AuthorityBudgetStoreGate:
         )
         return BudgetSettlement(
             allowed=(
-                _semantic_budget_status(receipt)
-                == AuthorityBudgetStatus.released.value
+                _semantic_budget_status(receipt) == AuthorityBudgetStatus.released.value
+            ),
+            receipt_ref=receipt.receipt_ref,
+            reason_refs=list(receipt.reason_refs),
+        )
+
+    def reconcile_release(
+        self,
+        request: ExternalActionExecutionRequest,
+        reservation_ref: str,
+    ) -> BudgetSettlement | None:
+        idempotency_ref = stable_governed_browser_ref(
+            "idempotency-ref:governed-external-action:budget-release",
+            {"idempotency_ref": request.idempotency_ref},
+        )
+        receipt = next(
+            (
+                item
+                for item in reversed(self._store.list_receipts())
+                if item.operation == AuthorityBudgetOperation.release.value
+                and item.reservation_ref == reservation_ref
+                and item.idempotency_ref == idempotency_ref
+            ),
+            None,
+        )
+        if receipt is None:
+            return None
+        return BudgetSettlement(
+            allowed=(
+                _semantic_budget_status(receipt) == AuthorityBudgetStatus.released.value
             ),
             receipt_ref=receipt.receipt_ref,
             reason_refs=list(receipt.reason_refs),
@@ -281,8 +323,7 @@ class AuthorityBudgetStoreGate:
             raise
         return BudgetSettlement(
             allowed=(
-                _semantic_budget_status(receipt)
-                == AuthorityBudgetStatus.settled.value
+                _semantic_budget_status(receipt) == AuthorityBudgetStatus.settled.value
             ),
             receipt_ref=receipt.receipt_ref,
             reason_refs=list(receipt.reason_refs),
@@ -308,8 +349,7 @@ class AuthorityBudgetStoreGate:
             return None
         return BudgetSettlement(
             allowed=(
-                _semantic_budget_status(receipt)
-                == AuthorityBudgetStatus.settled.value
+                _semantic_budget_status(receipt) == AuthorityBudgetStatus.settled.value
             ),
             receipt_ref=receipt.receipt_ref,
             reason_refs=list(receipt.reason_refs),
@@ -708,6 +748,7 @@ class ExternalActionTransactionStore:
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
+
         def exact_owner_row() -> tuple[bool, str | None]:
             with self._lock, self._connect() as connection:
                 row = connection.execute(
@@ -886,9 +927,7 @@ class GovernedExternalActionKernel:
         if (
             isinstance(dispatch_timeout_seconds, bool)
             or not isinstance(dispatch_timeout_seconds, (int, float))
-            or not 0
-            < dispatch_timeout_seconds
-            <= MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+            or not 0 < dispatch_timeout_seconds <= MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
         ):
             raise ValueError("GOVERNED_EXTERNAL_ACTION_DISPATCH_TIMEOUT_INVALID")
         self._store = store
@@ -1054,9 +1093,7 @@ class GovernedExternalActionKernel:
             request,
             approval_validation,
         )
-        approval_validation_ref = (
-            revalidated_approval_ref or approval_validation_ref
-        )
+        approval_validation_ref = revalidated_approval_ref or approval_validation_ref
         authority_decision_ref = (
             revalidated_authority_ref or authority_decision.decision_ref
         )
@@ -1103,9 +1140,7 @@ class GovernedExternalActionKernel:
                 approval_validation_ref=approval_validation_ref,
                 authority_decision_ref=authority_decision_ref,
                 budget_reservation_ref=reservation.reservation_ref,
-                budget_release_ref=(
-                    release.receipt_ref if release.allowed else None
-                ),
+                budget_release_ref=(release.receipt_ref if release.allowed else None),
                 expected_state=ExternalActionState.started,
             )
 
@@ -1120,9 +1155,11 @@ class GovernedExternalActionKernel:
                 authority_decision_ref=authority_decision_ref,
             )
 
+        process_lock_fd: int | None = None
+        dispatch_ownership_transferred = False
         with self._approval_authority.hold_validation_lock():
             # Adapter readiness is observed first, then approval and lease are
-            # the final checks before the synchronous dispatch handoff while
+            # the final checks before the bounded dispatch handoff while
             # concurrent revocation is serialized by the authority lock.
             post_claim_readiness_reasons = self._revalidation_reasons(request)
             (
@@ -1136,9 +1173,7 @@ class GovernedExternalActionKernel:
             approval_validation_ref = (
                 revalidated_approval_ref or approval_validation_ref
             )
-            authority_decision_ref = (
-                revalidated_authority_ref or authority_decision_ref
-            )
+            authority_decision_ref = revalidated_authority_ref or authority_decision_ref
             post_claim_reasons = list(
                 dict.fromkeys(
                     [
@@ -1159,90 +1194,132 @@ class GovernedExternalActionKernel:
                     ],
                 )
 
-            dispatch_result, dispatch_reasons, dispatch_invoked = self._bounded_dispatch(
-                request, dispatch
-            )
-            if not dispatch_invoked:
+            try:
+                process_lock_fd = self._store.claim_dispatch_slot(request)
+            except Exception:
+                process_lock_fd = None
+                dispatch_result = self._ambiguous_dispatch_result(
+                    request, "dispatch-capacity-check-failed"
+                )
                 return self._finish_started_guard_failure(
                     request,
                     reservation_ref=reservation.reservation_ref,
                     approval_validation_ref=approval_validation_ref,
                     authority_decision_ref=authority_decision_ref,
-                    reason_refs=dispatch_reasons,
+                    reason_refs=[
+                        "reason-ref:governed-external-action:dispatch-capacity-check-failed"
+                    ],
                     evidence_refs=list(dispatch_result.evidence_refs),
                 )
-            post_dispatch_readiness_reasons = self._revalidation_reasons(request)
-            (
-                post_dispatch_authorization_reasons,
-                revalidated_approval_ref,
-                revalidated_authority_ref,
-            ) = self._authorization_revalidation(
-                request,
-                approval_validation,
-            )
-            approval_validation_ref = (
-                revalidated_approval_ref or approval_validation_ref
-            )
-            authority_decision_ref = (
-                revalidated_authority_ref or authority_decision_ref
-            )
-            post_dispatch_reasons = list(
-                dict.fromkeys(
-                    [
-                        *post_dispatch_readiness_reasons,
-                        *post_dispatch_authorization_reasons,
-                    ]
+            if process_lock_fd is None:
+                dispatch_result = self._ambiguous_dispatch_result(
+                    request, "dispatch-capacity-bounded"
                 )
-            )
-        if post_dispatch_reasons:
-            dispatch_result = ExternalActionDispatchResult(
-                outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
-                evidence_refs=dispatch_result.evidence_refs,
-                verified=False,
-            )
-            dispatch_reasons.extend(
-                [
-                    "reason-ref:governed-external-action:post-dispatch-revalidation-denied",
-                    *post_dispatch_reasons,
-                ]
-            )
+                return self._finish_started_guard_failure(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    reason_refs=[
+                        "reason-ref:governed-external-action:dispatch-capacity-bounded"
+                    ],
+                    evidence_refs=list(dispatch_result.evidence_refs),
+                )
+
+            try:
+                (
+                    dispatch_result,
+                    dispatch_reasons,
+                    dispatch_invoked,
+                    dispatch_deferred,
+                ) = self._bounded_dispatch(
+                    request,
+                    dispatch,
+                    deferred_finalizer=lambda: self._finalize_timed_out_dispatch(
+                        request,
+                        reservation_ref=reservation.reservation_ref,
+                        approval_validation=approval_validation,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        process_lock_fd=process_lock_fd,
+                    ),
+                )
+                if dispatch_deferred:
+                    dispatch_ownership_transferred = True
+                    return self._build_receipt(
+                        request,
+                        ExternalActionState.outcome_ambiguous,
+                        dispatch_reasons,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        budget_reservation_ref=reservation.reservation_ref,
+                        evidence_refs=list(dispatch_result.evidence_refs),
+                    )
+                if not dispatch_invoked:
+                    receipt = self._finish_started_guard_failure(
+                        request,
+                        reservation_ref=reservation.reservation_ref,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        reason_refs=dispatch_reasons,
+                        evidence_refs=list(dispatch_result.evidence_refs),
+                    )
+                    self._store.release_dispatch_slot(request, process_lock_fd)
+                    process_lock_fd = None
+                    return receipt
+                post_dispatch_readiness_reasons = self._revalidation_reasons(request)
+                (
+                    post_dispatch_authorization_reasons,
+                    revalidated_approval_ref,
+                    revalidated_authority_ref,
+                ) = self._authorization_revalidation(
+                    request,
+                    approval_validation,
+                )
+                approval_validation_ref = (
+                    revalidated_approval_ref or approval_validation_ref
+                )
+                authority_decision_ref = (
+                    revalidated_authority_ref or authority_decision_ref
+                )
+                post_dispatch_reasons = list(
+                    dict.fromkeys(
+                        [
+                            *post_dispatch_readiness_reasons,
+                            *post_dispatch_authorization_reasons,
+                        ]
+                    )
+                )
+            except BaseException:
+                if process_lock_fd is not None and not dispatch_ownership_transferred:
+                    self._store.release_dispatch_slot(request, process_lock_fd)
+                    process_lock_fd = None
+                raise
 
         try:
-            settlement = self._budget_gate.settle(
+            if post_dispatch_reasons:
+                dispatch_result = ExternalActionDispatchResult(
+                    outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
+                    evidence_refs=dispatch_result.evidence_refs,
+                    verified=False,
+                )
+                dispatch_reasons.extend(
+                    [
+                        "reason-ref:governed-external-action:post-dispatch-revalidation-denied",
+                        *post_dispatch_reasons,
+                    ]
+                )
+            return self._settle_and_finish_dispatch(
                 request,
-                reservation.reservation_ref,
-                ExternalActionDispatchOutcome(dispatch_result.outcome),
-                list(dispatch_result.evidence_refs),
+                reservation_ref=reservation.reservation_ref,
+                approval_validation_ref=approval_validation_ref,
+                authority_decision_ref=authority_decision_ref,
+                dispatch_result=dispatch_result,
+                dispatch_reasons=dispatch_reasons,
             )
-        except Exception:
-            settlement = BudgetSettlement(
-                allowed=False,
-                reason_refs=[
-                    "reason-ref:governed-external-action:budget-settlement-failed"
-                ],
-            )
-        final_state = ExternalActionState(dispatch_result.outcome)
-        reasons = list(dict.fromkeys(dispatch_reasons))
-        if not settlement.allowed or settlement.receipt_ref is None:
-            final_state = ExternalActionState.outcome_ambiguous
-            reasons.extend(
-                [
-                    "reason-ref:governed-external-action:budget-settlement-ambiguous",
-                    *settlement.reason_refs,
-                ]
-            )
-        return self._finish(
-            request,
-            final_state,
-            list(dict.fromkeys(reasons)),
-            approval_validation_ref=approval_validation_ref,
-            authority_decision_ref=authority_decision_ref,
-            budget_reservation_ref=reservation.reservation_ref,
-            budget_settlement_ref=(
-                settlement.receipt_ref if settlement.allowed else None
-            ),
-            evidence_refs=list(dispatch_result.evidence_refs),
-        )
+        finally:
+            if process_lock_fd is not None and not dispatch_ownership_transferred:
+                self._store.release_dispatch_slot(request, process_lock_fd)
 
     def _authorization_revalidation(
         self,
@@ -1302,59 +1379,194 @@ class GovernedExternalActionKernel:
         dispatch: Callable[
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
-    ) -> tuple[ExternalActionDispatchResult, list[str], bool]:
-        try:
-            process_lock_fd = self._store.claim_dispatch_slot(request)
-        except Exception:
-            return self._ambiguous_dispatch_result(
-                request, "dispatch-capacity-check-failed"
-            ), [
-                "reason-ref:governed-external-action:dispatch-capacity-check-failed"
-            ], False
-        if process_lock_fd is None:
-            return self._ambiguous_dispatch_result(
-                request, "dispatch-capacity-bounded"
-            ), [
-                "reason-ref:governed-external-action:dispatch-capacity-bounded"
-            ], False
-
+        *,
+        deferred_finalizer: Callable[[], None],
+    ) -> tuple[ExternalActionDispatchResult, list[str], bool, bool]:
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
         )
-        started = monotonic()
-        succeeded = False
-        raw_result: object | None = None
-        try:
-            raw_result = dispatch(dispatch_request)
-            succeeded = True
-        except BaseException:
-            pass
-        finally:
+        completed = Event()
+        decision_made = Event()
+        finalize_after_timeout = Event()
+        result_holder: list[tuple[ExternalActionDispatchResult, list[str], bool]] = []
+
+        def invoke() -> None:
+            started = monotonic()
+            succeeded = False
+            raw_result: object | None = None
+            try:
+                raw_result = dispatch(dispatch_request)
+                succeeded = True
+            except BaseException:
+                pass
             elapsed_seconds = monotonic() - started
+            if elapsed_seconds > self._dispatch_timeout_seconds:
+                attempt = (
+                    self._ambiguous_dispatch_result(request, "dispatch-timeout"),
+                    ["reason-ref:governed-external-action:dispatch-timeout"],
+                    True,
+                )
+            elif not succeeded:
+                attempt = (
+                    self._ambiguous_dispatch_result(request, "dispatch-exception"),
+                    ["reason-ref:governed-external-action:dispatch-exception"],
+                    True,
+                )
+            else:
+                try:
+                    result = ExternalActionDispatchResult.model_validate(raw_result)
+                except Exception:
+                    attempt = (
+                        self._ambiguous_dispatch_result(
+                            request, "dispatch-result-invalid"
+                        ),
+                        ["reason-ref:governed-external-action:dispatch-result-invalid"],
+                        True,
+                    )
+                else:
+                    attempt = (result, [], True)
+            result_holder.append(attempt)
+            completed.set()
+            decision_made.wait()
+            if finalize_after_timeout.is_set():
+                deferred_finalizer()
+
+        try:
+            Thread(
+                target=invoke,
+                name="uaa-governed-external-action-dispatch",
+                daemon=True,
+            ).start()
+        except Exception:
+            return (
+                self._ambiguous_dispatch_result(
+                    request, "dispatch-worker-start-failed"
+                ),
+                ["reason-ref:governed-external-action:dispatch-worker-start-failed"],
+                False,
+                False,
+            )
+
+        if completed.wait(timeout=self._dispatch_timeout_seconds):
+            decision_made.set()
+            result, reasons, invoked = result_holder[0]
+            return result, reasons, invoked, False
+
+        # Python cannot safely kill an arbitrary callback.  Return at the
+        # bounded deadline without writing a terminal receipt, and transfer
+        # the durable slot to the daemon worker.  The worker finalizes an
+        # ambiguous outcome and releases ownership only after the callback has
+        # actually stopped.  At most one such callback can remain live.
+        finalize_after_timeout.set()
+        decision_made.set()
+        return (
+            self._ambiguous_dispatch_result(request, "dispatch-timeout"),
+            ["reason-ref:governed-external-action:dispatch-timeout"],
+            True,
+            True,
+        )
+
+    def _finalize_timed_out_dispatch(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        reservation_ref: str,
+        approval_validation: ApprovalValidationRequest,
+        approval_validation_ref: str,
+        authority_decision_ref: str,
+        process_lock_fd: int,
+    ) -> None:
+        dispatch_result = self._ambiguous_dispatch_result(request, "dispatch-timeout")
+        reasons = ["reason-ref:governed-external-action:dispatch-timeout"]
+        try:
+            with self._approval_authority.hold_validation_lock():
+                post_dispatch_readiness_reasons = self._revalidation_reasons(request)
+                (
+                    post_dispatch_authorization_reasons,
+                    revalidated_approval_ref,
+                    revalidated_authority_ref,
+                ) = self._authorization_revalidation(
+                    request,
+                    approval_validation,
+                )
+                approval_validation_ref = (
+                    revalidated_approval_ref or approval_validation_ref
+                )
+                authority_decision_ref = (
+                    revalidated_authority_ref or authority_decision_ref
+                )
+                post_dispatch_reasons = list(
+                    dict.fromkeys(
+                        [
+                            *post_dispatch_readiness_reasons,
+                            *post_dispatch_authorization_reasons,
+                        ]
+                    )
+                )
+            if post_dispatch_reasons:
+                reasons.extend(
+                    [
+                        "reason-ref:governed-external-action:post-dispatch-revalidation-denied",
+                        *post_dispatch_reasons,
+                    ]
+                )
+            self._settle_and_finish_dispatch(
+                request,
+                reservation_ref=reservation_ref,
+                approval_validation_ref=approval_validation_ref,
+                authority_decision_ref=authority_decision_ref,
+                dispatch_result=dispatch_result,
+                dispatch_reasons=reasons,
+            )
+        finally:
             self._store.release_dispatch_slot(request, process_lock_fd)
 
-        # An arbitrary Python callback cannot be safely detached or killed.
-        # Observe the deadline only after the callback has stopped so no
-        # terminal receipt can claim fail-closed settlement while work remains
-        # live in a daemon thread.  Real targets remain inactive; a future live
-        # adapter must provide its own bounded, confirmed-stop transport.
-        if elapsed_seconds > self._dispatch_timeout_seconds:
-            return self._ambiguous_dispatch_result(request, "dispatch-timeout"), [
-                "reason-ref:governed-external-action:dispatch-timeout"
-            ], True
-        if not succeeded:
-            return self._ambiguous_dispatch_result(request, "dispatch-exception"), [
-                "reason-ref:governed-external-action:dispatch-exception"
-            ], True
+    def _settle_and_finish_dispatch(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        reservation_ref: str,
+        approval_validation_ref: str,
+        authority_decision_ref: str,
+        dispatch_result: ExternalActionDispatchResult,
+        dispatch_reasons: list[str],
+    ) -> ExternalActionReceipt:
         try:
-            result = ExternalActionDispatchResult.model_validate(raw_result)
+            settlement = self._budget_gate.settle(
+                request,
+                reservation_ref,
+                ExternalActionDispatchOutcome(dispatch_result.outcome),
+                list(dispatch_result.evidence_refs),
+            )
         except Exception:
-            return self._ambiguous_dispatch_result(
-                request, "dispatch-result-invalid"
-            ), [
-                "reason-ref:governed-external-action:dispatch-result-invalid"
-            ], True
-        return result, [], True
+            settlement = BudgetSettlement(
+                allowed=False,
+                reason_refs=[
+                    "reason-ref:governed-external-action:budget-settlement-failed"
+                ],
+            )
+        final_state = ExternalActionState(dispatch_result.outcome)
+        reasons = list(dict.fromkeys(dispatch_reasons))
+        if not settlement.allowed or settlement.receipt_ref is None:
+            final_state = ExternalActionState.outcome_ambiguous
+            reasons.extend(
+                [
+                    "reason-ref:governed-external-action:budget-settlement-ambiguous",
+                    *settlement.reason_refs,
+                ]
+            )
+        return self._finish(
+            request,
+            final_state,
+            list(dict.fromkeys(reasons)),
+            approval_validation_ref=approval_validation_ref,
+            authority_decision_ref=authority_decision_ref,
+            budget_reservation_ref=reservation_ref,
+            budget_settlement_ref=(
+                settlement.receipt_ref if settlement.allowed else None
+            ),
+            evidence_refs=list(dispatch_result.evidence_refs),
+        )
 
     @staticmethod
     def _ambiguous_dispatch_result(
@@ -1425,9 +1637,7 @@ class GovernedExternalActionKernel:
             approval_validation_ref=approval_validation_ref,
             authority_decision_ref=authority_decision_ref,
             budget_reservation_ref=reservation_ref,
-            budget_release_ref=(
-                release.receipt_ref if release.allowed else None
-            ),
+            budget_release_ref=(release.receipt_ref if release.allowed else None),
             evidence_refs=evidence_refs,
         )
 
@@ -1530,6 +1740,7 @@ class GovernedExternalActionKernel:
             },
         )
         reasons = ["reason-ref:governed-external-action:prior-start-unsettled"]
+        release = BudgetSettlement(allowed=False)
         settlement = BudgetSettlement(allowed=False)
         if reservation_ref is None:
             reasons.append(
@@ -1537,31 +1748,48 @@ class GovernedExternalActionKernel:
             )
         else:
             try:
-                settlement = self._budget_gate.settle(
-                    request,
-                    reservation_ref,
-                    ExternalActionDispatchOutcome.outcome_ambiguous,
-                    [evidence_ref],
+                reconciled_release = self._budget_gate.reconcile_release(
+                    request, reservation_ref
                 )
             except Exception:
-                settlement = BudgetSettlement(
-                    allowed=False,
-                    reason_refs=(
-                        "reason-ref:governed-external-action:budget-settlement-failed",
-                    ),
+                reconciled_release = None
+            if (
+                reconciled_release is not None
+                and reconciled_release.allowed
+                and reconciled_release.receipt_ref is not None
+            ):
+                release = reconciled_release
+                reasons.append(
+                    "reason-ref:governed-external-action:prior-start-release-reconciled"
                 )
-            if not settlement.allowed or settlement.receipt_ref is None:
-                reasons.extend(
-                    [
-                        "reason-ref:governed-external-action:budget-settlement-ambiguous",
-                        *settlement.reason_refs,
-                    ]
-                )
+            else:
+                try:
+                    settlement = self._budget_gate.settle(
+                        request,
+                        reservation_ref,
+                        ExternalActionDispatchOutcome.outcome_ambiguous,
+                        [evidence_ref],
+                    )
+                except Exception:
+                    settlement = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=(
+                            "reason-ref:governed-external-action:budget-settlement-failed",
+                        ),
+                    )
+                if not settlement.allowed or settlement.receipt_ref is None:
+                    reasons.extend(
+                        [
+                            "reason-ref:governed-external-action:budget-settlement-ambiguous",
+                            *settlement.reason_refs,
+                        ]
+                    )
         return self._finish(
             request,
             ExternalActionState.outcome_ambiguous,
             list(dict.fromkeys(reasons)),
             budget_reservation_ref=reservation_ref,
+            budget_release_ref=(release.receipt_ref if release.allowed else None),
             budget_settlement_ref=(
                 settlement.receipt_ref if settlement.allowed else None
             ),
@@ -1814,8 +2042,7 @@ class GovernedExternalActionKernel:
                 reason
                 for reason in bounded_reason_refs
                 if any(
-                    marker in reason
-                    for marker in _TERMINAL_ACCOUNTING_REASON_MARKERS
+                    marker in reason for marker in _TERMINAL_ACCOUNTING_REASON_MARKERS
                 )
             ][:15]
             ordinary_reasons = [
