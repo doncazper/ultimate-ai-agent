@@ -357,6 +357,66 @@ def test_browser_action_receipt_identity_binds_budget_release_proof(
         )
 
 
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_preflight_rejects_proof_without_kernel_receipt(
+    receipt_prefix: str,
+) -> None:
+    payload = {
+        "recipe_ref": _ref("recipe", "preflight-proof"),
+        "transaction_ref": _ref("transaction", "preflight-proof"),
+        "intent_ref": _ref("intent", "preflight-proof"),
+        "binding_ref": _ref("binding", "preflight-proof"),
+        "status": "preflight_blocked",
+        "external_action_state": ExternalActionState.blocked,
+        "budget_release_ref": _ref("budget-release", "forged-preflight"),
+        "reason_refs": [_ref("reason", "preflight-proof")],
+    }
+    receipt_ref = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{receipt_prefix}:pending",
+                **payload,
+            )
+        ),
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_PREFLIGHT_EXTERNAL_PROOF_DENIED",
+    ):
+        ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
+
+    forged_external_payload = {
+        **payload,
+        "external_action_receipt_ref": _ref("receipt", "forged-external-action"),
+        "budget_release_ref": None,
+    }
+    forged_external_receipt_ref = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{receipt_prefix}:pending",
+                **forged_external_payload,
+            )
+        ),
+    )
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_PREFLIGHT_EXTERNAL_PROOF_DENIED",
+    ):
+        ExactBrowserActionReceipt(
+            receipt_ref=forged_external_receipt_ref,
+            **forged_external_payload,
+        )
+
+
 def test_browser_action_and_post_form_results_reject_cross_lane_receipts() -> None:
     payload = {
         "recipe_ref": _ref("recipe", "lane-bound-result"),
@@ -824,6 +884,28 @@ def test_restart_recovery_uses_the_maximum_owner_dispatch_window(tmp_path) -> No
     assert recovered.state == ExternalActionState.outcome_ambiguous.value
 
 
+def test_restart_recovery_uses_the_persisted_short_owner_dispatch_window(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="short-owner-window"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    store.prepare(request)
+    assert store.claim_start(request, dispatch_timeout_seconds=2.0) is True
+    started_at = store.started_at_if_exact(request)
+    assert started_at is not None
+
+    kernel._dispatch_timeout_seconds = 30.0
+    kernel._clock = lambda: started_at + timedelta(seconds=6.9)
+    assert kernel.recover_if_prior_start(request) is None
+    assert store.state_if_exact(request) == ExternalActionState.started
+
+    kernel._clock = lambda: started_at + timedelta(seconds=7.1)
+    recovered = kernel.recover_if_prior_start(request)
+    assert recovered is not None
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+
+
 def test_restart_recovery_reaps_stale_process_slot_and_settles_budget(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -1225,6 +1307,79 @@ def test_allowed_reservation_without_receipt_proof_is_released(
     assert replayed.receipt_ref == receipt.receipt_ref
 
 
+def test_start_persistence_failure_releases_unused_reservation_and_dispatch_slot(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="start-persistence-failure"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    release_results: list[BudgetSettlement] = []
+    dispatch_calls = 0
+    original_release = kernel._budget_gate.release
+
+    def fail_start(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise sqlite3.OperationalError("synthetic start persistence failure")
+
+    def record_release(item, reservation_ref, reason_ref):  # type: ignore[no-untyped-def]
+        result = original_release(item, reservation_ref, reason_ref)
+        release_results.append(result)
+        return result
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    kernel._store.claim_start = fail_start  # type: ignore[method-assign]
+    kernel._budget_gate.release = record_release  # type: ignore[method-assign]
+
+    with pytest.raises(sqlite3.OperationalError, match="start persistence failure"):
+        kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_calls == 0
+    assert len(release_results) == 1
+    assert release_results[0].allowed is True
+    assert release_results[0].receipt_ref is not None
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_start_persistence_failure_surfaces_unconfirmed_budget_release(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="start-persistence-release-unconfirmed"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    dispatch_calls = 0
+
+    def fail_start(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise sqlite3.OperationalError("synthetic start persistence failure")
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    kernel._store.claim_start = fail_start  # type: ignore[method-assign]
+    kernel._budget_gate.release = (  # type: ignore[method-assign]
+        lambda _request, _reservation_ref, _reason_ref: BudgetSettlement(
+            allowed=False,
+            reason_refs=[
+                "reason-ref:governed-external-action:budget-release-failed"
+            ],
+        )
+    )
+
+    with pytest.raises(
+        ExternalActionTransactionConflict,
+        match=(
+            "GOVERNED_EXTERNAL_ACTION_START_PERSISTENCE_FAILED_"
+            "BUDGET_RELEASE_UNCONFIRMED"
+        ),
+    ):
+        kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_calls == 0
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
 def test_lost_start_claim_releases_only_a_distinct_unused_reservation(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -1233,11 +1388,17 @@ def test_lost_start_claim_releases_only_a_distinct_unused_reservation(
     original_claim_start = kernel._store.claim_start
     owner_reservation_ref = _ref("budget-reservation", "winning-owner")
 
-    def lose_claim(item, *, budget_reservation_ref=None):  # type: ignore[no-untyped-def]
+    def lose_claim(
+        item,
+        *,
+        budget_reservation_ref=None,
+        dispatch_timeout_seconds=30.0,
+    ):  # type: ignore[no-untyped-def]
         assert budget_reservation_ref is not None
         assert original_claim_start(
             item,
             budget_reservation_ref=owner_reservation_ref,
+            dispatch_timeout_seconds=dispatch_timeout_seconds,
         )
         return False
 
@@ -1265,11 +1426,13 @@ def test_lost_start_claim_preserves_the_winners_shared_reservation(
         item,
         *,
         budget_reservation_ref=None,
+        dispatch_timeout_seconds=30.0,
     ):  # type: ignore[no-untyped-def]
         assert budget_reservation_ref is not None
         assert original_claim_start(
             item,
             budget_reservation_ref=budget_reservation_ref,
+            dispatch_timeout_seconds=dispatch_timeout_seconds,
         )
         return False
 
@@ -1342,11 +1505,13 @@ def test_lost_start_claim_surfaces_distinct_local_release_proof_after_terminal(
         item,
         *,
         budget_reservation_ref=None,
+        dispatch_timeout_seconds=30.0,
     ):  # type: ignore[no-untyped-def]
         assert budget_reservation_ref is not None
         assert original_claim_start(
             item,
             budget_reservation_ref=owner_reservation_ref,
+            dispatch_timeout_seconds=dispatch_timeout_seconds,
         )
         terminal = kernel._build_receipt(
             item,
@@ -1385,11 +1550,13 @@ def test_lost_start_claim_rejects_release_without_receipt_proof(
         item,
         *,
         budget_reservation_ref=None,
+        dispatch_timeout_seconds=30.0,
     ):  # type: ignore[no-untyped-def]
         assert budget_reservation_ref is not None
         assert original_claim_start(
             item,
             budget_reservation_ref=_ref("budget-reservation", "distinct-owner"),
+            dispatch_timeout_seconds=dispatch_timeout_seconds,
         )
         return False
 

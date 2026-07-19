@@ -99,6 +99,8 @@ def _request(
 def _receipt(
     request: ExternalActionExecutionRequest,
     state: ExternalActionState,
+    *,
+    reason_refs_override: list[str] | None = None,
 ) -> ExternalActionReceipt:
     evidence_refs = (
         [_ref("evidence", "verified")]
@@ -106,9 +108,13 @@ def _receipt(
         else [_ref("evidence", "dispatch-observed")]
     )
     reason_refs = (
-        [_ref("reason", "outcome-uncertain")]
-        if state == ExternalActionState.outcome_ambiguous
-        else []
+        reason_refs_override
+        if reason_refs_override is not None
+        else (
+            [_ref("reason", "outcome-uncertain")]
+            if state == ExternalActionState.outcome_ambiguous
+            else []
+        )
     )
     payload = {
         "transaction_ref": request.binding.transaction_ref,
@@ -375,6 +381,30 @@ def test_ambiguous_receipt_requires_manual_reconciliation_and_never_retries() ->
         envelope.retry_posture
         == ExternalActionRetryPosture.manual_reconciliation_required_no_retry.value
     )
+    assert envelope.automatic_retry_allowed is False
+
+
+def test_blocked_receipt_with_unconfirmed_budget_release_requires_reconciliation() -> (
+    None
+):
+    request = _request(_binding(suffix="blocked-release-unconfirmed"))
+    receipt = _receipt(
+        request,
+        ExternalActionState.blocked,
+        reason_refs_override=[
+            "reason-ref:governed-external-action:budget-release-unconfirmed"
+        ],
+    )
+
+    envelope = _envelope(request, receipt=receipt)
+
+    assert envelope.status == ExternalActionInboxStatus.reconciliation_required.value
+    assert (
+        envelope.reconciliation_status
+        == ExternalActionReconciliationStatus.required.value
+    )
+    assert envelope.reconciliation_required is True
+    assert envelope.retry_posture == ExternalActionRetryPosture.terminal_no_retry.value
     assert envelope.automatic_retry_allowed is False
 
 

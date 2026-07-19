@@ -372,6 +372,7 @@ class ExternalActionTransactionStore:
                     state TEXT NOT NULL,
                     receipt_json TEXT,
                     budget_reservation_ref TEXT,
+                    dispatch_timeout_seconds REAL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
@@ -387,6 +388,11 @@ class ExternalActionTransactionStore:
                 connection.execute(
                     "ALTER TABLE governed_external_actions "
                     "ADD COLUMN budget_reservation_ref TEXT"
+                )
+            if "dispatch_timeout_seconds" not in columns:
+                connection.execute(
+                    "ALTER TABLE governed_external_actions "
+                    "ADD COLUMN dispatch_timeout_seconds REAL"
                 )
             connection.execute(
                 """
@@ -431,12 +437,13 @@ class ExternalActionTransactionStore:
                 connection.execute(
                     "INSERT INTO governed_external_actions "
                     "(transaction_ref, fingerprint_ref, state, receipt_json, "
-                    "budget_reservation_ref, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "budget_reservation_ref, dispatch_timeout_seconds, created_at, "
+                    "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         request.binding.transaction_ref,
                         fingerprint,
                         ExternalActionState.prepared.value,
+                        None,
                         None,
                         None,
                         now,
@@ -571,6 +578,43 @@ class ExternalActionTransactionStore:
             validate_task_ref(row[2], "budget_reservation_ref")
         return row[2]
 
+    def started_dispatch_timeout_seconds_if_exact(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> float | None:
+        """Return the exact owner's durable dispatch window for stale recovery."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state, dispatch_timeout_seconds "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] != ExternalActionState.started.value:
+            return None
+        timeout_seconds = row[2]
+        if timeout_seconds is None:
+            return MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or not 0 < timeout_seconds <= MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+        ):
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_DISPATCH_TIMEOUT_INVALID"
+            )
+        return float(timeout_seconds)
+
     def budget_reservation_ref_if_exact(
         self,
         request: ExternalActionExecutionRequest,
@@ -648,9 +692,16 @@ class ExternalActionTransactionStore:
         request: ExternalActionExecutionRequest,
         *,
         budget_reservation_ref: str | None = None,
+        dispatch_timeout_seconds: float = MAX_EXTERNAL_ACTION_DISPATCH_SECONDS,
     ) -> bool:
         if budget_reservation_ref is not None:
             validate_task_ref(budget_reservation_ref, "budget_reservation_ref")
+        if (
+            isinstance(dispatch_timeout_seconds, bool)
+            or not isinstance(dispatch_timeout_seconds, (int, float))
+            or not 0 < dispatch_timeout_seconds <= MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+        ):
+            raise ValueError("GOVERNED_EXTERNAL_ACTION_DISPATCH_TIMEOUT_INVALID")
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
@@ -659,11 +710,13 @@ class ExternalActionTransactionStore:
             connection.execute("BEGIN IMMEDIATE")
             changed = connection.execute(
                 "UPDATE governed_external_actions SET state = ?, "
-                "budget_reservation_ref = ?, updated_at = ? "
+                "budget_reservation_ref = ?, dispatch_timeout_seconds = ?, "
+                "updated_at = ? "
                 "WHERE transaction_ref = ? AND fingerprint_ref = ? AND state = ?",
                 (
                     ExternalActionState.started.value,
                     budget_reservation_ref,
+                    float(dispatch_timeout_seconds),
                     utc_now().isoformat(),
                     request.binding.transaction_ref,
                     fingerprint,
@@ -1106,6 +1159,43 @@ class GovernedExternalActionKernel:
                 self._store.release_dispatch_slot(request, process_lock_fd)
                 process_lock_fd = None
 
+        def claim_start_or_release(reservation_ref: str) -> bool:
+            """Persist the exact start or release every resource owned here."""
+
+            try:
+                return self._store.claim_start(
+                    request,
+                    budget_reservation_ref=reservation_ref,
+                    dispatch_timeout_seconds=self._dispatch_timeout_seconds,
+                )
+            except BaseException as start_error:
+                try:
+                    try:
+                        release = self._budget_gate.release(
+                            request,
+                            reservation_ref,
+                            (
+                                "reason-ref:governed-external-action:"
+                                "start-persistence-failed"
+                            ),
+                        )
+                    except BaseException:
+                        release = BudgetSettlement(
+                            allowed=False,
+                            reason_refs=[
+                                "reason-ref:governed-external-action:"
+                                "budget-release-failed"
+                            ],
+                        )
+                finally:
+                    release_dispatch_ownership()
+                if not release.allowed or release.receipt_ref is None:
+                    raise ExternalActionTransactionConflict(
+                        "GOVERNED_EXTERNAL_ACTION_START_PERSISTENCE_FAILED_"
+                        "BUDGET_RELEASE_UNCONFIRMED"
+                    ) from start_error
+                raise
+
         try:
             reservation = self._budget_gate.reserve(request, approval_validation)
         except Exception:
@@ -1194,14 +1284,7 @@ class GovernedExternalActionKernel:
         ]
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
-            try:
-                start_claimed = self._store.claim_start(
-                    request,
-                    budget_reservation_ref=reservation.reservation_ref,
-                )
-            except BaseException:
-                release_dispatch_ownership()
-                raise
+            start_claimed = claim_start_or_release(reservation.reservation_ref)
             if not start_claimed:
                 try:
                     return self._lost_start_claim_receipt(
@@ -1248,14 +1331,7 @@ class GovernedExternalActionKernel:
             finally:
                 release_dispatch_ownership()
 
-        try:
-            start_claimed = self._store.claim_start(
-                request,
-                budget_reservation_ref=reservation.reservation_ref,
-            )
-        except BaseException:
-            release_dispatch_ownership()
-            raise
+        start_claimed = claim_start_or_release(reservation.reservation_ref)
         if not start_claimed:
             try:
                 return self._lost_start_claim_receipt(
@@ -1851,6 +1927,11 @@ class GovernedExternalActionKernel:
         started_at = self._store.started_at_if_exact(request)
         if started_at is None:
             return None
+        owner_dispatch_timeout_seconds = (
+            self._store.started_dispatch_timeout_seconds_if_exact(request)
+        )
+        if owner_dispatch_timeout_seconds is None:
+            return None
         try:
             current_time = self._clock()
         except Exception:
@@ -1863,7 +1944,7 @@ class GovernedExternalActionKernel:
         # the orphan as ambiguous.  Recovery never redispatches the action.
         recovery_not_before = started_at + timedelta(
             seconds=(
-                MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+                owner_dispatch_timeout_seconds
                 + EXTERNAL_ACTION_RECOVERY_SETTLEMENT_GRACE_SECONDS
             )
         )

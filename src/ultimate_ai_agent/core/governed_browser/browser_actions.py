@@ -413,6 +413,32 @@ class ExactBrowserActionReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_BROWSER_ACTION_REPLAY_FLAG_REQUIRED")
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            self.status == ExactBrowserActionStatus.preflight_blocked.value
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ACTION_PREFLIGHT_EXTERNAL_PROOF_DENIED"
+            )
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
         identity_payload = governed_receipt_identity_payload(self)
         expected_receipt_refs = {
             stable_governed_browser_ref(
