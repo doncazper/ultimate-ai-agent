@@ -28,7 +28,8 @@ them in individual lane services:
 - terminal writes use SQLite compare-and-swap from the exact expected state,
   so a concurrent or stale writer cannot overwrite a receipt;
 - a competing execution caller no longer terminalizes a start owned by another
-  caller; explicit restart recovery alone may settle an orphan as ambiguous;
+  caller; explicit restart recovery may settle an orphan as ambiguous only
+  after the bounded dispatch window and a five-second settlement grace;
 - durable and returned external-action receipts recompute their own exact
   content-derived identity when read or deserialized;
 - idempotency identifiers must be SHA-256-pinned safe refs; and
@@ -54,7 +55,7 @@ content-free; this evidence does not stand in for a live external facility.
 | page mutation between approval and dispatch | Repeated readiness checks bind the exact snapshot and mutation signal. |
 | duplicate submission | One action, durable start ownership, idempotency, and duplicate-submit signals prevent retry. |
 | timeout after dispatch | Bounded dispatch returns non-retryable `outcome_ambiguous`. |
-| crash, replay, interruption, restart, and settlement recovery | Orphan recovery, terminal replay, CAS writes, and mandatory settlement proof preserve ambiguity truth. |
+| crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; after the dispatch-plus-settlement grace, orphan recovery, terminal replay, CAS writes, and mandatory settlement proof preserve ambiguity truth without redispatch. |
 | concurrent execution | Only the durable start owner dispatches; contenders cannot terminalize or clobber it. |
 | kill-switch races | Revalidation after start changes the result to ambiguous without retry. |
 | safe-disable races | Revalidation after start changes the result to ambiguous without retry. |

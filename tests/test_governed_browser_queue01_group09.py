@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -816,6 +817,15 @@ def test_prior_started_transaction_remains_outcome_ambiguous_after_recipe_expiry
     assert prepared_state == "prepared"
     assert prepared_receipt is None
     assert store.claim_start(kernel_request) is True
+    with sqlite3.connect(tmp_path / "transactions.sqlite3") as connection:
+        connection.execute(
+            "UPDATE governed_external_actions SET updated_at = ? "
+            "WHERE transaction_ref = ?",
+            (
+                (utc_now() - timedelta(minutes=2)).isoformat(),
+                kernel_request.binding.transaction_ref,
+            ),
+        )
 
     result = service.prepare(_exact(request, recipe))
 

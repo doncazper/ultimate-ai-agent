@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from queue import Empty, Queue
 from threading import BoundedSemaphore, RLock, Thread
@@ -364,6 +364,42 @@ class ExternalActionTransactionStore:
                 "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
             )
         return ExternalActionState(row[1])
+
+    def started_at_if_exact(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> datetime | None:
+        """Return the durable start time only for the exact active request."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state, updated_at "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] != ExternalActionState.started.value:
+            return None
+        try:
+            started_at = datetime.fromisoformat(row[2])
+        except (TypeError, ValueError) as exc:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_STARTED_AT_INVALID"
+            ) from exc
+        if started_at.tzinfo is None:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_STARTED_AT_INVALID"
+            )
+        return started_at
 
     def terminal_receipt_by_ref(
         self,
@@ -985,7 +1021,23 @@ class GovernedExternalActionKernel:
         request = ExternalActionExecutionRequest.model_validate(
             request.model_dump(mode="json")
         )
-        if self._store.state_if_exact(request) != ExternalActionState.started:
+        started_at = self._store.started_at_if_exact(request)
+        if started_at is None:
+            return None
+        try:
+            current_time = self._clock()
+        except Exception:
+            return None
+        if current_time.tzinfo is None:
+            return None
+        # A normal caller must not mistake a live dispatch owner for a crashed
+        # process.  The owner has the bounded dispatch window plus a settlement
+        # grace period before restart recovery may conservatively terminalize
+        # the orphan as ambiguous.  Recovery never redispatches the action.
+        recovery_not_before = started_at + timedelta(
+            seconds=self._dispatch_timeout_seconds + 5.0
+        )
+        if current_time < recovery_not_before:
             return None
         return self._finish(
             request,

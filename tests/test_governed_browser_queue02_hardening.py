@@ -382,6 +382,18 @@ def test_concurrent_execute_never_clobbers_the_dispatch_owner(tmp_path) -> None:
     assert calls == 1
 
 
+def test_restart_recovery_cannot_terminalize_a_fresh_live_start(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="fresh-start-recovery"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    store.prepare(request)
+    assert store.claim_start(request) is True
+
+    assert kernel.recover_if_prior_start(request) is None
+    assert store.state_if_exact(request) == ExternalActionState.started
+    assert store.replay_if_terminal(request) is None
+
+
 def test_terminal_compare_and_swap_rejects_overwrite(tmp_path) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="terminal-cas"))
     store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")

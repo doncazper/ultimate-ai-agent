@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import timedelta
 from pathlib import Path
 
@@ -660,6 +661,15 @@ def test_expired_recipe_is_preflight_denial_but_prior_start_is_ambiguous(
     store = ExternalActionTransactionStore(recovery_path / "transactions.sqlite3")
     store.prepare(kernel_request)
     assert store.claim_start(kernel_request) is True
+    with sqlite3.connect(recovery_path / "transactions.sqlite3") as connection:
+        connection.execute(
+            "UPDATE governed_external_actions SET updated_at = ? "
+            "WHERE transaction_ref = ?",
+            (
+                (utc_now() - timedelta(minutes=2)).isoformat(),
+                kernel_request.binding.transaction_ref,
+            ),
+        )
     recovered = recovery_service.prepare(_exact(request, recipe))
 
     assert recovered.receipt.status == "outcome_ambiguous"
