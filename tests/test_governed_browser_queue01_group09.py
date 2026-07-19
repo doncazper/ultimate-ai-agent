@@ -899,6 +899,49 @@ def test_legacy_failed_operation_receipt_preserves_empty_kernel_reasons(
     ]
 
 
+def test_legacy_failed_operation_receipt_preserves_nonempty_kernel_reasons(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.send_communication,
+        suffix="legacy-failed-nonempty-kernel-reasons",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    kernel = service._kernel
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    kernel_reason_ref = "reason-ref:governed-external-action:dispatch-exception"
+    failed_receipt = kernel._build_receipt(
+        kernel_execution,
+        ExternalActionState.failed,
+        [kernel_reason_ref],
+    )
+    monkeypatch.setattr(kernel, "execute", lambda *args, **kwargs: failed_receipt)
+    result = service.prepare(_exact(request, recipe))
+    legacy_payload = result.receipt.model_dump(mode="json")
+    legacy_payload.pop("external_action_reason_refs")
+    legacy_payload.pop("budget_release_ref", None)
+    legacy_payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        {key: value for key, value in legacy_payload.items() if key != "receipt_ref"},
+    )
+
+    restored = GovernedExternalOperationReceipt.model_validate(legacy_payload)
+
+    assert restored.external_action_reason_refs is None
+    assert restored.external_action_receipt_ref == (
+        result.receipt.external_action_receipt_ref
+    )
+    assert restored.reason_refs == [kernel_reason_ref]
+
+
 def test_expired_recipe_is_non_mutating_preflight_denial(tmp_path: Path) -> None:
     now = utc_now()
     request, recipe, registry = _operation_context(

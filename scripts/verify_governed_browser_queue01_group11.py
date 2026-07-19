@@ -124,7 +124,7 @@ def verify() -> list[str]:
             "test_receipt_and_plan_are_safe_ref_only_and_record_no_intent_content",
             "test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref",
             "test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact",
-            "test_legacy_external_receipt_snapshot_omits_absent_release_proof",
+            "test_legacy_external_receipt_snapshot_preserves_absent_release_hash",
         ),
         "doc": (
             "13. Exact registered-operation task composer",

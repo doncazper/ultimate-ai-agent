@@ -14,7 +14,7 @@ import re
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -1074,6 +1074,13 @@ class GovernedTaskCompositionPlan(BaseModel):
         return self
 
 
+def _external_receipt_snapshot_identity_payload(snapshot: BaseModel) -> dict[str, Any]:
+    payload = snapshot.model_dump(mode="json", exclude={"snapshot_ref"})
+    if payload.get("budget_release_ref") is None:
+        payload.pop("budget_release_ref", None)
+    return payload
+
+
 class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     """Immutable content-free copy of one exact kernel receipt and proof chain."""
 
@@ -1089,10 +1096,7 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-    )
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
@@ -1212,7 +1216,7 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
             )
         expected_snapshot_ref = stable_governed_browser_ref(
             "external-receipt-snapshot-ref:governed-task-composer",
-            self.model_dump(mode="json", exclude={"snapshot_ref"}),
+            _external_receipt_snapshot_identity_payload(self),
         )
         if self.snapshot_ref != expected_snapshot_ref:
             raise ValueError(
@@ -1245,12 +1249,14 @@ def _build_external_receipt_snapshot(
     }
     snapshot_ref = stable_governed_browser_ref(
         "external-receipt-snapshot-ref:governed-task-composer",
-        GovernedTaskCompositionExternalReceiptSnapshot.model_construct(
-            snapshot_ref=(
-                "external-receipt-snapshot-ref:governed-task-composer:pending"
-            ),
-            **payload,
-        ).model_dump(mode="json", exclude={"snapshot_ref"}),
+        _external_receipt_snapshot_identity_payload(
+            GovernedTaskCompositionExternalReceiptSnapshot.model_construct(
+                snapshot_ref=(
+                    "external-receipt-snapshot-ref:governed-task-composer:pending"
+                ),
+                **payload,
+            )
+        ),
     )
     return GovernedTaskCompositionExternalReceiptSnapshot(
         snapshot_ref=snapshot_ref,

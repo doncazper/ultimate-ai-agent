@@ -29,9 +29,10 @@ them in individual lane services:
   receipt proof, including on ledger replay where the original semantic status
   remains authoritative and a replayed denial cannot become an allow;
   pre-start blocks retain the release proof, and missing
-  settlement proof becomes `outcome_ambiguous`; a post-start guard that proves
-  dispatch was never invoked (including shared-capacity denial) releases unused
-  budget, while restart recovery reconciles an exact prior release before it
+  settlement proof becomes `outcome_ambiguous`; shared-capacity denial occurs
+  before budget reservation, while any post-start guard that proves dispatch
+  was never invoked releases unused budget and restart recovery reconciles an
+  exact prior release before it
   attempts ambiguous settlement of the persisted reservation; a lost start
   claim releases only a distinct losing reservation and
   never releases the idempotent reservation still owned by the winning start;
@@ -39,8 +40,11 @@ them in individual lane services:
   and a losing caller returns its own verified release proof even when the
   winner has already terminalized;
 - dispatch has one SQLite-backed nonblocking capacity slot plus a process-held
-  OS file lock shared by every kernel instance using the transaction store and
-  a maximum thirty-second deadline; the caller returns at that deadline even
+  OS file lock shared by every kernel instance using the transaction store. The
+  exact slot is claimed before budget reservation and the durable start, so it
+  covers pre-dispatch revalidation and prevents restart recovery from stealing
+  a live start. Dispatch has a maximum thirty-second deadline; the caller
+  returns at that deadline even
   when an arbitrary callback remains live, but the detached worker retains the
   sole durable/process slot through callback completion, budget settlement, and
   terminal close. A worker that has not begun dispatch by the caller deadline

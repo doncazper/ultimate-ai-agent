@@ -1059,6 +1059,51 @@ class GovernedExternalActionKernel:
                 authority_decision_ref=authority_decision.decision_ref,
             )
 
+        process_lock_fd: int | None = None
+        dispatch_ownership_transferred = False
+        try:
+            process_lock_fd = self._store.claim_dispatch_slot(request)
+        except Exception:
+            dispatch_result = self._ambiguous_dispatch_result(
+                request, "dispatch-capacity-check-failed"
+            )
+            return self._build_receipt(
+                request,
+                ExternalActionState.outcome_ambiguous,
+                [
+                    "reason-ref:governed-external-action:dispatch-capacity-check-failed"
+                ],
+                approval_validation_ref=approval_validation_ref,
+                authority_decision_ref=authority_decision.decision_ref,
+                evidence_refs=list(dispatch_result.evidence_refs),
+            )
+        if process_lock_fd is None:
+            if self._store.dispatch_slot_is_owned_by(request):
+                return self._build_receipt(
+                    request,
+                    ExternalActionState.outcome_ambiguous,
+                    ["reason-ref:governed-external-action:start-already-claimed"],
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision.decision_ref,
+                )
+            dispatch_result = self._ambiguous_dispatch_result(
+                request, "dispatch-capacity-bounded"
+            )
+            return self._finish(
+                request,
+                ExternalActionState.outcome_ambiguous,
+                ["reason-ref:governed-external-action:dispatch-capacity-bounded"],
+                approval_validation_ref=approval_validation_ref,
+                authority_decision_ref=authority_decision.decision_ref,
+                evidence_refs=list(dispatch_result.evidence_refs),
+            )
+
+        def release_dispatch_ownership() -> None:
+            nonlocal process_lock_fd
+            if process_lock_fd is not None:
+                self._store.release_dispatch_slot(request, process_lock_fd)
+                process_lock_fd = None
+
         try:
             reservation = self._budget_gate.reserve(request, approval_validation)
         except Exception:
@@ -1073,16 +1118,19 @@ class GovernedExternalActionKernel:
             or reservation.reservation_ref is None
             or reservation.receipt_ref is None
         ):
-            return self._finish(
-                request,
-                ExternalActionState.blocked,
-                [
-                    "reason-ref:governed-external-action:budget-reservation-denied",
-                    *reservation.reason_refs,
-                ],
-                approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision.decision_ref,
-            )
+            try:
+                return self._finish(
+                    request,
+                    ExternalActionState.blocked,
+                    [
+                        "reason-ref:governed-external-action:budget-reservation-denied",
+                        *reservation.reason_refs,
+                    ],
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision.decision_ref,
+                )
+            finally:
+                release_dispatch_ownership()
 
         preclaim_readiness_reasons = self._revalidation_reasons(request)
         (
@@ -1103,16 +1151,24 @@ class GovernedExternalActionKernel:
         ]
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
-            if not self._store.claim_start(
-                request,
-                budget_reservation_ref=reservation.reservation_ref,
-            ):
-                return self._lost_start_claim_receipt(
+            try:
+                start_claimed = self._store.claim_start(
                     request,
-                    reservation_ref=reservation.reservation_ref,
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
+                    budget_reservation_ref=reservation.reservation_ref,
                 )
+            except BaseException:
+                release_dispatch_ownership()
+                raise
+            if not start_claimed:
+                try:
+                    return self._lost_start_claim_receipt(
+                        request,
+                        reservation_ref=reservation.reservation_ref,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                    )
+                finally:
+                    release_dispatch_ownership()
             try:
                 release = self._budget_gate.release(
                     request,
@@ -1133,30 +1189,41 @@ class GovernedExternalActionKernel:
                         *release.reason_refs,
                     ]
                 )
-            return self._finish(
+            try:
+                return self._finish(
+                    request,
+                    ExternalActionState.blocked,
+                    revalidation_reasons,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    budget_reservation_ref=reservation.reservation_ref,
+                    budget_release_ref=(
+                        release.receipt_ref if release.allowed else None
+                    ),
+                    expected_state=ExternalActionState.started,
+                )
+            finally:
+                release_dispatch_ownership()
+
+        try:
+            start_claimed = self._store.claim_start(
                 request,
-                ExternalActionState.blocked,
-                revalidation_reasons,
-                approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision_ref,
                 budget_reservation_ref=reservation.reservation_ref,
-                budget_release_ref=(release.receipt_ref if release.allowed else None),
-                expected_state=ExternalActionState.started,
             )
+        except BaseException:
+            release_dispatch_ownership()
+            raise
+        if not start_claimed:
+            try:
+                return self._lost_start_claim_receipt(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                )
+            finally:
+                release_dispatch_ownership()
 
-        if not self._store.claim_start(
-            request,
-            budget_reservation_ref=reservation.reservation_ref,
-        ):
-            return self._lost_start_claim_receipt(
-                request,
-                reservation_ref=reservation.reservation_ref,
-                approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision_ref,
-            )
-
-        process_lock_fd: int | None = None
-        dispatch_ownership_transferred = False
         with self._approval_authority.hold_validation_lock():
             # Adapter readiness is observed first, then approval and lease are
             # the final checks before the bounded dispatch handoff while
@@ -1187,48 +1254,19 @@ class GovernedExternalActionKernel:
                 )
             )
             if post_claim_reasons:
-                return self._finish_started_guard_failure(
-                    request,
-                    reservation_ref=reservation.reservation_ref,
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
-                    reason_refs=[
-                        "reason-ref:governed-external-action:post-start-revalidation-denied",
-                        *post_claim_reasons,
-                    ],
-                )
-
-            try:
-                process_lock_fd = self._store.claim_dispatch_slot(request)
-            except Exception:
-                process_lock_fd = None
-                dispatch_result = self._ambiguous_dispatch_result(
-                    request, "dispatch-capacity-check-failed"
-                )
-                return self._finish_started_guard_failure(
-                    request,
-                    reservation_ref=reservation.reservation_ref,
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
-                    reason_refs=[
-                        "reason-ref:governed-external-action:dispatch-capacity-check-failed"
-                    ],
-                    evidence_refs=list(dispatch_result.evidence_refs),
-                )
-            if process_lock_fd is None:
-                dispatch_result = self._ambiguous_dispatch_result(
-                    request, "dispatch-capacity-bounded"
-                )
-                return self._finish_started_guard_failure(
-                    request,
-                    reservation_ref=reservation.reservation_ref,
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
-                    reason_refs=[
-                        "reason-ref:governed-external-action:dispatch-capacity-bounded"
-                    ],
-                    evidence_refs=list(dispatch_result.evidence_refs),
-                )
+                try:
+                    return self._finish_started_guard_failure(
+                        request,
+                        reservation_ref=reservation.reservation_ref,
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision_ref,
+                        reason_refs=[
+                            "reason-ref:governed-external-action:post-start-revalidation-denied",
+                            *post_claim_reasons,
+                        ],
+                    )
+                finally:
+                    release_dispatch_ownership()
 
             try:
                 (

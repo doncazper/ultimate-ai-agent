@@ -1013,6 +1013,50 @@ def test_dispatch_slot_remains_owned_through_settlement_and_terminal_close(
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
+def test_dispatch_slot_is_owned_before_post_claim_revalidation(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="pre-revalidation-owner"))
+    post_claim_entered = threading.Event()
+    allow_post_claim = threading.Event()
+    readiness_reads = 0
+    calls = 0
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        nonlocal readiness_reads
+        readiness_reads += 1
+        if readiness_reads == 2:
+            post_claim_entered.set()
+            assert allow_post_claim.wait(timeout=2)
+        return _readiness(item)
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        owner_future = pool.submit(kernel.execute, request, dispatch=dispatch)
+        assert post_claim_entered.wait(timeout=2)
+        started_at = kernel._store.started_at_if_exact(request)
+        assert started_at is not None
+        kernel._clock = lambda: started_at + timedelta(seconds=36)
+        assert kernel._store.dispatch_slot_is_owned_by(request) is True
+        assert kernel.recover_if_prior_start(request) is None
+        assert kernel._store.state_if_exact(request) == ExternalActionState.started
+        allow_post_claim.set()
+        receipt = owner_future.result(timeout=2)
+
+    assert calls == 1
+    assert receipt.state == ExternalActionState.succeeded.value
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
 def test_replayed_denied_budget_release_remains_denied(tmp_path) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="replayed-denied-release"))
     kernel, _ = _authorized_kernel(tmp_path, request)
@@ -1084,7 +1128,8 @@ def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
     assert "reason-ref:governed-external-action:dispatch-capacity-bounded" in (
         second.reason_refs
     )
-    assert second.budget_release_ref is not None
+    assert second.budget_reservation_ref is None
+    assert second.budget_release_ref is None
     assert second.budget_settlement_ref is None
 
 
@@ -1148,31 +1193,22 @@ def test_lost_start_claim_preserves_the_winners_shared_reservation(
     )
 
 
-def test_preclaim_denial_never_releases_a_live_owners_shared_reservation(
+def test_same_request_contender_never_releases_live_owner_reservation(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="preclaim-live-owner"))
-    roles = threading.local()
-    preclaim_barrier = threading.Barrier(2)
-    owner_claimed = threading.Event()
-    contender_lost_claim = threading.Event()
+    preclaim_entered = threading.Event()
+    allow_preclaim = threading.Event()
     release_refs: list[str] = []
+    readiness_reads = 0
 
     def readiness(item):  # type: ignore[no-untyped-def]
-        role = roles.value
-        reads = getattr(roles, "reads", 0) + 1
-        roles.reads = reads
-        if reads == 1:
-            preclaim_barrier.wait(timeout=10)
-            if role == "contender":
-                assert owner_claimed.wait(timeout=10)
-                return _readiness(item, safe_disable=True)
+        nonlocal readiness_reads
+        readiness_reads += 1
+        if readiness_reads == 1:
+            preclaim_entered.set()
+            assert allow_preclaim.wait(timeout=2)
         return _readiness(item)
-
-    def execute_as(role):  # type: ignore[no-untyped-def]
-        roles.value = role
-        roles.reads = 0
-        return kernel.execute(request, dispatch=_success)
 
     kernel, _ = _authorized_kernel(
         tmp_path,
@@ -1180,43 +1216,25 @@ def test_preclaim_denial_never_releases_a_live_owners_shared_reservation(
         readiness_provider=readiness,
     )
     original_release = kernel._budget_gate.release
-    original_claim_start = kernel._store.claim_start
-
-    def ordered_claim_start(
-        item,
-        *,
-        budget_reservation_ref=None,
-    ):  # type: ignore[no-untyped-def]
-        claimed = original_claim_start(
-            item,
-            budget_reservation_ref=budget_reservation_ref,
-        )
-        if roles.value == "owner":
-            assert claimed is True
-            owner_claimed.set()
-            assert contender_lost_claim.wait(timeout=10)
-        else:
-            assert claimed is False
-            contender_lost_claim.set()
-        return claimed
 
     def record_release(item, reservation_ref, reason_ref):  # type: ignore[no-untyped-def]
         release_refs.append(reservation_ref)
         return original_release(item, reservation_ref, reason_ref)
 
-    kernel._store.claim_start = ordered_claim_start  # type: ignore[method-assign]
     kernel._budget_gate.release = record_release  # type: ignore[method-assign]
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        owner_future = pool.submit(execute_as, "owner")
-        contender_future = pool.submit(execute_as, "contender")
-        contender = contender_future.result(timeout=12)
-        owner = owner_future.result(timeout=12)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        owner_future = pool.submit(kernel.execute, request, dispatch=_success)
+        assert preclaim_entered.wait(timeout=2)
+        contender = kernel.execute(request, dispatch=_success)
+        allow_preclaim.set()
+        owner = owner_future.result(timeout=2)
 
     assert release_refs == []
     assert contender.state == ExternalActionState.outcome_ambiguous.value
+    assert contender.budget_reservation_ref is None
     assert contender.budget_release_ref is None
     assert owner.state == ExternalActionState.succeeded.value, owner
-    assert owner.budget_reservation_ref == contender.budget_reservation_ref
+    assert owner.budget_reservation_ref is not None
     assert owner.budget_settlement_ref is not None
 
 
