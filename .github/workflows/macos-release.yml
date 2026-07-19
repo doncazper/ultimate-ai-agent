@@ -106,7 +106,6 @@ jobs:
           python3.12 -m venv .macos-build-venv
           .macos-build-venv/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .macos-build-venv/bin/uv sync --frozen --extra dev --python python3.12
-          echo "$PWD/.macos-build-venv/bin" >> "$GITHUB_PATH"
           PYTHONPATH=src .venv/bin/python -m pytest \
             tests/test_macos_first_class_installer.py
 
@@ -146,7 +145,8 @@ jobs:
           if [ -n "$UAA_MACOS_NOTARY_PROFILE" ]; then
             args+=(--notary-profile "$UAA_MACOS_NOTARY_PROFILE")
           fi
-          PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py "${args[@]}"
+          PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH" \
+            PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py "${args[@]}"
 
       - name: Verify staged installer lifecycle
         run: |
