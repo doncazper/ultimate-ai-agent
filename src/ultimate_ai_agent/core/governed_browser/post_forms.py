@@ -670,6 +670,10 @@ class ExactPostFormResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> "ExactPostFormResult":
+        if not self.receipt.receipt_ref.startswith(
+            "receipt-ref:governed-post-form:"
+        ):
+            raise ValueError("GOVERNED_POST_FORM_RESULT_RECEIPT_KIND_MISMATCH")
         if self.receipt.status == ExactBrowserActionStatus.plan_ready.value:
             if self.plan is None:
                 raise ValueError("GOVERNED_POST_FORM_PLAN_REQUIRED")

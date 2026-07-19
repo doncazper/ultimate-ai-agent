@@ -20,13 +20,16 @@ from tests.test_governed_browser_queue01_group01 import (
 )
 from ultimate_ai_agent.core.governed_browser import (
     ExternalActionAdversarialSignals,
+    ExternalActionDispatchOutcome,
     ExternalActionReadiness,
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTransactionConflict,
     ExternalActionTransactionStore,
     ExactBrowserActionReceipt,
+    ExactBrowserActionResult,
     ExactBrowserObservationReceipt,
+    ExactPostFormResult,
     GovernedArtifactTransferReceipt,
     GovernedBrowserActivationPosture,
     GovernedBrowserOriginSessionReceipt,
@@ -333,6 +336,45 @@ def test_browser_action_receipt_identity_binds_budget_release_proof(
                 "budget_release_ref": _ref("budget-release", "substituted"),
             }
         )
+
+
+def test_browser_action_and_post_form_results_reject_cross_lane_receipts() -> None:
+    payload = {
+        "recipe_ref": _ref("recipe", "lane-bound-result"),
+        "transaction_ref": _ref("transaction", "lane-bound-result"),
+        "intent_ref": _ref("intent", "lane-bound-result"),
+        "binding_ref": _ref("binding", "lane-bound-result"),
+        "status": "transaction_blocked",
+        "external_action_state": ExternalActionState.blocked,
+        "external_action_receipt_ref": _ref("receipt", "external-action"),
+        "reason_refs": [_ref("reason", "lane-bound-result")],
+    }
+
+    def receipt(prefix: str) -> ExactBrowserActionReceipt:
+        receipt_ref = stable_governed_browser_ref(
+            prefix,
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{prefix}:pending",
+                **payload,
+            ).model_dump(mode="json", exclude={"receipt_ref"}),
+        )
+        return ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
+
+    action_receipt = receipt("receipt-ref:governed-browser-action")
+    post_form_receipt = receipt("receipt-ref:governed-post-form")
+
+    ExactBrowserActionResult(receipt=action_receipt)
+    ExactPostFormResult(receipt=post_form_receipt)
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_RESULT_RECEIPT_KIND_MISMATCH",
+    ):
+        ExactBrowserActionResult(receipt=post_form_receipt)
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_POST_FORM_RESULT_RECEIPT_KIND_MISMATCH",
+    ):
+        ExactPostFormResult(receipt=action_receipt)
 
 
 def test_request_scope_is_deep_frozen_before_provider_callbacks(
@@ -644,6 +686,99 @@ def test_restart_recovery_reaps_stale_process_slot_and_settles_budget(
             "SELECT COUNT(*) FROM governed_external_action_dispatch_slot"
         ).fetchone()[0]
     assert slot_count == 0
+
+
+def test_execute_automatically_recovers_a_stale_started_transaction(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="automatic-stale-start-recovery"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    approval_validation = build_external_action_approval_request(
+        request
+    ).to_validation_request(request.approval_ref)
+    reservation = kernel._budget_gate.reserve(request, approval_validation)
+    assert reservation.allowed is True
+    assert reservation.reservation_ref is not None
+    kernel._store.prepare(request)
+    assert kernel._store.claim_start(
+        request,
+        budget_reservation_ref=reservation.reservation_ref,
+    ) is True
+    started_at = kernel._store.started_at_if_exact(request)
+    assert started_at is not None
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+    calls = 0
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    recovered = kernel.execute(request, dispatch=dispatch)
+
+    assert calls == 0
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+    assert recovered.budget_reservation_ref == reservation.reservation_ref
+    assert recovered.budget_settlement_ref is not None
+
+
+def test_recovery_reuses_a_prior_durable_settlement_proof(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="prior-settlement-recovery"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    approval_validation = build_external_action_approval_request(
+        request
+    ).to_validation_request(request.approval_ref)
+    reservation = kernel._budget_gate.reserve(request, approval_validation)
+    assert reservation.allowed is True
+    assert reservation.reservation_ref is not None
+    kernel._store.prepare(request)
+    assert kernel._store.claim_start(
+        request,
+        budget_reservation_ref=reservation.reservation_ref,
+    ) is True
+    prior_settlement = kernel._budget_gate.settle(
+        request,
+        reservation.reservation_ref,
+        ExternalActionDispatchOutcome.succeeded,
+        [_ref("evidence", "prior-durable-settlement")],
+    )
+    assert prior_settlement.allowed is True
+    assert prior_settlement.receipt_ref is not None
+    started_at = kernel._store.started_at_if_exact(request)
+    assert started_at is not None
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+    calls = 0
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    recovered = kernel.execute(request, dispatch=dispatch)
+
+    assert calls == 0
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+    assert recovered.budget_settlement_ref == prior_settlement.receipt_ref
+    assert not any(
+        marker in reason
+        for reason in recovered.reason_refs
+        for marker in ("budget-settlement-ambiguous", "budget-settlement-failed")
+    )
+
+
+def test_replayed_denied_budget_release_remains_denied(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="replayed-denied-release"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    reservation_ref = _ref("budget-reservation", "missing")
+    reason_ref = "reason-ref:governed-external-action:test-unused-release"
+
+    first = kernel._budget_gate.release(request, reservation_ref, reason_ref)
+    replay = kernel._budget_gate.release(request, reservation_ref, reason_ref)
+
+    assert first.allowed is False
+    assert replay.allowed is False
+    assert first.receipt_ref is not None
+    assert replay.receipt_ref is not None
 
 
 def test_stale_dispatch_slot_is_reaped_before_capacity_denial(tmp_path) -> None:  # type: ignore[no-untyped-def]

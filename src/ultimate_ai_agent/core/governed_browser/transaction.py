@@ -25,9 +25,12 @@ from ultimate_ai_agent.core.authority import (
 )
 from ultimate_ai_agent.core.authority.budget_contracts import (
     AuthorityBudgetExecutionStatus,
+    AuthorityBudgetOperation,
+    AuthorityBudgetReceipt,
     AuthorityBudgetStatus,
 )
 from ultimate_ai_agent.core.authority.budgets import (
+    AuthorityBudgetConflictError,
     AuthorityBudgetReleaseRequest,
     AuthorityBudgetReservationRequest,
     AuthorityBudgetSettlementRequest,
@@ -92,6 +95,10 @@ class BudgetSettlement(BaseModel):
     reason_refs: tuple[str, ...] = Field(default_factory=tuple)
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+
+def _semantic_budget_status(receipt: AuthorityBudgetReceipt) -> str:
+    return receipt.original_status or receipt.status
 
 
 class ExternalActionBudgetGate(Protocol):
@@ -191,10 +198,9 @@ class AuthorityBudgetStoreGate:
             ),
             approval_validator=self._approval_authority.validate,
         )
-        allowed = receipt.status in {
-            AuthorityBudgetStatus.reserved.value,
-            AuthorityBudgetStatus.replayed.value,
-        }
+        allowed = (
+            _semantic_budget_status(receipt) == AuthorityBudgetStatus.reserved.value
+        )
         return BudgetReservation(
             allowed=allowed,
             reservation_ref=receipt.reservation_ref,
@@ -221,11 +227,10 @@ class AuthorityBudgetStoreGate:
             )
         )
         return BudgetSettlement(
-            allowed=receipt.status
-            in {
-                AuthorityBudgetStatus.released.value,
-                AuthorityBudgetStatus.replayed.value,
-            },
+            allowed=(
+                _semantic_budget_status(receipt)
+                == AuthorityBudgetStatus.released.value
+            ),
             receipt_ref=receipt.receipt_ref,
             reason_refs=list(receipt.reason_refs),
         )
@@ -237,34 +242,75 @@ class AuthorityBudgetStoreGate:
         outcome: ExternalActionDispatchOutcome,
         evidence_refs: list[str],
     ) -> BudgetSettlement:
-        receipt = self._store.settle(
-            AuthorityBudgetSettlementRequest(
-                reservation_ref=reservation_ref,
-                idempotency_ref=stable_governed_browser_ref(
-                    "idempotency-ref:governed-external-action:budget-settle",
-                    {"idempotency_ref": request.idempotency_ref},
-                ),
-                actual_operation_count=1,
-                actual_cost_microusd=0,
-                actual_cost_ref=stable_governed_browser_ref(
-                    "actual-cost-ref:governed-external-action",
-                    {"intent_ref": request.intent_ref, "cost_microusd": 0},
-                ),
-                execution_status=(
-                    AuthorityBudgetExecutionStatus.succeeded
-                    if outcome == ExternalActionDispatchOutcome.succeeded
-                    else AuthorityBudgetExecutionStatus.failed
-                ),
-                evidence_refs=evidence_refs,
-                safe_summary="Settle one exact external-action operation.",
-            )
+        idempotency_ref = stable_governed_browser_ref(
+            "idempotency-ref:governed-external-action:budget-settle",
+            {"idempotency_ref": request.idempotency_ref},
         )
+        prior = self._prior_settlement(
+            reservation_ref=reservation_ref,
+            idempotency_ref=idempotency_ref,
+        )
+        if prior is not None:
+            return prior
+        settlement_request = AuthorityBudgetSettlementRequest(
+            reservation_ref=reservation_ref,
+            idempotency_ref=idempotency_ref,
+            actual_operation_count=1,
+            actual_cost_microusd=0,
+            actual_cost_ref=stable_governed_browser_ref(
+                "actual-cost-ref:governed-external-action",
+                {"intent_ref": request.intent_ref, "cost_microusd": 0},
+            ),
+            execution_status=(
+                AuthorityBudgetExecutionStatus.succeeded
+                if outcome == ExternalActionDispatchOutcome.succeeded
+                else AuthorityBudgetExecutionStatus.failed
+            ),
+            evidence_refs=evidence_refs,
+            safe_summary="Settle one exact external-action operation.",
+        )
+        try:
+            receipt = self._store.settle(settlement_request)
+        except AuthorityBudgetConflictError:
+            prior = self._prior_settlement(
+                reservation_ref=reservation_ref,
+                idempotency_ref=idempotency_ref,
+            )
+            if prior is not None:
+                return prior
+            raise
         return BudgetSettlement(
-            allowed=receipt.status
-            in {
-                AuthorityBudgetStatus.settled.value,
-                AuthorityBudgetStatus.replayed.value,
-            },
+            allowed=(
+                _semantic_budget_status(receipt)
+                == AuthorityBudgetStatus.settled.value
+            ),
+            receipt_ref=receipt.receipt_ref,
+            reason_refs=list(receipt.reason_refs),
+        )
+
+    def _prior_settlement(
+        self,
+        *,
+        reservation_ref: str,
+        idempotency_ref: str,
+    ) -> BudgetSettlement | None:
+        receipt = next(
+            (
+                item
+                for item in self._store.list_receipts()
+                if item.operation == AuthorityBudgetOperation.settle.value
+                and item.reservation_ref == reservation_ref
+                and item.idempotency_ref == idempotency_ref
+            ),
+            None,
+        )
+        if receipt is None:
+            return None
+        return BudgetSettlement(
+            allowed=(
+                _semantic_budget_status(receipt)
+                == AuthorityBudgetStatus.settled.value
+            ),
             receipt_ref=receipt.receipt_ref,
             reason_refs=list(receipt.reason_refs),
         )
@@ -876,6 +922,9 @@ class GovernedExternalActionKernel:
         if prior_receipt is not None:
             return prior_receipt.model_copy(update={"replayed": True})
         if prior_state == ExternalActionState.started:
+            recovered = self.recover_if_prior_start(request)
+            if recovered is not None:
+                return recovered
             # Another process or thread may still own the durable start.  A
             # normal execute call must never terminalize work it did not
             # claim; explicit restart recovery is handled separately below.

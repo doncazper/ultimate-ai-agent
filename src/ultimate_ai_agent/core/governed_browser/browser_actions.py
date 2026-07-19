@@ -444,6 +444,10 @@ class ExactBrowserActionResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_result(self) -> "ExactBrowserActionResult":
+        if not self.receipt.receipt_ref.startswith(
+            "receipt-ref:governed-browser-action:"
+        ):
+            raise ValueError("GOVERNED_BROWSER_ACTION_RESULT_RECEIPT_KIND_MISMATCH")
         if self.receipt.status == ExactBrowserActionStatus.plan_ready.value:
             if self.plan is None:
                 raise ValueError("GOVERNED_BROWSER_ACTION_PLAN_REQUIRED")

@@ -24,7 +24,9 @@ them in individual lane services:
   and final validation against concurrent revocation, and the latest decision
   proof is retained in the terminal receipt;
 - allowed budget reservation, release, and settlement records require exact
-  receipt proof; pre-start blocks retain the release proof, and missing
+  receipt proof, including on ledger replay where the original semantic status
+  remains authoritative and a replayed denial cannot become an allow;
+  pre-start blocks retain the release proof, and missing
   settlement proof becomes `outcome_ambiguous`; a post-start guard that proves
   dispatch was never invoked (including shared-capacity denial) releases unused
   budget, while restart recovery settles the persisted reservation as
@@ -48,10 +50,14 @@ them in individual lane services:
   returns a content-free ambiguity proof instead of raising through the
   operator boundary;
 - a competing execution caller no longer terminalizes a start owned by another
-  caller; explicit restart recovery may settle an orphan as ambiguous only
+  caller; every normal kernel execution attempts safe restart recovery before
+  returning a start conflict, so all wrapper services share the same recovery
+  path without redispatch; recovery may settle an orphan as ambiguous only
   after the maximum dispatch window and a five-second settlement grace, never
   a shorter recoverer-selected timeout, and never while the exact durable
-  dispatch slot remains owned;
+  dispatch slot remains owned; if the budget ledger already contains the exact
+  settlement from a crash between settlement and transaction close, recovery
+  reuses that durable proof instead of conflicting or losing accounting truth;
 - durable and returned external-action receipts recompute their own exact
   content-derived identity when read or deserialized, and bounded hostile reason
   sets keep terminal budget accounting failures explicit alongside an overflow
@@ -64,7 +70,8 @@ them in individual lane services:
   including action, observation, POST form, origin-session, human-handoff,
   artifact-transfer, external-operation, financial, and task-composition
   projections; browser-action and POST-form wrapper identities recompute over
-  that release proof so substitution is rejected during validation;
+  that release proof so substitution is rejected during validation, and each
+  result wrapper accepts only its own lane-specific receipt prefix;
 - idempotency identifiers must be SHA-256-pinned safe refs; and
 - authority-binding artifact and resource scopes are immutable tuples, and the
   kernel reconstructs a validated internal request snapshot before any durable

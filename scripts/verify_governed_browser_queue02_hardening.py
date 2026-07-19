@@ -58,6 +58,9 @@ def verify() -> list[str]:
     browser_actions = projection_sources[
         "src/ultimate_ai_agent/core/governed_browser/browser_actions.py"
     ]
+    post_forms = projection_sources[
+        "src/ultimate_ai_agent/core/governed_browser/post_forms.py"
+    ]
     origin_sessions = _read(
         "src/ultimate_ai_agent/core/governed_browser/origin_sessions.py", failures
     )
@@ -113,6 +116,9 @@ def verify() -> list[str]:
             "_TERMINAL_ACCOUNTING_REASON_MARKERS",
             "reason-overflow",
             "budget-settlement-ambiguous",
+            "_semantic_budget_status",
+            "_prior_settlement",
+            "recover_if_prior_start(request)",
         ),
         "hardening": (
             "GovernedBrowserLaneActivationEvidence",
@@ -133,7 +139,12 @@ def verify() -> list[str]:
         ),
         "browser_actions": (
             "GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_RESULT_RECEIPT_KIND_MISMATCH",
             '"receipt-ref:governed-browser-action"',
+            '"receipt-ref:governed-post-form"',
+        ),
+        "post_forms": (
+            "GOVERNED_POST_FORM_RESULT_RECEIPT_KIND_MISMATCH",
             '"receipt-ref:governed-post-form"',
         ),
         "tests": (
@@ -157,6 +168,10 @@ def verify() -> list[str]:
             "test_lost_start_claim_rejects_release_without_receipt_proof",
             "test_prestart_finish_cas_loss_returns_current_ambiguous_state",
             "test_browser_action_receipt_identity_binds_budget_release_proof",
+            "test_browser_action_and_post_form_results_reject_cross_lane_receipts",
+            "test_execute_automatically_recovers_a_stale_started_transaction",
+            "test_recovery_reuses_a_prior_durable_settlement_proof",
+            "test_replayed_denied_budget_release_remains_denied",
             "test_terminal_compare_and_swap_rejects_overwrite",
             "test_reason_bounding_preserves_terminal_accounting_failures",
             "test_every_operator_receipt_contract_retains_budget_release_proof",
@@ -184,6 +199,7 @@ def verify() -> list[str]:
         "hardening": hardening,
         "external_operations": external_operations,
         "browser_actions": browser_actions,
+        "post_forms": post_forms,
         "tests": tests,
         "external_operation_tests": external_operation_tests,
         "doc": doc,
