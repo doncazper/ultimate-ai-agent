@@ -316,7 +316,7 @@ class GovernedTaskCompositionStep(BaseModel):
     step_ref: str
     ordinal: StrictInt = Field(..., ge=1, le=MAX_GOVERNED_TASK_COMPOSITION_STEPS)
     operation_ref: str
-    depends_on_step_refs: list[str] = Field(default_factory=list, max_length=4)
+    depends_on_step_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=4)
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
@@ -349,7 +349,7 @@ def build_governed_task_composition_step(
     payload = {
         "ordinal": ordinal,
         "operation_ref": operation_ref,
-        "depends_on_step_refs": list(depends_on_step_refs),
+        "depends_on_step_refs": tuple(depends_on_step_refs),
     }
     provisional = GovernedTaskCompositionStep.model_construct(
         step_ref="composition-step-ref:governed-task-composer:pending",
@@ -377,7 +377,7 @@ def governed_task_composition_schema_ref(
     )
 
 
-def governed_task_composition_plan_ref(
+def governed_task_composition_plan_payload_ref(
     *,
     broad_intent_ref: str,
     registry_ref: str,
@@ -393,7 +393,7 @@ def governed_task_composition_plan_ref(
     if expires_at.tzinfo is None:
         raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
     return stable_governed_browser_ref(
-        "composition-plan-ref:governed-task-composer",
+        "composition-plan-payload-ref:governed-task-composer",
         {
             "broad_intent_ref": broad_intent_ref,
             "registry_ref": registry_ref,
@@ -407,13 +407,13 @@ def governed_task_composer_authority_ref(
     *,
     origin_ref: str,
     page_snapshot_ref: str,
-    plan_ref: str,
+    plan_payload_ref: str,
     registry_ref: str,
 ) -> str:
     for value, label in (
         (origin_ref, "origin_ref"),
         (page_snapshot_ref, "page_snapshot_ref"),
-        (plan_ref, "plan_ref"),
+        (plan_payload_ref, "plan_payload_ref"),
         (registry_ref, "registry_ref"),
     ):
         validate_task_ref(value, label)
@@ -423,8 +423,51 @@ def governed_task_composer_authority_ref(
             "capability": AuthorityCapability.prepare.value,
             "origin_ref": origin_ref,
             "page_snapshot_ref": page_snapshot_ref,
-            "plan_ref": plan_ref,
+            "plan_payload_ref": plan_payload_ref,
             "registry_ref": registry_ref,
+        },
+    )
+
+
+def governed_task_composition_plan_ref(
+    *,
+    plan_payload_ref: str,
+    recipe_ref: str,
+    composer_authority_ref: str,
+    binding_ref: str,
+) -> str:
+    """Bind immutable plan content to its exact registered authority envelope."""
+
+    for value, label, prefix in (
+        (
+            plan_payload_ref,
+            "plan_payload_ref",
+            "composition-plan-payload-ref:governed-task-composer:",
+        ),
+        (
+            recipe_ref,
+            "recipe_ref",
+            "composition-recipe-ref:governed-task-composer:",
+        ),
+        (
+            composer_authority_ref,
+            "composer_authority_ref",
+            "composer-authority-ref:governed-task-composer:",
+        ),
+        (
+            binding_ref,
+            "binding_ref",
+            "authority-binding-ref:governed-external-action:",
+        ),
+    ):
+        _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+    return stable_governed_browser_ref(
+        "composition-plan-ref:governed-task-composer",
+        {
+            "plan_payload_ref": plan_payload_ref,
+            "recipe_ref": recipe_ref,
+            "composer_authority_ref": composer_authority_ref,
+            "binding_ref": binding_ref,
         },
     )
 
@@ -478,6 +521,7 @@ class GovernedTaskCompositionRecipe(BaseModel):
     )
     recipe_ref: str
     plan_ref: str
+    plan_payload_ref: str
     composer_authority_ref: str
     binding_ref: str
     broad_intent_ref: str
@@ -485,7 +529,7 @@ class GovernedTaskCompositionRecipe(BaseModel):
     schema_ref: str
     origin_ref: str
     page_snapshot_ref: str
-    steps: list[GovernedTaskCompositionStep] = Field(
+    steps: tuple[GovernedTaskCompositionStep, ...] = Field(
         ..., min_length=1, max_length=MAX_GOVERNED_TASK_COMPOSITION_STEPS
     )
     created_at: datetime
@@ -517,6 +561,7 @@ class GovernedTaskCompositionRecipe(BaseModel):
         for value, label in (
             (self.recipe_ref, "recipe_ref"),
             (self.plan_ref, "plan_ref"),
+            (self.plan_payload_ref, "plan_payload_ref"),
             (self.composer_authority_ref, "composer_authority_ref"),
             (self.binding_ref, "binding_ref"),
             (self.broad_intent_ref, "broad_intent_ref"),
@@ -557,28 +602,36 @@ class GovernedTaskCompositionRecipe(BaseModel):
         )
         if self.schema_ref != expected_schema_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_SCHEMA_REF_MISMATCH")
-        expected_plan_ref = governed_task_composition_plan_ref(
+        expected_plan_payload_ref = governed_task_composition_plan_payload_ref(
             broad_intent_ref=self.broad_intent_ref,
             registry_ref=self.registry_ref,
             steps=self.steps,
             expires_at=self.expires_at,
         )
-        if self.plan_ref != expected_plan_ref:
-            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_MISMATCH")
+        if self.plan_payload_ref != expected_plan_payload_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_PAYLOAD_REF_MISMATCH")
         expected_authority_ref = governed_task_composer_authority_ref(
             origin_ref=self.origin_ref,
             page_snapshot_ref=self.page_snapshot_ref,
-            plan_ref=self.plan_ref,
+            plan_payload_ref=self.plan_payload_ref,
             registry_ref=self.registry_ref,
         )
         if self.composer_authority_ref != expected_authority_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_AUTHORITY_REF_MISMATCH")
         expected_recipe_ref = stable_governed_browser_ref(
             "composition-recipe-ref:governed-task-composer",
-            self.model_dump(mode="json", exclude={"recipe_ref"}),
+            self.model_dump(mode="json", exclude={"recipe_ref", "plan_ref"}),
         )
         if self.recipe_ref != expected_recipe_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_REF_MISMATCH")
+        expected_plan_ref = governed_task_composition_plan_ref(
+            plan_payload_ref=self.plan_payload_ref,
+            recipe_ref=self.recipe_ref,
+            composer_authority_ref=self.composer_authority_ref,
+            binding_ref=self.binding_ref,
+        )
+        if self.plan_ref != expected_plan_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_MISMATCH")
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_task_composition_recipe",
@@ -626,7 +679,7 @@ def build_governed_task_composition_recipe(
         registry_ref=registry_ref,
         steps=exact_steps,
     )
-    plan_ref = governed_task_composition_plan_ref(
+    plan_payload_ref = governed_task_composition_plan_payload_ref(
         broad_intent_ref=broad_intent_ref,
         registry_ref=registry_ref,
         steps=exact_steps,
@@ -635,17 +688,17 @@ def build_governed_task_composition_recipe(
     composer_authority_ref = governed_task_composer_authority_ref(
         origin_ref=binding.origin_ref,
         page_snapshot_ref=binding.page_snapshot_ref,
-        plan_ref=plan_ref,
+        plan_payload_ref=plan_payload_ref,
         registry_ref=registry_ref,
     )
     operation_refs = [step.operation_ref for step in exact_steps]
     required_resources = {
         broad_intent_ref,
         registry_ref,
-        plan_ref,
+        plan_payload_ref,
         composer_authority_ref,
     }
-    if binding.recipient_ref != plan_ref:
+    if binding.recipient_ref != plan_payload_ref:
         raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_NOT_AUTHORITY_BOUND")
     if binding.field_schema_ref != schema_ref:
         raise ValueError("GOVERNED_TASK_COMPOSER_SCHEMA_NOT_AUTHORITY_BOUND")
@@ -654,7 +707,7 @@ def build_governed_task_composition_recipe(
     if set(binding.resource_refs) != required_resources:
         raise ValueError("GOVERNED_TASK_COMPOSER_RESOURCE_NOT_EXACTLY_BOUND")
     payload = {
-        "plan_ref": plan_ref,
+        "plan_payload_ref": plan_payload_ref,
         "composer_authority_ref": composer_authority_ref,
         "binding_ref": binding.binding_ref,
         "broad_intent_ref": broad_intent_ref,
@@ -662,19 +715,30 @@ def build_governed_task_composition_recipe(
         "schema_ref": schema_ref,
         "origin_ref": binding.origin_ref,
         "page_snapshot_ref": binding.page_snapshot_ref,
-        "steps": exact_steps,
+        "steps": tuple(exact_steps),
         "created_at": created_at,
         "expires_at": expires_at,
     }
     provisional = GovernedTaskCompositionRecipe.model_construct(
         recipe_ref="composition-recipe-ref:governed-task-composer:pending",
+        plan_ref="composition-plan-ref:governed-task-composer:pending",
         **payload,
     )
     recipe_ref = stable_governed_browser_ref(
         "composition-recipe-ref:governed-task-composer",
-        provisional.model_dump(mode="json", exclude={"recipe_ref"}),
+        provisional.model_dump(mode="json", exclude={"recipe_ref", "plan_ref"}),
     )
-    return GovernedTaskCompositionRecipe(recipe_ref=recipe_ref, **payload)
+    plan_ref = governed_task_composition_plan_ref(
+        plan_payload_ref=plan_payload_ref,
+        recipe_ref=recipe_ref,
+        composer_authority_ref=composer_authority_ref,
+        binding_ref=binding.binding_ref,
+    )
+    return GovernedTaskCompositionRecipe(
+        recipe_ref=recipe_ref,
+        plan_ref=plan_ref,
+        **payload,
+    )
 
 
 class GovernedTaskCompositionRecipeRegistry:
@@ -761,7 +825,7 @@ class GovernedTaskCompositionPlanStep(BaseModel):
     required_capability: AuthorityCapability
     target_ref: str
     schema_ref: str
-    depends_on_step_refs: list[str] = Field(..., max_length=4)
+    depends_on_step_refs: tuple[str, ...] = Field(..., max_length=4)
     exact_operation_authority_required: Literal[True] = True
     composer_authority_inherited: Literal[False] = False
     operation_authorized: Literal[False] = False
@@ -815,13 +879,14 @@ class GovernedTaskCompositionPlan(BaseModel):
         "uaa-governed-task-composition-plan.v1"
     )
     plan_ref: str
+    plan_payload_ref: str
     recipe_ref: str
     broad_intent_ref: str
     registry_ref: str
     composer_authority_ref: str
     binding_ref: str
     envelope_ref: str
-    steps: list[GovernedTaskCompositionPlanStep] = Field(
+    steps: tuple[GovernedTaskCompositionPlanStep, ...] = Field(
         ..., min_length=1, max_length=MAX_GOVERNED_TASK_COMPOSITION_STEPS
     )
     expires_at: datetime
@@ -843,6 +908,7 @@ class GovernedTaskCompositionPlan(BaseModel):
     def validate_plan(self) -> "GovernedTaskCompositionPlan":
         for value, label in (
             (self.plan_ref, "plan_ref"),
+            (self.plan_payload_ref, "plan_payload_ref"),
             (self.recipe_ref, "recipe_ref"),
             (self.broad_intent_ref, "broad_intent_ref"),
             (self.registry_ref, "registry_ref"),
@@ -879,11 +945,19 @@ class GovernedTaskCompositionPlan(BaseModel):
             if any(ref not in prior_step_refs for ref in step.depends_on_step_refs):
                 raise ValueError("GOVERNED_TASK_COMPOSER_DEPENDENCY_NOT_PRIOR")
             prior_step_refs.add(step.step_ref)
-        expected_plan_ref = governed_task_composition_plan_ref(
+        expected_plan_payload_ref = governed_task_composition_plan_payload_ref(
             broad_intent_ref=self.broad_intent_ref,
             registry_ref=self.registry_ref,
             steps=composition_steps,
             expires_at=self.expires_at,
+        )
+        if self.plan_payload_ref != expected_plan_payload_ref:
+            raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_PAYLOAD_REF_MISMATCH")
+        expected_plan_ref = governed_task_composition_plan_ref(
+            plan_payload_ref=self.plan_payload_ref,
+            recipe_ref=self.recipe_ref,
+            composer_authority_ref=self.composer_authority_ref,
+            binding_ref=self.binding_ref,
         )
         if self.plan_ref != expected_plan_ref:
             raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_REF_MISMATCH")
@@ -923,9 +997,9 @@ class GovernedTaskCompositionReceipt(BaseModel):
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
     budget_settlement_ref: str | None = None
-    operation_refs: list[str] = Field(default_factory=list, max_length=8)
-    evidence_refs: list[str] = Field(default_factory=list, max_length=12)
-    reason_refs: list[str] = Field(default_factory=list, max_length=16)
+    operation_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
     replayed: StrictBool = False
     content_free: Literal[True] = True
     plan_only: Literal[True] = True
@@ -971,6 +1045,11 @@ class GovernedTaskCompositionReceipt(BaseModel):
             if value is not None:
                 validate_task_ref(value, label)
                 _deny_broad_grant_language(value, label=label)
+        _validate_hash_pinned_ref(
+            self.broad_intent_ref,
+            label="broad_intent_ref",
+            prefix="broad-intent-ref:governed-task-composer:",
+        )
         status = GovernedTaskCompositionStatus(self.status)
         state = ExternalActionState(self.external_action_state)
         expected_state = {
@@ -1031,13 +1110,13 @@ class GovernedTaskCompositionReceipt(BaseModel):
                     label="operation_ref",
                     prefix="registered-operation-ref:governed-task-composer:",
                 )
-            expected_evidence = [
+            expected_evidence = (
                 self.recipe_ref,
                 self.plan_ref,
                 self.registry_ref,
                 self.composer_authority_ref,
                 *self.operation_refs,
-            ]
+            )
             if self.evidence_refs != expected_evidence:
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_EVIDENCE_MISMATCH")
         if status == GovernedTaskCompositionStatus.replayed_content_free and (
@@ -1076,7 +1155,7 @@ class ExactGovernedTaskCompositionResult(BaseModel):
             or self.plan.composer_authority_ref != self.receipt.composer_authority_ref
             or self.plan.binding_ref != self.receipt.binding_ref
             or self.plan.envelope_ref != self.receipt.envelope_ref
-            or [step.operation_ref for step in self.plan.steps]
+            or tuple(step.operation_ref for step in self.plan.steps)
             != self.receipt.operation_refs
         ):
             raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_SCOPE_MISMATCH")
@@ -1266,7 +1345,7 @@ def _recipe_scope_reason(
     required_resources = {
         recipe.broad_intent_ref,
         recipe.registry_ref,
-        recipe.plan_ref,
+        recipe.plan_payload_ref,
         recipe.composer_authority_ref,
     }
     checks = (
@@ -1283,7 +1362,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-task-composer:snapshot-mismatch",
         ),
         (
-            recipe.plan_ref == binding.recipient_ref,
+            recipe.plan_payload_ref == binding.recipient_ref,
             "reason-ref:governed-task-composer:plan-mismatch",
         ),
         (
@@ -1345,6 +1424,7 @@ def _build_plan(
         )
     return GovernedTaskCompositionPlan(
         plan_ref=recipe.plan_ref,
+        plan_payload_ref=recipe.plan_payload_ref,
         recipe_ref=recipe.recipe_ref,
         broad_intent_ref=recipe.broad_intent_ref,
         registry_ref=recipe.registry_ref,
@@ -1356,7 +1436,7 @@ def _build_plan(
             composer_authority_ref=recipe.composer_authority_ref,
             binding_ref=recipe.binding_ref,
         ),
-        steps=plan_steps,
+        steps=tuple(plan_steps),
         expires_at=recipe.expires_at,
     )
 
@@ -1407,7 +1487,7 @@ def _preflight_blocked(
         "binding_ref": execution.binding.binding_ref,
         "status": GovernedTaskCompositionStatus.preflight_blocked,
         "external_action_state": ExternalActionState.blocked,
-        "reason_refs": [reason_ref],
+        "reason_refs": (reason_ref,),
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-task-composition",
@@ -1446,10 +1526,10 @@ def _result_from_external_receipt(
             ExternalActionState.started: GovernedTaskCompositionStatus.outcome_ambiguous,
             ExternalActionState.prepared: GovernedTaskCompositionStatus.outcome_ambiguous,
         }[state]
-    reason_refs = list(external_receipt.reason_refs)
+    reason_refs = tuple(external_receipt.reason_refs)
     if state == ExternalActionState.failed and not reason_refs:
-        reason_refs = ["reason-ref:governed-task-composer:plan-preparation-failed"]
-    operation_refs = [step.operation_ref for step in recipe.steps]
+        reason_refs = ("reason-ref:governed-task-composer:plan-preparation-failed",)
+    operation_refs = tuple(step.operation_ref for step in recipe.steps)
     payload = {
         "recipe_ref": recipe.recipe_ref,
         "plan_ref": recipe.plan_ref,
@@ -1473,7 +1553,7 @@ def _result_from_external_receipt(
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "operation_refs": operation_refs,
-        "evidence_refs": list(external_receipt.evidence_refs),
+        "evidence_refs": tuple(external_receipt.evidence_refs),
         "reason_refs": reason_refs,
         "replayed": external_receipt.replayed,
     }

@@ -549,17 +549,23 @@ so descriptive source identifiers cannot flow into a plan or receipt.
 A composition recipe contains one to eight unique registered operations in
 exact order. Dependencies may point only to earlier steps, which makes cycles
 and forward references invalid. The recipe binds the operation-registry
-fingerprint, plan ref, schema ref, page snapshot, deadline, and exact composer
-authority into the existing external-action transaction kernel. Composition
+fingerprint, plan-payload ref, schema ref, page snapshot, deadline, and exact
+composer authority into the existing external-action transaction kernel. Composition
 uses only `AuthorityCapability.prepare`; an approval identifier alone grants
 nothing, and exact PolicyEngine, LocalApprovalAuthority, AuthorityLease,
 budget, readiness, deadline, current human presence, safe-disable, and kill
-switch checks still apply. A separate composition-envelope ref binds the plan,
-recipe, composer-authority, and external-action binding refs so a serialized
-plan cannot be rebound outside the service.
+switch checks still apply. The content-derived plan-payload ref binds the exact
+intent, registry, ordered steps, and expiry used by the transaction binding.
+The final plan ref additionally hashes that payload ref together with the exact
+recipe, composer-authority, and external-action binding refs; a separate
+composition-envelope ref commits the same authority tuple. Changing an
+authority-envelope input therefore requires a different plan ref instead of
+silently rebinding the same serialized plan.
 
 The plan explicitly records that every operation needs separate later exact
-authority. Composer authority is never inherited by a step, no step is
+authority. Its returned step collection and dependency collections are
+immutable, so in-memory mutation cannot leave a stale plan ref attached to
+different ordered content. Composer authority is never inherited by a step, no step is
 authorized or executed, and no `complete_any_task` or wildcard grant exists.
 Terminal replay returns a content-free receipt without recreating the plan;
 idempotency drift fails closed, and ambiguous starts are not retried. This lane

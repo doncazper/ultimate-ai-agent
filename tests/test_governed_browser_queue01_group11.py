@@ -36,6 +36,8 @@ from ultimate_ai_agent.core.governed_browser import (
     build_registered_governed_task_operation,
     governed_task_broad_intent_ref,
     governed_task_composer_authority_ref,
+    governed_task_composition_envelope_ref,
+    governed_task_composition_plan_payload_ref,
     governed_task_composition_plan_ref,
     governed_task_composition_schema_ref,
     stable_governed_browser_ref,
@@ -130,7 +132,7 @@ def _composition_context(
         registry_ref=operation_registry.registry_ref,
         steps=steps,
     )
-    plan_ref = governed_task_composition_plan_ref(
+    plan_payload_ref = governed_task_composition_plan_payload_ref(
         broad_intent_ref=broad_intent_ref,
         registry_ref=operation_registry.registry_ref,
         steps=steps,
@@ -139,7 +141,7 @@ def _composition_context(
     composer_authority_ref = governed_task_composer_authority_ref(
         origin_ref=base.origin_ref,
         page_snapshot_ref=base.page_snapshot_ref,
-        plan_ref=plan_ref,
+        plan_payload_ref=plan_payload_ref,
         registry_ref=operation_registry.registry_ref,
     )
     binding = ExternalActionAuthorityBinding.model_validate(
@@ -150,14 +152,14 @@ def _composition_context(
                 "transaction-ref:governed-task-composer",
                 suffix,
             ),
-            "recipient_ref": plan_ref,
+            "recipient_ref": plan_payload_ref,
             "field_schema_ref": schema_ref,
             "artifact_refs": [operation.operation_ref for operation in operations],
             "resource_refs": sorted(
                 {
                     broad_intent_ref,
                     operation_registry.registry_ref,
-                    plan_ref,
+                    plan_payload_ref,
                     composer_authority_ref,
                 }
             ),
@@ -231,19 +233,31 @@ def test_registered_operations_compose_into_exact_plan_only_projection(
 
     assert result.receipt.status == "plan_ready"
     assert result.receipt.external_action_state == "succeeded"
-    assert result.receipt.operation_refs == [
+    assert result.receipt.operation_refs == tuple(
         step.operation_ref for step in recipe.steps
-    ]
-    assert result.receipt.evidence_refs == [
+    )
+    assert result.receipt.evidence_refs == (
         recipe.recipe_ref,
         recipe.plan_ref,
         recipe.registry_ref,
         recipe.composer_authority_ref,
         *result.receipt.operation_refs,
-    ]
+    )
+    with pytest.raises(AttributeError):
+        result.receipt.evidence_refs.append(  # type: ignore[attr-defined]
+            recipe.recipe_ref
+        )
     assert result.plan is not None
     assert [step.ordinal for step in result.plan.steps] == [1, 2]
-    assert result.plan.steps[1].depends_on_step_refs == [result.plan.steps[0].step_ref]
+    assert result.plan.steps[1].depends_on_step_refs == (
+        result.plan.steps[0].step_ref,
+    )
+    with pytest.raises(AttributeError):
+        result.plan.steps.append(result.plan.steps[0])  # type: ignore[attr-defined]
+    with pytest.raises(AttributeError):
+        result.plan.steps[1].depends_on_step_refs.append(  # type: ignore[attr-defined]
+            result.plan.steps[0].step_ref
+        )
     assert [step.required_capability for step in result.plan.steps] == [
         "send",
         "purchase",
@@ -496,13 +510,13 @@ def test_unknown_recipe_and_exact_request_drift_are_preflight_blocked(
     )
 
     assert unknown.receipt.status == "preflight_blocked"
-    assert unknown.receipt.reason_refs == [
-        "reason-ref:governed-task-composer:recipe-unregistered"
-    ]
+    assert unknown.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:recipe-unregistered",
+    )
     assert drifted.receipt.status == "preflight_blocked"
-    assert drifted.receipt.reason_refs == [
-        "reason-ref:governed-task-composer:request-scope-mismatch"
-    ]
+    assert drifted.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:request-scope-mismatch",
+    )
     assert unknown.plan is None
     assert drifted.plan is None
 
@@ -615,9 +629,9 @@ def test_success_replay_is_content_free_and_idempotency_drift_is_denied(
     assert replay.receipt.replayed
     assert replay.plan is None
     assert drifted.receipt.status == "preflight_blocked"
-    assert drifted.receipt.reason_refs == [
-        "reason-ref:governed-task-composer:idempotency-conflict"
-    ]
+    assert drifted.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:idempotency-conflict",
+    )
 
 
 def test_expired_recipe_and_invalid_clock_fail_before_composition(
@@ -637,9 +651,9 @@ def test_expired_recipe_and_invalid_clock_fail_before_composition(
         clock=lambda: now,
     )
     expired = composer.compose(_exact(request, recipe))
-    assert expired.receipt.reason_refs == [
-        "reason-ref:governed-task-composer:recipe-expired"
-    ]
+    assert expired.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:recipe-expired",
+    )
     assert expired.plan is None
 
     request2, recipe2, operations2, recipes2 = _composition_context(suffix="clock")
@@ -651,9 +665,9 @@ def test_expired_recipe_and_invalid_clock_fail_before_composition(
         clock=lambda: "not-a-clock",
     )
     invalid = composer2.compose(_exact(request2, recipe2))
-    assert invalid.receipt.reason_refs == [
-        "reason-ref:governed-task-composer:trusted-clock-invalid"
-    ]
+    assert invalid.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:trusted-clock-invalid",
+    )
     assert invalid.plan is None
 
 
@@ -747,8 +761,37 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
         "authority-binding-ref:governed-external-action",
         "rebound",
     )
-    with pytest.raises(ValidationError, match="ENVELOPE_REF_MISMATCH"):
+    proof_ref_drift["recipe_ref"] = _pinned(
+        "composition-recipe-ref:governed-task-composer",
+        "rebound",
+    )
+    proof_ref_drift["composer_authority_ref"] = _pinned(
+        "composer-authority-ref:governed-task-composer",
+        "rebound",
+    )
+    proof_ref_drift["envelope_ref"] = governed_task_composition_envelope_ref(
+        plan_ref=proof_ref_drift["plan_ref"],
+        recipe_ref=proof_ref_drift["recipe_ref"],
+        composer_authority_ref=proof_ref_drift["composer_authority_ref"],
+        binding_ref=proof_ref_drift["binding_ref"],
+    )
+    with pytest.raises(ValidationError, match="PLAN_REF_MISMATCH"):
         GovernedTaskCompositionPlan.model_validate(proof_ref_drift)
+
+    proof_ref_drift["plan_ref"] = governed_task_composition_plan_ref(
+        plan_payload_ref=proof_ref_drift["plan_payload_ref"],
+        recipe_ref=proof_ref_drift["recipe_ref"],
+        composer_authority_ref=proof_ref_drift["composer_authority_ref"],
+        binding_ref=proof_ref_drift["binding_ref"],
+    )
+    proof_ref_drift["envelope_ref"] = governed_task_composition_envelope_ref(
+        plan_ref=proof_ref_drift["plan_ref"],
+        recipe_ref=proof_ref_drift["recipe_ref"],
+        composer_authority_ref=proof_ref_drift["composer_authority_ref"],
+        binding_ref=proof_ref_drift["binding_ref"],
+    )
+    rebound_plan = GovernedTaskCompositionPlan.model_validate(proof_ref_drift)
+    assert rebound_plan.plan_ref != result.plan.plan_ref
 
     duplicate_operation = result.plan.model_dump(mode="json")
     duplicate_operation["steps"][1] = {
@@ -775,10 +818,13 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
     request, recipe, operations, recipes = _composition_context(suffix="defensive-copy")
     resolved = recipes.resolve(recipe.recipe_ref)
     assert resolved is not None
-    resolved.steps[0].depends_on_step_refs.append(recipe.steps[1].step_ref)
+    with pytest.raises(AttributeError):
+        resolved.steps[0].depends_on_step_refs.append(  # type: ignore[attr-defined]
+            recipe.steps[1].step_ref
+        )
     fresh = recipes.resolve(recipe.recipe_ref)
     assert fresh is not None
-    assert fresh.steps[0].depends_on_step_refs == []
+    assert fresh.steps[0].depends_on_step_refs == ()
 
     composer, _ = _composer(
         tmp_path,
@@ -792,6 +838,28 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
     mismatched["status"] = "preflight_blocked"
     with pytest.raises(ValidationError, match="RECEIPT_STATE_MISMATCH"):
         GovernedTaskCompositionReceipt.model_validate(mismatched)
+
+    blocked = composer.compose(
+        _exact(request, recipe).model_copy(
+            update={
+                "recipe_ref": _pinned(
+                    "composition-recipe-ref:governed-task-composer",
+                    "missing-for-unpinned-receipt",
+                )
+            }
+        )
+    )
+    assert blocked.receipt.status == "preflight_blocked"
+    unpinned_intent = blocked.receipt.model_dump(mode="json")
+    unpinned_intent["broad_intent_ref"] = (
+        "broad-intent-ref:governed-task-composer:not-hash-pinned"
+    )
+    unpinned_intent["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {key: value for key, value in unpinned_intent.items() if key != "receipt_ref"},
+    )
+    with pytest.raises(ValidationError, match="HASH_PIN_REQUIRED"):
+        GovernedTaskCompositionReceipt.model_validate(unpinned_intent)
 
 
 def test_static_item13_verifier_passes() -> None:
