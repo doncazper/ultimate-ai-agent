@@ -19,11 +19,15 @@ them in individual lane services:
   origin, recipient, schema, transaction, artifacts, resources, page snapshot,
   and content-free hostile-state signals;
 - exact approval, AuthorityLease, and readiness are revalidated before the
-  durable start, after the start claim, and after dispatch;
+  durable start, after the start claim, and after dispatch; the existing
+  approval-authority lock serializes the final validation, synchronous dispatch,
+  and final validation against concurrent revocation, and the latest decision
+  proof is retained in the terminal receipt;
 - allowed budget reservation, release, and settlement records require exact
   receipt proof; pre-start blocks retain the release proof, and missing
   settlement proof becomes `outcome_ambiguous`;
-- dispatch has one nonblocking capacity slot and a maximum thirty-second
+- dispatch has one SQLite-backed nonblocking capacity slot shared by every
+  kernel instance using the transaction store and a maximum thirty-second
   deadline; exceptions, invalid results, deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
   automatically retried, and no terminal receipt is written while a detached
@@ -32,7 +36,9 @@ them in individual lane services:
   so a concurrent or stale writer cannot overwrite a receipt;
 - a competing execution caller no longer terminalizes a start owned by another
   caller; explicit restart recovery may settle an orphan as ambiguous only
-  after the bounded dispatch window and a five-second settlement grace;
+  after the maximum dispatch window and a five-second settlement grace, never
+  a shorter recoverer-selected timeout, and never while the exact durable
+  dispatch slot remains owned;
 - durable and returned external-action receipts recompute their own exact
   content-derived identity when read or deserialized;
 - idempotency identifiers must be SHA-256-pinned safe refs; and

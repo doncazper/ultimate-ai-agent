@@ -6,7 +6,7 @@ import sqlite3
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from threading import BoundedSemaphore, RLock
+from threading import RLock
 from time import monotonic
 from typing import Protocol
 
@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.time import utc_now
 
 from .contracts import (
+    GOVERNED_EXTERNAL_ACTION_LANE_REF,
     ExternalActionDispatchOutcome,
     ExternalActionDispatchResult,
     ExternalActionExecutionRequest,
@@ -53,6 +54,10 @@ from .contracts import (
     build_external_action_capability_manifest,
     stable_governed_browser_ref,
 )
+
+
+MAX_EXTERNAL_ACTION_DISPATCH_SECONDS = 30.0
+EXTERNAL_ACTION_RECOVERY_SETTLEMENT_GRACE_SECONDS = 5.0
 
 
 class ExternalActionTransactionConflict(RuntimeError):
@@ -272,6 +277,16 @@ class ExternalActionTransactionStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS governed_external_action_dispatch_slot (
+                    slot_ref TEXT PRIMARY KEY,
+                    transaction_ref TEXT NOT NULL,
+                    fingerprint_ref TEXT NOT NULL,
+                    acquired_at TEXT NOT NULL
+                )
+                """
+            )
 
     def prepare(
         self,
@@ -479,6 +494,83 @@ class ExternalActionTransactionStore:
             connection.commit()
             return changed == 1
 
+    def claim_dispatch_slot(self, request: ExternalActionExecutionRequest) -> bool:
+        """Claim the one durable dispatch slot shared by all store users."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT transaction_ref, fingerprint_ref "
+                "FROM governed_external_action_dispatch_slot "
+                "WHERE slot_ref = ?",
+                (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+            ).fetchone()
+            if row is not None:
+                connection.commit()
+                return False
+            connection.execute(
+                "INSERT INTO governed_external_action_dispatch_slot "
+                "(slot_ref, transaction_ref, fingerprint_ref, acquired_at) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                    request.binding.transaction_ref,
+                    fingerprint,
+                    utc_now().isoformat(),
+                ),
+            )
+            connection.commit()
+            return True
+
+    def dispatch_slot_is_owned_by(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> bool:
+        """Return whether the exact request still owns the durable slot."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT transaction_ref, fingerprint_ref "
+                "FROM governed_external_action_dispatch_slot "
+                "WHERE slot_ref = ?",
+                (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+            ).fetchone()
+        return row == (request.binding.transaction_ref, fingerprint)
+
+    def release_dispatch_slot(self, request: ExternalActionExecutionRequest) -> None:
+        """Release only the exact durable slot claim held by this request."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            changed = connection.execute(
+                "DELETE FROM governed_external_action_dispatch_slot "
+                "WHERE slot_ref = ? AND transaction_ref = ? "
+                "AND fingerprint_ref = ?",
+                (
+                    GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                    request.binding.transaction_ref,
+                    fingerprint,
+                ),
+            ).rowcount
+            if changed != 1:
+                connection.rollback()
+                raise ExternalActionTransactionConflict(
+                    "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
+                )
+            connection.commit()
+
     def finish(
         self,
         receipt: ExternalActionReceipt,
@@ -560,7 +652,9 @@ class GovernedExternalActionKernel:
         if (
             isinstance(dispatch_timeout_seconds, bool)
             or not isinstance(dispatch_timeout_seconds, (int, float))
-            or not 0 < dispatch_timeout_seconds <= 30
+            or not 0
+            < dispatch_timeout_seconds
+            <= MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
         ):
             raise ValueError("GOVERNED_EXTERNAL_ACTION_DISPATCH_TIMEOUT_INVALID")
         self._store = store
@@ -572,7 +666,6 @@ class GovernedExternalActionKernel:
         self._local_validation_enabled = local_validation_enabled
         self._external_mutation_enabled = False
         self._dispatch_timeout_seconds = float(dispatch_timeout_seconds)
-        self._dispatch_slot = BoundedSemaphore(value=1)
         self._clock = clock
         self._manifest = build_external_action_capability_manifest()
 
@@ -715,12 +808,24 @@ class GovernedExternalActionKernel:
                 authority_decision_ref=authority_decision.decision_ref,
             )
 
+        preclaim_readiness_reasons = self._revalidation_reasons(request)
+        (
+            preclaim_authorization_reasons,
+            revalidated_approval_ref,
+            revalidated_authority_ref,
+        ) = self._authorization_revalidation(
+            request,
+            approval_validation,
+        )
+        approval_validation_ref = (
+            revalidated_approval_ref or approval_validation_ref
+        )
+        authority_decision_ref = (
+            revalidated_authority_ref or authority_decision.decision_ref
+        )
         revalidation_reasons = [
-            *self._authorization_revalidation_reasons(
-                request,
-                approval_validation,
-            ),
-            *self._revalidation_reasons(request),
+            *preclaim_readiness_reasons,
+            *preclaim_authorization_reasons,
         ]
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
@@ -749,7 +854,7 @@ class GovernedExternalActionKernel:
                 ExternalActionState.blocked,
                 revalidation_reasons,
                 approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision.decision_ref,
+                authority_decision_ref=authority_decision_ref,
                 budget_reservation_ref=reservation.reservation_ref,
                 budget_release_ref=(
                     release.receipt_ref if release.allowed else None
@@ -765,39 +870,75 @@ class GovernedExternalActionKernel:
                 ExternalActionState.outcome_ambiguous,
                 ["reason-ref:governed-external-action:start-claim-conflict"],
                 approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision.decision_ref,
+                authority_decision_ref=authority_decision_ref,
                 budget_reservation_ref=reservation.reservation_ref,
             )
 
-        post_claim_reasons = [
-            *self._authorization_revalidation_reasons(
+        with self._approval_authority.hold_validation_lock():
+            # Adapter readiness is observed first, then approval and lease are
+            # the final checks before the synchronous dispatch handoff while
+            # concurrent revocation is serialized by the authority lock.
+            post_claim_readiness_reasons = self._revalidation_reasons(request)
+            (
+                post_claim_authorization_reasons,
+                revalidated_approval_ref,
+                revalidated_authority_ref,
+            ) = self._authorization_revalidation(
                 request,
                 approval_validation,
-            ),
-            *self._revalidation_reasons(request),
-        ]
-        post_claim_reasons = list(dict.fromkeys(post_claim_reasons))
-        if post_claim_reasons:
-            return self._finish_started_guard_failure(
-                request,
-                reservation_ref=reservation.reservation_ref,
-                approval_validation_ref=approval_validation_ref,
-                authority_decision_ref=authority_decision.decision_ref,
-                reason_refs=[
-                    "reason-ref:governed-external-action:post-start-revalidation-denied",
-                    *post_claim_reasons,
-                ],
             )
+            approval_validation_ref = (
+                revalidated_approval_ref or approval_validation_ref
+            )
+            authority_decision_ref = (
+                revalidated_authority_ref or authority_decision_ref
+            )
+            post_claim_reasons = list(
+                dict.fromkeys(
+                    [
+                        *post_claim_readiness_reasons,
+                        *post_claim_authorization_reasons,
+                    ]
+                )
+            )
+            if post_claim_reasons:
+                return self._finish_started_guard_failure(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    reason_refs=[
+                        "reason-ref:governed-external-action:post-start-revalidation-denied",
+                        *post_claim_reasons,
+                    ],
+                )
 
-        dispatch_result, dispatch_reasons = self._bounded_dispatch(request, dispatch)
-        post_dispatch_reasons = [
-            *self._authorization_revalidation_reasons(
+            dispatch_result, dispatch_reasons = self._bounded_dispatch(
+                request, dispatch
+            )
+            post_dispatch_readiness_reasons = self._revalidation_reasons(request)
+            (
+                post_dispatch_authorization_reasons,
+                revalidated_approval_ref,
+                revalidated_authority_ref,
+            ) = self._authorization_revalidation(
                 request,
                 approval_validation,
-            ),
-            *self._revalidation_reasons(request),
-        ]
-        post_dispatch_reasons = list(dict.fromkeys(post_dispatch_reasons))
+            )
+            approval_validation_ref = (
+                revalidated_approval_ref or approval_validation_ref
+            )
+            authority_decision_ref = (
+                revalidated_authority_ref or authority_decision_ref
+            )
+            post_dispatch_reasons = list(
+                dict.fromkeys(
+                    [
+                        *post_dispatch_readiness_reasons,
+                        *post_dispatch_authorization_reasons,
+                    ]
+                )
+            )
         if post_dispatch_reasons:
             dispatch_result = ExternalActionDispatchResult(
                 outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
@@ -840,7 +981,7 @@ class GovernedExternalActionKernel:
             final_state,
             list(dict.fromkeys(reasons)),
             approval_validation_ref=approval_validation_ref,
-            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_ref=authority_decision_ref,
             budget_reservation_ref=reservation.reservation_ref,
             budget_settlement_ref=(
                 settlement.receipt_ref if settlement.allowed else None
@@ -848,14 +989,20 @@ class GovernedExternalActionKernel:
             evidence_refs=list(dispatch_result.evidence_refs),
         )
 
-    def _authorization_revalidation_reasons(
+    def _authorization_revalidation(
         self,
         request: ExternalActionExecutionRequest,
         approval_validation: ApprovalValidationRequest,
-    ) -> list[str]:
+    ) -> tuple[list[str], str | None, str | None]:
         reasons: list[str] = []
+        approval_validation_ref: str | None = None
+        authority_decision_ref: str | None = None
         try:
             approval_decision = self._approval_authority.validate(approval_validation)
+            approval_validation_ref = stable_governed_browser_ref(
+                "approval-validation-ref:governed-external-action",
+                approval_decision.model_dump(mode="json"),
+            )
             if not approval_decision.allowed:
                 reasons.append(
                     "reason-ref:governed-external-action:approval-changed-before-dispatch"
@@ -869,6 +1016,7 @@ class GovernedExternalActionKernel:
             authority_decision = self._approval_authority.evaluate_authority_scope(
                 build_external_action_authority_request(request)
             )
+            authority_decision_ref = authority_decision.decision_ref
             matching_leases = [
                 lease
                 for lease in self._authority_leases_provider()
@@ -891,7 +1039,7 @@ class GovernedExternalActionKernel:
             reasons.append(
                 "reason-ref:governed-external-action:authority-revalidation-failed"
             )
-        return reasons
+        return reasons, approval_validation_ref, authority_decision_ref
 
     def _bounded_dispatch(
         self,
@@ -900,7 +1048,7 @@ class GovernedExternalActionKernel:
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
     ) -> tuple[ExternalActionDispatchResult, list[str]]:
-        if not self._dispatch_slot.acquire(blocking=False):
+        if not self._store.claim_dispatch_slot(request):
             return self._ambiguous_dispatch_result(
                 request, "dispatch-capacity-bounded"
             ), [
@@ -920,7 +1068,7 @@ class GovernedExternalActionKernel:
             pass
         finally:
             elapsed_seconds = monotonic() - started
-            self._dispatch_slot.release()
+            self._store.release_dispatch_slot(request)
 
         # An arbitrary Python callback cannot be safely detached or killed.
         # Observe the deadline only after the callback has stopped so no
@@ -1037,6 +1185,8 @@ class GovernedExternalActionKernel:
         started_at = self._store.started_at_if_exact(request)
         if started_at is None:
             return None
+        if self._store.dispatch_slot_is_owned_by(request):
+            return None
         try:
             current_time = self._clock()
         except Exception:
@@ -1048,7 +1198,10 @@ class GovernedExternalActionKernel:
         # grace period before restart recovery may conservatively terminalize
         # the orphan as ambiguous.  Recovery never redispatches the action.
         recovery_not_before = started_at + timedelta(
-            seconds=self._dispatch_timeout_seconds + 5.0
+            seconds=(
+                MAX_EXTERNAL_ACTION_DISPATCH_SECONDS
+                + EXTERNAL_ACTION_RECOVERY_SETTLEMENT_GRACE_SECONDS
+            )
         )
         if current_time < recovery_not_before:
             return None

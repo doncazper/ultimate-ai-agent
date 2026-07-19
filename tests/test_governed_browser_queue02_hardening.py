@@ -358,12 +358,79 @@ def test_authority_revocation_race_after_reservation_blocks_start(
         request,
         readiness_provider=readiness,
     )
+    approval_proof_refs: list[tuple[bool, str]] = []
+    authority_proof_refs: list[tuple[str, str]] = []
+    original_validate = authority.validate
+    original_evaluate = authority.evaluate_authority_scope
+
+    def recording_validate(validation):  # type: ignore[no-untyped-def]
+        decision = original_validate(validation)
+        approval_proof_refs.append(
+            (
+                decision.allowed,
+                stable_governed_browser_ref(
+                    "approval-validation-ref:governed-external-action",
+                    decision.model_dump(mode="json"),
+                ),
+            )
+        )
+        return decision
+
+    def recording_evaluate(action):  # type: ignore[no-untyped-def]
+        decision = original_evaluate(action)
+        authority_proof_refs.append((decision.outcome, decision.decision_ref))
+        return decision
+
+    authority.validate = recording_validate  # type: ignore[method-assign]
+    authority.evaluate_authority_scope = recording_evaluate  # type: ignore[method-assign]
     authority_holder.append(authority)
     receipt = kernel.execute(request, dispatch=_success)
 
-    assert receipt.state == ExternalActionState.outcome_ambiguous.value
-    assert any("post-start-revalidation-denied" in ref for ref in receipt.reason_refs)
+    assert receipt.state == ExternalActionState.blocked.value
     assert any(race in ref for ref in receipt.reason_refs)
+    assert receipt.budget_release_ref is not None
+    if race == "approval":
+        assert receipt.approval_validation_ref in {
+            proof_ref
+            for allowed, proof_ref in approval_proof_refs
+            if not allowed
+        }
+    else:
+        assert receipt.authority_decision_ref in {
+            proof_ref
+            for outcome, proof_ref in authority_proof_refs
+            if outcome not in {"allow", "ask"}
+        }
+
+
+def test_authority_revocation_waits_for_final_validation_and_dispatch(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="atomic-dispatch-authority"))
+    kernel, authority = _authorized_kernel(tmp_path, request)
+    entered = threading.Event()
+    proceed = threading.Event()
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        entered.set()
+        assert proceed.wait(timeout=2)
+        return _success(item)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner_future = pool.submit(kernel.execute, request, dispatch=dispatch)
+        assert entered.wait(timeout=2)
+        revoke_future = pool.submit(
+            authority.revoke,
+            request.approval_ref,
+            "Operator revoked after the final dispatch validation.",
+        )
+        time.sleep(0.03)
+        assert not revoke_future.done()
+        proceed.set()
+        receipt = owner_future.result(timeout=2)
+        revoke_future.result(timeout=2)
+
+    assert receipt.state == ExternalActionState.succeeded.value
 
 
 def test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded(
@@ -455,6 +522,66 @@ def test_restart_recovery_cannot_terminalize_a_fresh_live_start(tmp_path) -> Non
     assert kernel.recover_if_prior_start(request) is None
     assert store.state_if_exact(request) == ExternalActionState.started
     assert store.replay_if_terminal(request) is None
+
+
+def test_restart_recovery_uses_the_maximum_owner_dispatch_window(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="max-owner-window"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    store.prepare(request)
+    assert store.claim_start(request) is True
+    started_at = store.started_at_if_exact(request)
+    assert started_at is not None
+
+    kernel._dispatch_timeout_seconds = 0.001
+    kernel._clock = lambda: started_at + timedelta(seconds=10)
+    assert kernel.recover_if_prior_start(request) is None
+    assert store.state_if_exact(request) == ExternalActionState.started
+
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+    recovered = kernel.recover_if_prior_start(request)
+    assert recovered is not None
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+
+
+def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    first_request = _request(_binding(suffix="shared-slot-first"))
+    second_request = _request(_binding(suffix="shared-slot-second"))
+    first_kernel, _ = _authorized_kernel(tmp_path / "first", first_request)
+    second_kernel, _ = _authorized_kernel(tmp_path / "second", second_request)
+    shared_path = tmp_path / "shared-transactions.sqlite3"
+    first_kernel._store = ExternalActionTransactionStore(shared_path)
+    second_kernel._store = ExternalActionTransactionStore(shared_path)
+    entered = threading.Event()
+    proceed = threading.Event()
+    calls = 0
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        entered.set()
+        assert proceed.wait(timeout=2)
+        return _success(item)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_future = pool.submit(
+            first_kernel.execute,
+            first_request,
+            dispatch=dispatch,
+        )
+        assert entered.wait(timeout=2)
+        second = second_kernel.execute(second_request, dispatch=dispatch)
+        proceed.set()
+        first = first_future.result(timeout=2)
+
+    assert calls == 1
+    assert first.state == ExternalActionState.succeeded.value
+    assert second.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:dispatch-capacity-bounded" in (
+        second.reason_refs
+    )
 
 
 def test_terminal_compare_and_swap_rejects_overwrite(tmp_path) -> None:  # type: ignore[no-untyped-def]
