@@ -720,6 +720,44 @@ def test_macos_distribution_policy_rejects_unreviewed_network_drift() -> None:
         module_registry_drift,
         "subprocess",
     )
+    callable_alias_drift = source + "\nspawn = subprocess.Popen\nspawn([])\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        callable_alias_drift,
+    )
+    command_argv_drift = source.replace(
+        '["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)]',
+        '[str(app), "--verify"]',
+        1,
+    )
+    assert command_argv_drift != source
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        command_argv_drift,
+    )
+    shell_truthy_drift = source.replace(
+        "            check=False,\n        )",
+        "            check=False,\n            shell=1,\n        )",
+        1,
+    )
+    assert shell_truthy_drift != source
+    assert any(
+        "shell execution must remain literal-false" in failure
+        for failure in macos_distribution_adapter_policy_failures(
+            rel_path,
+            shell_truthy_drift,
+        )
+    )
+    request_source_drift = source.replace(
+        "            url,\n            headers={",
+        '            os.environ["UNREVIEWED_URL"],\n            headers={',
+        1,
+    )
+    assert request_source_drift != source
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        request_source_drift,
+    )
 
 
 def test_macos_distribution_policy_rejects_unreviewed_filesystem_call() -> None:

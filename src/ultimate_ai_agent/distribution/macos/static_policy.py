@@ -10,6 +10,7 @@ the files themselves remain visible to every unrelated scan.
 from __future__ import annotations
 
 import ast
+import hashlib
 from pathlib import Path
 
 
@@ -20,6 +21,17 @@ MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES = frozenset(
         "src/ultimate_ai_agent/distribution/macos/runtime.py",
     }
 )
+_EXPECTED_SOURCE_SHA256 = {
+    "src/ultimate_ai_agent/distribution/macos/github_releases.py": (
+        "d61e6b1adab449d8849ecb97632ec680514531d2097be7d8bf870bd0bf86a606"
+    ),
+    "src/ultimate_ai_agent/distribution/macos/installer.py": (
+        "80b9327640c46e4d8b0622126cdca711596397d1a2f6d22da773526feadaf1ed"
+    ),
+    "src/ultimate_ai_agent/distribution/macos/runtime.py": (
+        "bfe72ea8e510defbb99dd97d691beebb8a02e6145b41fb6d7577d613ef94f033"
+    ),
+}
 
 _SOCKET_DOT = "socket" + "."
 _SOCKET_SOCKET = _SOCKET_DOT + "socket"
@@ -450,6 +462,9 @@ def macos_distribution_adapter_policy_failures(
     if rel_path not in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES:
         return ["unrecognized macOS distribution adapter path"]
     failures: list[str] = []
+    source_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    if source_sha256 != _EXPECTED_SOURCE_SHA256[rel_path]:
+        failures.append(f"{rel_path}: reviewed adapter source digest changed")
     if any(marker in source for marker in _FORBIDDEN_MARKERS):
         failures.append(f"{rel_path}: forbidden broad execution or network marker")
     for marker in _REQUIRED_MARKERS[rel_path]:
@@ -542,12 +557,13 @@ def macos_distribution_adapter_policy_failures(
                 actual_filesystem_method_counts.get(method_name, 0) + 1
             )
         for keyword in node.keywords:
-            if (
-                keyword.arg == "shell"
-                and isinstance(keyword.value, ast.Constant)
-                and keyword.value.value is True
+            if keyword.arg == "shell" and not (
+                isinstance(keyword.value, ast.Constant)
+                and keyword.value.value is False
             ):
-                failures.append(f"{rel_path}: shell execution must remain disabled")
+                failures.append(
+                    f"{rel_path}: shell execution must remain literal-false"
+                )
 
     expected_counts = _EXPECTED_CALL_COUNTS[rel_path]
     if actual_counts != expected_counts:
