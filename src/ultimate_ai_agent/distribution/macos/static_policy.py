@@ -33,9 +33,36 @@ _SUBPROCESS_DOT = "subprocess" + "."
 _SUBPROCESS_POPEN = _SUBPROCESS_DOT + "Popen"
 _SUBPROCESS_RUN = _SUBPROCESS_DOT + "run"
 _URLLIB_URLOPEN = "urllib.request" + ".urlopen"
+_HOST_CALL_PREFIXES = (
+    "Path.",
+    "os.",
+    _SOCKET_DOT,
+    _SUBPROCESS_DOT,
+    "sys.",
+    "urllib.",
+    "webbrowser.",
+    "root.",
+)
+_DYNAMIC_CALL_NAMES = frozenset(
+    {
+        "__import__",
+        "builtins.__import__",
+        "compile",
+        "delattr",
+        "eval",
+        "exec",
+        "globals",
+        "importlib.import_module",
+        "locals",
+        "setattr",
+        "vars",
+    }
+)
 
 _EXPECTED_CALL_COUNTS = {
     "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
+        "Path": 4,
+        "os.access": 1,
         "run": 1,
         "self.opener.open": 2,
         "urllib.parse.urlparse": 2,
@@ -43,12 +70,23 @@ _EXPECTED_CALL_COUNTS = {
         "urllib.request.build_opener": 1,
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "Path": 13,
         "Path.home": 3,
+        "os.access": 2,
+        "os.replace": 7,
+        "root.joinpath": 1,
+        "root.resolve": 1,
         "root.rglob": 1,
         _SUBPROCESS_RUN: 4,
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
+        "Path": 2,
+        "getattr": 2,
+        "os.environ.get": 1,
+        "os.environ.items": 1,
         "os.execv": 1,
+        "os.kill": 4,
+        "os.replace": 2,
         _SOCKET_SOCKET: 1,
         _SUBPROCESS_POPEN: 1,
         _SUBPROCESS_RUN: 1,
@@ -61,6 +99,9 @@ _EXPECTED_CALL_COUNTS = {
 
 _ALLOWED_EXTERNAL_ATTRIBUTES = {
     "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
+        "os.X_OK",
+        "os.access",
+        "os.environ",
         _SUBPROCESS_DOT + "CompletedProcess",
         _SUBPROCESS_DOT + "SubprocessError",
         _SUBPROCESS_RUN,
@@ -76,10 +117,23 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "urllib.request.build_opener",
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "os.W_OK",
+        "os.X_OK",
+        "os.access",
+        "os.environ",
+        "os.replace",
+        "Path.home",
         _SUBPROCESS_DOT + "DEVNULL",
         _SUBPROCESS_RUN,
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
+        "os.environ",
+        "os.environ.get",
+        "os.environ.items",
+        "os.execv",
+        "os.kill",
+        "os.replace",
+        "sys.executable",
         _SOCKET_DOT + "AF_INET",
         _SOCKET_DOT + "SOCK_STREAM",
         _SOCKET_SOCKET,
@@ -113,13 +167,25 @@ _EXPECTED_HOST_IMPORTS = {
         "os",
         "socket",
         "subprocess",
+        "sys",
         "urllib.error",
         "urllib.parse",
         "urllib.request",
         "webbrowser",
     },
 }
-_HOST_MODULE_NAMES = frozenset({"os", "socket", "subprocess", "urllib", "webbrowser"})
+_HOST_MODULE_NAMES = frozenset(
+    {
+        "builtins",
+        "importlib",
+        "os",
+        "socket",
+        "subprocess",
+        "sys",
+        "urllib",
+        "webbrowser",
+    }
+)
 
 _ALLOWED_URL_LINES = {
     "src/ultimate_ai_agent/distribution/macos/github_releases.py": {
@@ -296,8 +362,11 @@ def macos_distribution_adapter_policy_failures(
         if (
             attribute_name.startswith(
                 (
+                    "os.",
+                    "Path.",
                     _SOCKET_DOT,
                     _SUBPROCESS_DOT,
+                    "sys.",
                     "urllib.error",
                     "urllib.parse",
                     "urllib.request",
@@ -309,17 +378,17 @@ def macos_distribution_adapter_policy_failures(
             failures.append(f"{rel_path}: unreviewed host-capability attribute")
 
     actual_counts: dict[str, int] = {}
-    tracked_call_names = {
-        call_name
-        for expected_counts in _EXPECTED_CALL_COUNTS.values()
-        for call_name in expected_counts
-    }
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         call_name = _qualified_name(node.func)
-        if call_name in tracked_call_names:
+        if (
+            call_name in {"Path", "getattr", "run", "self.opener.open"}
+            or call_name.startswith(_HOST_CALL_PREFIXES)
+        ):
             actual_counts[call_name] = actual_counts.get(call_name, 0) + 1
+        if call_name in _DYNAMIC_CALL_NAMES:
+            failures.append(f"{rel_path}: dynamic host-capability access denied")
         for keyword in node.keywords:
             if (
                 keyword.arg == "shell"

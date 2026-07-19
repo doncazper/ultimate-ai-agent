@@ -689,6 +689,50 @@ def test_macos_distribution_policy_rejects_unreviewed_network_drift() -> None:
         indirect_drift,
         "subprocess",
     )
+    process_drift = source + '\nos.spawnv(0, "/bin/echo", ["echo"])\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, process_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        process_drift,
+        "subprocess",
+    )
+    dynamic_import_drift = (
+        source + '\n__import__("subprocess").Popen(["/bin/echo"])\n'
+    )
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        dynamic_import_drift,
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        dynamic_import_drift,
+        "subprocess",
+    )
+    module_registry_drift = (
+        source + '\nsys.modules["subprocess"].Popen(["/bin/echo"])\n'
+    )
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        module_registry_drift,
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        module_registry_drift,
+        "subprocess",
+    )
+
+
+def test_macos_distribution_policy_rejects_unreviewed_filesystem_call() -> None:
+    rel_path = "src/ultimate_ai_agent/distribution/macos/installer.py"
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+    filesystem_drift = source + '\nPath("/").glob("**/*")\n'
+
+    assert macos_distribution_adapter_policy_failures(rel_path, filesystem_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        filesystem_drift,
+        "Path.home(",
+    )
 
 
 def test_macos_distribution_policy_ignores_unrelated_fixture_roots_but_fails_partial_lane(
