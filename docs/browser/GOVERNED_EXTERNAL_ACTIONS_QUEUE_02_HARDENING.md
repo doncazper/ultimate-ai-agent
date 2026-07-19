@@ -30,6 +30,9 @@ them in individual lane services:
   budget, while restart recovery settles the persisted reservation as
   ambiguous; a lost start claim releases only a distinct losing reservation and
   never releases the idempotent reservation still owned by the winning start;
+  a pre-claim denial first owns the durable close transition before releasing,
+  and a losing caller returns its own verified release proof even when the
+  winner has already terminalized;
 - dispatch has one SQLite-backed nonblocking capacity slot plus a process-held
   OS file lock shared by every kernel instance using the transaction store and
   a maximum thirty-second
@@ -40,7 +43,10 @@ them in individual lane services:
   only after the OS lock proves the prior process no longer owns dispatch,
   while an unproven legacy row remains fail closed;
 - terminal writes use SQLite compare-and-swap from the exact expected state,
-  so a concurrent or stale writer cannot overwrite a receipt;
+  so a concurrent or stale writer cannot overwrite a receipt; a caller that
+  loses a pre-start finish transition re-reads durable terminal/state truth and
+  returns a content-free ambiguity proof instead of raising through the
+  operator boundary;
 - a competing execution caller no longer terminalizes a start owned by another
   caller; explicit restart recovery may settle an orphan as ambiguous only
   after the maximum dispatch window and a five-second settlement grace, never
@@ -57,7 +63,8 @@ them in individual lane services:
 - every operator-facing lane receipt retains the kernel budget release proof,
   including action, observation, POST form, origin-session, human-handoff,
   artifact-transfer, external-operation, financial, and task-composition
-  projections;
+  projections; browser-action and POST-form wrapper identities recompute over
+  that release proof so substitution is rejected during validation;
 - idempotency identifiers must be SHA-256-pinned safe refs; and
 - authority-binding artifact and resource scopes are immutable tuples, and the
   kernel reconstructs a validated internal request snapshot before any durable

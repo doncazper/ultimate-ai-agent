@@ -485,6 +485,32 @@ class ExternalActionTransactionStore:
             validate_task_ref(row[2], "budget_reservation_ref")
         return row[2]
 
+    def budget_reservation_ref_if_exact(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> str | None:
+        """Return the durable reservation owner for any exact transaction state."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, budget_reservation_ref "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] is not None:
+            validate_task_ref(row[1], "budget_reservation_ref")
+        return row[1]
+
     def terminal_receipt_by_ref(
         self,
         *,
@@ -991,6 +1017,16 @@ class GovernedExternalActionKernel:
         ]
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
+            if not self._store.claim_start(
+                request,
+                budget_reservation_ref=reservation.reservation_ref,
+            ):
+                return self._lost_start_claim_receipt(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                )
             try:
                 release = self._budget_gate.release(
                     request,
@@ -1021,64 +1057,18 @@ class GovernedExternalActionKernel:
                 budget_release_ref=(
                     release.receipt_ref if release.allowed else None
                 ),
+                expected_state=ExternalActionState.started,
             )
 
         if not self._store.claim_start(
             request,
             budget_reservation_ref=reservation.reservation_ref,
         ):
-            terminal = self._store.replay_if_terminal(request)
-            owner_reservation_ref = (
-                terminal.budget_reservation_ref
-                if terminal is not None
-                else self._store.started_budget_reservation_ref_if_exact(request)
-            )
-            if owner_reservation_ref != reservation.reservation_ref:
-                try:
-                    release = self._budget_gate.release(
-                        request,
-                        reservation.reservation_ref,
-                        "reason-ref:governed-external-action:start-claim-not-owned",
-                    )
-                except Exception:
-                    release = BudgetSettlement(
-                        allowed=False,
-                        reason_refs=(
-                            "reason-ref:governed-external-action:budget-release-failed",
-                        ),
-                    )
-                reasons = [
-                    "reason-ref:governed-external-action:start-claim-conflict"
-                ]
-                if not release.allowed or release.receipt_ref is None:
-                    reasons.extend(
-                        [
-                            "reason-ref:governed-external-action:budget-release-unconfirmed",
-                            *release.reason_refs,
-                        ]
-                    )
-                if terminal is not None and release.allowed:
-                    return terminal
-                return self._build_receipt(
-                    request,
-                    ExternalActionState.outcome_ambiguous,
-                    list(dict.fromkeys(reasons)),
-                    approval_validation_ref=approval_validation_ref,
-                    authority_decision_ref=authority_decision_ref,
-                    budget_reservation_ref=reservation.reservation_ref,
-                    budget_release_ref=(
-                        release.receipt_ref if release.allowed else None
-                    ),
-                )
-            if terminal is not None:
-                return terminal
-            return self._build_receipt(
+            return self._lost_start_claim_receipt(
                 request,
-                ExternalActionState.outcome_ambiguous,
-                ["reason-ref:governed-external-action:start-claim-conflict"],
+                reservation_ref=reservation.reservation_ref,
                 approval_validation_ref=approval_validation_ref,
                 authority_decision_ref=authority_decision_ref,
-                budget_reservation_ref=reservation.reservation_ref,
             )
 
         with self._approval_authority.hold_validation_lock():
@@ -1392,6 +1382,55 @@ class GovernedExternalActionKernel:
             evidence_refs=evidence_refs,
         )
 
+    def _lost_start_claim_receipt(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        reservation_ref: str,
+        approval_validation_ref: str,
+        authority_decision_ref: str,
+    ) -> ExternalActionReceipt:
+        """Close only a distinct losing reservation; preserve a winner's proof."""
+
+        terminal = self._store.replay_if_terminal(request)
+        owner_reservation_ref = self._store.budget_reservation_ref_if_exact(request)
+        reasons = ["reason-ref:governed-external-action:start-claim-conflict"]
+        budget_release_ref: str | None = None
+        if owner_reservation_ref != reservation_ref:
+            try:
+                release = self._budget_gate.release(
+                    request,
+                    reservation_ref,
+                    "reason-ref:governed-external-action:start-claim-not-owned",
+                )
+            except Exception:
+                release = BudgetSettlement(
+                    allowed=False,
+                    reason_refs=(
+                        "reason-ref:governed-external-action:budget-release-failed",
+                    ),
+                )
+            if release.allowed and release.receipt_ref is not None:
+                budget_release_ref = release.receipt_ref
+            else:
+                reasons.extend(
+                    [
+                        "reason-ref:governed-external-action:budget-release-unconfirmed",
+                        *release.reason_refs,
+                    ]
+                )
+        elif terminal is not None:
+            return terminal
+        return self._build_receipt(
+            request,
+            ExternalActionState.outcome_ambiguous,
+            list(dict.fromkeys(reasons)),
+            approval_validation_ref=approval_validation_ref,
+            authority_decision_ref=authority_decision_ref,
+            budget_reservation_ref=reservation_ref,
+            budget_release_ref=budget_release_ref,
+        )
+
     def replay_if_terminal(
         self,
         request: ExternalActionExecutionRequest,
@@ -1658,6 +1697,7 @@ class GovernedExternalActionKernel:
         budget_release_ref: str | None = None,
         budget_settlement_ref: str | None = None,
         evidence_refs: list[str] | None = None,
+        expected_state: ExternalActionState | None = None,
     ) -> ExternalActionReceipt:
         receipt = self._build_receipt(
             request,
@@ -1670,12 +1710,40 @@ class GovernedExternalActionKernel:
             budget_settlement_ref=budget_settlement_ref,
             evidence_refs=evidence_refs,
         )
-        expected_state = (
+        exact_expected_state = expected_state or (
             ExternalActionState.prepared
             if state == ExternalActionState.blocked
             else ExternalActionState.started
         )
-        self._store.finish(receipt, expected_state=expected_state)
+        try:
+            self._store.finish(receipt, expected_state=exact_expected_state)
+        except ExternalActionTransactionConflict:
+            terminal = self._store.replay_if_terminal(request)
+            if terminal is not None:
+                return terminal
+            durable_state = self._store.state_if_exact(request)
+            if durable_state in {
+                ExternalActionState.prepared,
+                ExternalActionState.started,
+            }:
+                return self._build_receipt(
+                    request,
+                    ExternalActionState.outcome_ambiguous,
+                    [
+                        *reason_refs,
+                        "reason-ref:governed-external-action:finish-ownership-lost",
+                    ],
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    budget_reservation_ref=budget_reservation_ref,
+                    budget_release_ref=budget_release_ref,
+                    budget_settlement_ref=budget_settlement_ref,
+                    evidence_refs=evidence_refs,
+                )
+            terminal = self._store.replay_if_terminal(request)
+            if terminal is not None:
+                return terminal
+            raise
         return receipt
 
     @staticmethod

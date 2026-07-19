@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_browser_queue02_inactive_activation_matrix,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -287,6 +288,49 @@ def test_readiness_and_receipt_refs_are_intrinsically_bound() -> None:
             {
                 **receipt.model_dump(mode="json"),
                 "budget_release_ref": _ref("budget-release", "forged"),
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_receipt_identity_binds_budget_release_proof(
+    receipt_prefix: str,
+) -> None:
+    payload = {
+        "recipe_ref": _ref("recipe", "release-proof"),
+        "transaction_ref": _ref("transaction", "release-proof"),
+        "intent_ref": _ref("intent", "release-proof"),
+        "binding_ref": _ref("binding", "release-proof"),
+        "status": "transaction_blocked",
+        "external_action_state": ExternalActionState.blocked,
+        "external_action_receipt_ref": _ref("receipt", "external-action"),
+        "budget_reservation_ref": _ref("budget-reservation", "release-proof"),
+        "budget_release_ref": _ref("budget-release", "original"),
+        "reason_refs": [_ref("reason", "release-proof")],
+    }
+    receipt_ref = stable_governed_browser_ref(
+        receipt_prefix,
+        ExactBrowserActionReceipt.model_construct(
+            receipt_ref=f"{receipt_prefix}:pending",
+            **payload,
+        ).model_dump(mode="json", exclude={"receipt_ref"}),
+    )
+    receipt = ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH",
+    ):
+        ExactBrowserActionReceipt.model_validate(
+            {
+                **receipt.model_dump(mode="json"),
+                "budget_release_ref": _ref("budget-release", "substituted"),
             }
         )
 
@@ -720,6 +764,187 @@ def test_lost_start_claim_preserves_the_winners_shared_reservation(
     assert kernel._store.started_budget_reservation_ref_if_exact(request) == (
         receipt.budget_reservation_ref
     )
+
+
+def test_preclaim_denial_never_releases_a_live_owners_shared_reservation(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="preclaim-live-owner"))
+    roles = threading.local()
+    preclaim_barrier = threading.Barrier(2)
+    owner_claimed = threading.Event()
+    contender_lost_claim = threading.Event()
+    release_refs: list[str] = []
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        role = roles.value
+        reads = getattr(roles, "reads", 0) + 1
+        roles.reads = reads
+        if reads == 1:
+            preclaim_barrier.wait(timeout=10)
+            if role == "contender":
+                assert owner_claimed.wait(timeout=10)
+                return _readiness(item, safe_disable=True)
+        return _readiness(item)
+
+    def execute_as(role):  # type: ignore[no-untyped-def]
+        roles.value = role
+        roles.reads = 0
+        return kernel.execute(request, dispatch=_success)
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    original_release = kernel._budget_gate.release
+    original_claim_start = kernel._store.claim_start
+
+    def ordered_claim_start(
+        item,
+        *,
+        budget_reservation_ref=None,
+    ):  # type: ignore[no-untyped-def]
+        claimed = original_claim_start(
+            item,
+            budget_reservation_ref=budget_reservation_ref,
+        )
+        if roles.value == "owner":
+            assert claimed is True
+            owner_claimed.set()
+            assert contender_lost_claim.wait(timeout=10)
+        else:
+            assert claimed is False
+            contender_lost_claim.set()
+        return claimed
+
+    def record_release(item, reservation_ref, reason_ref):  # type: ignore[no-untyped-def]
+        release_refs.append(reservation_ref)
+        return original_release(item, reservation_ref, reason_ref)
+
+    kernel._store.claim_start = ordered_claim_start  # type: ignore[method-assign]
+    kernel._budget_gate.release = record_release  # type: ignore[method-assign]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner_future = pool.submit(execute_as, "owner")
+        contender_future = pool.submit(execute_as, "contender")
+        contender = contender_future.result(timeout=12)
+        owner = owner_future.result(timeout=12)
+
+    assert release_refs == []
+    assert contender.state == ExternalActionState.outcome_ambiguous.value
+    assert contender.budget_release_ref is None
+    assert owner.state == ExternalActionState.succeeded.value, owner
+    assert owner.budget_reservation_ref == contender.budget_reservation_ref
+    assert owner.budget_settlement_ref is not None
+
+
+def test_lost_start_claim_surfaces_distinct_local_release_proof_after_terminal(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="lost-start-terminal-release"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_claim_start = kernel._store.claim_start
+    owner_reservation_ref = _ref("budget-reservation", "terminal-owner")
+
+    def terminalize_before_losing_claim(
+        item,
+        *,
+        budget_reservation_ref=None,
+    ):  # type: ignore[no-untyped-def]
+        assert budget_reservation_ref is not None
+        assert original_claim_start(
+            item,
+            budget_reservation_ref=owner_reservation_ref,
+        )
+        terminal = kernel._build_receipt(
+            item,
+            ExternalActionState.failed,
+            ["reason-ref:governed-external-action:winning-owner-failed"],
+            budget_reservation_ref=owner_reservation_ref,
+        )
+        kernel._store.finish(
+            terminal,
+            expected_state=ExternalActionState.started,
+        )
+        return False
+
+    kernel._store.claim_start = terminalize_before_losing_claim  # type: ignore[method-assign]
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert receipt.replayed is False
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_reservation_ref != owner_reservation_ref
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
+    assert "reason-ref:governed-external-action:start-claim-conflict" in (
+        receipt.reason_refs
+    )
+
+
+def test_lost_start_claim_rejects_release_without_receipt_proof(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="lost-start-release-proof-missing"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_claim_start = kernel._store.claim_start
+
+    def lose_to_distinct_owner(
+        item,
+        *,
+        budget_reservation_ref=None,
+    ):  # type: ignore[no-untyped-def]
+        assert budget_reservation_ref is not None
+        assert original_claim_start(
+            item,
+            budget_reservation_ref=_ref("budget-reservation", "distinct-owner"),
+        )
+        return False
+
+    kernel._store.claim_start = lose_to_distinct_owner  # type: ignore[method-assign]
+    kernel._budget_gate.release = (  # type: ignore[method-assign]
+        lambda _request, _reservation_ref, _reason_ref: BudgetSettlement(
+            allowed=True,
+        )
+    )
+
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert receipt.budget_release_ref is None
+    assert "reason-ref:governed-external-action:budget-release-unconfirmed" in (
+        receipt.reason_refs
+    )
+
+
+def test_prestart_finish_cas_loss_returns_current_ambiguous_state(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="prestart-finish-cas"))
+    kernel, authority = _authorized_kernel(tmp_path, request)
+    authority.revoke(
+        request.approval_ref,
+        "Operator withdrew the exact approval before execution.",
+    )
+    original_finish = kernel._store.finish
+    raced = False
+
+    def start_before_finish(receipt, *, expected_state):  # type: ignore[no-untyped-def]
+        nonlocal raced
+        if not raced and expected_state == ExternalActionState.prepared:
+            raced = True
+            assert kernel._store.claim_start(request) is True
+        return original_finish(receipt, expected_state=expected_state)
+
+    kernel._store.finish = start_before_finish  # type: ignore[method-assign]
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert raced is True
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:finish-ownership-lost" in (
+        receipt.reason_refs
+    )
+    assert kernel._store.state_if_exact(request) == ExternalActionState.started
 
 
 def test_terminal_compare_and_swap_rejects_overwrite(tmp_path) -> None:  # type: ignore[no-untyped-def]

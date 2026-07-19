@@ -55,6 +55,9 @@ def verify() -> list[str]:
             "src/ultimate_ai_agent/core/governed_browser/task_composer.py",
         )
     }
+    browser_actions = projection_sources[
+        "src/ultimate_ai_agent/core/governed_browser/browser_actions.py"
+    ]
     origin_sessions = _read(
         "src/ultimate_ai_agent/core/governed_browser/origin_sessions.py", failures
     )
@@ -101,7 +104,10 @@ def verify() -> list[str]:
             "hold_validation_lock",
             "monotonic()",
             "budget_release_ref",
+            "budget_reservation_ref_if_exact",
             "started_budget_reservation_ref_if_exact",
+            "_lost_start_claim_receipt",
+            "finish-ownership-lost",
             "prior-start-recovery",
             "post-start-dispatch-not-invoked",
             "_TERMINAL_ACCOUNTING_REASON_MARKERS",
@@ -125,6 +131,11 @@ def verify() -> list[str]:
             "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH",
             "_external_operation_receipt_identity_payload",
         ),
+        "browser_actions": (
+            "GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH",
+            '"receipt-ref:governed-browser-action"',
+            '"receipt-ref:governed-post-form"',
+        ),
         "tests": (
             "test_every_hostile_signal_blocks_before_dispatch",
             "test_every_observed_scope_dimension_is_revalidated",
@@ -141,6 +152,11 @@ def verify() -> list[str]:
             "test_dispatch_capacity_is_shared_durably_across_kernel_instances",
             "test_lost_start_claim_releases_only_a_distinct_unused_reservation",
             "test_lost_start_claim_preserves_the_winners_shared_reservation",
+            "test_preclaim_denial_never_releases_a_live_owners_shared_reservation",
+            "test_lost_start_claim_surfaces_distinct_local_release_proof_after_terminal",
+            "test_lost_start_claim_rejects_release_without_receipt_proof",
+            "test_prestart_finish_cas_loss_returns_current_ambiguous_state",
+            "test_browser_action_receipt_identity_binds_budget_release_proof",
             "test_terminal_compare_and_swap_rejects_overwrite",
             "test_reason_bounding_preserves_terminal_accounting_failures",
             "test_every_operator_receipt_contract_retains_budget_release_proof",
@@ -167,6 +183,7 @@ def verify() -> list[str]:
         "transaction": transaction,
         "hardening": hardening,
         "external_operations": external_operations,
+        "browser_actions": browser_actions,
         "tests": tests,
         "external_operation_tests": external_operation_tests,
         "doc": doc,

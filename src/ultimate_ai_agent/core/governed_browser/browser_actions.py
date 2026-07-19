@@ -415,6 +415,19 @@ class ExactBrowserActionReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_BROWSER_ACTION_REPLAY_FLAG_REQUIRED")
+        identity_payload = self.model_dump(mode="json", exclude={"receipt_ref"})
+        expected_receipt_refs = {
+            stable_governed_browser_ref(
+                prefix,
+                identity_payload,
+            )
+            for prefix in (
+                "receipt-ref:governed-browser-action",
+                "receipt-ref:governed-post-form",
+            )
+        }
+        if self.receipt_ref not in expected_receipt_refs:
+            raise ValueError("GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH")
         validate_safe_task_payload(
             self.model_dump(mode="json"), "governed_browser_action_receipt"
         )
