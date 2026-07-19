@@ -56,11 +56,24 @@ _BROAD_GRANT_FRAGMENTS = (
     "complete-any-task",
     "complete.any.task",
     "wildcard",
-    "capability:*",
-    "capability:all",
-    "capability:any",
-    "authority:all",
-    "authority:any",
+)
+
+
+def _separator_tolerant_token_pattern(value: str) -> str:
+    return r"[^a-z0-9]*".join(re.escape(character) for character in value)
+
+
+_BROAD_SCOPE_TOKEN_PATTERN = "(?:" + "|".join(
+    _separator_tolerant_token_pattern(value)
+    for value in ("capability", "capabilities", "authority", "authorities")
+) + ")"
+_BROAD_QUANTITY_TOKEN_PATTERN = "(?:" + "|".join(
+    _separator_tolerant_token_pattern(value) for value in ("all", "any")
+) + ")"
+_BROAD_SCOPE_GRANT_RE = re.compile(
+    rf"(?:^|[^a-z0-9])(?:{_BROAD_SCOPE_TOKEN_PATTERN}[^a-z0-9]*"
+    rf"{_BROAD_QUANTITY_TOKEN_PATTERN}|{_BROAD_QUANTITY_TOKEN_PATTERN}"
+    rf"[^a-z0-9]*{_BROAD_SCOPE_TOKEN_PATTERN})(?:[^a-z0-9]|$)"
 )
 _REGISTERED_SOURCE_PREFIXES = {
     "source_recipe_ref": "source-recipe-ref:governed-task-composer:",
@@ -136,16 +149,7 @@ def _deny_broad_grant_language(value: str, *, label: str) -> None:
         "completeanytask",
         "wildcard",
     )
-    scope_token = r"(?:capability|capabilities|authority|authorities)"
-    quantity_token = r"(?:all|any)"
-    broad_scope_grant = (
-        re.search(
-            rf"(?:^|[^a-z0-9])(?:{scope_token}[^a-z0-9]*{quantity_token}|"
-            rf"{quantity_token}[^a-z0-9]*{scope_token})(?:[^a-z0-9]|$)",
-            lowered,
-        )
-        is not None
-    )
+    broad_scope_grant = _BROAD_SCOPE_GRANT_RE.search(lowered) is not None
     if (
         "*" in value
         or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS)
@@ -1048,6 +1052,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
     plan_ref: str
     broad_intent_ref: str
     registry_ref: str
+    recipe_snapshot: GovernedTaskCompositionRecipe | None = None
     composer_authority_ref: str | None = None
     envelope_ref: str | None = None
     transaction_ref: str
@@ -1062,6 +1067,10 @@ class GovernedTaskCompositionReceipt(BaseModel):
     budget_settlement_ref: str | None = None
     operation_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    external_action_reason_refs: tuple[str, ...] = Field(
+        default_factory=tuple,
+        max_length=16,
+    )
     reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
     replayed: StrictBool = False
     content_free: Literal[True] = True
@@ -1103,6 +1112,10 @@ class GovernedTaskCompositionReceipt(BaseModel):
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "operation_ref") for ref in self.operation_refs],
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
+            *[
+                (ref, "external_action_reason_ref")
+                for ref in self.external_action_reason_refs
+            ],
             *[(ref, "reason_ref") for ref in self.reason_refs],
         ):
             if value is not None:
@@ -1201,16 +1214,35 @@ class GovernedTaskCompositionReceipt(BaseModel):
             raise ValueError("GOVERNED_TASK_COMPOSER_READY_STATE_MISMATCH")
         if status in successful_statuses:
             if (
-                self.composer_authority_ref is None
+                self.recipe_snapshot is None
+                or self.composer_authority_ref is None
                 or self.envelope_ref is None
                 or any(ref is None for ref in kernel_refs)
             ):
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
+            assert self.recipe_snapshot is not None
             assert self.external_action_receipt_ref is not None
             assert self.approval_validation_ref is not None
             assert self.authority_decision_ref is not None
             assert self.budget_reservation_ref is not None
             assert self.budget_settlement_ref is not None
+            snapshot = self.recipe_snapshot
+            if (
+                snapshot.recipe_ref != self.recipe_ref
+                or snapshot.plan_ref != self.plan_ref
+                or snapshot.broad_intent_ref != self.broad_intent_ref
+                or snapshot.registry_ref != self.registry_ref
+                or snapshot.composer_authority_ref != self.composer_authority_ref
+                or snapshot.binding_ref != self.binding_ref
+            ):
+                raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_SNAPSHOT_MISMATCH")
+            expected_operation_refs = tuple(
+                step.operation_ref for step in snapshot.steps
+            )
+            if self.operation_refs != expected_operation_refs:
+                raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_SCOPE_MISMATCH")
+            if self.external_action_reason_refs or self.reason_refs:
+                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_REASON_INVALID")
             for value, label, prefix in (
                 (
                     self.external_action_receipt_ref,
@@ -1243,6 +1275,25 @@ class GovernedTaskCompositionReceipt(BaseModel):
             ):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
+                )
+            expected_external_receipt_ref = stable_governed_browser_ref(
+                "receipt-ref:governed-external-action",
+                {
+                    "transaction_ref": self.transaction_ref,
+                    "intent_ref": self.intent_ref,
+                    "binding_ref": self.binding_ref,
+                    "state": state.value,
+                    "approval_validation_ref": self.approval_validation_ref,
+                    "authority_decision_ref": self.authority_decision_ref,
+                    "budget_reservation_ref": self.budget_reservation_ref,
+                    "budget_settlement_ref": self.budget_settlement_ref,
+                    "evidence_refs": list(self.evidence_refs),
+                    "reason_refs": list(self.external_action_reason_refs),
+                },
+            )
+            if self.external_action_receipt_ref != expected_external_receipt_ref:
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH"
                 )
             expected_envelope_ref = governed_task_composition_envelope_ref(
                 plan_ref=self.plan_ref,
@@ -1678,14 +1729,20 @@ def _result_from_external_receipt(
             ExternalActionState.prepared: GovernedTaskCompositionStatus.outcome_ambiguous,
         }[state]
     reason_refs = tuple(external_receipt.reason_refs)
-    if state == ExternalActionState.failed and not reason_refs:
-        reason_refs = ("reason-ref:governed-task-composer:plan-preparation-failed",)
+    if not reason_refs and status not in {
+        GovernedTaskCompositionStatus.plan_ready,
+        GovernedTaskCompositionStatus.replayed_content_free,
+    }:
+        reason_refs = (
+            f"reason-ref:governed-task-composer:kernel-{status.value}",
+        )
     operation_refs = tuple(step.operation_ref for step in recipe.steps)
     payload = {
         "recipe_ref": recipe.recipe_ref,
         "plan_ref": recipe.plan_ref,
         "broad_intent_ref": recipe.broad_intent_ref,
         "registry_ref": recipe.registry_ref,
+        "recipe_snapshot": recipe,
         "composer_authority_ref": recipe.composer_authority_ref,
         "envelope_ref": governed_task_composition_envelope_ref(
             plan_ref=recipe.plan_ref,
@@ -1705,6 +1762,7 @@ def _result_from_external_receipt(
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "operation_refs": operation_refs,
         "evidence_refs": tuple(external_receipt.evidence_refs),
+        "external_action_reason_refs": tuple(external_receipt.reason_refs),
         "reason_refs": reason_refs,
         "replayed": external_receipt.replayed,
     }

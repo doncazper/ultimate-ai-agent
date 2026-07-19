@@ -546,7 +546,9 @@ bind the existing exact `execute` capability. Duplicate authority refs,
 unpinned or mutable source refs, unknown families, and mismatched capabilities
 are rejected. Normalized singular or plural broad capability/authority tokens
 are rejected regardless of whether `all` or `any` appears before or after the
-scope token. Only already SHA-256-pinned source refs are wrapped into
+scope token, including when separators split the scope or quantity token.
+Boundary matching keeps near-collision namespaces such as `alliance` and
+`anycast` valid. Only already SHA-256-pinned source refs are wrapped into
 purpose-specific opaque refs before registration, so descriptive source
 identifiers cannot flow into a plan or receipt.
 
@@ -577,8 +579,12 @@ idempotency drift fails closed, and ambiguous starts are not retried. This lane
 also rejects unpinned registry and external-action intent refs when durable
 plans or receipts are deserialized directly. Successful receipts validate the
 exact external-action, approval-validation, policy-decision, budget-reservation,
-and budget-settlement proof lineages; every non-success receipt must retain at
-least one safe reason ref. It does not execute an operation,
+and budget-settlement proof lineages by recomputing the exact external-action
+receipt identity. A validated content-free recipe snapshot binds the receipt
+operation refs back to the exact plan payload, validity window, dependencies,
+and authority envelope. Every non-success receipt retains at least one safe
+reason ref, including a composer fallback when the kernel reports an ambiguous
+outcome without one. It does not execute an operation,
 call a model, open or act in a browser, call a
 network, mutate an external target, add a route, or add a Control Center
 control. Queue 02 remains required before any external activation.

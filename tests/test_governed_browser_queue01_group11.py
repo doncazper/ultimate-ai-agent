@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import ultimate_ai_agent.core.governed_browser.task_composer as task_composer_module
 from scripts.verify_governed_browser_queue01_group11 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -244,6 +245,12 @@ def test_registered_operations_compose_into_exact_plan_only_projection(
         recipe.composer_authority_ref,
         *result.receipt.operation_refs,
     )
+    assert result.receipt.recipe_snapshot == recipe
+    assert result.receipt.recipe_snapshot is not None
+    with pytest.raises(AttributeError):
+        result.receipt.recipe_snapshot.steps.append(  # type: ignore[attr-defined]
+            recipe.steps[0]
+        )
     with pytest.raises(AttributeError):
         result.receipt.evidence_refs.append(  # type: ignore[attr-defined]
             recipe.recipe_ref
@@ -336,6 +343,8 @@ def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
         "capabilities.any",
         "authority.any",
         "authorities/all",
+        "cap.ability:all",
+        "any:auth.orities",
     ):
         with pytest.raises(ValueError, match="BROAD_INTENT"):
             governed_task_broad_intent_ref(intent_fingerprint=disguised_grant)
@@ -396,6 +405,8 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
     for narrow_authority_ref in (
         _pinned("small-authority-ref:source", "narrow-source"),
         _pinned("company-capabilities-ref:source", "narrow-source"),
+        _pinned("authority:alliance", "narrow-source"),
+        _pinned("capability:anycast", "narrow-source"),
     ):
         assert build_registered_governed_task_operation(
             kind=GovernedTaskOperationKind.external_operation,
@@ -412,6 +423,8 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
         _pinned("authorities:all", "broad-source"),
         _pinned("all-authorities-ref:source", "broad-source"),
         _pinned("any-capabilities-ref:source", "broad-source"),
+        _pinned("cap.ability:all", "broad-source"),
+        _pinned("any:cap.abilities", "broad-source"),
     ):
         with pytest.raises(ValueError, match="BROAD_OPERATION_AUTHORITY_REF"):
             build_registered_governed_task_operation(
@@ -652,6 +665,35 @@ def test_safe_disable_and_kill_switch_deny_composition(
     assert result.receipt.status == "transaction_blocked"
     assert result.plan is None
     assert not result.receipt.automatic_retry_allowed
+
+
+def test_ambiguous_kernel_outcome_receives_content_free_composer_reason(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="ambiguous-reason"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+
+    def fail_plan_build(*args, **kwargs):  # type: ignore[no-untyped-def]
+        del args, kwargs
+        raise RuntimeError("injected local plan failure")
+
+    monkeypatch.setattr(task_composer_module, "_build_plan", fail_plan_build)
+    result = composer.compose(_exact(request, recipe))
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert result.receipt.external_action_reason_refs == ()
+    assert result.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:kernel-outcome_ambiguous",
+    )
+    assert result.plan is None
 
 
 def test_success_replay_is_content_free_and_idempotency_drift_is_denied(
@@ -903,6 +945,66 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
     )
     result = composer.compose(_exact(request, recipe))
     assert result.receipt.status == "plan_ready"
+
+    scope_drift = result.receipt.model_dump(mode="json")
+    scope_drift["operation_refs"] = [
+        _pinned(
+            "registered-operation-ref:governed-task-composer",
+            "unrelated-operation",
+        )
+    ]
+    scope_drift["evidence_refs"] = [
+        scope_drift["recipe_ref"],
+        scope_drift["plan_ref"],
+        scope_drift["registry_ref"],
+        scope_drift["composer_authority_ref"],
+        *scope_drift["operation_refs"],
+    ]
+    scope_drift["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {key: value for key, value in scope_drift.items() if key != "receipt_ref"},
+    )
+    with pytest.raises(ValidationError, match="RECEIPT_SCOPE_MISMATCH"):
+        GovernedTaskCompositionReceipt.model_validate(scope_drift)
+
+    for field, same_prefix_ref in (
+        (
+            "external_action_receipt_ref",
+            _pinned("receipt-ref:governed-external-action", "unrelated-proof"),
+        ),
+        (
+            "approval_validation_ref",
+            _pinned(
+                "approval-validation-ref:governed-external-action",
+                "unrelated-proof",
+            ),
+        ),
+        (
+            "authority_decision_ref",
+            f"authority-policy-decision-ref:sha256:{'0' * 24}",
+        ),
+        (
+            "budget_reservation_ref",
+            _pinned("authority-budget-reservation-ref", "unrelated-proof"),
+        ),
+        (
+            "budget_settlement_ref",
+            _pinned("receipt-ref:authority-budget", "unrelated-proof"),
+        ),
+    ):
+        proof_drift = result.receipt.model_dump(mode="json")
+        proof_drift[field] = same_prefix_ref
+        proof_drift["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {
+                key: value
+                for key, value in proof_drift.items()
+                if key != "receipt_ref"
+            },
+        )
+        with pytest.raises(ValidationError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
+            GovernedTaskCompositionReceipt.model_validate(proof_drift)
+
     mismatched = result.receipt.model_dump(mode="json")
     mismatched["status"] = "preflight_blocked"
     with pytest.raises(ValidationError, match="RECEIPT_STATE_MISMATCH"):
