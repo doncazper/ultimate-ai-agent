@@ -46,7 +46,13 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_browser_queue02_inactive_activation_matrix,
     stable_governed_browser_ref,
 )
-from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
+from ultimate_ai_agent.core.governed_browser.transaction import (
+    BudgetReservation,
+    BudgetSettlement,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -330,10 +336,12 @@ def test_browser_action_receipt_identity_binds_budget_release_proof(
     }
     receipt_ref = stable_governed_browser_ref(
         receipt_prefix,
-        ExactBrowserActionReceipt.model_construct(
-            receipt_ref=f"{receipt_prefix}:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{receipt_prefix}:pending",
+                **payload,
+            )
+        ),
     )
     receipt = ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
 
@@ -364,10 +372,12 @@ def test_browser_action_and_post_form_results_reject_cross_lane_receipts() -> No
     def receipt(prefix: str) -> ExactBrowserActionReceipt:
         receipt_ref = stable_governed_browser_ref(
             prefix,
-            ExactBrowserActionReceipt.model_construct(
-                receipt_ref=f"{prefix}:pending",
-                **payload,
-            ).model_dump(mode="json", exclude={"receipt_ref"}),
+            governed_receipt_identity_payload(
+                ExactBrowserActionReceipt.model_construct(
+                    receipt_ref=f"{prefix}:pending",
+                    **payload,
+                )
+            ),
         )
         return ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
 
@@ -1143,6 +1153,78 @@ def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
     assert durable_second.state == ExternalActionState.outcome_ambiguous.value
 
 
+def test_dispatch_capacity_check_failure_is_terminal_and_replayed(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="capacity-check-failure"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    calls = 0
+
+    def fail_capacity_check(_request):  # type: ignore[no-untyped-def]
+        raise sqlite3.OperationalError("capacity check unavailable")
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    kernel._store.claim_dispatch_slot = fail_capacity_check  # type: ignore[method-assign]
+
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replayed = kernel.execute(request, dispatch=dispatch)
+
+    assert calls == 0
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:dispatch-capacity-check-failed" in (
+        receipt.reason_refs
+    )
+    assert "reason-ref:governed-external-action:finish-ownership-lost" not in (
+        receipt.reason_refs
+    )
+    assert replayed.replayed is True
+    assert replayed.receipt_ref == receipt.receipt_ref
+
+
+def test_allowed_reservation_without_receipt_proof_is_released(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="reservation-proof-missing"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_reserve = kernel._budget_gate.reserve
+    calls = 0
+
+    def reserve_without_receipt(item, approval):  # type: ignore[no-untyped-def]
+        reservation = original_reserve(item, approval)
+        assert reservation.allowed
+        assert reservation.reservation_ref is not None
+        return BudgetReservation(
+            allowed=True,
+            reservation_ref=reservation.reservation_ref,
+            receipt_ref=None,
+        )
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    kernel._budget_gate.reserve = reserve_without_receipt  # type: ignore[method-assign]
+
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replayed = kernel.execute(request, dispatch=dispatch)
+
+    assert calls == 0
+    assert receipt.state == ExternalActionState.blocked.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
+    assert "reason-ref:governed-external-action:budget-reservation-proof-missing" in (
+        receipt.reason_refs
+    )
+    assert replayed.replayed is True
+    assert replayed.receipt_ref == receipt.receipt_ref
+
+
 def test_lost_start_claim_releases_only_a_distinct_unused_reservation(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -1442,6 +1524,21 @@ def test_every_operator_receipt_contract_retains_budget_release_proof(
     receipt_type: type,
 ) -> None:
     assert "budget_release_ref" in receipt_type.model_fields
+    assert (
+        getattr(
+            receipt_type.model_fields["budget_release_ref"],
+            "exclude_if",
+            None,
+        )
+        is None
+    )
+    provisional = receipt_type.model_construct(
+        receipt_ref="receipt-ref:governed-browser:pending",
+        budget_release_ref=None,
+    )
+    assert "budget_release_ref" not in governed_receipt_identity_payload(
+        provisional
+    )
 
 
 def _activation_evidence(**updates: bool):  # type: ignore[no-untyped-def]

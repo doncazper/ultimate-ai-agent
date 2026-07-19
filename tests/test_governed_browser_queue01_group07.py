@@ -35,6 +35,9 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_human_challenge_schema_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -650,10 +653,12 @@ def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-human-challenge-handoff",
-        GovernedHumanChallengeHandoffReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-human-challenge-handoff:pending",
-            **receipt_payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedHumanChallengeHandoffReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-human-challenge-handoff:pending",
+                **receipt_payload,
+            )
+        ),
     )
     parsed = GovernedHumanChallengeHandoffReceipt(
         receipt_ref=receipt_ref,

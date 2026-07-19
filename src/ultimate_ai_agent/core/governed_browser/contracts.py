@@ -12,7 +12,7 @@ import json
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -87,6 +87,15 @@ def stable_governed_browser_ref(prefix: str, payload: object) -> str:
         default=str,
     ).encode("utf-8")
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def governed_receipt_identity_payload(receipt: BaseModel) -> dict[str, Any]:
+    """Build a receipt identity payload without version-sensitive field metadata."""
+
+    payload = receipt.model_dump(mode="json", exclude={"receipt_ref"})
+    if payload.get("budget_release_ref") is None:
+        payload.pop("budget_release_ref", None)
+    return payload
 
 
 def normalize_exact_origin(value: str) -> str:

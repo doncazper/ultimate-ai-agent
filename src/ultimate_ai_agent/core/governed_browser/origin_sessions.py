@@ -35,6 +35,7 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
 from .transaction import GovernedExternalActionKernel
@@ -767,10 +768,7 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-    )
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     reason_refs: tuple[str, ...] = ()
     content_free: Literal[True] = True
@@ -812,7 +810,7 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
                 validate_task_ref(value, "governed_browser_origin_session_receipt_ref")
         expected_receipt_ref = stable_governed_browser_ref(
             "browser-origin-session-operation-receipt-ref:governed-browser",
-            self.model_dump(mode="json", exclude={"receipt_ref"}),
+            governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError(
@@ -1382,7 +1380,7 @@ def _build_operation_receipt(
     )
     receipt_ref = stable_governed_browser_ref(
         "browser-origin-session-operation-receipt-ref:governed-browser",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(provisional),
     )
     return GovernedBrowserOriginSessionReceipt(
         receipt_ref=receipt_ref,

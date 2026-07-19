@@ -23,13 +23,16 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_artifact_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
 
 
 def _rehash_receipt(payload: dict[str, object]) -> dict[str, object]:
     provisional = GovernedArtifactTransferReceipt.model_construct(**payload)
     payload["receipt_ref"] = stable_governed_browser_ref(
         "receipt-ref:governed-artifact-transfer",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(provisional),
     )
     return payload
 
@@ -118,7 +121,7 @@ def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
     )
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-artifact-transfer",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(provisional),
     )
     parsed = GovernedArtifactTransferReceipt(
         receipt_ref=receipt_ref,
@@ -142,7 +145,7 @@ def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
     provisional = GovernedArtifactTransferReceipt.model_construct(**forged)
     forged["receipt_ref"] = stable_governed_browser_ref(
         "receipt-ref:governed-artifact-transfer",
-        provisional.model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(provisional),
     )
     with pytest.raises(ValueError, match="OPERATION_STATUS_MISMATCH"):
         GovernedArtifactTransferReceipt.model_validate(forged)

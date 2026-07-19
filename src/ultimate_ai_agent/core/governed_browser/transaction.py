@@ -1067,7 +1067,7 @@ class GovernedExternalActionKernel:
             dispatch_result = self._ambiguous_dispatch_result(
                 request, "dispatch-capacity-check-failed"
             )
-            return self._build_receipt(
+            return self._finish(
                 request,
                 ExternalActionState.outcome_ambiguous,
                 [
@@ -1076,6 +1076,7 @@ class GovernedExternalActionKernel:
                 approval_validation_ref=approval_validation_ref,
                 authority_decision_ref=authority_decision.decision_ref,
                 evidence_refs=list(dispatch_result.evidence_refs),
+                expected_state=ExternalActionState.prepared,
             )
         if process_lock_fd is None:
             if self._store.dispatch_slot_is_owned_by(request):
@@ -1119,16 +1120,57 @@ class GovernedExternalActionKernel:
             or reservation.reservation_ref is None
             or reservation.receipt_ref is None
         ):
+            release = BudgetSettlement(allowed=False)
+            reservation_reason_refs = [
+                "reason-ref:governed-external-action:budget-reservation-denied",
+                *reservation.reason_refs,
+            ]
+            if (
+                reservation.allowed
+                and reservation.reservation_ref is not None
+                and reservation.receipt_ref is None
+            ):
+                reservation_reason_refs.append(
+                    "reason-ref:governed-external-action:budget-reservation-proof-missing"
+                )
+                try:
+                    release = self._budget_gate.release(
+                        request,
+                        reservation.reservation_ref,
+                        (
+                            "reason-ref:governed-external-action:"
+                            "budget-reservation-proof-missing"
+                        ),
+                    )
+                except Exception:
+                    release = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=[
+                            "reason-ref:governed-external-action:budget-release-failed"
+                        ],
+                    )
+                if not release.allowed or release.receipt_ref is None:
+                    reservation_reason_refs.extend(
+                        [
+                            "reason-ref:governed-external-action:budget-release-unconfirmed",
+                            *release.reason_refs,
+                        ]
+                    )
             try:
                 return self._finish(
                     request,
                     ExternalActionState.blocked,
-                    [
-                        "reason-ref:governed-external-action:budget-reservation-denied",
-                        *reservation.reason_refs,
-                    ],
+                    reservation_reason_refs,
                     approval_validation_ref=approval_validation_ref,
                     authority_decision_ref=authority_decision.decision_ref,
+                    budget_reservation_ref=(
+                        reservation.reservation_ref if reservation.allowed else None
+                    ),
+                    budget_release_ref=(
+                        release.receipt_ref
+                        if release.allowed and release.receipt_ref is not None
+                        else None
+                    ),
                 )
             finally:
                 release_dispatch_ownership()

@@ -42,6 +42,7 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
 from .transaction import GovernedExternalActionKernel
@@ -370,10 +371,7 @@ class ExactBrowserActionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-    )
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
@@ -415,7 +413,7 @@ class ExactBrowserActionReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_BROWSER_ACTION_REPLAY_FLAG_REQUIRED")
-        identity_payload = self.model_dump(mode="json", exclude={"receipt_ref"})
+        identity_payload = governed_receipt_identity_payload(self)
         expected_receipt_refs = {
             stable_governed_browser_ref(
                 prefix,
@@ -838,10 +836,12 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-browser-action",
-        ExactBrowserActionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-browser-action:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-browser-action:pending",
+                **payload,
+            )
+        ),
     )
     return ExactBrowserActionResult(
         receipt=ExactBrowserActionReceipt(
@@ -891,10 +891,12 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-browser-action",
-        ExactBrowserActionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-browser-action:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-browser-action:pending",
+                **payload,
+            )
+        ),
     )
     return ExactBrowserActionResult(
         receipt=ExactBrowserActionReceipt(

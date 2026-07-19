@@ -116,6 +116,7 @@ def verify() -> list[str]:
             "_TERMINAL_ACCOUNTING_REASON_MARKERS",
             "reason-overflow",
             "budget-settlement-ambiguous",
+            "budget-reservation-proof-missing",
             "_semantic_budget_status",
             "_prior_settlement",
             "reconcile_release",
@@ -167,6 +168,8 @@ def verify() -> list[str]:
             "test_restart_recovery_reaps_stale_process_slot_and_settles_budget",
             "test_stale_dispatch_slot_is_reaped_before_capacity_denial",
             "test_dispatch_capacity_is_shared_durably_across_kernel_instances",
+            "test_dispatch_capacity_check_failure_is_terminal_and_replayed",
+            "test_allowed_reservation_without_receipt_proof_is_released",
             "test_lost_start_claim_releases_only_a_distinct_unused_reservation",
             "test_lost_start_claim_preserves_the_winners_shared_reservation",
             "test_same_request_contender_never_releases_live_owner_reservation",
@@ -233,6 +236,32 @@ def verify() -> list[str]:
         failures.append(
             "Queue 02 budget release projection missing: origin_sessions.py"
         )
+    identity_sources = {
+        relative: source
+        for relative, source in projection_sources.items()
+        if relative.endswith(
+            (
+                "artifact_transfers.py",
+                "browser_actions.py",
+                "evidence_recipes.py",
+                "financial_operation_contracts.py",
+                "human_challenges.py",
+                "post_forms.py",
+            )
+        )
+    }
+    identity_sources[
+        "src/ultimate_ai_agent/core/governed_browser/origin_sessions.py"
+    ] = origin_sessions
+    if "def governed_receipt_identity_payload" not in contracts:
+        failures.append("Queue 02 governed receipt identity helper missing")
+    for relative, source in identity_sources.items():
+        if "governed_receipt_identity_payload" not in source:
+            failures.append(f"Queue 02 portable receipt identity missing: {relative}")
+        if "exclude_if" in source:
+            failures.append(
+                f"Queue 02 version-sensitive receipt identity present: {relative}"
+            )
 
     campaign_markers = (
         "authority and capability confusion",

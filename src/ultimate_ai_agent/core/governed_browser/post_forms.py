@@ -48,6 +48,7 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
 from .transaction import GovernedExternalActionKernel
@@ -987,10 +988,12 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-post-form",
-        ExactBrowserActionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-post-form:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-post-form:pending",
+                **payload,
+            )
+        ),
     )
     return ExactPostFormResult(
         receipt=ExactBrowserActionReceipt(
@@ -1042,10 +1045,12 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-post-form",
-        ExactBrowserActionReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-post-form:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-post-form:pending",
+                **payload,
+            )
+        ),
     )
     return ExactPostFormResult(
         receipt=ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload),

@@ -36,6 +36,7 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
 from .transaction import GovernedExternalActionKernel
@@ -1304,10 +1305,7 @@ class GovernedArtifactTransferReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
-    budget_release_ref: str | None = Field(
-        default=None,
-        exclude_if=lambda value: value is None,
-    )
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     content_fingerprint_ref: str | None = None
     source_download_receipt_ref: str | None = None
@@ -1502,7 +1500,7 @@ class GovernedArtifactTransferReceipt(BaseModel):
             raise ValueError("GOVERNED_ARTIFACT_REPLAY_FLAG_REQUIRED")
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-artifact-transfer",
-            self.model_dump(mode="json", exclude={"receipt_ref"}),
+            governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_ARTIFACT_RECEIPT_REF_MISMATCH")
@@ -2228,10 +2226,12 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-artifact-transfer",
-        GovernedArtifactTransferReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-artifact-transfer:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedArtifactTransferReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-artifact-transfer:pending",
+                **payload,
+            )
+        ),
     )
     return ExactGovernedArtifactTransferResult(
         receipt=GovernedArtifactTransferReceipt(
@@ -2322,10 +2322,12 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-artifact-transfer",
-        GovernedArtifactTransferReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-artifact-transfer:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedArtifactTransferReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-artifact-transfer:pending",
+                **payload,
+            )
+        ),
     )
     return ExactGovernedArtifactTransferResult(
         receipt=GovernedArtifactTransferReceipt(
