@@ -51,6 +51,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
     STATIC_SAFETY_EVALUATOR_DATA_FILES,
     STATIC_SAFETY_EVALUATOR_DATA_PREFIXES,
     _is_static_safety_scan_allowed_file,
+    macos_distribution_static_fragment_allowed,
     m21_forbidden_openwebui_runtime_fragment_failures,
     m36_openapi_route_failures,
     m167_openapi_route_failures,
@@ -423,9 +424,25 @@ def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
     )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
     for distribution_adapter_file in macos_distribution_adapter_files:
-        assert _is_static_safety_scan_allowed_file(
+        assert not _is_static_safety_scan_allowed_file(
             distribution_adapter_file,
             frozenset(),
+        )
+        source = (ROOT / distribution_adapter_file).read_text(encoding="utf-8")
+        reviewed_fragment = (
+            "Path.home("
+            if distribution_adapter_file.endswith("installer.py")
+            else "subprocess"
+        )
+        assert macos_distribution_static_fragment_allowed(
+            distribution_adapter_file,
+            source,
+            reviewed_fragment,
+        )
+        assert not macos_distribution_static_fragment_allowed(
+            distribution_adapter_file,
+            source + "\nprovider_model_call_enabled=True\n",
+            "provider_model_call_enabled=True",
         )
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/evidence_signing/macos_keychain.py",

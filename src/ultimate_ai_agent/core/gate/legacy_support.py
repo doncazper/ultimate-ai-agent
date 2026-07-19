@@ -31,6 +31,7 @@ from ultimate_ai_agent.core.gate.web_hybrid_static_policy import (
 from ultimate_ai_agent.distribution.macos.static_policy import (
     MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
     macos_distribution_policy_failures,
+    macos_distribution_static_fragment_allowed,
 )
 from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
     forbidden_route_fragment_failures,
@@ -188,6 +189,7 @@ def runtime_subprocess_fragment_allowed(rel: str, text: str, fragment: str) -> b
         or matrix_session_fragment_allowed(rel, text, fragment)
         or matrix_sync_fragment_allowed(rel, text, fragment)
         or matrix_messaging_fragment_allowed(rel, text, fragment)
+        or macos_distribution_static_fragment_allowed(rel, text, fragment)
     )
 
 
@@ -197,7 +199,6 @@ def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) 
         or rel in STATIC_SAFETY_EVALUATOR_DATA_FILES
         or rel.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
-        or rel in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
     )
 
 

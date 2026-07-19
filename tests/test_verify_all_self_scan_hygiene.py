@@ -246,7 +246,21 @@ def test_static_scan_allowlist_is_dependency_free_and_does_not_hide_web_adapters
         "src/ultimate_ai_agent/core/web_access/firecrawl_cloud.py", set()
     )
     for rel in static_scan_policy.MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES:
-        assert run_all_legacy._is_static_gate_scan_allowed_file(rel, set())
+        assert not run_all_legacy._is_static_gate_scan_allowed_file(rel, set())
+        source = (run_all_legacy.ROOT / rel).read_text(encoding="utf-8")
+        reviewed_fragment = (
+            "Path.home(" if rel.endswith("installer.py") else "subprocess"
+        )
+        assert static_scan_policy.macos_distribution_static_fragment_allowed(
+            rel,
+            source,
+            reviewed_fragment,
+        )
+        assert not static_scan_policy.macos_distribution_static_fragment_allowed(
+            rel,
+            source + "\nprovider_model_call_enabled=True\n",
+            "provider_model_call_enabled=True",
+        )
     assert not run_all_legacy._is_static_gate_scan_allowed_file(
         "src/ultimate_ai_agent/distribution/macos/static_policy.py",
         set(),
@@ -266,7 +280,17 @@ def test_forbidden_integration_scan_allows_only_exact_macos_distribution_network
         / "runtime.py"
     )
     exact_adapter.parent.mkdir(parents=True)
-    exact_adapter.write_text("import urllib.request\n", encoding="utf-8")
+    exact_adapter.write_text(
+        (
+            run_all_legacy.ROOT
+            / "src"
+            / "ultimate_ai_agent"
+            / "distribution"
+            / "macos"
+            / "runtime.py"
+        ).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(run_all_legacy, "ROOT", tmp_path)
 
     run_all_legacy.verify_no_forbidden_external_integrations()

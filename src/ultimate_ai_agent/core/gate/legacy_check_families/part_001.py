@@ -268,9 +268,21 @@ class FoundationGateLegacyChecksPart001Mixin:
             'return f"https://{host}"',
         }
         for path, line_no, stripped in self._runtime_lines():
+            source = self._read(self.root / path)
             if self._is_static_scanner_text(stripped):
                 continue
             if any(stripped.startswith(pattern) for pattern in forbidden_starts):
+                matched_start = next(
+                    pattern
+                    for pattern in forbidden_starts
+                    if stripped.startswith(pattern)
+                )
+                if macos_distribution_static_fragment_allowed(
+                    path,
+                    source,
+                    matched_start,
+                ):
+                    continue
                 if path in allowed_manual_smoke_network_files and stripped.startswith(
                     (
                         "import urllib.request",
@@ -349,7 +361,17 @@ class FoundationGateLegacyChecksPart001Mixin:
                 and stripped in allowed_matrix_session_target_policy_lines
             ):
                 continue
-            if any(pattern in stripped for pattern in forbidden_contains):
+            matched_contains = next(
+                (pattern for pattern in forbidden_contains if pattern in stripped),
+                None,
+            )
+            if matched_contains and macos_distribution_static_fragment_allowed(
+                path,
+                source,
+                matched_contains,
+            ):
+                continue
+            if matched_contains:
                 failures.append(f"{path}:{line_no} forbidden integration reference")
             if ".get(" in stripped and any(
                 marker in stripped for marker in forbidden_contains[-2:]
@@ -449,6 +471,7 @@ class FoundationGateLegacyChecksPart001Mixin:
         }
         failures = []
         for path, line_no, stripped in self._runtime_lines():
+            source = self._read(self.root / path)
             if self._is_static_scanner_text(stripped):
                 continue
             exact_allowed_path = (
@@ -475,6 +498,16 @@ class FoundationGateLegacyChecksPart001Mixin:
                 or "subprocess" + "." in stripped
             ):
                 continue
+            if any(
+                macos_distribution_static_fragment_allowed(
+                    path,
+                    source,
+                    fragment,
+                )
+                for fragment in forbidden
+                if fragment in stripped
+            ):
+                continue
             if exact_allowed_path and any(
                 fragment in stripped for fragment in forbidden
             ):
@@ -497,6 +530,15 @@ class FoundationGateLegacyChecksPart001Mixin:
             for path, line_no, stripped in self._runtime_lines()
             if not self._is_static_scanner_text(stripped)
             and any(fragment in stripped for fragment in forbidden)
+            and not any(
+                macos_distribution_static_fragment_allowed(
+                    path,
+                    self._read(self.root / path),
+                    fragment,
+                )
+                for fragment in forbidden
+                if fragment in stripped
+            )
             and not is_exact_portable_evidence_helper_home_path(
                 rel_path=path,
                 source=self._read(self.root / path),

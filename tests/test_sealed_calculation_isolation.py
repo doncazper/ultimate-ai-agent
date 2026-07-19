@@ -495,6 +495,9 @@ def test_backend_rejects_extra_fields_and_non_numeric_result_smuggling(
 
     class CompletedProcess:
         returncode = 0
+        stdin = None
+        stdout = None
+        stderr = None
 
     monkeypatch.setattr(
         backend,

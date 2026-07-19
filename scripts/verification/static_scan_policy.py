@@ -119,6 +119,9 @@ _MACOS_DISTRIBUTION_POLICY = _load_macos_distribution_policy()
 MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES = (
     _MACOS_DISTRIBUTION_POLICY.MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
 )
+macos_distribution_static_fragment_allowed = (
+    _MACOS_DISTRIBUTION_POLICY.macos_distribution_static_fragment_allowed
+)
 
 
 def is_static_gate_scan_allowed_file(
@@ -130,7 +133,6 @@ def is_static_gate_scan_allowed_file(
         or rel_path in STATIC_SAFETY_EVALUATOR_DATA_FILES
         or rel_path.startswith(STATIC_SAFETY_EVALUATOR_DATA_PREFIXES)
         or rel_path in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
-        or rel_path in MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES
     )
 
 
@@ -161,6 +163,7 @@ def is_unapproved_static_fragment(
         fragment in source
         and fragment not in allowed_fragments
         and not _is_web_hybrid_promoted_static_fragment(rel, fragment, source)
+        and not macos_distribution_static_fragment_allowed(rel, source, fragment)
     )
 
 

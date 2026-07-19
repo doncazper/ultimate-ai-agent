@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from scripts.macos.build_release_bundle import build_release_bundle
 from scripts.macos.release_policy import classify_tag
@@ -22,6 +23,7 @@ from ultimate_ai_agent.distribution.macos.static_policy import (
     MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
     macos_distribution_adapter_policy_failures,
     macos_distribution_policy_failures,
+    macos_distribution_static_fragment_allowed,
 )
 from ultimate_ai_agent.distribution.macos.contracts import (
     APP_BUNDLE_IDENTIFIER,
@@ -552,6 +554,13 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     workflow = (ROOT / ".github" / "workflows" / "macos-release.yml").read_text(
         encoding="utf-8"
     )
+    workflow_contract = yaml.safe_load(workflow)
+    release_steps = workflow_contract["jobs"]["build-and-publish"]["steps"]
+    checkout_steps = [
+        step
+        for step in release_steps
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
 
     assert "refs/tags/${{ steps.source.outputs.tag }}" in workflow
     assert 'git rev-parse "refs/tags/$RELEASE_TAG^{commit}"' in workflow
@@ -564,8 +573,8 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
-    assert "uses: actions/checkout@v4" in workflow
-    assert "actions/checkout@" + "34e114876b0b11c390a56381ad16ebd13914f8d5" not in workflow
+    assert [step["uses"] for step in checkout_steps] == ["actions/checkout@v4"]
+    assert checkout_steps[0]["with"]["persist-credentials"] is False
     assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
@@ -643,6 +652,147 @@ def test_macos_distribution_policy_rejects_shell_broadening() -> None:
     assert any(
         "shell execution" in failure or "forbidden broad" in failure
         for failure in failures
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        source + "\nsubprocess.run(user_command, shell=True)\n",
+        "subprocess",
+    )
+
+
+def test_macos_distribution_policy_rejects_unreviewed_network_drift() -> None:
+    rel_path = "src/ultimate_ai_agent/distribution/macos/runtime.py"
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+
+    assert macos_distribution_static_fragment_allowed(
+        rel_path,
+        source,
+        "urllib.request.urlopen",
+    )
+    attribute_drift = source + "\nsocket.create_connection((host, port))\n"
+    assert macos_distribution_adapter_policy_failures(rel_path, attribute_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        attribute_drift,
+        "socket.",
+    )
+    endpoint_drift = source + '\nUNREVIEWED_ENDPOINT = "https://example.invalid"\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, endpoint_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        endpoint_drift,
+        "https://",
+    )
+    alias_drift = source.replace("import socket\n", "import socket as network_socket\n")
+    assert macos_distribution_adapter_policy_failures(rel_path, alias_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        alias_drift,
+        "socket.",
+    )
+    indirect_drift = source + '\ngetattr(subprocess, "run")([])\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, indirect_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        indirect_drift,
+        "subprocess",
+    )
+    process_drift = source + '\nos.spawnv(0, "/bin/echo", ["echo"])\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, process_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        process_drift,
+        "subprocess",
+    )
+    dynamic_import_drift = (
+        source + '\n__import__("subprocess").Popen(["/bin/echo"])\n'
+    )
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        dynamic_import_drift,
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        dynamic_import_drift,
+        "subprocess",
+    )
+    module_registry_drift = (
+        source + '\nsys.modules["subprocess"].Popen(["/bin/echo"])\n'
+    )
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        module_registry_drift,
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        module_registry_drift,
+        "subprocess",
+    )
+    callable_alias_drift = source + "\nspawn = subprocess.Popen\nspawn([])\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        callable_alias_drift,
+    )
+    command_argv_drift = source.replace(
+        '["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)]',
+        '[str(app), "--verify"]',
+        1,
+    )
+    assert command_argv_drift != source
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        command_argv_drift,
+    )
+    shell_truthy_drift = source.replace(
+        "            check=False,\n        )",
+        "            check=False,\n            shell=1,\n        )",
+        1,
+    )
+    assert shell_truthy_drift != source
+    assert any(
+        "shell execution must remain literal-false" in failure
+        for failure in macos_distribution_adapter_policy_failures(
+            rel_path,
+            shell_truthy_drift,
+        )
+    )
+    request_source_drift = source.replace(
+        "            url,\n            headers={",
+        '            os.environ["UNREVIEWED_URL"],\n            headers={',
+        1,
+    )
+    assert request_source_drift != source
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        request_source_drift,
+    )
+
+
+def test_macos_distribution_policy_rejects_unreviewed_filesystem_call() -> None:
+    rel_path = "src/ultimate_ai_agent/distribution/macos/installer.py"
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+    filesystem_drift = source + '\nPath("/").glob("**/*")\n'
+
+    assert macos_distribution_adapter_policy_failures(rel_path, filesystem_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        filesystem_drift,
+        "Path.home(",
+    )
+    path_instance_drift = source + "\nlayout.root.glob('**/*')\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        path_instance_drift,
+    )
+    module_call_drift = source + "\ntempfile.mkdtemp()\n"
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        module_call_drift,
+    )
+    builtin_open_drift = source + '\nopen("/tmp/unreviewed", "w")\n'
+    assert macos_distribution_adapter_policy_failures(
+        rel_path,
+        builtin_open_drift,
     )
 
 

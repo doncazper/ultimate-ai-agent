@@ -657,6 +657,9 @@ class FoundationGateLegacyChecksPart017Mixin:
                         and not _is_web_hybrid_promoted_static_fragment(
                             rel, fragment, text
                         )
+                        and not macos_distribution_static_fragment_allowed(
+                            rel, text, fragment
+                        )
                     ):
                         failures.append(
                             f"M71 forbidden network tool contract fragment in {rel}: {fragment}"
@@ -1014,6 +1017,9 @@ class FoundationGateLegacyChecksPart017Mixin:
                         and not matrix_messaging_fragment_allowed(rel, text, fragment)
                         and not _is_web_hybrid_promoted_static_fragment(
                             rel, fragment, text
+                        )
+                        and not macos_distribution_static_fragment_allowed(
+                            rel, text, fragment
                         )
                     ):
                         failures.append(
