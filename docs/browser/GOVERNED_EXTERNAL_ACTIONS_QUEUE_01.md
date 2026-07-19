@@ -544,7 +544,8 @@ contract, binding, target, schema, exact operation-authority ref, and one
 family-appropriate later capability; credential/session lifecycle operations
 bind the existing exact `execute` capability. Duplicate authority refs,
 unpinned or mutable source refs, unknown families, and mismatched capabilities
-are rejected. Only already SHA-256-pinned source refs are wrapped into
+are rejected. Normalized singular or plural broad capability/authority tokens
+are also rejected. Only already SHA-256-pinned source refs are wrapped into
 purpose-specific opaque refs before registration, so descriptive source
 identifiers cannot flow into a plan or receipt.
 
@@ -557,7 +558,8 @@ uses only `AuthorityCapability.prepare`; an approval identifier alone grants
 nothing, and exact PolicyEngine, LocalApprovalAuthority, AuthorityLease,
 budget, readiness, deadline, current human presence, safe-disable, and kill
 switch checks still apply. The content-derived plan-payload ref binds the exact
-intent, registry, ordered steps, and expiry used by the transaction binding.
+intent, hash-pinned registry, ordered steps, validity start, and expiry used by
+the transaction binding.
 The final plan ref additionally hashes that payload ref together with the exact
 recipe, composer-authority, and external-action binding refs; a separate
 composition-envelope ref commits the same authority tuple. Changing an
@@ -571,7 +573,9 @@ different ordered content. Composer authority is never inherited by a step, no s
 authorized or executed, and no `complete_any_task` or wildcard grant exists.
 Terminal replay returns a content-free receipt without recreating the plan;
 idempotency drift fails closed, and ambiguous starts are not retried. This lane
-does not execute an operation, call a model, open or act in a browser, call a
+also rejects unpinned registry and external-action intent refs when durable
+plans or receipts are deserialized directly. It does not execute an operation,
+call a model, open or act in a browser, call a
 network, mutate an external target, add a route, or add a Control Center
 control. Queue 02 remains required before any external activation.
 

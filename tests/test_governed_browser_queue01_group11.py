@@ -136,6 +136,7 @@ def _composition_context(
         broad_intent_ref=broad_intent_ref,
         registry_ref=operation_registry.registry_ref,
         steps=steps,
+        created_at=exact_created_at,
         expires_at=exact_expires_at,
     )
     composer_authority_ref = governed_task_composer_authority_ref(
@@ -332,7 +333,9 @@ def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
         "capability:completeanytask",
         "authority.complete-any-task",
         "capability/all",
+        "capabilities.any",
         "authority.any",
+        "authorities/all",
     ):
         with pytest.raises(ValueError, match="BROAD_INTENT"):
             governed_task_broad_intent_ref(intent_fingerprint=disguised_grant)
@@ -389,6 +392,19 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
                 kind=GovernedTaskOperationKind.external_operation,
                 required_capability=AuthorityCapability.send,
                 **unpinned_sources,
+            )
+    for broad_authority_ref in (
+        _pinned("capabilities:any", "broad-source"),
+        _pinned("authorities:all", "broad-source"),
+    ):
+        with pytest.raises(ValueError, match="BROAD_OPERATION_AUTHORITY_REF"):
+            build_registered_governed_task_operation(
+                kind=GovernedTaskOperationKind.external_operation,
+                required_capability=AuthorityCapability.send,
+                **{
+                    **exact_sources,
+                    "operation_authority_ref": broad_authority_ref,
+                },
             )
     registry = GovernedTaskOperationRegistry([operation])
     with pytest.raises(AttributeError):
@@ -779,6 +795,20 @@ def test_serialized_plan_cannot_rebind_a_registered_operation_or_plan_ref(
     with pytest.raises(ValidationError, match="PLAN_REF_MISMATCH"):
         GovernedTaskCompositionPlan.model_validate(plan_ref_drift)
 
+    validity_drift = result.plan.model_dump(mode="json")
+    validity_drift["created_at"] = (
+        result.plan.created_at - timedelta(seconds=1)
+    ).isoformat()
+    with pytest.raises(ValidationError, match="PLAN_PAYLOAD_REF_MISMATCH"):
+        GovernedTaskCompositionPlan.model_validate(validity_drift)
+
+    registry_drift = result.plan.model_dump(mode="json")
+    registry_drift["registry_ref"] = (
+        "operation-registry-ref:governed-task-composer:descriptive-alias"
+    )
+    with pytest.raises(ValidationError, match="HASH_PIN_REQUIRED"):
+        GovernedTaskCompositionPlan.model_validate(registry_drift)
+
     proof_ref_drift = result.plan.model_dump(mode="json")
     proof_ref_drift["binding_ref"] = _pinned(
         "authority-binding-ref:governed-external-action",
@@ -873,16 +903,32 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
         )
     )
     assert blocked.receipt.status == "preflight_blocked"
-    unpinned_intent = blocked.receipt.model_dump(mode="json")
-    unpinned_intent["broad_intent_ref"] = (
-        "broad-intent-ref:governed-task-composer:not-hash-pinned"
-    )
-    unpinned_intent["receipt_ref"] = stable_governed_browser_ref(
-        "receipt-ref:governed-task-composition",
-        {key: value for key, value in unpinned_intent.items() if key != "receipt_ref"},
-    )
-    with pytest.raises(ValidationError, match="HASH_PIN_REQUIRED"):
-        GovernedTaskCompositionReceipt.model_validate(unpinned_intent)
+    for field, unpinned_value in (
+        (
+            "broad_intent_ref",
+            "broad-intent-ref:governed-task-composer:descriptive-alias",
+        ),
+        (
+            "intent_ref",
+            "intent-ref:governed-external-action:descriptive-alias",
+        ),
+        (
+            "registry_ref",
+            "operation-registry-ref:governed-task-composer:descriptive-alias",
+        ),
+    ):
+        unpinned_receipt = blocked.receipt.model_dump(mode="json")
+        unpinned_receipt[field] = unpinned_value
+        unpinned_receipt["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {
+                key: value
+                for key, value in unpinned_receipt.items()
+                if key != "receipt_ref"
+            },
+        )
+        with pytest.raises(ValidationError, match="HASH_PIN_REQUIRED"):
+            GovernedTaskCompositionReceipt.model_validate(unpinned_receipt)
 
 
 def test_static_item13_verifier_passes() -> None:

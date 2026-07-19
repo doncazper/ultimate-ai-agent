@@ -137,8 +137,12 @@ def _deny_broad_grant_language(value: str, *, label: str) -> None:
         "wildcard",
         "capabilityall",
         "capabilityany",
+        "capabilitiesall",
+        "capabilitiesany",
         "authorityall",
         "authorityany",
+        "authoritiesall",
+        "authoritiesany",
     )
     if (
         "*" in value
@@ -385,7 +389,11 @@ def governed_task_composition_schema_ref(
     registry_ref: str,
     steps: Sequence[GovernedTaskCompositionStep],
 ) -> str:
-    validate_task_ref(registry_ref, "registry_ref")
+    _validate_hash_pinned_ref(
+        registry_ref,
+        label="registry_ref",
+        prefix="operation-registry-ref:governed-task-composer:",
+    )
     return stable_governed_browser_ref(
         "composition-schema-ref:governed-task-composer",
         {
@@ -400,6 +408,7 @@ def governed_task_composition_plan_payload_ref(
     broad_intent_ref: str,
     registry_ref: str,
     steps: Sequence[GovernedTaskCompositionStep],
+    created_at: datetime,
     expires_at: datetime,
 ) -> str:
     _validate_hash_pinned_ref(
@@ -407,15 +416,25 @@ def governed_task_composition_plan_payload_ref(
         label="broad_intent_ref",
         prefix="broad-intent-ref:governed-task-composer:",
     )
-    validate_task_ref(registry_ref, "registry_ref")
-    if expires_at.tzinfo is None:
+    _validate_hash_pinned_ref(
+        registry_ref,
+        label="registry_ref",
+        prefix="operation-registry-ref:governed-task-composer:",
+    )
+    if created_at.tzinfo is None or expires_at.tzinfo is None:
         raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+    if (
+        expires_at <= created_at
+        or expires_at - created_at > MAX_GOVERNED_TASK_COMPOSITION_LIFETIME
+    ):
+        raise ValueError("GOVERNED_TASK_COMPOSER_LIFETIME_INVALID")
     return stable_governed_browser_ref(
         "composition-plan-payload-ref:governed-task-composer",
         {
             "broad_intent_ref": broad_intent_ref,
             "registry_ref": registry_ref,
             "steps": [step.model_dump(mode="json") for step in steps],
+            "created_at": created_at.isoformat(),
             "expires_at": expires_at.isoformat(),
         },
     )
@@ -431,10 +450,18 @@ def governed_task_composer_authority_ref(
     for value, label in (
         (origin_ref, "origin_ref"),
         (page_snapshot_ref, "page_snapshot_ref"),
-        (plan_payload_ref, "plan_payload_ref"),
-        (registry_ref, "registry_ref"),
     ):
         validate_task_ref(value, label)
+    _validate_hash_pinned_ref(
+        plan_payload_ref,
+        label="plan_payload_ref",
+        prefix="composition-plan-payload-ref:governed-task-composer:",
+    )
+    _validate_hash_pinned_ref(
+        registry_ref,
+        label="registry_ref",
+        prefix="operation-registry-ref:governed-task-composer:",
+    )
     return stable_governed_browser_ref(
         "composer-authority-ref:governed-task-composer",
         {
@@ -595,6 +622,11 @@ class GovernedTaskCompositionRecipe(BaseModel):
             label="broad_intent_ref",
             prefix="broad-intent-ref:governed-task-composer:",
         )
+        _validate_hash_pinned_ref(
+            self.registry_ref,
+            label="registry_ref",
+            prefix="operation-registry-ref:governed-task-composer:",
+        )
         if self.created_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
         if (
@@ -624,6 +656,7 @@ class GovernedTaskCompositionRecipe(BaseModel):
             broad_intent_ref=self.broad_intent_ref,
             registry_ref=self.registry_ref,
             steps=self.steps,
+            created_at=self.created_at,
             expires_at=self.expires_at,
         )
         if self.plan_payload_ref != expected_plan_payload_ref:
@@ -701,6 +734,7 @@ def build_governed_task_composition_recipe(
         broad_intent_ref=broad_intent_ref,
         registry_ref=registry_ref,
         steps=exact_steps,
+        created_at=created_at,
         expires_at=expires_at,
     )
     composer_authority_ref = governed_task_composer_authority_ref(
@@ -907,6 +941,7 @@ class GovernedTaskCompositionPlan(BaseModel):
     steps: tuple[GovernedTaskCompositionPlanStep, ...] = Field(
         ..., min_length=1, max_length=MAX_GOVERNED_TASK_COMPOSITION_STEPS
     )
+    created_at: datetime
     expires_at: datetime
     plan_prepared: Literal[True] = True
     registered_operations_only: Literal[True] = True
@@ -941,8 +976,14 @@ class GovernedTaskCompositionPlan(BaseModel):
             label="broad_intent_ref",
             prefix="broad-intent-ref:governed-task-composer:",
         )
-        if self.expires_at.tzinfo is None:
+        if self.created_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
+        if (
+            self.expires_at <= self.created_at
+            or self.expires_at - self.created_at
+            > MAX_GOVERNED_TASK_COMPOSITION_LIFETIME
+        ):
+            raise ValueError("GOVERNED_TASK_COMPOSER_LIFETIME_INVALID")
         expected_ordinals = list(range(1, len(self.steps) + 1))
         if [step.ordinal for step in self.steps] != expected_ordinals:
             raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_ORDER_INVALID")
@@ -967,6 +1008,7 @@ class GovernedTaskCompositionPlan(BaseModel):
             broad_intent_ref=self.broad_intent_ref,
             registry_ref=self.registry_ref,
             steps=composition_steps,
+            created_at=self.created_at,
             expires_at=self.expires_at,
         )
         if self.plan_payload_ref != expected_plan_payload_ref:
@@ -1068,6 +1110,59 @@ class GovernedTaskCompositionReceipt(BaseModel):
             label="broad_intent_ref",
             prefix="broad-intent-ref:governed-task-composer:",
         )
+        _validate_hash_pinned_ref(
+            self.registry_ref,
+            label="registry_ref",
+            prefix="operation-registry-ref:governed-task-composer:",
+        )
+        _validate_hash_pinned_ref(
+            self.intent_ref,
+            label="intent_ref",
+            prefix="intent-ref:governed-external-action:",
+        )
+        for value, label, prefix in (
+            (
+                self.recipe_ref,
+                "recipe_ref",
+                "composition-recipe-ref:governed-task-composer:",
+            ),
+            (
+                self.plan_ref,
+                "plan_ref",
+                "composition-plan-ref:governed-task-composer:",
+            ),
+            (
+                self.transaction_ref,
+                "transaction_ref",
+                "transaction-ref:governed-task-composer:",
+            ),
+            (
+                self.binding_ref,
+                "binding_ref",
+                "authority-binding-ref:governed-external-action:",
+            ),
+        ):
+            _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+        for value, label, prefix in (
+            (
+                self.composer_authority_ref,
+                "composer_authority_ref",
+                "composer-authority-ref:governed-task-composer:",
+            ),
+            (
+                self.envelope_ref,
+                "envelope_ref",
+                "composition-envelope-ref:governed-task-composer:",
+            ),
+        ):
+            if value is not None:
+                _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+        for operation_ref in self.operation_refs:
+            _validate_hash_pinned_ref(
+                operation_ref,
+                label="operation_ref",
+                prefix="registered-operation-ref:governed-task-composer:",
+            )
         status = GovernedTaskCompositionStatus(self.status)
         state = ExternalActionState(self.external_action_state)
         expected_state = {
@@ -1121,12 +1216,6 @@ class GovernedTaskCompositionReceipt(BaseModel):
             ):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_SUCCESS_OPERATION_SCOPE_INVALID"
-                )
-            for operation_ref in self.operation_refs:
-                _validate_hash_pinned_ref(
-                    operation_ref,
-                    label="operation_ref",
-                    prefix="registered-operation-ref:governed-task-composer:",
                 )
             expected_evidence = (
                 self.recipe_ref,
@@ -1455,6 +1544,7 @@ def _build_plan(
             binding_ref=recipe.binding_ref,
         ),
         steps=tuple(plan_steps),
+        created_at=recipe.created_at,
         expires_at=recipe.expires_at,
     )
 
