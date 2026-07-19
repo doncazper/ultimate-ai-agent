@@ -561,6 +561,18 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
         for step in release_steps
         if str(step.get("uses", "")).startswith("actions/checkout@")
     ]
+    focused_installer_step = next(
+        step
+        for step in release_steps
+        if step.get("name") == "Verify focused installer contracts"
+    )
+    focused_installer_run = focused_installer_step["run"]
+    bundle_build_step = next(
+        step
+        for step in release_steps
+        if step.get("name") == "Build app, CLI runtime, and release assets"
+    )
+    bundle_build_run = bundle_build_step["run"]
 
     assert "refs/tags/${{ steps.source.outputs.tag }}" in workflow
     assert 'git rev-parse "refs/tags/$RELEASE_TAG^{commit}"' in workflow
@@ -575,16 +587,18 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "actions/setup-python" not in workflow
     assert [step["uses"] for step in checkout_steps] == ["actions/checkout@v4"]
     assert checkout_steps[0]["with"]["persist-credentials"] is False
-    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     pinned_uv = (
         ".macos-build-venv/bin/python -m pip install "
         '--disable-pip-version-check "uv==0.11.21"'
     )
-    exported_uv = 'echo "$PWD/.macos-build-venv/bin" >> "$GITHUB_PATH"'
-    assert pinned_uv in workflow
-    assert exported_uv in workflow
-    assert workflow.index(pinned_uv) < workflow.index(exported_uv)
-    assert workflow.index(exported_uv) < workflow.index("build_release_bundle.py")
+    assert pinned_uv in focused_installer_run
+    assert ".macos-build-venv/bin/uv sync --frozen" in focused_installer_run
+    assert "$GITHUB_PATH" not in focused_installer_run
+    assert (
+        'PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH"'
+        in bundle_build_run
+    )
+    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
     )
