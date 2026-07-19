@@ -573,6 +573,21 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
         if step.get("name") == "Build app, CLI runtime, and release assets"
     )
     bundle_build_run = bundle_build_step["run"]
+    github_cli_step = next(
+        step
+        for step in release_steps
+        if step.get("name") == "Fetch pinned GitHub CLI"
+    )
+    github_cli_run = github_cli_step["run"]
+    publish_steps = [
+        step
+        for step in release_steps
+        if step.get("name")
+        in {
+            "Publish immutable app release",
+            "Build and publish long-lived installer bootstrap",
+        }
+    ]
 
     assert "refs/tags/${{ steps.source.outputs.tag }}" in workflow
     assert 'git rev-parse "refs/tags/$RELEASE_TAG^{commit}"' in workflow
@@ -580,7 +595,7 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "scripts/macos/prepare_python_runtime.sh" in workflow
     assert "build_release_bundle.py" in workflow
     assert "uaa-macos-arm64.release.json" in workflow
-    assert "gh release upload" in workflow
+    assert '"$GH_CLI" release upload' in workflow
     assert "scripts/macos/verify_installer_e2e.py" in workflow
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
@@ -598,6 +613,26 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
         'PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH"'
         in bundle_build_run
     )
+    assert github_cli_step["id"] == "github_cli"
+    assert github_cli_step["env"] == {
+        "GH_CLI_VERSION": "2.96.0",
+        "GH_CLI_ARCHIVE_SHA256": (
+            "f23a0c37d963aacc3bed703ccbd59b41c5ca22101fab7f00eb2b7cad23aba463"
+        ),
+    }
+    assert "github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/" in github_cli_run
+    assert "--proto '=https'" in github_cli_run
+    assert "--tlsv1.2" in github_cli_run
+    assert "actual_sha256=" in github_cli_run
+    assert "GH_CLI_ARCHIVE_SHA256" in github_cli_run
+    assert github_cli_run.index("actual_sha256=") < github_cli_run.index(
+        "/usr/bin/unzip"
+    )
+    assert "command -v gh" not in workflow
+    assert "\n          gh release " not in workflow
+    for step in publish_steps:
+        assert step["env"]["GH_CLI"] == "${{ steps.github_cli.outputs.path }}"
+        assert '"$GH_CLI" release' in step["run"]
     assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
