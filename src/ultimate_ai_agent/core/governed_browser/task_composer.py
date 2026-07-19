@@ -135,19 +135,22 @@ def _deny_broad_grant_language(value: str, *, label: str) -> None:
     canonical_broad_fragments = (
         "completeanytask",
         "wildcard",
-        "capabilityall",
-        "capabilityany",
-        "capabilitiesall",
-        "capabilitiesany",
-        "authorityall",
-        "authorityany",
-        "authoritiesall",
-        "authoritiesany",
+    )
+    scope_token = r"(?:capability|capabilities|authority|authorities)"
+    quantity_token = r"(?:all|any)"
+    broad_scope_grant = (
+        re.search(
+            rf"(?:^|[^a-z0-9])(?:{scope_token}[^a-z0-9]*{quantity_token}|"
+            rf"{quantity_token}[^a-z0-9]*{scope_token})(?:[^a-z0-9]|$)",
+            lowered,
+        )
+        is not None
     )
     if (
         "*" in value
         or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS)
         or any(fragment in canonical for fragment in canonical_broad_fragments)
+        or broad_scope_grant
     ):
         raise ValueError(f"GOVERNED_TASK_COMPOSER_BROAD_{label.upper()}_DENIED")
 
@@ -1203,6 +1206,44 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 or any(ref is None for ref in kernel_refs)
             ):
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
+            assert self.external_action_receipt_ref is not None
+            assert self.approval_validation_ref is not None
+            assert self.authority_decision_ref is not None
+            assert self.budget_reservation_ref is not None
+            assert self.budget_settlement_ref is not None
+            for value, label, prefix in (
+                (
+                    self.external_action_receipt_ref,
+                    "external_action_receipt_ref",
+                    "receipt-ref:governed-external-action:",
+                ),
+                (
+                    self.approval_validation_ref,
+                    "approval_validation_ref",
+                    "approval-validation-ref:governed-external-action:",
+                ),
+                (
+                    self.budget_reservation_ref,
+                    "budget_reservation_ref",
+                    "authority-budget-reservation-ref:",
+                ),
+                (
+                    self.budget_settlement_ref,
+                    "budget_settlement_ref",
+                    "receipt-ref:authority-budget:",
+                ),
+            ):
+                _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+            if (
+                re.fullmatch(
+                    r"authority-policy-decision-ref:sha256:[0-9a-f]{24}",
+                    self.authority_decision_ref,
+                )
+                is None
+            ):
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
+                )
             expected_envelope_ref = governed_task_composition_envelope_ref(
                 plan_ref=self.plan_ref,
                 recipe_ref=self.recipe_ref,
@@ -1226,6 +1267,8 @@ class GovernedTaskCompositionReceipt(BaseModel):
             )
             if self.evidence_refs != expected_evidence:
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_EVIDENCE_MISMATCH")
+        elif not self.reason_refs:
+            raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_REASON_REQUIRED")
         if status == GovernedTaskCompositionStatus.replayed_content_free and (
             not self.replayed
         ):

@@ -393,9 +393,25 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
                 required_capability=AuthorityCapability.send,
                 **unpinned_sources,
             )
+    for narrow_authority_ref in (
+        _pinned("small-authority-ref:source", "narrow-source"),
+        _pinned("company-capabilities-ref:source", "narrow-source"),
+    ):
+        assert build_registered_governed_task_operation(
+            kind=GovernedTaskOperationKind.external_operation,
+            required_capability=AuthorityCapability.send,
+            **{
+                **exact_sources,
+                "operation_authority_ref": narrow_authority_ref,
+            },
+        ).operation_authority_ref.startswith(
+            "source-authority-ref:governed-task-composer:"
+        )
     for broad_authority_ref in (
         _pinned("capabilities:any", "broad-source"),
         _pinned("authorities:all", "broad-source"),
+        _pinned("all-authorities-ref:source", "broad-source"),
+        _pinned("any-capabilities-ref:source", "broad-source"),
     ):
         with pytest.raises(ValueError, match="BROAD_OPERATION_AUTHORITY_REF"):
             build_registered_governed_task_operation(
@@ -903,6 +919,59 @@ def test_recipe_registry_returns_defensive_copies_and_receipt_states_are_exact(
         )
     )
     assert blocked.receipt.status == "preflight_blocked"
+    reasonless_receipt = blocked.receipt.model_dump(mode="json")
+    reasonless_receipt["reason_refs"] = []
+    reasonless_receipt["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {
+            key: value
+            for key, value in reasonless_receipt.items()
+            if key != "receipt_ref"
+        },
+    )
+    with pytest.raises(ValidationError, match="RECEIPT_REASON_REQUIRED"):
+        GovernedTaskCompositionReceipt.model_validate(reasonless_receipt)
+
+    for field, unrelated_ref, error in (
+        (
+            "external_action_receipt_ref",
+            _pinned("receipt-ref:unrelated-kernel", "proof"),
+            "EXTERNAL_ACTION_RECEIPT_REF_REQUIRED",
+        ),
+        (
+            "approval_validation_ref",
+            _pinned("approval-validation-ref:unrelated-kernel", "proof"),
+            "APPROVAL_VALIDATION_REF_REQUIRED",
+        ),
+        (
+            "authority_decision_ref",
+            _pinned("authority-policy-decision-ref:unrelated-kernel", "proof"),
+            "AUTHORITY_DECISION_REF_REQUIRED",
+        ),
+        (
+            "budget_reservation_ref",
+            _pinned("budget-reservation-ref:unrelated-kernel", "proof"),
+            "BUDGET_RESERVATION_REF_REQUIRED",
+        ),
+        (
+            "budget_settlement_ref",
+            _pinned("receipt-ref:unrelated-budget", "proof"),
+            "BUDGET_SETTLEMENT_REF_REQUIRED",
+        ),
+    ):
+        wrong_lineage_receipt = result.receipt.model_dump(mode="json")
+        wrong_lineage_receipt[field] = unrelated_ref
+        wrong_lineage_receipt["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {
+                key: value
+                for key, value in wrong_lineage_receipt.items()
+                if key != "receipt_ref"
+            },
+        )
+        with pytest.raises(ValidationError, match=error):
+            GovernedTaskCompositionReceipt.model_validate(wrong_lineage_receipt)
+
     for field, unpinned_value in (
         (
             "broad_intent_ref",
