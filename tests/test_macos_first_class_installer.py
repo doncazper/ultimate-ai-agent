@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from scripts.macos.build_release_bundle import build_release_bundle
 from scripts.macos.release_policy import classify_tag
@@ -553,6 +554,13 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     workflow = (ROOT / ".github" / "workflows" / "macos-release.yml").read_text(
         encoding="utf-8"
     )
+    workflow_contract = yaml.safe_load(workflow)
+    release_steps = workflow_contract["jobs"]["build-and-publish"]["steps"]
+    checkout_steps = [
+        step
+        for step in release_steps
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
 
     assert "refs/tags/${{ steps.source.outputs.tag }}" in workflow
     assert 'git rev-parse "refs/tags/$RELEASE_TAG^{commit}"' in workflow
@@ -565,8 +573,8 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
-    assert "uses: actions/checkout@v4" in workflow
-    assert "actions/checkout@" + "34e114876b0b11c390a56381ad16ebd13914f8d5" not in workflow
+    assert [step["uses"] for step in checkout_steps] == ["actions/checkout@v4"]
+    assert checkout_steps[0]["with"]["persist-credentials"] is False
     assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
