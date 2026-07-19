@@ -564,6 +564,8 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
+    assert "uses: actions/checkout@v4" in workflow
+    assert "actions/checkout@" + "34e114876b0b11c390a56381ad16ebd13914f8d5" not in workflow
     assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
