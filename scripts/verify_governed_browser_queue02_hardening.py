@@ -159,6 +159,7 @@ def verify() -> list[str]:
             "test_authority_revocation_waits_for_final_validation_and_dispatch",
             "test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded",
             "test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request",
+            "test_dispatch_cannot_start_when_worker_misses_the_deadline",
             "test_concurrent_execute_never_clobbers_the_dispatch_owner",
             "test_restart_recovery_cannot_terminalize_a_fresh_live_start",
             "test_restart_recovery_uses_the_maximum_owner_dispatch_window",

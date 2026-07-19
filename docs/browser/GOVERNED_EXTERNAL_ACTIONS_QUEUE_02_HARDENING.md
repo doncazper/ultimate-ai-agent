@@ -43,7 +43,10 @@ them in individual lane services:
   a maximum thirty-second deadline; the caller returns at that deadline even
   when an arbitrary callback remains live, but the detached worker retains the
   sole durable/process slot through callback completion, budget settlement, and
-  terminal close. Exceptions, invalid results, deadline overruns, or capacity
+  terminal close. A worker that has not begun dispatch by the caller deadline
+  is cancelled before invocation and releases the unused reservation; it cannot
+  start the callback after reporting timeout. Exceptions, invalid results,
+  deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
   automatically retried, and no terminal receipt is written while a detached
   callback remains live; a lock-protocol-marked stale SQLite slot is reaped

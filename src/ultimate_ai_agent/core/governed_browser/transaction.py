@@ -1235,13 +1235,16 @@ class GovernedExternalActionKernel:
                 ) = self._bounded_dispatch(
                     request,
                     dispatch,
-                    deferred_finalizer=lambda: self._finalize_timed_out_dispatch(
-                        request,
-                        reservation_ref=reservation.reservation_ref,
-                        approval_validation=approval_validation,
-                        approval_validation_ref=approval_validation_ref,
-                        authority_decision_ref=authority_decision_ref,
-                        process_lock_fd=process_lock_fd,
+                    deferred_finalizer=lambda dispatch_invoked: (
+                        self._finalize_timed_out_dispatch(
+                            request,
+                            reservation_ref=reservation.reservation_ref,
+                            approval_validation=approval_validation,
+                            approval_validation_ref=approval_validation_ref,
+                            authority_decision_ref=authority_decision_ref,
+                            process_lock_fd=process_lock_fd,
+                            dispatch_invoked=dispatch_invoked,
+                        )
                     ),
                 )
                 if dispatch_deferred:
@@ -1380,18 +1383,41 @@ class GovernedExternalActionKernel:
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
         *,
-        deferred_finalizer: Callable[[], None],
+        deferred_finalizer: Callable[[bool], None],
     ) -> tuple[ExternalActionDispatchResult, list[str], bool, bool]:
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
         )
+        dispatch_deadline = monotonic() + self._dispatch_timeout_seconds
+        dispatch_start_lock = RLock()
+        dispatch_started = Event()
         completed = Event()
         decision_made = Event()
         finalize_after_timeout = Event()
         result_holder: list[tuple[ExternalActionDispatchResult, list[str], bool]] = []
 
         def invoke() -> None:
-            started = monotonic()
+            dispatch_permitted = False
+            with dispatch_start_lock:
+                if (
+                    not finalize_after_timeout.is_set()
+                    and monotonic() < dispatch_deadline
+                ):
+                    dispatch_permitted = True
+                    dispatch_started.set()
+                    started = monotonic()
+            if not dispatch_permitted:
+                attempt = (
+                    self._ambiguous_dispatch_result(request, "dispatch-timeout"),
+                    ["reason-ref:governed-external-action:dispatch-timeout"],
+                    False,
+                )
+                result_holder.append(attempt)
+                completed.set()
+                decision_made.wait()
+                if finalize_after_timeout.is_set():
+                    deferred_finalizer(False)
+                return
             succeeded = False
             raw_result: object | None = None
             try:
@@ -1429,7 +1455,7 @@ class GovernedExternalActionKernel:
             completed.set()
             decision_made.wait()
             if finalize_after_timeout.is_set():
-                deferred_finalizer()
+                deferred_finalizer(True)
 
         try:
             Thread(
@@ -1447,7 +1473,8 @@ class GovernedExternalActionKernel:
                 False,
             )
 
-        if completed.wait(timeout=self._dispatch_timeout_seconds):
+        remaining_seconds = max(0.0, dispatch_deadline - monotonic())
+        if completed.wait(timeout=remaining_seconds):
             decision_made.set()
             result, reasons, invoked = result_holder[0]
             return result, reasons, invoked, False
@@ -1457,12 +1484,14 @@ class GovernedExternalActionKernel:
         # the durable slot to the daemon worker.  The worker finalizes an
         # ambiguous outcome and releases ownership only after the callback has
         # actually stopped.  At most one such callback can remain live.
-        finalize_after_timeout.set()
+        with dispatch_start_lock:
+            finalize_after_timeout.set()
+            dispatch_was_started = dispatch_started.is_set()
         decision_made.set()
         return (
             self._ambiguous_dispatch_result(request, "dispatch-timeout"),
             ["reason-ref:governed-external-action:dispatch-timeout"],
-            True,
+            dispatch_was_started,
             True,
         )
 
@@ -1475,10 +1504,21 @@ class GovernedExternalActionKernel:
         approval_validation_ref: str,
         authority_decision_ref: str,
         process_lock_fd: int,
+        dispatch_invoked: bool,
     ) -> None:
         dispatch_result = self._ambiguous_dispatch_result(request, "dispatch-timeout")
         reasons = ["reason-ref:governed-external-action:dispatch-timeout"]
         try:
+            if not dispatch_invoked:
+                self._finish_started_guard_failure(
+                    request,
+                    reservation_ref=reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    reason_refs=reasons,
+                    evidence_refs=list(dispatch_result.evidence_refs),
+                )
+                return
             with self._approval_authority.hold_validation_lock():
                 post_dispatch_readiness_reasons = self._revalidation_reasons(request)
                 (

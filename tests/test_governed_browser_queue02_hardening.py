@@ -9,6 +9,7 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
+import ultimate_ai_agent.core.governed_browser.transaction as transaction_module
 from scripts.verify_governed_browser_queue02_hardening import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -621,6 +622,56 @@ def test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request(tmp_path) ->
     assert _wait_for_terminal(second_kernel, second_request).state == (
         ExternalActionState.outcome_ambiguous.value
     )
+
+
+def test_dispatch_cannot_start_when_worker_misses_the_deadline(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="worker-start-timeout"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    kernel._dispatch_timeout_seconds = 0.01
+    allow_worker_start = threading.Event()
+    real_thread = threading.Thread
+    calls = 0
+
+    class DelayedThread:
+        def __init__(self, *, target, name, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._thread = real_thread(
+                target=self._run,
+                name=name,
+                daemon=daemon,
+            )
+
+        def _run(self) -> None:
+            assert allow_worker_start.wait(timeout=2)
+            self._target()
+
+        def start(self) -> None:
+            self._thread.start()
+
+    monkeypatch.setattr(transaction_module, "Thread", DelayedThread)
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return _success(item)
+
+    receipt = kernel.execute(request, dispatch=dispatch)
+
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert calls == 0
+    assert kernel._store.state_if_exact(request) == ExternalActionState.started
+    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+
+    allow_worker_start.set()
+    terminal = _wait_for_terminal(kernel, request)
+    assert calls == 0
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert terminal.budget_release_ref is not None
+    assert terminal.budget_settlement_ref is None
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
 def test_concurrent_execute_never_clobbers_the_dispatch_owner(tmp_path) -> None:  # type: ignore[no-untyped-def]
