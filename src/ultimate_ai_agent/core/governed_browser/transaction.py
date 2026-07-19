@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import fcntl
+import os
 import sqlite3
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
@@ -38,6 +40,7 @@ from ultimate_ai_agent.core.capabilities.enums import (
 )
 from ultimate_ai_agent.core.capabilities.models import TaskEnvelope
 from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.time import utc_now
 
 from .contracts import (
@@ -58,6 +61,16 @@ from .contracts import (
 
 MAX_EXTERNAL_ACTION_DISPATCH_SECONDS = 30.0
 EXTERNAL_ACTION_RECOVERY_SETTLEMENT_GRACE_SECONDS = 5.0
+_DISPATCH_PROCESS_LOCK_PROTOCOL = "os-flock-v1"
+_TERMINAL_ACCOUNTING_REASON_MARKERS = (
+    "budget-reservation-denied",
+    "budget-reservation-failed",
+    "budget-reservation-proof-missing",
+    "budget-release-unconfirmed",
+    "budget-release-failed",
+    "budget-settlement-ambiguous",
+    "budget-settlement-failed",
+)
 
 
 class ExternalActionTransactionConflict(RuntimeError):
@@ -261,7 +274,7 @@ class ExternalActionTransactionStore:
     """SQLite ledger containing safe refs and content-free receipts only."""
 
     def __init__(self, path: Path) -> None:
-        self.path = path
+        self.path = path.expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
         with self._connect() as connection:
@@ -272,21 +285,45 @@ class ExternalActionTransactionStore:
                     fingerprint_ref TEXT NOT NULL,
                     state TEXT NOT NULL,
                     receipt_json TEXT,
+                    budget_reservation_ref TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
                 """
             )
+            columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(governed_external_actions)"
+                ).fetchall()
+            }
+            if "budget_reservation_ref" not in columns:
+                connection.execute(
+                    "ALTER TABLE governed_external_actions "
+                    "ADD COLUMN budget_reservation_ref TEXT"
+                )
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS governed_external_action_dispatch_slot (
                     slot_ref TEXT PRIMARY KEY,
                     transaction_ref TEXT NOT NULL,
                     fingerprint_ref TEXT NOT NULL,
+                    lock_protocol TEXT,
                     acquired_at TEXT NOT NULL
                 )
                 """
             )
+            slot_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(governed_external_action_dispatch_slot)"
+                ).fetchall()
+            }
+            if "lock_protocol" not in slot_columns:
+                connection.execute(
+                    "ALTER TABLE governed_external_action_dispatch_slot "
+                    "ADD COLUMN lock_protocol TEXT"
+                )
 
     def prepare(
         self,
@@ -306,11 +343,15 @@ class ExternalActionTransactionStore:
             ).fetchone()
             if row is None:
                 connection.execute(
-                    "INSERT INTO governed_external_actions VALUES (?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO governed_external_actions "
+                    "(transaction_ref, fingerprint_ref, state, receipt_json, "
+                    "budget_reservation_ref, created_at, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         request.binding.transaction_ref,
                         fingerprint,
                         ExternalActionState.prepared.value,
+                        None,
                         None,
                         now,
                         now,
@@ -416,6 +457,34 @@ class ExternalActionTransactionStore:
             )
         return started_at
 
+    def started_budget_reservation_ref_if_exact(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> str | None:
+        """Return the persisted reservation only for the exact active request."""
+
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state, budget_reservation_ref "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        if row[1] != ExternalActionState.started.value:
+            return None
+        if row[2] is not None:
+            validate_task_ref(row[2], "budget_reservation_ref")
+        return row[2]
+
     def terminal_receipt_by_ref(
         self,
         *,
@@ -462,7 +531,14 @@ class ExternalActionTransactionStore:
             )
         return receipt
 
-    def claim_start(self, request: ExternalActionExecutionRequest) -> bool:
+    def claim_start(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        budget_reservation_ref: str | None = None,
+    ) -> bool:
+        if budget_reservation_ref is not None:
+            validate_task_ref(budget_reservation_ref, "budget_reservation_ref")
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
@@ -470,10 +546,12 @@ class ExternalActionTransactionStore:
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             changed = connection.execute(
-                "UPDATE governed_external_actions SET state = ?, updated_at = ? "
+                "UPDATE governed_external_actions SET state = ?, "
+                "budget_reservation_ref = ?, updated_at = ? "
                 "WHERE transaction_ref = ? AND fingerprint_ref = ? AND state = ?",
                 (
                     ExternalActionState.started.value,
+                    budget_reservation_ref,
                     utc_now().isoformat(),
                     request.binding.transaction_ref,
                     fingerprint,
@@ -494,37 +572,59 @@ class ExternalActionTransactionStore:
             connection.commit()
             return changed == 1
 
-    def claim_dispatch_slot(self, request: ExternalActionExecutionRequest) -> bool:
-        """Claim the one durable dispatch slot shared by all store users."""
+    def claim_dispatch_slot(
+        self,
+        request: ExternalActionExecutionRequest,
+    ) -> int | None:
+        """Claim the process-safe dispatch slot and reap only proven stale rows."""
+
+        process_lock_fd = self._try_acquire_dispatch_process_lock()
+        if process_lock_fd is None:
+            return None
 
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
-        with self._lock, self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT transaction_ref, fingerprint_ref "
-                "FROM governed_external_action_dispatch_slot "
-                "WHERE slot_ref = ?",
-                (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
-            ).fetchone()
-            if row is not None:
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT lock_protocol "
+                    "FROM governed_external_action_dispatch_slot "
+                    "WHERE slot_ref = ?",
+                    (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+                ).fetchone()
+                if row is not None and row[0] != _DISPATCH_PROCESS_LOCK_PROTOCOL:
+                    connection.commit()
+                    self._release_dispatch_process_lock(process_lock_fd)
+                    return None
+                if row is not None:
+                    connection.execute(
+                        "DELETE FROM governed_external_action_dispatch_slot "
+                        "WHERE slot_ref = ? AND lock_protocol = ?",
+                        (
+                            GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                            _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                        ),
+                    )
+                connection.execute(
+                    "INSERT INTO governed_external_action_dispatch_slot "
+                    "(slot_ref, transaction_ref, fingerprint_ref, lock_protocol, "
+                    "acquired_at) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                        request.binding.transaction_ref,
+                        fingerprint,
+                        _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                        utc_now().isoformat(),
+                    ),
+                )
                 connection.commit()
-                return False
-            connection.execute(
-                "INSERT INTO governed_external_action_dispatch_slot "
-                "(slot_ref, transaction_ref, fingerprint_ref, acquired_at) "
-                "VALUES (?, ?, ?, ?)",
-                (
-                    GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                    request.binding.transaction_ref,
-                    fingerprint,
-                    utc_now().isoformat(),
-                ),
-            )
-            connection.commit()
-            return True
+            return process_lock_fd
+        except BaseException:
+            self._release_dispatch_process_lock(process_lock_fd)
+            raise
 
     def dispatch_slot_is_owned_by(
         self,
@@ -536,40 +636,102 @@ class ExternalActionTransactionStore:
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
-        with self._lock, self._connect() as connection:
-            row = connection.execute(
-                "SELECT transaction_ref, fingerprint_ref "
-                "FROM governed_external_action_dispatch_slot "
-                "WHERE slot_ref = ?",
-                (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
-            ).fetchone()
-        return row == (request.binding.transaction_ref, fingerprint)
+        def exact_owner_row() -> tuple[bool, str | None]:
+            with self._lock, self._connect() as connection:
+                row = connection.execute(
+                    "SELECT transaction_ref, fingerprint_ref, lock_protocol "
+                    "FROM governed_external_action_dispatch_slot "
+                    "WHERE slot_ref = ?",
+                    (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+                ).fetchone()
+            if row is None or row[:2] != (
+                request.binding.transaction_ref,
+                fingerprint,
+            ):
+                return False, None
+            return True, row[2]
 
-    def release_dispatch_slot(self, request: ExternalActionExecutionRequest) -> None:
+        exact_owner, lock_protocol = exact_owner_row()
+        if not exact_owner:
+            return False
+        if lock_protocol != _DISPATCH_PROCESS_LOCK_PROTOCOL:
+            return True
+        process_lock_fd = self._try_acquire_dispatch_process_lock()
+        if process_lock_fd is None:
+            return exact_owner_row()[0]
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    "DELETE FROM governed_external_action_dispatch_slot "
+                    "WHERE slot_ref = ? AND transaction_ref = ? "
+                    "AND fingerprint_ref = ? AND lock_protocol = ?",
+                    (
+                        GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                        request.binding.transaction_ref,
+                        fingerprint,
+                        _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                    ),
+                )
+                connection.commit()
+            return False
+        finally:
+            self._release_dispatch_process_lock(process_lock_fd)
+
+    def release_dispatch_slot(
+        self,
+        request: ExternalActionExecutionRequest,
+        process_lock_fd: int,
+    ) -> None:
         """Release only the exact durable slot claim held by this request."""
 
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
-        with self._lock, self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            changed = connection.execute(
-                "DELETE FROM governed_external_action_dispatch_slot "
-                "WHERE slot_ref = ? AND transaction_ref = ? "
-                "AND fingerprint_ref = ?",
-                (
-                    GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                    request.binding.transaction_ref,
-                    fingerprint,
-                ),
-            ).rowcount
-            if changed != 1:
-                connection.rollback()
-                raise ExternalActionTransactionConflict(
-                    "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
-                )
-            connection.commit()
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                changed = connection.execute(
+                    "DELETE FROM governed_external_action_dispatch_slot "
+                    "WHERE slot_ref = ? AND transaction_ref = ? "
+                    "AND fingerprint_ref = ? AND lock_protocol = ?",
+                    (
+                        GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                        request.binding.transaction_ref,
+                        fingerprint,
+                        _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                    ),
+                ).rowcount
+                if changed != 1:
+                    connection.rollback()
+                    raise ExternalActionTransactionConflict(
+                        "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
+                    )
+                connection.commit()
+        finally:
+            self._release_dispatch_process_lock(process_lock_fd)
+
+    def _try_acquire_dispatch_process_lock(self) -> int | None:
+        lock_path = self.path.with_name(f"{self.path.name}.dispatch.lock")
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(lock_path, flags, 0o600)
+        except OSError:
+            return None
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError):
+            os.close(descriptor)
+            return None
+        return descriptor
+
+    @staticmethod
+    def _release_dispatch_process_lock(descriptor: int) -> None:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
 
     def finish(
         self,
@@ -861,7 +1023,10 @@ class GovernedExternalActionKernel:
                 ),
             )
 
-        if not self._store.claim_start(request):
+        if not self._store.claim_start(
+            request,
+            budget_reservation_ref=reservation.reservation_ref,
+        ):
             terminal = self._store.replay_if_terminal(request)
             if terminal is not None:
                 return terminal
@@ -1048,7 +1213,8 @@ class GovernedExternalActionKernel:
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
     ) -> tuple[ExternalActionDispatchResult, list[str]]:
-        if not self._store.claim_dispatch_slot(request):
+        process_lock_fd = self._store.claim_dispatch_slot(request)
+        if process_lock_fd is None:
             return self._ambiguous_dispatch_result(
                 request, "dispatch-capacity-bounded"
             ), [
@@ -1068,7 +1234,7 @@ class GovernedExternalActionKernel:
             pass
         finally:
             elapsed_seconds = monotonic() - started
-            self._store.release_dispatch_slot(request)
+            self._store.release_dispatch_slot(request, process_lock_fd)
 
         # An arbitrary Python callback cannot be safely detached or killed.
         # Observe the deadline only after the callback has stopped so no
@@ -1131,25 +1297,24 @@ class GovernedExternalActionKernel:
             },
         )
         try:
-            settlement = self._budget_gate.settle(
+            release = self._budget_gate.release(
                 request,
                 reservation_ref,
-                ExternalActionDispatchOutcome.outcome_ambiguous,
-                [evidence_ref],
+                "reason-ref:governed-external-action:post-start-dispatch-not-invoked",
             )
         except Exception:
-            settlement = BudgetSettlement(
+            release = BudgetSettlement(
                 allowed=False,
                 reason_refs=(
-                    "reason-ref:governed-external-action:budget-settlement-failed",
+                    "reason-ref:governed-external-action:budget-release-failed",
                 ),
             )
         reasons = list(dict.fromkeys(reason_refs))
-        if not settlement.allowed or settlement.receipt_ref is None:
+        if not release.allowed or release.receipt_ref is None:
             reasons.extend(
                 [
-                    "reason-ref:governed-external-action:budget-settlement-ambiguous",
-                    *settlement.reason_refs,
+                    "reason-ref:governed-external-action:budget-release-unconfirmed",
+                    *release.reason_refs,
                 ]
             )
         return self._finish(
@@ -1159,8 +1324,8 @@ class GovernedExternalActionKernel:
             approval_validation_ref=approval_validation_ref,
             authority_decision_ref=authority_decision_ref,
             budget_reservation_ref=reservation_ref,
-            budget_settlement_ref=(
-                settlement.receipt_ref if settlement.allowed else None
+            budget_release_ref=(
+                release.receipt_ref if release.allowed else None
             ),
             evidence_refs=[evidence_ref],
         )
@@ -1185,8 +1350,6 @@ class GovernedExternalActionKernel:
         started_at = self._store.started_at_if_exact(request)
         if started_at is None:
             return None
-        if self._store.dispatch_slot_is_owned_by(request):
-            return None
         try:
             current_time = self._clock()
         except Exception:
@@ -1205,10 +1368,54 @@ class GovernedExternalActionKernel:
         )
         if current_time < recovery_not_before:
             return None
+        if self._store.dispatch_slot_is_owned_by(request):
+            return None
+        reservation_ref = self._store.started_budget_reservation_ref_if_exact(request)
+        evidence_ref = stable_governed_browser_ref(
+            "evidence-ref:governed-external-action:prior-start-recovery",
+            {
+                "transaction_ref": request.binding.transaction_ref,
+                "intent_ref": request.intent_ref,
+                "binding_ref": request.binding.binding_ref,
+            },
+        )
+        reasons = ["reason-ref:governed-external-action:prior-start-unsettled"]
+        settlement = BudgetSettlement(allowed=False)
+        if reservation_ref is None:
+            reasons.append(
+                "reason-ref:governed-external-action:budget-reservation-proof-missing"
+            )
+        else:
+            try:
+                settlement = self._budget_gate.settle(
+                    request,
+                    reservation_ref,
+                    ExternalActionDispatchOutcome.outcome_ambiguous,
+                    [evidence_ref],
+                )
+            except Exception:
+                settlement = BudgetSettlement(
+                    allowed=False,
+                    reason_refs=(
+                        "reason-ref:governed-external-action:budget-settlement-failed",
+                    ),
+                )
+            if not settlement.allowed or settlement.receipt_ref is None:
+                reasons.extend(
+                    [
+                        "reason-ref:governed-external-action:budget-settlement-ambiguous",
+                        *settlement.reason_refs,
+                    ]
+                )
         return self._finish(
             request,
             ExternalActionState.outcome_ambiguous,
-            ["reason-ref:governed-external-action:prior-start-unsettled"],
+            list(dict.fromkeys(reasons)),
+            budget_reservation_ref=reservation_ref,
+            budget_settlement_ref=(
+                settlement.receipt_ref if settlement.allowed else None
+            ),
+            evidence_refs=[evidence_ref],
         )
 
     def terminal_receipt_by_ref(
@@ -1424,9 +1631,24 @@ class GovernedExternalActionKernel:
     ) -> ExternalActionReceipt:
         bounded_reason_refs = list(dict.fromkeys(reason_refs))
         if len(bounded_reason_refs) > 16:
-            overflow = bounded_reason_refs[14:]
+            accounting_reasons = [
+                reason
+                for reason in bounded_reason_refs
+                if any(
+                    marker in reason
+                    for marker in _TERMINAL_ACCOUNTING_REASON_MARKERS
+                )
+            ][:15]
+            ordinary_reasons = [
+                reason
+                for reason in bounded_reason_refs
+                if reason not in accounting_reasons
+            ]
+            ordinary_limit = 15 - len(accounting_reasons)
+            overflow = ordinary_reasons[ordinary_limit:]
             bounded_reason_refs = [
-                *bounded_reason_refs[:14],
+                *ordinary_reasons[:ordinary_limit],
+                *accounting_reasons,
                 stable_governed_browser_ref(
                     "reason-ref:governed-external-action:reason-overflow",
                     {

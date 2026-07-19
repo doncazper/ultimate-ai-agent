@@ -674,7 +674,8 @@ def test_expired_recipe_is_preflight_denial_but_prior_start_is_ambiguous(
 
     assert recovered.receipt.status == "outcome_ambiguous"
     assert recovered.receipt.reason_refs == [
-        "reason-ref:governed-external-action:prior-start-unsettled"
+        "reason-ref:governed-external-action:prior-start-unsettled",
+        "reason-ref:governed-external-action:budget-reservation-proof-missing",
     ]
     assert recovered.contract is None
 

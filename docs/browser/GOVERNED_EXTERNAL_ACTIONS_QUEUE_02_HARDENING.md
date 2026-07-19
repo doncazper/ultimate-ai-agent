@@ -25,13 +25,18 @@ them in individual lane services:
   proof is retained in the terminal receipt;
 - allowed budget reservation, release, and settlement records require exact
   receipt proof; pre-start blocks retain the release proof, and missing
-  settlement proof becomes `outcome_ambiguous`;
-- dispatch has one SQLite-backed nonblocking capacity slot shared by every
-  kernel instance using the transaction store and a maximum thirty-second
+  settlement proof becomes `outcome_ambiguous`; a post-start guard that proves
+  dispatch was never invoked releases unused budget, while restart recovery
+  settles the persisted reservation as ambiguous;
+- dispatch has one SQLite-backed nonblocking capacity slot plus a process-held
+  OS file lock shared by every kernel instance using the transaction store and
+  a maximum thirty-second
   deadline; exceptions, invalid results, deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
   automatically retried, and no terminal receipt is written while a detached
-  callback remains live;
+  callback remains live; a lock-protocol-marked stale SQLite slot is reaped
+  only after the OS lock proves the prior process no longer owns dispatch,
+  while an unproven legacy row remains fail closed;
 - terminal writes use SQLite compare-and-swap from the exact expected state,
   so a concurrent or stale writer cannot overwrite a receipt;
 - a competing execution caller no longer terminalizes a start owned by another
@@ -40,7 +45,9 @@ them in individual lane services:
   a shorter recoverer-selected timeout, and never while the exact durable
   dispatch slot remains owned;
 - durable and returned external-action receipts recompute their own exact
-  content-derived identity when read or deserialized;
+  content-derived identity when read or deserialized, and bounded hostile reason
+  sets keep terminal budget accounting failures explicit alongside an overflow
+  proof;
 - external-operation contract receipts recompute the referenced kernel receipt
   from their copied transaction, state, proof, evidence, and reason fields and
   retain pre-start budget release proof across the projection;

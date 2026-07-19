@@ -889,7 +889,8 @@ def test_prior_started_transaction_remains_outcome_ambiguous_after_recipe_expiry
     assert result.receipt.status == "outcome_ambiguous"
     assert result.receipt.external_action_state == "outcome_ambiguous"
     assert result.receipt.reason_refs == [
-        "reason-ref:governed-external-action:prior-start-unsettled"
+        "reason-ref:governed-external-action:prior-start-unsettled",
+        "reason-ref:governed-external-action:budget-reservation-proof-missing",
     ]
     assert result.receipt.external_mutation_performed is False
     assert result.contract is None

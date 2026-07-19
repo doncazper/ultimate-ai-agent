@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedBrowserActivationPosture,
     GovernedBrowserLaneActivationEvidence,
     GovernedBrowserQueue02Lane,
+    build_external_action_approval_request,
     build_external_action_readiness,
     decide_governed_browser_lane_activation,
     governed_browser_queue02_inactive_activation_matrix,
@@ -325,6 +326,8 @@ def test_stop_posture_race_after_start_becomes_ambiguous(
     assert receipt.state == ExternalActionState.outcome_ambiguous.value
     assert any("post-start-revalidation-denied" in ref for ref in receipt.reason_refs)
     assert any(race in ref for ref in receipt.reason_refs)
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
 
 
 @pytest.mark.parametrize("race", ("approval", "lease"))
@@ -544,6 +547,61 @@ def test_restart_recovery_uses_the_maximum_owner_dispatch_window(tmp_path) -> No
     assert recovered.state == ExternalActionState.outcome_ambiguous.value
 
 
+def test_restart_recovery_reaps_stale_process_slot_and_settles_budget(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="stale-slot-recovery"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    approval_validation = build_external_action_approval_request(
+        request
+    ).to_validation_request(request.approval_ref)
+    reservation = kernel._budget_gate.reserve(request, approval_validation)
+    assert reservation.allowed is True
+    assert reservation.reservation_ref is not None
+    store.prepare(request)
+    assert store.claim_start(
+        request,
+        budget_reservation_ref=reservation.reservation_ref,
+    ) is True
+    process_lock_fd = store.claim_dispatch_slot(request)
+    assert process_lock_fd is not None
+    store._release_dispatch_process_lock(process_lock_fd)
+    started_at = store.started_at_if_exact(request)
+    assert started_at is not None
+    kernel._clock = lambda: started_at + timedelta(seconds=36)
+
+    recovered = kernel.recover_if_prior_start(request)
+
+    assert recovered is not None
+    assert recovered.state == ExternalActionState.outcome_ambiguous.value
+    assert recovered.budget_reservation_ref == reservation.reservation_ref
+    assert recovered.budget_settlement_ref is not None
+    with sqlite3.connect(tmp_path / "transactions.sqlite3") as connection:
+        slot_count = connection.execute(
+            "SELECT COUNT(*) FROM governed_external_action_dispatch_slot"
+        ).fetchone()[0]
+    assert slot_count == 0
+
+
+def test_stale_dispatch_slot_is_reaped_before_capacity_denial(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    stale_request = _request(_binding(suffix="stale-slot-owner"))
+    next_request = _request(_binding(suffix="stale-slot-next"))
+    store = ExternalActionTransactionStore(tmp_path / "transactions.sqlite3")
+    store.prepare(stale_request)
+    assert store.claim_start(stale_request) is True
+    process_lock_fd = store.claim_dispatch_slot(stale_request)
+    assert process_lock_fd is not None
+    store._release_dispatch_process_lock(process_lock_fd)
+    next_kernel, _ = _authorized_kernel(tmp_path / "next", next_request)
+    next_kernel._store = store
+
+    receipt = next_kernel.execute(next_request, dispatch=_success)
+
+    assert receipt.state == ExternalActionState.succeeded.value
+    assert not any("dispatch-capacity-bounded" in ref for ref in receipt.reason_refs)
+
+
 def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -623,6 +681,33 @@ def test_terminal_compare_and_swap_rejects_overwrite(tmp_path) -> None:  # type:
         match="TERMINAL_RECEIPT_CONFLICT",
     ):
         store.finish(second, expected_state=ExternalActionState.started)
+
+
+def test_reason_bounding_preserves_terminal_accounting_failures(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="accounting-reason-priority"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    reasons = [_ref("reason", f"hostile-{index}") for index in range(20)]
+    reasons.extend(
+        [
+            "reason-ref:governed-external-action:budget-release-unconfirmed",
+            "reason-ref:governed-external-action:budget-settlement-ambiguous",
+        ]
+    )
+
+    receipt = kernel._build_receipt(
+        request,
+        ExternalActionState.outcome_ambiguous,
+        reasons,
+    )
+
+    assert len(receipt.reason_refs) <= 16
+    assert "reason-ref:governed-external-action:budget-release-unconfirmed" in (
+        receipt.reason_refs
+    )
+    assert "reason-ref:governed-external-action:budget-settlement-ambiguous" in (
+        receipt.reason_refs
+    )
+    assert any("reason-overflow" in ref for ref in receipt.reason_refs)
 
 
 def _activation_evidence(**updates: bool):  # type: ignore[no-untyped-def]
