@@ -1030,6 +1030,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,

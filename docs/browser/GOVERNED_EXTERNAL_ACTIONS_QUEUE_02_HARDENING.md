@@ -26,8 +26,10 @@ them in individual lane services:
 - allowed budget reservation, release, and settlement records require exact
   receipt proof; pre-start blocks retain the release proof, and missing
   settlement proof becomes `outcome_ambiguous`; a post-start guard that proves
-  dispatch was never invoked releases unused budget, while restart recovery
-  settles the persisted reservation as ambiguous;
+  dispatch was never invoked (including shared-capacity denial) releases unused
+  budget, while restart recovery settles the persisted reservation as
+  ambiguous; a lost start claim releases only a distinct losing reservation and
+  never releases the idempotent reservation still owned by the winning start;
 - dispatch has one SQLite-backed nonblocking capacity slot plus a process-held
   OS file lock shared by every kernel instance using the transaction store and
   a maximum thirty-second
@@ -49,11 +51,18 @@ them in individual lane services:
   sets keep terminal budget accounting failures explicit alongside an overflow
   proof;
 - external-operation contract receipts recompute the referenced kernel receipt
-  from their copied transaction, state, proof, evidence, and reason fields and
-  retain pre-start budget release proof across the projection;
+  from their copied transaction, state, proof, evidence, and original kernel
+  reason fields, even when the operator-facing contract adds a scoped failure
+  reason;
+- every operator-facing lane receipt retains the kernel budget release proof,
+  including action, observation, POST form, origin-session, human-handoff,
+  artifact-transfer, external-operation, financial, and task-composition
+  projections;
 - idempotency identifiers must be SHA-256-pinned safe refs; and
-- the kernel reconstructs a validated internal request snapshot before any
-  durable prepare, severing caller-owned mutable aliases and rejecting drift.
+- authority-binding artifact and resource scopes are immutable tuples, and the
+  kernel reconstructs a validated internal request snapshot before any durable
+  prepare, so provider callbacks cannot mutate nested scope after fingerprint or
+  budget proof creation.
 
 ## Complete Adversarial Campaign
 

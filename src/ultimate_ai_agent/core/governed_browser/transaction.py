@@ -1028,6 +1028,48 @@ class GovernedExternalActionKernel:
             budget_reservation_ref=reservation.reservation_ref,
         ):
             terminal = self._store.replay_if_terminal(request)
+            owner_reservation_ref = (
+                terminal.budget_reservation_ref
+                if terminal is not None
+                else self._store.started_budget_reservation_ref_if_exact(request)
+            )
+            if owner_reservation_ref != reservation.reservation_ref:
+                try:
+                    release = self._budget_gate.release(
+                        request,
+                        reservation.reservation_ref,
+                        "reason-ref:governed-external-action:start-claim-not-owned",
+                    )
+                except Exception:
+                    release = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=(
+                            "reason-ref:governed-external-action:budget-release-failed",
+                        ),
+                    )
+                reasons = [
+                    "reason-ref:governed-external-action:start-claim-conflict"
+                ]
+                if not release.allowed or release.receipt_ref is None:
+                    reasons.extend(
+                        [
+                            "reason-ref:governed-external-action:budget-release-unconfirmed",
+                            *release.reason_refs,
+                        ]
+                    )
+                if terminal is not None and release.allowed:
+                    return terminal
+                return self._build_receipt(
+                    request,
+                    ExternalActionState.outcome_ambiguous,
+                    list(dict.fromkeys(reasons)),
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    budget_reservation_ref=reservation.reservation_ref,
+                    budget_release_ref=(
+                        release.receipt_ref if release.allowed else None
+                    ),
+                )
             if terminal is not None:
                 return terminal
             return self._build_receipt(
@@ -1078,9 +1120,18 @@ class GovernedExternalActionKernel:
                     ],
                 )
 
-            dispatch_result, dispatch_reasons = self._bounded_dispatch(
+            dispatch_result, dispatch_reasons, dispatch_invoked = self._bounded_dispatch(
                 request, dispatch
             )
+            if not dispatch_invoked:
+                return self._finish_started_guard_failure(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    reason_refs=dispatch_reasons,
+                    evidence_refs=list(dispatch_result.evidence_refs),
+                )
             post_dispatch_readiness_reasons = self._revalidation_reasons(request)
             (
                 post_dispatch_authorization_reasons,
@@ -1212,14 +1263,21 @@ class GovernedExternalActionKernel:
         dispatch: Callable[
             [ExternalActionExecutionRequest], ExternalActionDispatchResult
         ],
-    ) -> tuple[ExternalActionDispatchResult, list[str]]:
-        process_lock_fd = self._store.claim_dispatch_slot(request)
+    ) -> tuple[ExternalActionDispatchResult, list[str], bool]:
+        try:
+            process_lock_fd = self._store.claim_dispatch_slot(request)
+        except Exception:
+            return self._ambiguous_dispatch_result(
+                request, "dispatch-capacity-check-failed"
+            ), [
+                "reason-ref:governed-external-action:dispatch-capacity-check-failed"
+            ], False
         if process_lock_fd is None:
             return self._ambiguous_dispatch_result(
                 request, "dispatch-capacity-bounded"
             ), [
                 "reason-ref:governed-external-action:dispatch-capacity-bounded"
-            ]
+            ], False
 
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
@@ -1244,11 +1302,11 @@ class GovernedExternalActionKernel:
         if elapsed_seconds > self._dispatch_timeout_seconds:
             return self._ambiguous_dispatch_result(request, "dispatch-timeout"), [
                 "reason-ref:governed-external-action:dispatch-timeout"
-            ]
+            ], True
         if not succeeded:
             return self._ambiguous_dispatch_result(request, "dispatch-exception"), [
                 "reason-ref:governed-external-action:dispatch-exception"
-            ]
+            ], True
         try:
             result = ExternalActionDispatchResult.model_validate(raw_result)
         except Exception:
@@ -1256,8 +1314,8 @@ class GovernedExternalActionKernel:
                 request, "dispatch-result-invalid"
             ), [
                 "reason-ref:governed-external-action:dispatch-result-invalid"
-            ]
-        return result, []
+            ], True
+        return result, [], True
 
     @staticmethod
     def _ambiguous_dispatch_result(
@@ -1288,14 +1346,18 @@ class GovernedExternalActionKernel:
         approval_validation_ref: str,
         authority_decision_ref: str,
         reason_refs: list[str],
+        evidence_refs: list[str] | None = None,
     ) -> ExternalActionReceipt:
-        evidence_ref = stable_governed_browser_ref(
-            "evidence-ref:governed-external-action:post-start-guard",
-            {
-                "intent_ref": request.intent_ref,
-                "reason_refs": list(dict.fromkeys(reason_refs)),
-            },
-        )
+        if evidence_refs is None:
+            evidence_refs = [
+                stable_governed_browser_ref(
+                    "evidence-ref:governed-external-action:post-start-guard",
+                    {
+                        "intent_ref": request.intent_ref,
+                        "reason_refs": list(dict.fromkeys(reason_refs)),
+                    },
+                )
+            ]
         try:
             release = self._budget_gate.release(
                 request,
@@ -1327,7 +1389,7 @@ class GovernedExternalActionKernel:
             budget_release_ref=(
                 release.receipt_ref if release.allowed else None
             ),
-            evidence_refs=[evidence_ref],
+            evidence_refs=evidence_refs,
         )
 
     def replay_if_terminal(

@@ -277,6 +277,8 @@ def test_revalidation_denies_before_observation(
         result.receipt.status == ExactBrowserObservationStatus.transaction_blocked.value
     )
     assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert result.evidence is None
     assert transport.calls == 0
 

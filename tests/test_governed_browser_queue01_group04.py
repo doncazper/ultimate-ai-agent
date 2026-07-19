@@ -332,6 +332,8 @@ def test_revalidation_denies_before_action_plan(
 
     assert result.receipt.status == ExactBrowserActionStatus.transaction_blocked.value
     assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert result.plan is None
     assert transport.calls == 0
 

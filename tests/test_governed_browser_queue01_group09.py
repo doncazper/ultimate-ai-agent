@@ -818,6 +818,40 @@ def test_operation_receipt_preserves_prestart_budget_release_proof(
     assert replayed.receipt.budget_release_ref == result.receipt.budget_release_ref
 
 
+def test_failed_kernel_receipt_keeps_original_reason_identity(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.send_communication,
+        suffix="failed-kernel-reason-identity",
+    )
+    current_time = utc_now()
+    reads = 0
+
+    def clock() -> datetime:
+        nonlocal reads
+        reads += 1
+        if reads == 4:
+            return datetime(2026, 7, 19, 12, 0, 0)
+        return current_time
+
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        clock=clock,
+    )
+
+    result = service.prepare(_exact(request, recipe))
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.external_action_reason_refs == ()
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-external-operation:contract-preparation-failed"
+    ]
+    assert result.receipt.external_action_receipt_ref is not None
+
+
 def test_expired_recipe_is_non_mutating_preflight_denial(tmp_path: Path) -> None:
     now = utc_now()
     request, recipe, registry = _operation_context(

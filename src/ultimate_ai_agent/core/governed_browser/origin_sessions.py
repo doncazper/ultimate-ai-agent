@@ -767,6 +767,10 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     reason_refs: tuple[str, ...] = ()
     content_free: Literal[True] = True
@@ -800,6 +804,7 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
             self.approval_validation_ref,
             self.authority_decision_ref,
             self.budget_reservation_ref,
+            self.budget_release_ref,
             self.budget_settlement_ref,
             *self.reason_refs,
         ):
@@ -1350,6 +1355,11 @@ def _build_operation_receipt(
         ),
         "budget_reservation_ref": (
             external_receipt.budget_reservation_ref
+            if external_receipt is not None
+            else None
+        ),
+        "budget_release_ref": (
+            external_receipt.budget_release_ref
             if external_receipt is not None
             else None
         ),

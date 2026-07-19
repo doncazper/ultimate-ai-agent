@@ -487,6 +487,8 @@ def test_lifecycle_revalidation_denies_before_keychain(
 
     assert result.receipt.status == "blocked"
     assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert keychain.calls == []
     assert all(value == 0 for value in material)
     assert request.binding.origin not in result.receipt.model_dump_json()

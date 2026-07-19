@@ -542,8 +542,12 @@ def test_safe_disable_and_kill_switch_deny_financial_preparation_and_replay(
     replay = service.prepare(exact)
 
     assert first.receipt.status == "transaction_blocked"
+    assert first.receipt.budget_reservation_ref is not None
+    assert first.receipt.budget_release_ref is not None
+    assert first.receipt.budget_settlement_ref is None
     assert first.contract is None
     assert replay.receipt.status == "transaction_blocked"
+    assert replay.receipt.budget_release_ref == first.receipt.budget_release_ref
     assert replay.receipt.replayed is True
     assert replay.contract is None
 

@@ -338,6 +338,8 @@ def test_shared_revalidation_gates_block_before_handoff(
     assert result.receipt.status == "transaction_blocked"
     assert result.handoff is None
     assert result.receipt.budget_reservation_ref
+    assert result.receipt.budget_release_ref
+    assert result.receipt.budget_settlement_ref is None
 
 
 def test_exact_scope_human_presence_and_real_targets_fail_closed(

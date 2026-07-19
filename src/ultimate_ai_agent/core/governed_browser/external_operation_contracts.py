@@ -846,6 +846,8 @@ def _external_operation_receipt_identity_payload(receipt: BaseModel) -> dict[str
     payload = receipt.model_dump(mode="json", exclude={"receipt_ref"})
     if payload.get("budget_release_ref") is None:
         payload.pop("budget_release_ref", None)
+    if payload.get("external_action_reason_refs") is None:
+        payload.pop("external_action_reason_refs", None)
     return payload
 
 
@@ -873,6 +875,10 @@ class GovernedExternalOperationReceipt(BaseModel):
     budget_reservation_ref: str | None = None
     budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
+    external_action_reason_refs: tuple[str, ...] | None = Field(
+        default=None,
+        max_length=16,
+    )
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
     replayed: StrictBool = False
@@ -911,6 +917,10 @@ class GovernedExternalOperationReceipt(BaseModel):
             (self.budget_reservation_ref, "budget_reservation_ref"),
             (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
+            *[
+                (ref, "external_action_reason_ref")
+                for ref in (self.external_action_reason_refs or ())
+            ],
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
         ):
@@ -1024,7 +1034,11 @@ class GovernedExternalOperationReceipt(BaseModel):
                 "budget_reservation_ref": self.budget_reservation_ref,
                 "budget_settlement_ref": self.budget_settlement_ref,
                 "evidence_refs": list(self.evidence_refs),
-                "reason_refs": list(self.reason_refs),
+                "reason_refs": list(
+                    self.external_action_reason_refs
+                    if self.external_action_reason_refs is not None
+                    else self.reason_refs
+                ),
             }
             if self.budget_release_ref is not None:
                 external_receipt_payload["budget_release_ref"] = (
@@ -1283,7 +1297,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-external-operation:schema-mismatch",
         ),
         (
-            recipe.artifact_refs == binding.artifact_refs,
+            tuple(recipe.artifact_refs) == binding.artifact_refs,
             "reason-ref:governed-external-operation:artifact-mismatch",
         ),
         (
@@ -1458,6 +1472,7 @@ def _result_from_external_receipt(
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
         "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
+        "external_action_reason_refs": tuple(external_receipt.reason_refs),
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,
         "replayed": external_receipt.replayed,

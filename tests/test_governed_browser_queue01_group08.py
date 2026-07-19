@@ -649,6 +649,9 @@ def test_shared_gates_block_before_quarantine_write(
     )
 
     assert result.receipt.status == "transaction_blocked"
+    assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert result.quarantine is None
     assert payload == bytearray(len(payload))
     assert list((tmp_path / "artifacts" / "artifact-quarantine").iterdir()) == []

@@ -43,6 +43,21 @@ def verify() -> list[str]:
     external_operation_tests = _read(
         "tests/test_governed_browser_queue01_group09.py", failures
     )
+    projection_sources = {
+        relative: _read(relative, failures)
+        for relative in (
+            "src/ultimate_ai_agent/core/governed_browser/artifact_transfers.py",
+            "src/ultimate_ai_agent/core/governed_browser/browser_actions.py",
+            "src/ultimate_ai_agent/core/governed_browser/evidence_recipes.py",
+            "src/ultimate_ai_agent/core/governed_browser/financial_operation_contracts.py",
+            "src/ultimate_ai_agent/core/governed_browser/human_challenges.py",
+            "src/ultimate_ai_agent/core/governed_browser/post_forms.py",
+            "src/ultimate_ai_agent/core/governed_browser/task_composer.py",
+        )
+    }
+    origin_sessions = _read(
+        "src/ultimate_ai_agent/core/governed_browser/origin_sessions.py", failures
+    )
     doc = _read(
         "docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_02_HARDENING.md", failures
     )
@@ -124,13 +139,17 @@ def verify() -> list[str]:
             "test_restart_recovery_reaps_stale_process_slot_and_settles_budget",
             "test_stale_dispatch_slot_is_reaped_before_capacity_denial",
             "test_dispatch_capacity_is_shared_durably_across_kernel_instances",
+            "test_lost_start_claim_releases_only_a_distinct_unused_reservation",
+            "test_lost_start_claim_preserves_the_winners_shared_reservation",
             "test_terminal_compare_and_swap_rejects_overwrite",
             "test_reason_bounding_preserves_terminal_accounting_failures",
+            "test_every_operator_receipt_contract_retains_budget_release_proof",
             "test_honest_matrix_covers_every_lane_and_keeps_every_lane_inactive",
         ),
         "external_operation_tests": (
             "test_operation_receipt_rejects_rebound_kernel_receipt_fields",
             "test_operation_receipt_preserves_prestart_budget_release_proof",
+            "test_failed_kernel_receipt_keeps_original_reason_identity",
         ),
         "doc": (
             "Queue 02",
@@ -156,6 +175,20 @@ def verify() -> list[str]:
         for marker in markers:
             if marker not in texts[label]:
                 failures.append(f"Queue 02 {label} marker missing: {marker}")
+
+    release_projection_marker = (
+        '"budget_release_ref": external_receipt.budget_release_ref'
+    )
+    for relative, source in projection_sources.items():
+        if release_projection_marker not in source:
+            failures.append(
+                f"Queue 02 budget release projection missing: {relative}"
+            )
+    if (
+        '"budget_release_ref": (' not in origin_sessions
+        or "external_receipt.budget_release_ref" not in origin_sessions
+    ):
+        failures.append("Queue 02 budget release projection missing: origin_sessions.py")
 
     campaign_markers = (
         "authority and capability confusion",

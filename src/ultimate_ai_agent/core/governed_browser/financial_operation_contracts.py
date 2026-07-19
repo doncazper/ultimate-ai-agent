@@ -742,7 +742,7 @@ def build_governed_financial_recipe(
         raise ValueError("GOVERNED_FINANCIAL_TARGET_NOT_AUTHORITY_BOUND")
     if binding.field_schema_ref != scope.schema_ref:
         raise ValueError("GOVERNED_FINANCIAL_SCHEMA_NOT_AUTHORITY_BOUND")
-    if binding.artifact_refs != scope.artifact_refs:
+    if binding.artifact_refs != tuple(scope.artifact_refs):
         raise ValueError("GOVERNED_FINANCIAL_ARTIFACT_NOT_AUTHORITY_BOUND")
     if created_at.tzinfo is None or expires_at.tzinfo is None:
         raise ValueError("GOVERNED_FINANCIAL_TIMEZONE_REQUIRED")
@@ -914,6 +914,10 @@ class GovernedFinancialReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
@@ -955,6 +959,7 @@ class GovernedFinancialReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
@@ -1317,7 +1322,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-financial:schema-mismatch",
         ),
         (
-            binding.artifact_refs == recipe.scope.artifact_refs,
+            binding.artifact_refs == tuple(recipe.scope.artifact_refs),
             "reason-ref:governed-financial:artifact-mismatch",
         ),
         (
@@ -1491,6 +1496,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,

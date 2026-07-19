@@ -25,9 +25,17 @@ from ultimate_ai_agent.core.governed_browser import (
     ExternalActionState,
     ExternalActionTransactionConflict,
     ExternalActionTransactionStore,
+    ExactBrowserActionReceipt,
+    ExactBrowserObservationReceipt,
+    GovernedArtifactTransferReceipt,
     GovernedBrowserActivationPosture,
+    GovernedBrowserOriginSessionReceipt,
     GovernedBrowserLaneActivationEvidence,
     GovernedBrowserQueue02Lane,
+    GovernedExternalOperationReceipt,
+    GovernedFinancialReceipt,
+    GovernedHumanChallengeHandoffReceipt,
+    GovernedTaskCompositionReceipt,
     build_external_action_approval_request,
     build_external_action_readiness,
     decide_governed_browser_lane_activation,
@@ -283,20 +291,30 @@ def test_readiness_and_receipt_refs_are_intrinsically_bound() -> None:
         )
 
 
-def test_mutable_caller_alias_drift_is_rejected_before_durable_prepare(
+def test_request_scope_is_deep_frozen_before_provider_callbacks(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]
-    request = _request(_binding(suffix="caller-alias"))
-    kernel, _ = _authorized_kernel(tmp_path, request)
-    request.binding.resource_refs.append(_ref("resource", "injected"))
+    request = _request(_binding(suffix="deep-frozen-scope"))
+    provider_observed_immutable_scope = False
 
-    with pytest.raises(ValidationError, match="INTENT_REF_MISMATCH"):
-        kernel.execute(request, dispatch=_success)
-    with sqlite3.connect(tmp_path / "transactions.sqlite3") as connection:
-        count = connection.execute(
-            "SELECT COUNT(*) FROM governed_external_actions"
-        ).fetchone()[0]
-    assert count == 0
+    def readiness(item):  # type: ignore[no-untyped-def]
+        nonlocal provider_observed_immutable_scope
+        assert isinstance(item.binding.artifact_refs, tuple)
+        assert isinstance(item.binding.resource_refs, tuple)
+        with pytest.raises(AttributeError):
+            item.binding.resource_refs.append(_ref("resource", "injected"))
+        provider_observed_immutable_scope = True
+        return _readiness(item)
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert provider_observed_immutable_scope is True
+    assert receipt.state == ExternalActionState.succeeded.value
 
 
 @pytest.mark.parametrize("race", ("safe-disable", "kill-switch"))
@@ -640,6 +658,68 @@ def test_dispatch_capacity_is_shared_durably_across_kernel_instances(
     assert "reason-ref:governed-external-action:dispatch-capacity-bounded" in (
         second.reason_refs
     )
+    assert second.budget_release_ref is not None
+    assert second.budget_settlement_ref is None
+
+
+def test_lost_start_claim_releases_only_a_distinct_unused_reservation(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="lost-start-claim-release"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_claim_start = kernel._store.claim_start
+    owner_reservation_ref = _ref("budget-reservation", "winning-owner")
+
+    def lose_claim(item, *, budget_reservation_ref=None):  # type: ignore[no-untyped-def]
+        assert budget_reservation_ref is not None
+        assert original_claim_start(
+            item,
+            budget_reservation_ref=owner_reservation_ref,
+        )
+        return False
+
+    kernel._store.claim_start = lose_claim  # type: ignore[method-assign]
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_reservation_ref != owner_reservation_ref
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
+    assert kernel._store.started_budget_reservation_ref_if_exact(request) == (
+        owner_reservation_ref
+    )
+
+
+def test_lost_start_claim_preserves_the_winners_shared_reservation(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="lost-start-claim-shared-reservation"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_claim_start = kernel._store.claim_start
+
+    def lose_shared_claim(
+        item,
+        *,
+        budget_reservation_ref=None,
+    ):  # type: ignore[no-untyped-def]
+        assert budget_reservation_ref is not None
+        assert original_claim_start(
+            item,
+            budget_reservation_ref=budget_reservation_ref,
+        )
+        return False
+
+    kernel._store.claim_start = lose_shared_claim  # type: ignore[method-assign]
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is None
+    assert receipt.budget_settlement_ref is None
+    assert kernel._store.started_budget_reservation_ref_if_exact(request) == (
+        receipt.budget_reservation_ref
+    )
 
 
 def test_terminal_compare_and_swap_rejects_overwrite(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -708,6 +788,25 @@ def test_reason_bounding_preserves_terminal_accounting_failures(tmp_path) -> Non
         receipt.reason_refs
     )
     assert any("reason-overflow" in ref for ref in receipt.reason_refs)
+
+
+@pytest.mark.parametrize(
+    "receipt_type",
+    (
+        ExactBrowserActionReceipt,
+        ExactBrowserObservationReceipt,
+        GovernedArtifactTransferReceipt,
+        GovernedBrowserOriginSessionReceipt,
+        GovernedExternalOperationReceipt,
+        GovernedFinancialReceipt,
+        GovernedHumanChallengeHandoffReceipt,
+        GovernedTaskCompositionReceipt,
+    ),
+)
+def test_every_operator_receipt_contract_retains_budget_release_proof(
+    receipt_type: type,
+) -> None:
+    assert "budget_release_ref" in receipt_type.model_fields
 
 
 def _activation_evidence(**updates: bool):  # type: ignore[no-untyped-def]

@@ -952,7 +952,7 @@ def build_governed_artifact_transfer_recipe(
         raise ValueError("GOVERNED_ARTIFACT_TIMEZONE_REQUIRED")
     if created_at > binding.start_deadline or expires_at > binding.start_deadline:
         raise ValueError("GOVERNED_ARTIFACT_DEADLINE_EXCEEDED")
-    if binding.artifact_refs != [artifact_ref]:
+    if binding.artifact_refs != (artifact_ref,):
         raise ValueError("GOVERNED_ARTIFACT_EXACT_ARTIFACT_SCOPE_REQUIRED")
     expected_quarantine_ref = governed_artifact_quarantine_ref(
         origin_ref=binding.origin_ref,
@@ -1104,7 +1104,7 @@ class ExactGovernedArtifactTransferRequest(BaseModel):
         operation = GovernedArtifactTransferOperation(self.operation)
         if binding.authority_capability != _required_capability(operation).value:
             raise ValueError("GOVERNED_ARTIFACT_EXACT_CAPABILITY_MISMATCH")
-        if binding.artifact_refs != [self.artifact_ref]:
+        if binding.artifact_refs != (self.artifact_ref,):
             raise ValueError("GOVERNED_ARTIFACT_EXACT_ARTIFACT_SCOPE_REQUIRED")
         expected_quarantine_ref = governed_artifact_quarantine_ref(
             origin_ref=binding.origin_ref,
@@ -1304,6 +1304,10 @@ class GovernedArtifactTransferReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     content_fingerprint_ref: str | None = None
     source_download_receipt_ref: str | None = None
@@ -1342,6 +1346,7 @@ class GovernedArtifactTransferReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             (self.content_fingerprint_ref, "content_fingerprint_ref"),
             (self.source_download_receipt_ref, "source_download_receipt_ref"),
@@ -2138,7 +2143,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-artifact:schema-mismatch",
         ),
         (
-            binding.artifact_refs == [recipe.artifact_ref],
+            binding.artifact_refs == (recipe.artifact_ref,),
             "reason-ref:governed-artifact:artifact-mismatch",
         ),
         (
@@ -2292,6 +2297,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "content_fingerprint_ref": (
             quarantine.content_fingerprint_ref

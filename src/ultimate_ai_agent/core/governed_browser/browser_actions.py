@@ -370,6 +370,10 @@ class ExactBrowserActionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
@@ -394,6 +398,7 @@ class ExactBrowserActionReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
@@ -861,6 +866,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,

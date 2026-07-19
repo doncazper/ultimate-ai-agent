@@ -144,8 +144,8 @@ class ExternalActionAuthorityBinding(BaseModel):
     recipient_ref: str = Field(..., min_length=1, max_length=240)
     field_schema_ref: str = Field(..., min_length=1, max_length=240)
     transaction_ref: str = Field(..., min_length=1, max_length=240)
-    artifact_refs: list[str] = Field(..., min_length=1, max_length=8)
-    resource_refs: list[str] = Field(..., min_length=1, max_length=16)
+    artifact_refs: tuple[str, ...] = Field(..., min_length=1, max_length=8)
+    resource_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
     action_count: StrictInt = Field(default=1, ge=1, le=1)
     page_snapshot_ref: str = Field(..., min_length=1, max_length=240)
     start_deadline: datetime

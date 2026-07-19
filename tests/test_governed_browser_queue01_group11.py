@@ -666,6 +666,9 @@ def test_safe_disable_and_kill_switch_deny_composition(
     result = composer.compose(_exact(request, recipe))
 
     assert result.receipt.status == "transaction_blocked"
+    assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert result.plan is None
     assert not result.receipt.automatic_retry_allowed
 

@@ -770,7 +770,7 @@ def build_governed_task_composition_recipe(
         raise ValueError("GOVERNED_TASK_COMPOSER_PLAN_NOT_AUTHORITY_BOUND")
     if binding.field_schema_ref != schema_ref:
         raise ValueError("GOVERNED_TASK_COMPOSER_SCHEMA_NOT_AUTHORITY_BOUND")
-    if binding.artifact_refs != operation_refs:
+    if binding.artifact_refs != tuple(operation_refs):
         raise ValueError("GOVERNED_TASK_COMPOSER_OPERATIONS_NOT_EXACTLY_BOUND")
     if set(binding.resource_refs) != required_resources:
         raise ValueError("GOVERNED_TASK_COMPOSER_RESOURCE_NOT_EXACTLY_BOUND")
@@ -1279,6 +1279,10 @@ class GovernedTaskCompositionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     budget_settlement_ref: str | None = None
     operation_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
@@ -1324,6 +1328,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "operation_ref") for ref in self.operation_refs],
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
@@ -1503,6 +1508,11 @@ class GovernedTaskCompositionReceipt(BaseModel):
                     "authority-budget-reservation-ref:",
                 ),
                 (
+                    self.budget_release_ref,
+                    "budget_release_ref",
+                    "receipt-ref:authority-budget:",
+                ),
+                (
                     self.budget_settlement_ref,
                     "budget_settlement_ref",
                     "receipt-ref:authority-budget:",
@@ -1528,14 +1538,13 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 "approval_validation_ref": self.approval_validation_ref,
                 "authority_decision_ref": self.authority_decision_ref,
                 "budget_reservation_ref": self.budget_reservation_ref,
+                "budget_release_ref": self.budget_release_ref,
                 "budget_settlement_ref": self.budget_settlement_ref,
                 "evidence_refs": list(self.evidence_refs),
                 "reason_refs": list(self.external_action_reason_refs),
             }
-            if self.external_receipt_snapshot.budget_release_ref is not None:
-                external_receipt_payload["budget_release_ref"] = (
-                    self.external_receipt_snapshot.budget_release_ref
-                )
+            if self.budget_release_ref is None:
+                external_receipt_payload.pop("budget_release_ref")
             expected_external_receipt_ref = stable_governed_browser_ref(
                 "receipt-ref:governed-external-action",
                 external_receipt_payload,
@@ -1558,6 +1567,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 != self.authority_decision_ref
                 or external_snapshot.budget_reservation_ref
                 != self.budget_reservation_ref
+                or external_snapshot.budget_release_ref != self.budget_release_ref
                 or external_snapshot.budget_settlement_ref
                 != self.budget_settlement_ref
                 or external_snapshot.evidence_refs != self.evidence_refs
@@ -1866,7 +1876,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-task-composer:schema-mismatch",
         ),
         (
-            operation_refs == binding.artifact_refs,
+            tuple(operation_refs) == binding.artifact_refs,
             "reason-ref:governed-task-composer:operation-scope-mismatch",
         ),
         (
@@ -2082,6 +2092,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "operation_refs": operation_refs,
         "evidence_refs": tuple(external_receipt.evidence_refs),
