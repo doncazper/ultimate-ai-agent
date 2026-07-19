@@ -22,6 +22,7 @@ from ultimate_ai_agent.distribution.macos.static_policy import (
     MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
     macos_distribution_adapter_policy_failures,
     macos_distribution_policy_failures,
+    macos_distribution_static_fragment_allowed,
 )
 from ultimate_ai_agent.distribution.macos.contracts import (
     APP_BUNDLE_IDENTIFIER,
@@ -643,6 +644,50 @@ def test_macos_distribution_policy_rejects_shell_broadening() -> None:
     assert any(
         "shell execution" in failure or "forbidden broad" in failure
         for failure in failures
+    )
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        source + "\nsubprocess.run(user_command, shell=True)\n",
+        "subprocess",
+    )
+
+
+def test_macos_distribution_policy_rejects_unreviewed_network_drift() -> None:
+    rel_path = "src/ultimate_ai_agent/distribution/macos/runtime.py"
+    source = (ROOT / rel_path).read_text(encoding="utf-8")
+
+    assert macos_distribution_static_fragment_allowed(
+        rel_path,
+        source,
+        "urllib.request.urlopen",
+    )
+    attribute_drift = source + "\nsocket.create_connection((host, port))\n"
+    assert macos_distribution_adapter_policy_failures(rel_path, attribute_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        attribute_drift,
+        "socket.",
+    )
+    endpoint_drift = source + '\nUNREVIEWED_ENDPOINT = "https://example.invalid"\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, endpoint_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        endpoint_drift,
+        "https://",
+    )
+    alias_drift = source.replace("import socket\n", "import socket as network_socket\n")
+    assert macos_distribution_adapter_policy_failures(rel_path, alias_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        alias_drift,
+        "socket.",
+    )
+    indirect_drift = source + '\ngetattr(subprocess, "run")([])\n'
+    assert macos_distribution_adapter_policy_failures(rel_path, indirect_drift)
+    assert not macos_distribution_static_fragment_allowed(
+        rel_path,
+        indirect_drift,
+        "subprocess",
     )
 
 
