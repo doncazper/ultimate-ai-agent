@@ -6,8 +6,8 @@ import sqlite3
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from queue import Empty, Queue
-from threading import BoundedSemaphore, RLock, Thread
+from threading import BoundedSemaphore, RLock
+from time import monotonic
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -430,6 +430,8 @@ class ExternalActionTransactionStore:
             "evidence_refs": list(receipt.evidence_refs),
             "reason_refs": list(receipt.reason_refs),
         }
+        if receipt.budget_release_ref is not None:
+            payload["budget_release_ref"] = receipt.budget_release_ref
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-external-action",
             payload,
@@ -749,6 +751,9 @@ class GovernedExternalActionKernel:
                 approval_validation_ref=approval_validation_ref,
                 authority_decision_ref=authority_decision.decision_ref,
                 budget_reservation_ref=reservation.reservation_ref,
+                budget_release_ref=(
+                    release.receipt_ref if release.allowed else None
+                ),
             )
 
         if not self._store.claim_start(request):
@@ -896,58 +901,66 @@ class GovernedExternalActionKernel:
         ],
     ) -> tuple[ExternalActionDispatchResult, list[str]]:
         if not self._dispatch_slot.acquire(blocking=False):
-            return self._ambiguous_dispatch_result("dispatch-capacity-bounded"), [
+            return self._ambiguous_dispatch_result(
+                request, "dispatch-capacity-bounded"
+            ), [
                 "reason-ref:governed-external-action:dispatch-capacity-bounded"
             ]
 
-        result_queue: Queue[tuple[bool, object | None]] = Queue(maxsize=1)
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
         )
+        started = monotonic()
+        succeeded = False
+        raw_result: object | None = None
+        try:
+            raw_result = dispatch(dispatch_request)
+            succeeded = True
+        except BaseException:
+            pass
+        finally:
+            elapsed_seconds = monotonic() - started
+            self._dispatch_slot.release()
 
-        def invoke() -> None:
-            try:
-                result_queue.put_nowait((True, dispatch(dispatch_request)))
-            except BaseException:
-                result_queue.put_nowait((False, None))
-            finally:
-                self._dispatch_slot.release()
-
-        worker = Thread(
-            target=invoke,
-            name="governed-external-action-dispatch",
-            daemon=True,
-        )
-        worker.start()
-        worker.join(timeout=self._dispatch_timeout_seconds)
-        if worker.is_alive():
-            return self._ambiguous_dispatch_result("dispatch-timeout"), [
+        # An arbitrary Python callback cannot be safely detached or killed.
+        # Observe the deadline only after the callback has stopped so no
+        # terminal receipt can claim fail-closed settlement while work remains
+        # live in a daemon thread.  Real targets remain inactive; a future live
+        # adapter must provide its own bounded, confirmed-stop transport.
+        if elapsed_seconds > self._dispatch_timeout_seconds:
+            return self._ambiguous_dispatch_result(request, "dispatch-timeout"), [
                 "reason-ref:governed-external-action:dispatch-timeout"
             ]
-        try:
-            succeeded, raw_result = result_queue.get_nowait()
-        except Empty:
-            succeeded, raw_result = False, None
         if not succeeded:
-            return self._ambiguous_dispatch_result("dispatch-exception"), [
+            return self._ambiguous_dispatch_result(request, "dispatch-exception"), [
                 "reason-ref:governed-external-action:dispatch-exception"
             ]
         try:
             result = ExternalActionDispatchResult.model_validate(raw_result)
         except Exception:
-            return self._ambiguous_dispatch_result("dispatch-result-invalid"), [
+            return self._ambiguous_dispatch_result(
+                request, "dispatch-result-invalid"
+            ), [
                 "reason-ref:governed-external-action:dispatch-result-invalid"
             ]
         return result, []
 
     @staticmethod
-    def _ambiguous_dispatch_result(reason: str) -> ExternalActionDispatchResult:
+    def _ambiguous_dispatch_result(
+        request: ExternalActionExecutionRequest,
+        reason: str,
+    ) -> ExternalActionDispatchResult:
         return ExternalActionDispatchResult(
             outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
             evidence_refs=(
                 stable_governed_browser_ref(
                     f"evidence-ref:governed-external-action:{reason}",
-                    {"reason": reason},
+                    {
+                        "reason": reason,
+                        "transaction_ref": request.binding.transaction_ref,
+                        "intent_ref": request.intent_ref,
+                        "binding_ref": request.binding.binding_ref,
+                    },
                 ),
             ),
             verified=False,
@@ -1220,6 +1233,7 @@ class GovernedExternalActionKernel:
         approval_validation_ref: str | None = None,
         authority_decision_ref: str | None = None,
         budget_reservation_ref: str | None = None,
+        budget_release_ref: str | None = None,
         budget_settlement_ref: str | None = None,
         evidence_refs: list[str] | None = None,
     ) -> ExternalActionReceipt:
@@ -1230,6 +1244,7 @@ class GovernedExternalActionKernel:
             approval_validation_ref=approval_validation_ref,
             authority_decision_ref=authority_decision_ref,
             budget_reservation_ref=budget_reservation_ref,
+            budget_release_ref=budget_release_ref,
             budget_settlement_ref=budget_settlement_ref,
             evidence_refs=evidence_refs,
         )
@@ -1250,9 +1265,23 @@ class GovernedExternalActionKernel:
         approval_validation_ref: str | None = None,
         authority_decision_ref: str | None = None,
         budget_reservation_ref: str | None = None,
+        budget_release_ref: str | None = None,
         budget_settlement_ref: str | None = None,
         evidence_refs: list[str] | None = None,
     ) -> ExternalActionReceipt:
+        bounded_reason_refs = list(dict.fromkeys(reason_refs))
+        if len(bounded_reason_refs) > 16:
+            overflow = bounded_reason_refs[14:]
+            bounded_reason_refs = [
+                *bounded_reason_refs[:14],
+                stable_governed_browser_ref(
+                    "reason-ref:governed-external-action:reason-overflow",
+                    {
+                        "intent_ref": request.intent_ref,
+                        "reason_refs": overflow,
+                    },
+                ),
+            ]
         payload = {
             "transaction_ref": request.binding.transaction_ref,
             "intent_ref": request.intent_ref,
@@ -1263,8 +1292,10 @@ class GovernedExternalActionKernel:
             "budget_reservation_ref": budget_reservation_ref,
             "budget_settlement_ref": budget_settlement_ref,
             "evidence_refs": evidence_refs or [],
-            "reason_refs": list(dict.fromkeys(reason_refs)),
+            "reason_refs": bounded_reason_refs,
         }
+        if budget_release_ref is not None:
+            payload["budget_release_ref"] = budget_release_ref
         receipt = ExternalActionReceipt(
             receipt_ref=stable_governed_browser_ref(
                 "receipt-ref:governed-external-action", payload

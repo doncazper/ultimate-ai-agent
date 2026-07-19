@@ -472,6 +472,13 @@ def test_revalidation_fails_closed_after_budget_reservation(
     receipt = kernel.execute(request, dispatch=dispatch)
     assert receipt.state == ExternalActionState.blocked.value
     assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is not None
+    stored = kernel.terminal_receipt_by_ref(
+        transaction_ref=request.binding.transaction_ref,
+        receipt_ref=receipt.receipt_ref,
+    )
+    assert stored is not None
+    assert stored.budget_release_ref == receipt.budget_release_ref
     assert calls == 0
 
 

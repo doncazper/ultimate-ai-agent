@@ -526,6 +526,7 @@ class ExternalActionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
@@ -550,6 +551,7 @@ class ExternalActionReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
@@ -568,6 +570,8 @@ class ExternalActionReceipt(BaseModel):
             "evidence_refs": list(self.evidence_refs),
             "reason_refs": list(self.reason_refs),
         }
+        if self.budget_release_ref is not None:
+            payload["budget_release_ref"] = self.budget_release_ref
         expected_ref = stable_governed_browser_ref(
             "receipt-ref:governed-external-action",
             payload,

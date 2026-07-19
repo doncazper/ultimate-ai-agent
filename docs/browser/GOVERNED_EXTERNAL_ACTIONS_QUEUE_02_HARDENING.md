@@ -21,10 +21,13 @@ them in individual lane services:
 - exact approval, AuthorityLease, and readiness are revalidated before the
   durable start, after the start claim, and after dispatch;
 - allowed budget reservation, release, and settlement records require exact
-  receipt proof, and missing settlement proof becomes `outcome_ambiguous`;
+  receipt proof; pre-start blocks retain the release proof, and missing
+  settlement proof becomes `outcome_ambiguous`;
 - dispatch has one nonblocking capacity slot and a maximum thirty-second
-  timeout; exceptions, invalid results, timeouts, or capacity exhaustion are
-  content-free, ambiguous, and never automatically retried;
+  deadline; exceptions, invalid results, deadline overruns, or capacity
+  exhaustion are content-free, request-bound, ambiguous, and never
+  automatically retried, and no terminal receipt is written while a detached
+  callback remains live;
 - terminal writes use SQLite compare-and-swap from the exact expected state,
   so a concurrent or stale writer cannot overwrite a receipt;
 - a competing execution caller no longer terminalizes a start owned by another

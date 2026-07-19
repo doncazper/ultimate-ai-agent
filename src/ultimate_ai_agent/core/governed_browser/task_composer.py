@@ -1089,6 +1089,7 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
@@ -1114,6 +1115,7 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "external_action_reason_ref") for ref in self.reason_refs],
@@ -1161,6 +1163,11 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
                 "authority-budget-reservation-ref:",
             ),
             (
+                self.budget_release_ref,
+                "budget_release_ref",
+                "receipt-ref:authority-budget:",
+            ),
+            (
                 self.budget_settlement_ref,
                 "budget_settlement_ref",
                 "receipt-ref:authority-budget:",
@@ -1178,20 +1185,23 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
             raise ValueError(
                 "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
             )
+        external_receipt_payload = {
+            "transaction_ref": self.transaction_ref,
+            "intent_ref": self.intent_ref,
+            "binding_ref": self.binding_ref,
+            "state": self.state,
+            "approval_validation_ref": self.approval_validation_ref,
+            "authority_decision_ref": self.authority_decision_ref,
+            "budget_reservation_ref": self.budget_reservation_ref,
+            "budget_settlement_ref": self.budget_settlement_ref,
+            "evidence_refs": list(self.evidence_refs),
+            "reason_refs": list(self.reason_refs),
+        }
+        if self.budget_release_ref is not None:
+            external_receipt_payload["budget_release_ref"] = self.budget_release_ref
         expected_external_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-external-action",
-            {
-                "transaction_ref": self.transaction_ref,
-                "intent_ref": self.intent_ref,
-                "binding_ref": self.binding_ref,
-                "state": self.state,
-                "approval_validation_ref": self.approval_validation_ref,
-                "authority_decision_ref": self.authority_decision_ref,
-                "budget_reservation_ref": self.budget_reservation_ref,
-                "budget_settlement_ref": self.budget_settlement_ref,
-                "evidence_refs": list(self.evidence_refs),
-                "reason_refs": list(self.reason_refs),
-            },
+            external_receipt_payload,
         )
         if self.external_action_receipt_ref != expected_external_receipt_ref:
             raise ValueError(
@@ -1224,6 +1234,7 @@ def _build_external_receipt_snapshot(
         "approval_validation_ref": receipt.approval_validation_ref,
         "authority_decision_ref": receipt.authority_decision_ref,
         "budget_reservation_ref": receipt.budget_reservation_ref,
+        "budget_release_ref": receipt.budget_release_ref,
         "budget_settlement_ref": receipt.budget_settlement_ref,
         "evidence_refs": tuple(receipt.evidence_refs),
         "reason_refs": tuple(receipt.reason_refs),
@@ -1509,20 +1520,25 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
                 )
+            external_receipt_payload = {
+                "transaction_ref": self.transaction_ref,
+                "intent_ref": self.intent_ref,
+                "binding_ref": self.binding_ref,
+                "state": state.value,
+                "approval_validation_ref": self.approval_validation_ref,
+                "authority_decision_ref": self.authority_decision_ref,
+                "budget_reservation_ref": self.budget_reservation_ref,
+                "budget_settlement_ref": self.budget_settlement_ref,
+                "evidence_refs": list(self.evidence_refs),
+                "reason_refs": list(self.external_action_reason_refs),
+            }
+            if self.external_receipt_snapshot.budget_release_ref is not None:
+                external_receipt_payload["budget_release_ref"] = (
+                    self.external_receipt_snapshot.budget_release_ref
+                )
             expected_external_receipt_ref = stable_governed_browser_ref(
                 "receipt-ref:governed-external-action",
-                {
-                    "transaction_ref": self.transaction_ref,
-                    "intent_ref": self.intent_ref,
-                    "binding_ref": self.binding_ref,
-                    "state": state.value,
-                    "approval_validation_ref": self.approval_validation_ref,
-                    "authority_decision_ref": self.authority_decision_ref,
-                    "budget_reservation_ref": self.budget_reservation_ref,
-                    "budget_settlement_ref": self.budget_settlement_ref,
-                    "evidence_refs": list(self.evidence_refs),
-                    "reason_refs": list(self.external_action_reason_refs),
-                },
+                external_receipt_payload,
             )
             if self.external_action_receipt_ref != expected_external_receipt_ref:
                 raise ValueError(

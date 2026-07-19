@@ -122,6 +122,39 @@ def test_every_hostile_signal_blocks_before_dispatch(
     assert receipt.automatic_retry_allowed is False
 
 
+def test_simultaneous_hostile_signals_return_a_bounded_blocked_receipt(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="all-hostile-signals"))
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        now = utc_now()
+        return build_external_action_readiness(
+            item,
+            status="ready",
+            observed_at=now - timedelta(seconds=1),
+            expires_at=now + timedelta(seconds=10),
+            broker_integrity_verified=True,
+            external_mutation_enabled=True,
+            safe_disable_active=False,
+            kill_switch_engaged=False,
+            adversarial_signals=_signals(
+                **{signal: True for signal in _BOOLEAN_ADVERSARIAL_SIGNALS}
+            ),
+        )
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    receipt = kernel.execute(request, dispatch=_success)
+
+    assert receipt.state == ExternalActionState.blocked.value
+    assert len(receipt.reason_refs) <= 16
+    assert any("reason-overflow" in ref for ref in receipt.reason_refs)
+
+
 def test_cleanup_failure_and_resource_bounds_fail_closed(tmp_path) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="cleanup-unverified"))
 
@@ -240,6 +273,13 @@ def test_readiness_and_receipt_refs_are_intrinsically_bound() -> None:
                 "reason_refs": ["reason-ref:governed-external-action:tampered-failure"],
             }
         )
+    with pytest.raises(ValidationError, match="RECEIPT_REF_MISMATCH"):
+        ExternalActionReceipt.model_validate(
+            {
+                **receipt.model_dump(mode="json"),
+                "budget_release_ref": _ref("budget-release", "forged"),
+            }
+        )
 
 
 def test_mutable_caller_alias_drift_is_rejected_before_durable_prepare(
@@ -332,14 +372,18 @@ def test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded(
     request = _request(_binding(suffix="timeout"))
     kernel, _ = _authorized_kernel(tmp_path, request)
     kernel._dispatch_timeout_seconds = 0.01
+    dispatch_stopped = False
 
     def slow_dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_stopped
         time.sleep(0.08)
+        dispatch_stopped = True
         return _success(item)
 
     receipt = kernel.execute(request, dispatch=slow_dispatch)
 
     assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert dispatch_stopped is True
     assert "reason-ref:governed-external-action:dispatch-timeout" in (
         receipt.reason_refs
     )
@@ -347,6 +391,25 @@ def test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded(
     replay = kernel.execute(request, dispatch=_success)
     assert replay.replayed is True
     assert replay.state == ExternalActionState.outcome_ambiguous.value
+
+
+def test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    first_request = _request(_binding(suffix="timeout-evidence-first"))
+    second_request = _request(_binding(suffix="timeout-evidence-second"))
+    first_kernel, _ = _authorized_kernel(tmp_path / "first", first_request)
+    second_kernel, _ = _authorized_kernel(tmp_path / "second", second_request)
+    first_kernel._dispatch_timeout_seconds = 0.001
+    second_kernel._dispatch_timeout_seconds = 0.001
+
+    def slow_success(item):  # type: ignore[no-untyped-def]
+        time.sleep(0.01)
+        return _success(item)
+
+    first = first_kernel.execute(first_request, dispatch=slow_success)
+    second = second_kernel.execute(second_request, dispatch=slow_success)
+
+    assert first.state == second.state == ExternalActionState.outcome_ambiguous.value
+    assert first.evidence_refs != second.evidence_refs
 
 
 def test_concurrent_execute_never_clobbers_the_dispatch_owner(tmp_path) -> None:  # type: ignore[no-untyped-def]

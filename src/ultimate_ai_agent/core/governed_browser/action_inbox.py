@@ -339,6 +339,8 @@ def build_external_action_inbox_envelope(
     approval_validation_ref: str | None = None
     if receipt is not None:
         receipt_refs.append(receipt.receipt_ref)
+        if receipt.budget_release_ref:
+            receipt_refs.append(receipt.budget_release_ref)
         if receipt.budget_settlement_ref:
             receipt_refs.append(receipt.budget_settlement_ref)
         evidence_refs.extend(receipt.evidence_refs)

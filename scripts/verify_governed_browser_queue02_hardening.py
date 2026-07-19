@@ -71,7 +71,9 @@ def verify() -> list[str]:
             "dispatch-timeout",
             "dispatch-capacity-bounded",
             "BoundedSemaphore(value=1)",
-            "daemon=True",
+            "monotonic()",
+            "budget_release_ref",
+            "reason-overflow",
             "budget-settlement-ambiguous",
         ),
         "hardening": (
@@ -92,6 +94,7 @@ def verify() -> list[str]:
             "test_stop_posture_race_after_start_becomes_ambiguous",
             "test_authority_revocation_race_after_reservation_blocks_start",
             "test_dispatch_timeout_is_ambiguous_non_retryable_and_capacity_bounded",
+            "test_ambiguous_dispatch_evidence_is_bound_to_each_exact_request",
             "test_concurrent_execute_never_clobbers_the_dispatch_owner",
             "test_restart_recovery_cannot_terminalize_a_fresh_live_start",
             "test_terminal_compare_and_swap_rejects_overwrite",
