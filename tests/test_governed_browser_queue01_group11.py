@@ -44,6 +44,7 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_task_composition_schema_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -849,6 +850,54 @@ def test_serialized_success_receipt_is_bound_to_recipe_transaction_and_intent(
         with pytest.raises(ValidationError, match="RECIPE_SNAPSHOT_MISMATCH"):
             GovernedTaskCompositionReceipt.model_validate(drifted)
 
+    for field, drifted_ref in (
+        (
+            "approval_validation_ref",
+            _pinned(
+                "approval-validation-ref:governed-external-action",
+                "copied-success-proof",
+            ),
+        ),
+        (
+            "authority_decision_ref",
+            f"authority-policy-decision-ref:sha256:{'0' * 24}",
+        ),
+        (
+            "budget_reservation_ref",
+            _pinned("authority-budget-reservation-ref", "copied-success-proof"),
+        ),
+        (
+            "budget_settlement_ref",
+            _pinned("receipt-ref:authority-budget", "copied-success-proof"),
+        ),
+    ):
+        drifted = result.receipt.model_dump(mode="json")
+        drifted[field] = drifted_ref
+        drifted["external_action_receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            {
+                "transaction_ref": drifted["transaction_ref"],
+                "intent_ref": drifted["intent_ref"],
+                "binding_ref": drifted["binding_ref"],
+                "state": drifted["external_action_state"],
+                "approval_validation_ref": drifted["approval_validation_ref"],
+                "authority_decision_ref": drifted["authority_decision_ref"],
+                "budget_reservation_ref": drifted["budget_reservation_ref"],
+                "budget_settlement_ref": drifted["budget_settlement_ref"],
+                "evidence_refs": drifted["evidence_refs"],
+                "reason_refs": drifted["external_action_reason_refs"],
+            },
+        )
+        drifted["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {key: value for key, value in drifted.items() if key != "receipt_ref"},
+        )
+        with pytest.raises(
+            ValidationError,
+            match="EXTERNAL_RECEIPT_SNAPSHOT_MISMATCH",
+        ):
+            GovernedTaskCompositionReceipt.model_validate(drifted)
+
 
 def test_serialized_non_success_receipt_validates_retained_proof_scope(
     tmp_path: Path,
@@ -941,6 +990,53 @@ def test_serialized_non_success_receipt_validates_retained_proof_scope(
         )
         with pytest.raises(ValidationError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
             GovernedTaskCompositionReceipt.model_validate(proof_drift)
+
+    denial_reason_drift = result.receipt.model_dump(mode="json")
+    denial_reason_drift["reason_refs"] = [
+        "reason-ref:governed-task-composer:unrelated-denial"
+    ]
+    denial_reason_drift["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {
+            key: value
+            for key, value in denial_reason_drift.items()
+            if key != "receipt_ref"
+        },
+    )
+    with pytest.raises(ValidationError, match="DENIAL_REASON_MISMATCH"):
+        GovernedTaskCompositionReceipt.model_validate(denial_reason_drift)
+
+
+def test_missing_success_settlement_proof_returns_governed_non_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="missing-success-proof"
+    )
+    kernel, _ = _authorized_kernel(tmp_path, request)
+
+    def settlement_without_receipt(*args, **kwargs):  # type: ignore[no-untyped-def]
+        del args, kwargs
+        return BudgetSettlement(allowed=True)
+
+    monkeypatch.setattr(kernel._budget_gate, "settle", settlement_without_receipt)
+    composer = ExactGovernedTaskComposer(
+        operation_registry=operations,
+        recipe_registry=recipes,
+        kernel=kernel,
+    )
+
+    result = composer.compose(_exact(request, recipe))
+
+    assert result.receipt.status == "proof_incomplete"
+    assert result.receipt.external_action_state == "succeeded"
+    assert result.receipt.budget_settlement_ref is None
+    assert result.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:kernel-proof_incomplete",
+    )
+    assert result.receipt.external_receipt_snapshot is not None
+    assert result.plan is None
 
 
 def test_expired_recipe_and_invalid_clock_fail_before_composition(

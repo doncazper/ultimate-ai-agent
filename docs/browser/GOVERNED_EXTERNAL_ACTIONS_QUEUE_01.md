@@ -584,16 +584,20 @@ also rejects unpinned registry and external-action intent refs when durable
 plans or receipts are deserialized directly. Successful receipts validate the
 exact external-action, approval-validation, policy-decision, budget-reservation,
 and budget-settlement proof lineages by recomputing the exact external-action
-receipt identity. A validated content-free recipe snapshot binds the receipt
-operation refs back to the exact plan payload, validity window, dependencies,
-authority envelope, transaction, and intent. External receipt transaction,
-intent, and binding refs must also match the current composition request before
-any projection is created. Deserialized non-success receipts validate every
-retained snapshot, operation scope, proof lineage, external receipt identity,
-and envelope by the same content-free rules instead of treating denial evidence
-as unbound metadata. Every non-success receipt retains at least one safe
-reason ref, including a composer fallback when the kernel reports an ambiguous
-outcome without one. It does not execute an operation,
+receipt identity and comparing them with a separate immutable, content-derived
+external-receipt snapshot. Missing proof refs on a nominal kernel success
+produce a content-free `proof_incomplete` outcome without returning a plan or
+raising a validation exception. A validated content-free recipe snapshot binds
+the receipt operation refs back to the exact plan payload, validity window,
+dependencies, authority envelope, transaction, and intent. External receipt
+transaction, intent, and binding refs must also match the current composition
+request before any projection is created. Deserialized non-success receipts
+validate every retained snapshot, operation scope, proof lineage, external
+receipt identity, and envelope by the same content-free rules instead of
+treating denial evidence as unbound metadata. Every non-success transaction
+outcome must retain the exact external reason refs or the deterministic composer
+fallback when the kernel reports none; its operator-facing denial reason cannot
+be independently rewritten. It does not execute an operation,
 call a model, open or act in a browser, call a
 network, mutate an external target, add a route, or add a Control Center
 control. Queue 02 remains required before any external activation.

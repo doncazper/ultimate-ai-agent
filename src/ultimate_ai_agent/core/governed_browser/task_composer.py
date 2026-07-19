@@ -126,6 +126,7 @@ class GovernedTaskCompositionStatus(str, Enum):
     transaction_blocked = "transaction_blocked"
     failed = "failed"
     outcome_ambiguous = "outcome_ambiguous"
+    proof_incomplete = "proof_incomplete"
     replayed_content_free = "replayed_content_free"
 
 
@@ -1073,6 +1074,176 @@ class GovernedTaskCompositionPlan(BaseModel):
         return self
 
 
+class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
+    """Immutable content-free copy of one exact kernel receipt and proof chain."""
+
+    schema_version: Literal[
+        "uaa-governed-task-composition-external-receipt-snapshot.v1"
+    ] = "uaa-governed-task-composition-external-receipt-snapshot.v1"
+    snapshot_ref: str
+    external_action_receipt_ref: str
+    transaction_ref: str
+    intent_ref: str
+    binding_ref: str
+    state: ExternalActionState
+    approval_validation_ref: str | None = None
+    authority_decision_ref: str | None = None
+    budget_reservation_ref: str | None = None
+    budget_settlement_ref: str | None = None
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+    replayed: StrictBool = False
+    content_free: Literal[True] = True
+    automatic_retry_allowed: Literal[False] = False
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_snapshot(self) -> "GovernedTaskCompositionExternalReceiptSnapshot":
+        for value, label in (
+            (self.snapshot_ref, "external_receipt_snapshot_ref"),
+            (self.external_action_receipt_ref, "external_action_receipt_ref"),
+            (self.transaction_ref, "transaction_ref"),
+            (self.intent_ref, "intent_ref"),
+            (self.binding_ref, "binding_ref"),
+            (self.approval_validation_ref, "approval_validation_ref"),
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_settlement_ref, "budget_settlement_ref"),
+            *[(ref, "evidence_ref") for ref in self.evidence_refs],
+            *[(ref, "external_action_reason_ref") for ref in self.reason_refs],
+        ):
+            if value is not None:
+                validate_task_ref(value, label)
+                _deny_broad_grant_language(value, label=label)
+        for value, label, prefix in (
+            (
+                self.snapshot_ref,
+                "external_receipt_snapshot_ref",
+                "external-receipt-snapshot-ref:governed-task-composer:",
+            ),
+            (
+                self.external_action_receipt_ref,
+                "external_action_receipt_ref",
+                "receipt-ref:governed-external-action:",
+            ),
+            (
+                self.transaction_ref,
+                "transaction_ref",
+                "transaction-ref:governed-task-composer:",
+            ),
+            (
+                self.intent_ref,
+                "intent_ref",
+                "intent-ref:governed-external-action:",
+            ),
+            (
+                self.binding_ref,
+                "binding_ref",
+                "authority-binding-ref:governed-external-action:",
+            ),
+        ):
+            _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+        for value, label, prefix in (
+            (
+                self.approval_validation_ref,
+                "approval_validation_ref",
+                "approval-validation-ref:governed-external-action:",
+            ),
+            (
+                self.budget_reservation_ref,
+                "budget_reservation_ref",
+                "authority-budget-reservation-ref:",
+            ),
+            (
+                self.budget_settlement_ref,
+                "budget_settlement_ref",
+                "receipt-ref:authority-budget:",
+            ),
+        ):
+            if value is not None:
+                _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+        if self.authority_decision_ref is not None and (
+            re.fullmatch(
+                r"authority-policy-decision-ref:sha256:[0-9a-f]{24}",
+                self.authority_decision_ref,
+            )
+            is None
+        ):
+            raise ValueError(
+                "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
+            )
+        expected_external_receipt_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            {
+                "transaction_ref": self.transaction_ref,
+                "intent_ref": self.intent_ref,
+                "binding_ref": self.binding_ref,
+                "state": self.state,
+                "approval_validation_ref": self.approval_validation_ref,
+                "authority_decision_ref": self.authority_decision_ref,
+                "budget_reservation_ref": self.budget_reservation_ref,
+                "budget_settlement_ref": self.budget_settlement_ref,
+                "evidence_refs": list(self.evidence_refs),
+                "reason_refs": list(self.reason_refs),
+            },
+        )
+        if self.external_action_receipt_ref != expected_external_receipt_ref:
+            raise ValueError(
+                "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH"
+            )
+        expected_snapshot_ref = stable_governed_browser_ref(
+            "external-receipt-snapshot-ref:governed-task-composer",
+            self.model_dump(mode="json", exclude={"snapshot_ref"}),
+        )
+        if self.snapshot_ref != expected_snapshot_ref:
+            raise ValueError(
+                "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_SNAPSHOT_REF_MISMATCH"
+            )
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "governed_task_composition_external_receipt_snapshot",
+        )
+        return self
+
+
+def _build_external_receipt_snapshot(
+    receipt: ExternalActionReceipt,
+) -> GovernedTaskCompositionExternalReceiptSnapshot:
+    payload = {
+        "external_action_receipt_ref": receipt.receipt_ref,
+        "transaction_ref": receipt.transaction_ref,
+        "intent_ref": receipt.intent_ref,
+        "binding_ref": receipt.binding_ref,
+        "state": receipt.state,
+        "approval_validation_ref": receipt.approval_validation_ref,
+        "authority_decision_ref": receipt.authority_decision_ref,
+        "budget_reservation_ref": receipt.budget_reservation_ref,
+        "budget_settlement_ref": receipt.budget_settlement_ref,
+        "evidence_refs": tuple(receipt.evidence_refs),
+        "reason_refs": tuple(receipt.reason_refs),
+        "replayed": receipt.replayed,
+    }
+    snapshot_ref = stable_governed_browser_ref(
+        "external-receipt-snapshot-ref:governed-task-composer",
+        GovernedTaskCompositionExternalReceiptSnapshot.model_construct(
+            snapshot_ref=(
+                "external-receipt-snapshot-ref:governed-task-composer:pending"
+            ),
+            **payload,
+        ).model_dump(mode="json", exclude={"snapshot_ref"}),
+    )
+    return GovernedTaskCompositionExternalReceiptSnapshot(
+        snapshot_ref=snapshot_ref,
+        **payload,
+    )
+
+
 class GovernedTaskCompositionReceipt(BaseModel):
     schema_version: Literal["uaa-governed-task-composition-receipt.v1"] = (
         "uaa-governed-task-composition-receipt.v1"
@@ -1083,6 +1254,9 @@ class GovernedTaskCompositionReceipt(BaseModel):
     broad_intent_ref: str
     registry_ref: str
     recipe_snapshot: GovernedTaskCompositionRecipe | None = None
+    external_receipt_snapshot: (
+        GovernedTaskCompositionExternalReceiptSnapshot | None
+    ) = None
     composer_authority_ref: str | None = None
     envelope_ref: str | None = None
     transaction_ref: str
@@ -1223,6 +1397,9 @@ class GovernedTaskCompositionReceipt(BaseModel):
             GovernedTaskCompositionStatus.outcome_ambiguous: (
                 ExternalActionState.outcome_ambiguous
             ),
+            GovernedTaskCompositionStatus.proof_incomplete: (
+                ExternalActionState.succeeded
+            ),
             GovernedTaskCompositionStatus.replayed_content_free: (
                 ExternalActionState.succeeded
             ),
@@ -1251,6 +1428,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 )
             if (
                 self.recipe_snapshot is not None
+                or self.external_receipt_snapshot is not None
                 or self.composer_authority_ref is not None
                 or self.envelope_ref is not None
                 or any(ref is not None for ref in kernel_proof_refs)
@@ -1268,6 +1446,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 )
             if (
                 self.recipe_snapshot is None
+                or self.external_receipt_snapshot is None
                 or self.composer_authority_ref is None
                 or self.envelope_ref is None
                 or not self.operation_refs
@@ -1276,6 +1455,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                     "GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_REQUIRED"
                 )
             assert self.recipe_snapshot is not None
+            assert self.external_receipt_snapshot is not None
             assert self.composer_authority_ref is not None
             assert self.envelope_ref is not None
             snapshot = self.recipe_snapshot
@@ -1348,6 +1528,30 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH"
                 )
+            external_snapshot = self.external_receipt_snapshot
+            if (
+                external_snapshot.external_action_receipt_ref
+                != self.external_action_receipt_ref
+                or external_snapshot.transaction_ref != self.transaction_ref
+                or external_snapshot.intent_ref != self.intent_ref
+                or external_snapshot.binding_ref != self.binding_ref
+                or external_snapshot.state != state.value
+                or external_snapshot.approval_validation_ref
+                != self.approval_validation_ref
+                or external_snapshot.authority_decision_ref
+                != self.authority_decision_ref
+                or external_snapshot.budget_reservation_ref
+                != self.budget_reservation_ref
+                or external_snapshot.budget_settlement_ref
+                != self.budget_settlement_ref
+                or external_snapshot.evidence_refs != self.evidence_refs
+                or external_snapshot.reason_refs
+                != self.external_action_reason_refs
+                or external_snapshot.replayed != self.replayed
+            ):
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_SNAPSHOT_MISMATCH"
+                )
             expected_envelope_ref = governed_task_composition_envelope_ref(
                 plan_ref=self.plan_ref,
                 recipe_ref=self.recipe_ref,
@@ -1379,6 +1583,14 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_EVIDENCE_MISMATCH")
         elif not self.reason_refs:
             raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_REASON_REQUIRED")
+        elif self.external_action_receipt_ref is not None:
+            expected_reason_refs = self.external_action_reason_refs or (
+                f"reason-ref:governed-task-composer:kernel-{status.value}",
+            )
+            if self.reason_refs != expected_reason_refs:
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_DENIAL_REASON_MISMATCH"
+                )
         if status == GovernedTaskCompositionStatus.replayed_content_free and (
             not self.replayed
         ):
@@ -1796,7 +2008,18 @@ def _result_from_external_receipt(
             "reason-ref:governed-task-composer:external-receipt-scope-mismatch",
         )
     state = ExternalActionState(external_receipt.state)
-    if external_receipt.replayed and state == ExternalActionState.succeeded:
+    success_proofs_complete = all(
+        ref is not None
+        for ref in (
+            external_receipt.approval_validation_ref,
+            external_receipt.authority_decision_ref,
+            external_receipt.budget_reservation_ref,
+            external_receipt.budget_settlement_ref,
+        )
+    )
+    if state == ExternalActionState.succeeded and not success_proofs_complete:
+        status = GovernedTaskCompositionStatus.proof_incomplete
+    elif external_receipt.replayed and state == ExternalActionState.succeeded:
         status = GovernedTaskCompositionStatus.replayed_content_free
     elif state == ExternalActionState.succeeded:
         status = GovernedTaskCompositionStatus.plan_ready
@@ -1819,12 +2042,14 @@ def _result_from_external_receipt(
             f"reason-ref:governed-task-composer:kernel-{status.value}",
         )
     operation_refs = tuple(step.operation_ref for step in recipe.steps)
+    external_receipt_snapshot = _build_external_receipt_snapshot(external_receipt)
     payload = {
         "recipe_ref": recipe.recipe_ref,
         "plan_ref": recipe.plan_ref,
         "broad_intent_ref": recipe.broad_intent_ref,
         "registry_ref": recipe.registry_ref,
         "recipe_snapshot": recipe,
+        "external_receipt_snapshot": external_receipt_snapshot,
         "composer_authority_ref": recipe.composer_authority_ref,
         "envelope_ref": governed_task_composition_envelope_ref(
             plan_ref=recipe.plan_ref,
@@ -1857,5 +2082,5 @@ def _result_from_external_receipt(
     )
     return ExactGovernedTaskCompositionResult(
         receipt=GovernedTaskCompositionReceipt(receipt_ref=receipt_ref, **payload),
-        plan=plan,
+        plan=plan if status == GovernedTaskCompositionStatus.plan_ready else None,
     )
