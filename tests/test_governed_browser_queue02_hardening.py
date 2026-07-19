@@ -1399,6 +1399,41 @@ def test_start_persistence_failure_surfaces_unconfirmed_budget_release(
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
+def test_partial_start_persistence_failure_terminalizes_the_started_row(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="partial-start-persistence-failure"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_claim_start = kernel._store.claim_start
+    dispatch_calls = 0
+
+    def commit_start_then_fail(*args, **kwargs):  # type: ignore[no-untyped-def]
+        assert original_claim_start(*args, **kwargs) is True
+        raise sqlite3.OperationalError("synthetic ambiguous start commit")
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    kernel._store.claim_start = commit_start_then_fail  # type: ignore[method-assign]
+
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replay = kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_calls == 0
+    assert receipt.state == ExternalActionState.blocked.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is not None
+    assert "reason-ref:governed-external-action:start-persistence-failed" in (
+        receipt.reason_refs
+    )
+    assert kernel._store.replay_if_terminal(request) is not None
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
 def test_reservation_cancellation_releases_dispatch_slot(tmp_path) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="reservation-cancelled"))
     kernel, _ = _authorized_kernel(tmp_path, request)
@@ -1411,6 +1446,122 @@ def test_reservation_cancellation_releases_dispatch_slot(tmp_path) -> None:  # t
     with pytest.raises(KeyboardInterrupt):
         kernel.execute(request, dispatch=_success)
 
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_preclaim_release_cancellation_releases_dispatch_slot(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="preclaim-release-cancelled"))
+    authority_holder = []
+    changed = False
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        nonlocal changed
+        if not changed:
+            changed = True
+            authority_holder[0].revoke(
+                request.approval_ref,
+                "Operator withdrew exact approval before dispatch.",
+            )
+        return _readiness(item)
+
+    kernel, authority = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+    authority_holder.append(authority)
+
+    def cancel_release(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise KeyboardInterrupt
+
+    kernel._budget_gate.release = cancel_release  # type: ignore[method-assign]
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=_success)
+
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_missing_reservation_proof_release_cancellation_releases_dispatch_slot(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="missing-proof-release-cancelled"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    original_reserve = kernel._budget_gate.reserve
+
+    def reserve_without_receipt(item, approval):  # type: ignore[no-untyped-def]
+        reservation = original_reserve(item, approval)
+        assert reservation.allowed
+        assert reservation.reservation_ref is not None
+        return BudgetReservation(
+            allowed=True,
+            reservation_ref=reservation.reservation_ref,
+            receipt_ref=None,
+        )
+
+    def cancel_release(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise KeyboardInterrupt
+
+    kernel._budget_gate.reserve = reserve_without_receipt  # type: ignore[method-assign]
+    kernel._budget_gate.release = cancel_release  # type: ignore[method-assign]
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=_success)
+
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_dispatch_wait_cancellation_transfers_ownership_until_callback_stops(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="dispatch-wait-cancelled"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    dispatch_entered = threading.Event()
+    allow_dispatch_to_finish = threading.Event()
+    event_count = 0
+
+    class CancelledCompletedEvent:
+        def __init__(self) -> None:
+            self._event = threading.Event()
+
+        def set(self) -> None:
+            self._event.set()
+
+        def is_set(self) -> bool:
+            return self._event.is_set()
+
+        def wait(self, timeout=None):  # type: ignore[no-untyped-def]
+            assert dispatch_entered.wait(timeout=2)
+            raise KeyboardInterrupt
+
+    def event_factory():  # type: ignore[no-untyped-def]
+        nonlocal event_count
+        event_count += 1
+        if event_count == 2:
+            return CancelledCompletedEvent()
+        return threading.Event()
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        dispatch_entered.set()
+        assert allow_dispatch_to_finish.wait(timeout=2)
+        return _success(item)
+
+    monkeypatch.setattr(transaction_module, "Event", event_factory)
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=dispatch)
+
+    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+    allow_dispatch_to_finish.set()
+    terminal = _wait_for_terminal(kernel, request)
+
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:dispatch-timeout" in (
+        terminal.reason_refs
+    )
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 

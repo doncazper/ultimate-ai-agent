@@ -1178,6 +1178,10 @@ class GovernedExternalActionKernel:
                 self._store.release_dispatch_slot(request, process_lock_fd)
                 process_lock_fd = None
 
+        def transfer_dispatch_ownership() -> None:
+            nonlocal dispatch_ownership_transferred
+            dispatch_ownership_transferred = True
+
         def claim_start_or_terminal(
             reservation_ref: str,
         ) -> bool | ExternalActionReceipt:
@@ -1190,6 +1194,14 @@ class GovernedExternalActionKernel:
                     dispatch_timeout_seconds=self._dispatch_timeout_seconds,
                 )
             except BaseException as start_error:
+                try:
+                    durable_state = self._store.state_if_exact(request)
+                    durable_reservation_ref = (
+                        self._store.started_budget_reservation_ref_if_exact(request)
+                    )
+                except Exception:
+                    durable_state = None
+                    durable_reservation_ref = None
                 try:
                     release = self._budget_gate.release(
                         request,
@@ -1230,7 +1242,12 @@ class GovernedExternalActionKernel:
                             if release.allowed and release.receipt_ref is not None
                             else None
                         ),
-                        expected_state=ExternalActionState.prepared,
+                        expected_state=(
+                            ExternalActionState.started
+                            if durable_state == ExternalActionState.started
+                            and durable_reservation_ref == reservation_ref
+                            else ExternalActionState.prepared
+                        ),
                     )
                 except BaseException as terminal_error:
                     raise terminal_error from start_error
@@ -1254,43 +1271,43 @@ class GovernedExternalActionKernel:
             or reservation.reservation_ref is None
             or reservation.receipt_ref is None
         ):
-            release = BudgetSettlement(allowed=False)
-            reservation_reason_refs = [
-                "reason-ref:governed-external-action:budget-reservation-denied",
-                *reservation.reason_refs,
-            ]
-            if (
-                reservation.allowed
-                and reservation.reservation_ref is not None
-                and reservation.receipt_ref is None
-            ):
-                reservation_reason_refs.append(
-                    "reason-ref:governed-external-action:budget-reservation-proof-missing"
-                )
-                try:
-                    release = self._budget_gate.release(
-                        request,
-                        reservation.reservation_ref,
-                        (
-                            "reason-ref:governed-external-action:"
-                            "budget-reservation-proof-missing"
-                        ),
-                    )
-                except Exception:
-                    release = BudgetSettlement(
-                        allowed=False,
-                        reason_refs=[
-                            "reason-ref:governed-external-action:budget-release-failed"
-                        ],
-                    )
-                if not release.allowed or release.receipt_ref is None:
-                    reservation_reason_refs.extend(
-                        [
-                            "reason-ref:governed-external-action:budget-release-unconfirmed",
-                            *release.reason_refs,
-                        ]
-                    )
             try:
+                release = BudgetSettlement(allowed=False)
+                reservation_reason_refs = [
+                    "reason-ref:governed-external-action:budget-reservation-denied",
+                    *reservation.reason_refs,
+                ]
+                if (
+                    reservation.allowed
+                    and reservation.reservation_ref is not None
+                    and reservation.receipt_ref is None
+                ):
+                    reservation_reason_refs.append(
+                        "reason-ref:governed-external-action:budget-reservation-proof-missing"
+                    )
+                    try:
+                        release = self._budget_gate.release(
+                            request,
+                            reservation.reservation_ref,
+                            (
+                                "reason-ref:governed-external-action:"
+                                "budget-reservation-proof-missing"
+                            ),
+                        )
+                    except Exception:
+                        release = BudgetSettlement(
+                            allowed=False,
+                            reason_refs=[
+                                "reason-ref:governed-external-action:budget-release-failed"
+                            ],
+                        )
+                    if not release.allowed or release.receipt_ref is None:
+                        reservation_reason_refs.extend(
+                            [
+                                "reason-ref:governed-external-action:budget-release-unconfirmed",
+                                *release.reason_refs,
+                            ]
+                        )
                 return self._finish(
                     request,
                     ExternalActionState.blocked,
@@ -1329,26 +1346,26 @@ class GovernedExternalActionKernel:
         revalidation_reasons = list(dict.fromkeys(revalidation_reasons))
         if revalidation_reasons:
             try:
-                release = self._budget_gate.release(
-                    request,
-                    reservation.reservation_ref,
-                    "reason-ref:governed-external-action:revalidation-denied",
-                )
-            except Exception:
-                release = BudgetSettlement(
-                    allowed=False,
-                    reason_refs=[
-                        "reason-ref:governed-external-action:budget-release-failed"
-                    ],
-                )
-            if not release.allowed or release.receipt_ref is None:
-                revalidation_reasons.extend(
-                    [
-                        "reason-ref:governed-external-action:budget-release-unconfirmed",
-                        *release.reason_refs,
-                    ]
-                )
-            try:
+                try:
+                    release = self._budget_gate.release(
+                        request,
+                        reservation.reservation_ref,
+                        "reason-ref:governed-external-action:revalidation-denied",
+                    )
+                except Exception:
+                    release = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=[
+                            "reason-ref:governed-external-action:budget-release-failed"
+                        ],
+                    )
+                if not release.allowed or release.receipt_ref is None:
+                    revalidation_reasons.extend(
+                        [
+                            "reason-ref:governed-external-action:budget-release-unconfirmed",
+                            *release.reason_refs,
+                        ]
+                    )
                 return self._finish(
                     request,
                     ExternalActionState.blocked,
@@ -1441,6 +1458,7 @@ class GovernedExternalActionKernel:
                         authority_decision_ref=authority_decision_ref,
                         process_lock_fd=process_lock_fd,
                     ),
+                    deferred_ownership_handoff=transfer_dispatch_ownership,
                 )
                 if dispatch_deferred:
                     dispatch_ownership_transferred = True
@@ -1581,6 +1599,7 @@ class GovernedExternalActionKernel:
         binding_deadline_monotonic: float | None,
         readiness_deadline_monotonic: float | None,
         deferred_finalizer: Callable[[], None],
+        deferred_ownership_handoff: Callable[[], None],
     ) -> tuple[ExternalActionDispatchResult, list[str], bool, bool]:
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
@@ -1697,7 +1716,17 @@ class GovernedExternalActionKernel:
             )
 
         remaining_seconds = max(0.0, dispatch_deadline - monotonic())
-        if completed.wait(timeout=remaining_seconds):
+        try:
+            dispatch_completed = completed.wait(timeout=remaining_seconds)
+        except BaseException:
+            with dispatch_start_lock:
+                finalize_after_timeout.set()
+                dispatch_was_started = dispatch_started.is_set()
+            if dispatch_was_started:
+                deferred_ownership_handoff()
+            decision_made.set()
+            raise
+        if dispatch_completed:
             decision_made.set()
             result, reasons, invoked = result_holder[0]
             return result, reasons, invoked, False
