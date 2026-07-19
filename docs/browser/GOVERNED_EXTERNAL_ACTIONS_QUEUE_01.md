@@ -586,9 +586,12 @@ exact external-action, approval-validation, policy-decision, budget-reservation,
 and budget-settlement proof lineages by recomputing the exact external-action
 receipt identity. A validated content-free recipe snapshot binds the receipt
 operation refs back to the exact plan payload, validity window, dependencies,
-and authority envelope. External receipt transaction, intent, and binding refs
-must also match the current composition request before any projection is
-created. Every non-success receipt retains at least one safe
+authority envelope, transaction, and intent. External receipt transaction,
+intent, and binding refs must also match the current composition request before
+any projection is created. Deserialized non-success receipts validate every
+retained snapshot, operation scope, proof lineage, external receipt identity,
+and envelope by the same content-free rules instead of treating denial evidence
+as unbound metadata. Every non-success receipt retains at least one safe
 reason ref, including a composer fallback when the kernel reports an ambiguous
 outcome without one. It does not execute an operation,
 call a model, open or act in a browser, call a

@@ -570,6 +570,8 @@ class GovernedTaskCompositionRecipe(BaseModel):
     plan_payload_ref: str
     composer_authority_ref: str
     binding_ref: str
+    transaction_ref: str
+    intent_ref: str
     broad_intent_ref: str
     registry_ref: str
     schema_ref: str
@@ -610,6 +612,8 @@ class GovernedTaskCompositionRecipe(BaseModel):
             (self.plan_payload_ref, "plan_payload_ref"),
             (self.composer_authority_ref, "composer_authority_ref"),
             (self.binding_ref, "binding_ref"),
+            (self.transaction_ref, "transaction_ref"),
+            (self.intent_ref, "intent_ref"),
             (self.broad_intent_ref, "broad_intent_ref"),
             (self.registry_ref, "registry_ref"),
             (self.schema_ref, "schema_ref"),
@@ -627,6 +631,16 @@ class GovernedTaskCompositionRecipe(BaseModel):
             self.registry_ref,
             label="registry_ref",
             prefix="operation-registry-ref:governed-task-composer:",
+        )
+        _validate_hash_pinned_ref(
+            self.transaction_ref,
+            label="transaction_ref",
+            prefix="transaction-ref:governed-task-composer:",
+        )
+        _validate_hash_pinned_ref(
+            self.intent_ref,
+            label="intent_ref",
+            prefix="intent-ref:governed-external-action:",
         )
         if self.created_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_TASK_COMPOSER_TIMEZONE_REQUIRED")
@@ -763,6 +777,8 @@ def build_governed_task_composition_recipe(
         "plan_payload_ref": plan_payload_ref,
         "composer_authority_ref": composer_authority_ref,
         "binding_ref": binding.binding_ref,
+        "transaction_ref": binding.transaction_ref,
+        "intent_ref": execution.intent_ref,
         "broad_intent_ref": broad_intent_ref,
         "registry_ref": registry_ref,
         "schema_ref": schema_ref,
@@ -1217,8 +1233,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
             GovernedTaskCompositionStatus.plan_ready,
             GovernedTaskCompositionStatus.replayed_content_free,
         }
-        kernel_refs = (
-            self.external_action_receipt_ref,
+        kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,
             self.budget_reservation_ref,
@@ -1226,20 +1241,43 @@ class GovernedTaskCompositionReceipt(BaseModel):
         )
         if status == GovernedTaskCompositionStatus.plan_ready and self.replayed:
             raise ValueError("GOVERNED_TASK_COMPOSER_READY_STATE_MISMATCH")
-        if status in successful_statuses:
+        external_projection_required = (
+            status != GovernedTaskCompositionStatus.preflight_blocked
+        )
+        if self.external_action_receipt_ref is None:
+            if external_projection_required:
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+                )
+            if (
+                self.recipe_snapshot is not None
+                or self.composer_authority_ref is not None
+                or self.envelope_ref is not None
+                or any(ref is not None for ref in kernel_proof_refs)
+                or self.operation_refs
+                or self.evidence_refs
+                or self.external_action_reason_refs
+            ):
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_INVALID"
+                )
+        else:
+            if not external_projection_required:
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_INVALID"
+                )
             if (
                 self.recipe_snapshot is None
                 or self.composer_authority_ref is None
                 or self.envelope_ref is None
-                or any(ref is None for ref in kernel_refs)
+                or not self.operation_refs
             ):
-                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
+                raise ValueError(
+                    "GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+                )
             assert self.recipe_snapshot is not None
-            assert self.external_action_receipt_ref is not None
-            assert self.approval_validation_ref is not None
-            assert self.authority_decision_ref is not None
-            assert self.budget_reservation_ref is not None
-            assert self.budget_settlement_ref is not None
+            assert self.composer_authority_ref is not None
+            assert self.envelope_ref is not None
             snapshot = self.recipe_snapshot
             if (
                 snapshot.recipe_ref != self.recipe_ref
@@ -1248,6 +1286,8 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 or snapshot.registry_ref != self.registry_ref
                 or snapshot.composer_authority_ref != self.composer_authority_ref
                 or snapshot.binding_ref != self.binding_ref
+                or snapshot.transaction_ref != self.transaction_ref
+                or snapshot.intent_ref != self.intent_ref
             ):
                 raise ValueError("GOVERNED_TASK_COMPOSER_RECIPE_SNAPSHOT_MISMATCH")
             expected_operation_refs = tuple(
@@ -1255,8 +1295,6 @@ class GovernedTaskCompositionReceipt(BaseModel):
             )
             if self.operation_refs != expected_operation_refs:
                 raise ValueError("GOVERNED_TASK_COMPOSER_RECEIPT_SCOPE_MISMATCH")
-            if self.external_action_reason_refs or self.reason_refs:
-                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_REASON_INVALID")
             for value, label, prefix in (
                 (
                     self.external_action_receipt_ref,
@@ -1279,8 +1317,9 @@ class GovernedTaskCompositionReceipt(BaseModel):
                     "receipt-ref:authority-budget:",
                 ),
             ):
-                _validate_hash_pinned_ref(value, label=label, prefix=prefix)
-            if (
+                if value is not None:
+                    _validate_hash_pinned_ref(value, label=label, prefix=prefix)
+            if self.authority_decision_ref is not None and (
                 re.fullmatch(
                     r"authority-policy-decision-ref:sha256:[0-9a-f]{24}",
                     self.authority_decision_ref,
@@ -1317,9 +1356,15 @@ class GovernedTaskCompositionReceipt(BaseModel):
             )
             if self.envelope_ref != expected_envelope_ref:
                 raise ValueError("GOVERNED_TASK_COMPOSER_ENVELOPE_REF_MISMATCH")
-            if not self.operation_refs or len(set(self.operation_refs)) != len(
-                self.operation_refs
+        if status in successful_statuses:
+            if (
+                self.external_action_receipt_ref is None
+                or any(ref is None for ref in kernel_proof_refs)
             ):
+                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_PROOF_REQUIRED")
+            if self.external_action_reason_refs or self.reason_refs:
+                raise ValueError("GOVERNED_TASK_COMPOSER_SUCCESS_REASON_INVALID")
+            if len(set(self.operation_refs)) != len(self.operation_refs):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_SUCCESS_OPERATION_SCOPE_INVALID"
                 )
@@ -1567,6 +1612,14 @@ def _recipe_scope_reason(
         (
             recipe.binding_ref == binding.binding_ref,
             "reason-ref:governed-task-composer:binding-mismatch",
+        ),
+        (
+            recipe.transaction_ref == binding.transaction_ref,
+            "reason-ref:governed-task-composer:transaction-mismatch",
+        ),
+        (
+            recipe.intent_ref == request.intent_ref,
+            "reason-ref:governed-task-composer:intent-mismatch",
         ),
         (
             recipe.origin_ref == binding.origin_ref,

@@ -800,6 +800,149 @@ def test_external_receipt_scope_must_match_current_composition_request(
         assert blocked.plan is None
 
 
+def test_serialized_success_receipt_is_bound_to_recipe_transaction_and_intent(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="serialized-success-scope"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.status == "plan_ready"
+
+    for field, drifted_ref in (
+        (
+            "transaction_ref",
+            _pinned("transaction-ref:governed-task-composer", "copied-success"),
+        ),
+        (
+            "intent_ref",
+            _pinned("intent-ref:governed-external-action", "copied-success"),
+        ),
+    ):
+        drifted = result.receipt.model_dump(mode="json")
+        drifted[field] = drifted_ref
+        drifted["external_action_receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            {
+                "transaction_ref": drifted["transaction_ref"],
+                "intent_ref": drifted["intent_ref"],
+                "binding_ref": drifted["binding_ref"],
+                "state": drifted["external_action_state"],
+                "approval_validation_ref": drifted["approval_validation_ref"],
+                "authority_decision_ref": drifted["authority_decision_ref"],
+                "budget_reservation_ref": drifted["budget_reservation_ref"],
+                "budget_settlement_ref": drifted["budget_settlement_ref"],
+                "evidence_refs": drifted["evidence_refs"],
+                "reason_refs": drifted["external_action_reason_refs"],
+            },
+        )
+        drifted["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {key: value for key, value in drifted.items() if key != "receipt_ref"},
+        )
+        with pytest.raises(ValidationError, match="RECIPE_SNAPSHOT_MISMATCH"):
+            GovernedTaskCompositionReceipt.model_validate(drifted)
+
+
+def test_serialized_non_success_receipt_validates_retained_proof_scope(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="serialized-blocked-proof"
+    )
+    kernel = GovernedExternalActionKernel(
+        store=ExternalActionTransactionStore(tmp_path / "transactions.sqlite3"),
+        approval_authority=LocalApprovalAuthority(),
+        authority_leases_provider=lambda: [],
+        readiness_provider=lambda item: _readiness(item),
+        local_validation_enabled=True,
+    )
+    composer = ExactGovernedTaskComposer(
+        operation_registry=operations,
+        recipe_registry=recipes,
+        kernel=kernel,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.status == "transaction_blocked"
+    assert result.receipt.recipe_snapshot == recipe
+    assert result.receipt.external_action_receipt_ref is not None
+
+    missing_context = result.receipt.model_dump(mode="json")
+    for field in (
+        "recipe_snapshot",
+        "composer_authority_ref",
+        "envelope_ref",
+        "external_action_receipt_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+    ):
+        missing_context[field] = None
+    for field in (
+        "operation_refs",
+        "evidence_refs",
+        "external_action_reason_refs",
+    ):
+        missing_context[field] = []
+    missing_context["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {
+            key: value
+            for key, value in missing_context.items()
+            if key != "receipt_ref"
+        },
+    )
+    with pytest.raises(ValidationError, match="EXTERNAL_PROOF_CONTEXT_REQUIRED"):
+        GovernedTaskCompositionReceipt.model_validate(missing_context)
+
+    scope_drift = result.receipt.model_dump(mode="json")
+    scope_drift["operation_refs"] = [
+        _pinned(
+            "registered-operation-ref:governed-task-composer",
+            "unrelated-blocked-operation",
+        )
+    ]
+    scope_drift["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        {key: value for key, value in scope_drift.items() if key != "receipt_ref"},
+    )
+    with pytest.raises(ValidationError, match="RECEIPT_SCOPE_MISMATCH"):
+        GovernedTaskCompositionReceipt.model_validate(scope_drift)
+
+    for field, drifted_ref in (
+        (
+            "external_action_receipt_ref",
+            _pinned("receipt-ref:governed-external-action", "unrelated-block"),
+        ),
+        (
+            "approval_validation_ref",
+            _pinned(
+                "approval-validation-ref:governed-external-action",
+                "unrelated-block",
+            ),
+        ),
+    ):
+        proof_drift = result.receipt.model_dump(mode="json")
+        proof_drift[field] = drifted_ref
+        proof_drift["receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-task-composition",
+            {
+                key: value
+                for key, value in proof_drift.items()
+                if key != "receipt_ref"
+            },
+        )
+        with pytest.raises(ValidationError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
+            GovernedTaskCompositionReceipt.model_validate(proof_drift)
+
+
 def test_expired_recipe_and_invalid_clock_fail_before_composition(
     tmp_path: Path,
 ) -> None:
