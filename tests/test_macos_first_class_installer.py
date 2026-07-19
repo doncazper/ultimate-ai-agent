@@ -18,7 +18,7 @@ from scripts.macos.verify_installer_e2e import (
     validate_receipts,
     validate_status_payload,
 )
-from ultimate_ai_agent.core.gate.macos_distribution_static_policy import (
+from ultimate_ai_agent.distribution.macos.static_policy import (
     MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES,
     macos_distribution_adapter_policy_failures,
     macos_distribution_policy_failures,
@@ -642,6 +642,29 @@ def test_macos_distribution_policy_rejects_shell_broadening() -> None:
         "shell execution" in failure or "forbidden broad" in failure
         for failure in failures
     )
+
+
+def test_macos_distribution_policy_ignores_unrelated_fixture_roots_but_fails_partial_lane(
+    tmp_path: Path,
+) -> None:
+    assert macos_distribution_policy_failures(tmp_path) == []
+
+    lane_root = (
+        tmp_path / "src" / "ultimate_ai_agent" / "distribution" / "macos"
+    )
+    lane_root.mkdir(parents=True)
+
+    failures = macos_distribution_policy_failures(tmp_path)
+
+    assert failures
+    assert any("unavailable" in failure for failure in failures)
+
+    partial = tmp_path / next(iter(MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES))
+    partial.write_text("# partial distribution lane\n", encoding="utf-8")
+    partial_failures = macos_distribution_policy_failures(tmp_path)
+
+    assert partial_failures
+    assert any("unavailable" in failure for failure in partial_failures)
 
 
 def _layout(root: Path) -> InstallLayout:

@@ -506,6 +506,33 @@ def test_missing_sidecars_fail_the_runner_instead_of_minting_evidence(
         )
 
 
+@pytest.mark.parametrize(
+    ("message", "reason_ref"),
+    [
+        (
+            "collection evidence input is unavailable",
+            "reason-ref:ci:pytest-collection-evidence-unavailable",
+        ),
+        (
+            "collection aggregate evidence binding is invalid",
+            "reason-ref:ci:pytest-collection-evidence-binding-invalid",
+        ),
+        (
+            "unexpected internal detail",
+            "reason-ref:ci:pytest-collection-evidence-rejected",
+        ),
+    ],
+)
+def test_collection_evidence_error_reason_ref_is_bounded(
+    message: str,
+    reason_ref: str,
+) -> None:
+    error = evidence.CollectionEvidenceError(message)
+
+    assert evidence.collection_evidence_reason_ref(error) == reason_ref
+    assert message not in evidence.collection_evidence_reason_ref(error)
+
+
 def test_collection_evidence_rejects_overlapping_shard_file_ownership(
     tmp_path: Path,
 ) -> None:

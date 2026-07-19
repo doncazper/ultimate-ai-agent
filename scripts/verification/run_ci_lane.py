@@ -34,6 +34,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
 )
 from scripts.verification.pytest_collection_evidence import (  # noqa: E402
     CollectionEvidenceError,
+    collection_evidence_reason_ref,
     load_aggregate_evidence,
 )
 from scripts.verification.pytest_shard_plan import (  # noqa: E402
@@ -1126,6 +1127,9 @@ def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
     collection_status = result.get("pytest_collection_evidence_status")
     if collection_status is not None:
         lines.append("Pytest collection evidence: " + str(collection_status))
+    collection_reason_ref = result.get("pytest_collection_evidence_reason_ref")
+    if collection_reason_ref is not None:
+        lines.append("Pytest collection evidence reason: " + str(collection_reason_ref))
     if collected_count := result.get("pytest_collected_test_count"):
         lines.append(f"Observed pytest tests: {collected_count}")
     frontend_status = result.get("frontend_collection_evidence_status")
@@ -1629,12 +1633,12 @@ def run_lane(
                         expected_shard_count=CANONICAL_PYTEST_SHARD_COUNT,
                         expected_plan_fingerprint_ref=expected_pytest_plan_ref,
                     )
-                except CollectionEvidenceError:
+                except CollectionEvidenceError as exc:
                     result.update(
                         {
                             "pytest_collection_evidence_status": "rejected",
                             "pytest_collection_evidence_reason_ref": (
-                                "reason-ref:ci:pytest-collection-evidence-rejected"
+                                collection_evidence_reason_ref(exc)
                             ),
                         }
                     )

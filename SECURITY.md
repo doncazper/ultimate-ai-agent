@@ -128,7 +128,7 @@ commit, architecture, byte size, SHA-256, per-file manifest, and code-signing
 posture agree.
 
 Legacy static scans exempt only the three reviewed distribution adapter files.
-`macos_distribution_static_policy.py` separately fails closed if their fixed
+`distribution/macos/static_policy.py` separately fails closed if their fixed
 command, GitHub-only network, or loopback-supervisor capability shape broadens.
 
 Archive traversal, links, special files, unexpected files, checksum drift,
