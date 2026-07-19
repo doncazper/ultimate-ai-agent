@@ -154,10 +154,47 @@ jobs:
             --archive "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
             --descriptor "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
 
+      - name: Fetch pinned GitHub CLI
+        id: github_cli
+        if: github.event_name == 'push' || inputs.publish_release == true || inputs.publish_installer_bootstrap == true
+        env:
+          GH_CLI_VERSION: "2.96.0"
+          GH_CLI_ARCHIVE_SHA256: "f23a0c37d963aacc3bed703ccbd59b41c5ca22101fab7f00eb2b7cad23aba463"
+        run: |
+          archive="$RUNNER_TEMP/gh_${GH_CLI_VERSION}_macOS_arm64.zip"
+          destination="$RUNNER_TEMP/uaa-github-cli-${GH_CLI_VERSION}"
+          /usr/bin/curl --fail --location --proto '=https' --tlsv1.2 \
+            --retry 3 --connect-timeout 15 --max-time 300 \
+            --output "$archive.partial" \
+            "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_macOS_arm64.zip"
+          /bin/mv "$archive.partial" "$archive"
+          actual_sha256="$(/usr/bin/shasum -a 256 "$archive" | /usr/bin/awk '{print $1}')"
+          if [ "$actual_sha256" != "$GH_CLI_ARCHIVE_SHA256" ]; then
+            echo "Pinned GitHub CLI SHA-256 verification failed." >&2
+            exit 1
+          fi
+          /bin/mkdir -p "$destination"
+          /usr/bin/unzip -q "$archive" -d "$destination"
+          github_cli="$destination/gh_${GH_CLI_VERSION}_macOS_arm64/bin/gh"
+          if [ ! -x "$github_cli" ]; then
+            echo "Pinned GitHub CLI archive did not contain the expected executable." >&2
+            exit 1
+          fi
+          version_output="$("$github_cli" version)"
+          case "$version_output" in
+            "gh version $GH_CLI_VERSION "*) ;;
+            *)
+              echo "Pinned GitHub CLI version verification failed." >&2
+              exit 1
+              ;;
+          esac
+          echo "path=$github_cli" >> "$GITHUB_OUTPUT"
+
       - name: Publish immutable app release
         if: github.event_name == 'push' || inputs.publish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_CLI: ${{ steps.github_cli.outputs.path }}
           RELEASE_TAG: ${{ steps.source.outputs.tag }}
           RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
         run: |
@@ -165,15 +202,15 @@ jobs:
           if [ "$RELEASE_CHANNEL" = "dev" ]; then
             prerelease=(--prerelease)
           fi
-          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
+          if ! "$GH_CLI" release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            "$GH_CLI" release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --title "Ultimate AI Agent $RELEASE_TAG" \
               --notes "First-class macOS release. Channel: $RELEASE_CHANNEL. Release assets are checksum-bound and the updater remains governed by the active product-line descriptor." \
               "${prerelease[@]}"
           fi
-          gh release upload "$RELEASE_TAG" \
+          "$GH_CLI" release upload "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
             "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz.sha256" \
@@ -183,6 +220,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.publish_installer_bootstrap == true
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_CLI: ${{ steps.github_cli.outputs.path }}
           PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
         run: |
           args=(
@@ -194,14 +232,14 @@ jobs:
             args+=(--signing-identity "$UAA_MACOS_SIGNING_IDENTITY")
           fi
           PYTHONPATH=src .venv/bin/python scripts/macos/build_installer_bootstrap.py "${args[@]}"
-          if ! gh release view uaa-installer-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create uaa-installer-v1 \
+          if ! "$GH_CLI" release view uaa-installer-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            "$GH_CLI" release create uaa-installer-v1 \
               --repo "$GITHUB_REPOSITORY" \
               --target "${{ steps.identity.outputs.commit }}" \
               --title "Ultimate AI Agent macOS Installer v1" \
               --notes "Long-lived private-repository installer bootstrap. It selects versioned app releases through their exact descriptors."
           fi
-          gh release upload uaa-installer-v1 \
+          "$GH_CLI" release upload uaa-installer-v1 \
             --repo "$GITHUB_REPOSITORY" \
             "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz" \
             "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz.sha256"
