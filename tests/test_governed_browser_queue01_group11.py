@@ -279,7 +279,7 @@ def test_registered_operations_compose_into_exact_plan_only_projection(
         (GovernedTaskOperationKind.visible_click, AuthorityCapability.click),
         (GovernedTaskOperationKind.get_form_plan, AuthorityCapability.form_fill),
         (GovernedTaskOperationKind.post_form_plan, AuthorityCapability.form_fill),
-        (GovernedTaskOperationKind.credential_lifecycle, AuthorityCapability.prepare),
+        (GovernedTaskOperationKind.credential_lifecycle, AuthorityCapability.execute),
         (GovernedTaskOperationKind.challenge_handoff, AuthorityCapability.prepare),
         (GovernedTaskOperationKind.download_quarantine, AuthorityCapability.download),
         (GovernedTaskOperationKind.upload_plan, AuthorityCapability.upload),
@@ -308,6 +308,14 @@ def test_bounded_operation_families_accept_only_their_exact_capability(
                 "required_capability": AuthorityCapability.commit,
             }
         )
+    if kind == GovernedTaskOperationKind.credential_lifecycle:
+        with pytest.raises(ValidationError, match="OPERATION_CAPABILITY_MISMATCH"):
+            RegisteredGovernedTaskOperation.model_validate(
+                {
+                    **operation.model_dump(mode="json"),
+                    "required_capability": AuthorityCapability.prepare,
+                }
+            )
 
 
 def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
@@ -319,6 +327,15 @@ def test_raw_or_broad_intent_cannot_enter_the_composer() -> None:
         )
     with pytest.raises(ValueError, match="BROAD_INTENT"):
         governed_task_broad_intent_ref(intent_fingerprint="capability:*")
+    for disguised_grant in (
+        "capability:complete/any/task",
+        "capability:completeanytask",
+        "authority.complete-any-task",
+        "capability/all",
+        "authority.any",
+    ):
+        with pytest.raises(ValueError, match="BROAD_INTENT"):
+            governed_task_broad_intent_ref(intent_fingerprint=disguised_grant)
 
 
 def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
@@ -350,23 +367,29 @@ def test_operation_registration_is_hash_bound_and_authority_unique() -> None:
     )
     with pytest.raises(ValueError, match="OPERATION_AUTHORITY_DUPLICATE"):
         GovernedTaskOperationRegistry([operation, duplicate_authority])
-    contentful = build_registered_governed_task_operation(
-        kind=GovernedTaskOperationKind.external_operation,
-        source_recipe_ref="source-recipe-ref:send-alice@example.com",
-        source_contract_ref="source-contract-ref:account-primary",
-        source_binding_ref="source-binding-ref:recipient-alice",
-        operation_authority_ref="source-authority-ref:send-alice",
-        required_capability=AuthorityCapability.send,
-        target_ref="source-target-ref:alice@example.com",
-        schema_ref="source-schema-ref:private-message",
-    )
-    serialized = contentful.model_dump_json()
-    assert "alice" not in serialized
-    assert "primary" not in serialized
-    assert "private-message" not in serialized
-    assert contentful.source_recipe_ref.startswith(
-        "source-recipe-ref:governed-task-composer:sha256:"
-    )
+    exact_sources = {
+        "source_recipe_ref": _pinned("source-recipe-ref:source-system", "exact"),
+        "source_contract_ref": _pinned(
+            "source-contract-ref:source-system", "exact"
+        ),
+        "source_binding_ref": _pinned("source-binding-ref:source-system", "exact"),
+        "operation_authority_ref": _pinned(
+            "source-authority-ref:source-system", "exact"
+        ),
+        "target_ref": _pinned("source-target-ref:source-system", "exact"),
+        "schema_ref": _pinned("source-schema-ref:source-system", "exact"),
+    }
+    for label in exact_sources:
+        unpinned_sources = {
+            **exact_sources,
+            label: f"{label.replace('_', '-')}:current",
+        }
+        with pytest.raises(ValueError, match="HASH_PIN_REQUIRED"):
+            build_registered_governed_task_operation(
+                kind=GovernedTaskOperationKind.external_operation,
+                required_capability=AuthorityCapability.send,
+                **unpinned_sources,
+            )
     registry = GovernedTaskOperationRegistry([operation])
     with pytest.raises(AttributeError):
         registry.registry_ref = _pinned(

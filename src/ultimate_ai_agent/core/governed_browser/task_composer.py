@@ -50,6 +50,7 @@ from .transaction import (
 MAX_GOVERNED_TASK_COMPOSITION_LIFETIME = timedelta(minutes=10)
 MAX_GOVERNED_TASK_COMPOSITION_STEPS = 8
 _HASH_PINNED_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
+_HASH_PINNED_REF_RE = re.compile(r".+:sha256:[0-9a-f]{64}")
 _BROAD_GRANT_FRAGMENTS = (
     "complete_any_task",
     "complete-any-task",
@@ -89,11 +90,7 @@ _ALLOWED_CAPABILITIES = {
     GovernedTaskOperationKind.visible_click: {AuthorityCapability.click},
     GovernedTaskOperationKind.get_form_plan: {AuthorityCapability.form_fill},
     GovernedTaskOperationKind.post_form_plan: {AuthorityCapability.form_fill},
-    GovernedTaskOperationKind.credential_lifecycle: {
-        AuthorityCapability.prepare,
-        AuthorityCapability.mutate,
-        AuthorityCapability.destructive,
-    },
+    GovernedTaskOperationKind.credential_lifecycle: {AuthorityCapability.execute},
     GovernedTaskOperationKind.challenge_handoff: {AuthorityCapability.prepare},
     GovernedTaskOperationKind.download_quarantine: {AuthorityCapability.download},
     GovernedTaskOperationKind.upload_plan: {AuthorityCapability.upload},
@@ -134,7 +131,20 @@ def _validate_hash_pinned_ref(
 
 def _deny_broad_grant_language(value: str, *, label: str) -> None:
     lowered = value.lower()
-    if "*" in value or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS):
+    canonical = re.sub(r"[^a-z0-9]+", "", lowered)
+    canonical_broad_fragments = (
+        "completeanytask",
+        "wildcard",
+        "capabilityall",
+        "capabilityany",
+        "authorityall",
+        "authorityany",
+    )
+    if (
+        "*" in value
+        or any(fragment in lowered for fragment in _BROAD_GRANT_FRAGMENTS)
+        or any(fragment in canonical for fragment in canonical_broad_fragments)
+    ):
         raise ValueError(f"GOVERNED_TASK_COMPOSER_BROAD_{label.upper()}_DENIED")
 
 
@@ -142,7 +152,11 @@ def governed_task_broad_intent_ref(*, intent_fingerprint: str) -> str:
     """Create a content-free broad-intent ref from an already safe fingerprint."""
 
     _deny_broad_grant_language(intent_fingerprint, label="intent")
-    validate_task_ref(intent_fingerprint, "intent_fingerprint")
+    _validate_hash_pinned_ref(
+        intent_fingerprint,
+        label="intent_fingerprint",
+        prefix="intent-fingerprint-ref:governed-task-composer:",
+    )
     return stable_governed_browser_ref(
         "broad-intent-ref:governed-task-composer",
         {"intent_fingerprint": intent_fingerprint},
@@ -152,6 +166,10 @@ def governed_task_broad_intent_ref(*, intent_fingerprint: str) -> str:
 def _opaque_registered_source_ref(*, label: str, source_ref: str) -> str:
     validate_task_ref(source_ref, label)
     _deny_broad_grant_language(source_ref, label=label)
+    if _HASH_PINNED_REF_RE.fullmatch(source_ref) is None:
+        raise ValueError(
+            f"GOVERNED_TASK_COMPOSER_{label.upper()}_HASH_PIN_REQUIRED"
+        )
     return stable_governed_browser_ref(
         _REGISTERED_SOURCE_PREFIXES[label].removesuffix(":"),
         {"source_ref": source_ref},

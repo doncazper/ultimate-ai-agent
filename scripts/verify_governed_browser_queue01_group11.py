@@ -60,6 +60,8 @@ def verify() -> list[str]:
             "automatic_retry_allowed: Literal[False]",
             "GOVERNED_TASK_COMPOSER_OPERATION_UNREGISTERED",
             "_opaque_registered_source_ref",
+            "_HASH_PINNED_REF_RE.fullmatch(source_ref)",
+            '"completeanytask"',
             "governed_task_composition_plan_payload_ref",
             "GOVERNED_TASK_COMPOSER_ENVELOPE_REF_MISMATCH",
             "GOVERNED_TASK_COMPOSER_PLAN_PAYLOAD_REF_MISMATCH",

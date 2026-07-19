@@ -541,10 +541,12 @@ observation, click, GET-form, POST-form, credential-lifecycle,
 challenge-handoff, download-quarantine, upload-plan, external-operation, and
 financial-operation families. Each record binds a content-pinned source recipe,
 contract, binding, target, schema, exact operation-authority ref, and one
-family-appropriate later capability. Duplicate authority refs, mutable source
-refs, unknown families, and mismatched capabilities are rejected. The source
-refs are wrapped into purpose-specific opaque SHA-256 refs before registration,
-so descriptive source identifiers cannot flow into a plan or receipt.
+family-appropriate later capability; credential/session lifecycle operations
+bind the existing exact `execute` capability. Duplicate authority refs,
+unpinned or mutable source refs, unknown families, and mismatched capabilities
+are rejected. Only already SHA-256-pinned source refs are wrapped into
+purpose-specific opaque refs before registration, so descriptive source
+identifiers cannot flow into a plan or receipt.
 
 A composition recipe contains one to eight unique registered operations in
 exact order. Dependencies may point only to earlier steps, which makes cycles
