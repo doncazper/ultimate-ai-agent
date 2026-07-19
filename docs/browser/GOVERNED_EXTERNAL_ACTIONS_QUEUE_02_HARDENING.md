@@ -41,6 +41,9 @@ them in individual lane services:
   dispatch slot remains owned;
 - durable and returned external-action receipts recompute their own exact
   content-derived identity when read or deserialized;
+- external-operation contract receipts recompute the referenced kernel receipt
+  from their copied transaction, state, proof, evidence, and reason fields and
+  retain pre-start budget release proof across the projection;
 - idempotency identifiers must be SHA-256-pinned safe refs; and
 - the kernel reconstructs a validated internal request snapshot before any
   durable prepare, severing caller-owned mutable aliases and rejecting drift.

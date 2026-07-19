@@ -761,6 +761,63 @@ def test_success_receipt_rejects_tampered_operation_evidence(tmp_path: Path) -> 
         GovernedExternalOperationReceipt.model_validate(payload)
 
 
+def test_operation_receipt_rejects_rebound_kernel_receipt_fields(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="kernel-receipt-binding",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    result = service.prepare(_exact(request, recipe))
+    payload = result.receipt.model_dump(mode="json")
+    payload["binding_ref"] = _ref("binding", "rebound-kernel-receipt")
+    identity_payload = {
+        key: value for key, value in payload.items() if key != "receipt_ref"
+    }
+    if identity_payload["budget_release_ref"] is None:
+        identity_payload.pop("budget_release_ref")
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        identity_payload,
+    )
+
+    with pytest.raises(ValueError, match="EXTERNAL_RECEIPT_REF_MISMATCH"):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
+def test_operation_receipt_preserves_prestart_budget_release_proof(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.delete_resource,
+        suffix="budget-release-proof",
+    )
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        return _readiness(item, safe_disable=True)
+
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        readiness_provider=readiness,
+    )
+
+    result = service.prepare(_exact(request, recipe))
+
+    assert result.receipt.status == "transaction_blocked"
+    assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
+    replayed = service.prepare(_exact(request, recipe))
+    assert replayed.receipt.budget_release_ref == result.receipt.budget_release_ref
+
+
 def test_expired_recipe_is_non_mutating_preflight_denial(tmp_path: Path) -> None:
     now = utc_now()
     request, recipe, registry = _operation_context(

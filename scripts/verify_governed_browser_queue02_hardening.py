@@ -35,7 +35,14 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/adversarial_hardening.py",
         failures,
     )
+    external_operations = _read(
+        "src/ultimate_ai_agent/core/governed_browser/external_operation_contracts.py",
+        failures,
+    )
     tests = _read("tests/test_governed_browser_queue02_hardening.py", failures)
+    external_operation_tests = _read(
+        "tests/test_governed_browser_queue01_group09.py", failures
+    )
     doc = _read(
         "docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_02_HARDENING.md", failures
     )
@@ -91,6 +98,11 @@ def verify() -> list[str]:
             "standing_authority_granted: Literal[False]",
             "governed_browser_queue02_inactive_activation_matrix",
         ),
+        "external_operations": (
+            "budget_release_ref",
+            "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH",
+            "_external_operation_receipt_identity_payload",
+        ),
         "tests": (
             "test_every_hostile_signal_blocks_before_dispatch",
             "test_every_observed_scope_dimension_is_revalidated",
@@ -105,6 +117,10 @@ def verify() -> list[str]:
             "test_dispatch_capacity_is_shared_durably_across_kernel_instances",
             "test_terminal_compare_and_swap_rejects_overwrite",
             "test_honest_matrix_covers_every_lane_and_keeps_every_lane_inactive",
+        ),
+        "external_operation_tests": (
+            "test_operation_receipt_rejects_rebound_kernel_receipt_fields",
+            "test_operation_receipt_preserves_prestart_budget_release_proof",
         ),
         "doc": (
             "Queue 02",
@@ -121,7 +137,9 @@ def verify() -> list[str]:
         "contracts": contracts,
         "transaction": transaction,
         "hardening": hardening,
+        "external_operations": external_operations,
         "tests": tests,
+        "external_operation_tests": external_operation_tests,
         "doc": doc,
     }
     for label, markers in required.items():
