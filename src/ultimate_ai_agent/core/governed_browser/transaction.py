@@ -1326,15 +1326,66 @@ class GovernedExternalActionKernel:
             finally:
                 release_dispatch_ownership()
 
-        preclaim_readiness_reasons = self._revalidation_reasons(request)
-        (
-            preclaim_authorization_reasons,
-            revalidated_approval_ref,
-            revalidated_authority_ref,
-        ) = self._authorization_revalidation(
-            request,
-            approval_validation,
-        )
+        try:
+            preclaim_readiness_reasons = self._revalidation_reasons(request)
+            (
+                preclaim_authorization_reasons,
+                revalidated_approval_ref,
+                revalidated_authority_ref,
+            ) = self._authorization_revalidation(
+                request,
+                approval_validation,
+            )
+        except BaseException as revalidation_error:
+            try:
+                try:
+                    release = self._budget_gate.release(
+                        request,
+                        reservation.reservation_ref,
+                        (
+                            "reason-ref:governed-external-action:"
+                            "preclaim-revalidation-interrupted"
+                        ),
+                    )
+                except BaseException:
+                    release = BudgetSettlement(
+                        allowed=False,
+                        reason_refs=(
+                            "reason-ref:governed-external-action:"
+                            "budget-release-failed",
+                        ),
+                    )
+                reasons = [
+                    "reason-ref:governed-external-action:"
+                    "preclaim-revalidation-interrupted"
+                ]
+                if not release.allowed or release.receipt_ref is None:
+                    reasons.extend(
+                        [
+                            "reason-ref:governed-external-action:"
+                            "budget-release-unconfirmed",
+                            *release.reason_refs,
+                        ]
+                    )
+                try:
+                    return self._finish(
+                        request,
+                        ExternalActionState.blocked,
+                        list(dict.fromkeys(reasons)),
+                        approval_validation_ref=approval_validation_ref,
+                        authority_decision_ref=authority_decision.decision_ref,
+                        budget_reservation_ref=reservation.reservation_ref,
+                        budget_release_ref=(
+                            release.receipt_ref
+                            if release.allowed and release.receipt_ref is not None
+                            else None
+                        ),
+                        expected_state=ExternalActionState.prepared,
+                    )
+                except BaseException as terminal_error:
+                    raise terminal_error from revalidation_error
+            finally:
+                release_dispatch_ownership()
         approval_validation_ref = revalidated_approval_ref or approval_validation_ref
         authority_decision_ref = (
             revalidated_authority_ref or authority_decision.decision_ref
@@ -1439,6 +1490,18 @@ class GovernedExternalActionKernel:
                 finally:
                     release_dispatch_ownership()
 
+            def finalize_cancelled_before_dispatch() -> None:
+                self._finish_started_guard_failure(
+                    request,
+                    reservation_ref=reservation.reservation_ref,
+                    approval_validation_ref=approval_validation_ref,
+                    authority_decision_ref=authority_decision_ref,
+                    reason_refs=[
+                        "reason-ref:governed-external-action:"
+                        "dispatch-wait-interrupted-before-start"
+                    ],
+                )
+
             try:
                 (
                     dispatch_result,
@@ -1459,6 +1522,9 @@ class GovernedExternalActionKernel:
                         process_lock_fd=process_lock_fd,
                     ),
                     deferred_ownership_handoff=transfer_dispatch_ownership,
+                    cancelled_before_dispatch_finalizer=(
+                        finalize_cancelled_before_dispatch
+                    ),
                 )
                 if dispatch_deferred:
                     dispatch_ownership_transferred = True
@@ -1600,6 +1666,7 @@ class GovernedExternalActionKernel:
         readiness_deadline_monotonic: float | None,
         deferred_finalizer: Callable[[], None],
         deferred_ownership_handoff: Callable[[], None],
+        cancelled_before_dispatch_finalizer: Callable[[], None],
     ) -> tuple[ExternalActionDispatchResult, list[str], bool, bool]:
         dispatch_request = ExternalActionExecutionRequest.model_validate_json(
             request.model_dump_json()
@@ -1700,23 +1767,25 @@ class GovernedExternalActionKernel:
                 deferred_finalizer()
 
         try:
-            Thread(
-                target=invoke,
-                name="uaa-governed-external-action-dispatch",
-                daemon=True,
-            ).start()
-        except Exception:
-            return (
-                self._ambiguous_dispatch_result(
-                    request, "dispatch-worker-start-failed"
-                ),
-                ["reason-ref:governed-external-action:dispatch-worker-start-failed"],
-                False,
-                False,
-            )
-
-        remaining_seconds = max(0.0, dispatch_deadline - monotonic())
-        try:
+            try:
+                Thread(
+                    target=invoke,
+                    name="uaa-governed-external-action-dispatch",
+                    daemon=True,
+                ).start()
+            except Exception:
+                return (
+                    self._ambiguous_dispatch_result(
+                        request, "dispatch-worker-start-failed"
+                    ),
+                    [
+                        "reason-ref:governed-external-action:"
+                        "dispatch-worker-start-failed"
+                    ],
+                    False,
+                    False,
+                )
+            remaining_seconds = max(0.0, dispatch_deadline - monotonic())
             dispatch_completed = completed.wait(timeout=remaining_seconds)
         except BaseException:
             with dispatch_start_lock:
@@ -1725,6 +1794,8 @@ class GovernedExternalActionKernel:
             if dispatch_was_started:
                 deferred_ownership_handoff()
             decision_made.set()
+            if not dispatch_was_started:
+                cancelled_before_dispatch_finalizer()
             raise
         if dispatch_completed:
             decision_made.set()
@@ -1739,6 +1810,8 @@ class GovernedExternalActionKernel:
         with dispatch_start_lock:
             finalize_after_timeout.set()
             dispatch_was_started = dispatch_started.is_set()
+        if dispatch_was_started:
+            deferred_ownership_handoff()
         decision_made.set()
         return (
             self._ambiguous_dispatch_result(request, "dispatch-timeout"),
@@ -1896,7 +1969,7 @@ class GovernedExternalActionKernel:
                 reservation_ref,
                 "reason-ref:governed-external-action:post-start-dispatch-not-invoked",
             )
-        except Exception:
+        except BaseException:
             release = BudgetSettlement(
                 allowed=False,
                 reason_refs=(

@@ -1565,6 +1565,243 @@ def test_dispatch_wait_cancellation_transfers_ownership_until_callback_stops(
     assert kernel._store.dispatch_slot_is_owned_by(request) is False
 
 
+def test_dispatch_start_cancellation_keeps_live_callback_ownership(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="dispatch-start-cancelled"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    dispatch_entered = threading.Event()
+    allow_dispatch_to_finish = threading.Event()
+    real_thread = threading.Thread
+
+    class StartThenInterruptThread:
+        def __init__(self, *, target, name, daemon):  # type: ignore[no-untyped-def]
+            self._thread = real_thread(target=target, name=name, daemon=daemon)
+
+        def start(self) -> None:
+            self._thread.start()
+            assert dispatch_entered.wait(timeout=2)
+            raise KeyboardInterrupt
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        dispatch_entered.set()
+        assert allow_dispatch_to_finish.wait(timeout=2)
+        return _success(item)
+
+    monkeypatch.setattr(transaction_module, "Thread", StartThenInterruptThread)
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=dispatch)
+
+    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+    allow_dispatch_to_finish.set()
+    terminal = _wait_for_terminal(kernel, request)
+
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:dispatch-timeout" in (
+        terminal.reason_refs
+    )
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_timeout_ownership_is_transferred_before_bounded_dispatch_returns(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="timeout-return-cancelled"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    kernel._dispatch_timeout_seconds = 0.01
+    dispatch_entered = threading.Event()
+    allow_dispatch_to_finish = threading.Event()
+    original_bounded_dispatch = kernel._bounded_dispatch
+
+    def interrupt_after_timeout(*args, **kwargs):  # type: ignore[no-untyped-def]
+        result = original_bounded_dispatch(*args, **kwargs)
+        assert result[3] is True
+        raise KeyboardInterrupt
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        dispatch_entered.set()
+        assert allow_dispatch_to_finish.wait(timeout=2)
+        return _success(item)
+
+    kernel._bounded_dispatch = interrupt_after_timeout  # type: ignore[method-assign]
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_entered.is_set()
+    assert kernel._store.dispatch_slot_is_owned_by(request) is True
+    allow_dispatch_to_finish.set()
+    terminal = _wait_for_terminal(kernel, request)
+
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert "reason-ref:governed-external-action:dispatch-timeout" in (
+        terminal.reason_refs
+    )
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_post_start_release_cancellation_is_terminal_and_unconfirmed(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="post-start-release-cancelled"))
+    readiness_calls = 0
+
+    def readiness(item):  # type: ignore[no-untyped-def]
+        nonlocal readiness_calls
+        readiness_calls += 1
+        result = _readiness(item)
+        if readiness_calls == 2:
+            return result.model_copy(update={"safe_disable_active": True})
+        return result
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=readiness,
+    )
+
+    def cancel_release(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise KeyboardInterrupt
+
+    kernel._budget_gate.release = cancel_release  # type: ignore[method-assign]
+
+    receipt = kernel.execute(request, dispatch=_success)
+    replay = kernel.execute(request, dispatch=_success)
+
+    assert readiness_calls == 2
+    assert receipt.state == ExternalActionState.outcome_ambiguous.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is None
+    assert receipt.budget_settlement_ref is None
+    assert "reason-ref:governed-external-action:post-start-revalidation-denied" in (
+        receipt.reason_refs
+    )
+    assert "reason-ref:governed-external-action:budget-release-unconfirmed" in (
+        receipt.reason_refs
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_preclaim_revalidation_cancellation_releases_and_terminalizes(
+    tmp_path,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="preclaim-revalidation-cancelled"))
+    dispatch_calls = 0
+
+    def cancel_readiness(_item):  # type: ignore[no-untyped-def]
+        raise KeyboardInterrupt
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=cancel_readiness,
+    )
+
+    receipt = kernel.execute(request, dispatch=dispatch)
+    replay = kernel.execute(request, dispatch=dispatch)
+
+    assert dispatch_calls == 0
+    assert receipt.state == ExternalActionState.blocked.value
+    assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is not None
+    assert receipt.budget_settlement_ref is None
+    assert "reason-ref:governed-external-action:preclaim-revalidation-interrupted" in (
+        receipt.reason_refs
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+
+def test_dispatch_wait_cancellation_before_worker_start_releases_reservation(
+    tmp_path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    request = _request(_binding(suffix="dispatch-wait-cancelled-before-start"))
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    allow_worker_start = threading.Event()
+    worker_waiting = threading.Event()
+    worker_stopped = threading.Event()
+    real_thread = threading.Thread
+    event_count = 0
+    dispatch_calls = 0
+
+    class CancelledCompletedEvent:
+        def set(self) -> None:
+            pass
+
+        def is_set(self) -> bool:
+            return False
+
+        def wait(self, timeout=None):  # type: ignore[no-untyped-def]
+            raise KeyboardInterrupt
+
+    class DelayedThread:
+        def __init__(self, *, target, name, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._thread = real_thread(
+                target=self._run,
+                name=name,
+                daemon=daemon,
+            )
+
+        def _run(self) -> None:
+            worker_waiting.set()
+            assert allow_worker_start.wait(timeout=2)
+            self._target()
+            worker_stopped.set()
+
+        def start(self) -> None:
+            self._thread.start()
+            assert worker_waiting.wait(timeout=2)
+
+    def event_factory():  # type: ignore[no-untyped-def]
+        nonlocal event_count
+        event_count += 1
+        if event_count == 2:
+            return CancelledCompletedEvent()
+        return threading.Event()
+
+    def dispatch(item):  # type: ignore[no-untyped-def]
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        return _success(item)
+
+    monkeypatch.setattr(transaction_module, "Event", event_factory)
+    monkeypatch.setattr(transaction_module, "Thread", DelayedThread)
+
+    with pytest.raises(KeyboardInterrupt):
+        kernel.execute(request, dispatch=dispatch)
+
+    terminal = _wait_for_terminal(kernel, request)
+    assert dispatch_calls == 0
+    assert terminal.state == ExternalActionState.outcome_ambiguous.value
+    assert terminal.budget_reservation_ref is not None
+    assert terminal.budget_release_ref is not None
+    assert terminal.budget_settlement_ref is None
+    assert (
+        "reason-ref:governed-external-action:"
+        "dispatch-wait-interrupted-before-start"
+    ) in terminal.reason_refs
+    assert kernel._store.dispatch_slot_is_owned_by(request) is False
+
+    allow_worker_start.set()
+    assert worker_stopped.wait(timeout=2)
+    assert dispatch_calls == 0
+    replay = kernel.execute(request, dispatch=dispatch)
+    assert replay.replayed is True
+    assert replay.receipt_ref == terminal.receipt_ref
+
+
 def test_replayed_closed_reservation_is_not_active(tmp_path) -> None:  # type: ignore[no-untyped-def]
     request = _request(_binding(suffix="closed-reservation-replay"))
     kernel, _ = _authorized_kernel(tmp_path, request)
