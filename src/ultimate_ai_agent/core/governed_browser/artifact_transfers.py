@@ -20,6 +20,7 @@ from enum import Enum
 from pathlib import Path
 from threading import RLock
 from typing import Literal
+from weakref import WeakKeyDictionary
 
 from pydantic import (
     BaseModel,
@@ -47,6 +48,7 @@ from .contracts import (
     governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
+from .operation_proofs import _attest_terminal_receipt_binding
 from .replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
     ExternalActionReplayValidationContext,
@@ -56,7 +58,10 @@ from .replay_provenance import (
     replay_validation_context,
     require_external_action_replay_provenance,
 )
-from .transaction import GovernedExternalActionKernel
+from .transaction import (
+    GovernedExternalActionKernel,
+    _bound_external_action_replay_store,
+)
 
 
 MAX_GOVERNED_ARTIFACT_BYTES = 65_536
@@ -98,6 +103,22 @@ class GovernedArtifactPayloadRejected(ValueError):
 
 class GovernedArtifactQuarantinePrecondition(ValueError):
     """An existing quarantined artifact is absent, unsafe, or drifted."""
+
+
+@dataclass(frozen=True)
+class _GovernedArtifactQuarantineStoreBinding:
+    root: Path
+    quarantine: Path
+    root_identity: tuple[int, int]
+    quarantine_identity: tuple[int, int]
+    binding_ref: str
+
+
+_QUARANTINE_STORE_BINDINGS: WeakKeyDictionary[
+    object,
+    _GovernedArtifactQuarantineStoreBinding,
+] = WeakKeyDictionary()
+_QUARANTINE_STORE_BINDINGS_LOCK = RLock()
 
 
 def _validate_hash_pinned_ref(
@@ -409,6 +430,15 @@ class GovernedArtifactQuarantineStore:
                 "quarantine_identity": self._quarantine_identity,
             },
         )
+        binding = _GovernedArtifactQuarantineStoreBinding(
+            root=root,
+            quarantine=quarantine,
+            root_identity=self._root_identity,
+            quarantine_identity=self._quarantine_identity,
+            binding_ref=self.binding_ref,
+        )
+        with _QUARANTINE_STORE_BINDINGS_LOCK:
+            _QUARANTINE_STORE_BINDINGS[self] = binding
 
     @staticmethod
     def _filename(quarantine_ref: str) -> str:
@@ -420,10 +450,11 @@ class GovernedArtifactQuarantineStore:
         validate_task_ref(quarantine_ref, "quarantine_ref")
         return f"{hashlib.sha256(quarantine_ref.encode()).hexdigest()}.service-proof"
 
-    def _verify_directories(self) -> None:
+    def _verify_directories(self) -> _GovernedArtifactQuarantineStoreBinding:
+        binding = _exact_quarantine_store_binding(self)
         try:
-            root_info = os.lstat(self._root)
-            quarantine_info = os.lstat(self._quarantine)
+            root_info = os.lstat(binding.root)
+            quarantine_info = os.lstat(binding.quarantine)
         except OSError as exc:
             raise GovernedArtifactQuarantineError(
                 "GOVERNED_ARTIFACT_QUARANTINE_SUBSTITUTION_DENIED"
@@ -433,23 +464,24 @@ class GovernedArtifactQuarantineStore:
             or stat.S_ISLNK(root_info.st_mode)
             or root_info.st_uid != os.geteuid()
             or root_info.st_mode & 0o077
-            or (root_info.st_dev, root_info.st_ino) != self._root_identity
+            or (root_info.st_dev, root_info.st_ino) != binding.root_identity
             or not stat.S_ISDIR(quarantine_info.st_mode)
             or stat.S_ISLNK(quarantine_info.st_mode)
             or quarantine_info.st_uid != os.geteuid()
             or quarantine_info.st_mode & 0o077
             or (quarantine_info.st_dev, quarantine_info.st_ino)
-            != self._quarantine_identity
+            != binding.quarantine_identity
         ):
             raise GovernedArtifactQuarantineError(
                 "GOVERNED_ARTIFACT_QUARANTINE_SUBSTITUTION_DENIED"
             )
+        return binding
 
     def _open_quarantine_directory(self) -> int:
-        self._verify_directories()
+        binding = GovernedArtifactQuarantineStore._verify_directories(self)
         try:
             descriptor = os.open(
-                self._quarantine,
+                binding.quarantine,
                 os.O_RDONLY
                 | getattr(os, "O_DIRECTORY", 0)
                 | getattr(os, "O_NOFOLLOW", 0),
@@ -463,7 +495,7 @@ class GovernedArtifactQuarantineStore:
             not stat.S_ISDIR(info.st_mode)
             or info.st_uid != os.geteuid()
             or info.st_mode & 0o077
-            or (info.st_dev, info.st_ino) != self._quarantine_identity
+            or (info.st_dev, info.st_ino) != binding.quarantine_identity
         ):
             os.close(descriptor)
             raise GovernedArtifactQuarantineError(
@@ -649,18 +681,20 @@ class GovernedArtifactQuarantineStore:
             label="quarantine_ref",
             prefix="artifact-quarantine-ref:governed-browser:",
         )
-        directory_fd = self._open_quarantine_directory()
+        directory_fd = GovernedArtifactQuarantineStore._open_quarantine_directory(
+            self
+        )
         descriptor: int | None = None
         try:
             try:
                 descriptor = os.open(
-                    self._proof_filename(quarantine_ref),
+                    GovernedArtifactQuarantineStore._proof_filename(quarantine_ref),
                     os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
                     dir_fd=directory_fd,
                 )
                 info = os.fstat(descriptor)
                 path_info = os.stat(
-                    self._proof_filename(quarantine_ref),
+                    GovernedArtifactQuarantineStore._proof_filename(quarantine_ref),
                     dir_fd=directory_fd,
                     follow_symlinks=False,
                 )
@@ -713,8 +747,10 @@ class GovernedArtifactQuarantineStore:
             label="content_fingerprint_ref",
             prefix="content-fingerprint-ref:governed-browser:",
         )
-        directory_fd = self._open_quarantine_directory()
-        filename = self._filename(quarantine_ref)
+        directory_fd = GovernedArtifactQuarantineStore._open_quarantine_directory(
+            self
+        )
+        filename = GovernedArtifactQuarantineStore._filename(quarantine_ref)
         try:
             try:
                 descriptor = os.open(
@@ -746,7 +782,7 @@ class GovernedArtifactQuarantineStore:
         finally:
             os.close(directory_fd)
         try:
-            inspection = self.validate_payload(
+            inspection = GovernedArtifactQuarantineStore.validate_payload(
                 payload=payload,
                 declared_media_type=declared_media_type,
                 max_bytes=max_bytes,
@@ -760,6 +796,40 @@ class GovernedArtifactQuarantineStore:
                 "GOVERNED_ARTIFACT_FINGERPRINT_MISMATCH"
             )
         return inspection
+
+
+def _exact_quarantine_store_binding(
+    store: GovernedArtifactQuarantineStore,
+) -> _GovernedArtifactQuarantineStoreBinding:
+    if type(store) is not GovernedArtifactQuarantineStore:
+        raise GovernedArtifactQuarantineError(
+            "GOVERNED_ARTIFACT_QUARANTINE_SUBSTITUTION_DENIED"
+        )
+    with _QUARANTINE_STORE_BINDINGS_LOCK:
+        binding = _QUARANTINE_STORE_BINDINGS.get(store)
+    try:
+        current_binding = (
+            object.__getattribute__(store, "_root"),
+            object.__getattribute__(store, "_quarantine"),
+            object.__getattribute__(store, "_root_identity"),
+            object.__getattribute__(store, "_quarantine_identity"),
+            object.__getattribute__(store, "binding_ref"),
+        )
+    except AttributeError as exc:
+        raise GovernedArtifactQuarantineError(
+            "GOVERNED_ARTIFACT_QUARANTINE_SUBSTITUTION_DENIED"
+        ) from exc
+    if binding is None or current_binding != (
+        binding.root,
+        binding.quarantine,
+        binding.root_identity,
+        binding.quarantine_identity,
+        binding.binding_ref,
+    ):
+        raise GovernedArtifactQuarantineError(
+            "GOVERNED_ARTIFACT_QUARANTINE_SUBSTITUTION_DENIED"
+        )
+    return binding
 
 
 def _write_all(descriptor: int, payload: bytes | bytearray) -> None:
@@ -1726,6 +1796,126 @@ class ExactGovernedArtifactTransferResult(BaseModel):
         return self
 
 
+@dataclass(frozen=True)
+class _GovernedArtifactTransferServiceBinding:
+    service_type: type[object]
+    registry: GovernedArtifactTransferRecipeRegistry
+    kernel: GovernedExternalActionKernel
+    quarantine_store: GovernedArtifactQuarantineStore
+    source_download_kernel: GovernedExternalActionKernel | None
+    source_download_registry: GovernedArtifactTransferRecipeRegistry | None
+    source_download_request: ExactGovernedArtifactTransferRequest | None
+    source_download_request_json: str | None
+    clock: Callable[[], datetime]
+
+
+_ARTIFACT_TRANSFER_SERVICE_BINDINGS: WeakKeyDictionary[
+    object,
+    _GovernedArtifactTransferServiceBinding,
+] = WeakKeyDictionary()
+_ARTIFACT_TRANSFER_SERVICE_BINDINGS_LOCK = RLock()
+
+
+def _register_artifact_transfer_service(
+    service: object,
+    *,
+    registry: GovernedArtifactTransferRecipeRegistry,
+    kernel: GovernedExternalActionKernel,
+    quarantine_store: GovernedArtifactQuarantineStore,
+    source_download_kernel: GovernedExternalActionKernel | None,
+    source_download_registry: GovernedArtifactTransferRecipeRegistry | None,
+    source_download_request: ExactGovernedArtifactTransferRequest | None,
+    clock: Callable[[], datetime],
+) -> None:
+    if (
+        type(service) is not ExactGovernedArtifactTransferService
+        or type(registry) is not GovernedArtifactTransferRecipeRegistry
+        or type(kernel) is not GovernedExternalActionKernel
+        or type(quarantine_store) is not GovernedArtifactQuarantineStore
+        or (
+            source_download_kernel is not None
+            and type(source_download_kernel) is not GovernedExternalActionKernel
+        )
+        or (
+            source_download_registry is not None
+            and type(source_download_registry)
+            is not GovernedArtifactTransferRecipeRegistry
+        )
+        or (
+            source_download_request is not None
+            and type(source_download_request)
+            is not ExactGovernedArtifactTransferRequest
+        )
+        or not callable(clock)
+    ):
+        raise ValueError("GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID")
+    _exact_quarantine_store_binding(quarantine_store)
+    binding = _GovernedArtifactTransferServiceBinding(
+        service_type=type(service),
+        registry=registry,
+        kernel=kernel,
+        quarantine_store=quarantine_store,
+        source_download_kernel=source_download_kernel,
+        source_download_registry=source_download_registry,
+        source_download_request=source_download_request,
+        source_download_request_json=(
+            ExactGovernedArtifactTransferRequest.model_dump_json(
+                source_download_request
+            )
+            if source_download_request is not None
+            else None
+        ),
+        clock=clock,
+    )
+    with _ARTIFACT_TRANSFER_SERVICE_BINDINGS_LOCK:
+        if service in _ARTIFACT_TRANSFER_SERVICE_BINDINGS:
+            raise ValueError("GOVERNED_ARTIFACT_SERVICE_BINDING_CONFLICT")
+        _ARTIFACT_TRANSFER_SERVICE_BINDINGS[service] = binding
+
+
+def _require_artifact_transfer_service_binding(
+    service: object,
+) -> _GovernedArtifactTransferServiceBinding:
+    with _ARTIFACT_TRANSFER_SERVICE_BINDINGS_LOCK:
+        binding = _ARTIFACT_TRANSFER_SERVICE_BINDINGS.get(service)
+    if (
+        binding is None
+        or type(service) is not ExactGovernedArtifactTransferService
+        or binding.service_type is not ExactGovernedArtifactTransferService
+    ):
+        raise ValueError("GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID")
+    expected_dependencies = (
+        ("_registry", binding.registry),
+        ("_kernel", binding.kernel),
+        ("_store", binding.quarantine_store),
+        ("_source_download_kernel", binding.source_download_kernel),
+        ("_source_download_registry", binding.source_download_registry),
+        ("_source_download_request", binding.source_download_request),
+        ("_clock", binding.clock),
+    )
+    try:
+        dependencies_match = all(
+            object.__getattribute__(service, attribute) is expected
+            for attribute, expected in expected_dependencies
+        )
+        source_request_json = (
+            ExactGovernedArtifactTransferRequest.model_dump_json(
+                binding.source_download_request
+            )
+            if binding.source_download_request is not None
+            else None
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID") from exc
+    if (
+        not dependencies_match
+        or source_request_json != binding.source_download_request_json
+    ):
+        raise ValueError("GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID")
+    _exact_quarantine_store_binding(binding.quarantine_store)
+    return binding
+
+
 class ExactGovernedArtifactTransferService:
     """Run one registered inactive transfer through every shared gate."""
 
@@ -1747,12 +1937,25 @@ class ExactGovernedArtifactTransferService:
         self._source_download_registry = source_download_registry
         self._source_download_request = (
             ExactGovernedArtifactTransferRequest.model_validate(
-                source_download_request.model_dump(mode="json")
+                ExactGovernedArtifactTransferRequest.model_dump(
+                    source_download_request,
+                    mode="json",
+                )
             )
             if source_download_request is not None
             else None
         )
         self._clock = clock
+        _register_artifact_transfer_service(
+            self,
+            registry=registry,
+            kernel=kernel,
+            quarantine_store=quarantine_store,
+            source_download_kernel=source_download_kernel,
+            source_download_registry=source_download_registry,
+            source_download_request=self._source_download_request,
+            clock=clock,
+        )
 
     def execute(
         self,
@@ -1765,9 +1968,12 @@ class ExactGovernedArtifactTransferService:
         ):
             raise TypeError("GOVERNED_ARTIFACT_MUTABLE_PAYLOAD_REQUIRED")
         try:
-            return self._execute(
+            service_binding = _require_artifact_transfer_service_binding(self)
+            return ExactGovernedArtifactTransferService._execute(
+                self,
                 transfer_request,
                 injected_download_payload=injected_download_payload,
+                service_binding=service_binding,
             )
         finally:
             if injected_download_payload is not None:
@@ -1778,12 +1984,23 @@ class ExactGovernedArtifactTransferService:
         transfer_request: ExactGovernedArtifactTransferRequest,
         *,
         injected_download_payload: bytearray | None,
+        service_binding: _GovernedArtifactTransferServiceBinding,
     ) -> ExactGovernedArtifactTransferResult:
+        registry = service_binding.registry
+        kernel = service_binding.kernel
+        store = service_binding.quarantine_store
+        clock = service_binding.clock
         request = ExactGovernedArtifactTransferRequest.model_validate(
-            transfer_request.model_dump(mode="json")
+            ExactGovernedArtifactTransferRequest.model_dump(
+                transfer_request,
+                mode="json",
+            )
         )
         execution = request.execution_request
-        recipe = self._registry.resolve(request.recipe_ref)
+        recipe = GovernedArtifactTransferRecipeRegistry.resolve(
+            registry,
+            request.recipe_ref,
+        )
         requested_operation = GovernedArtifactTransferOperation(request.operation)
         if recipe is None:
             return _preflight_blocked(
@@ -1791,6 +2008,9 @@ class ExactGovernedArtifactTransferService:
                 operation=requested_operation,
                 reason_ref="reason-ref:governed-artifact:recipe-unregistered",
             )
+        recipe = GovernedArtifactTransferRecipe.model_validate(
+            GovernedArtifactTransferRecipe.model_dump(recipe, mode="json")
+        )
         operation = GovernedArtifactTransferOperation(recipe.operation)
         if operation != requested_operation:
             return _preflight_blocked(
@@ -1814,7 +2034,8 @@ class ExactGovernedArtifactTransferService:
                 operation=operation,
                 reason_ref="reason-ref:governed-artifact:request-scope-mismatch",
             )
-        if recipe.quarantine_store_ref != self._store.binding_ref:
+        store_binding = _exact_quarantine_store_binding(store)
+        if recipe.quarantine_store_ref != store_binding.binding_ref:
             return _preflight_blocked(
                 request,
                 operation=operation,
@@ -1841,13 +2062,17 @@ class ExactGovernedArtifactTransferService:
             execution,
             recipe_ref=recipe.recipe_ref,
         )
-        replay = self._kernel.replay_if_terminal(kernel_execution)
+        replay = GovernedExternalActionKernel.replay_if_terminal(
+            kernel,
+            kernel_execution,
+        )
         if replay is not None:
             replay_context = _artifact_replay_validation_context(
-                kernel=self._kernel,
+                kernel=kernel,
                 expected_execution=kernel_execution,
                 recipe=recipe,
                 replay_receipt=replay,
+                service_binding=service_binding,
             )
             return _result_from_external_receipt(
                 request=request,
@@ -1857,7 +2082,7 @@ class ExactGovernedArtifactTransferService:
                 upload_plan=None,
                 replay_context=replay_context,
             )
-        current_time, clock_reason = _read_transfer_clock(self._clock)
+        current_time, clock_reason = _read_transfer_clock(clock)
         if clock_reason is not None:
             return _preflight_blocked(
                 request,
@@ -1912,7 +2137,7 @@ class ExactGovernedArtifactTransferService:
             dispatch_download_payload: bytearray | None,
         ) -> ExternalActionDispatchResult:
             nonlocal captured_quarantine, captured_plan
-            current_time, dispatch_clock_reason = _read_transfer_clock(self._clock)
+            current_time, dispatch_clock_reason = _read_transfer_clock(clock)
             if dispatch_clock_reason is not None:
                 return _failed_dispatch(
                     dispatched_request,
@@ -1935,7 +2160,8 @@ class ExactGovernedArtifactTransferService:
                         "download-payload-rejected",
                     )
                 try:
-                    inspection = self._store.quarantine(
+                    inspection = GovernedArtifactQuarantineStore.quarantine(
+                        store,
                         quarantine_ref=recipe.quarantine_ref,
                         payload=dispatch_download_payload,
                         declared_media_type=GovernedArtifactMediaType(
@@ -1957,7 +2183,10 @@ class ExactGovernedArtifactTransferService:
                     captured_quarantine,
                 )
                 try:
-                    self._store._record_service_proof(service_proof)
+                    GovernedArtifactQuarantineStore._record_service_proof(
+                        store,
+                        service_proof,
+                    )
                 except GovernedArtifactQuarantineError:
                     captured_quarantine = None
                     return _failed_dispatch(
@@ -1976,7 +2205,8 @@ class ExactGovernedArtifactTransferService:
                 assert recipe.source_download_receipt_ref is not None
                 assert recipe.source_download_recipe_ref is not None
                 try:
-                    inspection = self._store.inspect(
+                    inspection = GovernedArtifactQuarantineStore.inspect(
+                        store,
                         quarantine_ref=recipe.quarantine_ref,
                         declared_media_type=GovernedArtifactMediaType(
                             recipe.declared_media_type
@@ -1992,60 +2222,37 @@ class ExactGovernedArtifactTransferService:
                         "upload-artifact-precondition-failed",
                     )
                 try:
-                    service_proof = self._store._inspect_service_proof(
-                        quarantine_ref=recipe.quarantine_ref,
+                    service_proof = (
+                        GovernedArtifactQuarantineStore._inspect_service_proof(
+                            store,
+                            quarantine_ref=recipe.quarantine_ref,
+                        )
                     )
                 except GovernedArtifactQuarantinePrecondition:
                     return _failed_dispatch(
                         dispatched_request,
                         "source-download-service-proof-required",
                     )
-                if not self._source_download_receipt_is_valid(
+                if not _exact_source_download_receipt_is_valid(
                     recipe,
                     current_time=current_time,
                     inspection=inspection,
                     service_proof=service_proof,
+                    service_binding=service_binding,
+                    require_unexpired=True,
                 ):
                     return _failed_dispatch(
                         dispatched_request,
                         "source-download-receipt-required",
                     )
-                plan_payload = {
-                    "recipe_ref": recipe.recipe_ref,
-                    "artifact_ref": recipe.artifact_ref,
-                    "quarantine_ref": recipe.quarantine_ref,
-                    "download_transaction_ref": recipe.download_transaction_ref,
-                    "source_download_receipt_ref": (recipe.source_download_receipt_ref),
-                    "source_download_recipe_ref": recipe.source_download_recipe_ref,
-                    "quarantine_store_ref": recipe.quarantine_store_ref,
-                    "content_fingerprint_ref": inspection.content_fingerprint_ref,
-                    "transfer_surface_ref": recipe.transfer_surface_ref,
-                    "visibility_proof_ref": recipe.visibility_proof_ref,
-                    "origin_ref": recipe.origin_ref,
-                    "page_snapshot_ref": recipe.page_snapshot_ref,
-                    "declared_media_type": inspection.declared_media_type,
-                    "byte_count": inspection.byte_count,
-                    "expires_at": recipe.expires_at,
-                }
-                provisional = ExactGovernedArtifactUploadPlan.model_construct(
-                    plan_ref="artifact-upload-plan-ref:governed-browser:pending",
-                    **plan_payload,
-                )
-                plan_ref = stable_governed_browser_ref(
-                    "artifact-upload-plan-ref:governed-browser",
-                    provisional.model_dump(mode="json", exclude={"plan_ref"}),
-                )
-                captured_plan = ExactGovernedArtifactUploadPlan(
-                    plan_ref=plan_ref,
-                    **plan_payload,
-                )
+                captured_plan = _build_exact_upload_plan(recipe, inspection)
                 evidence_refs = [
                     recipe.artifact_ref,
                     recipe.quarantine_ref,
                     inspection.content_fingerprint_ref,
                     recipe.source_download_receipt_ref,
                     recipe.source_download_recipe_ref,
-                    plan_ref,
+                    captured_plan.plan_ref,
                 ]
             return ExternalActionDispatchResult(
                 outcome=ExternalActionDispatchOutcome.succeeded,
@@ -2074,7 +2281,8 @@ class ExactGovernedArtifactTransferService:
                     _zeroize_mutable_payload(dispatch_download_payload)
 
         try:
-            external_receipt = self._kernel.execute(
+            external_receipt = GovernedExternalActionKernel.execute(
+                kernel,
                 kernel_execution,
                 dispatch=dispatch,
             )
@@ -2092,10 +2300,11 @@ class ExactGovernedArtifactTransferService:
             captured_plan = None
         replay_context = (
             _artifact_replay_validation_context(
-                kernel=self._kernel,
+                kernel=kernel,
                 expected_execution=kernel_execution,
                 recipe=recipe,
                 replay_receipt=external_receipt,
+                service_binding=service_binding,
             )
             if external_receipt.replayed
             else None
@@ -2109,109 +2318,145 @@ class ExactGovernedArtifactTransferService:
             replay_context=replay_context,
         )
 
-    def _source_download_receipt_is_valid(
-        self,
-        recipe: GovernedArtifactTransferRecipe,
-        *,
-        current_time: datetime,
-        inspection: GovernedArtifactInspection,
-        service_proof: GovernedArtifactServiceProof,
-    ) -> bool:
-        receipt_ref = recipe.source_download_receipt_ref
-        source_recipe_ref = recipe.source_download_recipe_ref
-        kernel = self._source_download_kernel
-        source_registry = self._source_download_registry
-        source_request = self._source_download_request
-        if (
-            receipt_ref is None
-            or source_recipe_ref is None
-            or kernel is None
-            or source_registry is None
-            or source_request is None
-        ):
-            return False
-        source_recipe = source_registry.resolve(source_recipe_ref)
-        if (
-            source_recipe is None
-            or GovernedArtifactTransferOperation(source_recipe.operation)
-            != GovernedArtifactTransferOperation.download_quarantine
-            or source_recipe.recipe_ref != source_recipe_ref
-            or source_recipe.transaction_ref != recipe.download_transaction_ref
-            or source_recipe.download_transaction_ref != recipe.download_transaction_ref
-            or source_recipe.artifact_ref != recipe.artifact_ref
-            or source_recipe.quarantine_ref != recipe.quarantine_ref
-            or source_recipe.origin_ref != recipe.origin_ref
-            or source_recipe.quarantine_store_ref != recipe.quarantine_store_ref
-            or source_recipe.declared_media_type != recipe.declared_media_type
-            or source_recipe.max_bytes != recipe.max_bytes
-            or source_recipe.content_fingerprint_ref is not None
-            or source_recipe.source_download_receipt_ref is not None
-            or source_recipe.source_download_recipe_ref is not None
-            or not source_recipe.created_at <= current_time < source_recipe.expires_at
-            or source_request.recipe_ref != source_recipe_ref
-            or GovernedArtifactTransferOperation(source_request.operation)
-            != GovernedArtifactTransferOperation.download_quarantine
-            or source_request.artifact_ref != source_recipe.artifact_ref
-            or source_request.quarantine_ref != source_recipe.quarantine_ref
-            or source_request.download_transaction_ref
-            != source_recipe.download_transaction_ref
-            or source_request.execution_request.binding.transaction_ref
-            != source_recipe.transaction_ref
-        ):
-            return False
-        try:
-            expected_kernel_execution = _artifact_transfer_kernel_execution(
-                source_request.execution_request,
-                recipe_ref=source_recipe.recipe_ref,
+
+def _exact_source_download_receipt_is_valid(
+    recipe: GovernedArtifactTransferRecipe,
+    *,
+    current_time: datetime | None,
+    inspection: GovernedArtifactInspection,
+    service_proof: GovernedArtifactServiceProof,
+    service_binding: _GovernedArtifactTransferServiceBinding,
+    require_unexpired: bool,
+) -> bool:
+    receipt_ref = recipe.source_download_receipt_ref
+    source_recipe_ref = recipe.source_download_recipe_ref
+    kernel = service_binding.source_download_kernel
+    source_registry = service_binding.source_download_registry
+    source_request = service_binding.source_download_request
+    if (
+        receipt_ref is None
+        or source_recipe_ref is None
+        or kernel is None
+        or source_registry is None
+        or source_request is None
+        or (require_unexpired and current_time is None)
+    ):
+        return False
+    try:
+        exact_source_request = ExactGovernedArtifactTransferRequest.model_validate(
+            ExactGovernedArtifactTransferRequest.model_dump(
+                source_request,
+                mode="json",
             )
-            exact_replay = kernel.replay_if_terminal(expected_kernel_execution)
-            receipt = kernel.terminal_receipt_by_ref(
-                transaction_ref=recipe.download_transaction_ref,
-                receipt_ref=receipt_ref,
-            )
-        except Exception:
-            return False
-        expected_projection = _build_exact_quarantine(source_recipe, inspection)
-        expected_service_proof = _build_service_proof(
-            source_recipe,
-            expected_projection,
         )
-        if (
-            exact_replay is None
-            or receipt is None
-            or receipt.replayed
-            or exact_replay.receipt_ref != receipt.receipt_ref
-            or exact_replay.transaction_ref != receipt.transaction_ref
-            or exact_replay.binding_ref != receipt.binding_ref
-            or exact_replay.state != receipt.state
-            or exact_replay.evidence_refs != receipt.evidence_refs
-            or receipt.state != ExternalActionState.succeeded.value
-            or receipt.transaction_ref != recipe.download_transaction_ref
-            or receipt.receipt_ref != receipt_ref
-            or receipt.binding_ref != source_recipe.binding_ref
-            or any(
-                ref is None
-                for ref in (
-                    receipt.approval_validation_ref,
-                    receipt.authority_decision_ref,
-                    receipt.budget_reservation_ref,
-                    receipt.budget_settlement_ref,
+        resolved_source_recipe = GovernedArtifactTransferRecipeRegistry.resolve(
+            source_registry,
+            source_recipe_ref,
+        )
+        source_recipe = (
+            GovernedArtifactTransferRecipe.model_validate(
+                GovernedArtifactTransferRecipe.model_dump(
+                    resolved_source_recipe,
+                    mode="json",
                 )
             )
-            or recipe.content_fingerprint_ref is None
-            or service_proof != expected_service_proof
-            or len(receipt.evidence_refs) != 5
-            or receipt.evidence_refs
-            != (
-                recipe.artifact_ref,
-                recipe.quarantine_ref,
-                recipe.content_fingerprint_ref,
-                expected_projection.quarantine_projection_ref,
-                expected_service_proof.proof_ref,
-            )
-        ):
+            if resolved_source_recipe is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        return False
+    if (
+        source_recipe is None
+        or GovernedArtifactTransferOperation(source_recipe.operation)
+        != GovernedArtifactTransferOperation.download_quarantine
+        or source_recipe.recipe_ref != source_recipe_ref
+        or source_recipe.transaction_ref != recipe.download_transaction_ref
+        or source_recipe.download_transaction_ref != recipe.download_transaction_ref
+        or source_recipe.artifact_ref != recipe.artifact_ref
+        or source_recipe.quarantine_ref != recipe.quarantine_ref
+        or source_recipe.origin_ref != recipe.origin_ref
+        or source_recipe.quarantine_store_ref != recipe.quarantine_store_ref
+        or source_recipe.declared_media_type != recipe.declared_media_type
+        or source_recipe.max_bytes != recipe.max_bytes
+        or source_recipe.content_fingerprint_ref is not None
+        or source_recipe.source_download_receipt_ref is not None
+        or source_recipe.source_download_recipe_ref is not None
+        or (
+            require_unexpired
+            and current_time is not None
+            and not source_recipe.created_at <= current_time < source_recipe.expires_at
+        )
+        or exact_source_request.recipe_ref != source_recipe_ref
+        or GovernedArtifactTransferOperation(exact_source_request.operation)
+        != GovernedArtifactTransferOperation.download_quarantine
+        or exact_source_request.artifact_ref != source_recipe.artifact_ref
+        or exact_source_request.quarantine_ref != source_recipe.quarantine_ref
+        or exact_source_request.download_transaction_ref
+        != source_recipe.download_transaction_ref
+        or exact_source_request.execution_request.binding.transaction_ref
+        != source_recipe.transaction_ref
+        or exact_source_request.execution_request.binding.binding_ref
+        != source_recipe.binding_ref
+        or _recipe_scope_reason(
+            source_recipe,
+            exact_source_request.execution_request,
+        )
+        is not None
+    ):
+        return False
+    try:
+        expected_kernel_execution = _artifact_transfer_kernel_execution(
+            exact_source_request.execution_request,
+            recipe_ref=source_recipe.recipe_ref,
+        )
+        receipt = GovernedExternalActionKernel.attest_terminal_replay(
+            kernel,
+            expected_kernel_execution,
+            receipt_ref=receipt_ref,
+        )
+        source_store = _bound_external_action_replay_store(kernel)
+        if receipt is None or source_store is None:
             return False
-        return True
+        _attest_terminal_receipt_binding(
+            source_store,
+            expected_execution=expected_kernel_execution,
+            terminal_receipt=receipt,
+        )
+    except Exception:
+        return False
+    expected_projection = _build_exact_quarantine(source_recipe, inspection)
+    expected_service_proof = _build_service_proof(
+        source_recipe,
+        expected_projection,
+    )
+    return not (
+        receipt is None
+        or receipt.replayed
+        or receipt.state != ExternalActionState.succeeded.value
+        or receipt.transaction_ref != recipe.download_transaction_ref
+        or receipt.receipt_ref != receipt_ref
+        or receipt.binding_ref != source_recipe.binding_ref
+        or any(
+            ref is None
+            for ref in (
+                receipt.approval_validation_ref,
+                receipt.authority_decision_ref,
+                receipt.budget_reservation_ref,
+                receipt.budget_settlement_ref,
+            )
+        )
+        or recipe.content_fingerprint_ref is None
+        or service_proof != expected_service_proof
+        or len(receipt.evidence_refs) != 5
+        or receipt.evidence_refs
+        != (
+            recipe.artifact_ref,
+            recipe.quarantine_ref,
+            recipe.content_fingerprint_ref,
+            expected_projection.quarantine_projection_ref,
+            expected_service_proof.proof_ref,
+        )
+    )
 
 
 def _build_exact_quarantine(
@@ -2276,6 +2521,46 @@ def _build_service_proof(
     )
 
 
+def _build_exact_upload_plan(
+    recipe: GovernedArtifactTransferRecipe,
+    inspection: GovernedArtifactInspection,
+) -> ExactGovernedArtifactUploadPlan:
+    if (
+        recipe.content_fingerprint_ref is None
+        or recipe.source_download_receipt_ref is None
+        or recipe.source_download_recipe_ref is None
+    ):
+        raise ValueError("GOVERNED_ARTIFACT_UPLOAD_SOURCE_PROOF_REQUIRED")
+    if inspection.content_fingerprint_ref != recipe.content_fingerprint_ref:
+        raise ValueError("GOVERNED_ARTIFACT_FINGERPRINT_MISMATCH")
+    payload = {
+        "recipe_ref": recipe.recipe_ref,
+        "artifact_ref": recipe.artifact_ref,
+        "quarantine_ref": recipe.quarantine_ref,
+        "download_transaction_ref": recipe.download_transaction_ref,
+        "source_download_receipt_ref": recipe.source_download_receipt_ref,
+        "source_download_recipe_ref": recipe.source_download_recipe_ref,
+        "quarantine_store_ref": recipe.quarantine_store_ref,
+        "content_fingerprint_ref": inspection.content_fingerprint_ref,
+        "transfer_surface_ref": recipe.transfer_surface_ref,
+        "visibility_proof_ref": recipe.visibility_proof_ref,
+        "origin_ref": recipe.origin_ref,
+        "page_snapshot_ref": recipe.page_snapshot_ref,
+        "declared_media_type": inspection.declared_media_type,
+        "byte_count": inspection.byte_count,
+        "expires_at": recipe.expires_at,
+    }
+    provisional = ExactGovernedArtifactUploadPlan.model_construct(
+        plan_ref="artifact-upload-plan-ref:governed-browser:pending",
+        **payload,
+    )
+    plan_ref = stable_governed_browser_ref(
+        "artifact-upload-plan-ref:governed-browser",
+        provisional.model_dump(mode="json", exclude={"plan_ref"}),
+    )
+    return ExactGovernedArtifactUploadPlan(plan_ref=plan_ref, **payload)
+
+
 def _zeroize_mutable_payload(payload: bytearray) -> None:
     zero_chunk = b"\x00" * 8192
     view = memoryview(payload)
@@ -2300,80 +2585,20 @@ def _artifact_replay_evidence_expectation(
     *,
     recipe: GovernedArtifactTransferRecipe,
     replay_receipt: ExternalActionReceipt,
+    service_binding: _GovernedArtifactTransferServiceBinding,
 ) -> ExternalActionReplayEvidenceExpectation:
     operation = GovernedArtifactTransferOperation(recipe.operation)
     evidence_refs = tuple(replay_receipt.evidence_refs)
-    success_evidence_valid = False
-    try:
-        if operation == GovernedArtifactTransferOperation.download_quarantine:
-            if len(evidence_refs) == 5:
-                (
-                    artifact_ref,
-                    quarantine_ref,
-                    content_fingerprint_ref,
-                    quarantine_projection_ref,
-                    service_proof_ref,
-                ) = evidence_refs
-                _validate_hash_pinned_ref(
-                    content_fingerprint_ref,
-                    label="content_fingerprint_ref",
-                    prefix="content-fingerprint-ref:governed-browser:",
-                )
-                _validate_hash_pinned_ref(
-                    quarantine_projection_ref,
-                    label="quarantine_projection_ref",
-                    prefix=(
-                        "artifact-quarantine-projection-ref:"
-                        "governed-browser:"
-                    ),
-                )
-                _validate_hash_pinned_ref(
-                    service_proof_ref,
-                    label="service_proof_ref",
-                    prefix=(
-                        "artifact-transfer-service-proof-ref:"
-                        "governed-browser:"
-                    ),
-                )
-                expected_service_proof_ref = governed_artifact_service_proof_ref(
-                    recipe_ref=recipe.recipe_ref,
-                    origin_ref=recipe.origin_ref,
-                    quarantine_ref=recipe.quarantine_ref,
-                    quarantine_projection_ref=quarantine_projection_ref,
-                    content_fingerprint_ref=content_fingerprint_ref,
-                )
-                success_evidence_valid = (
-                    artifact_ref == recipe.artifact_ref
-                    and quarantine_ref == recipe.quarantine_ref
-                    and service_proof_ref == expected_service_proof_ref
-                )
-        else:
-            if len(evidence_refs) == 6:
-                (
-                    artifact_ref,
-                    quarantine_ref,
-                    content_fingerprint_ref,
-                    source_download_receipt_ref,
-                    source_download_recipe_ref,
-                    upload_plan_ref,
-                ) = evidence_refs
-                _validate_hash_pinned_ref(
-                    upload_plan_ref,
-                    label="upload_plan_ref",
-                    prefix="artifact-upload-plan-ref:governed-browser:",
-                )
-                success_evidence_valid = (
-                    artifact_ref == recipe.artifact_ref
-                    and quarantine_ref == recipe.quarantine_ref
-                    and content_fingerprint_ref
-                    == recipe.content_fingerprint_ref
-                    and source_download_receipt_ref
-                    == recipe.source_download_receipt_ref
-                    and source_download_recipe_ref
-                    == recipe.source_download_recipe_ref
-                )
-    except ValueError:
-        success_evidence_valid = False
+    expected_success_evidence = _durable_artifact_replay_success_evidence(
+        operation=operation,
+        recipe=recipe,
+        service_binding=service_binding,
+        evidence_arity=len(evidence_refs),
+    )
+    success_evidence_valid = (
+        expected_success_evidence is not None
+        and evidence_refs == expected_success_evidence
+    )
     common_suffixes = {
         "transfer-clock-invalid",
         "transfer-revalidation-failed",
@@ -2426,10 +2651,12 @@ def _artifact_replay_validation_context(
     expected_execution: ExternalActionExecutionRequest,
     recipe: GovernedArtifactTransferRecipe,
     replay_receipt: ExternalActionReceipt,
+    service_binding: _GovernedArtifactTransferServiceBinding,
 ) -> ExternalActionReplayValidationContext:
     expectation = _artifact_replay_evidence_expectation(
         recipe=recipe,
         replay_receipt=replay_receipt,
+        service_binding=service_binding,
     )
     return _build_external_action_replay_validation_context(
         kernel,
@@ -2439,6 +2666,85 @@ def _artifact_replay_validation_context(
     )
 
 
+def _durable_artifact_replay_success_evidence(
+    *,
+    operation: GovernedArtifactTransferOperation,
+    recipe: GovernedArtifactTransferRecipe,
+    service_binding: _GovernedArtifactTransferServiceBinding,
+    evidence_arity: int,
+) -> tuple[str, ...] | None:
+    quarantine_store = service_binding.quarantine_store
+    try:
+        store_binding = _exact_quarantine_store_binding(quarantine_store)
+    except GovernedArtifactQuarantineError:
+        return None
+    if recipe.quarantine_store_ref != store_binding.binding_ref:
+        return None
+    try:
+        if operation == GovernedArtifactTransferOperation.download_quarantine:
+            if evidence_arity != 5:
+                return None
+            service_proof = GovernedArtifactQuarantineStore._inspect_service_proof(
+                quarantine_store,
+                quarantine_ref=recipe.quarantine_ref,
+            )
+            inspection = GovernedArtifactQuarantineStore.inspect(
+                quarantine_store,
+                quarantine_ref=recipe.quarantine_ref,
+                declared_media_type=GovernedArtifactMediaType(
+                    recipe.declared_media_type
+                ),
+                max_bytes=recipe.max_bytes,
+                expected_content_fingerprint_ref=(
+                    service_proof.content_fingerprint_ref
+                ),
+            )
+            quarantine = _build_exact_quarantine(recipe, inspection)
+            expected_service_proof = _build_service_proof(recipe, quarantine)
+            if service_proof != expected_service_proof:
+                return None
+            return (
+                recipe.artifact_ref,
+                recipe.quarantine_ref,
+                inspection.content_fingerprint_ref,
+                quarantine.quarantine_projection_ref,
+                expected_service_proof.proof_ref,
+            )
+        if evidence_arity != 6 or recipe.content_fingerprint_ref is None:
+            return None
+        service_proof = GovernedArtifactQuarantineStore._inspect_service_proof(
+            quarantine_store,
+            quarantine_ref=recipe.quarantine_ref,
+        )
+        inspection = GovernedArtifactQuarantineStore.inspect(
+            quarantine_store,
+            quarantine_ref=recipe.quarantine_ref,
+            declared_media_type=GovernedArtifactMediaType(recipe.declared_media_type),
+            max_bytes=recipe.max_bytes,
+            expected_content_fingerprint_ref=recipe.content_fingerprint_ref,
+        )
+        if not _exact_source_download_receipt_is_valid(
+            recipe,
+            current_time=None,
+            inspection=inspection,
+            service_proof=service_proof,
+            service_binding=service_binding,
+            require_unexpired=False,
+        ):
+            return None
+        plan = _build_exact_upload_plan(recipe, inspection)
+        return (
+            recipe.artifact_ref,
+            recipe.quarantine_ref,
+            inspection.content_fingerprint_ref,
+            plan.source_download_receipt_ref,
+            plan.source_download_recipe_ref,
+            plan.plan_ref,
+        )
+    except (GovernedArtifactQuarantineError, ValueError, TypeError):
+        return None
+
+
 def _artifact_transfer_kernel_execution(
     request: ExternalActionExecutionRequest,
     *,
@@ -2446,7 +2752,10 @@ def _artifact_transfer_kernel_execution(
 ) -> ExternalActionExecutionRequest:
     return ExternalActionExecutionRequest.model_validate(
         {
-            **request.model_dump(mode="json"),
+            **ExternalActionExecutionRequest.model_dump(
+                request,
+                mode="json",
+            ),
             "idempotency_ref": stable_governed_browser_ref(
                 "idempotency-ref:governed-artifact-transfer",
                 {

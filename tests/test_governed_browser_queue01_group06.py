@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedBrowserOriginSessionStore,
     build_governed_browser_credential_registration,
     build_governed_browser_origin_session_recipe,
+    governed_browser_keychain_helper_receipt_ref,
     governed_browser_origin_session_operation_authority_ref,
     governed_browser_origin_session_ref,
     stable_governed_browser_ref,
@@ -129,6 +130,7 @@ class _FakeKeychain:
         operation: GovernedBrowserKeychainOperation,
         registration,  # type: ignore[no-untyped-def]
         *,
+        request_ref: str,
         created: bool | None,
         present: bool,
         deleted_or_absent: bool | None = None,
@@ -141,8 +143,10 @@ class _FakeKeychain:
             credential_generation_ref=registration.credential_generation_ref,
             keychain_item_ref=registration.keychain_item_ref,
             helper_receipt_ref=(
-                "helper-receipt-ref:governed-browser-keychain:"
-                f"{operation.value}-{len(self.calls)}"
+                governed_browser_keychain_helper_receipt_ref(
+                    operation=operation,
+                    request_ref=request_ref,
+                )
             ),
             created=created,
             present=present,
@@ -170,6 +174,7 @@ class _FakeKeychain:
         return self._receipt(
             GovernedBrowserKeychainOperation.store,
             registration,
+            request_ref=request_ref,
             created=created,
             present=True,
         )
@@ -188,6 +193,7 @@ class _FakeKeychain:
         return self._receipt(
             GovernedBrowserKeychainOperation.probe,
             registration,
+            request_ref=request_ref,
             created=None,
             present=True,
         )
@@ -203,6 +209,7 @@ class _FakeKeychain:
         return self._receipt(
             GovernedBrowserKeychainOperation.delete,
             registration,
+            request_ref=request_ref,
             created=None,
             present=False,
             deleted_or_absent=True,
@@ -1245,7 +1252,7 @@ def test_origin_replay_expectation_rejects_invalid_non_success_envelopes(
 
 @pytest.mark.parametrize(
     "tamper_mode",
-    ("slot-0", "slot-1", "slot-2", "order", "drop", "append"),
+    ("slot-0", "slot-1", "slot-2", "slot-3", "order", "drop", "append"),
 )
 def test_origin_replay_rejects_fully_rehashed_evidence_tampering(
     tmp_path: Path,
@@ -1292,6 +1299,11 @@ def test_origin_replay_rejects_fully_rehashed_evidence_tampering(
         )
     elif tamper_mode == "slot-2":
         evidence_refs[2] = _ref("resource", "unrelated-keychain-item")
+    elif tamper_mode == "slot-3":
+        evidence_refs[3] = stable_governed_browser_ref(
+            "operation-proof-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
     elif tamper_mode == "order":
         evidence_refs.reverse()
     elif tamper_mode == "drop":
@@ -1304,10 +1316,11 @@ def test_origin_replay_rejects_fully_rehashed_evidence_tampering(
 
     with pytest.raises(
         ValueError,
-        match=(
-            "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
-            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
-        ),
+            match=(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
+                "|GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_PROOF_REQUIRED"
+                "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+            ),
     ):
         GovernedBrowserOriginSessionReceipt.model_validate(
             forged,
@@ -1672,9 +1685,13 @@ def test_revoke_state_conflict_after_keychain_delete_is_ambiguous_and_no_retry(
     )
 
     assert ambiguous.receipt.status == "outcome_ambiguous"
+    assert ambiguous.receipt.reason_refs[0] == (
+        "reason-ref:governed-external-action:dispatch-outcome-ambiguous"
+    )
     assert ambiguous.keychain_receipt is None
     assert ambiguous.session is None
     assert replay.receipt.status == "replayed"
+    assert replay.receipt.reason_refs == ambiguous.receipt.reason_refs
     assert sum(operation == "delete" for operation, _ in keychain.calls) == 1
     assert registration.registration_ref not in keychain.present
     persisted = sessions.inspect(prepared.session.session_ref)

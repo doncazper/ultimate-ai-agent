@@ -33,22 +33,81 @@ _REPLAY_CONTEXT_KEY = "uaa_external_action_replay_validation_context"
 _REPLAY_ENVELOPE_REF_PREFIX = (
     "replay-evidence-envelope-ref:governed-external-action"
 )
-_KERNEL_AMBIGUITY_REASONS = (
-    "dispatch-capacity-check-failed",
-    "dispatch-capacity-bounded",
-    "dispatch-start-revalidation-denied",
-    "dispatch-timeout",
-    "dispatch-exception",
-    "dispatch-result-invalid",
-    "dispatch-worker-start-failed",
-)
-_POST_START_GUARD_REASON_REFS = {
+_KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX = {
+    "dispatch-capacity-check-failed": (
+        "reason-ref:governed-external-action:dispatch-capacity-check-failed"
+    ),
+    "dispatch-capacity-bounded": (
+        "reason-ref:governed-external-action:dispatch-capacity-bounded"
+    ),
+    "dispatch-start-revalidation-denied": (
+        "reason-ref:governed-external-action:post-start-revalidation-denied"
+    ),
+    "dispatch-timeout": "reason-ref:governed-external-action:dispatch-timeout",
+    "dispatch-exception": (
+        "reason-ref:governed-external-action:dispatch-exception"
+    ),
+    "dispatch-result-invalid": (
+        "reason-ref:governed-external-action:dispatch-result-invalid"
+    ),
+    "dispatch-worker-start-failed": (
+        "reason-ref:governed-external-action:dispatch-worker-start-failed"
+    ),
+}
+_POST_START_GUARD_REASON_REFS = (
     "reason-ref:governed-external-action:post-start-revalidation-denied",
     (
         "reason-ref:governed-external-action:"
         "dispatch-wait-interrupted-before-start"
     ),
-}
+)
+_PRIOR_START_RECOVERY_REASON_REF = (
+    "reason-ref:governed-external-action:prior-start-unsettled"
+)
+_BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF = (
+    "reason-ref:governed-external-action:budget-settlement-ambiguous"
+)
+_POST_DISPATCH_REVALIDATION_REASON_REF = (
+    "reason-ref:governed-external-action:post-dispatch-revalidation-denied"
+)
+_POST_DISPATCH_CONCRETE_REASON_REFS = frozenset(
+    {
+        "reason-ref:governed-external-action:trusted-clock-failed",
+        "reason-ref:governed-external-action:trusted-clock-invalid",
+        "reason-ref:governed-external-action:deadline-expired",
+        "reason-ref:governed-external-action:human-presence-required",
+        "reason-ref:governed-external-action:readiness-invalid",
+        "reason-ref:governed-external-action:readiness-binding-mismatch",
+        "reason-ref:governed-external-action:observed-origin-mismatch",
+        "reason-ref:governed-external-action:observed-recipient-mismatch",
+        "reason-ref:governed-external-action:observed-field-schema-mismatch",
+        "reason-ref:governed-external-action:observed-transaction-mismatch",
+        "reason-ref:governed-external-action:observed-artifact-scope-mismatch",
+        "reason-ref:governed-external-action:observed-resource-scope-mismatch",
+        "reason-ref:governed-external-action:snapshot-changed",
+        "reason-ref:governed-external-action:readiness-fail-closed",
+        "reason-ref:governed-external-action:safe-disable-active",
+        "reason-ref:governed-external-action:kill-switch-engaged",
+        "reason-ref:governed-external-action:"
+        "approval-changed-before-dispatch",
+        "reason-ref:governed-external-action:approval-revalidation-failed",
+        "reason-ref:governed-external-action:lease-changed-before-dispatch",
+        "reason-ref:governed-external-action:authority-revalidation-failed",
+        "reason-ref:governed-external-action:adversarial:cleanup-unverified",
+    }
+)
+_ADVERSARIAL_REASON_REF_PREFIX = (
+    "reason-ref:governed-external-action:adversarial:sha256:"
+)
+_REASON_OVERFLOW_REF_PREFIX = (
+    "reason-ref:governed-external-action:reason-overflow:sha256:"
+)
+_DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF = (
+    "reason-ref:governed-external-action:dispatch-outcome-ambiguous"
+)
+_BUDGET_RELEASE_UNCONFIRMED_REASON_REF = (
+    "reason-ref:governed-external-action:budget-release-unconfirmed"
+)
 
 
 class ExternalActionReplayEvidenceExpectation(BaseModel):
@@ -61,6 +120,7 @@ class ExternalActionReplayEvidenceExpectation(BaseModel):
     operation_ref: str
     scope_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    operation_proof_ref: str | None = None
 
     model_config = ConfigDict(
         extra="forbid",
@@ -75,10 +135,25 @@ class ExternalActionReplayEvidenceExpectation(BaseModel):
             (self.operation_ref, "replay_operation_ref"),
             *[(ref, "replay_scope_ref") for ref in self.scope_refs],
             *[(ref, "replay_evidence_ref") for ref in self.evidence_refs],
+            *(
+                [(self.operation_proof_ref, "operation_proof_ref")]
+                if self.operation_proof_ref is not None
+                else []
+            ),
         ):
             validate_task_ref(value, label)
+        if self.operation_proof_ref is not None and (
+            not self.evidence_refs
+            or self.evidence_refs[-1] != self.operation_proof_ref
+        ):
+            raise ValueError(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_POSITION_INVALID"
+            )
         validate_safe_task_payload(
-            self.model_dump(mode="json"),
+            ExternalActionReplayEvidenceExpectation.model_dump(
+                self,
+                mode="json",
+            ),
             "external_action_replay_evidence_expectation",
         )
         return self
@@ -95,7 +170,9 @@ class ExternalActionReplayEvidenceEnvelope(BaseModel):
     operation_ref: str
     scope_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    operation_proof_ref: str | None = None
     expected_request_fingerprint_ref: str
+    terminal_binding_ref: str
     terminal_receipt_ref: str
     terminal_transaction_ref: str
 
@@ -116,21 +193,41 @@ class ExternalActionReplayEvidenceEnvelope(BaseModel):
                 self.expected_request_fingerprint_ref,
                 "expected_request_fingerprint_ref",
             ),
+            (self.terminal_binding_ref, "terminal_binding_ref"),
             (self.terminal_receipt_ref, "terminal_receipt_ref"),
             (self.terminal_transaction_ref, "terminal_transaction_ref"),
             *[(ref, "replay_evidence_ref") for ref in self.evidence_refs],
+            *(
+                [(self.operation_proof_ref, "operation_proof_ref")]
+                if self.operation_proof_ref is not None
+                else []
+            ),
         ):
             validate_task_ref(value, label)
+        if self.operation_proof_ref is not None and (
+            not self.evidence_refs
+            or self.evidence_refs[-1] != self.operation_proof_ref
+        ):
+            raise ValueError(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_POSITION_INVALID"
+            )
         expected_ref = stable_governed_browser_ref(
             _REPLAY_ENVELOPE_REF_PREFIX,
-            self.model_dump(mode="json", exclude={"envelope_ref"}),
+            ExternalActionReplayEvidenceEnvelope.model_dump(
+                self,
+                mode="json",
+                exclude={"envelope_ref"},
+            ),
         )
         if self.envelope_ref != expected_ref:
             raise ValueError(
                 "GOVERNED_EXTERNAL_ACTION_REPLAY_ENVELOPE_REF_MISMATCH"
             )
         validate_safe_task_payload(
-            self.model_dump(mode="json"),
+            ExternalActionReplayEvidenceEnvelope.model_dump(
+                self,
+                mode="json",
+            ),
             "external_action_replay_evidence_envelope",
         )
         return self
@@ -201,9 +298,15 @@ def _register_replay_context_issuance(
             context,
             lambda _context_ref: _discard_replay_context_issuance(token),
         ),
-        envelope_json=context.envelope.model_dump_json(),
-        expected_execution_json=context.expected_execution.model_dump_json(),
-        terminal_receipt_json=context.terminal_receipt.model_dump_json(),
+        envelope_json=ExternalActionReplayEvidenceEnvelope.model_dump_json(
+            context.envelope
+        ),
+        expected_execution_json=ExternalActionExecutionRequest.model_dump_json(
+            context.expected_execution
+        ),
+        terminal_receipt_json=ExternalActionReceipt.model_dump_json(
+            context.terminal_receipt
+        ),
     )
     with _REPLAY_CONTEXT_ISSUANCE_LOCK:
         if token in _REPLAY_CONTEXT_ISSUANCES:
@@ -218,7 +321,7 @@ def _request_fingerprint(
 ) -> str:
     return stable_governed_browser_ref(
         "request-fingerprint-ref:governed-external-action",
-        request.model_dump(mode="json"),
+        ExternalActionExecutionRequest.model_dump(request, mode="json"),
     )
 
 
@@ -227,7 +330,10 @@ def _validated_replay_copy(
 ) -> ExternalActionReceipt:
     return ExternalActionReceipt.model_validate(
         {
-            **terminal_receipt.model_dump(mode="json"),
+            **ExternalActionReceipt.model_dump(
+                terminal_receipt,
+                mode="json",
+            ),
             "replayed": True,
         }
     )
@@ -237,7 +343,8 @@ def _kernel_ambiguity_evidence_valid(
     receipt: ExternalActionReceipt,
 ) -> bool:
     evidence_refs = tuple(receipt.evidence_refs)
-    if len(evidence_refs) != 1:
+    reason_refs = tuple(receipt.reason_refs)
+    if len(evidence_refs) != 1 or not reason_refs:
         return False
     evidence_ref = evidence_refs[0]
     common_payload = {
@@ -245,31 +352,114 @@ def _kernel_ambiguity_evidence_valid(
         "intent_ref": receipt.intent_ref,
         "binding_ref": receipt.binding_ref,
     }
-    expected_refs = {
-        stable_governed_browser_ref(
-            f"evidence-ref:governed-external-action:{reason}",
-            {"reason": reason, **common_payload},
+    for (
+        evidence_suffix,
+        required_reason_ref,
+    ) in _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX.items():
+        expected_ref = stable_governed_browser_ref(
+            f"evidence-ref:governed-external-action:{evidence_suffix}",
+            {"reason": evidence_suffix, **common_payload},
         )
-        for reason in _KERNEL_AMBIGUITY_REASONS
-    }
-    expected_refs.add(
-        stable_governed_browser_ref(
-            "evidence-ref:governed-external-action:prior-start-recovery",
-            common_payload,
-        )
+        if evidence_ref == expected_ref:
+            return reason_refs[0] == required_reason_ref
+    prior_start_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:prior-start-recovery",
+        common_payload,
     )
-    if evidence_ref in expected_refs:
+    if evidence_ref == prior_start_ref:
+        return reason_refs[0] == _PRIOR_START_RECOVERY_REASON_REF
+    if reason_refs[0] not in _POST_START_GUARD_REASON_REFS:
+        return False
+    expected_guard_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:post-start-guard",
+        {
+            "intent_ref": receipt.intent_ref,
+            "reason_refs": list(reason_refs),
+        },
+    )
+    return evidence_ref == expected_guard_ref
+
+
+def _ambiguity_accounting_shape_valid(
+    receipt: ExternalActionReceipt,
+) -> bool:
+    reason_refs = tuple(receipt.reason_refs)
+    if _BUDGET_RELEASE_UNCONFIRMED_REASON_REF in reason_refs and (
+        receipt.budget_release_ref is not None
+        or receipt.budget_settlement_ref is not None
+    ):
+        return False
+    if _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF in reason_refs and (
+        receipt.budget_release_ref is not None
+        or receipt.budget_settlement_ref is not None
+    ):
+        return False
+    return True
+
+
+def _post_dispatch_revalidation_reasons_valid(
+    receipt: ExternalActionReceipt,
+) -> bool:
+    secondary_reasons = tuple(receipt.reason_refs[1:])
+    if not secondary_reasons:
+        return False
+    settlement_marker_index = (
+        secondary_reasons.index(_BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF)
+        if _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF in secondary_reasons
+        else None
+    )
+    concrete_reasons = (
+        secondary_reasons
+        if settlement_marker_index is None
+        else secondary_reasons[:settlement_marker_index]
+    )
+    if not concrete_reasons:
+        return False
+    for reason_ref in concrete_reasons:
+        if reason_ref in _POST_DISPATCH_CONCRETE_REASON_REFS:
+            continue
+        if reason_ref.startswith(_ADVERSARIAL_REASON_REF_PREFIX):
+            digest = reason_ref.removeprefix(_ADVERSARIAL_REASON_REF_PREFIX)
+        elif reason_ref.startswith(_REASON_OVERFLOW_REF_PREFIX):
+            digest = reason_ref.removeprefix(_REASON_OVERFLOW_REF_PREFIX)
+        else:
+            return False
+        if len(digest) != 64 or any(
+            character not in "0123456789abcdef" for character in digest
+        ):
+            return False
+    if settlement_marker_index is None:
+        return receipt.budget_settlement_ref is not None
+    return receipt.budget_settlement_ref is None
+
+
+def _ambiguity_provenance_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    lane_evidence_valid: bool,
+    operation_ambiguity_evidence_valid: bool,
+) -> bool:
+    if not _ambiguity_accounting_shape_valid(receipt):
+        return False
+    if _kernel_ambiguity_evidence_valid(receipt):
         return True
-    guard_prefix = (
-        "evidence-ref:governed-external-action:post-start-guard:sha256:"
-    )
-    guard_digest = evidence_ref.removeprefix(guard_prefix)
-    return (
-        evidence_ref.startswith(guard_prefix)
-        and len(guard_digest) == 64
-        and all(character in "0123456789abcdef" for character in guard_digest)
-        and bool(_POST_START_GUARD_REASON_REFS.intersection(receipt.reason_refs))
-    )
+    reason_refs = tuple(receipt.reason_refs)
+    if not reason_refs or receipt.budget_reservation_ref is None:
+        return False
+    primary_reason_ref = reason_refs[0]
+    if (
+        operation_ambiguity_evidence_valid
+        and primary_reason_ref == _DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF
+        and receipt.budget_release_ref is None
+    ):
+        return True
+    if not lane_evidence_valid or receipt.budget_release_ref is not None:
+        return False
+    if primary_reason_ref == _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF:
+        return receipt.budget_settlement_ref is None
+    if primary_reason_ref == _POST_DISPATCH_REVALIDATION_REASON_REF:
+        return _post_dispatch_revalidation_reasons_valid(receipt)
+    return False
 
 
 def _require_operation_replay_evidence_envelope(
@@ -277,6 +467,7 @@ def _require_operation_replay_evidence_envelope(
     *,
     success_evidence_valid: bool,
     failure_evidence_valid: bool,
+    operation_ambiguity_evidence_valid: bool = False,
     mismatch_error: str,
 ) -> None:
     """Require one complete lane envelope for every durable terminal state."""
@@ -290,10 +481,14 @@ def _require_operation_replay_evidence_envelope(
     elif state == ExternalActionState.blocked:
         valid = not evidence_refs
     elif state == ExternalActionState.outcome_ambiguous:
-        valid = (
-            success_evidence_valid
-            or failure_evidence_valid
-            or _kernel_ambiguity_evidence_valid(replay_receipt)
+        valid = _ambiguity_provenance_valid(
+            replay_receipt,
+            lane_evidence_valid=(
+                success_evidence_valid or failure_evidence_valid
+            ),
+            operation_ambiguity_evidence_valid=(
+                operation_ambiguity_evidence_valid
+            ),
         )
     else:
         valid = False
@@ -324,10 +519,17 @@ def _authenticated_context_issuance(
         context_matches_issuance = (
             issuance is not None
             and issuance.context_ref() is context
-            and context.envelope.model_dump_json() == issuance.envelope_json
-            and context.expected_execution.model_dump_json()
+            and ExternalActionReplayEvidenceEnvelope.model_dump_json(
+                context.envelope
+            )
+            == issuance.envelope_json
+            and ExternalActionExecutionRequest.model_dump_json(
+                context.expected_execution
+            )
             == issuance.expected_execution_json
-            and context.terminal_receipt.model_dump_json()
+            and ExternalActionReceipt.model_dump_json(
+                context.terminal_receipt
+            )
             == issuance.terminal_receipt_json
         )
     except (AttributeError, TypeError, ValueError):
@@ -371,9 +573,10 @@ def _build_external_action_replay_validation_context(
     from .transaction import (  # noqa: PLC0415
         ExternalActionTransactionStore,
         GovernedExternalActionKernel,
+        _bound_external_action_replay_store,
     )
 
-    store = getattr(kernel, "_store", None)
+    store = _bound_external_action_replay_store(kernel)
     if (
         type(kernel) is not GovernedExternalActionKernel
         or type(store) is not ExternalActionTransactionStore
@@ -383,17 +586,23 @@ def _build_external_action_replay_validation_context(
         )
 
     expected = ExternalActionExecutionRequest.model_validate(
-        expected_execution.model_dump(mode="json")
+        ExternalActionExecutionRequest.model_dump(
+            expected_execution,
+            mode="json",
+        )
     )
     replay = ExternalActionReceipt.model_validate(
-        replay_receipt.model_dump(mode="json")
+        ExternalActionReceipt.model_dump(replay_receipt, mode="json")
     )
     exact_expectation = ExternalActionReplayEvidenceExpectation.model_validate(
-        expectation.model_dump(mode="json")
+        ExternalActionReplayEvidenceExpectation.model_dump(
+            expectation,
+            mode="json",
+        )
     )
     try:
-        terminal = GovernedExternalActionKernel.attest_terminal_replay(
-            kernel,
+        terminal = ExternalActionTransactionStore.attest_terminal_replay(
+            store,
             expected,
             receipt_ref=replay.receipt_ref,
         )
@@ -406,7 +615,7 @@ def _build_external_action_replay_validation_context(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_TERMINAL_REQUIRED"
         )
     terminal = ExternalActionReceipt.model_validate(
-        terminal.model_dump(mode="json")
+        ExternalActionReceipt.model_dump(terminal, mode="json")
     )
     if not replay.replayed or terminal.replayed:
         raise ValueError(
@@ -417,6 +626,20 @@ def _build_external_action_replay_validation_context(
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
         )
+    from .operation_proofs import (  # noqa: PLC0415
+        _attest_terminal_receipt_binding,
+    )
+
+    try:
+        terminal_binding = _attest_terminal_receipt_binding(
+            store,
+            expected_execution=expected,
+            terminal_receipt=terminal,
+        )
+    except Exception as exc:
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_TERMINAL_BINDING_INVALID"
+        ) from exc
     if (
         terminal.transaction_ref != expected.binding.transaction_ref
         or terminal.evidence_refs != exact_expectation.evidence_refs
@@ -424,13 +647,42 @@ def _build_external_action_replay_validation_context(
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_EVIDENCE_MISMATCH"
         )
+    proof_ref = exact_expectation.operation_proof_ref
+    if proof_ref is not None:
+        from .operation_proofs import (  # noqa: PLC0415
+            _attest_operation_proof,
+        )
+
+        try:
+            _attest_operation_proof(
+                kernel,
+                expected_execution=expected,
+                proof_ref=proof_ref,
+                lane_ref=exact_expectation.lane_ref,
+                operation_ref=exact_expectation.operation_ref,
+                scope_refs=exact_expectation.scope_refs,
+                base_evidence_refs=exact_expectation.evidence_refs[:-1],
+            )
+        except Exception as exc:
+            raise ValueError(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_INVALID"
+            ) from exc
+    elif any(
+        ref.startswith("operation-proof-ref:governed-browser:")
+        for ref in terminal.evidence_refs
+    ):
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_UNBOUND"
+        )
 
     envelope_payload = {
         "lane_ref": exact_expectation.lane_ref,
         "operation_ref": exact_expectation.operation_ref,
         "scope_refs": exact_expectation.scope_refs,
         "evidence_refs": exact_expectation.evidence_refs,
+        "operation_proof_ref": proof_ref,
         "expected_request_fingerprint_ref": _request_fingerprint(expected),
+        "terminal_binding_ref": terminal_binding.terminal_binding_ref,
         "terminal_receipt_ref": terminal.receipt_ref,
         "terminal_transaction_ref": terminal.transaction_ref,
     }
@@ -523,12 +775,20 @@ def require_external_action_replay_provenance(
         or envelope.terminal_receipt_ref != terminal.receipt_ref
         or envelope.terminal_transaction_ref != terminal.transaction_ref
         or envelope.evidence_refs != terminal.evidence_refs
+        or (
+            envelope.operation_proof_ref is not None
+            and (
+                not terminal.evidence_refs
+                or terminal.evidence_refs[-1]
+                != envelope.operation_proof_ref
+            )
+        )
     ):
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
         )
     exact_candidate = ExternalActionReceipt.model_validate(
-        candidate.model_dump(mode="json")
+        ExternalActionReceipt.model_dump(candidate, mode="json")
     )
     if exact_candidate != _validated_replay_copy(terminal):
         raise ValueError(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -28,6 +29,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedArtifactQuarantineStore,
     GovernedArtifactTransferOperation,
     GovernedArtifactTransferReceipt,
+    GovernedArtifactTransferRecipe,
     build_governed_artifact_transfer_recipe,
     governed_artifact_quarantine_ref,
     governed_artifact_ref,
@@ -37,6 +39,9 @@ from ultimate_ai_agent.core.governed_browser.contracts import (
     governed_receipt_identity_payload,
 )
 from ultimate_ai_agent.core.governed_browser import artifact_transfers as artifact_module
+from ultimate_ai_agent.core.governed_browser.operation_proofs import (
+    _terminal_binding_filename,
+)
 from ultimate_ai_agent.core.governed_browser.replay_provenance import (
     ExternalActionReplayValidationContext,
     replay_validation_context,
@@ -77,6 +82,166 @@ def _rehash_external_and_artifact_receipt(
     return _rehash_receipt(payload)
 
 
+def _rehash_terminal_kernel_receipt(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    identity_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload.get("budget_release_ref") is not None:
+        identity_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        identity_payload,
+    )
+    return payload
+
+
+def _read_terminal_kernel_receipt(
+    kernel_path: Path,
+    *,
+    transaction_ref: str,
+) -> dict[str, object]:
+    with sqlite3.connect(kernel_path / "transactions.sqlite3") as connection:
+        row = connection.execute(
+            "SELECT receipt_json FROM governed_external_actions "
+            "WHERE transaction_ref = ?",
+            (transaction_ref,),
+        ).fetchone()
+    assert row is not None and row[0] is not None
+    payload = json.loads(row[0])
+    assert isinstance(payload, dict)
+    return payload
+
+
+def _rewrite_terminal_kernel_evidence(
+    kernel_path: Path,
+    *,
+    transaction_ref: str,
+    evidence_refs: list[str],
+) -> None:
+    payload = _read_terminal_kernel_receipt(
+        kernel_path,
+        transaction_ref=transaction_ref,
+    )
+    payload["evidence_refs"] = evidence_refs
+    _rehash_terminal_kernel_receipt(payload)
+    with sqlite3.connect(kernel_path / "transactions.sqlite3") as connection:
+        changed = connection.execute(
+            "UPDATE governed_external_actions SET receipt_json = ? "
+            "WHERE transaction_ref = ?",
+            (
+                json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                transaction_ref,
+            ),
+        ).rowcount
+        connection.commit()
+    assert changed == 1
+
+
+def _seed_download_success_replay(
+    tmp_path: Path,
+    *,
+    suffix: str,
+) -> tuple[
+    ExactGovernedArtifactTransferService,
+    ExactGovernedArtifactTransferRequest,
+    GovernedArtifactTransferRecipe,
+    GovernedArtifactQuarantineStore,
+    Path,
+    ExactGovernedArtifactTransferResult,
+]:
+    store = GovernedArtifactQuarantineStore(tmp_path / f"{suffix}-artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=suffix,
+    )
+    kernel_path = tmp_path / f"{suffix}-kernel"
+    service, _, _ = _service(
+        kernel_path,
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    result = service.execute(
+        exact,
+        injected_download_payload=bytearray(f"{suffix}-payload".encode()),
+    )
+    assert result.quarantine is not None
+    return service, exact, recipe, store, kernel_path, result
+
+
+def _seed_upload_success_replay(
+    tmp_path: Path,
+    *,
+    suffix: str,
+) -> tuple[
+    ExactGovernedArtifactTransferService,
+    ExactGovernedArtifactTransferRequest,
+    GovernedArtifactTransferRecipe,
+    GovernedArtifactQuarantineStore,
+    Path,
+    ExactGovernedArtifactTransferResult,
+]:
+    store = GovernedArtifactQuarantineStore(tmp_path / f"{suffix}-artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=f"{suffix}-download",
+    )
+    download_service, download_kernel, _ = _service(
+        tmp_path / f"{suffix}-download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(f"{suffix}-payload".encode()),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=(
+            GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        ),
+        suffix=f"{suffix}-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(
+            downloaded.receipt.external_action_receipt_ref
+        ),
+        source_download_recipe_ref=download_recipe.recipe_ref,
+    )
+    kernel_path = tmp_path / f"{suffix}-upload-kernel"
+    upload_service, _, _ = _service(
+        kernel_path,
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+        source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
+    )
+    exact = _exact(upload_request, upload_recipe)
+    result = upload_service.execute(exact)
+    assert result.upload_plan is not None
+    return upload_service, exact, upload_recipe, store, kernel_path, result
+
+
 def _download_replay_proof(
     tmp_path: Path,
     *,
@@ -109,11 +274,15 @@ def _download_replay_proof(
     )
     replay_receipt = kernel.replay_if_terminal(kernel_execution)
     assert replay_receipt is not None
+    service_binding = (
+        artifact_module._require_artifact_transfer_service_binding(service)
+    )
     context = artifact_module._artifact_replay_validation_context(
         kernel=kernel,
         expected_execution=kernel_execution,
         recipe=recipe,
         replay_receipt=replay_receipt,
+        service_binding=service_binding,
     )
     return replay_result.receipt.model_dump(mode="json"), context
 
@@ -181,6 +350,11 @@ def _upload_replay_proof(
         expected_execution=kernel_execution,
         recipe=upload_recipe,
         replay_receipt=replay_receipt,
+        service_binding=(
+            artifact_module._require_artifact_transfer_service_binding(
+                upload_service
+            )
+        ),
     )
     return replay_result.receipt.model_dump(mode="json"), context
 
@@ -254,6 +428,9 @@ def _artifact_terminal_replay_proof(
         expected_execution=kernel_execution,
         recipe=recipe,
         replay_receipt=terminal_receipt,
+        service_binding=(
+            artifact_module._require_artifact_transfer_service_binding(service)
+        ),
     )
     expected_evidence = {
         ExternalActionState.blocked: [],
@@ -803,13 +980,22 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
     proceed = Event()
     dispatched_buffers: list[bytearray] = []
 
-    def delayed_quarantine(*, payload: bytearray, **kwargs):  # type: ignore[no-untyped-def]
+    def delayed_quarantine(
+        _store: GovernedArtifactQuarantineStore,
+        *,
+        payload: bytearray,
+        **kwargs,  # type: ignore[no-untyped-def]
+    ):  # type: ignore[no-untyped-def]
         dispatched_buffers.append(payload)
         entered.set()
         assert proceed.wait(timeout=2)
         return original_quarantine(payload=payload, **kwargs)
 
-    monkeypatch.setattr(store, "quarantine", delayed_quarantine)
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "quarantine",
+        delayed_quarantine,
+    )
     payload = bytearray(b"bounded timeout artifact")
     expected_payload = bytes(payload)
 
@@ -1434,6 +1620,958 @@ def test_artifact_replay_rejects_cross_operation_and_transaction_substitution(
                 payload,
                 context=replay_validation_context(context),
             )
+
+
+@pytest.mark.parametrize(
+    ("operation", "evidence_index"),
+    tuple(("download", index) for index in range(5))
+    + tuple(("upload", index) for index in range(6)),
+)
+def test_artifact_durable_replay_rejects_every_rehashed_evidence_field_tamper(
+    tmp_path: Path,
+    operation: str,
+    evidence_index: int,
+) -> None:
+    service, exact, recipe, _, kernel_path, _ = (
+        _seed_download_success_replay(
+            tmp_path,
+            suffix=f"durable-field-download-{evidence_index}",
+        )
+        if operation == "download"
+        else _seed_upload_success_replay(
+            tmp_path,
+            suffix=f"durable-field-upload-{evidence_index}",
+        )
+    )
+    terminal = _read_terminal_kernel_receipt(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+    )
+    evidence_refs = list(terminal["evidence_refs"])
+    evidence_prefix, separator, _ = evidence_refs[evidence_index].rpartition(
+        ":sha256:"
+    )
+    assert separator == ":sha256:"
+    evidence_refs[evidence_index] = stable_governed_browser_ref(
+        evidence_prefix,
+        {"operation": operation, "evidence_index": evidence_index},
+    )
+    _rewrite_terminal_kernel_evidence(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+        evidence_refs=evidence_refs,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize(
+    ("operation", "mutation"),
+    (
+        ("download", "reverse"),
+        ("download", "drop"),
+        ("download", "append"),
+        ("download", "duplicate"),
+        ("upload", "reverse"),
+        ("upload", "drop"),
+        ("upload", "append"),
+        ("upload", "duplicate"),
+    ),
+)
+def test_artifact_durable_replay_rejects_rehashed_order_and_arity_tamper(
+    tmp_path: Path,
+    operation: str,
+    mutation: str,
+) -> None:
+    service, exact, recipe, _, kernel_path, _ = (
+        _seed_download_success_replay(
+            tmp_path,
+            suffix=f"durable-shape-download-{mutation}",
+        )
+        if operation == "download"
+        else _seed_upload_success_replay(
+            tmp_path,
+            suffix=f"durable-shape-upload-{mutation}",
+        )
+    )
+    terminal = _read_terminal_kernel_receipt(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+    )
+    evidence_refs = list(terminal["evidence_refs"])
+    if mutation == "reverse":
+        evidence_refs.reverse()
+    elif mutation == "drop":
+        evidence_refs.pop()
+    elif mutation == "append":
+        evidence_refs.append(
+            stable_governed_browser_ref(
+                "substituted-evidence-ref:governed-artifact",
+                {"operation": operation, "mutation": mutation},
+            )
+        )
+    else:
+        evidence_refs.append(evidence_refs[-1])
+    _rewrite_terminal_kernel_evidence(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+        evidence_refs=evidence_refs,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+def test_artifact_durable_replay_rejects_correlated_download_triple_tamper(
+    tmp_path: Path,
+) -> None:
+    service, exact, recipe, store, kernel_path, result = (
+        _seed_download_success_replay(
+            tmp_path,
+            suffix="durable-correlated-download",
+        )
+    )
+    assert result.quarantine is not None
+    foreign_fingerprint_ref = stable_governed_browser_ref(
+        "content-fingerprint-ref:governed-browser",
+        {"case": "correlated-terminal-row-tamper"},
+    )
+    foreign_inspection = artifact_module.GovernedArtifactInspection(
+        declared_media_type=result.quarantine.declared_media_type,
+        byte_count=result.quarantine.byte_count,
+        content_fingerprint_ref=foreign_fingerprint_ref,
+    )
+    foreign_quarantine = artifact_module._build_exact_quarantine(
+        recipe,
+        foreign_inspection,
+    )
+    foreign_proof = artifact_module._build_service_proof(
+        recipe,
+        foreign_quarantine,
+    )
+    _rewrite_terminal_kernel_evidence(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+        evidence_refs=[
+            recipe.artifact_ref,
+            recipe.quarantine_ref,
+            foreign_fingerprint_ref,
+            foreign_quarantine.quarantine_projection_ref,
+            foreign_proof.proof_ref,
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+    assert store.inspect(
+        quarantine_ref=recipe.quarantine_ref,
+        declared_media_type=GovernedArtifactMediaType(recipe.declared_media_type),
+        max_bytes=recipe.max_bytes,
+        expected_content_fingerprint_ref=(
+            result.quarantine.content_fingerprint_ref
+        ),
+    ).content_fingerprint_ref == result.quarantine.content_fingerprint_ref
+
+
+def test_artifact_durable_replay_rejects_foreign_valid_upload_plan(
+    tmp_path: Path,
+) -> None:
+    service, exact, recipe, _, kernel_path, result = _seed_upload_success_replay(
+        tmp_path,
+        suffix="durable-foreign-upload-plan",
+    )
+    assert result.upload_plan is not None
+    foreign_payload = result.upload_plan.model_dump(mode="python")
+    foreign_payload["transfer_surface_ref"] = stable_governed_browser_ref(
+        "artifact-transfer-surface-ref:governed-browser",
+        {"case": "foreign-valid-upload-plan"},
+    )
+    provisional = type(result.upload_plan).model_construct(**foreign_payload)
+    foreign_payload["plan_ref"] = stable_governed_browser_ref(
+        "artifact-upload-plan-ref:governed-browser",
+        provisional.model_dump(mode="json", exclude={"plan_ref"}),
+    )
+    foreign_plan = type(result.upload_plan).model_validate(foreign_payload)
+    terminal = _read_terminal_kernel_receipt(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+    )
+    evidence_refs = list(terminal["evidence_refs"])
+    evidence_refs[-1] = foreign_plan.plan_ref
+    _rewrite_terminal_kernel_evidence(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+        evidence_refs=evidence_refs,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+def test_artifact_durable_replay_rejects_cross_operation_substitution(
+    tmp_path: Path,
+) -> None:
+    download = _seed_download_success_replay(
+        tmp_path,
+        suffix="durable-cross-operation-download",
+    )
+    upload = _seed_upload_success_replay(
+        tmp_path,
+        suffix="durable-cross-operation-upload",
+    )
+    download_service, download_exact, download_recipe, _, download_path, _ = (
+        download
+    )
+    upload_service, upload_exact, upload_recipe, _, upload_path, _ = upload
+    download_evidence = list(
+        _read_terminal_kernel_receipt(
+            download_path,
+            transaction_ref=download_recipe.transaction_ref,
+        )["evidence_refs"]
+    )
+    upload_evidence = list(
+        _read_terminal_kernel_receipt(
+            upload_path,
+            transaction_ref=upload_recipe.transaction_ref,
+        )["evidence_refs"]
+    )
+    _rewrite_terminal_kernel_evidence(
+        download_path,
+        transaction_ref=download_recipe.transaction_ref,
+        evidence_refs=upload_evidence,
+    )
+    _rewrite_terminal_kernel_evidence(
+        upload_path,
+        transaction_ref=upload_recipe.transaction_ref,
+        evidence_refs=download_evidence,
+    )
+
+    for service, exact in (
+        (download_service, download_exact),
+        (upload_service, upload_exact),
+    ):
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+        ):
+            service.execute(exact)
+
+
+@pytest.mark.parametrize("operation", ("download", "upload"))
+def test_artifact_durable_replay_rejects_cross_transaction_substitution(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    seed = (
+        _seed_download_success_replay
+        if operation == "download"
+        else _seed_upload_success_replay
+    )
+    primary = seed(tmp_path, suffix=f"durable-cross-transaction-{operation}-a")
+    foreign = seed(tmp_path, suffix=f"durable-cross-transaction-{operation}-b")
+    service, exact, recipe, _, kernel_path, _ = primary
+    _, _, foreign_recipe, _, foreign_path, _ = foreign
+    foreign_evidence = list(
+        _read_terminal_kernel_receipt(
+            foreign_path,
+            transaction_ref=foreign_recipe.transaction_ref,
+        )["evidence_refs"]
+    )
+    _rewrite_terminal_kernel_evidence(
+        kernel_path,
+        transaction_ref=recipe.transaction_ref,
+        evidence_refs=foreign_evidence,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize(
+    ("operation", "durable_state"),
+    (
+        ("download", "valid"),
+        ("download", "payload-missing"),
+        ("download", "proof-missing"),
+        ("download", "payload-drift"),
+        ("download", "proof-drift"),
+        ("upload", "valid"),
+        ("upload", "payload-missing"),
+        ("upload", "payload-drift"),
+    ),
+)
+def test_artifact_replay_revalidates_exact_durable_quarantine_evidence(
+    tmp_path: Path,
+    operation: str,
+    durable_state: str,
+) -> None:
+    service, exact, recipe, store, _, _ = (
+        _seed_download_success_replay(
+            tmp_path,
+            suffix=f"durable-control-download-{durable_state}",
+        )
+        if operation == "download"
+        else _seed_upload_success_replay(
+            tmp_path,
+            suffix=f"durable-control-upload-{durable_state}",
+        )
+    )
+    payload_path = store._quarantine / store._filename(recipe.quarantine_ref)
+    proof_path = store._quarantine / store._proof_filename(recipe.quarantine_ref)
+    if durable_state == "payload-missing":
+        payload_path.unlink()
+    elif durable_state == "proof-missing":
+        proof_path.unlink()
+    elif durable_state == "payload-drift":
+        payload_path.write_bytes(b"drifted bounded artifact")
+    elif durable_state == "proof-drift":
+        proof_path.write_text("{}", encoding="utf-8")
+
+    if durable_state == "valid":
+        replay = service.execute(exact)
+        assert replay.receipt.replayed is True
+        assert replay.receipt.status == "replayed_content_free"
+        assert replay.quarantine is None
+        assert replay.upload_plan is None
+    else:
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+        ):
+            service.execute(exact)
+
+
+def test_artifact_replay_uses_exact_store_readers_not_instance_shadows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, exact, _, store, _, _ = _seed_download_success_replay(
+        tmp_path,
+        suffix="durable-store-reader-shadow",
+    )
+
+    def shadowed_reader(**_kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("instance-shadowed durable reader was invoked")
+
+    monkeypatch.setattr(store, "inspect", shadowed_reader)
+    monkeypatch.setattr(store, "_inspect_service_proof", shadowed_reader)
+
+    replay = service.execute(exact)
+
+    assert replay.receipt.replayed is True
+    assert replay.receipt.status == "replayed_content_free"
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    (
+        "binding_ref",
+        "_root",
+        "_quarantine",
+        "_root_identity",
+        "_quarantine_identity",
+    ),
+)
+def test_artifact_replay_rejects_construction_binding_attribute_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attribute: str,
+) -> None:
+    service, exact, recipe, store, _, _ = _seed_download_success_replay(
+        tmp_path,
+        suffix=f"durable-store-binding-{attribute}",
+    )
+    kernel = service._kernel
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    service_binding = (
+        artifact_module._require_artifact_transfer_service_binding(service)
+    )
+    if attribute == "binding_ref":
+        replacement: object = stable_governed_browser_ref(
+            "artifact-quarantine-store-ref:governed-browser",
+            {"case": "binding-substitution"},
+        )
+    elif attribute in {"_root", "_quarantine"}:
+        replacement = tmp_path / f"foreign-{attribute}"
+    else:
+        identity = getattr(store, attribute)
+        replacement = (identity[0], identity[1] + 1)
+    monkeypatch.setattr(store, attribute, replacement)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        artifact_module._artifact_replay_validation_context(
+            kernel=kernel,
+            expected_execution=kernel_execution,
+            recipe=recipe,
+            replay_receipt=replay_receipt,
+            service_binding=service_binding,
+        )
+
+
+def test_artifact_replay_rejects_complete_quarantine_source_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, exact, recipe, store, _, _ = _seed_download_success_replay(
+        tmp_path,
+        suffix="durable-complete-store-substitution",
+    )
+    foreign_store = GovernedArtifactQuarantineStore(tmp_path / "foreign-store")
+    kernel = service._kernel
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    service_binding = (
+        artifact_module._require_artifact_transfer_service_binding(service)
+    )
+    for attribute in (
+        "_root",
+        "_quarantine",
+        "_root_identity",
+        "_quarantine_identity",
+    ):
+        monkeypatch.setattr(store, attribute, getattr(foreign_store, attribute))
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        artifact_module._artifact_replay_validation_context(
+            kernel=kernel,
+            expected_execution=kernel_execution,
+            recipe=recipe,
+            replay_receipt=replay_receipt,
+            service_binding=service_binding,
+        )
+
+
+@pytest.mark.parametrize(
+    "durable_state",
+    (
+        "source-ledger-missing",
+        "source-row-missing",
+        "source-row-state-drift",
+        "source-terminal-binding-missing",
+        "source-service-proof-missing",
+    ),
+)
+def test_upload_replay_requires_exact_durable_source_terminal_attestation(
+    tmp_path: Path,
+    durable_state: str,
+) -> None:
+    suffix = f"source-terminal-attestation-{durable_state}"
+    service, exact, recipe, store, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix=suffix,
+    )
+    source_kernel_path = tmp_path / f"{suffix}-download-kernel"
+    source_ledger_path = source_kernel_path / "transactions.sqlite3"
+    if durable_state == "source-ledger-missing":
+        source_ledger_path.unlink()
+    elif durable_state == "source-row-missing":
+        with sqlite3.connect(source_ledger_path) as connection:
+            changed = connection.execute(
+                "DELETE FROM governed_external_actions "
+                "WHERE transaction_ref = ?",
+                (recipe.download_transaction_ref,),
+            ).rowcount
+            connection.commit()
+        assert changed == 1
+    elif durable_state == "source-row-state-drift":
+        with sqlite3.connect(source_ledger_path) as connection:
+            changed = connection.execute(
+                "UPDATE governed_external_actions SET state = ? "
+                "WHERE transaction_ref = ?",
+                (
+                    ExternalActionState.failed.value,
+                    recipe.download_transaction_ref,
+                ),
+            ).rowcount
+            connection.commit()
+        assert changed == 1
+    elif durable_state == "source-terminal-binding-missing":
+        assert recipe.source_download_receipt_ref is not None
+        (
+            source_kernel_path
+            / ".transactions.sqlite3.operation-proofs"
+            / "terminal-bindings"
+            / _terminal_binding_filename(recipe.source_download_receipt_ref)
+        ).unlink()
+    else:
+        (
+            store._quarantine
+            / store._proof_filename(recipe.quarantine_ref)
+        ).unlink()
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize("evidence_index", range(5))
+def test_upload_replay_rejects_every_rehashed_source_terminal_evidence_tamper(
+    tmp_path: Path,
+    evidence_index: int,
+) -> None:
+    suffix = f"source-terminal-field-{evidence_index}"
+    service, exact, recipe, _, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix=suffix,
+    )
+    source_kernel_path = tmp_path / f"{suffix}-download-kernel"
+    terminal = _read_terminal_kernel_receipt(
+        source_kernel_path,
+        transaction_ref=recipe.download_transaction_ref,
+    )
+    evidence_refs = list(terminal["evidence_refs"])
+    prefix, separator, _ = evidence_refs[evidence_index].rpartition(":sha256:")
+    assert separator == ":sha256:"
+    evidence_refs[evidence_index] = stable_governed_browser_ref(
+        prefix,
+        {
+            "case": "source-terminal-field-tamper",
+            "evidence_index": evidence_index,
+        },
+    )
+    _rewrite_terminal_kernel_evidence(
+        source_kernel_path,
+        transaction_ref=recipe.download_transaction_ref,
+        evidence_refs=evidence_refs,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("reverse", "drop", "append", "duplicate"),
+)
+def test_upload_replay_rejects_rehashed_source_terminal_order_and_arity_tamper(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    suffix = f"source-terminal-shape-{mutation}"
+    service, exact, recipe, _, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix=suffix,
+    )
+    source_kernel_path = tmp_path / f"{suffix}-download-kernel"
+    terminal = _read_terminal_kernel_receipt(
+        source_kernel_path,
+        transaction_ref=recipe.download_transaction_ref,
+    )
+    evidence_refs = list(terminal["evidence_refs"])
+    if mutation == "reverse":
+        evidence_refs.reverse()
+    elif mutation == "drop":
+        evidence_refs.pop()
+    elif mutation == "append":
+        evidence_refs.append(
+            stable_governed_browser_ref(
+                "source-terminal-extra-ref:governed-browser",
+                {"case": "source-terminal-arity-tamper"},
+            )
+        )
+    else:
+        evidence_refs.append(evidence_refs[-1])
+    _rewrite_terminal_kernel_evidence(
+        source_kernel_path,
+        transaction_ref=recipe.download_transaction_ref,
+        evidence_refs=evidence_refs,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize(
+    "substitution",
+    ("cross-operation", "cross-transaction"),
+)
+def test_upload_replay_rejects_rehashed_source_terminal_substitution(
+    tmp_path: Path,
+    substitution: str,
+) -> None:
+    suffix = f"source-terminal-substitution-{substitution}"
+    service, exact, recipe, _, upload_kernel_path, _ = (
+        _seed_upload_success_replay(
+            tmp_path,
+            suffix=suffix,
+        )
+    )
+    source_kernel_path = tmp_path / f"{suffix}-download-kernel"
+    if substitution == "cross-operation":
+        substituted_evidence = list(
+            _read_terminal_kernel_receipt(
+                upload_kernel_path,
+                transaction_ref=recipe.transaction_ref,
+            )["evidence_refs"]
+        )
+    else:
+        foreign_suffix = f"{suffix}-foreign"
+        _, _, foreign_recipe, _, _, _ = _seed_upload_success_replay(
+            tmp_path,
+            suffix=foreign_suffix,
+        )
+        substituted_evidence = list(
+            _read_terminal_kernel_receipt(
+                tmp_path / f"{foreign_suffix}-download-kernel",
+                transaction_ref=foreign_recipe.download_transaction_ref,
+            )["evidence_refs"]
+        )
+    _rewrite_terminal_kernel_evidence(
+        source_kernel_path,
+        transaction_ref=recipe.download_transaction_ref,
+        evidence_refs=substituted_evidence,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(exact)
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    (
+        "_registry",
+        "_kernel",
+        "_store",
+        "_source_download_kernel",
+        "_source_download_registry",
+        "_source_download_request",
+        "_clock",
+    ),
+)
+def test_artifact_service_rejects_construction_dependency_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attribute: str,
+) -> None:
+    service, exact, recipe, store, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix=f"service-dependency-substitution-{attribute}",
+    )
+    binding = artifact_module._require_artifact_transfer_service_binding(service)
+    if attribute == "_registry":
+        replacement: object = (
+            artifact_module.GovernedArtifactTransferRecipeRegistry([recipe])
+        )
+    elif attribute == "_kernel":
+        replacement = binding.source_download_kernel
+    elif attribute == "_store":
+        replacement = GovernedArtifactQuarantineStore(store._root)
+    elif attribute == "_source_download_kernel":
+        replacement = binding.kernel
+    elif attribute == "_source_download_registry":
+        replacement = binding.registry
+    elif attribute == "_source_download_request":
+        replacement = exact
+    else:
+        def replacement_clock():  # type: ignore[no-untyped-def]
+            return utc_now()
+
+        replacement = replacement_clock
+    assert replacement is not None
+    monkeypatch.setattr(service, attribute, replacement)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID",
+    ):
+        service.execute(exact)
+
+
+def test_artifact_service_rejects_bound_source_request_content_drift(
+    tmp_path: Path,
+) -> None:
+    service, exact, _, _, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix="bound-source-request-content-drift",
+    )
+    source_request = service._source_download_request
+    assert source_request is not None
+    original_recipe_ref = source_request.recipe_ref
+    object.__setattr__(
+        source_request,
+        "recipe_ref",
+        _pinned(
+            "artifact-transfer-recipe-ref:governed-browser",
+            suffix="bound-source-request-content-drift",
+        ),
+    )
+    try:
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID",
+        ):
+            service.execute(exact)
+    finally:
+        object.__setattr__(
+            source_request,
+            "recipe_ref",
+            original_recipe_ref,
+        )
+
+
+def test_upload_replay_uses_exact_bound_methods_not_instance_shadows(
+    tmp_path: Path,
+) -> None:
+    service, exact, _, _, _, _ = _seed_upload_success_replay(
+        tmp_path,
+        suffix="exact-bound-methods",
+    )
+    binding = artifact_module._require_artifact_transfer_service_binding(service)
+    assert binding.source_download_kernel is not None
+    assert binding.source_download_registry is not None
+    assert binding.source_download_request is not None
+
+    def shadowed_method(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("instance-shadowed method was invoked")
+
+    shadowed_objects = (
+        (service, "_execute"),
+        (exact, "model_dump"),
+        (binding.registry, "resolve"),
+        (binding.kernel, "replay_if_terminal"),
+        (binding.source_download_registry, "resolve"),
+        (binding.source_download_kernel, "attest_terminal_replay"),
+        (binding.source_download_request, "model_dump"),
+        (binding.source_download_request, "model_dump_json"),
+    )
+    try:
+        for target, attribute in shadowed_objects:
+            object.__getattribute__(target, "__dict__")[attribute] = (
+                shadowed_method
+            )
+        replay = service.execute(exact)
+    finally:
+        for target, attribute in shadowed_objects:
+            object.__getattribute__(target, "__dict__").pop(attribute, None)
+
+    assert replay.receipt.replayed is True
+    assert replay.receipt.status == "replayed_content_free"
+
+
+def test_download_execution_uses_exact_store_methods_not_instance_shadows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="exact-live-store-methods",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    shadow_calls: list[str] = []
+
+    def shadowed_method(*_args: object, **_kwargs: object) -> object:
+        shadow_calls.append("redirected")
+        raise AssertionError("instance-shadowed store method was invoked")
+
+    monkeypatch.setattr(store, "quarantine", shadowed_method)
+    monkeypatch.setattr(store, "_record_service_proof", shadowed_method)
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"exact live store payload"),
+    )
+
+    assert result.receipt.status == "quarantined"
+    assert shadow_calls == []
+
+
+def test_artifact_service_binding_failure_still_zeroizes_mutable_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, exact, recipe, _, _, _ = _seed_download_success_replay(
+        tmp_path,
+        suffix="binding-failure-zeroization",
+    )
+    monkeypatch.setattr(
+        service,
+        "_registry",
+        artifact_module.GovernedArtifactTransferRecipeRegistry([recipe]),
+    )
+    payload = bytearray(b"must be zeroized on binding failure")
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_SERVICE_BINDING_INVALID",
+    ):
+        service.execute(
+            exact,
+            injected_download_payload=payload,
+        )
+
+    assert payload == bytearray(len(payload))
+
+
+def test_failed_upload_replay_preserves_legacy_source_independence(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "failed-upload-artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="failed-upload-source",
+    )
+    download_service, _, _ = _service(
+        tmp_path / "failed-upload-download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(b"failed upload source"),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=(
+            GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        ),
+        suffix="failed-upload-without-source-dependencies",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(
+            downloaded.receipt.external_action_receipt_ref
+        ),
+        source_download_recipe_ref=download_recipe.recipe_ref,
+    )
+    upload_service, _, _ = _service(
+        tmp_path / "failed-upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+    )
+    exact = _exact(upload_request, upload_recipe)
+
+    first = upload_service.execute(exact)
+    replay = upload_service.execute(exact)
+
+    assert first.receipt.external_action_state == ExternalActionState.failed.value
+    assert first.receipt.replayed is False
+    assert replay.receipt.external_action_state == ExternalActionState.failed.value
+    assert replay.receipt.status == "failed"
+    assert replay.receipt.replayed is True
+    assert replay.receipt.evidence_refs == first.receipt.evidence_refs
+    assert replay.upload_plan is None
+
+
+def test_successful_upload_replay_does_not_reapply_current_recipe_expiry(
+    tmp_path: Path,
+) -> None:
+    observed_time = [utc_now()]
+
+    def controlled_clock():  # type: ignore[no-untyped-def]
+        return observed_time[0]
+
+    store = GovernedArtifactQuarantineStore(tmp_path / "expiry-replay-artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="expiry-replay-download",
+    )
+    observed_time[0] = download_recipe.created_at + timedelta(milliseconds=1)
+    download_service, download_kernel, _ = _service(
+        tmp_path / "expiry-replay-download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+        clock=controlled_clock,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(b"expiry replay source"),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=(
+            GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        ),
+        suffix="expiry-replay-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(
+            downloaded.receipt.external_action_receipt_ref
+        ),
+        source_download_recipe_ref=download_recipe.recipe_ref,
+    )
+    observed_time[0] = upload_recipe.created_at + timedelta(milliseconds=1)
+    upload_service, _, _ = _service(
+        tmp_path / "expiry-replay-upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+        source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
+        clock=controlled_clock,
+    )
+    exact = _exact(upload_request, upload_recipe)
+    first = upload_service.execute(exact)
+    assert first.receipt.status == "upload_plan_ready"
+    observed_time[0] = max(
+        download_recipe.expires_at,
+        upload_recipe.expires_at,
+    ) + timedelta(seconds=1)
+
+    replay = upload_service.execute(exact)
+
+    assert replay.receipt.replayed is True
+    assert replay.receipt.status == "replayed_content_free"
+    assert replay.upload_plan is None
 
 
 @pytest.mark.parametrize(

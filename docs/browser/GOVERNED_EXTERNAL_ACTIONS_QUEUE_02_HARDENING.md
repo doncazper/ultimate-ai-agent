@@ -82,19 +82,26 @@ them in individual lane services:
   proof;
 - replay projections no longer treat recomputable receipt hashes as durable
   provenance. A package-internal typed validation context is issued only after
-  the concrete kernel and concrete transaction store atomically read one durable
-  row and prove its exact recipe-bound request fingerprint, terminal state,
+  the concrete kernel and its construction-bound concrete transaction store
+  atomically read one durable row from the store's construction-bound path and
+  prove its exact recipe-bound request fingerprint, terminal state,
   transaction/intent/binding, non-replayed receipt payload, and recomputed
-  receipt ref. The context keeps immutable canonical snapshots rather than
-  caller-owned model aliases. Each wrapper compares the complete projected
+  receipt ref. Mutable instance connector, lock, path, store, and serializer
+  substitutions cannot redirect or rewrite that proof source. The context keeps
+  immutable canonical snapshots rather than caller-owned model aliases. Each
+  wrapper compares the complete projected
   kernel receipt to that durable terminal receipt, allowing only the
   presentation replay bit to differ. It then validates one
   lane/operation-specific ordered evidence envelope. Blocked envelopes are
-  empty; failed and succeeded
-  envelopes match the exact lane grammar; ambiguous envelopes match a lane
-  result or a deterministic kernel ambiguity proof; prepared and started rows
-  are never accepted as terminal proof. Missing or mutated context, reordered
-  or resized evidence all fail closed. Cross-operation, cross-recipe, and
+  empty; failed and succeeded envelopes match the exact lane grammar.
+  Ambiguous envelopes must also prove their ambiguity path: every deterministic
+  kernel proof is recomputed and bound to its exact primary reason, post-start
+  guard proofs commit to the final ordered and bounded terminal reasons, and
+  lane evidence requires an exact settlement, post-dispatch revalidation, or
+  explicitly classified operation-specific ambiguity transition. Prepared and
+  started rows are never accepted as terminal proof. Missing or mutated
+  context, reordered or resized evidence, state-only substitution, and
+  accounting-proof disagreement all fail closed. Cross-operation, cross-recipe, and
   cross-transaction substitution all fail closed even when every
   content-derived wrapper hash is
   recomputed. Artifact envelopes also bind the wrapper projection to the exact
@@ -102,6 +109,34 @@ them in individual lane services:
   binds artifact, quarantine, fingerprint, quarantine projection, and service
   proof; upload-plan evidence additionally binds the exact source download
   receipt/recipe and upload-plan ref;
+- dynamic observation, action-plan, POST-form-plan, and origin-session evidence
+  is also backed by an independent content-free operation proof written before
+  the lane dispatch result returns. Its ref is the final ordered evidence
+  element and binds the construction-time proof store, lane, operation and
+  scope, exact request fingerprint, transaction, intent, authority binding,
+  dispatch outcome, complete base evidence, and typed safe-ref-only material.
+  The immutable proof store is owner-only, bounded, no-follow, and
+  construction-bound to its root and proof-directory identities. Each service
+  is bound to its exact kernel, registry, gateway or Keychain/session
+  dependencies, and proof store. Replay independently attests both the
+  operation proof and exact terminal kernel row. A distinct immutable
+  terminal-binding record is minted immediately after, and only after, the
+  fresh durable terminal commit is exactly re-attested. It binds the request
+  fingerprint and complete canonical non-replayed receipt, including state,
+  ordered evidence, reasons, approval/authority refs, budget reservation,
+  release or settlement, and the optional operation-proof ref. Idempotent
+  finish, replay, conflict, legacy, and crash-incomplete rows never synthesize
+  or backfill that record. Every replay context, including proof-less
+  deterministic kernel ambiguity, requires the exact binding and includes its
+  ref in the authenticated envelope. A missing, mutated, reordered, foreign,
+  or legacy proof or terminal binding fails closed; replay never reconstructs
+  one by calling the gateway, planner, helper, or Keychain. These local content
+  hashes provide structural provenance only: they are not signatures,
+  external timestamps, non-repudiation, or execution authority. Coordinated
+  owner-level rewriting of both the transaction ledger and immutable proof
+  store remains an explicit residual threat. No raw content, credential
+  material, profile path, cookie, or new browser/network authority is
+  persisted or granted;
 - external-operation contract receipts recompute the referenced kernel receipt
   from their copied transaction, state, proof, evidence, and original kernel
   reason fields, even when the operator-facing contract adds a scoped failure

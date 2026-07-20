@@ -812,7 +812,13 @@ def test_post_form_replay_requires_exact_durable_provenance(
     )
     replay_receipt = kernel.replay_if_terminal(kernel_request)
     assert replay_receipt is not None
-    expectation = _post_form_replay_expectation(recipe, replay_receipt)
+    expectation = _post_form_replay_expectation(
+        recipe,
+        schema,
+        replay_receipt,
+        kernel=kernel,
+        expected_execution=kernel_request,
+    )
     provenance = _build_external_action_replay_validation_context(
         kernel,
         expected_execution=kernel_request,
@@ -837,15 +843,21 @@ def test_post_form_replay_requires_exact_durable_provenance(
         wrong_expectation = ExternalActionReplayEvidenceExpectation(
             lane_ref=expectation.lane_ref,
             operation_ref=_ref("replay-operation", "post-form-cross"),
+            scope_refs=expectation.scope_refs,
             evidence_refs=expectation.evidence_refs,
+            operation_proof_ref=expectation.operation_proof_ref,
         )
-        wrong_provenance = _build_external_action_replay_validation_context(
-            kernel,
-            expected_execution=kernel_request,
-            replay_receipt=replay_receipt,
-            expectation=wrong_expectation,
-        )
-        context = replay_validation_context(wrong_provenance)
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_INVALID",
+        ):
+            _build_external_action_replay_validation_context(
+                kernel,
+                expected_execution=kernel_request,
+                replay_receipt=replay_receipt,
+                expectation=wrong_expectation,
+            )
+        return
     elif mutation == "evidence_plan_substitution":
         payload["evidence_refs"][0] = _ref(
             "evidence",
@@ -964,7 +976,13 @@ def test_post_form_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity
         ValueError,
         match="GOVERNED_POST_FORM_REPLAY_EVIDENCE_PROVENANCE_REQUIRED",
     ):
-        _post_form_replay_expectation(recipe, malformed)
+        _post_form_replay_expectation(
+            recipe,
+            schema,
+            malformed,
+            kernel=kernel,
+            expected_execution=kernel_request,
+        )
 
 
 def test_post_form_settlement_failure_suppresses_plan_and_retry(

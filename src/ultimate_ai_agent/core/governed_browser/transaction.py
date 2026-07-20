@@ -11,6 +11,7 @@ from pathlib import Path
 from threading import Event, RLock, Thread
 from time import monotonic
 from typing import Protocol
+from weakref import ReferenceType, WeakKeyDictionary, ref as weakref_ref
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,6 +75,112 @@ _TERMINAL_ACCOUNTING_REASON_MARKERS = (
     "budget-settlement-ambiguous",
     "budget-settlement-failed",
 )
+_EXTERNAL_ACTION_REPLAY_SOURCE_LOCK = RLock()
+_EXTERNAL_ACTION_STORE_REPLAY_SOURCES: WeakKeyDictionary[
+    object,
+    tuple[Path, object],
+] = WeakKeyDictionary()
+_EXTERNAL_ACTION_KERNEL_REPLAY_SOURCES: WeakKeyDictionary[
+    object,
+    ReferenceType[object],
+] = WeakKeyDictionary()
+
+
+def _register_external_action_store_replay_source(
+    store: object,
+    *,
+    path: Path,
+    lock: object,
+) -> None:
+    with _EXTERNAL_ACTION_REPLAY_SOURCE_LOCK:
+        _EXTERNAL_ACTION_STORE_REPLAY_SOURCES[store] = (path, lock)
+
+
+def _register_external_action_kernel_replay_source(
+    kernel: object,
+    *,
+    store: object,
+) -> None:
+    with _EXTERNAL_ACTION_REPLAY_SOURCE_LOCK:
+        if store not in _EXTERNAL_ACTION_STORE_REPLAY_SOURCES:
+            raise ValueError(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
+        _EXTERNAL_ACTION_KERNEL_REPLAY_SOURCES[kernel] = weakref_ref(store)
+
+
+def _external_action_store_replay_source(
+    store: object,
+) -> tuple[Path, object] | None:
+    if type(store) is not ExternalActionTransactionStore:
+        return None
+    with _EXTERNAL_ACTION_REPLAY_SOURCE_LOCK:
+        source = _EXTERNAL_ACTION_STORE_REPLAY_SOURCES.get(store)
+    if source is None:
+        return None
+    path, lock = source
+    try:
+        current_path = object.__getattribute__(store, "path")
+    except AttributeError:
+        return None
+    if current_path != path:
+        return None
+    return path, lock
+
+
+def _bound_external_action_replay_store(kernel: object) -> object | None:
+    if type(kernel) is not GovernedExternalActionKernel:
+        return None
+    with _EXTERNAL_ACTION_REPLAY_SOURCE_LOCK:
+        store_ref = _EXTERNAL_ACTION_KERNEL_REPLAY_SOURCES.get(kernel)
+    if store_ref is None:
+        return None
+    store = store_ref()
+    if type(store) is not ExternalActionTransactionStore:
+        return None
+    try:
+        current_store = object.__getattribute__(kernel, "_store")
+    except AttributeError:
+        return None
+    if current_store is not store:
+        return None
+    if _external_action_store_replay_source(store) is None:
+        return None
+    return store
+
+
+def _bounded_external_action_reason_refs(
+    request: ExternalActionExecutionRequest,
+    reason_refs: Sequence[str],
+) -> list[str]:
+    bounded_reason_refs = list(dict.fromkeys(reason_refs))
+    if len(bounded_reason_refs) <= 16:
+        return bounded_reason_refs
+    accounting_reasons = [
+        reason
+        for reason in bounded_reason_refs
+        if any(
+            marker in reason for marker in _TERMINAL_ACCOUNTING_REASON_MARKERS
+        )
+    ][:15]
+    ordinary_reasons = [
+        reason
+        for reason in bounded_reason_refs
+        if reason not in accounting_reasons
+    ]
+    ordinary_limit = 15 - len(accounting_reasons)
+    overflow = ordinary_reasons[ordinary_limit:]
+    return [
+        *ordinary_reasons[:ordinary_limit],
+        *accounting_reasons,
+        stable_governed_browser_ref(
+            "reason-ref:governed-external-action:reason-overflow",
+            {
+                "intent_ref": request.intent_ref,
+                "reason_refs": overflow,
+            },
+        ),
+    ]
 
 
 class ExternalActionTransactionConflict(RuntimeError):
@@ -435,6 +542,11 @@ class ExternalActionTransactionStore:
                     "ALTER TABLE governed_external_action_dispatch_slot "
                     "ADD COLUMN lock_protocol TEXT"
                 )
+        _register_external_action_store_replay_source(
+            self,
+            path=self.path,
+            lock=self._lock,
+        )
 
     def prepare(
         self,
@@ -517,16 +629,35 @@ class ExternalActionTransactionStore:
     ) -> ExternalActionReceipt | None:
         """Atomically attest one exact immutable terminal row for replay proof."""
 
+        if type(self) is not ExternalActionTransactionStore:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
         validate_task_ref(receipt_ref, "receipt_ref")
+        exact_request = ExternalActionExecutionRequest.model_validate(
+            ExternalActionExecutionRequest.model_dump(
+                request,
+                mode="json",
+            )
+        )
+        source = _external_action_store_replay_source(self)
+        if source is None:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
+        source_path, source_lock = source
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
-            request.model_dump(mode="json"),
+            ExternalActionExecutionRequest.model_dump(
+                exact_request,
+                mode="json",
+            ),
         )
-        with self._lock, self._connect() as connection:
+        with source_lock, sqlite3.connect(source_path) as connection:
             row = connection.execute(
                 "SELECT fingerprint_ref, state, receipt_json "
                 "FROM governed_external_actions WHERE transaction_ref = ?",
-                (request.binding.transaction_ref,),
+                (exact_request.binding.transaction_ref,),
             ).fetchone()
         if row is None or row[2] is None:
             return None
@@ -563,9 +694,10 @@ class ExternalActionTransactionStore:
             row[1] not in terminal_states
             or receipt.state != row[1]
             or receipt.replayed
-            or receipt.transaction_ref != request.binding.transaction_ref
-            or receipt.intent_ref != request.intent_ref
-            or receipt.binding_ref != request.binding.binding_ref
+            or receipt.transaction_ref
+            != exact_request.binding.transaction_ref
+            or receipt.intent_ref != exact_request.intent_ref
+            or receipt.binding_ref != exact_request.binding.binding_ref
             or receipt.receipt_ref != receipt_ref
             or receipt.receipt_ref != expected_receipt_ref
         ):
@@ -989,28 +1121,35 @@ class ExternalActionTransactionStore:
         *,
         expected_state: ExternalActionState,
     ) -> None:
+        exact_receipt = ExternalActionReceipt.model_validate(
+            ExternalActionReceipt.model_dump(
+                receipt,
+                mode="json",
+            )
+        )
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT state, receipt_json FROM governed_external_actions "
+                "SELECT fingerprint_ref, state, receipt_json "
+                "FROM governed_external_actions "
                 "WHERE transaction_ref = ?",
-                (receipt.transaction_ref,),
+                (exact_receipt.transaction_ref,),
             ).fetchone()
             if row is None:
                 connection.rollback()
                 raise ExternalActionTransactionConflict(
                     "GOVERNED_EXTERNAL_ACTION_FINISH_WITHOUT_PREPARE"
                 )
-            if row[1] is not None:
-                prior = ExternalActionReceipt.model_validate_json(row[1])
-                if prior == receipt:
+            if row[2] is not None:
+                prior = ExternalActionReceipt.model_validate_json(row[2])
+                if prior == exact_receipt:
                     connection.commit()
                     return
                 connection.rollback()
                 raise ExternalActionTransactionConflict(
                     "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
                 )
-            if row[0] != expected_state.value:
+            if row[1] != expected_state.value:
                 connection.rollback()
                 raise ExternalActionTransactionConflict(
                     "GOVERNED_EXTERNAL_ACTION_FINISH_STATE_CONFLICT"
@@ -1020,10 +1159,10 @@ class ExternalActionTransactionStore:
                 "updated_at = ? WHERE transaction_ref = ? AND state = ? "
                 "AND receipt_json IS NULL",
                 (
-                    receipt.state,
-                    receipt.model_dump_json(),
+                    exact_receipt.state,
+                    ExternalActionReceipt.model_dump_json(exact_receipt),
                     utc_now().isoformat(),
-                    receipt.transaction_ref,
+                    exact_receipt.transaction_ref,
                     expected_state.value,
                 ),
             ).rowcount
@@ -1033,6 +1172,70 @@ class ExternalActionTransactionStore:
                     "GOVERNED_EXTERNAL_ACTION_FINISH_STATE_CONFLICT"
                 )
             connection.commit()
+        attested_receipt = ExternalActionTransactionStore._attest_terminal_commit(
+            self,
+            request_fingerprint_ref=row[0],
+            terminal_receipt=exact_receipt,
+        )
+        from .operation_proofs import (  # noqa: PLC0415
+            _record_terminal_receipt_binding,
+        )
+
+        _record_terminal_receipt_binding(
+            self,
+            request_fingerprint_ref=row[0],
+            terminal_receipt=attested_receipt,
+        )
+
+    def _attest_terminal_commit(
+        self,
+        *,
+        request_fingerprint_ref: str,
+        terminal_receipt: ExternalActionReceipt,
+    ) -> ExternalActionReceipt:
+        """Re-read exactly the row just committed before minting provenance."""
+
+        if type(self) is not ExternalActionTransactionStore:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
+        validate_task_ref(
+            request_fingerprint_ref,
+            "request_fingerprint_ref",
+        )
+        exact_receipt = ExternalActionReceipt.model_validate(
+            ExternalActionReceipt.model_dump(
+                terminal_receipt,
+                mode="json",
+            )
+        )
+        source = _external_action_store_replay_source(self)
+        if source is None:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
+        source_path, source_lock = source
+        with source_lock, sqlite3.connect(source_path) as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state, receipt_json "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (exact_receipt.transaction_ref,),
+            ).fetchone()
+        if row is None or row[2] is None:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
+            )
+        attested = ExternalActionReceipt.model_validate_json(row[2])
+        if (
+            row[0] != request_fingerprint_ref
+            or row[1] != exact_receipt.state
+            or attested != exact_receipt
+            or attested.replayed
+        ):
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
+            )
+        return attested
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path)
@@ -1078,6 +1281,10 @@ class GovernedExternalActionKernel:
         self._dispatch_timeout_seconds = float(dispatch_timeout_seconds)
         self._clock = clock
         self._manifest = build_external_action_capability_manifest()
+        _register_external_action_kernel_replay_source(
+            self,
+            store=store,
+        )
 
     def execute(
         self,
@@ -1950,6 +2157,15 @@ class GovernedExternalActionKernel:
         dispatch_result: ExternalActionDispatchResult,
         dispatch_reasons: list[str],
     ) -> ExternalActionReceipt:
+        if (
+            ExternalActionDispatchOutcome(dispatch_result.outcome)
+            == ExternalActionDispatchOutcome.outcome_ambiguous
+            and not dispatch_reasons
+        ):
+            dispatch_reasons = [
+                "reason-ref:governed-external-action:"
+                "dispatch-outcome-ambiguous"
+            ]
         try:
             settlement = self._budget_gate.settle(
                 request,
@@ -2018,16 +2234,6 @@ class GovernedExternalActionKernel:
         reason_refs: list[str],
         evidence_refs: list[str] | None = None,
     ) -> ExternalActionReceipt:
-        if evidence_refs is None:
-            evidence_refs = [
-                stable_governed_browser_ref(
-                    "evidence-ref:governed-external-action:post-start-guard",
-                    {
-                        "intent_ref": request.intent_ref,
-                        "reason_refs": list(dict.fromkeys(reason_refs)),
-                    },
-                )
-            ]
         try:
             release = self._budget_gate.release(
                 request,
@@ -2049,10 +2255,24 @@ class GovernedExternalActionKernel:
                     *release.reason_refs,
                 ]
             )
+        bounded_reasons = _bounded_external_action_reason_refs(
+            request,
+            reasons,
+        )
+        if evidence_refs is None:
+            evidence_refs = [
+                stable_governed_browser_ref(
+                    "evidence-ref:governed-external-action:post-start-guard",
+                    {
+                        "intent_ref": request.intent_ref,
+                        "reason_refs": bounded_reasons,
+                    },
+                )
+            ]
         return self._finish(
             request,
             ExternalActionState.outcome_ambiguous,
-            list(dict.fromkeys(reasons)),
+            bounded_reasons,
             approval_validation_ref=approval_validation_ref,
             authority_decision_ref=authority_decision_ref,
             budget_reservation_ref=reservation_ref,
@@ -2125,15 +2345,19 @@ class GovernedExternalActionKernel:
     ) -> ExternalActionReceipt | None:
         """Bind replay proof to one atomically read concrete durable row."""
 
-        if type(self._store) is not ExternalActionTransactionStore:
+        store = _bound_external_action_replay_store(self)
+        if type(store) is not ExternalActionTransactionStore:
             raise ExternalActionTransactionConflict(
                 "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
             )
         exact_request = ExternalActionExecutionRequest.model_validate(
-            request.model_dump(mode="json")
+            ExternalActionExecutionRequest.model_dump(
+                request,
+                mode="json",
+            )
         )
         return ExternalActionTransactionStore.attest_terminal_replay(
-            self._store,
+            store,
             exact_request,
             receipt_ref=receipt_ref,
         )
@@ -2512,33 +2736,10 @@ class GovernedExternalActionKernel:
         budget_settlement_ref: str | None = None,
         evidence_refs: list[str] | None = None,
     ) -> ExternalActionReceipt:
-        bounded_reason_refs = list(dict.fromkeys(reason_refs))
-        if len(bounded_reason_refs) > 16:
-            accounting_reasons = [
-                reason
-                for reason in bounded_reason_refs
-                if any(
-                    marker in reason for marker in _TERMINAL_ACCOUNTING_REASON_MARKERS
-                )
-            ][:15]
-            ordinary_reasons = [
-                reason
-                for reason in bounded_reason_refs
-                if reason not in accounting_reasons
-            ]
-            ordinary_limit = 15 - len(accounting_reasons)
-            overflow = ordinary_reasons[ordinary_limit:]
-            bounded_reason_refs = [
-                *ordinary_reasons[:ordinary_limit],
-                *accounting_reasons,
-                stable_governed_browser_ref(
-                    "reason-ref:governed-external-action:reason-overflow",
-                    {
-                        "intent_ref": request.intent_ref,
-                        "reason_refs": overflow,
-                    },
-                ),
-            ]
+        bounded_reason_refs = _bounded_external_action_reason_refs(
+            request,
+            reason_refs,
+        )
         payload = {
             "transaction_ref": request.binding.transaction_ref,
             "intent_ref": request.intent_ref,

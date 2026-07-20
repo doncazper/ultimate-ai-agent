@@ -538,6 +538,8 @@ def test_observation_replay_requires_exact_durable_provenance(
     expectation = _browser_observation_replay_expectation(
         recipe,
         replay_receipt,
+        kernel=kernel,
+        expected_execution=kernel_request,
     )
     provenance = _build_external_action_replay_validation_context(
         kernel,
@@ -570,15 +572,21 @@ def test_observation_replay_requires_exact_durable_provenance(
                 if mutation == "cross_lane"
                 else _ref("replay-operation", "observation-cross")
             ),
+            scope_refs=expectation.scope_refs,
             evidence_refs=expectation.evidence_refs,
+            operation_proof_ref=expectation.operation_proof_ref,
         )
-        wrong_provenance = _build_external_action_replay_validation_context(
-            kernel,
-            expected_execution=kernel_request,
-            replay_receipt=replay_receipt,
-            expectation=wrong_expectation,
-        )
-        context = replay_validation_context(wrong_provenance)
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_INVALID",
+        ):
+            _build_external_action_replay_validation_context(
+                kernel,
+                expected_execution=kernel_request,
+                replay_receipt=replay_receipt,
+                expectation=wrong_expectation,
+            )
+        return
     elif mutation == "evidence_substitution":
         payload["evidence_refs"] = [
             _ref("evidence", "observation-replay-provenance-substitute")
@@ -693,7 +701,12 @@ def test_observation_replay_expectation_rejects_nonterminal_or_arbitrary_ambigui
         ValueError,
         match="GOVERNED_BROWSER_OBSERVATION_REPLAY_EVIDENCE_PROVENANCE_REQUIRED",
     ):
-        _browser_observation_replay_expectation(recipe, malformed)
+        _browser_observation_replay_expectation(
+            recipe,
+            malformed,
+            kernel=kernel,
+            expected_execution=kernel_request,
+        )
 
 
 def test_observation_recipe_identity_conflicts_on_same_transaction(

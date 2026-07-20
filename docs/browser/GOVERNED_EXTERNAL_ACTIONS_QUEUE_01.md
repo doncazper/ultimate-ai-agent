@@ -317,8 +317,37 @@ uncertain helper failures after the durable start claim remain
 or lifecycle-request validation fails. Native helper input is read
 incrementally with a hard 16 KiB cap, helper file stat/open failures map to
 the existing untrusted precondition, and every Keychain query explicitly
-disables authentication UI. Replay does not call Keychain again or return a
-state projection.
+disables authentication UI.
+
+Before an origin-session dispatch result returns, a content-free operation proof
+is written to a separate immutable owner-only proof store and its ref is
+appended to the ordered kernel evidence. The exact proof binds the
+construction-time store, lane, recipe and scope, exact request fingerprint,
+transaction, intent, authority binding, dispatch outcome, base evidence, and
+typed Keychain/session-state projection. Helper receipt refs are recomputed
+from the exact helper operation, request ref, and helper version rather than
+accepted by prefix. The proof store uses bounded no-follow reads and writes,
+owner-only files, construction-bound directory identities, and exact
+service/kernel dependencies; replacing a store, path, helper, session
+dependency, or reader method cannot redirect replay.
+
+Replay succeeds only when the independently stored operation proof and the
+exact durable terminal kernel row agree on the complete ordered evidence
+envelope, and only when a separate immutable terminal binding proves that exact
+non-replayed receipt was freshly committed. The binding covers the request
+fingerprint, complete receipt state, ordered evidence, reasons, accounting
+refs, and optional operation-proof ref. It is minted only after a fresh durable
+terminal commit, never from an idempotent finish, replay, conflict, or legacy
+row. Missing, drifted, cross-operation, or cross-transaction proof material,
+and every terminal row missing its binding, fail closed even when all
+content-derived receipt or wrapper hashes are recomputed. Legacy terminal lane
+evidence is not upgraded or inferred from current Keychain/session state.
+Replay does not call Keychain again or return a state projection. This is local
+structural provenance, not a signature, external timestamp, non-repudiation,
+or standing authority, and it stores no credential material, web content,
+cookies, or raw local path. Coordinated owner-level rewriting of both the
+transaction ledger and immutable proof store remains an explicit local threat
+boundary.
 
 This item is a real local macOS Keychain adapter, not real browser
 authentication. There is no browser session, authentication, passkey/MFA
@@ -452,10 +481,35 @@ cannot be paired with an earlier receipt.
 The transaction fingerprint includes the registered recipe. A content-free
 terminal replay is resolved from the ledger before any transient download
 payload requirement, so callers can retrieve the terminal receipt without
-retaining or fabricating bytes. Replay does not read or write quarantine again.
+retaining or fabricating bytes. Successful replay then re-establishes the
+complete operation-specific evidence envelope from the exact app-owned store
+without writing it: download replay performs bounded no-follow reads of the
+service proof and payload and rebuilds the fingerprint, quarantine projection,
+and service proof. Upload replay performs the same bounded proof and payload
+inspection, re-attests the exact bound source download request and recipe
+against its concrete durable non-replayed terminal kernel receipt, and rebuilds
+the exact upload plan. Source attestation uses the exact construction-bound
+kernel and registry through concrete class methods; a missing source ledger,
+terminal row, or service proof cannot be replaced by matching wrapper refs.
+The transfer service binds its registry, kernel, quarantine store, source
+kernel, source registry, source request snapshot, and clock at construction.
+Those bindings and the store's immutable construction-time root, quarantine
+directory, inode identities, and store ref prevent later dependency,
+instance-field, or reader-method substitution from redirecting replay
+provenance. The terminal kernel evidence must equal that independently derived tuple
+in exact order and arity. Missing or drifted durable artifacts,
+correlated fingerprint/projection/proof substitution, a foreign valid upload
+plan, and cross-operation or cross-transaction evidence substitution all fail
+closed even when receipt hashes are recomputed. The replay result remains
+content-free and returns no projection or plan.
 Upload-body denial is evaluated before replay, so raw bytes can never accompany
 an upload-plan request. Successful replays use `replayed_content_free`; blocked,
 failed, or ambiguous terminal replays preserve their original transfer status.
+An already accepted successful terminal replay does not reapply current recipe
+or source-recipe expiry; it proves the exact durable receipt that was accepted
+while that authority window was valid. Failed and blocked legacy replays do not
+invent a source-proof requirement that their original terminal evidence did
+not carry.
 An expired current recipe is rejected during non-mutating preflight before the
 kernel claims its transaction, so a later refreshed recipe for the same
 transaction is not poisoned by a stale fingerprint. Upload planning also

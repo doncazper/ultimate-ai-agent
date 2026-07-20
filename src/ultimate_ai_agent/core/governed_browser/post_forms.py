@@ -53,6 +53,15 @@ from .contracts import (
     governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
+from .operation_proofs import (
+    GovernedBrowserDispatchFailureProofMaterial,
+    GovernedBrowserOperationProofError,
+    PostFormPlanOperationProofMaterial,
+    _attest_operation_proof,
+    _record_operation_proof,
+    _register_operation_proof_service,
+    _require_operation_proof_service,
+)
 from .replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
     _build_external_action_replay_validation_context,
@@ -699,8 +708,12 @@ class ExactPostFormResult(BaseModel):
             if (
                 self.plan.recipe_ref != self.receipt.recipe_ref
                 or self.plan.binding_ref != self.receipt.binding_ref
-                or tuple(self.receipt.evidence_refs)
+                or len(self.receipt.evidence_refs) != 3
+                or tuple(self.receipt.evidence_refs[:2])
                 != (self.plan.plan_ref, self.plan.projection_ref)
+                or not self.receipt.evidence_refs[2].startswith(
+                    "operation-proof-ref:governed-browser:sha256:"
+                )
             ):
                 raise ValueError("GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH")
         elif self.plan is not None:
@@ -721,19 +734,42 @@ class ExactPostFormService:
         self._registry = registry
         self._kernel = kernel
         self._gateway = gateway
+        _register_operation_proof_service(
+            self,
+            dependencies=(
+                ("_registry", registry),
+                ("_kernel", kernel),
+                ("_gateway", gateway),
+            ),
+        )
 
     def plan(self, form_request: ExactPostFormRequest) -> ExactPostFormResult:
+        service_binding = _require_operation_proof_service(self)
+        dependencies = dict(service_binding.dependencies)
+        registry = dependencies["_registry"]
+        kernel = dependencies["_kernel"]
         request = ExactPostFormRequest.model_validate(
             form_request.model_dump(mode="json")
         )
         execution = request.execution_request
-        resolved = self._registry.resolve(request.recipe_ref)
+        if type(registry) is not GovernedPostFormRecipeRegistry:
+            raise ValueError("GOVERNED_POST_FORM_SERVICE_BINDING_INVALID")
+        resolved = GovernedPostFormRecipeRegistry.resolve(
+            registry,
+            request.recipe_ref,
+        )
         if resolved is None:
             return _preflight_blocked(
                 request,
                 "reason-ref:governed-post-form:recipe-unregistered",
             )
         recipe, schema = resolved
+        recipe = GovernedPostFormRecipe.model_validate(
+            GovernedPostFormRecipe.model_dump(recipe, mode="json")
+        )
+        schema = GovernedPostFormSchema.model_validate(
+            GovernedPostFormSchema.model_dump(schema, mode="json")
+        )
         scope_reason = _recipe_scope_reason(recipe, schema, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
@@ -748,21 +784,57 @@ class ExactPostFormService:
             dispatched_request: ExternalActionExecutionRequest,
         ) -> ExternalActionDispatchResult:
             try:
-                plan = self._plan_via_gateway(
+                plan = ExactPostFormService._plan_via_gateway(
+                    self,
                     recipe=recipe,
                     schema=schema,
                     execution_request=dispatched_request,
                 )
             except (ValidationError, ValueError, TypeError, KeyError):
-                return _failed_dispatch(dispatched_request)
-            captured["plan"] = plan
-            return ExternalActionDispatchResult(
-                outcome=ExternalActionDispatchOutcome.succeeded,
-                evidence_refs=[plan.plan_ref, plan.projection_ref],
-                verified=True,
+                result = _failed_dispatch(dispatched_request)
+                base_evidence_refs = tuple(result.evidence_refs)
+                material = GovernedBrowserDispatchFailureProofMaterial(
+                    failure_ref=base_evidence_refs[0],
+                )
+            else:
+                captured["plan"] = plan
+                result = ExternalActionDispatchResult(
+                    outcome=ExternalActionDispatchOutcome.succeeded,
+                    evidence_refs=[plan.plan_ref, plan.projection_ref],
+                    verified=True,
+                )
+                base_evidence_refs = (plan.plan_ref, plan.projection_ref)
+                material = PostFormPlanOperationProofMaterial(
+                    plan_ref=plan.plan_ref,
+                    projection_ref=plan.projection_ref,
+                    profile_ref=plan.profile_ref,
+                )
+            proof = _record_operation_proof(
+                kernel,
+                expected_execution=kernel_execution,
+                lane_ref=_POST_FORM_REPLAY_LANE_REF,
+                operation_ref=_post_form_replay_operation_ref(
+                    recipe.recipe_ref
+                ),
+                scope_refs=_post_form_replay_scope_refs(recipe, schema),
+                dispatch_outcome=ExternalActionDispatchOutcome(
+                    result.outcome
+                ).value,
+                base_evidence_refs=base_evidence_refs,
+                material=material,
+            )
+            return ExternalActionDispatchResult.model_validate(
+                {
+                    **ExternalActionDispatchResult.model_dump(
+                        result,
+                        mode="json",
+                    ),
+                    "evidence_refs": (*base_evidence_refs, proof.proof_ref),
+                }
             )
 
-        external_receipt = self._kernel.execute(
+        external_receipt = GovernedExternalActionKernel.execute(
+            kernel,
             kernel_execution,
             dispatch=dispatch,
         )
@@ -776,10 +848,13 @@ class ExactPostFormService:
         if external_receipt.replayed:
             expectation = _post_form_replay_expectation(
                 recipe,
+                schema,
                 external_receipt,
+                kernel=kernel,
+                expected_execution=kernel_execution,
             )
             provenance = _build_external_action_replay_validation_context(
-                self._kernel,
+                kernel,
                 expected_execution=kernel_execution,
                 replay_receipt=external_receipt,
                 expectation=expectation,
@@ -799,7 +874,12 @@ class ExactPostFormService:
         schema: GovernedPostFormSchema,
         execution_request: ExternalActionExecutionRequest,
     ) -> ExactPostFormPlan:
-        result = self._gateway.execute(
+        service_binding = _require_operation_proof_service(self)
+        gateway = dict(service_binding.dependencies)["_gateway"]
+        if type(gateway) is not WebAccessGateway:
+            raise ValueError("GOVERNED_POST_FORM_SERVICE_BINDING_INVALID")
+        result = WebAccessGateway.execute(
+            gateway,
             WebAccessRequest(
                 kind=WebAccessRequestKind.BROWSER_ACTION_DRY_RUN,
                 method="GET",
@@ -892,41 +972,65 @@ class ExactPostFormService:
         profile_ref = payload.get("profile_ref")
         if not isinstance(profile_ref, str):
             raise ValueError("GOVERNED_POST_FORM_PROFILE_REF_REQUIRED")
-        plan_payload = {
-            "plan_ref": recipe.plan_ref,
-            "recipe_ref": recipe.recipe_ref,
-            "binding_ref": recipe.binding_ref,
-            "schema_ref": schema.schema_ref,
-            "origin_ref": schema.exact_origin_ref,
-            "page_snapshot_ref": schema.page_snapshot_ref,
-            "source_observation_ref": schema.source_observation_ref,
-            "source_safe_url_ref": schema.source_safe_url_ref,
-            "destination_safe_url_ref": schema.destination_safe_url_ref,
-            "element_ref": schema.element_ref,
-            "visibility_proof_ref": schema.visibility_proof_ref,
-            "field_value_bindings": recipe.field_value_bindings,
-            "profile_ref": profile_ref,
-            "target_visible": transport.target_visible,
-            "same_origin_verified": transport.same_origin_verified,
-            "registered_schema_verified": transport.registered_schema_verified,
-            "field_bindings_verified": transport.field_bindings_verified,
-            "plan_generated": transport.plan_generated,
-        }
-        provisional = ExactPostFormPlan.model_construct(
-            projection_ref=(
-                "browser-post-form-plan-projection-ref:"
-                "governed-browser:pending"
-            ),
-            **plan_payload,
+        return _build_exact_post_form_plan(
+            recipe,
+            schema,
+            profile_ref=profile_ref,
         )
-        projection_ref = stable_governed_browser_ref(
-            "browser-post-form-plan-projection-ref:governed-browser",
-            provisional.model_dump(mode="json", exclude={"projection_ref"}),
-        )
-        return ExactPostFormPlan(
-            projection_ref=projection_ref,
-            **plan_payload,
-        )
+
+
+def _build_exact_post_form_plan(
+    recipe: GovernedPostFormRecipe,
+    schema: GovernedPostFormSchema,
+    *,
+    profile_ref: str,
+) -> ExactPostFormPlan:
+    exact_recipe = GovernedPostFormRecipe.model_validate(
+        GovernedPostFormRecipe.model_dump(recipe, mode="json")
+    )
+    exact_schema = GovernedPostFormSchema.model_validate(
+        GovernedPostFormSchema.model_dump(schema, mode="json")
+    )
+    validate_task_ref(profile_ref, "profile_ref")
+    plan_payload = {
+        "plan_ref": exact_recipe.plan_ref,
+        "recipe_ref": exact_recipe.recipe_ref,
+        "binding_ref": exact_recipe.binding_ref,
+        "schema_ref": exact_schema.schema_ref,
+        "origin_ref": exact_schema.exact_origin_ref,
+        "page_snapshot_ref": exact_schema.page_snapshot_ref,
+        "source_observation_ref": exact_schema.source_observation_ref,
+        "source_safe_url_ref": exact_schema.source_safe_url_ref,
+        "destination_safe_url_ref": exact_schema.destination_safe_url_ref,
+        "element_ref": exact_schema.element_ref,
+        "visibility_proof_ref": exact_schema.visibility_proof_ref,
+        "field_value_bindings": exact_recipe.field_value_bindings,
+        "profile_ref": profile_ref,
+        "target_visible": True,
+        "same_origin_verified": True,
+        "registered_schema_verified": True,
+        "field_bindings_verified": True,
+        "plan_generated": True,
+    }
+    provisional = ExactPostFormPlan.model_construct(
+        projection_ref=(
+            "browser-post-form-plan-projection-ref:"
+            "governed-browser:pending"
+        ),
+        **plan_payload,
+    )
+    projection_ref = stable_governed_browser_ref(
+        "browser-post-form-plan-projection-ref:governed-browser",
+        ExactPostFormPlan.model_dump(
+            provisional,
+            mode="json",
+            exclude={"projection_ref"},
+        ),
+    )
+    return ExactPostFormPlan(
+        projection_ref=projection_ref,
+        **plan_payload,
+    )
 
 
 def _validate_recipe_field_set(
@@ -1033,27 +1137,73 @@ def _failed_dispatch(
 
 def _post_form_replay_expectation(
     recipe: GovernedPostFormRecipe,
+    schema: GovernedPostFormSchema,
     replay_receipt: ExternalActionReceipt,
+    *,
+    kernel: GovernedExternalActionKernel,
+    expected_execution: ExternalActionExecutionRequest,
 ) -> ExternalActionReplayEvidenceExpectation:
     evidence_refs = tuple(replay_receipt.evidence_refs)
-    projection_prefix = (
-        "browser-post-form-plan-projection-ref:governed-browser:sha256:"
+    proof_ref = (
+        evidence_refs[-1]
+        if evidence_refs
+        and evidence_refs[-1].startswith(
+            "operation-proof-ref:governed-browser:sha256:"
+        )
+        else None
+    )
+    base_evidence_refs = (
+        evidence_refs[:-1] if proof_ref is not None else evidence_refs
+    )
+    proof = None
+    if proof_ref is not None:
+        try:
+            proof = _attest_operation_proof(
+                kernel,
+                expected_execution=expected_execution,
+                proof_ref=proof_ref,
+                lane_ref=_POST_FORM_REPLAY_LANE_REF,
+                operation_ref=_post_form_replay_operation_ref(
+                    recipe.recipe_ref
+                ),
+                scope_refs=_post_form_replay_scope_refs(recipe, schema),
+                base_evidence_refs=base_evidence_refs,
+            )
+        except GovernedBrowserOperationProofError:
+            proof = None
+    expected_plan = (
+        _build_exact_post_form_plan(
+            recipe,
+            schema,
+            profile_ref=proof.material.profile_ref,
+        )
+        if proof is not None
+        and isinstance(
+            proof.material,
+            PostFormPlanOperationProofMaterial,
+        )
+        else None
     )
     success_evidence_valid = (
-        len(evidence_refs) == 2
-        and evidence_refs[0] == recipe.plan_ref
-        and evidence_refs[1].startswith(projection_prefix)
-        and len(evidence_refs[1]) == len(projection_prefix) + 64
-        and not any(
-            character not in "0123456789abcdef"
-            for character in evidence_refs[1][len(projection_prefix) :]
+        expected_plan is not None
+        and base_evidence_refs
+        == (
+            expected_plan.plan_ref,
+            expected_plan.projection_ref,
         )
     )
-    failure_evidence_valid = evidence_refs == (
-        stable_governed_browser_ref(
-            "evidence-ref:governed-post-form-plan-failed",
-            {"intent_ref": replay_receipt.intent_ref},
-        ),
+    expected_failure_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-post-form-plan-failed",
+        {"intent_ref": replay_receipt.intent_ref},
+    )
+    failure_evidence_valid = (
+        proof is not None
+        and isinstance(
+            proof.material,
+            GovernedBrowserDispatchFailureProofMaterial,
+        )
+        and proof.material.failure_ref == expected_failure_ref
+        and base_evidence_refs == (expected_failure_ref,)
     )
     _require_operation_replay_evidence_envelope(
         replay_receipt,
@@ -1064,7 +1214,26 @@ def _post_form_replay_expectation(
     return ExternalActionReplayEvidenceExpectation(
         lane_ref=_POST_FORM_REPLAY_LANE_REF,
         operation_ref=_post_form_replay_operation_ref(recipe.recipe_ref),
+        scope_refs=_post_form_replay_scope_refs(recipe, schema),
         evidence_refs=evidence_refs,
+        operation_proof_ref=proof_ref,
+    )
+
+
+def _post_form_replay_scope_refs(
+    recipe: GovernedPostFormRecipe,
+    schema: GovernedPostFormSchema,
+) -> tuple[str, ...]:
+    return (
+        recipe.binding_ref,
+        schema.exact_origin_ref,
+        schema.page_snapshot_ref,
+        recipe.plan_ref,
+        schema.source_observation_ref,
+        schema.destination_safe_url_ref,
+        schema.element_ref,
+        schema.visibility_proof_ref,
+        schema.schema_ref,
     )
 
 

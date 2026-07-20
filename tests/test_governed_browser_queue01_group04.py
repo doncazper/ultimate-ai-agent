@@ -549,7 +549,12 @@ def test_action_replay_requires_exact_durable_provenance(
     )
     replay_receipt = kernel.replay_if_terminal(kernel_request)
     assert replay_receipt is not None
-    expectation = _browser_action_replay_expectation(recipe, replay_receipt)
+    expectation = _browser_action_replay_expectation(
+        recipe,
+        replay_receipt,
+        kernel=kernel,
+        expected_execution=kernel_request,
+    )
     provenance = _build_external_action_replay_validation_context(
         kernel,
         expected_execution=kernel_request,
@@ -729,7 +734,12 @@ def test_action_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity(
         ValueError,
         match="GOVERNED_BROWSER_ACTION_REPLAY_EVIDENCE_PROVENANCE_REQUIRED",
     ):
-        _browser_action_replay_expectation(recipe, malformed)
+        _browser_action_replay_expectation(
+            recipe,
+            malformed,
+            kernel=kernel,
+            expected_execution=kernel_request,
+        )
 
 
 def test_settlement_failure_suppresses_plan_and_forbids_retry(

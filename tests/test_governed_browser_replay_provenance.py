@@ -27,6 +27,8 @@ from ultimate_ai_agent.core.governed_browser.replay_provenance import (
 from ultimate_ai_agent.core.governed_browser.transaction import (
     ExternalActionTransactionStore,
     GovernedExternalActionKernel,
+    _bounded_external_action_reason_refs,
+    _register_external_action_kernel_replay_source,
 )
 
 
@@ -203,14 +205,32 @@ def _concrete_kernel_with_terminal(
     request: ExternalActionExecutionRequest,
     terminal: ExternalActionReceipt,
     database_name: str,
+    record_terminal_binding: bool = True,
 ) -> GovernedExternalActionKernel:
     store = ExternalActionTransactionStore(tmp_path / f"{database_name}.sqlite3")
     state, prior = store.prepare(request)
     assert state == ExternalActionState.prepared
     assert prior is None
-    store.finish(terminal, expected_state=ExternalActionState.prepared)
+    if record_terminal_binding:
+        store.finish(terminal, expected_state=ExternalActionState.prepared)
+    else:
+        with store._lock, store._connect() as connection:
+            connection.execute(
+                "UPDATE governed_external_actions "
+                "SET state = ?, receipt_json = ? WHERE transaction_ref = ?",
+                (
+                    terminal.state,
+                    ExternalActionReceipt.model_dump_json(terminal),
+                    terminal.transaction_ref,
+                ),
+            )
+            connection.commit()
     kernel = object.__new__(GovernedExternalActionKernel)
     kernel._store = store
+    _register_external_action_kernel_replay_source(
+        kernel,
+        store=store,
+    )
     return kernel
 
 
@@ -262,12 +282,85 @@ def test_clean_proof_uses_atomic_row_and_builds_deterministic_envelope(
 
     assert authenticated is context
     assert context.envelope.evidence_refs == replay.evidence_refs
+    assert context.envelope.terminal_binding_ref.startswith(
+        "terminal-binding-ref:governed-browser:sha256:"
+    )
     assert context.envelope.terminal_receipt_ref == replay.receipt_ref
     assert context.envelope.terminal_transaction_ref == replay.transaction_ref
     reparsed = ExternalActionReplayEvidenceEnvelope.model_validate(
         context.envelope.model_dump(mode="json")
     )
     assert reparsed == context.envelope
+
+
+def test_clean_generic_ambiguity_replay_requires_terminal_binding(
+    tmp_path: Path,
+) -> None:
+    request = _request("clean-generic-ambiguity")
+    evidence_suffix = "dispatch-timeout"
+    evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:dispatch-timeout",
+        {
+            "reason": evidence_suffix,
+            "transaction_ref": request.binding.transaction_ref,
+            "intent_ref": request.intent_ref,
+            "binding_ref": request.binding.binding_ref,
+        },
+    )
+    terminal = _receipt(
+        request,
+        evidence_refs=(evidence_ref,),
+        proof_suffix="clean-generic-ambiguity",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=(
+            "reason-ref:governed-external-action:dispatch-timeout",
+        ),
+    )
+    kernel = _concrete_kernel_with_terminal(
+        tmp_path,
+        request=request,
+        terminal=terminal,
+        database_name="clean-generic-ambiguity",
+    )
+
+    context = _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=request,
+        replay_receipt=terminal.model_copy(update={"replayed": True}),
+        expectation=_expectation((evidence_ref,)),
+    )
+
+    assert context.envelope.operation_proof_ref is None
+    assert context.envelope.terminal_binding_ref.startswith(
+        "terminal-binding-ref:governed-browser:sha256:"
+    )
+
+
+def test_legacy_terminal_without_binding_fails_closed(tmp_path: Path) -> None:
+    request = _request("legacy-terminal-binding-missing")
+    terminal = _receipt(
+        request,
+        evidence_refs=(_ref("evidence", "legacy-terminal"),),
+        proof_suffix="legacy-terminal-binding-missing",
+    )
+    kernel = _concrete_kernel_with_terminal(
+        tmp_path,
+        request=request,
+        terminal=terminal,
+        database_name="legacy-terminal-binding-missing",
+        record_terminal_binding=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_TERMINAL_BINDING_INVALID",
+    ):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=request,
+            replay_receipt=terminal.model_copy(update={"replayed": True}),
+            expectation=_expectation(terminal.evidence_refs),
+        )
 
 
 @pytest.mark.parametrize(
@@ -519,6 +612,7 @@ def test_terminal_receipt_must_not_be_marked_replayed(tmp_path: Path) -> None:
         request=request,
         terminal=replayed_terminal,
         database_name="terminal-replay-flag",
+        record_terminal_binding=False,
     )
 
     with pytest.raises(ValueError, match="PROVENANCE_LOOKUP_FAILED"):
@@ -615,6 +709,231 @@ def test_concrete_attestation_ignores_instance_method_substitution(
     assert context.terminal_receipt.receipt_ref == replay.receipt_ref
 
 
+class _ExplodingContextManager:
+    def __enter__(self) -> object:
+        raise AssertionError("instance shadow must not execute")
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+
+def test_concrete_store_attestation_ignores_connector_and_lock_shadows(
+    tmp_path: Path,
+) -> None:
+    kernel, replay, _ = _context_fixture(tmp_path, "store-shadow")
+    kernel._store._connect = lambda: (_ for _ in ()).throw(
+        AssertionError("shadow connector executed")
+    )
+    kernel._store._lock = _ExplodingContextManager()
+    kernel._store.attest_terminal_replay = (
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("shadow attestor executed")
+        )
+    )
+
+    context = _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=_request("store-shadow"),
+        replay_receipt=replay,
+        expectation=_expectation(replay.evidence_refs),
+    )
+
+    assert context.terminal_receipt.receipt_ref == replay.receipt_ref
+
+
+def test_connector_shadow_cannot_redirect_attestation_to_another_ledger(
+    tmp_path: Path,
+) -> None:
+    request = _request("connector-redirect")
+    terminal = _receipt(
+        request,
+        evidence_refs=(_ref("evidence", "connector-redirect"),),
+        proof_suffix="connector-redirect",
+    )
+    real_store = ExternalActionTransactionStore(tmp_path / "real.sqlite3")
+    real_store.prepare(request)
+    fake_store = ExternalActionTransactionStore(tmp_path / "fake.sqlite3")
+    fake_store.prepare(request)
+    fake_store.finish(terminal, expected_state=ExternalActionState.prepared)
+    kernel = object.__new__(GovernedExternalActionKernel)
+    kernel._store = real_store
+    _register_external_action_kernel_replay_source(kernel, store=real_store)
+    real_store._connect = fake_store._connect
+
+    with pytest.raises(ValueError, match="TERMINAL_REQUIRED"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=request,
+            replay_receipt=terminal.model_copy(update={"replayed": True}),
+            expectation=_expectation(terminal.evidence_refs),
+        )
+
+
+def test_store_path_or_whole_store_substitution_fails_closed(
+    tmp_path: Path,
+) -> None:
+    request = _request("source-substitution")
+    terminal = _receipt(
+        request,
+        evidence_refs=(_ref("evidence", "source-substitution"),),
+        proof_suffix="source-substitution",
+    )
+    real_store = ExternalActionTransactionStore(tmp_path / "real.sqlite3")
+    real_store.prepare(request)
+    fake_store = ExternalActionTransactionStore(tmp_path / "fake.sqlite3")
+    fake_store.prepare(request)
+    fake_store.finish(terminal, expected_state=ExternalActionState.prepared)
+    kernel = object.__new__(GovernedExternalActionKernel)
+    kernel._store = real_store
+    _register_external_action_kernel_replay_source(kernel, store=real_store)
+    replay = terminal.model_copy(update={"replayed": True})
+
+    real_store.path = fake_store.path
+    with pytest.raises(ValueError, match="PROVENANCE_SOURCE_INVALID"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=request,
+            replay_receipt=replay,
+            expectation=_expectation(terminal.evidence_refs),
+        )
+
+    real_store.path = tmp_path / "real.sqlite3"
+    kernel._store = fake_store
+    with pytest.raises(ValueError, match="PROVENANCE_SOURCE_INVALID"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=request,
+            replay_receipt=replay,
+            expectation=_expectation(terminal.evidence_refs),
+        )
+
+
+def test_concrete_serializers_ignore_request_replay_and_expectation_shadows(
+    tmp_path: Path,
+) -> None:
+    kernel, replay, _ = _context_fixture(tmp_path, "serializer-shadow")
+    exact_request = _request("serializer-shadow")
+
+    wrong_request = _request("serializer-shadow-wrong")
+    object.__setattr__(
+        wrong_request,
+        "model_dump",
+        lambda *_args, **_kwargs: ExternalActionExecutionRequest.model_dump(
+            exact_request,
+            mode="json",
+        ),
+    )
+    with pytest.raises(ValueError, match="TERMINAL_REQUIRED"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=wrong_request,
+            replay_receipt=replay,
+            expectation=_expectation(replay.evidence_refs),
+        )
+
+    forged_replay = _rehash_receipt(
+        replay,
+        evidence_refs=(_ref("evidence", "forged-replay"),),
+    ).model_copy(update={"replayed": True})
+    object.__setattr__(
+        forged_replay,
+        "model_dump",
+        lambda *_args, **_kwargs: ExternalActionReceipt.model_dump(
+            replay,
+            mode="json",
+        ),
+    )
+    with pytest.raises(ValueError, match="PROVENANCE_LOOKUP_FAILED"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=exact_request,
+            replay_receipt=forged_replay,
+            expectation=_expectation(replay.evidence_refs),
+        )
+
+    forged_expectation = _expectation(
+        (_ref("evidence", "forged-expectation"),)
+    )
+    legitimate_expectation = _expectation(replay.evidence_refs)
+    object.__setattr__(
+        forged_expectation,
+        "model_dump",
+        lambda *_args, **_kwargs: (
+            ExternalActionReplayEvidenceExpectation.model_dump(
+                legitimate_expectation,
+                mode="json",
+            )
+        ),
+    )
+    with pytest.raises(ValueError, match="PROVENANCE_EVIDENCE_MISMATCH"):
+        _build_external_action_replay_validation_context(
+            kernel,
+            expected_execution=exact_request,
+            replay_receipt=replay,
+            expectation=forged_expectation,
+        )
+
+
+def test_candidate_model_dump_shadow_cannot_bypass_whole_receipt_match(
+    tmp_path: Path,
+) -> None:
+    _, replay, context = _context_fixture(tmp_path, "candidate-shadow")
+    forged = _rehash_receipt(
+        replay,
+        evidence_refs=(_ref("evidence", "candidate-forged"),),
+    ).model_copy(update={"replayed": True})
+    object.__setattr__(
+        forged,
+        "model_dump",
+        lambda *_args, **_kwargs: ExternalActionReceipt.model_dump(
+            replay,
+            mode="json",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="PROVENANCE_RECEIPT_MISMATCH"):
+        require_external_action_replay_provenance(
+            replay_validation_context(context),
+            lane_ref=LANE_REF,
+            operation_ref=OPERATION_REF,
+            candidate=forged,
+        )
+
+
+@pytest.mark.parametrize(
+    "snapshot_name",
+    ["envelope", "expected_execution", "terminal_receipt"],
+)
+def test_context_model_dump_json_shadow_cannot_hide_snapshot_mutation(
+    snapshot_name: str,
+    tmp_path: Path,
+) -> None:
+    _, _, context = _context_fixture(
+        tmp_path,
+        f"context-serializer-{snapshot_name}",
+    )
+    snapshot = getattr(context, snapshot_name)
+    exact_type = type(snapshot)
+    original_json = exact_type.model_dump_json(snapshot)
+    mutated_field = {
+        "envelope": ("lane_ref", _ref("lane", "mutated")),
+        "expected_execution": ("task_ref", _ref("task", "mutated")),
+        "terminal_receipt": (
+            "evidence_refs",
+            (_ref("evidence", "mutated"),),
+        ),
+    }[snapshot_name]
+    object.__setattr__(snapshot, mutated_field[0], mutated_field[1])
+    object.__setattr__(
+        snapshot,
+        "model_dump_json",
+        lambda *_args, **_kwargs: original_json,
+    )
+
+    with pytest.raises(ValueError, match="PROVENANCE_CONTEXT_INVALID"):
+        replay_validation_context(context)
+
+
 @pytest.mark.parametrize(
     (
         "state",
@@ -627,9 +946,35 @@ def test_concrete_attestation_ignores_instance_method_substitution(
         (ExternalActionState.succeeded, "lane", True, False, ()),
         (ExternalActionState.failed, "lane", False, True, ()),
         (ExternalActionState.blocked, "empty", False, False, ()),
-        (ExternalActionState.outcome_ambiguous, "lane", True, False, ()),
-        (ExternalActionState.outcome_ambiguous, "lane", False, True, ()),
-        (ExternalActionState.outcome_ambiguous, "kernel", False, False, ()),
+        (
+            ExternalActionState.outcome_ambiguous,
+            "lane",
+            True,
+            False,
+            (
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+        ),
+        (
+            ExternalActionState.outcome_ambiguous,
+            "lane",
+            False,
+            True,
+            (
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+        ),
+        (
+            ExternalActionState.outcome_ambiguous,
+            "kernel",
+            False,
+            False,
+            (
+                "reason-ref:governed-external-action:dispatch-timeout",
+            ),
+        ),
         (
             ExternalActionState.outcome_ambiguous,
             "guard",
@@ -667,9 +1012,12 @@ def test_complete_terminal_evidence_envelope_accepts_only_defined_shapes(
         )
     elif evidence_kind == "guard":
         evidence_refs = (
-            (
-                "evidence-ref:governed-external-action:"
-                f"post-start-guard:sha256:{'a' * 64}"
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:post-start-guard",
+                {
+                    "intent_ref": request.intent_ref,
+                    "reason_refs": list(reason_refs),
+                },
             ),
         )
     else:
@@ -681,6 +1029,17 @@ def test_complete_terminal_evidence_envelope_accepts_only_defined_shapes(
         state=state,
         reason_refs=reason_refs,
     )
+    if (
+        state == ExternalActionState.outcome_ambiguous
+        and evidence_kind == "lane"
+    ):
+        receipt = _rehash_receipt(receipt, budget_settlement_ref=None)
+    elif evidence_kind == "guard":
+        receipt = _rehash_receipt(
+            receipt,
+            budget_release_ref=_ref("budget-release", "guard"),
+            budget_settlement_ref=None,
+        )
 
     _require_operation_replay_evidence_envelope(
         receipt,
@@ -721,6 +1080,365 @@ def test_undefined_terminal_evidence_envelopes_fail_closed(
         state=state,
     )
 
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    ("evidence_suffix", "required_reason_ref"),
+    [
+        (
+            "dispatch-capacity-check-failed",
+            "reason-ref:governed-external-action:"
+            "dispatch-capacity-check-failed",
+        ),
+        (
+            "dispatch-capacity-bounded",
+            "reason-ref:governed-external-action:dispatch-capacity-bounded",
+        ),
+        (
+            "dispatch-start-revalidation-denied",
+            "reason-ref:governed-external-action:"
+            "post-start-revalidation-denied",
+        ),
+        (
+            "dispatch-timeout",
+            "reason-ref:governed-external-action:dispatch-timeout",
+        ),
+        (
+            "dispatch-exception",
+            "reason-ref:governed-external-action:dispatch-exception",
+        ),
+        (
+            "dispatch-result-invalid",
+            "reason-ref:governed-external-action:dispatch-result-invalid",
+        ),
+        (
+            "dispatch-worker-start-failed",
+            "reason-ref:governed-external-action:"
+            "dispatch-worker-start-failed",
+        ),
+        (
+            "prior-start-recovery",
+            "reason-ref:governed-external-action:prior-start-unsettled",
+        ),
+    ],
+)
+def test_kernel_ambiguity_evidence_requires_its_exact_primary_reason(
+    evidence_suffix: str,
+    required_reason_ref: str,
+) -> None:
+    request = _request(f"ambiguity-reason-{evidence_suffix}")
+    common_payload = {
+        "transaction_ref": request.binding.transaction_ref,
+        "intent_ref": request.intent_ref,
+        "binding_ref": request.binding.binding_ref,
+    }
+    evidence_ref = stable_governed_browser_ref(
+        f"evidence-ref:governed-external-action:{evidence_suffix}",
+        (
+            common_payload
+            if evidence_suffix == "prior-start-recovery"
+            else {"reason": evidence_suffix, **common_payload}
+        ),
+    )
+    valid = _receipt(
+        request,
+        evidence_refs=(evidence_ref,),
+        proof_suffix=f"ambiguity-reason-{evidence_suffix}",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=(required_reason_ref,),
+    )
+    _require_operation_replay_evidence_envelope(
+        valid,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    for tampered_reasons in (
+        (),
+        ("reason-ref:governed-external-action:unrelated",),
+        (
+            "reason-ref:governed-external-action:unrelated",
+            required_reason_ref,
+        ),
+    ):
+        tampered = _rehash_receipt(valid, reason_refs=tampered_reasons)
+        with pytest.raises(
+            ValueError,
+            match="TEST_REPLAY_EVIDENCE_MISMATCH",
+        ):
+            _require_operation_replay_evidence_envelope(
+                tampered,
+                success_evidence_valid=False,
+                failure_evidence_valid=False,
+                mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+            )
+
+
+@pytest.mark.parametrize(
+    "primary_reason_ref",
+    [
+        "reason-ref:governed-external-action:"
+        "post-start-revalidation-denied",
+        "reason-ref:governed-external-action:"
+        "dispatch-wait-interrupted-before-start",
+    ],
+)
+def test_post_start_guard_replay_recomputes_the_complete_reason_envelope(
+    primary_reason_ref: str,
+) -> None:
+    request = _request(f"guard-envelope-{primary_reason_ref.rsplit(':', 1)[-1]}")
+    reason_refs = (
+        primary_reason_ref,
+        "reason-ref:governed-external-action:guard-detail",
+        "reason-ref:governed-external-action:budget-release-unconfirmed",
+        "reason-ref:governed-external-action:budget-release-failed",
+    )
+    evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:post-start-guard",
+        {
+            "intent_ref": request.intent_ref,
+            "reason_refs": list(reason_refs),
+        },
+    )
+    valid = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(evidence_ref,),
+            proof_suffix="guard-envelope",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=reason_refs,
+        ),
+        budget_settlement_ref=None,
+    )
+    _require_operation_replay_evidence_envelope(
+        valid,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    tampered_receipts = (
+        _rehash_receipt(
+            valid,
+            evidence_refs=(
+                "evidence-ref:governed-external-action:"
+                f"post-start-guard:sha256:{'a' * 64}",
+            ),
+        ),
+        _rehash_receipt(valid, intent_ref=_ref("intent", "guard-wrong")),
+        _rehash_receipt(valid, reason_refs=reason_refs[:-1]),
+        _rehash_receipt(
+            valid,
+            reason_refs=(reason_refs[1], reason_refs[0], *reason_refs[2:]),
+        ),
+        _rehash_receipt(
+            valid,
+            reason_refs=(
+                "reason-ref:governed-external-action:unrelated",
+                *reason_refs[1:],
+            ),
+        ),
+        _rehash_receipt(
+            valid,
+            budget_release_ref=_ref("budget-release", "inconsistent"),
+        ),
+    )
+    for tampered in tampered_receipts:
+        with pytest.raises(
+            ValueError,
+            match="TEST_REPLAY_EVIDENCE_MISMATCH",
+        ):
+            _require_operation_replay_evidence_envelope(
+                tampered,
+                success_evidence_valid=False,
+                failure_evidence_valid=False,
+                mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+            )
+
+
+def test_post_start_guard_overflow_uses_the_exact_bounded_reason_envelope() -> None:
+    request = _request("guard-overflow")
+    reasons = [
+        "reason-ref:governed-external-action:"
+        "post-start-revalidation-denied",
+        *[
+            f"reason-ref:governed-external-action:detail-{index}"
+            for index in range(20)
+        ],
+        "reason-ref:governed-external-action:budget-release-unconfirmed",
+    ]
+    bounded = _bounded_external_action_reason_refs(request, reasons)
+    assert len(bounded) == 16
+    evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:post-start-guard",
+        {
+            "intent_ref": request.intent_ref,
+            "reason_refs": bounded,
+        },
+    )
+    receipt = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(evidence_ref,),
+            proof_suffix="guard-overflow",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=tuple(bounded),
+        ),
+        budget_settlement_ref=None,
+    )
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+
+@pytest.mark.parametrize(
+    ("source_state", "success_valid", "failure_valid"),
+    [
+        (ExternalActionState.succeeded, True, False),
+        (ExternalActionState.failed, False, True),
+    ],
+)
+def test_lane_evidence_cannot_change_to_ambiguous_without_transition_proof(
+    source_state: ExternalActionState,
+    success_valid: bool,
+    failure_valid: bool,
+) -> None:
+    request = _request(f"lane-state-drift-{source_state.value}")
+    original = _receipt(
+        request,
+        evidence_refs=(_ref("evidence", f"lane-{source_state.value}"),),
+        proof_suffix=f"lane-state-drift-{source_state.value}",
+        state=source_state,
+    )
+    forged = _rehash_receipt(
+        original,
+        state=ExternalActionState.outcome_ambiguous.value,
+    )
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=success_valid,
+            failure_evidence_valid=failure_valid,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    ("reason_refs", "settlement_ref"),
+    [
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+            None,
+        ),
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "post-dispatch-revalidation-denied",
+                "reason-ref:governed-external-action:deadline-expired",
+            ),
+            _ref("budget-settlement", "post-dispatch"),
+        ),
+    ],
+)
+def test_lane_ambiguity_requires_an_exact_transition_and_accounting_shape(
+    reason_refs: tuple[str, ...],
+    settlement_ref: str | None,
+) -> None:
+    request = _request(
+        f"lane-ambiguity-{reason_refs[0].rsplit(':', 1)[-1]}"
+    )
+    valid = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(_ref("evidence", "lane-ambiguity"),),
+            proof_suffix="lane-ambiguity",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=reason_refs,
+        ),
+        budget_settlement_ref=settlement_ref,
+    )
+    _require_operation_replay_evidence_envelope(
+        valid,
+        success_evidence_valid=True,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    inconsistent = _rehash_receipt(
+        valid,
+        budget_release_ref=_ref("budget-release", "unexpected"),
+        budget_settlement_ref=None,
+    )
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            inconsistent,
+            success_evidence_valid=True,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_post_dispatch_ambiguity_requires_a_concrete_revalidation_reason() -> None:
+    request = _request("post-dispatch-reason-required")
+    receipt = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(_ref("evidence", "post-dispatch"),),
+            proof_suffix="post-dispatch-reason-required",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:"
+                "post-dispatch-revalidation-denied",
+            ),
+        ),
+        budget_settlement_ref=_ref(
+            "budget-settlement",
+            "post-dispatch-reason-required",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=True,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_operation_specific_ambiguity_requires_explicit_classification() -> None:
+    request = _request("operation-ambiguity")
+    receipt = _receipt(
+        request,
+        evidence_refs=(_ref("evidence", "operation-ambiguity"),),
+        proof_suffix="operation-ambiguity",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=(
+            "reason-ref:governed-external-action:"
+            "dispatch-outcome-ambiguous",
+        ),
+    )
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        operation_ambiguity_evidence_valid=True,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
     with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
         _require_operation_replay_evidence_envelope(
             receipt,

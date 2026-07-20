@@ -76,6 +76,7 @@ from .browser_keychain import (
     GovernedBrowserKeychainStatus,
     MacOSGovernedBrowserKeychainAdapter,
     build_governed_browser_credential_registration,
+    governed_browser_keychain_helper_receipt_ref,
     governed_browser_keychain_item_ref,
 )
 from .contracts import (
@@ -400,6 +401,7 @@ __all__ = [
     "create_isolated_browser_action_dry_run_gateway",
     "create_isolated_browser_broker_gateway",
     "decide_governed_browser_lane_activation",
+    "governed_browser_keychain_helper_receipt_ref",
     "governed_browser_keychain_item_ref",
     "governed_artifact_quarantine_ref",
     "governed_artifact_ref",
