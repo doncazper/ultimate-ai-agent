@@ -91,9 +91,12 @@ def test_packaged_launcher_completes_an_isolated_golden_journey(tmp_path) -> Non
     executable = (
         output_root / f"{APP_NAME}.app" / "Contents" / "MacOS" / EXECUTABLE_NAME
     )
+    launcher = executable.read_text(encoding="utf-8")
 
+    assert launcher.startswith("#!/bin/sh\n")
+    assert executable.stat().st_mode & stat.S_IXUSR
     result = subprocess.run(
-        [str(executable)],
+        ["/bin/sh", str(executable)],
         cwd=tmp_path,
         text=True,
         capture_output=True,
