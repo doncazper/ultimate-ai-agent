@@ -663,6 +663,94 @@ def test_financial_receipt_rejects_budget_proof_without_kernel_receipt(
         GovernedFinancialReceipt.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    ("field", "rebound_ref"),
+    (
+        (
+            "transaction_ref",
+            _pinned(
+                "transaction-ref:governed-external-action",
+                suffix="rebound-financial-transaction",
+            ),
+        ),
+        (
+            "budget_settlement_ref",
+            _pinned(
+                "receipt-ref:authority-budget",
+                suffix="rebound-financial-settlement",
+            ),
+        ),
+    ),
+)
+def test_financial_receipt_rejects_rebound_kernel_receipt_fields(
+    tmp_path: Path,
+    field: str,
+    rebound_ref: str,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix=f"kernel-receipt-binding-{field}",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload[field] = rebound_ref
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+def test_financial_receipt_rejects_conflicting_rehashed_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": payload["transaction_ref"],
+            "intent_ref": payload["intent_ref"],
+            "binding_ref": payload["binding_ref"],
+            "state": payload["external_action_state"],
+            "approval_validation_ref": payload["approval_validation_ref"],
+            "authority_decision_ref": payload["authority_decision_ref"],
+            "budget_reservation_ref": payload["budget_reservation_ref"],
+            "budget_release_ref": payload["budget_release_ref"],
+            "budget_settlement_ref": payload["budget_settlement_ref"],
+            "evidence_refs": payload["evidence_refs"],
+            "reason_refs": payload["reason_refs"],
+        },
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
 def test_expired_recipe_is_preflight_denial_but_prior_start_is_ambiguous(
     tmp_path: Path,
 ) -> None:

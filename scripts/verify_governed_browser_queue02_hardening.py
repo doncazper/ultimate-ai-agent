@@ -43,6 +43,13 @@ def verify() -> list[str]:
     external_operation_tests = _read(
         "tests/test_governed_browser_queue01_group09.py", failures
     )
+    financial_operation_tests = _read(
+        "tests/test_governed_browser_queue01_group10.py", failures
+    )
+    artifact_transfer_review_tests = _read(
+        "tests/test_governed_browser_queue01_group08_review_repairs.py",
+        failures,
+    )
     projection_sources = {
         relative: _read(relative, failures)
         for relative in (
@@ -143,8 +150,18 @@ def verify() -> list[str]:
         ),
         "external_operations": (
             "budget_release_ref",
+            "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_INVALID",
             "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH",
             "_external_operation_receipt_identity_payload",
+        ),
+        "financial_operations": (
+            "budget_release_ref",
+            "GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID",
+            "GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
+        ),
+        "artifact_transfers": (
+            "download-payload-rejected",
+            "download_payload_exceeds_max",
         ),
         "browser_actions": (
             "GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH",
@@ -204,10 +221,22 @@ def verify() -> list[str]:
         ),
         "external_operation_tests": (
             "test_operation_receipt_rejects_rebound_kernel_receipt_fields",
+            "test_operation_preflight_rejects_release_proof_without_kernel_receipt",
+            "test_operation_ready_receipt_preserves_validation_precedence",
+            "test_operation_receipt_rejects_conflicting_rehashed_kernel_proofs",
             "test_operation_receipt_preserves_prestart_budget_release_proof",
             "test_failed_kernel_receipt_keeps_original_reason_identity",
             "test_legacy_failed_operation_receipt_preserves_empty_kernel_reasons",
             "test_legacy_failed_operation_receipt_preserves_nonempty_kernel_reasons",
+        ),
+        "financial_operation_tests": (
+            "test_financial_receipt_rejects_budget_proof_without_kernel_receipt",
+            "test_financial_receipt_rejects_rebound_kernel_receipt_fields",
+            "test_financial_receipt_rejects_conflicting_rehashed_kernel_proofs",
+        ),
+        "artifact_transfer_review_tests": (
+            "test_oversized_download_payload_is_rejected_before_owned_copy",
+            "evidence-ref:governed-artifact:download-payload-rejected",
         ),
         "doc": (
             "Queue 02",
@@ -225,10 +254,18 @@ def verify() -> list[str]:
         "transaction": transaction,
         "hardening": hardening,
         "external_operations": external_operations,
+        "financial_operations": projection_sources[
+            "src/ultimate_ai_agent/core/governed_browser/financial_operation_contracts.py"
+        ],
+        "artifact_transfers": projection_sources[
+            "src/ultimate_ai_agent/core/governed_browser/artifact_transfers.py"
+        ],
         "browser_actions": browser_actions,
         "post_forms": post_forms,
         "tests": tests,
         "external_operation_tests": external_operation_tests,
+        "financial_operation_tests": financial_operation_tests,
+        "artifact_transfer_review_tests": artifact_transfer_review_tests,
         "doc": doc,
     }
     for label, markers in required.items():

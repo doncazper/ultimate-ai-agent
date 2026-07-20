@@ -559,8 +559,29 @@ def test_oversized_download_payload_is_rejected_before_owned_copy(
         injected_download_payload=payload,
     )
 
+    expected_evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-artifact:download-payload-rejected",
+        {"intent_ref": request.intent_ref},
+    )
+    expected_external_receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": result.receipt.transaction_ref,
+            "intent_ref": result.receipt.intent_ref,
+            "binding_ref": result.receipt.binding_ref,
+            "state": result.receipt.external_action_state,
+            "approval_validation_ref": result.receipt.approval_validation_ref,
+            "authority_decision_ref": result.receipt.authority_decision_ref,
+            "budget_reservation_ref": result.receipt.budget_reservation_ref,
+            "budget_settlement_ref": result.receipt.budget_settlement_ref,
+            "evidence_refs": [expected_evidence_ref],
+            "reason_refs": [],
+        },
+    )
     assert result.receipt.status == "failed"
     assert result.receipt.reason_refs == [
         "reason-ref:governed-artifact:transfer-preparation-failed"
     ]
+    assert result.receipt.evidence_refs == [expected_evidence_ref]
+    assert result.receipt.external_action_receipt_ref == expected_external_receipt_ref
     assert payload == bytearray(len(payload))

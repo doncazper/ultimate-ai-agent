@@ -932,13 +932,6 @@ class GovernedExternalOperationReceipt(BaseModel):
             GovernedExternalOperationContractStatus.contract_ready,
             GovernedExternalOperationContractStatus.replayed_content_free,
         }
-        kernel_proof_refs = (
-            self.external_action_receipt_ref,
-            self.approval_validation_ref,
-            self.authority_decision_ref,
-            self.budget_reservation_ref,
-            self.budget_settlement_ref,
-        )
         if (
             status == GovernedExternalOperationContractStatus.contract_ready
             and state != ExternalActionState.succeeded
@@ -949,6 +942,37 @@ class GovernedExternalOperationReceipt(BaseModel):
             and self.replayed
         ):
             raise ValueError("GOVERNED_EXTERNAL_OPERATION_READY_PROOF_REQUIRED")
+        success_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_settlement_ref,
+        )
+        external_kernel_proof_refs = (
+            *success_kernel_proof_refs,
+            self.budget_release_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+            or bool(self.external_action_reason_refs)
+        )
+        if (
+            status == GovernedExternalOperationContractStatus.preflight_blocked
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError(
+                "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+            or self.external_action_reason_refs
+        ):
+            raise ValueError(
+                "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
         scope_proof_refs = (
             self.operation_authority_ref,
             self.operation_input_ref,
@@ -956,7 +980,9 @@ class GovernedExternalOperationReceipt(BaseModel):
             self.reconciliation_ref,
         )
         if status in successful_statuses:
-            if any(ref is None for ref in kernel_proof_refs):
+            if self.external_action_receipt_ref is None or any(
+                ref is None for ref in success_kernel_proof_refs
+            ):
                 raise ValueError(
                     "GOVERNED_EXTERNAL_OPERATION_SUCCESS_KERNEL_PROOF_REQUIRED"
                 )
@@ -1033,34 +1059,30 @@ class GovernedExternalOperationReceipt(BaseModel):
                 )
             ):
                 legacy_external_action_reason_refs = ()
-            external_receipt_payload = {
-                "transaction_ref": self.transaction_ref,
-                "intent_ref": self.intent_ref,
-                "binding_ref": self.binding_ref,
-                "state": self.external_action_state,
-                "approval_validation_ref": self.approval_validation_ref,
-                "authority_decision_ref": self.authority_decision_ref,
-                "budget_reservation_ref": self.budget_reservation_ref,
-                "budget_settlement_ref": self.budget_settlement_ref,
-                "evidence_refs": list(self.evidence_refs),
-                "reason_refs": list(
-                    self.external_action_reason_refs
-                    if self.external_action_reason_refs is not None
-                    else legacy_external_action_reason_refs
-                ),
-            }
-            if self.budget_release_ref is not None:
-                external_receipt_payload["budget_release_ref"] = (
-                    self.budget_release_ref
+            try:
+                ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=(
+                        self.external_action_reason_refs
+                        if self.external_action_reason_refs is not None
+                        else legacy_external_action_reason_refs
+                    ),
+                    replayed=self.replayed,
                 )
-            expected_external_receipt_ref = stable_governed_browser_ref(
-                "receipt-ref:governed-external-action",
-                external_receipt_payload,
-            )
-            if self.external_action_receipt_ref != expected_external_receipt_ref:
+            except ValueError as exc:
                 raise ValueError(
                     "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH"
-                )
+                ) from exc
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-external-operation",
             _external_operation_receipt_identity_payload(self),

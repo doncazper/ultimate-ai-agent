@@ -1783,7 +1783,7 @@ class ExactGovernedArtifactTransferService:
                 if len(dispatch_download_payload) > recipe.max_bytes:
                     return _failed_dispatch(
                         dispatched_request,
-                        "payload-too-large",
+                        "download-payload-rejected",
                     )
                 try:
                     inspection = self._store.quarantine(

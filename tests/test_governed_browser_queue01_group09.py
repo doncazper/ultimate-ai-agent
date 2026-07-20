@@ -792,6 +792,136 @@ def test_operation_receipt_rejects_rebound_kernel_receipt_fields(
         GovernedExternalOperationReceipt.model_validate(payload)
 
 
+def test_operation_preflight_rejects_release_proof_without_kernel_receipt(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="orphaned-release-proof",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    result = service.prepare(
+        ExactGovernedExternalOperationRequest(
+            execution_request=request,
+            recipe_ref="external-operation-recipe-ref:governed-browser:unknown",
+            contract_ref=recipe.contract_ref,
+            operation=recipe.operation,
+            target_ref=recipe.target_ref,
+        )
+    )
+    payload = result.receipt.model_dump(mode="json")
+    payload["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="orphaned-release-proof",
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        external_operation_module._external_operation_receipt_identity_payload(
+            GovernedExternalOperationReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected_error"),
+    (
+        (
+            {
+                "external_action_state": ExternalActionState.blocked.value,
+                "external_action_receipt_ref": None,
+            },
+            "GOVERNED_EXTERNAL_OPERATION_READY_STATE_MISMATCH",
+        ),
+        (
+            {
+                "replayed": True,
+                "external_action_receipt_ref": None,
+            },
+            "GOVERNED_EXTERNAL_OPERATION_READY_PROOF_REQUIRED",
+        ),
+    ),
+)
+def test_operation_ready_receipt_preserves_validation_precedence(
+    tmp_path: Path,
+    updates: dict[str, object],
+    expected_error: str,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix=f"ready-validation-precedence-{expected_error}",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(updates)
+
+    with pytest.raises(ValueError, match=expected_error):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
+def test_operation_receipt_rejects_conflicting_rehashed_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": payload["transaction_ref"],
+            "intent_ref": payload["intent_ref"],
+            "binding_ref": payload["binding_ref"],
+            "state": payload["external_action_state"],
+            "approval_validation_ref": payload["approval_validation_ref"],
+            "authority_decision_ref": payload["authority_decision_ref"],
+            "budget_reservation_ref": payload["budget_reservation_ref"],
+            "budget_release_ref": payload["budget_release_ref"],
+            "budget_settlement_ref": payload["budget_settlement_ref"],
+            "evidence_refs": payload["evidence_refs"],
+            "reason_refs": payload["external_action_reason_refs"],
+        },
+    )
+    payload["external_action_reason_refs"] = tuple(
+        payload["external_action_reason_refs"]
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        external_operation_module._external_operation_receipt_identity_payload(
+            GovernedExternalOperationReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
 def test_operation_receipt_preserves_prestart_budget_release_proof(
     tmp_path: Path,
 ) -> None:

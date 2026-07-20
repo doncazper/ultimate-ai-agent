@@ -1003,8 +1003,19 @@ class GovernedFinancialReceipt(BaseModel):
             self.budget_release_ref,
             self.budget_settlement_ref,
         )
-        if self.external_action_receipt_ref is None and any(
-            ref is not None for ref in external_kernel_proof_refs
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            status == GovernedFinancialContractStatus.preflight_blocked
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
         ):
             raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
         if status in successful:
@@ -1094,6 +1105,34 @@ class GovernedFinancialReceipt(BaseModel):
                 raise ValueError("GOVERNED_FINANCIAL_SUCCESS_EVIDENCE_MISMATCH")
             if self.reason_refs:
                 raise ValueError("GOVERNED_FINANCIAL_SUCCESS_REASON_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            if (
+                status == GovernedFinancialContractStatus.failed
+                and external_reason_refs
+                == ("reason-ref:governed-financial:contract-preparation-failed",)
+            ):
+                external_reason_refs = ()
+            try:
+                ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-financial-contract",
             governed_receipt_identity_payload(self),
