@@ -40,6 +40,8 @@ from ultimate_ai_agent.core.web_access import (
 from .browser_actions import (
     ExactBrowserActionReceipt,
     ExactBrowserActionStatus,
+    _POST_FORM_REPLAY_LANE_REF,
+    _post_form_replay_operation_ref,
 )
 from .contracts import (
     ExternalActionDispatchOutcome,
@@ -50,6 +52,11 @@ from .contracts import (
     ExternalActionTargetKind,
     governed_receipt_identity_payload,
     stable_governed_browser_ref,
+)
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    build_external_action_replay_validation_context,
+    replay_validation_context,
 )
 from .transaction import GovernedExternalActionKernel
 
@@ -729,6 +736,10 @@ class ExactPostFormService:
         scope_reason = _recipe_scope_reason(recipe, schema, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
+        kernel_execution = _post_form_kernel_execution(
+            execution,
+            recipe_ref=recipe.recipe_ref,
+        )
 
         captured: dict[str, ExactPostFormPlan] = {}
 
@@ -750,17 +761,34 @@ class ExactPostFormService:
                 verified=True,
             )
 
-        external_receipt = self._kernel.execute(execution, dispatch=dispatch)
+        external_receipt = self._kernel.execute(
+            kernel_execution,
+            dispatch=dispatch,
+        )
         plan = captured.get("plan")
         if (
             external_receipt.replayed
             or external_receipt.state != ExternalActionState.succeeded.value
         ):
             plan = None
+        replay_context: dict[str, object] | None = None
+        if external_receipt.replayed:
+            expectation = _post_form_replay_expectation(
+                recipe,
+                external_receipt,
+            )
+            provenance = build_external_action_replay_validation_context(
+                self._kernel,
+                expected_execution=kernel_execution,
+                replay_receipt=external_receipt,
+                expectation=expectation,
+            )
+            replay_context = replay_validation_context(provenance)
         return _result_from_external_receipt(
             request=request,
             external_receipt=external_receipt,
             plan=plan,
+            replay_context=replay_context,
         )
 
     def _plan_via_gateway(
@@ -1002,6 +1030,54 @@ def _failed_dispatch(
     )
 
 
+def _post_form_replay_expectation(
+    recipe: GovernedPostFormRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayEvidenceExpectation:
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    projection_prefix = (
+        "browser-post-form-plan-projection-ref:governed-browser:sha256:"
+    )
+    if (
+        replay_receipt.state != ExternalActionState.succeeded.value
+        or len(evidence_refs) != 2
+        or evidence_refs[0] != recipe.plan_ref
+        or not evidence_refs[1].startswith(projection_prefix)
+        or len(evidence_refs[1]) != len(projection_prefix) + 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in evidence_refs[1][len(projection_prefix) :]
+        )
+    ):
+        raise ValueError(
+            "GOVERNED_POST_FORM_REPLAY_EVIDENCE_PROVENANCE_REQUIRED"
+        )
+    return ExternalActionReplayEvidenceExpectation(
+        lane_ref=_POST_FORM_REPLAY_LANE_REF,
+        operation_ref=_post_form_replay_operation_ref(recipe.recipe_ref),
+        evidence_refs=evidence_refs,
+    )
+
+
+def _post_form_kernel_execution(
+    execution: ExternalActionExecutionRequest,
+    *,
+    recipe_ref: str,
+) -> ExternalActionExecutionRequest:
+    return ExternalActionExecutionRequest.model_validate(
+        {
+            **execution.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-browser-post-form-recipe",
+                {
+                    "source_idempotency_ref": execution.idempotency_ref,
+                    "recipe_ref": recipe_ref,
+                },
+            ),
+        }
+    )
+
+
 def _preflight_blocked(
     request: ExactPostFormRequest,
     reason_ref: str,
@@ -1038,6 +1114,7 @@ def _result_from_external_receipt(
     request: ExactPostFormRequest,
     external_receipt: ExternalActionReceipt,
     plan: ExactPostFormPlan | None,
+    replay_context: dict[str, object] | None = None,
 ) -> ExactPostFormResult:
     state = ExternalActionState(external_receipt.state)
     if external_receipt.replayed:
@@ -1082,7 +1159,10 @@ def _result_from_external_receipt(
             )
         ),
     )
-    return ExactPostFormResult(
-        receipt=ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload),
-        plan=plan,
+    return ExactPostFormResult.model_validate(
+        {
+            "receipt": {"receipt_ref": receipt_ref, **payload},
+            "plan": plan,
+        },
+        context=replay_context,
     )

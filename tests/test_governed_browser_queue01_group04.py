@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.authority import AuthorityCapability
 from ultimate_ai_agent.core.governed_browser import (
     BrowserActionDryRunTransportResult,
     ExactBrowserActionRequest,
+    ExactBrowserActionReceipt,
     ExactBrowserActionService,
     ExactBrowserActionStatus,
     ExternalActionAuthorityBinding,
@@ -30,6 +31,18 @@ from ultimate_ai_agent.core.governed_browser import (
     IsolatedBrowserActionDryRunBrokerAdapter,
     build_governed_browser_action_recipe,
     create_isolated_browser_action_dry_run_gateway,
+)
+from ultimate_ai_agent.core.governed_browser.browser_actions import (
+    _browser_action_kernel_execution,
+    _browser_action_replay_expectation,
+)
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+    stable_governed_browser_ref,
+)
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    build_external_action_replay_validation_context,
+    replay_validation_context,
 )
 from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
 
@@ -163,6 +176,38 @@ def _plan(service, request, recipe_ref):  # type: ignore[no-untyped-def]
             execution_request=request,
         )
     )
+
+
+def _rehash_action_replay(
+    payload: dict[str, Any],
+    *,
+    receipt_prefix: str = "receipt-ref:governed-browser-action",
+) -> dict[str, Any]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(**payload)
+        ),
+    )
+    return payload
 
 
 @pytest.mark.parametrize(
@@ -400,6 +445,181 @@ def test_action_plan_is_at_most_once_and_replay_is_content_free(
     assert replay.plan is None
     assert transport.calls == 1
     assert SOURCE_OBSERVATION_REF not in replay.receipt.model_dump_json()
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate_json(
+            replay.receipt.model_dump_json()
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "evidence_plan_substitution",
+        "evidence_projection_substitution",
+        "evidence_order",
+        "evidence_arity_drop",
+        "evidence_arity_extra",
+        "cross_lane",
+        "cross_operation",
+        "cross_recipe",
+        "cross_transaction",
+    ),
+)
+def test_action_replay_requires_exact_durable_provenance(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    operation = GovernedBrowserActionKind.get_form
+    request = _exact_request(suffix=f"replay-provenance-{mutation}", operation=operation)
+    recipe = _recipe(request, operation)
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _service(
+        request=request,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactActionPlanTransport(),
+    )
+    _plan(service, request, recipe.recipe_ref)
+    replay = _plan(service, request, recipe.recipe_ref)
+    kernel_request = _browser_action_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = kernel.replay_if_terminal(kernel_request)
+    assert replay_receipt is not None
+    expectation = _browser_action_replay_expectation(recipe, replay_receipt)
+    provenance = build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=kernel_request,
+        replay_receipt=replay_receipt,
+        expectation=expectation,
+    )
+    context = replay_validation_context(provenance)
+    payload = replay.receipt.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate(payload)
+    assert (
+        ExactBrowserActionReceipt.model_validate(payload, context=context)
+        == replay.receipt
+    )
+
+    receipt_prefix = "receipt-ref:governed-browser-action"
+    if mutation == "evidence_plan_substitution":
+        payload["evidence_refs"][0] = _ref(
+            "evidence",
+            "action-replay-provenance-plan-substitute",
+        )
+    elif mutation == "evidence_projection_substitution":
+        payload["evidence_refs"][1] = _ref(
+            "evidence",
+            "action-replay-provenance-projection-substitute",
+        )
+    elif mutation == "evidence_order":
+        payload["evidence_refs"] = list(reversed(payload["evidence_refs"]))
+    elif mutation == "evidence_arity_drop":
+        payload["evidence_refs"] = payload["evidence_refs"][:-1]
+    elif mutation == "evidence_arity_extra":
+        payload["evidence_refs"].append(
+            _ref("evidence", "action-replay-provenance-extra")
+        )
+    elif mutation == "cross_lane":
+        receipt_prefix = "receipt-ref:governed-post-form"
+    elif mutation == "cross_recipe":
+        payload["recipe_ref"] = _ref("recipe", "action-replay-provenance-cross")
+    elif mutation == "cross_operation":
+        foreign_operation = GovernedBrowserActionKind.visible_click
+        foreign_request = _exact_request(
+            suffix="action-replay-provenance-cross-operation",
+            operation=foreign_operation,
+        )
+        foreign_recipe = _recipe(foreign_request, foreign_operation)
+        foreign_kernel, _ = _authorized_kernel(
+            tmp_path / "foreign-operation",
+            foreign_request,
+        )
+        foreign_service, _ = _service(
+            request=foreign_request,
+            recipe=foreign_recipe,
+            kernel=foreign_kernel,
+            transport=_ExactActionPlanTransport(),
+        )
+        _plan(foreign_service, foreign_request, foreign_recipe.recipe_ref)
+        foreign_kernel_request = _browser_action_kernel_execution(
+            foreign_request,
+            recipe_ref=foreign_recipe.recipe_ref,
+        )
+        foreign = foreign_kernel.replay_if_terminal(foreign_kernel_request)
+        assert foreign is not None
+        payload.update(
+            {
+                "recipe_ref": foreign_recipe.recipe_ref,
+                "transaction_ref": foreign.transaction_ref,
+                "intent_ref": foreign.intent_ref,
+                "binding_ref": foreign.binding_ref,
+                "external_action_state": foreign.state,
+                "approval_validation_ref": foreign.approval_validation_ref,
+                "authority_decision_ref": foreign.authority_decision_ref,
+                "budget_reservation_ref": foreign.budget_reservation_ref,
+                "budget_release_ref": foreign.budget_release_ref,
+                "budget_settlement_ref": foreign.budget_settlement_ref,
+                "evidence_refs": list(foreign.evidence_refs),
+                "reason_refs": list(foreign.reason_refs),
+                "replayed": foreign.replayed,
+            }
+        )
+    else:
+        foreign_request = _exact_request(
+            suffix="action-replay-provenance-foreign",
+            operation=operation,
+        )
+        foreign_recipe = _recipe(foreign_request, operation)
+        foreign_kernel, _ = _authorized_kernel(
+            tmp_path / "foreign",
+            foreign_request,
+        )
+        foreign_service, _ = _service(
+            request=foreign_request,
+            recipe=foreign_recipe,
+            kernel=foreign_kernel,
+            transport=_ExactActionPlanTransport(),
+        )
+        _plan(foreign_service, foreign_request, foreign_recipe.recipe_ref)
+        foreign_kernel_request = _browser_action_kernel_execution(
+            foreign_request,
+            recipe_ref=foreign_recipe.recipe_ref,
+        )
+        foreign = foreign_kernel.replay_if_terminal(foreign_kernel_request)
+        assert foreign is not None
+        payload.update(
+            {
+                "transaction_ref": foreign.transaction_ref,
+                "intent_ref": foreign.intent_ref,
+                "binding_ref": foreign.binding_ref,
+                "external_action_state": foreign.state,
+                "approval_validation_ref": foreign.approval_validation_ref,
+                "authority_decision_ref": foreign.authority_decision_ref,
+                "budget_reservation_ref": foreign.budget_reservation_ref,
+                "budget_release_ref": foreign.budget_release_ref,
+                "budget_settlement_ref": foreign.budget_settlement_ref,
+                "evidence_refs": list(foreign.evidence_refs),
+                "reason_refs": list(foreign.reason_refs),
+                "replayed": foreign.replayed,
+            }
+        )
+    forged = _rehash_action_replay(payload, receipt_prefix=receipt_prefix)
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged, context=context)
 
 
 def test_settlement_failure_suppresses_plan_and_forbids_retry(
