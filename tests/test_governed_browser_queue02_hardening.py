@@ -9,6 +9,7 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
+import ultimate_ai_agent.core.governed_browser as governed_browser_package
 import ultimate_ai_agent.core.governed_browser.transaction as transaction_module
 from scripts.verify_governed_browser_queue02_hardening import verify
 from tests.test_governed_browser_queue01_group01 import (
@@ -101,6 +102,22 @@ _BOOLEAN_ADVERSARIAL_SIGNALS = (
     "retry_requested",
     "resource_limit_exceeded",
 )
+
+
+def test_queue02_package_exports_are_declared() -> None:
+    expected = {
+        "ExternalActionAdversarialSignals",
+        "GovernedBrowserActivationPosture",
+        "GovernedBrowserLaneActivationDecision",
+        "GovernedBrowserLaneActivationEvidence",
+        "GovernedBrowserQueue02Lane",
+        "build_external_action_readiness",
+        "decide_governed_browser_lane_activation",
+        "governed_browser_queue02_inactive_activation_matrix",
+    }
+
+    assert expected.issubset(set(governed_browser_package.__all__))
+    assert all(hasattr(governed_browser_package, name) for name in expected)
 
 
 def _signals(**updates: bool | int) -> ExternalActionAdversarialSignals:

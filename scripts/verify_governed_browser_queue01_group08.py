@@ -165,6 +165,7 @@ def verify() -> list[str]:
             "test_artifact_preflight_rejects_orphan_kernel_proof",
             "test_artifact_receipt_rejects_kernel_state_status_mismatch",
             "test_artifact_replayed_content_free_requires_succeeded_kernel_state",
+            "test_artifact_replayed_success_binds_external_evidence_to_claimed_scope",
             "test_artifact_replayed_success_requires_complete_kernel_proof",
         ),
         "doc": (

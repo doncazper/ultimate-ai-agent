@@ -1540,6 +1540,19 @@ class GovernedArtifactTransferReceipt(BaseModel):
             or not self.evidence_refs
         ):
             raise ValueError("GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED")
+        if status == GovernedArtifactTransferStatus.replayed_content_free:
+            expected_evidence_count = (
+                5
+                if operation
+                == GovernedArtifactTransferOperation.download_quarantine
+                else 6
+            )
+            if (
+                len(self.evidence_refs) != expected_evidence_count
+                or self.evidence_refs[:2]
+                != [self.artifact_ref, self.quarantine_ref]
+            ):
+                raise ValueError("GOVERNED_ARTIFACT_REPLAY_EVIDENCE_MISMATCH")
         external_kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,

@@ -866,6 +866,58 @@ def test_artifact_replayed_content_free_requires_succeeded_kernel_state(
         GovernedArtifactTransferReceipt.model_validate(forged)
 
 
+def test_artifact_replayed_success_binds_external_evidence_to_claimed_scope(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="replay-evidence-scope",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.execute(
+        exact,
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = service.execute(
+        exact,
+        injected_download_payload=bytearray(b"replayed artifact"),
+    ).receipt.model_dump(mode="json")
+    assert forged["status"] == "replayed_content_free"
+    original_evidence_refs = list(forged["evidence_refs"])
+    forged["artifact_ref"] = governed_artifact_ref(
+        source_ref=_pinned(
+            "artifact-source-ref:governed-browser",
+            suffix="other-replay-artifact",
+        ),
+        declared_media_type=GovernedArtifactMediaType.text_plain,
+    )
+    forged["quarantine_ref"] = governed_artifact_quarantine_ref(
+        origin_ref=recipe.origin_ref,
+        artifact_ref=str(forged["artifact_ref"]),
+        download_transaction_ref=recipe.download_transaction_ref,
+    )
+    assert forged["evidence_refs"] == original_evidence_refs
+    assert forged["evidence_refs"][:2] != [
+        forged["artifact_ref"],
+        forged["quarantine_ref"],
+    ]
+    _rehash_receipt(forged)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_MISMATCH",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
 @pytest.mark.parametrize(
     "missing_field",
     (
