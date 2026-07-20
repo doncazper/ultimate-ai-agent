@@ -557,12 +557,123 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_REPLAY_FLAG_REQUIRED")
+        status = GovernedHumanChallengeHandoffStatus(self.status)
+        state = ExternalActionState(self.external_action_state)
+        if status != GovernedHumanChallengeHandoffStatus.replayed_content_free:
+            expected_states = {
+                GovernedHumanChallengeHandoffStatus.handoff_ready: {
+                    ExternalActionState.succeeded
+                },
+                GovernedHumanChallengeHandoffStatus.preflight_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedHumanChallengeHandoffStatus.transaction_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedHumanChallengeHandoffStatus.failed: {
+                    ExternalActionState.failed
+                },
+                GovernedHumanChallengeHandoffStatus.outcome_ambiguous: {
+                    ExternalActionState.outcome_ambiguous,
+                    ExternalActionState.started,
+                    ExternalActionState.prepared,
+                },
+            }[status]
+            if state not in expected_states:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_RECEIPT_STATE_MISMATCH"
+                )
+            if self.replayed:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_REPLAY_STATUS_MISMATCH"
+                )
+        if state == ExternalActionState.succeeded and (
+            any(
+                ref is None
+                for ref in (
+                    self.external_action_receipt_ref,
+                    self.approval_validation_ref,
+                    self.authority_decision_ref,
+                    self.budget_reservation_ref,
+                    self.budget_settlement_ref,
+                )
+            )
+            or not self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_SUCCESS_KERNEL_PROOF_REQUIRED"
+            )
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            self.status
+            == GovernedHumanChallengeHandoffStatus.preflight_blocked.value
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_PREFLIGHT_EXTERNAL_PROOF_DENIED"
+            )
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
+        if (
+            status != GovernedHumanChallengeHandoffStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+            )
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-human-challenge-handoff",
             governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_RECEIPT_REF_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            if (
+                self.external_action_state == ExternalActionState.failed.value
+                and external_reason_refs
+                == (
+                    "reason-ref:governed-human-challenge:"
+                    "handoff-preparation-failed",
+                )
+            ):
+                external_reason_refs = ()
+            try:
+                ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_human_challenge_handoff_receipt",
@@ -586,7 +697,12 @@ class ExactGovernedHumanChallengeHandoffResult(BaseModel):
         ):
             if self.handoff is None:
                 raise ValueError("GOVERNED_HUMAN_CHALLENGE_HANDOFF_REQUIRED")
-            if self.handoff.recipe_ref != self.receipt.recipe_ref:
+            if (
+                self.handoff.recipe_ref != self.receipt.recipe_ref
+                or self.handoff.binding_ref != self.receipt.binding_ref
+                or tuple(self.receipt.evidence_refs)
+                != (self.handoff.handoff_ref, self.handoff.challenge_ref)
+            ):
                 raise ValueError("GOVERNED_HUMAN_CHALLENGE_RECEIPT_MISMATCH")
         elif self.handoff is not None:
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_NON_SUCCESS_HANDOFF_DENIED")

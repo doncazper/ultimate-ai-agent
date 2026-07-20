@@ -585,3 +585,348 @@ def test_oversized_download_payload_is_rejected_before_owned_copy(
     assert result.receipt.evidence_refs == [expected_evidence_ref]
     assert result.receipt.external_action_receipt_ref == expected_external_receipt_ref
     assert payload == bytearray(len(payload))
+
+
+def test_artifact_receipt_rejects_rehashed_conflicting_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="conflicting-kernel-proofs",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged["budget_release_ref"] = stable_governed_browser_ref(
+        "budget-release-ref:governed-artifact",
+        {"case": "conflicting-kernel-proofs"},
+    )
+    forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": forged["transaction_ref"],
+            "intent_ref": forged["intent_ref"],
+            "binding_ref": forged["binding_ref"],
+            "state": forged["external_action_state"],
+            "approval_validation_ref": forged["approval_validation_ref"],
+            "authority_decision_ref": forged["authority_decision_ref"],
+            "budget_reservation_ref": forged["budget_reservation_ref"],
+            "budget_release_ref": forged["budget_release_ref"],
+            "budget_settlement_ref": forged["budget_settlement_ref"],
+            "evidence_refs": forged["evidence_refs"],
+            "reason_refs": forged["reason_refs"],
+        },
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        {key: value for key, value in forged.items() if key != "receipt_ref"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_artifact_non_preflight_receipt_requires_kernel_context(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="kernel-context-required",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "content_fingerprint_ref": None,
+            "quarantine_projection_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-artifact:transfer-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_artifact_non_preflight_rejects_orphan_kernel_proof(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="non-preflight-orphan-proof",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": stable_governed_browser_ref(
+                "budget-release-ref:governed-artifact",
+                {"case": "non-preflight-orphan-proof"},
+            ),
+            "budget_settlement_ref": None,
+            "content_fingerprint_ref": None,
+            "quarantine_projection_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-artifact:transfer-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    _rehash_receipt(forged)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_artifact_preflight_rejects_orphan_kernel_proof(tmp_path: Path) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="preflight-orphan-proof",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    forged = service.execute(
+        _exact(request, recipe).model_copy(
+            update={
+                "recipe_ref": (
+                    "artifact-transfer-recipe-ref:governed-browser:unknown"
+                )
+            }
+        )
+    ).receipt.model_dump(mode="json")
+    forged["budget_release_ref"] = stable_governed_browser_ref(
+        "budget-release-ref:governed-artifact",
+        {"case": "preflight-orphan-proof"},
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        {key: value for key, value in forged.items() if key != "receipt_ref"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_PREFLIGHT_EXTERNAL_PROOF_DENIED",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_artifact_receipt_rejects_kernel_state_status_mismatch(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="state-status-mismatch",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    forged = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"bounded artifact"),
+    ).receipt.model_dump(mode="json")
+    forged["status"] = "failed"
+    forged["content_fingerprint_ref"] = None
+    forged["quarantine_projection_ref"] = None
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_RECEIPT_STATE_MISMATCH",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+def test_artifact_replayed_content_free_requires_succeeded_kernel_state(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="replay-state-mismatch",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.execute(
+        exact,
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = service.execute(
+        exact,
+        injected_download_payload=bytearray(b"replayed artifact"),
+    ).receipt.model_dump(mode="json")
+    assert forged["status"] == "replayed_content_free"
+    forged["external_action_state"] = "failed"
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-artifact-transfer",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_FLAG_REQUIRED",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    (
+        "external_action_receipt_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+        "evidence_refs",
+    ),
+)
+def test_artifact_replayed_success_requires_complete_kernel_proof(
+    tmp_path: Path,
+    missing_field: str,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="proofless-replay",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.execute(
+        exact,
+        injected_download_payload=bytearray(b"bounded artifact"),
+    )
+    forged = service.execute(
+        exact,
+        injected_download_payload=bytearray(b"replayed artifact"),
+    ).receipt.model_dump(mode="json")
+    assert forged["status"] == "replayed_content_free"
+    forged[missing_field] = [] if missing_field == "evidence_refs" else None
+    if missing_field != "external_action_receipt_ref":
+        external_payload = {
+            "transaction_ref": forged["transaction_ref"],
+            "intent_ref": forged["intent_ref"],
+            "binding_ref": forged["binding_ref"],
+            "state": forged["external_action_state"],
+            "approval_validation_ref": forged["approval_validation_ref"],
+            "authority_decision_ref": forged["authority_decision_ref"],
+            "budget_reservation_ref": forged["budget_reservation_ref"],
+            "budget_settlement_ref": forged["budget_settlement_ref"],
+            "evidence_refs": forged["evidence_refs"],
+            "reason_refs": forged["reason_refs"],
+        }
+        if forged["budget_release_ref"] is not None:
+            external_payload["budget_release_ref"] = forged["budget_release_ref"]
+        forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            external_payload,
+        )
+    _rehash_receipt(forged)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(forged)

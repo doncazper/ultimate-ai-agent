@@ -832,6 +832,80 @@ def test_operation_preflight_rejects_release_proof_without_kernel_receipt(
         GovernedExternalOperationReceipt.model_validate(payload)
 
 
+def test_operation_non_preflight_receipt_requires_kernel_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="kernel-context-required",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "external_action_reason_refs": [],
+            "reason_refs": [
+                (
+                    "reason-ref:governed-external-operation:"
+                    "contract-preparation-failed"
+                )
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
+def test_operation_receipt_rejects_kernel_state_status_mismatch(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="state-status-mismatch",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload["status"] = "failed"
+    identity_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_OPERATION_RECEIPT_STATE_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     ("updates", "expected_error"),
     (

@@ -970,25 +970,27 @@ class GovernedFinancialReceipt(BaseModel):
             GovernedFinancialContractStatus.contract_ready,
             GovernedFinancialContractStatus.replayed_content_free,
         }
-        expected_state = {
+        expected_states = {
             GovernedFinancialContractStatus.contract_ready: (
-                ExternalActionState.succeeded
+                ExternalActionState.succeeded,
             ),
             GovernedFinancialContractStatus.replayed_content_free: (
-                ExternalActionState.succeeded
+                ExternalActionState.succeeded,
             ),
             GovernedFinancialContractStatus.preflight_blocked: (
-                ExternalActionState.blocked
+                ExternalActionState.blocked,
             ),
             GovernedFinancialContractStatus.transaction_blocked: (
-                ExternalActionState.blocked
+                ExternalActionState.blocked,
             ),
-            GovernedFinancialContractStatus.failed: ExternalActionState.failed,
+            GovernedFinancialContractStatus.failed: (ExternalActionState.failed,),
             GovernedFinancialContractStatus.outcome_ambiguous: (
-                ExternalActionState.outcome_ambiguous
+                ExternalActionState.outcome_ambiguous,
+                ExternalActionState.started,
+                ExternalActionState.prepared,
             ),
         }[status]
-        if state != expected_state:
+        if state not in expected_states:
             raise ValueError("GOVERNED_FINANCIAL_RECEIPT_STATE_MISMATCH")
         if status == GovernedFinancialContractStatus.contract_ready and (self.replayed):
             raise ValueError("GOVERNED_FINANCIAL_READY_STATE_MISMATCH")
@@ -1018,6 +1020,11 @@ class GovernedFinancialReceipt(BaseModel):
             or self.evidence_refs
         ):
             raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
+        if (
+            status != GovernedFinancialContractStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_REQUIRED")
         if status in successful:
             kernel_refs = (
                 self.external_action_receipt_ref,

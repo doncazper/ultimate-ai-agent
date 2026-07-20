@@ -36,7 +36,12 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/__init__.py",
         failures,
     )
-    tests = _read("tests/test_governed_browser_queue01_group04.py", failures)
+    tests = "\n".join(
+        (
+            _read("tests/test_governed_browser_queue01_group04.py", failures),
+            _read("tests/test_governed_browser_queue02_hardening.py", failures),
+        )
+    )
     doc = _read("docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md", failures)
     docs_index = _read("docs/DOCUMENTATION_INDEX.md", failures)
     board = _read("docs/kanban/current_board.md", failures)
@@ -59,6 +64,14 @@ def verify() -> list[str]:
             "automatic_retry_allowed: Literal[False]",
             "WebAccessGateway",
             "GovernedExternalActionKernel",
+            "GOVERNED_BROWSER_ACTION_SUCCESS_KERNEL_PROOF_REQUIRED",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_RECEIPT_REF_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID",
+            "GOVERNED_BROWSER_ACTION_RECEIPT_STATE_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_PLAN_RECEIPT_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_PLAN_PROJECTION_REF_MISMATCH",
         ),
         "broker": (
             "IsolatedBrowserActionDryRunBrokerAdapter",
@@ -87,6 +100,15 @@ def verify() -> list[str]:
             "test_settlement_failure_suppresses_plan_and_forbids_retry",
             "test_hidden_cross_origin_or_executed_transport_output_fails_content_free",
             "test_real_external_target_cannot_create_an_action_recipe",
+            "test_browser_action_success_receipt_requires_complete_kernel_proof",
+            "test_browser_action_receipt_identity_binds_budget_release_proof",
+            "test_browser_action_result_binds_exact_plan_projection",
+            "test_browser_action_receipt_rejects_rehashed_kernel_proof_conflicts",
+            "test_browser_action_receipt_rejects_rehashed_kernel_field_rebinding",
+            "test_browser_action_non_preflight_receipt_requires_kernel_context",
+            "test_browser_action_non_preflight_rejects_orphan_kernel_proof",
+            "test_browser_action_receipt_rejects_kernel_state_status_mismatch",
+            "test_browser_action_non_replay_status_rejects_replay_flag",
         ),
         "doc": (
             "06. Same-origin visible clicks and GET forms",

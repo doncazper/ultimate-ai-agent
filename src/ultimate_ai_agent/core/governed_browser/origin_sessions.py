@@ -26,6 +26,7 @@ from .browser_keychain import (
     GOVERNED_BROWSER_KEYCHAIN_ITEM_NOT_FOUND,
     GovernedBrowserCredentialRegistration,
     GovernedBrowserKeychainError,
+    GovernedBrowserKeychainOperation,
     GovernedBrowserKeychainOperationReceipt,
 )
 from .contracts import (
@@ -751,6 +752,20 @@ class ExactGovernedBrowserOriginSessionRequest(BaseModel):
         return self
 
 
+def _origin_session_receipt_identity_payload(
+    receipt: BaseModel,
+) -> dict[str, object]:
+    payload = governed_receipt_identity_payload(receipt)
+    # The external receipt ref already commits to this typed snapshot. Excluding
+    # the redundant projection preserves the established outer receipt identity.
+    payload.pop("external_receipt_snapshot", None)
+    # The recipe ref likewise commits to this immutable typed recipe. Preserve
+    # the established outer identity while retaining an independently validated
+    # scope projection for deserialized receipts.
+    payload.pop("recipe_snapshot", None)
+    return payload
+
+
 class GovernedBrowserOriginSessionReceipt(BaseModel):
     """Content-free receipt separate from keychain and session projections."""
 
@@ -765,6 +780,8 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
     intent_ref: str
     session_ref: str | None = None
     external_action_receipt_ref: str | None = None
+    recipe_snapshot: GovernedBrowserOriginSessionRecipe | None = None
+    external_receipt_snapshot: ExternalActionReceipt | None = None
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
@@ -808,16 +825,169 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
         ):
             if value is not None:
                 validate_task_ref(value, "governed_browser_origin_session_receipt_ref")
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        if self.external_action_receipt_ref is None:
+            if (
+                self.recipe_snapshot is not None
+                or self.external_receipt_snapshot is not None
+                or any(ref is not None for ref in external_kernel_proof_refs)
+                or self.replayed
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_PROOF_CONTEXT_INVALID"
+                )
+            if self.status != GovernedBrowserOriginSessionStatus.blocked.value:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+                )
+        else:
+            if self.recipe_snapshot is None:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_SNAPSHOT_REQUIRED"
+                )
+            if self.external_receipt_snapshot is None:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_RECEIPT_SNAPSHOT_REQUIRED"
+                )
         expected_receipt_ref = stable_governed_browser_ref(
             "browser-origin-session-operation-receipt-ref:governed-browser",
-            governed_receipt_identity_payload(self),
+            _origin_session_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError(
                 "GOVERNED_BROWSER_ORIGIN_SESSION_RECEIPT_REF_MISMATCH"
             )
+        external_snapshot = self.external_receipt_snapshot
+        if external_snapshot is not None:
+            recipe_snapshot = self.recipe_snapshot
+            assert recipe_snapshot is not None
+            if (
+                external_snapshot.state == ExternalActionState.succeeded.value
+                and self.operation is None
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_REQUIRED"
+                )
+            if (
+                recipe_snapshot.recipe_ref != self.recipe_ref
+                or recipe_snapshot.operation != self.operation
+                or recipe_snapshot.binding_ref != external_snapshot.binding_ref
+                or recipe_snapshot.session_ref != self.session_ref
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_SNAPSHOT_SCOPE_MISMATCH"
+                )
+            projected_context = (
+                external_snapshot.receipt_ref,
+                external_snapshot.transaction_ref,
+                external_snapshot.intent_ref,
+                external_snapshot.approval_validation_ref,
+                external_snapshot.authority_decision_ref,
+                external_snapshot.budget_reservation_ref,
+                external_snapshot.budget_release_ref,
+                external_snapshot.budget_settlement_ref,
+                tuple(external_snapshot.reason_refs),
+                external_snapshot.replayed,
+            )
+            wrapper_context = (
+                self.external_action_receipt_ref,
+                self.transaction_ref,
+                self.intent_ref,
+                self.approval_validation_ref,
+                self.authority_decision_ref,
+                self.budget_reservation_ref,
+                self.budget_release_ref,
+                self.budget_settlement_ref,
+                tuple(self.reason_refs),
+                self.replayed,
+            )
+            if wrapper_context != projected_context:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_RECEIPT_PROJECTION_MISMATCH"
+                )
+            if external_snapshot.state == ExternalActionState.succeeded.value and (
+                any(
+                    ref is None
+                    for ref in (
+                        external_snapshot.approval_validation_ref,
+                        external_snapshot.authority_decision_ref,
+                        external_snapshot.budget_reservation_ref,
+                        external_snapshot.budget_settlement_ref,
+                    )
+                )
+                or not external_snapshot.evidence_refs
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_SUCCESS_KERNEL_PROOF_REQUIRED"
+                )
+            if external_snapshot.state == ExternalActionState.succeeded.value:
+                expected_operation_ref = stable_governed_browser_ref(
+                    "browser-origin-session-operation-ref:governed-browser",
+                    {
+                        "recipe_ref": recipe_snapshot.recipe_ref,
+                        "intent_ref": self.intent_ref,
+                    },
+                )
+                if expected_operation_ref not in external_snapshot.evidence_refs:
+                    raise ValueError(
+                        "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
+                    )
+            if external_snapshot.replayed:
+                expected_status = GovernedBrowserOriginSessionStatus.replayed
+            elif external_snapshot.state == ExternalActionState.blocked.value:
+                expected_status = GovernedBrowserOriginSessionStatus.blocked
+            elif external_snapshot.state == ExternalActionState.failed.value:
+                expected_status = GovernedBrowserOriginSessionStatus.failed
+            elif (
+                external_snapshot.state
+                in {
+                    ExternalActionState.outcome_ambiguous.value,
+                    ExternalActionState.started.value,
+                    ExternalActionState.prepared.value,
+                }
+            ):
+                expected_status = GovernedBrowserOriginSessionStatus.outcome_ambiguous
+            elif external_snapshot.state == ExternalActionState.succeeded.value:
+                assert self.operation is not None
+                expected_status = {
+                    GovernedBrowserOriginSessionOperation.enroll_credential.value: (
+                        GovernedBrowserOriginSessionStatus.credential_stored
+                    ),
+                    GovernedBrowserOriginSessionOperation.prepare_session.value: (
+                        GovernedBrowserOriginSessionStatus.session_prepared
+                    ),
+                    GovernedBrowserOriginSessionOperation.revalidate_session.value: (
+                        GovernedBrowserOriginSessionStatus.session_revalidated
+                    ),
+                    GovernedBrowserOriginSessionOperation.close_session.value: (
+                        GovernedBrowserOriginSessionStatus.session_closed
+                    ),
+                    GovernedBrowserOriginSessionOperation.revoke_credential.value: (
+                        GovernedBrowserOriginSessionStatus.credential_revoked
+                    ),
+                }[self.operation]
+            else:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_STATE_INVALID"
+                )
+            if self.status != expected_status.value:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_STATE_MISMATCH"
+                )
         validate_safe_task_payload(
-            self.model_dump(mode="json", exclude={"cookies_used"}),
+            self.model_dump(
+                mode="json",
+                exclude={
+                    "cookies_used": True,
+                    "recipe_snapshot": {"cookies_allowed"},
+                },
+            ),
             "governed_browser_origin_session_receipt",
         )
         return self
@@ -829,6 +999,120 @@ class ExactGovernedBrowserOriginSessionResult(BaseModel):
     session: GovernedBrowserOriginSessionRecord | None = None
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "ExactGovernedBrowserOriginSessionResult":
+        status = GovernedBrowserOriginSessionStatus(self.receipt.status)
+        successful_statuses = {
+            GovernedBrowserOriginSessionStatus.credential_stored,
+            GovernedBrowserOriginSessionStatus.session_prepared,
+            GovernedBrowserOriginSessionStatus.session_revalidated,
+            GovernedBrowserOriginSessionStatus.session_closed,
+            GovernedBrowserOriginSessionStatus.credential_revoked,
+        }
+        if status not in successful_statuses:
+            if self.keychain_receipt is not None or self.session is not None:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_NON_SUCCESS_PROJECTION_DENIED"
+                )
+            return self
+
+        recipe = self.receipt.recipe_snapshot
+        external = self.receipt.external_receipt_snapshot
+        assert recipe is not None
+        assert external is not None
+        operation = GovernedBrowserOriginSessionOperation(recipe.operation)
+        expected_keychain_operation = {
+            GovernedBrowserOriginSessionOperation.enroll_credential: (
+                GovernedBrowserKeychainOperation.store
+            ),
+            GovernedBrowserOriginSessionOperation.prepare_session: (
+                GovernedBrowserKeychainOperation.probe
+            ),
+            GovernedBrowserOriginSessionOperation.revalidate_session: (
+                GovernedBrowserKeychainOperation.probe
+            ),
+            GovernedBrowserOriginSessionOperation.close_session: None,
+            GovernedBrowserOriginSessionOperation.revoke_credential: (
+                GovernedBrowserKeychainOperation.delete
+            ),
+        }[operation]
+        session_required = operation in {
+            GovernedBrowserOriginSessionOperation.prepare_session,
+            GovernedBrowserOriginSessionOperation.revalidate_session,
+            GovernedBrowserOriginSessionOperation.close_session,
+        }
+        session_denied = (
+            operation == GovernedBrowserOriginSessionOperation.enroll_credential
+        )
+        if (
+            (self.keychain_receipt is None)
+            != (expected_keychain_operation is None)
+            or (session_required and self.session is None)
+            or (session_denied and self.session is not None)
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_SUCCESS_PROJECTION_REQUIRED"
+            )
+
+        evidence_refs = set(external.evidence_refs)
+        keychain = self.keychain_receipt
+        if keychain is not None:
+            if (
+                keychain.operation != expected_keychain_operation.value
+                or keychain.registration_ref != recipe.registration_ref
+                or keychain.origin_ref != recipe.origin_ref
+                or keychain.credential_handle_ref != recipe.credential_handle_ref
+                or keychain.credential_generation_ref
+                != recipe.credential_generation_ref
+                or keychain.keychain_item_ref != recipe.keychain_item_ref
+                or keychain.helper_receipt_ref not in evidence_refs
+                or keychain.keychain_item_ref not in evidence_refs
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_KEYCHAIN_PROJECTION_MISMATCH"
+                )
+
+        session = self.session
+        if session is not None:
+            expected_state = {
+                GovernedBrowserOriginSessionOperation.prepare_session: (
+                    GovernedBrowserOriginSessionState.prepared_inactive
+                ),
+                GovernedBrowserOriginSessionOperation.revalidate_session: (
+                    GovernedBrowserOriginSessionState.prepared_inactive
+                ),
+                GovernedBrowserOriginSessionOperation.close_session: (
+                    GovernedBrowserOriginSessionState.closed
+                ),
+                GovernedBrowserOriginSessionOperation.revoke_credential: (
+                    GovernedBrowserOriginSessionState.revoked
+                ),
+            }[operation]
+            expected_keychain_present = (
+                operation
+                != GovernedBrowserOriginSessionOperation.revoke_credential
+            )
+            if (
+                session.session_ref != self.receipt.session_ref
+                or session.session_ref != recipe.session_ref
+                or session.session_generation_ref != recipe.session_generation_ref
+                or session.registration_ref != recipe.registration_ref
+                or session.origin_ref != recipe.origin_ref
+                or session.credential_handle_ref != recipe.credential_handle_ref
+                or session.credential_generation_ref
+                != recipe.credential_generation_ref
+                or session.keychain_item_ref != recipe.keychain_item_ref
+                or session.created_at != recipe.created_at
+                or session.expires_at != recipe.expires_at
+                or session.state != expected_state.value
+                or session.keychain_item_present != expected_keychain_present
+                or session.state_receipt_ref not in evidence_refs
+            ):
+                raise ValueError(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_RECORD_PROJECTION_MISMATCH"
+                )
+        return self
 
 
 class ExactGovernedBrowserOriginSessionService:
@@ -1320,7 +1604,11 @@ def _result_from_external_receipt(
         status = GovernedBrowserOriginSessionStatus.failed
         keychain_receipt = None
         session = None
-    elif external_receipt.state == ExternalActionState.outcome_ambiguous.value:
+    elif external_receipt.state in {
+        ExternalActionState.outcome_ambiguous.value,
+        ExternalActionState.started.value,
+        ExternalActionState.prepared.value,
+    }:
         status = GovernedBrowserOriginSessionStatus.outcome_ambiguous
         keychain_receipt = None
         session = None
@@ -1348,6 +1636,7 @@ def _result_from_external_receipt(
         recipe_ref=request.recipe_ref,
         execution=request.execution_request,
         session_ref=recipe.session_ref,
+        recipe_snapshot=recipe,
         external_receipt=external_receipt,
         reason_refs=tuple(external_receipt.reason_refs),
     )
@@ -1366,6 +1655,7 @@ def _build_operation_receipt(
     execution: ExternalActionExecutionRequest,
     session_ref: str | None,
     reason_refs: tuple[str, ...],
+    recipe_snapshot: GovernedBrowserOriginSessionRecipe | None = None,
     external_receipt: ExternalActionReceipt | None = None,
 ) -> GovernedBrowserOriginSessionReceipt:
     payload = {
@@ -1375,9 +1665,11 @@ def _build_operation_receipt(
         "transaction_ref": execution.binding.transaction_ref,
         "intent_ref": execution.intent_ref,
         "session_ref": session_ref,
+        "recipe_snapshot": recipe_snapshot,
         "external_action_receipt_ref": (
             external_receipt.receipt_ref if external_receipt is not None else None
         ),
+        "external_receipt_snapshot": external_receipt,
         "approval_validation_ref": (
             external_receipt.approval_validation_ref
             if external_receipt is not None
@@ -1417,7 +1709,7 @@ def _build_operation_receipt(
     )
     receipt_ref = stable_governed_browser_ref(
         "browser-origin-session-operation-receipt-ref:governed-browser",
-        governed_receipt_identity_payload(provisional),
+        _origin_session_receipt_identity_payload(provisional),
     )
     return GovernedBrowserOriginSessionReceipt(
         receipt_ref=receipt_ref,

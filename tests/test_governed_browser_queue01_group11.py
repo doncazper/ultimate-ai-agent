@@ -52,6 +52,27 @@ def _pinned(prefix: str, suffix: str) -> str:
     return stable_governed_browser_ref(prefix, {"suffix": suffix})
 
 
+def _rehash_task_composition_receipt(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    identity_payload = {
+        key: value for key, value in payload.items() if key != "receipt_ref"
+    }
+    if identity_payload.get("budget_release_ref") is None:
+        identity_payload.pop("budget_release_ref", None)
+    external_snapshot = identity_payload.get("external_receipt_snapshot")
+    if isinstance(external_snapshot, dict):
+        external_snapshot = dict(external_snapshot)
+        if external_snapshot.get("budget_release_ref") is None:
+            external_snapshot.pop("budget_release_ref", None)
+        identity_payload["external_receipt_snapshot"] = external_snapshot
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        identity_payload,
+    )
+    return payload
+
+
 def _operation(
     *,
     suffix: str,
@@ -1132,6 +1153,345 @@ def test_legacy_whole_receipt_preserves_absent_release_hash(tmp_path: Path) -> N
         )
         is None
     )
+
+
+def test_serialized_external_receipt_snapshot_rejects_conflicting_rehashed_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="snapshot-conflicting-kernel-proofs"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.external_receipt_snapshot is not None
+    forged = result.receipt.external_receipt_snapshot.model_dump(mode="json")
+    forged["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        "snapshot-conflicting-budget-release",
+    )
+    external_payload = {
+        "transaction_ref": forged["transaction_ref"],
+        "intent_ref": forged["intent_ref"],
+        "binding_ref": forged["binding_ref"],
+        "state": forged["state"],
+        "approval_validation_ref": forged["approval_validation_ref"],
+        "authority_decision_ref": forged["authority_decision_ref"],
+        "budget_reservation_ref": forged["budget_reservation_ref"],
+        "budget_release_ref": forged["budget_release_ref"],
+        "budget_settlement_ref": forged["budget_settlement_ref"],
+        "evidence_refs": forged["evidence_refs"],
+        "reason_refs": forged["reason_refs"],
+    }
+    forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    forged["snapshot_ref"] = stable_governed_browser_ref(
+        "external-receipt-snapshot-ref:governed-task-composer",
+        {key: value for key, value in forged.items() if key != "snapshot_ref"},
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        task_composer_module.GovernedTaskCompositionExternalReceiptSnapshot.model_validate(
+            forged
+        )
+
+
+def test_serialized_task_composition_receipt_rejects_conflicting_rehashed_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="receipt-conflicting-kernel-proofs"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    forged = result.receipt.model_dump(mode="json")
+    forged["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        "receipt-conflicting-budget-release",
+    )
+    external_payload = {
+        "transaction_ref": forged["transaction_ref"],
+        "intent_ref": forged["intent_ref"],
+        "binding_ref": forged["binding_ref"],
+        "state": forged["external_action_state"],
+        "approval_validation_ref": forged["approval_validation_ref"],
+        "authority_decision_ref": forged["authority_decision_ref"],
+        "budget_reservation_ref": forged["budget_reservation_ref"],
+        "budget_release_ref": forged["budget_release_ref"],
+        "budget_settlement_ref": forged["budget_settlement_ref"],
+        "evidence_refs": forged["evidence_refs"],
+        "reason_refs": forged["external_action_reason_refs"],
+    }
+    forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    identity_payload = {
+        key: value for key, value in forged.items() if key != "receipt_ref"
+    }
+    external_snapshot = dict(identity_payload["external_receipt_snapshot"])
+    if external_snapshot.get("budget_release_ref") is None:
+        external_snapshot.pop("budget_release_ref", None)
+    identity_payload["external_receipt_snapshot"] = external_snapshot
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-task-composition",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedTaskCompositionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    (
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+    ),
+)
+def test_incomplete_succeeded_kernel_proof_is_content_free_without_plan(
+    missing_field: str,
+) -> None:
+    request, recipe, _, _ = _composition_context(
+        suffix=f"incomplete-succeeded-kernel-proof-{missing_field}"
+    )
+    external_payload = {
+        "transaction_ref": request.binding.transaction_ref,
+        "intent_ref": request.intent_ref,
+        "binding_ref": request.binding.binding_ref,
+        "state": "succeeded",
+        "approval_validation_ref": _pinned(
+            "approval-validation-ref:governed-external-action",
+            "complete-proof",
+        ),
+        "authority_decision_ref": (
+            f"authority-policy-decision-ref:sha256:{'a' * 24}"
+        ),
+        "budget_reservation_ref": _pinned(
+            "authority-budget-reservation-ref",
+            "complete-proof",
+        ),
+        "budget_settlement_ref": _pinned(
+            "receipt-ref:authority-budget",
+            "complete-proof",
+        ),
+        "evidence_refs": [
+            recipe.recipe_ref,
+            recipe.plan_ref,
+            recipe.registry_ref,
+            recipe.composer_authority_ref,
+            *[step.operation_ref for step in recipe.steps],
+        ],
+        "reason_refs": [],
+    }
+    external_payload[missing_field] = None
+    external_receipt = ExternalActionReceipt(
+        receipt_ref=stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            external_payload,
+        ),
+        **external_payload,
+    )
+
+    result = task_composer_module._result_from_external_receipt(
+        request=_exact(request, recipe),
+        recipe=recipe,
+        external_receipt=external_receipt,
+        plan=None,
+    )
+
+    assert result.receipt.status == "proof_incomplete"
+    assert result.receipt.external_action_state == "succeeded"
+    assert result.receipt.external_receipt_snapshot is not None
+    assert result.receipt.reason_refs == (
+        "reason-ref:governed-task-composer:kernel-proof_incomplete",
+    )
+    assert result.plan is None
+
+
+@pytest.mark.parametrize(
+    "evidence_mode",
+    ("missing", "rebound"),
+)
+def test_incomplete_succeeded_kernel_evidence_is_content_free_without_plan(
+    tmp_path: Path,
+    evidence_mode: str,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix=f"incomplete-succeeded-evidence-{evidence_mode}"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    complete = composer.compose(_exact(request, recipe)).receipt
+    evidence_refs = (
+        ()
+        if evidence_mode == "missing"
+        else (_pinned("evidence-ref:governed-task-composer", "rebound"),)
+    )
+    external_payload = {
+        "transaction_ref": complete.transaction_ref,
+        "intent_ref": complete.intent_ref,
+        "binding_ref": complete.binding_ref,
+        "state": "succeeded",
+        "approval_validation_ref": complete.approval_validation_ref,
+        "authority_decision_ref": complete.authority_decision_ref,
+        "budget_reservation_ref": complete.budget_reservation_ref,
+        "budget_settlement_ref": complete.budget_settlement_ref,
+        "evidence_refs": list(evidence_refs),
+        "reason_refs": [],
+    }
+    external_receipt = ExternalActionReceipt(
+        receipt_ref=stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            external_payload,
+        ),
+        **external_payload,
+    )
+
+    result = task_composer_module._result_from_external_receipt(
+        request=_exact(request, recipe),
+        recipe=recipe,
+        external_receipt=external_receipt,
+        plan=None,
+    )
+
+    assert result.receipt.status == "proof_incomplete"
+    assert result.receipt.evidence_refs == evidence_refs
+    assert result.plan is None
+
+
+@pytest.mark.parametrize("state", ("started", "prepared"))
+def test_started_or_prepared_kernel_state_is_outcome_ambiguous(
+    state: str,
+) -> None:
+    request, recipe, _, _ = _composition_context(
+        suffix=f"{state}-kernel-state"
+    )
+    external_payload = {
+        "transaction_ref": request.binding.transaction_ref,
+        "intent_ref": request.intent_ref,
+        "binding_ref": request.binding.binding_ref,
+        "state": state,
+        "approval_validation_ref": None,
+        "authority_decision_ref": None,
+        "budget_reservation_ref": None,
+        "budget_settlement_ref": None,
+        "evidence_refs": [],
+        "reason_refs": [
+            _pinned("reason-ref:governed-task-composer", state)
+        ],
+    }
+    external_receipt = ExternalActionReceipt(
+        receipt_ref=stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            external_payload,
+        ),
+        **external_payload,
+    )
+
+    result = task_composer_module._result_from_external_receipt(
+        request=_exact(request, recipe),
+        recipe=recipe,
+        external_receipt=external_receipt,
+        plan=None,
+    )
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert result.receipt.external_action_state == state
+    forged = result.receipt.model_dump(mode="json")
+    forged["status"] = "failed"
+    _rehash_task_composition_receipt(forged)
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_TASK_COMPOSER_RECEIPT_STATE_MISMATCH",
+    ):
+        GovernedTaskCompositionReceipt.model_validate(forged)
+
+
+def test_preflight_receipt_rejects_orphan_replay_flag(tmp_path: Path) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="preflight-orphan-replay"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    blocked = composer.compose(
+        _exact(request, recipe).model_copy(
+            update={
+                "recipe_ref": _pinned(
+                    "composition-recipe-ref:governed-task-composer",
+                    "missing-replay",
+                )
+            }
+        )
+    )
+    forged = blocked.receipt.model_dump(mode="json")
+    forged["replayed"] = True
+    _rehash_task_composition_receipt(forged)
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_TASK_COMPOSER_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        GovernedTaskCompositionReceipt.model_validate(forged)
+
+
+def test_complete_success_proof_cannot_downgrade_to_proof_incomplete(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="complete-proof-downgrade"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    result = composer.compose(_exact(request, recipe))
+    assert result.receipt.status == "plan_ready"
+    forged = result.receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "proof_incomplete",
+            "reason_refs": [
+                "reason-ref:governed-task-composer:kernel-proof_incomplete"
+            ],
+        }
+    )
+    _rehash_task_composition_receipt(forged)
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_TASK_COMPOSER_PROOF_INCOMPLETE_STATE_MISMATCH",
+    ):
+        GovernedTaskCompositionReceipt.model_validate(forged)
 
 
 def test_expired_recipe_and_invalid_clock_fail_before_composition(

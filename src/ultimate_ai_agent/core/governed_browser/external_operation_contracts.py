@@ -942,6 +942,30 @@ class GovernedExternalOperationReceipt(BaseModel):
             and self.replayed
         ):
             raise ValueError("GOVERNED_EXTERNAL_OPERATION_READY_PROOF_REQUIRED")
+        if status != GovernedExternalOperationContractStatus.replayed_content_free:
+            expected_states = {
+                GovernedExternalOperationContractStatus.contract_ready: {
+                    ExternalActionState.succeeded
+                },
+                GovernedExternalOperationContractStatus.preflight_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedExternalOperationContractStatus.transaction_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedExternalOperationContractStatus.failed: {
+                    ExternalActionState.failed
+                },
+                GovernedExternalOperationContractStatus.outcome_ambiguous: {
+                    ExternalActionState.outcome_ambiguous,
+                    ExternalActionState.started,
+                    ExternalActionState.prepared,
+                },
+            }[status]
+            if state not in expected_states:
+                raise ValueError(
+                    "GOVERNED_EXTERNAL_OPERATION_RECEIPT_STATE_MISMATCH"
+                )
         success_kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,
@@ -972,6 +996,13 @@ class GovernedExternalOperationReceipt(BaseModel):
         ):
             raise ValueError(
                 "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
+        if (
+            status != GovernedExternalOperationContractStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError(
+                "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_PROOF_CONTEXT_REQUIRED"
             )
         scope_proof_refs = (
             self.operation_authority_ref,

@@ -663,6 +663,49 @@ def test_financial_receipt_rejects_budget_proof_without_kernel_receipt(
         GovernedFinancialReceipt.model_validate(payload)
 
 
+def test_financial_non_preflight_receipt_requires_kernel_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="kernel-context-required",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-financial:contract-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     ("field", "rebound_ref"),
     (

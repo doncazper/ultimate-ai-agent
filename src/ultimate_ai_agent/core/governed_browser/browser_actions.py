@@ -299,6 +299,7 @@ class ExactBrowserActionPlan(BaseModel):
     schema_version: Literal["uaa-governed-browser-action-plan.v1"] = (
         "uaa-governed-browser-action-plan.v1"
     )
+    projection_ref: str
     plan_ref: str
     recipe_ref: str
     binding_ref: str
@@ -333,6 +334,7 @@ class ExactBrowserActionPlan(BaseModel):
     @model_validator(mode="after")
     def validate_plan(self) -> "ExactBrowserActionPlan":
         for value, label in (
+            (self.projection_ref, "projection_ref"),
             (self.plan_ref, "plan_ref"),
             (self.recipe_ref, "recipe_ref"),
             (self.binding_ref, "binding_ref"),
@@ -348,6 +350,14 @@ class ExactBrowserActionPlan(BaseModel):
             *[(ref, "field_value_ref") for ref in self.field_value_refs],
         ):
             validate_task_ref(value, label)
+        expected_projection_ref = stable_governed_browser_ref(
+            "browser-action-plan-projection-ref:governed-browser",
+            self.model_dump(mode="json", exclude={"projection_ref"}),
+        )
+        if self.projection_ref != expected_projection_ref:
+            raise ValueError(
+                "GOVERNED_BROWSER_ACTION_PLAN_PROJECTION_REF_MISMATCH"
+            )
         validate_safe_task_payload(
             self.model_dump(mode="json"), "governed_browser_action_plan"
         )
@@ -413,6 +423,46 @@ class ExactBrowserActionReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_BROWSER_ACTION_REPLAY_FLAG_REQUIRED")
+        status = ExactBrowserActionStatus(self.status)
+        state = ExternalActionState(self.external_action_state)
+        if status != ExactBrowserActionStatus.replayed_content_free:
+            expected_states = {
+                ExactBrowserActionStatus.preflight_blocked: {
+                    ExternalActionState.blocked
+                },
+                ExactBrowserActionStatus.transaction_blocked: {
+                    ExternalActionState.blocked
+                },
+                ExactBrowserActionStatus.plan_ready: {
+                    ExternalActionState.succeeded
+                },
+                ExactBrowserActionStatus.failed: {ExternalActionState.failed},
+                ExactBrowserActionStatus.outcome_ambiguous: {
+                    ExternalActionState.outcome_ambiguous,
+                    ExternalActionState.started,
+                    ExternalActionState.prepared,
+                },
+            }[status]
+            if state not in expected_states:
+                raise ValueError("GOVERNED_BROWSER_ACTION_RECEIPT_STATE_MISMATCH")
+            if self.replayed:
+                raise ValueError("GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH")
+        if state == ExternalActionState.succeeded and (
+            any(
+                ref is None
+                for ref in (
+                    self.external_action_receipt_ref,
+                    self.approval_validation_ref,
+                    self.authority_decision_ref,
+                    self.budget_reservation_ref,
+                    self.budget_settlement_ref,
+                )
+            )
+            or not self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ACTION_SUCCESS_KERNEL_PROOF_REQUIRED"
+            )
         external_kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,
@@ -439,6 +489,13 @@ class ExactBrowserActionReceipt(BaseModel):
             raise ValueError(
                 "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID"
             )
+        if (
+            status != ExactBrowserActionStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+            )
         identity_payload = governed_receipt_identity_payload(self)
         expected_receipt_refs = {
             stable_governed_browser_ref(
@@ -452,6 +509,37 @@ class ExactBrowserActionReceipt(BaseModel):
         }
         if self.receipt_ref not in expected_receipt_refs:
             raise ValueError("GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            legacy_empty_reason_ref = (
+                "reason-ref:governed-post-form:plan-dispatch-failed"
+                if self.receipt_ref.startswith("receipt-ref:governed-post-form:")
+                else "reason-ref:governed-browser-action:plan-dispatch-failed"
+            )
+            if self.external_action_state == ExternalActionState.failed.value and (
+                external_reason_refs == (legacy_empty_reason_ref,)
+            ):
+                external_reason_refs = ()
+            try:
+                ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_BROWSER_ACTION_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
         validate_safe_task_payload(
             self.model_dump(mode="json"), "governed_browser_action_receipt"
         )
@@ -475,7 +563,12 @@ class ExactBrowserActionResult(BaseModel):
         if self.receipt.status == ExactBrowserActionStatus.plan_ready.value:
             if self.plan is None:
                 raise ValueError("GOVERNED_BROWSER_ACTION_PLAN_REQUIRED")
-            if self.plan.recipe_ref != self.receipt.recipe_ref:
+            if (
+                self.plan.recipe_ref != self.receipt.recipe_ref
+                or self.plan.binding_ref != self.receipt.binding_ref
+                or tuple(self.receipt.evidence_refs)
+                != (self.plan.plan_ref, self.plan.projection_ref)
+            ):
                 raise ValueError("GOVERNED_BROWSER_ACTION_PLAN_RECEIPT_MISMATCH")
         elif self.plan is not None:
             raise ValueError("GOVERNED_BROWSER_ACTION_NON_SUCCESS_PLAN_DENIED")
@@ -638,7 +731,7 @@ class ExactBrowserActionService:
             captured["plan"] = plan
             return ExternalActionDispatchResult(
                 outcome=ExternalActionDispatchOutcome.succeeded,
-                evidence_refs=[plan.plan_ref],
+                evidence_refs=[plan.plan_ref, plan.projection_ref],
                 verified=True,
             )
 
@@ -743,21 +836,35 @@ class ExactBrowserActionService:
         profile_ref = payload.get("profile_ref")
         if not isinstance(profile_ref, str):
             raise ValueError("GOVERNED_BROWSER_ACTION_PROFILE_REF_REQUIRED")
+        plan_payload = {
+            "plan_ref": recipe.plan_ref,
+            "recipe_ref": recipe.recipe_ref,
+            "binding_ref": recipe.binding_ref,
+            "origin_ref": recipe.exact_origin_ref,
+            "page_snapshot_ref": recipe.page_snapshot_ref,
+            "source_observation_ref": recipe.source_observation_ref,
+            "source_safe_url_ref": recipe.source_safe_url_ref,
+            "destination_safe_url_ref": recipe.destination_safe_url_ref,
+            "element_ref": recipe.element_ref,
+            "visibility_proof_ref": recipe.visibility_proof_ref,
+            "field_schema_ref": recipe.field_schema_ref,
+            "field_value_refs": recipe.field_value_refs,
+            "operation": GovernedBrowserActionKind(recipe.operation),
+            "profile_ref": profile_ref,
+        }
+        provisional = ExactBrowserActionPlan.model_construct(
+            projection_ref=(
+                "browser-action-plan-projection-ref:governed-browser:pending"
+            ),
+            **plan_payload,
+        )
+        projection_ref = stable_governed_browser_ref(
+            "browser-action-plan-projection-ref:governed-browser",
+            provisional.model_dump(mode="json", exclude={"projection_ref"}),
+        )
         return ExactBrowserActionPlan(
-            plan_ref=recipe.plan_ref,
-            recipe_ref=recipe.recipe_ref,
-            binding_ref=recipe.binding_ref,
-            origin_ref=recipe.exact_origin_ref,
-            page_snapshot_ref=recipe.page_snapshot_ref,
-            source_observation_ref=recipe.source_observation_ref,
-            source_safe_url_ref=recipe.source_safe_url_ref,
-            destination_safe_url_ref=recipe.destination_safe_url_ref,
-            element_ref=recipe.element_ref,
-            visibility_proof_ref=recipe.visibility_proof_ref,
-            field_schema_ref=recipe.field_schema_ref,
-            field_value_refs=recipe.field_value_refs,
-            operation=GovernedBrowserActionKind(recipe.operation),
-            profile_ref=profile_ref,
+            projection_ref=projection_ref,
+            **plan_payload,
         )
 
 

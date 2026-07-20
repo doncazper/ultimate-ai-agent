@@ -583,6 +583,7 @@ class ExactPostFormPlan(BaseModel):
     schema_version: Literal["uaa-governed-browser-post-form-plan.v1"] = (
         "uaa-governed-browser-post-form-plan.v1"
     )
+    projection_ref: str
     plan_ref: str
     recipe_ref: str
     binding_ref: str
@@ -628,6 +629,7 @@ class ExactPostFormPlan(BaseModel):
     @model_validator(mode="after")
     def validate_plan(self) -> "ExactPostFormPlan":
         for value, label in (
+            (self.projection_ref, "projection_ref"),
             (self.plan_ref, "plan_ref"),
             (self.recipe_ref, "recipe_ref"),
             (self.binding_ref, "binding_ref"),
@@ -642,6 +644,14 @@ class ExactPostFormPlan(BaseModel):
             (self.profile_ref, "profile_ref"),
         ):
             validate_task_ref(value, label)
+        expected_projection_ref = stable_governed_browser_ref(
+            "browser-post-form-plan-projection-ref:governed-browser",
+            self.model_dump(mode="json", exclude={"projection_ref"}),
+        )
+        if self.projection_ref != expected_projection_ref:
+            raise ValueError(
+                "GOVERNED_POST_FORM_PLAN_PROJECTION_REF_MISMATCH"
+            )
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_post_form_plan",
@@ -678,7 +688,12 @@ class ExactPostFormResult(BaseModel):
         if self.receipt.status == ExactBrowserActionStatus.plan_ready.value:
             if self.plan is None:
                 raise ValueError("GOVERNED_POST_FORM_PLAN_REQUIRED")
-            if self.plan.recipe_ref != self.receipt.recipe_ref:
+            if (
+                self.plan.recipe_ref != self.receipt.recipe_ref
+                or self.plan.binding_ref != self.receipt.binding_ref
+                or tuple(self.receipt.evidence_refs)
+                != (self.plan.plan_ref, self.plan.projection_ref)
+            ):
                 raise ValueError("GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH")
         elif self.plan is not None:
             raise ValueError("GOVERNED_POST_FORM_NON_SUCCESS_PLAN_DENIED")
@@ -731,7 +746,7 @@ class ExactPostFormService:
             captured["plan"] = plan
             return ExternalActionDispatchResult(
                 outcome=ExternalActionDispatchOutcome.succeeded,
-                evidence_refs=[plan.plan_ref],
+                evidence_refs=[plan.plan_ref, plan.projection_ref],
                 verified=True,
             )
 
@@ -848,25 +863,40 @@ class ExactPostFormService:
         profile_ref = payload.get("profile_ref")
         if not isinstance(profile_ref, str):
             raise ValueError("GOVERNED_POST_FORM_PROFILE_REF_REQUIRED")
+        plan_payload = {
+            "plan_ref": recipe.plan_ref,
+            "recipe_ref": recipe.recipe_ref,
+            "binding_ref": recipe.binding_ref,
+            "schema_ref": schema.schema_ref,
+            "origin_ref": schema.exact_origin_ref,
+            "page_snapshot_ref": schema.page_snapshot_ref,
+            "source_observation_ref": schema.source_observation_ref,
+            "source_safe_url_ref": schema.source_safe_url_ref,
+            "destination_safe_url_ref": schema.destination_safe_url_ref,
+            "element_ref": schema.element_ref,
+            "visibility_proof_ref": schema.visibility_proof_ref,
+            "field_value_bindings": recipe.field_value_bindings,
+            "profile_ref": profile_ref,
+            "target_visible": transport.target_visible,
+            "same_origin_verified": transport.same_origin_verified,
+            "registered_schema_verified": transport.registered_schema_verified,
+            "field_bindings_verified": transport.field_bindings_verified,
+            "plan_generated": transport.plan_generated,
+        }
+        provisional = ExactPostFormPlan.model_construct(
+            projection_ref=(
+                "browser-post-form-plan-projection-ref:"
+                "governed-browser:pending"
+            ),
+            **plan_payload,
+        )
+        projection_ref = stable_governed_browser_ref(
+            "browser-post-form-plan-projection-ref:governed-browser",
+            provisional.model_dump(mode="json", exclude={"projection_ref"}),
+        )
         return ExactPostFormPlan(
-            plan_ref=recipe.plan_ref,
-            recipe_ref=recipe.recipe_ref,
-            binding_ref=recipe.binding_ref,
-            schema_ref=schema.schema_ref,
-            origin_ref=schema.exact_origin_ref,
-            page_snapshot_ref=schema.page_snapshot_ref,
-            source_observation_ref=schema.source_observation_ref,
-            source_safe_url_ref=schema.source_safe_url_ref,
-            destination_safe_url_ref=schema.destination_safe_url_ref,
-            element_ref=schema.element_ref,
-            visibility_proof_ref=schema.visibility_proof_ref,
-            field_value_bindings=recipe.field_value_bindings,
-            profile_ref=profile_ref,
-            target_visible=transport.target_visible,
-            same_origin_verified=transport.same_origin_verified,
-            registered_schema_verified=transport.registered_schema_verified,
-            field_bindings_verified=transport.field_bindings_verified,
-            plan_generated=transport.plan_generated,
+            projection_ref=projection_ref,
+            **plan_payload,
         )
 
 

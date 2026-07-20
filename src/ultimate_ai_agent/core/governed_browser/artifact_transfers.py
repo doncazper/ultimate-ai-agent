@@ -1496,15 +1496,114 @@ class GovernedArtifactTransferReceipt(BaseModel):
             raise ValueError("GOVERNED_ARTIFACT_NON_READY_PROJECTION_PROOF_DENIED")
         if (
             self.status == GovernedArtifactTransferStatus.replayed_content_free.value
-            and not self.replayed
+            and (
+                not self.replayed
+                or self.external_action_state != ExternalActionState.succeeded.value
+            )
         ):
             raise ValueError("GOVERNED_ARTIFACT_REPLAY_FLAG_REQUIRED")
+        state = ExternalActionState(self.external_action_state)
+        if status != GovernedArtifactTransferStatus.replayed_content_free:
+            expected_states = {
+                GovernedArtifactTransferStatus.quarantined: {
+                    ExternalActionState.succeeded
+                },
+                GovernedArtifactTransferStatus.upload_plan_ready: {
+                    ExternalActionState.succeeded
+                },
+                GovernedArtifactTransferStatus.preflight_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedArtifactTransferStatus.transaction_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedArtifactTransferStatus.failed: {ExternalActionState.failed},
+                GovernedArtifactTransferStatus.outcome_ambiguous: {
+                    ExternalActionState.outcome_ambiguous,
+                    ExternalActionState.started,
+                    ExternalActionState.prepared,
+                },
+            }[status]
+            if state not in expected_states:
+                raise ValueError("GOVERNED_ARTIFACT_RECEIPT_STATE_MISMATCH")
+        if state == ExternalActionState.succeeded and (
+            any(
+                ref is None
+                for ref in (
+                    self.external_action_receipt_ref,
+                    self.approval_validation_ref,
+                    self.authority_decision_ref,
+                    self.budget_reservation_ref,
+                    self.budget_settlement_ref,
+                )
+            )
+            or not self.evidence_refs
+        ):
+            raise ValueError("GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED")
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            self.status == GovernedArtifactTransferStatus.preflight_blocked.value
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError("GOVERNED_ARTIFACT_PREFLIGHT_EXTERNAL_PROOF_DENIED")
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+        ):
+            raise ValueError("GOVERNED_ARTIFACT_EXTERNAL_PROOF_CONTEXT_INVALID")
+        if (
+            status != GovernedArtifactTransferStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError("GOVERNED_ARTIFACT_EXTERNAL_PROOF_CONTEXT_REQUIRED")
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-artifact-transfer",
             governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_ARTIFACT_RECEIPT_REF_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            if (
+                self.external_action_state == ExternalActionState.failed.value
+                and external_reason_refs
+                == (
+                    "reason-ref:governed-artifact:"
+                    "transfer-preparation-failed",
+                )
+            ):
+                external_reason_refs = ()
+            try:
+                ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_ARTIFACT_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_artifact_transfer_receipt",

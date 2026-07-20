@@ -19,6 +19,19 @@ from tests.test_governed_browser_queue01_group01 import (
     _request,
     _success,
 )
+from tests.test_governed_browser_queue01_group04 import (
+    _ExactActionPlanTransport,
+    _exact_request as _action_request,
+    _plan as _action_plan,
+    _recipe as _action_recipe,
+    _service as _action_service,
+)
+from tests.test_governed_browser_queue01_group05 import (
+    _ExactPostFormPlanTransport,
+    _plan as _post_form_plan,
+    _post_context,
+    _service as _post_form_service,
+)
 from ultimate_ai_agent.core.governed_browser import (
     ExternalActionAdversarialSignals,
     ExternalActionDispatchOutcome,
@@ -28,9 +41,12 @@ from ultimate_ai_agent.core.governed_browser import (
     ExternalActionTransactionConflict,
     ExternalActionTransactionStore,
     ExactBrowserActionReceipt,
+    ExactBrowserActionPlan,
     ExactBrowserActionResult,
     ExactBrowserObservationReceipt,
+    ExactPostFormPlan,
     ExactPostFormResult,
+    GovernedBrowserActionKind,
     GovernedArtifactTransferReceipt,
     GovernedBrowserActivationPosture,
     GovernedBrowserOriginSessionReceipt,
@@ -93,6 +109,74 @@ def _signals(**updates: bool | int) -> ExternalActionAdversarialSignals:
     )
     payload.update(updates)
     return ExternalActionAdversarialSignals.model_validate(payload)
+
+
+def _external_receipt(
+    *,
+    suffix: str,
+    state: ExternalActionState = ExternalActionState.blocked,
+    budget_reservation_ref: str | None = None,
+    budget_release_ref: str | None = None,
+    budget_settlement_ref: str | None = None,
+    evidence_refs: tuple[str, ...] = (),
+    reason_refs: tuple[str, ...] = (),
+    replayed: bool = False,
+) -> ExternalActionReceipt:
+    payload = {
+        "transaction_ref": _ref("transaction", suffix),
+        "intent_ref": _ref("intent", suffix),
+        "binding_ref": _ref("binding", suffix),
+        "state": state.value,
+        "approval_validation_ref": None,
+        "authority_decision_ref": None,
+        "budget_reservation_ref": budget_reservation_ref,
+        "budget_settlement_ref": budget_settlement_ref,
+        "evidence_refs": list(evidence_refs),
+        "reason_refs": list(reason_refs),
+    }
+    if budget_release_ref is not None:
+        payload["budget_release_ref"] = budget_release_ref
+    return ExternalActionReceipt(
+        receipt_ref=stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            payload,
+        ),
+        replayed=replayed,
+        **payload,
+    )
+
+
+def _browser_receipt(
+    receipt_prefix: str,
+    external_receipt: ExternalActionReceipt,
+) -> ExactBrowserActionReceipt:
+    payload = {
+        "recipe_ref": _ref("recipe", "kernel-bound"),
+        "transaction_ref": external_receipt.transaction_ref,
+        "intent_ref": external_receipt.intent_ref,
+        "binding_ref": external_receipt.binding_ref,
+        "status": "transaction_blocked",
+        "external_action_state": external_receipt.state,
+        "external_action_receipt_ref": external_receipt.receipt_ref,
+        "approval_validation_ref": external_receipt.approval_validation_ref,
+        "authority_decision_ref": external_receipt.authority_decision_ref,
+        "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
+        "budget_settlement_ref": external_receipt.budget_settlement_ref,
+        "evidence_refs": list(external_receipt.evidence_refs),
+        "reason_refs": list(external_receipt.reason_refs),
+        "replayed": external_receipt.replayed,
+    }
+    receipt_ref = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{receipt_prefix}:pending",
+                **payload,
+            )
+        ),
+    )
+    return ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
 
 
 def _wait_for_terminal(kernel, request, *, timeout: float = 2.0):  # type: ignore[no-untyped-def]
@@ -372,31 +456,109 @@ def test_external_action_receipt_rejects_conflicting_budget_accounting_proofs() 
         "receipt-ref:governed-post-form",
     ),
 )
+@pytest.mark.parametrize(
+    "missing_field",
+    (
+        "external_action_receipt_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+        "evidence_refs",
+    ),
+)
+def test_browser_action_success_receipt_requires_complete_kernel_proof(
+    receipt_prefix: str,
+    missing_field: str,
+) -> None:
+    evidence_refs = [_ref("evidence", "complete-browser-success")]
+    external_payload = {
+        "transaction_ref": _ref("transaction", "proofless-browser-success"),
+        "intent_ref": _ref("intent", "proofless-browser-success"),
+        "binding_ref": _ref("binding", "proofless-browser-success"),
+        "state": ExternalActionState.succeeded.value,
+        "approval_validation_ref": _ref(
+            "approval-validation",
+            "complete-browser-success",
+        ),
+        "authority_decision_ref": _ref(
+            "authority-decision",
+            "complete-browser-success",
+        ),
+        "budget_reservation_ref": _ref(
+            "budget-reservation",
+            "complete-browser-success",
+        ),
+        "budget_settlement_ref": _ref(
+            "budget-settlement",
+            "complete-browser-success",
+        ),
+        "evidence_refs": evidence_refs,
+        "reason_refs": [],
+    }
+    if missing_field != "external_action_receipt_ref":
+        external_payload[missing_field] = (
+            [] if missing_field == "evidence_refs" else None
+        )
+    external_receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    payload = {
+        "recipe_ref": _ref("recipe", "proofless-browser-success"),
+        "transaction_ref": external_payload["transaction_ref"],
+        "intent_ref": external_payload["intent_ref"],
+        "binding_ref": external_payload["binding_ref"],
+        "status": "plan_ready",
+        "external_action_state": ExternalActionState.succeeded.value,
+        "external_action_receipt_ref": (
+            None
+            if missing_field == "external_action_receipt_ref"
+            else external_receipt_ref
+        ),
+        "approval_validation_ref": external_payload["approval_validation_ref"],
+        "authority_decision_ref": external_payload["authority_decision_ref"],
+        "budget_reservation_ref": external_payload["budget_reservation_ref"],
+        "budget_settlement_ref": external_payload["budget_settlement_ref"],
+        "evidence_refs": external_payload["evidence_refs"],
+        "reason_refs": [],
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        {
+            **ExactBrowserActionReceipt.model_construct(
+                receipt_ref=f"{receipt_prefix}:pending",
+                **payload,
+            ).model_dump(mode="json", exclude={"receipt_ref"}),
+        },
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_SUCCESS_KERNEL_PROOF_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
 def test_browser_action_receipt_identity_binds_budget_release_proof(
     receipt_prefix: str,
 ) -> None:
-    payload = {
-        "recipe_ref": _ref("recipe", "release-proof"),
-        "transaction_ref": _ref("transaction", "release-proof"),
-        "intent_ref": _ref("intent", "release-proof"),
-        "binding_ref": _ref("binding", "release-proof"),
-        "status": "transaction_blocked",
-        "external_action_state": ExternalActionState.blocked,
-        "external_action_receipt_ref": _ref("receipt", "external-action"),
-        "budget_reservation_ref": _ref("budget-reservation", "release-proof"),
-        "budget_release_ref": _ref("budget-release", "original"),
-        "reason_refs": [_ref("reason", "release-proof")],
-    }
-    receipt_ref = stable_governed_browser_ref(
+    receipt = _browser_receipt(
         receipt_prefix,
-        governed_receipt_identity_payload(
-            ExactBrowserActionReceipt.model_construct(
-                receipt_ref=f"{receipt_prefix}:pending",
-                **payload,
-            )
+        _external_receipt(
+            suffix="release-proof",
+            budget_reservation_ref=_ref("budget-reservation", "release-proof"),
+            budget_release_ref=_ref("budget-release", "original"),
+            reason_refs=(_ref("reason", "release-proof"),),
         ),
     )
-    receipt = ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
 
     with pytest.raises(
         ValidationError,
@@ -471,31 +633,18 @@ def test_browser_action_preflight_rejects_proof_without_kernel_receipt(
 
 
 def test_browser_action_and_post_form_results_reject_cross_lane_receipts() -> None:
-    payload = {
-        "recipe_ref": _ref("recipe", "lane-bound-result"),
-        "transaction_ref": _ref("transaction", "lane-bound-result"),
-        "intent_ref": _ref("intent", "lane-bound-result"),
-        "binding_ref": _ref("binding", "lane-bound-result"),
-        "status": "transaction_blocked",
-        "external_action_state": ExternalActionState.blocked,
-        "external_action_receipt_ref": _ref("receipt", "external-action"),
-        "reason_refs": [_ref("reason", "lane-bound-result")],
-    }
-
-    def receipt(prefix: str) -> ExactBrowserActionReceipt:
-        receipt_ref = stable_governed_browser_ref(
-            prefix,
-            governed_receipt_identity_payload(
-                ExactBrowserActionReceipt.model_construct(
-                    receipt_ref=f"{prefix}:pending",
-                    **payload,
-                )
-            ),
-        )
-        return ExactBrowserActionReceipt(receipt_ref=receipt_ref, **payload)
-
-    action_receipt = receipt("receipt-ref:governed-browser-action")
-    post_form_receipt = receipt("receipt-ref:governed-post-form")
+    external_receipt = _external_receipt(
+        suffix="lane-bound-result",
+        reason_refs=(_ref("reason", "lane-bound-result"),),
+    )
+    action_receipt = _browser_receipt(
+        "receipt-ref:governed-browser-action",
+        external_receipt,
+    )
+    post_form_receipt = _browser_receipt(
+        "receipt-ref:governed-post-form",
+        external_receipt,
+    )
 
     ExactBrowserActionResult(receipt=action_receipt)
     ExactPostFormResult(receipt=post_form_receipt)
@@ -509,6 +658,384 @@ def test_browser_action_and_post_form_results_reject_cross_lane_receipts() -> No
         match="GOVERNED_POST_FORM_RESULT_RECEIPT_KIND_MISMATCH",
     ):
         ExactPostFormResult(receipt=action_receipt)
+
+
+def test_browser_action_result_binds_exact_plan_projection(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request = _action_request(suffix="result-projection")
+    recipe = _action_recipe(request, GovernedBrowserActionKind.visible_click)
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _action_service(
+        request=request,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactActionPlanTransport(),
+    )
+    result = _action_plan(service, request, recipe.recipe_ref)
+    assert result.plan is not None
+    raw_plan = result.plan.model_dump(mode="json")
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_PLAN_PROJECTION_REF_MISMATCH",
+    ):
+        ExactBrowserActionPlan.model_validate(
+            {
+                **raw_plan,
+                "element_ref": _ref("element", "unhashed-action-projection"),
+            }
+        )
+
+    for field, value in (
+        ("binding_ref", _ref("binding", "unrelated-action-projection")),
+        ("element_ref", _ref("element", "unrelated-action-projection")),
+        ("profile_ref", _ref("profile", "unrelated-action-projection")),
+    ):
+        forged_payload = {**raw_plan, field: value}
+        forged_payload["projection_ref"] = stable_governed_browser_ref(
+            "browser-action-plan-projection-ref:governed-browser",
+            {
+                key: item
+                for key, item in forged_payload.items()
+                if key != "projection_ref"
+            },
+        )
+        forged_plan = ExactBrowserActionPlan.model_validate(forged_payload)
+
+        with pytest.raises(
+            ValidationError,
+            match="GOVERNED_BROWSER_ACTION_PLAN_RECEIPT_MISMATCH",
+        ):
+            ExactBrowserActionResult(
+                receipt=result.receipt,
+                plan=forged_plan,
+            )
+
+
+def test_post_form_result_binds_exact_plan_projection(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    request, schema, recipe, _ = _post_context(suffix="result-projection")
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _post_form_service(
+        request=request,
+        schema=schema,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactPostFormPlanTransport(),
+    )
+    result = _post_form_plan(service, request, recipe.recipe_ref)
+    assert result.plan is not None
+    raw_plan = result.plan.model_dump(mode="json")
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_POST_FORM_PLAN_PROJECTION_REF_MISMATCH",
+    ):
+        ExactPostFormPlan.model_validate(
+            {
+                **raw_plan,
+                "schema_ref": _ref("schema", "unhashed-post-projection"),
+            }
+        )
+
+    for field, value in (
+        ("binding_ref", _ref("binding", "unrelated-post-projection")),
+        ("schema_ref", _ref("schema", "unrelated-post-projection")),
+        ("profile_ref", _ref("profile", "unrelated-post-projection")),
+    ):
+        forged_payload = {**raw_plan, field: value}
+        forged_payload["projection_ref"] = stable_governed_browser_ref(
+            "browser-post-form-plan-projection-ref:governed-browser",
+            {
+                key: item
+                for key, item in forged_payload.items()
+                if key != "projection_ref"
+            },
+        )
+        forged_plan = ExactPostFormPlan.model_validate(forged_payload)
+
+        with pytest.raises(
+            ValidationError,
+            match="GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH",
+        ):
+            ExactPostFormResult(
+                receipt=result.receipt,
+                plan=forged_plan,
+            )
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_receipt_rejects_rehashed_kernel_proof_conflicts(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="rehashed-proof-conflict",
+            budget_reservation_ref=_ref(
+                "budget-reservation",
+                "rehashed-proof-conflict",
+            ),
+            budget_release_ref=_ref("budget-release", "rehashed-proof-conflict"),
+            reason_refs=(_ref("reason", "rehashed-proof-conflict"),),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged["budget_settlement_ref"] = _ref(
+        "budget-settlement",
+        "rehashed-proof-conflict",
+    )
+    forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": forged["transaction_ref"],
+            "intent_ref": forged["intent_ref"],
+            "binding_ref": forged["binding_ref"],
+            "state": forged["external_action_state"],
+            "approval_validation_ref": forged["approval_validation_ref"],
+            "authority_decision_ref": forged["authority_decision_ref"],
+            "budget_reservation_ref": forged["budget_reservation_ref"],
+            "budget_release_ref": forged["budget_release_ref"],
+            "budget_settlement_ref": forged["budget_settlement_ref"],
+            "evidence_refs": forged["evidence_refs"],
+            "reason_refs": forged["reason_refs"],
+        },
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(**forged)
+        ),
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_receipt_rejects_rehashed_kernel_field_rebinding(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="kernel-field-rebinding",
+            reason_refs=(_ref("reason", "kernel-field-rebinding"),),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged["binding_ref"] = _ref("binding", "rebound")
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(**forged)
+        ),
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_non_preflight_receipt_requires_kernel_context(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="browser-kernel-context-required",
+            reason_refs=(_ref("reason", "browser-kernel-context-required"),),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": ExternalActionState.failed.value,
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                (
+                    "reason-ref:governed-post-form:plan-dispatch-failed"
+                    if receipt_prefix == "receipt-ref:governed-post-form"
+                    else "reason-ref:governed-browser-action:plan-dispatch-failed"
+                )
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_non_preflight_rejects_orphan_kernel_proof(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="browser-non-preflight-orphan-proof",
+            reason_refs=(
+                _ref("reason", "browser-non-preflight-orphan-proof"),
+            ),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": ExternalActionState.failed.value,
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": _ref(
+                "budget-release",
+                "browser-non-preflight-orphan-proof",
+            ),
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                (
+                    "reason-ref:governed-post-form:plan-dispatch-failed"
+                    if receipt_prefix == "receipt-ref:governed-post-form"
+                    else "reason-ref:governed-browser-action:plan-dispatch-failed"
+                )
+            ],
+            "replayed": False,
+        }
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        {
+            key: value
+            for key, value in forged.items()
+            if key != "receipt_ref"
+        },
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_receipt_rejects_kernel_state_status_mismatch(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="browser-state-status-mismatch",
+            reason_refs=(_ref("reason", "browser-state-status-mismatch"),),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged["status"] = "failed"
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_RECEIPT_STATE_MISMATCH",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "receipt_prefix",
+    (
+        "receipt-ref:governed-browser-action",
+        "receipt-ref:governed-post-form",
+    ),
+)
+def test_browser_action_non_replay_status_rejects_replay_flag(
+    receipt_prefix: str,
+) -> None:
+    receipt = _browser_receipt(
+        receipt_prefix,
+        _external_receipt(
+            suffix="browser-replay-status-mismatch",
+            reason_refs=(_ref("reason", "browser-replay-status-mismatch"),),
+        ),
+    )
+    forged = receipt.model_dump(mode="json")
+    forged["replayed"] = True
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged)
 
 
 def test_request_scope_is_deep_frozen_before_provider_callbacks(

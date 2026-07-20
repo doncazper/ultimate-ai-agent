@@ -24,6 +24,10 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/post_forms.py",
         failures,
     )
+    receipt_contract = _read(
+        "src/ultimate_ai_agent/core/governed_browser/browser_actions.py",
+        failures,
+    )
     broker = _read(
         "src/ultimate_ai_agent/core/governed_browser/broker.py",
         failures,
@@ -36,7 +40,12 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/__init__.py",
         failures,
     )
-    tests = _read("tests/test_governed_browser_queue01_group05.py", failures)
+    tests = "\n".join(
+        (
+            _read("tests/test_governed_browser_queue01_group05.py", failures),
+            _read("tests/test_governed_browser_queue02_hardening.py", failures),
+        )
+    )
     doc = _read("docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md", failures)
     docs_index = _read("docs/DOCUMENTATION_INDEX.md", failures)
     board = _read("docs/kanban/current_board.md", failures)
@@ -65,6 +74,16 @@ def verify() -> list[str]:
             "real_external_targets_enabled: Literal[False]",
             "WebAccessGateway",
             "GovernedExternalActionKernel",
+            "GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH",
+            "GOVERNED_POST_FORM_PLAN_PROJECTION_REF_MISMATCH",
+        ),
+        "receipt_contract": (
+            "GOVERNED_BROWSER_ACTION_SUCCESS_KERNEL_PROOF_REQUIRED",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_RECEIPT_REF_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+            "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID",
+            "GOVERNED_BROWSER_ACTION_RECEIPT_STATE_MISMATCH",
+            "GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH",
         ),
         "broker": (
             "IsolatedBrowserActionDryRunBrokerAdapter",
@@ -110,6 +129,15 @@ def verify() -> list[str]:
             "test_post_form_settlement_failure_suppresses_plan_and_retry",
             "test_post_transport_drift_or_execution_fails_content_free",
             "test_real_external_target_cannot_create_post_recipe",
+            "test_browser_action_success_receipt_requires_complete_kernel_proof",
+            "test_browser_action_receipt_identity_binds_budget_release_proof",
+            "test_post_form_result_binds_exact_plan_projection",
+            "test_browser_action_receipt_rejects_rehashed_kernel_proof_conflicts",
+            "test_browser_action_receipt_rejects_rehashed_kernel_field_rebinding",
+            "test_browser_action_non_preflight_receipt_requires_kernel_context",
+            "test_browser_action_non_preflight_rejects_orphan_kernel_proof",
+            "test_browser_action_receipt_rejects_kernel_state_status_mismatch",
+            "test_browser_action_non_replay_status_rejects_replay_flag",
         ),
         "doc": (
             "07. Registered exact POST-form schemas",
@@ -121,6 +149,7 @@ def verify() -> list[str]:
     }
     values = {
         "post_forms": post_forms,
+        "receipt_contract": receipt_contract,
         "broker": broker,
         "policy": policy,
         "package": package,
