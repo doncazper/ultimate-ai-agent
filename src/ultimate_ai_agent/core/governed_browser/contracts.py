@@ -449,14 +449,28 @@ def build_external_action_readiness(
 ) -> ExternalActionReadiness:
     binding = request.binding
     payload = {
-        "binding_ref": binding_ref or binding.binding_ref,
-        "observed_origin_ref": observed_origin_ref or binding.origin_ref,
-        "observed_recipient_ref": observed_recipient_ref or binding.recipient_ref,
+        "binding_ref": (
+            binding_ref if binding_ref is not None else binding.binding_ref
+        ),
+        "observed_origin_ref": (
+            observed_origin_ref
+            if observed_origin_ref is not None
+            else binding.origin_ref
+        ),
+        "observed_recipient_ref": (
+            observed_recipient_ref
+            if observed_recipient_ref is not None
+            else binding.recipient_ref
+        ),
         "observed_field_schema_ref": (
-            observed_field_schema_ref or binding.field_schema_ref
+            observed_field_schema_ref
+            if observed_field_schema_ref is not None
+            else binding.field_schema_ref
         ),
         "observed_transaction_ref": (
-            observed_transaction_ref or binding.transaction_ref
+            observed_transaction_ref
+            if observed_transaction_ref is not None
+            else binding.transaction_ref
         ),
         "observed_artifact_refs": (
             tuple(observed_artifact_refs)
@@ -468,7 +482,11 @@ def build_external_action_readiness(
             if observed_resource_refs is not None
             else tuple(binding.resource_refs)
         ),
-        "page_snapshot_ref": page_snapshot_ref or binding.page_snapshot_ref,
+        "page_snapshot_ref": (
+            page_snapshot_ref
+            if page_snapshot_ref is not None
+            else binding.page_snapshot_ref
+        ),
         "status": status,
         "observed_at": observed_at,
         "expires_at": expires_at,
@@ -567,6 +585,11 @@ class ExternalActionReceipt(BaseModel):
         ]:
             if value is not None:
                 validate_task_ref(value, label)
+        if (
+            self.budget_release_ref is not None
+            and self.budget_settlement_ref is not None
+        ):
+            raise ValueError("GOVERNED_BROWSER_BUDGET_ACCOUNTING_PROOF_CONFLICT")
         payload = {
             "transaction_ref": self.transaction_ref,
             "intent_ref": self.intent_ref,

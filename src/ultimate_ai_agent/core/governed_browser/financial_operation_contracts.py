@@ -996,6 +996,17 @@ class GovernedFinancialReceipt(BaseModel):
             not self.replayed
         ):
             raise ValueError("GOVERNED_FINANCIAL_REPLAY_STATE_MISMATCH")
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        if self.external_action_receipt_ref is None and any(
+            ref is not None for ref in external_kernel_proof_refs
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
         if status in successful:
             kernel_refs = (
                 self.external_action_receipt_ref,

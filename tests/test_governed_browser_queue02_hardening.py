@@ -267,6 +267,34 @@ def test_every_observed_scope_dimension_is_revalidated(
     assert any(reason_fragment in ref for ref in receipt.reason_refs)
 
 
+@pytest.mark.parametrize(
+    "field",
+    (
+        "binding_ref",
+        "observed_origin_ref",
+        "observed_recipient_ref",
+        "observed_field_schema_ref",
+        "observed_transaction_ref",
+        "page_snapshot_ref",
+    ),
+)
+def test_empty_observed_ref_never_defaults_to_approved_scope(field: str) -> None:
+    request = _request(_binding(suffix=f"empty-observed-{field}"))
+    now = utc_now()
+    with pytest.raises(ValidationError):
+        build_external_action_readiness(
+            request,
+            status="ready",
+            observed_at=now - timedelta(seconds=1),
+            expires_at=now + timedelta(seconds=10),
+            broker_integrity_verified=True,
+            external_mutation_enabled=True,
+            safe_disable_active=False,
+            kill_switch_engaged=False,
+            **{field: ""},
+        )
+
+
 def test_readiness_and_receipt_refs_are_intrinsically_bound() -> None:
     request = _request(_binding(suffix="intrinsic-refs"))
     readiness = _readiness(request)
@@ -310,6 +338,31 @@ def test_readiness_and_receipt_refs_are_intrinsically_bound() -> None:
                 "budget_release_ref": _ref("budget-release", "forged"),
             }
         )
+
+
+def test_external_action_receipt_rejects_conflicting_budget_accounting_proofs() -> None:
+    payload = {
+        "transaction_ref": _ref("transaction", "conflicting-accounting"),
+        "intent_ref": _ref("intent", "conflicting-accounting"),
+        "binding_ref": _ref("binding", "conflicting-accounting"),
+        "state": ExternalActionState.outcome_ambiguous.value,
+        "approval_validation_ref": None,
+        "authority_decision_ref": None,
+        "budget_reservation_ref": _ref("budget-reservation", "conflicting-accounting"),
+        "budget_release_ref": _ref("budget-release", "conflicting-accounting"),
+        "budget_settlement_ref": _ref("budget-settlement", "conflicting-accounting"),
+        "evidence_refs": [],
+        "reason_refs": [_ref("reason", "conflicting-accounting")],
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        payload,
+    )
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_BROWSER_BUDGET_ACCOUNTING_PROOF_CONFLICT",
+    ):
+        ExternalActionReceipt.model_validate(payload)
 
 
 @pytest.mark.parametrize(

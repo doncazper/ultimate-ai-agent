@@ -37,6 +37,9 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_financial_target_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -619,6 +622,44 @@ def test_success_receipt_requires_complete_exact_evidence(tmp_path: Path) -> Non
     payload = receipt.model_dump(mode="json")
     payload["status"] = "failed"
     with pytest.raises(ValueError, match="RECEIPT_STATE_MISMATCH"):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+def test_financial_receipt_rejects_budget_proof_without_kernel_receipt(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="orphaned-release-proof",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(
+        {
+            "status": "preflight_blocked",
+            "external_action_state": "blocked",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": _pinned(
+                "receipt-ref:authority-budget",
+                suffix="orphaned-release-proof",
+            ),
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+        }
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
         GovernedFinancialReceipt.model_validate(payload)
 
 

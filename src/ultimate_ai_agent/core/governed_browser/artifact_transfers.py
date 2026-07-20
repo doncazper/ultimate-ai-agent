@@ -1739,8 +1739,17 @@ class ExactGovernedArtifactTransferService:
             )
         captured_quarantine: ExactGovernedArtifactQuarantine | None = None
         captured_plan: ExactGovernedArtifactUploadPlan | None = None
+        download_payload_exceeds_max = (
+            operation == GovernedArtifactTransferOperation.download_quarantine
+            and injected_download_payload is not None
+            and len(injected_download_payload) > recipe.max_bytes
+        )
         owned_download_payload = (
-            bytearray(injected_download_payload)
+            (
+                injected_download_payload
+                if download_payload_exceeds_max
+                else bytearray(injected_download_payload)
+            )
             if operation == GovernedArtifactTransferOperation.download_quarantine
             and injected_download_payload is not None
             else None
@@ -1771,6 +1780,11 @@ class ExactGovernedArtifactTransferService:
                 )
             if operation == GovernedArtifactTransferOperation.download_quarantine:
                 assert dispatch_download_payload is not None
+                if len(dispatch_download_payload) > recipe.max_bytes:
+                    return _failed_dispatch(
+                        dispatched_request,
+                        "payload-too-large",
+                    )
                 try:
                     inspection = self._store.quarantine(
                         quarantine_ref=recipe.quarantine_ref,

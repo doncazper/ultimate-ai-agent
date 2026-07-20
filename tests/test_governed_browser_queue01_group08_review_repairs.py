@@ -535,3 +535,32 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
     while any(dispatched_buffers[0]) and time.monotonic() < deadline:
         time.sleep(0.005)
     assert dispatched_buffers[0] == bytearray(len(dispatched_buffers[0]))
+
+
+def test_oversized_download_payload_is_rejected_before_owned_copy(
+    tmp_path: Path,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="oversized-before-copy",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    payload = bytearray(recipe.max_bytes + 1)
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=payload,
+    )
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.reason_refs == [
+        "reason-ref:governed-artifact:transfer-preparation-failed"
+    ]
+    assert payload == bytearray(len(payload))
