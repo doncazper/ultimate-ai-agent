@@ -45,7 +45,8 @@ from .contracts import (
 from .replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
     ExternalActionReplayValidationContext,
-    build_external_action_replay_validation_context,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
     replay_validation_context,
     require_external_action_replay_provenance,
 )
@@ -1929,25 +1930,40 @@ def _task_composer_replay_context(
     recipe: GovernedTaskCompositionRecipe,
     replay_receipt: ExternalActionReceipt,
 ) -> ExternalActionReplayValidationContext:
-    expected_evidence = (
-        (
-            recipe.recipe_ref,
-            recipe.plan_ref,
-            recipe.registry_ref,
-            recipe.composer_authority_ref,
-            *(step.operation_ref for step in recipe.steps),
-        )
-        if replay_receipt.state == ExternalActionState.succeeded.value
-        else tuple(replay_receipt.evidence_refs)
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    expected_success_evidence = (
+        recipe.recipe_ref,
+        recipe.plan_ref,
+        recipe.registry_ref,
+        recipe.composer_authority_ref,
+        *(step.operation_ref for step in recipe.steps),
     )
-    return build_external_action_replay_validation_context(
+    expected_failure_refs = {
+        stable_governed_browser_ref(
+            f"evidence-ref:governed-task-composer:{suffix}",
+            {"intent_ref": replay_receipt.intent_ref},
+        )
+        for suffix in ("trusted-clock-invalid", "plan-revalidation-failed")
+    }
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=evidence_refs == expected_success_evidence,
+        failure_evidence_valid=(
+            len(evidence_refs) == 1
+            and evidence_refs[0] in expected_failure_refs
+        ),
+        mismatch_error=(
+            "GOVERNED_TASK_COMPOSER_REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    )
+    return _build_external_action_replay_validation_context(
         kernel,
         expected_execution=expected_execution,
         replay_receipt=replay_receipt,
         expectation=ExternalActionReplayEvidenceExpectation(
             lane_ref=_TASK_COMPOSER_REPLAY_LANE_REF,
             operation_ref=recipe.binding_ref,
-            evidence_refs=expected_evidence,
+            evidence_refs=evidence_refs,
         ),
     )
 

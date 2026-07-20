@@ -97,6 +97,8 @@ def verify() -> list[str]:
             "idempotency-conflict",
             "recipe-expired",
             "trusted-clock-invalid",
+            "_task_composer_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "transaction": (
             "Durable prepare-to-settle kernel for exact external actions.",
@@ -134,6 +136,11 @@ def verify() -> list[str]:
             "test_started_or_prepared_kernel_state_is_outcome_ambiguous",
             "test_preflight_receipt_rejects_orphan_replay_flag",
             "test_complete_success_proof_cannot_downgrade_to_proof_incomplete",
+            "test_task_composer_replay_wrappers_require_exact_terminal_provenance",
+            "test_task_composer_non_success_terminal_replays_use_complete_envelope",
+            "test_task_composer_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_task_composer_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_task_composer_replay_rejects_cross_transaction_recipe_context",
         ),
         "doc": (
             "13. Exact registered-operation task composer",

@@ -80,6 +80,28 @@ them in individual lane services:
   content-derived identity when read or deserialized, and bounded hostile reason
   sets keep terminal budget accounting failures explicit alongside an overflow
   proof;
+- replay projections no longer treat recomputable receipt hashes as durable
+  provenance. A package-internal typed validation context is issued only after
+  the concrete kernel and concrete transaction store atomically read one durable
+  row and prove its exact recipe-bound request fingerprint, terminal state,
+  transaction/intent/binding, non-replayed receipt payload, and recomputed
+  receipt ref. The context keeps immutable canonical snapshots rather than
+  caller-owned model aliases. Each wrapper compares the complete projected
+  kernel receipt to that durable terminal receipt, allowing only the
+  presentation replay bit to differ. It then validates one
+  lane/operation-specific ordered evidence envelope. Blocked envelopes are
+  empty; failed and succeeded
+  envelopes match the exact lane grammar; ambiguous envelopes match a lane
+  result or a deterministic kernel ambiguity proof; prepared and started rows
+  are never accepted as terminal proof. Missing or mutated context, reordered
+  or resized evidence all fail closed. Cross-operation, cross-recipe, and
+  cross-transaction substitution all fail closed even when every
+  content-derived wrapper hash is
+  recomputed. Artifact envelopes also bind the wrapper projection to the exact
+  artifact, quarantine, source transaction, and origin scope. Download evidence
+  binds artifact, quarantine, fingerprint, quarantine projection, and service
+  proof; upload-plan evidence additionally binds the exact source download
+  receipt/recipe and upload-plan ref;
 - external-operation contract receipts recompute the referenced kernel receipt
   from their copied transaction, state, proof, evidence, and original kernel
   reason fields, even when the operator-facing contract adds a scoped failure
@@ -115,7 +137,7 @@ content-free; this evidence does not stand in for a live external facility.
 | page mutation between approval and dispatch | Repeated readiness checks bind the exact snapshot and mutation signal. |
 | duplicate submission | One action, durable start ownership, idempotency, and duplicate-submit signals prevent retry. |
 | timeout after dispatch | Bounded dispatch returns non-retryable `outcome_ambiguous` at the deadline, retains sole ownership while the callback is live, and closes durably only after it stops. |
-| crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; ownership spans settlement and terminal close, while orphan recovery, terminal replay, prior release/settlement reconciliation, CAS writes, and mandatory accounting proof preserve ambiguity truth without redispatch. |
+| crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; ownership spans settlement and terminal close, while orphan recovery, terminal replay, prior release/settlement reconciliation, CAS writes, mandatory accounting proof, exact durable-terminal provenance, and typed ordered evidence envelopes preserve ambiguity truth without redispatch. |
 | concurrent execution | Only the durable start owner dispatches; contenders cannot terminalize or clobber it. |
 | kill-switch races | Revalidation after start changes the result to ambiguous without retry. |
 | safe-disable races | Revalidation after start changes the result to ambiguous without retry. |
@@ -128,7 +150,7 @@ content-free; this evidence does not stand in for a live external facility.
 | recipient/content/amount/total substitution | Every observed/requested dimension is exact and independently revalidated. |
 | payment, publishing, account, consent, deletion, and transfer retry denial | All operation contracts remain plan-only, at-most-once, and `automatic_retry_allowed=false`. |
 | resource exhaustion and bounded cleanup | Dispatch capacity is one, hostile resource count is bounded to four, and unverified cleanup blocks. |
-| cross-lane non-interference | Exact transaction, operation, schema, resource, artifact, and evidence refs prevent cross-lane reuse. |
+| cross-lane non-interference | Recipe-bound kernel fingerprints plus exact transaction, operation, schema, resource, artifact, durable receipt, and ordered evidence-envelope refs prevent cross-lane reuse. |
 | full macOS packaged golden journeys | A clean packaged checkpoint install must pass CLI, API manifest, Control Center, and helper smoke without enabling a live target; it remains distinct from live external evidence. |
 
 ## Activation Matrix

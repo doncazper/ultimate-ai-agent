@@ -35,6 +35,14 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/adversarial_hardening.py",
         failures,
     )
+    replay_provenance = _read(
+        "src/ultimate_ai_agent/core/governed_browser/replay_provenance.py",
+        failures,
+    )
+    replay_provenance_tests = _read(
+        "tests/test_governed_browser_replay_provenance.py",
+        failures,
+    )
     external_operations = _read(
         "src/ultimate_ai_agent/core/governed_browser/external_operation_contracts.py",
         failures,
@@ -52,6 +60,14 @@ def verify() -> list[str]:
     )
     observation_tests = _read(
         "tests/test_governed_browser_queue01_group03.py",
+        failures,
+    )
+    browser_action_tests = _read(
+        "tests/test_governed_browser_queue01_group04.py",
+        failures,
+    )
+    post_form_tests = _read(
+        "tests/test_governed_browser_queue01_group05.py",
         failures,
     )
     origin_session_tests = _read(
@@ -171,6 +187,8 @@ def verify() -> list[str]:
             "GOVERNED_EXTERNAL_OPERATION_EXTERNAL_RECEIPT_REF_MISMATCH",
             "GOVERNED_EXTERNAL_OPERATION_RECEIPT_STATE_MISMATCH",
             "_external_operation_receipt_identity_payload",
+            "_external_operation_replay_validation_context",
+            "require_external_action_replay_provenance",
         ),
         "financial_operations": (
             "budget_release_ref",
@@ -178,6 +196,8 @@ def verify() -> list[str]:
             "GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_REQUIRED",
             "GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
             "GOVERNED_FINANCIAL_RECEIPT_STATE_MISMATCH",
+            "_financial_replay_validation_context",
+            "require_external_action_replay_provenance",
         ),
         "artifact_transfers": (
             "download-payload-rejected",
@@ -188,6 +208,29 @@ def verify() -> list[str]:
             "GOVERNED_ARTIFACT_RECEIPT_STATE_MISMATCH",
             "GOVERNED_ARTIFACT_PREFLIGHT_EXTERNAL_PROOF_DENIED",
             "GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED",
+            "_artifact_replay_evidence_expectation",
+            "_artifact_replay_validation_context",
+            "require_external_action_replay_provenance",
+            "GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+        ),
+        "replay_provenance": (
+            "ExternalActionReplayEvidenceExpectation",
+            "ExternalActionReplayEvidenceEnvelope",
+            "ExternalActionReplayValidationContext",
+            "_build_external_action_replay_validation_context",
+            "attest_terminal_replay",
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+        ),
+        "replay_provenance_tests": (
+            "test_clean_proof_uses_atomic_row_and_builds_deterministic_envelope",
+            "test_structurally_compatible_fake_source_cannot_mint_context",
+            "test_legitimate_token_cannot_authenticate_a_copied_context",
+            "test_in_place_context_snapshot_mutation_fails_closed",
+            "test_concrete_attestation_ignores_instance_method_substitution",
+            "test_complete_terminal_evidence_envelope_accepts_only_defined_shapes",
+            "test_undefined_terminal_evidence_envelopes_fail_closed",
+            "test_atomic_attestation_rejects_request_scope_drift",
+            "test_atomic_attestation_rejects_nonterminal_row_state",
         ),
         "browser_actions": (
             "GOVERNED_BROWSER_ACTION_RECEIPT_REF_MISMATCH",
@@ -203,6 +246,9 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_ACTION_PLAN_PROJECTION_REF_MISMATCH",
             '"receipt-ref:governed-browser-action"',
             '"receipt-ref:governed-post-form"',
+            "_browser_action_kernel_execution",
+            "_browser_action_replay_expectation",
+            "require_external_action_replay_provenance",
         ),
         "observations": (
             "GOVERNED_BROWSER_OBSERVATION_EXTERNAL_PROOF_CONTEXT_REQUIRED",
@@ -212,6 +258,9 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_OBSERVATION_REPLAY_STATUS_MISMATCH",
             "GOVERNED_BROWSER_OBSERVATION_PREFLIGHT_EXTERNAL_PROOF_DENIED",
             "GOVERNED_BROWSER_OBSERVATION_SUCCESS_GOVERNANCE_INCOMPLETE",
+            "_browser_observation_kernel_execution",
+            "_browser_observation_replay_expectation",
+            "require_external_action_replay_provenance",
         ),
         "human_challenges": (
             "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_REQUIRED",
@@ -222,6 +271,8 @@ def verify() -> list[str]:
             "GOVERNED_HUMAN_CHALLENGE_PREFLIGHT_EXTERNAL_PROOF_DENIED",
             "GOVERNED_HUMAN_CHALLENGE_SUCCESS_KERNEL_PROOF_REQUIRED",
             "GOVERNED_HUMAN_CHALLENGE_RECEIPT_MISMATCH",
+            "_human_challenge_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "origin_sessions": (
             "recipe_snapshot",
@@ -242,17 +293,24 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_ORIGIN_SESSION_NON_SUCCESS_PROJECTION_DENIED",
             "GOVERNED_BROWSER_ORIGIN_SESSION_KEYCHAIN_PROJECTION_MISMATCH",
             "GOVERNED_BROWSER_ORIGIN_SESSION_RECORD_PROJECTION_MISMATCH",
+            "_origin_session_kernel_execution",
+            "_origin_session_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "task_composer": (
             "ExternalActionReceipt(",
             "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH",
             "GOVERNED_TASK_COMPOSER_PROOF_INCOMPLETE_STATE_MISMATCH",
+            "_task_composer_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "post_forms": (
             "GOVERNED_POST_FORM_RESULT_RECEIPT_KIND_MISMATCH",
             "GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH",
             "GOVERNED_POST_FORM_PLAN_PROJECTION_REF_MISMATCH",
             '"receipt-ref:governed-post-form"',
+            "_post_form_kernel_execution",
+            "_post_form_replay_expectation",
         ),
         "tests": (
             "test_queue02_package_exports_are_declared",
@@ -309,6 +367,11 @@ def verify() -> list[str]:
             "test_honest_matrix_covers_every_lane_and_keeps_every_lane_inactive",
         ),
         "external_operation_tests": (
+            "test_external_operation_terminal_replay_reconstructs_exact_operation_evidence",
+            "test_external_operation_terminal_replay_rejects_arbitrary_non_success_evidence",
+            "test_external_operation_replay_rejects_every_rehashed_evidence_field_tamper",
+            "test_external_operation_replay_rejects_rehashed_evidence_order_and_arity_tamper",
+            "test_external_operation_replay_rejects_cross_operation_and_transaction_substitution",
             "test_operation_receipt_rejects_rebound_kernel_receipt_fields",
             "test_operation_preflight_rejects_release_proof_without_kernel_receipt",
             "test_operation_ready_receipt_preserves_validation_precedence",
@@ -321,6 +384,12 @@ def verify() -> list[str]:
             "test_legacy_failed_operation_receipt_preserves_nonempty_kernel_reasons",
         ),
         "financial_operation_tests": (
+            "test_financial_terminal_replay_reconstructs_exact_operation_evidence",
+            "test_financial_terminal_replay_rejects_arbitrary_non_success_evidence",
+            "test_financial_replay_rejects_every_rehashed_evidence_field_tamper",
+            "test_financial_replay_rejects_rehashed_evidence_order_and_arity_tamper",
+            "test_financial_replay_rejects_cross_operation_substitution",
+            "test_financial_replay_rejects_cross_transaction_substitution",
             "test_financial_receipt_rejects_budget_proof_without_kernel_receipt",
             "test_financial_non_preflight_receipt_requires_kernel_context",
             "test_financial_receipt_rejects_rebound_kernel_receipt_fields",
@@ -334,7 +403,13 @@ def verify() -> list[str]:
             "test_artifact_preflight_rejects_orphan_kernel_proof",
             "test_artifact_receipt_rejects_kernel_state_status_mismatch",
             "test_artifact_replayed_content_free_requires_succeeded_kernel_state",
-            "test_artifact_replayed_success_binds_external_evidence_to_claimed_scope",
+            "test_artifact_replayed_success_rejects_standalone_rehashed_scope_forgery",
+            "test_artifact_replay_requires_exact_durable_provenance_context",
+            "test_artifact_terminal_replay_reconstructs_exact_operation_evidence",
+            "test_artifact_terminal_replay_rejects_arbitrary_non_success_evidence",
+            "test_artifact_replay_rejects_every_rehashed_evidence_field_tamper",
+            "test_artifact_replay_rejects_rehashed_evidence_order_and_arity_tamper",
+            "test_artifact_replay_rejects_cross_operation_and_transaction_substitution",
             "test_artifact_replayed_success_requires_complete_kernel_proof",
             "evidence-ref:governed-artifact:download-payload-rejected",
         ),
@@ -346,6 +421,18 @@ def verify() -> list[str]:
             "test_observation_receipt_rejects_kernel_state_status_mismatch",
             "test_observation_non_replay_status_rejects_replay_flag",
             "test_observation_replayed_success_requires_complete_kernel_proof",
+            "test_observation_replay_requires_exact_durable_provenance",
+            "test_observation_recipe_identity_conflicts_on_same_transaction",
+        ),
+        "browser_action_tests": (
+            "test_action_replay_requires_exact_durable_provenance",
+            "test_action_blocked_and_failed_terminals_replay_content_free",
+            "test_action_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity",
+        ),
+        "post_form_tests": (
+            "test_post_form_replay_requires_exact_durable_provenance",
+            "test_post_form_blocked_and_failed_terminals_replay_content_free",
+            "test_post_form_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity",
         ),
         "origin_session_tests": (
             "test_origin_receipt_snapshot_preserves_outer_identity_and_is_required",
@@ -360,6 +447,11 @@ def verify() -> list[str]:
             "test_fresh_store_revoke_allows_absent_session_projection",
             "test_non_success_origin_result_rejects_unrelated_projection",
             "test_idempotent_distinct_origin_transactions_accept_existing_record",
+            "test_origin_replay_reconstruction_requires_exact_terminal_provenance",
+            "test_origin_non_success_terminal_replays_use_complete_envelope",
+            "test_origin_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_origin_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_origin_replay_rejects_cross_scope_provenance_substitution",
         ),
         "human_challenge_tests": (
             "test_handoff_receipt_rejects_rehashed_conflicting_kernel_proofs",
@@ -370,6 +462,11 @@ def verify() -> list[str]:
             "test_handoff_non_replay_status_rejects_replay_flag",
             "test_handoff_replayed_success_requires_complete_kernel_proof",
             "test_handoff_result_rejects_cross_projection_binding",
+            "test_handoff_replay_reconstruction_requires_exact_terminal_provenance",
+            "test_handoff_non_success_terminal_replays_use_complete_envelope",
+            "test_handoff_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_handoff_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_handoff_replay_rejects_cross_transaction_recipe_context",
         ),
         "task_composer_tests": (
             "test_serialized_external_receipt_snapshot_rejects_conflicting_rehashed_kernel_proofs",
@@ -379,6 +476,11 @@ def verify() -> list[str]:
             "test_started_or_prepared_kernel_state_is_outcome_ambiguous",
             "test_preflight_receipt_rejects_orphan_replay_flag",
             "test_complete_success_proof_cannot_downgrade_to_proof_incomplete",
+            "test_task_composer_replay_wrappers_require_exact_terminal_provenance",
+            "test_task_composer_non_success_terminal_replays_use_complete_envelope",
+            "test_task_composer_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_task_composer_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_task_composer_replay_rejects_cross_transaction_recipe_context",
         ),
         "doc": (
             "Queue 02",
@@ -389,12 +491,17 @@ def verify() -> list[str]:
             "configuration_required",
             "blocked_pending_live_evidence",
             "No lane was activated",
+            "exact durable-terminal provenance",
+            "lane/operation-specific ordered evidence",
+            "cross-transaction substitution",
         ),
     }
     texts = {
         "contracts": contracts,
         "transaction": transaction,
         "hardening": hardening,
+        "replay_provenance": replay_provenance,
+        "replay_provenance_tests": replay_provenance_tests,
         "external_operations": external_operations,
         "financial_operations": projection_sources[
             "src/ultimate_ai_agent/core/governed_browser/financial_operation_contracts.py"
@@ -419,6 +526,8 @@ def verify() -> list[str]:
         "financial_operation_tests": financial_operation_tests,
         "artifact_transfer_review_tests": artifact_transfer_review_tests,
         "observation_tests": observation_tests,
+        "browser_action_tests": browser_action_tests,
+        "post_form_tests": post_form_tests,
         "origin_session_tests": origin_session_tests,
         "human_challenge_tests": human_challenge_tests,
         "task_composer_tests": task_composer_tests,

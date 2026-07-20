@@ -49,7 +49,8 @@ from .contracts import (
 from .replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
     ExternalActionReplayValidationContext,
-    build_external_action_replay_validation_context,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
     replay_validation_context,
     require_external_action_replay_provenance,
 )
@@ -833,6 +834,57 @@ def _validate_origin_session_success_evidence(
         raise ValueError(
             "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
         )
+
+
+def _origin_session_failure_evidence_valid(
+    *,
+    recipe: GovernedBrowserOriginSessionRecipe,
+    intent_ref: str,
+    evidence_refs: tuple[str, ...],
+    success_evidence_valid: bool,
+) -> bool:
+    operation = GovernedBrowserOriginSessionOperation(recipe.operation)
+    operation_ref = stable_governed_browser_ref(
+        "browser-origin-session-operation-ref:governed-browser",
+        {
+            "recipe_ref": recipe.recipe_ref,
+            "intent_ref": intent_ref,
+        },
+    )
+    keychain_failure_refs = {
+        stable_governed_browser_ref(
+            (
+                "evidence-ref:governed-browser-origin-session:"
+                "keychain-precondition-failed"
+            ),
+            {
+                "operation_ref": operation_ref,
+                "reason_code": reason_code,
+            },
+        )
+        for reason_code in _NON_MUTATING_KEYCHAIN_ERROR_CODES
+    }
+    if len(evidence_refs) == 1 and evidence_refs[0] in keychain_failure_refs:
+        return True
+    conflict_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-browser-origin-session:state-conflict",
+        {"operation_ref": operation_ref},
+    )
+    if evidence_refs == (conflict_ref,):
+        return True
+    helper_prefix = "helper-receipt-ref:governed-browser-keychain:"
+    if (
+        len(evidence_refs) == 3
+        and evidence_refs[0] == conflict_ref
+        and evidence_refs[1].startswith(helper_prefix)
+        and evidence_refs[2] == recipe.keychain_item_ref
+    ):
+        return True
+    return (
+        operation
+        == GovernedBrowserOriginSessionOperation.revalidate_session
+        and success_evidence_valid
+    )
 
 
 class GovernedBrowserOriginSessionReceipt(BaseModel):
@@ -1835,13 +1887,29 @@ def _origin_session_replay_context(
     replay_receipt: ExternalActionReceipt,
 ) -> ExternalActionReplayValidationContext:
     evidence_refs = tuple(replay_receipt.evidence_refs)
-    if replay_receipt.state == ExternalActionState.succeeded.value:
+    try:
         _validate_origin_session_success_evidence(
             recipe=recipe,
             intent_ref=expected_execution.intent_ref,
             evidence_refs=evidence_refs,
         )
-    return build_external_action_replay_validation_context(
+        success_evidence_valid = True
+    except ValueError:
+        success_evidence_valid = False
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=success_evidence_valid,
+        failure_evidence_valid=_origin_session_failure_evidence_valid(
+            recipe=recipe,
+            intent_ref=expected_execution.intent_ref,
+            evidence_refs=evidence_refs,
+            success_evidence_valid=success_evidence_valid,
+        ),
+        mismatch_error=(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    )
+    return _build_external_action_replay_validation_context(
         kernel,
         expected_execution=expected_execution,
         replay_receipt=replay_receipt,

@@ -21,7 +21,14 @@ from pathlib import Path
 from threading import RLock
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationInfo,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.authority import AuthorityCapability
 from ultimate_ai_agent.core.planning.validation import (
@@ -40,12 +47,24 @@ from .contracts import (
     governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    ExternalActionReplayValidationContext,
+    _authenticated_replay_evidence_envelope,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
+    replay_validation_context,
+    require_external_action_replay_provenance,
+)
 from .transaction import GovernedExternalActionKernel
 
 
 MAX_GOVERNED_ARTIFACT_BYTES = 65_536
 MAX_GOVERNED_ARTIFACT_RECIPE_LIFETIME = timedelta(minutes=10)
 _HASH_PINNED_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
+_GOVERNED_ARTIFACT_REPLAY_LANE_REF = (
+    "lane-ref:governed-artifact-transfer"
+)
 
 
 class GovernedArtifactTransferOperation(str, Enum):
@@ -1330,7 +1349,10 @@ class GovernedArtifactTransferReceipt(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "GovernedArtifactTransferReceipt":
+    def validate_receipt(
+        self,
+        info: ValidationInfo,
+    ) -> "GovernedArtifactTransferReceipt":
         for value, label in (
             (self.receipt_ref, "receipt_ref"),
             (self.recipe_ref, "recipe_ref"),
@@ -1540,19 +1562,6 @@ class GovernedArtifactTransferReceipt(BaseModel):
             or not self.evidence_refs
         ):
             raise ValueError("GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED")
-        if status == GovernedArtifactTransferStatus.replayed_content_free:
-            expected_evidence_count = (
-                5
-                if operation
-                == GovernedArtifactTransferOperation.download_quarantine
-                else 6
-            )
-            if (
-                len(self.evidence_refs) != expected_evidence_count
-                or self.evidence_refs[:2]
-                != [self.artifact_ref, self.quarantine_ref]
-            ):
-                raise ValueError("GOVERNED_ARTIFACT_REPLAY_EVIDENCE_MISMATCH")
         external_kernel_proof_refs = (
             self.approval_validation_ref,
             self.authority_decision_ref,
@@ -1598,7 +1607,7 @@ class GovernedArtifactTransferReceipt(BaseModel):
             ):
                 external_reason_refs = ()
             try:
-                ExternalActionReceipt(
+                external_receipt = ExternalActionReceipt(
                     receipt_ref=self.external_action_receipt_ref,
                     transaction_ref=self.transaction_ref,
                     intent_ref=self.intent_ref,
@@ -1617,6 +1626,27 @@ class GovernedArtifactTransferReceipt(BaseModel):
                 raise ValueError(
                     "GOVERNED_ARTIFACT_EXTERNAL_RECEIPT_REF_MISMATCH"
                 ) from exc
+            if self.replayed:
+                authenticated_context = (
+                    require_external_action_replay_provenance(
+                        info,
+                        lane_ref=_artifact_replay_lane_ref(operation),
+                        operation_ref=self.recipe_ref,
+                        candidate=external_receipt,
+                    )
+                )
+                envelope = _authenticated_replay_evidence_envelope(
+                    authenticated_context
+                )
+                if envelope.scope_refs != (
+                    self.artifact_ref,
+                    self.quarantine_ref,
+                    self.download_transaction_ref,
+                    self.origin_ref,
+                ):
+                    raise ValueError(
+                        "GOVERNED_ARTIFACT_REPLAY_SCOPE_ENVELOPE_MISMATCH"
+                    )
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_artifact_transfer_receipt",
@@ -1813,12 +1843,19 @@ class ExactGovernedArtifactTransferService:
         )
         replay = self._kernel.replay_if_terminal(kernel_execution)
         if replay is not None:
+            replay_context = _artifact_replay_validation_context(
+                kernel=self._kernel,
+                expected_execution=kernel_execution,
+                recipe=recipe,
+                replay_receipt=replay,
+            )
             return _result_from_external_receipt(
                 request=request,
                 recipe=recipe,
                 external_receipt=replay,
                 quarantine=None,
                 upload_plan=None,
+                replay_context=replay_context,
             )
         current_time, clock_reason = _read_transfer_clock(self._clock)
         if clock_reason is not None:
@@ -2053,12 +2090,23 @@ class ExactGovernedArtifactTransferService:
         ):
             captured_quarantine = None
             captured_plan = None
+        replay_context = (
+            _artifact_replay_validation_context(
+                kernel=self._kernel,
+                expected_execution=kernel_execution,
+                recipe=recipe,
+                replay_receipt=external_receipt,
+            )
+            if external_receipt.replayed
+            else None
+        )
         return _result_from_external_receipt(
             request=request,
             recipe=recipe,
             external_receipt=external_receipt,
             quarantine=captured_quarantine,
             upload_plan=captured_plan,
+            replay_context=replay_context,
         )
 
     def _source_download_receipt_is_valid(
@@ -2242,6 +2290,155 @@ def _zeroize_mutable_payload(payload: bytearray) -> None:
         view.release()
 
 
+def _artifact_replay_lane_ref(
+    operation: GovernedArtifactTransferOperation,
+) -> str:
+    return f"{_GOVERNED_ARTIFACT_REPLAY_LANE_REF}:{operation.value}"
+
+
+def _artifact_replay_evidence_expectation(
+    *,
+    recipe: GovernedArtifactTransferRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayEvidenceExpectation:
+    operation = GovernedArtifactTransferOperation(recipe.operation)
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    success_evidence_valid = False
+    try:
+        if operation == GovernedArtifactTransferOperation.download_quarantine:
+            if len(evidence_refs) == 5:
+                (
+                    artifact_ref,
+                    quarantine_ref,
+                    content_fingerprint_ref,
+                    quarantine_projection_ref,
+                    service_proof_ref,
+                ) = evidence_refs
+                _validate_hash_pinned_ref(
+                    content_fingerprint_ref,
+                    label="content_fingerprint_ref",
+                    prefix="content-fingerprint-ref:governed-browser:",
+                )
+                _validate_hash_pinned_ref(
+                    quarantine_projection_ref,
+                    label="quarantine_projection_ref",
+                    prefix=(
+                        "artifact-quarantine-projection-ref:"
+                        "governed-browser:"
+                    ),
+                )
+                _validate_hash_pinned_ref(
+                    service_proof_ref,
+                    label="service_proof_ref",
+                    prefix=(
+                        "artifact-transfer-service-proof-ref:"
+                        "governed-browser:"
+                    ),
+                )
+                expected_service_proof_ref = governed_artifact_service_proof_ref(
+                    recipe_ref=recipe.recipe_ref,
+                    origin_ref=recipe.origin_ref,
+                    quarantine_ref=recipe.quarantine_ref,
+                    quarantine_projection_ref=quarantine_projection_ref,
+                    content_fingerprint_ref=content_fingerprint_ref,
+                )
+                success_evidence_valid = (
+                    artifact_ref == recipe.artifact_ref
+                    and quarantine_ref == recipe.quarantine_ref
+                    and service_proof_ref == expected_service_proof_ref
+                )
+        else:
+            if len(evidence_refs) == 6:
+                (
+                    artifact_ref,
+                    quarantine_ref,
+                    content_fingerprint_ref,
+                    source_download_receipt_ref,
+                    source_download_recipe_ref,
+                    upload_plan_ref,
+                ) = evidence_refs
+                _validate_hash_pinned_ref(
+                    upload_plan_ref,
+                    label="upload_plan_ref",
+                    prefix="artifact-upload-plan-ref:governed-browser:",
+                )
+                success_evidence_valid = (
+                    artifact_ref == recipe.artifact_ref
+                    and quarantine_ref == recipe.quarantine_ref
+                    and content_fingerprint_ref
+                    == recipe.content_fingerprint_ref
+                    and source_download_receipt_ref
+                    == recipe.source_download_receipt_ref
+                    and source_download_recipe_ref
+                    == recipe.source_download_recipe_ref
+                )
+    except ValueError:
+        success_evidence_valid = False
+    common_suffixes = {
+        "transfer-clock-invalid",
+        "transfer-revalidation-failed",
+    }
+    operation_suffixes = {
+        GovernedArtifactTransferOperation.download_quarantine: {
+            "download-payload-rejected",
+            "download-service-proof-write-failed",
+        },
+        GovernedArtifactTransferOperation.upload_quarantined_artifact_plan: {
+            "upload-artifact-precondition-failed",
+            "source-download-service-proof-required",
+            "source-download-receipt-required",
+        },
+    }[operation]
+    expected_failure_refs = {
+        stable_governed_browser_ref(
+            f"evidence-ref:governed-artifact:{suffix}",
+            {"intent_ref": replay_receipt.intent_ref},
+        )
+        for suffix in common_suffixes | operation_suffixes
+    }
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=success_evidence_valid,
+        failure_evidence_valid=(
+            len(evidence_refs) == 1
+            and evidence_refs[0] in expected_failure_refs
+        ),
+        mismatch_error=(
+            "GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    )
+    return ExternalActionReplayEvidenceExpectation(
+        lane_ref=_artifact_replay_lane_ref(operation),
+        operation_ref=recipe.recipe_ref,
+        scope_refs=(
+            recipe.artifact_ref,
+            recipe.quarantine_ref,
+            recipe.download_transaction_ref,
+            recipe.origin_ref,
+        ),
+        evidence_refs=evidence_refs,
+    )
+
+
+def _artifact_replay_validation_context(
+    *,
+    kernel: GovernedExternalActionKernel,
+    expected_execution: ExternalActionExecutionRequest,
+    recipe: GovernedArtifactTransferRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayValidationContext:
+    expectation = _artifact_replay_evidence_expectation(
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    return _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=expected_execution,
+        replay_receipt=replay_receipt,
+        expectation=expectation,
+    )
+
+
 def _artifact_transfer_kernel_execution(
     request: ExternalActionExecutionRequest,
     *,
@@ -2415,6 +2612,7 @@ def _result_from_external_receipt(
     external_receipt: ExternalActionReceipt,
     quarantine: ExactGovernedArtifactQuarantine | None,
     upload_plan: ExactGovernedArtifactUploadPlan | None,
+    replay_context: ExternalActionReplayValidationContext | None = None,
 ) -> ExactGovernedArtifactTransferResult:
     state = ExternalActionState(external_receipt.state)
     operation = GovernedArtifactTransferOperation(recipe.operation)
@@ -2496,11 +2694,21 @@ def _result_from_external_receipt(
             )
         ),
     )
-    return ExactGovernedArtifactTransferResult(
-        receipt=GovernedArtifactTransferReceipt(
-            receipt_ref=receipt_ref,
-            **payload,
+    receipt_payload = {"receipt_ref": receipt_ref, **payload}
+    result_payload = {
+        "receipt": receipt_payload,
+        "quarantine": (
+            quarantine.model_dump(mode="json") if quarantine is not None else None
         ),
-        quarantine=quarantine,
-        upload_plan=upload_plan,
+        "upload_plan": (
+            upload_plan.model_dump(mode="json") if upload_plan is not None else None
+        ),
+    }
+    return ExactGovernedArtifactTransferResult.model_validate(
+        result_payload,
+        context=(
+            replay_validation_context(replay_context)
+            if replay_context is not None
+            else None
+        ),
     )

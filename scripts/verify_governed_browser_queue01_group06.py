@@ -122,6 +122,9 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_ORIGIN_SESSION_NON_SUCCESS_PROJECTION_DENIED",
             "GOVERNED_BROWSER_ORIGIN_SESSION_KEYCHAIN_PROJECTION_MISMATCH",
             "GOVERNED_BROWSER_ORIGIN_SESSION_RECORD_PROJECTION_MISMATCH",
+            "_origin_session_kernel_execution",
+            "_origin_session_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "static_safety": (
             "is_exact_governed_browser_keychain_subprocess_site",
@@ -199,6 +202,11 @@ def verify() -> list[str]:
             "test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer",
             "test_native_helper_bounds_stdin_and_disables_authentication_ui",
             "test_installer_metadata_is_content_free_exact_and_rejects_unmanaged_pair",
+            "test_origin_replay_reconstruction_requires_exact_terminal_provenance",
+            "test_origin_non_success_terminal_replays_use_complete_envelope",
+            "test_origin_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_origin_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_origin_replay_rejects_cross_scope_provenance_substitution",
         ),
         "doc": (
             "08. Real macOS Keychain opaque-handle adapter",

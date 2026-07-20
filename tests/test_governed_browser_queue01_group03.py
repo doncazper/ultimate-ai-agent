@@ -45,7 +45,7 @@ from ultimate_ai_agent.core.governed_browser.evidence_recipes import (
 )
 from ultimate_ai_agent.core.governed_browser.replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
-    build_external_action_replay_validation_context,
+    _build_external_action_replay_validation_context,
     replay_validation_context,
 )
 from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
@@ -397,6 +397,110 @@ def test_observation_is_at_most_once_and_replay_is_content_free(
         ExactBrowserObservationReceipt.model_validate_json(payload)
 
 
+@pytest.mark.parametrize("terminal_state", ("blocked", "failed"))
+def test_observation_blocked_and_failed_terminals_replay_content_free(
+    tmp_path: Path,
+    terminal_state: str,
+) -> None:
+    request = _exact_request(suffix=f"terminal-replay-{terminal_state}")
+    recipe = _recipe(request)
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=lambda item: _readiness(
+            item,
+            safe_disable=terminal_state == "blocked",
+        ),
+    )
+    transport = _ExactEvidenceTransport(
+        **(
+            {"raw_dom": "<html>terminal replay private content</html>"}
+            if terminal_state == "failed"
+            else {}
+        )
+    )
+    service, _ = _service(
+        request=request,
+        recipe=recipe,
+        kernel=kernel,
+        transport=transport,
+    )
+
+    first = _observe(service, request, recipe.recipe_ref)
+    replay = _observe(service, request, recipe.recipe_ref)
+
+    expected_state = {
+        "blocked": ExternalActionState.blocked.value,
+        "failed": ExternalActionState.failed.value,
+    }[terminal_state]
+    expected_first_status = {
+        "blocked": ExactBrowserObservationStatus.transaction_blocked.value,
+        "failed": ExactBrowserObservationStatus.failed.value,
+    }[terminal_state]
+    assert first.receipt.status == expected_first_status
+    assert replay.receipt.status == (
+        ExactBrowserObservationStatus.replayed_content_free.value
+    )
+    assert replay.receipt.external_action_state == expected_state
+    assert (
+        replay.receipt.external_action_receipt_ref
+        == first.receipt.external_action_receipt_ref
+    )
+    assert replay.receipt.replayed is True
+    assert replay.receipt.content_free is True
+    assert replay.receipt.automatic_retry_allowed is False
+    assert replay.evidence is None
+    assert transport.calls == {"blocked": 0, "failed": 1}[terminal_state]
+    assert "terminal replay private content" not in replay.model_dump_json()
+
+
+def test_observation_kernel_ambiguous_terminal_replays_content_free(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _exact_request(suffix="kernel-ambiguous-terminal-replay")
+    recipe = _recipe(request)
+    kernel, _ = _authorized_kernel(tmp_path, request)
+
+    def fail_capacity_check(_request):  # type: ignore[no-untyped-def]
+        raise RuntimeError("raw capacity diagnostic")
+
+    monkeypatch.setattr(kernel._store, "claim_dispatch_slot", fail_capacity_check)
+    transport = _ExactEvidenceTransport()
+    service, _ = _service(
+        request=request,
+        recipe=recipe,
+        kernel=kernel,
+        transport=transport,
+    )
+
+    first = _observe(service, request, recipe.recipe_ref)
+    replay = _observe(service, request, recipe.recipe_ref)
+
+    assert (
+        first.receipt.status
+        == ExactBrowserObservationStatus.outcome_ambiguous.value
+    )
+    assert "dispatch-capacity-check-failed" in " ".join(first.receipt.reason_refs)
+    assert replay.receipt.status == (
+        ExactBrowserObservationStatus.replayed_content_free.value
+    )
+    assert (
+        replay.receipt.external_action_state
+        == ExternalActionState.outcome_ambiguous.value
+    )
+    assert (
+        replay.receipt.external_action_receipt_ref
+        == first.receipt.external_action_receipt_ref
+    )
+    assert replay.receipt.replayed is True
+    assert replay.receipt.content_free is True
+    assert replay.receipt.automatic_retry_allowed is False
+    assert replay.evidence is None
+    assert transport.calls == 0
+    assert "raw capacity diagnostic" not in replay.model_dump_json()
+
+
 @pytest.mark.parametrize(
     "mutation",
     (
@@ -435,7 +539,7 @@ def test_observation_replay_requires_exact_durable_provenance(
         recipe,
         replay_receipt,
     )
-    provenance = build_external_action_replay_validation_context(
+    provenance = _build_external_action_replay_validation_context(
         kernel,
         expected_execution=kernel_request,
         replay_receipt=replay_receipt,
@@ -468,7 +572,7 @@ def test_observation_replay_requires_exact_durable_provenance(
             ),
             evidence_refs=expectation.evidence_refs,
         )
-        wrong_provenance = build_external_action_replay_validation_context(
+        wrong_provenance = _build_external_action_replay_validation_context(
             kernel,
             expected_execution=kernel_request,
             replay_receipt=replay_receipt,
@@ -543,6 +647,53 @@ def test_observation_replay_requires_exact_durable_provenance(
         ),
     ):
         ExactBrowserObservationReceipt.model_validate(forged, context=context)
+
+
+@pytest.mark.parametrize(
+    "state",
+    (
+        ExternalActionState.prepared,
+        ExternalActionState.started,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_observation_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity(
+    tmp_path: Path,
+    state: ExternalActionState,
+) -> None:
+    request = _exact_request(suffix=f"replay-envelope-reject-{state.value}")
+    recipe = _recipe(request)
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _service(
+        request=request,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactEvidenceTransport(),
+    )
+    _observe(service, request, recipe.recipe_ref)
+    kernel_request = _browser_observation_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    durable = kernel.replay_if_terminal(kernel_request)
+    assert durable is not None
+    evidence_refs = (
+        (_ref("evidence", "arbitrary-observation-ambiguity"),)
+        if state == ExternalActionState.outcome_ambiguous
+        else durable.evidence_refs
+    )
+    malformed = durable.model_copy(
+        update={
+            "state": state.value,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_BROWSER_OBSERVATION_REPLAY_EVIDENCE_PROVENANCE_REQUIRED",
+    ):
+        _browser_observation_replay_expectation(recipe, malformed)
 
 
 def test_observation_recipe_identity_conflicts_on_same_transaction(

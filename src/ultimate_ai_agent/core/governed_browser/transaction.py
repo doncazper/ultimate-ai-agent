@@ -509,6 +509,71 @@ class ExternalActionTransactionStore:
         receipt = ExternalActionReceipt.model_validate_json(row[1])
         return receipt.model_copy(update={"replayed": True})
 
+    def attest_terminal_replay(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        receipt_ref: str,
+    ) -> ExternalActionReceipt | None:
+        """Atomically attest one exact immutable terminal row for replay proof."""
+
+        validate_task_ref(receipt_ref, "receipt_ref")
+        fingerprint = stable_governed_browser_ref(
+            "request-fingerprint-ref:governed-external-action",
+            request.model_dump(mode="json"),
+        )
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT fingerprint_ref, state, receipt_json "
+                "FROM governed_external_actions WHERE transaction_ref = ?",
+                (request.binding.transaction_ref,),
+            ).fetchone()
+        if row is None or row[2] is None:
+            return None
+        if row[0] != fingerprint:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_IDEMPOTENCY_CONFLICT"
+            )
+        receipt = ExternalActionReceipt.model_validate_json(row[2])
+        terminal_states = {
+            ExternalActionState.blocked.value,
+            ExternalActionState.succeeded.value,
+            ExternalActionState.failed.value,
+            ExternalActionState.outcome_ambiguous.value,
+        }
+        payload = {
+            "transaction_ref": receipt.transaction_ref,
+            "intent_ref": receipt.intent_ref,
+            "binding_ref": receipt.binding_ref,
+            "state": receipt.state,
+            "approval_validation_ref": receipt.approval_validation_ref,
+            "authority_decision_ref": receipt.authority_decision_ref,
+            "budget_reservation_ref": receipt.budget_reservation_ref,
+            "budget_settlement_ref": receipt.budget_settlement_ref,
+            "evidence_refs": list(receipt.evidence_refs),
+            "reason_refs": list(receipt.reason_refs),
+        }
+        if receipt.budget_release_ref is not None:
+            payload["budget_release_ref"] = receipt.budget_release_ref
+        expected_receipt_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            payload,
+        )
+        if (
+            row[1] not in terminal_states
+            or receipt.state != row[1]
+            or receipt.replayed
+            or receipt.transaction_ref != request.binding.transaction_ref
+            or receipt.intent_ref != request.intent_ref
+            or receipt.binding_ref != request.binding.binding_ref
+            or receipt.receipt_ref != receipt_ref
+            or receipt.receipt_ref != expected_receipt_ref
+        ):
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
+            )
+        return receipt
+
     def state_if_exact(
         self,
         request: ExternalActionExecutionRequest,
@@ -2051,6 +2116,27 @@ class GovernedExternalActionKernel:
         """Inspect an exact terminal transaction without creating or claiming it."""
 
         return self._store.replay_if_terminal(request)
+
+    def attest_terminal_replay(
+        self,
+        request: ExternalActionExecutionRequest,
+        *,
+        receipt_ref: str,
+    ) -> ExternalActionReceipt | None:
+        """Bind replay proof to one atomically read concrete durable row."""
+
+        if type(self._store) is not ExternalActionTransactionStore:
+            raise ExternalActionTransactionConflict(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+            )
+        exact_request = ExternalActionExecutionRequest.model_validate(
+            request.model_dump(mode="json")
+        )
+        return ExternalActionTransactionStore.attest_terminal_replay(
+            self._store,
+            exact_request,
+            receipt_ref=receipt_ref,
+        )
 
     def recover_if_prior_start(
         self,

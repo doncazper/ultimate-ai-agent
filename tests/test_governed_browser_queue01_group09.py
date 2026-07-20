@@ -4,6 +4,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -41,6 +42,10 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_external_operation_schema_ref,
     governed_external_operation_target_ref,
     stable_governed_browser_ref,
+)
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    ExternalActionReplayValidationContext,
+    replay_validation_context,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -247,6 +252,234 @@ def _service(
         ),
         authority,
     )
+
+
+def _rehash_external_operation_replay(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["external_action_reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        external_operation_module._external_operation_receipt_identity_payload(
+            GovernedExternalOperationReceipt.model_construct(
+                **{
+                    **payload,
+                    "external_action_reason_refs": tuple(
+                        payload["external_action_reason_refs"]
+                    ),
+                }
+            )
+        ),
+    )
+    return payload
+
+
+def _external_operation_replay_proof(
+    tmp_path: Path,
+    *,
+    operation: GovernedExternalOperation,
+    suffix: str,
+) -> tuple[
+    dict[str, Any],
+    ExternalActionReplayValidationContext,
+]:
+    request, recipe, registry = _operation_context(
+        operation=operation,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.prepare(exact)
+    replay_result = service.prepare(exact)
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = (
+        external_operation_module._external_operation_replay_validation_context(
+            kernel=service._kernel,
+            expected_execution=kernel_execution,
+            recipe=recipe,
+            replay_receipt=replay_receipt,
+        )
+    )
+    return replay_result.receipt.model_dump(mode="json"), context
+
+
+def _external_operation_terminal_replay_proof(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[
+    dict[str, Any],
+    ExternalActionReplayValidationContext,
+    list[str],
+]:
+    suffix = f"terminal-replay-{terminal_state.value}"
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.send_communication,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path / suffix,
+        request=request,
+        registry=registry,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == ExternalActionState.blocked
+            else None
+        ),
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    if terminal_state == ExternalActionState.outcome_ambiguous:
+        durable_store = ExternalActionTransactionStore(
+            tmp_path / suffix / "transactions.sqlite3"
+        )
+        durable_store.prepare(kernel_execution)
+        assert durable_store.claim_start(kernel_execution) is True
+        with sqlite3.connect(
+            tmp_path / suffix / "transactions.sqlite3"
+        ) as connection:
+            connection.execute(
+                "UPDATE governed_external_actions SET updated_at = ? "
+                "WHERE transaction_ref = ?",
+                (
+                    (utc_now() - timedelta(minutes=2)).isoformat(),
+                    kernel_execution.binding.transaction_ref,
+                ),
+            )
+    elif terminal_state == ExternalActionState.failed:
+        original_execute = service._kernel.execute
+
+        def execute_with_invalid_dispatch_clock(*args, **kwargs):  # type: ignore[no-untyped-def]
+            monkeypatch.setattr(
+                service,
+                "_clock",
+                lambda: datetime(2026, 7, 20, 12, 0, 0),
+            )
+            return original_execute(*args, **kwargs)
+
+        monkeypatch.setattr(
+            service._kernel,
+            "execute",
+            execute_with_invalid_dispatch_clock,
+        )
+
+    first = service.prepare(exact)
+    if terminal_state == ExternalActionState.failed:
+        monkeypatch.setattr(service._kernel, "execute", original_execute)
+        monkeypatch.setattr(service, "_clock", utc_now)
+    replay = service.prepare(exact)
+    terminal_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert terminal_receipt is not None
+    context = external_operation_module._external_operation_replay_validation_context(
+        kernel=service._kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=terminal_receipt,
+    )
+    expected_evidence = {
+        ExternalActionState.blocked: [],
+        ExternalActionState.failed: [
+            stable_governed_browser_ref(
+                (
+                    "evidence-ref:governed-external-operation:"
+                    "trusted-clock-invalid"
+                ),
+                {"intent_ref": kernel_execution.intent_ref},
+            )
+        ],
+        ExternalActionState.outcome_ambiguous: [
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:prior-start-recovery",
+                {
+                    "transaction_ref": kernel_execution.binding.transaction_ref,
+                    "intent_ref": kernel_execution.intent_ref,
+                    "binding_ref": kernel_execution.binding.binding_ref,
+                },
+            )
+        ],
+    }[terminal_state]
+    assert first.receipt.replayed is False
+    assert first.receipt.external_action_state == terminal_state.value
+    assert first.receipt.evidence_refs == expected_evidence
+    assert replay.receipt.replayed is True
+    assert replay.receipt.external_action_state == terminal_state.value
+    assert replay.receipt.evidence_refs == expected_evidence
+    return replay.receipt.model_dump(mode="json"), context, expected_evidence
+
+
+def _seed_arbitrary_external_operation_terminal_evidence(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+) -> tuple[
+    ExactGovernedExternalOperationService,
+    ExactGovernedExternalOperationRequest,
+]:
+    suffix = f"arbitrary-terminal-evidence-{terminal_state.value}"
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.send_communication,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path / suffix,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    durable_store = ExternalActionTransactionStore(
+        tmp_path / suffix / "transactions.sqlite3"
+    )
+    durable_store.prepare(kernel_execution)
+    expected_state = ExternalActionState.prepared
+    if terminal_state != ExternalActionState.blocked:
+        assert durable_store.claim_start(kernel_execution) is True
+        expected_state = ExternalActionState.started
+    arbitrary_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-operation:arbitrary-non-success",
+        {"state": terminal_state.value},
+    )
+    terminal_receipt = service._kernel._build_receipt(
+        kernel_execution,
+        terminal_state,
+        ["reason-ref:governed-external-action:test-terminal-state"],
+        evidence_refs=[arbitrary_ref],
+    )
+    durable_store.finish(terminal_receipt, expected_state=expected_state)
+    return service, exact
 
 
 @pytest.mark.parametrize("operation", list(GovernedExternalOperation))
@@ -655,6 +888,296 @@ def test_success_replay_is_content_free_and_at_most_once(tmp_path: Path) -> None
     assert replay.receipt.status == "replayed_content_free"
     assert replay.receipt.replayed is True
     assert replay.contract is None
+
+
+def test_external_operation_replay_requires_exact_durable_provenance(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _operation_context(
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="durable-replay-provenance",
+    )
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    kernel_execution = external_operation_module._operation_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = (
+        external_operation_module._external_operation_replay_validation_context(
+            kernel=service._kernel,
+            expected_execution=kernel_execution,
+            recipe=recipe,
+            replay_receipt=replay_receipt,
+        )
+    )
+    payload = replay.receipt.model_dump(mode="json")
+    GovernedExternalOperationReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        GovernedExternalOperationReceipt.model_validate(payload)
+
+    payload["budget_settlement_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="forged-replay-settlement",
+    )
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": payload["transaction_ref"],
+            "intent_ref": payload["intent_ref"],
+            "binding_ref": payload["binding_ref"],
+            "state": payload["external_action_state"],
+            "approval_validation_ref": payload["approval_validation_ref"],
+            "authority_decision_ref": payload["authority_decision_ref"],
+            "budget_reservation_ref": payload["budget_reservation_ref"],
+            "budget_settlement_ref": payload["budget_settlement_ref"],
+            "evidence_refs": payload["evidence_refs"],
+            "reason_refs": payload["external_action_reason_refs"],
+        },
+    )
+    payload["external_action_reason_refs"] = tuple(
+        payload["external_action_reason_refs"]
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-operation",
+        external_operation_module._external_operation_receipt_identity_payload(
+            GovernedExternalOperationReceipt.model_construct(**payload)
+        ),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_external_operation_terminal_replay_reconstructs_exact_operation_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload, context, expected_evidence = (
+        _external_operation_terminal_replay_proof(
+            tmp_path,
+            terminal_state=terminal_state,
+            monkeypatch=monkeypatch,
+        )
+    )
+
+    reconstructed = GovernedExternalOperationReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+
+    assert reconstructed.replayed is True
+    assert reconstructed.external_action_state == terminal_state.value
+    assert reconstructed.evidence_refs == expected_evidence
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_external_operation_terminal_replay_rejects_arbitrary_non_success_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+) -> None:
+    service, exact = _seed_arbitrary_external_operation_terminal_evidence(
+        tmp_path,
+        terminal_state=terminal_state,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_EXTERNAL_OPERATION_REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    ):
+        service.prepare(exact)
+
+
+@pytest.mark.parametrize(
+    ("evidence_index", "scope_field", "prefix"),
+    (
+        (
+            0,
+            "contract_ref",
+            "external-operation-contract-ref:governed-browser",
+        ),
+        (
+            1,
+            "operation_authority_ref",
+            "external-operation-authority-ref:governed-browser",
+        ),
+        (
+            2,
+            "operation_input_ref",
+            "external-operation-input-ref:governed-browser",
+        ),
+        (
+            3,
+            "rollback_ref",
+            "external-operation-rollback-ref:governed-browser",
+        ),
+        (
+            4,
+            "reconciliation_ref",
+            "external-operation-reconciliation-ref:governed-browser",
+        ),
+    ),
+)
+def test_external_operation_replay_rejects_every_rehashed_evidence_field_tamper(
+    tmp_path: Path,
+    evidence_index: int,
+    scope_field: str,
+    prefix: str,
+) -> None:
+    payload, context = _external_operation_replay_proof(
+        tmp_path,
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix=f"field-{evidence_index}",
+    )
+    substituted_ref = _pinned(
+        prefix,
+        suffix=f"field-{evidence_index}-substitution",
+    )
+    payload[scope_field] = substituted_ref
+    evidence_refs = list(payload["evidence_refs"])
+    evidence_refs[evidence_index] = substituted_ref
+    payload["evidence_refs"] = evidence_refs
+    _rehash_external_operation_replay(payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("reverse", "drop", "append", "duplicate"),
+)
+def test_external_operation_replay_rejects_rehashed_evidence_order_and_arity_tamper(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    payload, context = _external_operation_replay_proof(
+        tmp_path,
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix=f"shape-{mutation}",
+    )
+    evidence_refs = list(payload["evidence_refs"])
+    if mutation == "reverse":
+        evidence_refs.reverse()
+    elif mutation == "drop":
+        evidence_refs.pop()
+    elif mutation == "append":
+        evidence_refs.append(
+            _pinned(
+                "external-operation-reconciliation-ref:governed-browser",
+                suffix="shape-extra",
+            )
+        )
+    else:
+        evidence_refs.append(evidence_refs[-1])
+    payload["evidence_refs"] = evidence_refs
+    _rehash_external_operation_replay(payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_OPERATION_SUCCESS_EVIDENCE_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+def test_external_operation_replay_rejects_cross_operation_and_transaction_substitution(
+    tmp_path: Path,
+) -> None:
+    original, original_context = _external_operation_replay_proof(
+        tmp_path / "original",
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="cross-original",
+    )
+    foreign_operation, _ = _external_operation_replay_proof(
+        tmp_path / "foreign-operation",
+        operation=GovernedExternalOperation.send_communication,
+        suffix="cross-operation",
+    )
+    foreign_transaction, _ = _external_operation_replay_proof(
+        tmp_path / "foreign-transaction",
+        operation=GovernedExternalOperation.publish_artifact,
+        suffix="cross-transaction",
+    )
+
+    _rehash_external_operation_replay(foreign_operation)
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LANE_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(
+            foreign_operation,
+            context=replay_validation_context(original_context),
+        )
+
+    for field in (
+        "transaction_ref",
+        "intent_ref",
+        "binding_ref",
+        "external_action_state",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_release_ref",
+        "budget_settlement_ref",
+        "external_action_reason_refs",
+        "replayed",
+    ):
+        original[field] = foreign_transaction[field]
+    _rehash_external_operation_replay(original)
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedExternalOperationReceipt.model_validate(
+            original,
+            context=replay_validation_context(original_context),
+        )
 
 
 def test_idempotency_drift_returns_content_free_blocked_receipt(

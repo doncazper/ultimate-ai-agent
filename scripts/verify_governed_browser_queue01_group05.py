@@ -76,6 +76,8 @@ def verify() -> list[str]:
             "GovernedExternalActionKernel",
             "GOVERNED_POST_FORM_PLAN_RECEIPT_MISMATCH",
             "GOVERNED_POST_FORM_PLAN_PROJECTION_REF_MISMATCH",
+            "_post_form_kernel_execution",
+            "_post_form_replay_expectation",
         ),
         "receipt_contract": (
             "GOVERNED_BROWSER_ACTION_SUCCESS_KERNEL_PROOF_REQUIRED",
@@ -84,6 +86,7 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_ACTION_EXTERNAL_PROOF_CONTEXT_INVALID",
             "GOVERNED_BROWSER_ACTION_RECEIPT_STATE_MISMATCH",
             "GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH",
+            "require_external_action_replay_provenance",
         ),
         "broker": (
             "IsolatedBrowserActionDryRunBrokerAdapter",
@@ -126,6 +129,7 @@ def verify() -> list[str]:
             "test_post_schema_field_limit_matches_authority_resource_capacity",
             "test_post_transport_requires_explicit_proof_flags",
             "test_post_form_plan_is_at_most_once_and_replay_is_content_free",
+            "test_post_form_blocked_and_failed_terminals_replay_content_free",
             "test_post_form_settlement_failure_suppresses_plan_and_retry",
             "test_post_transport_drift_or_execution_fails_content_free",
             "test_real_external_target_cannot_create_post_recipe",
@@ -138,6 +142,8 @@ def verify() -> list[str]:
             "test_browser_action_non_preflight_rejects_orphan_kernel_proof",
             "test_browser_action_receipt_rejects_kernel_state_status_mismatch",
             "test_browser_action_non_replay_status_rejects_replay_flag",
+            "test_post_form_replay_requires_exact_durable_provenance",
+            "test_post_form_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity",
         ),
         "doc": (
             "07. Registered exact POST-form schemas",

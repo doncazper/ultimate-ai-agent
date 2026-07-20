@@ -48,7 +48,8 @@ from .contracts import (
 )
 from .replay_provenance import (
     ExternalActionReplayEvidenceExpectation,
-    build_external_action_replay_validation_context,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
     replay_validation_context,
     require_external_action_replay_provenance,
 )
@@ -820,7 +821,7 @@ class ExactBrowserActionService:
                 recipe,
                 external_receipt,
             )
-            provenance = build_external_action_replay_validation_context(
+            provenance = _build_external_action_replay_validation_context(
                 self._kernel,
                 expected_execution=kernel_execution,
                 replay_receipt=external_receipt,
@@ -1047,20 +1048,30 @@ def _browser_action_replay_expectation(
     projection_prefix = (
         "browser-action-plan-projection-ref:governed-browser:sha256:"
     )
-    if (
-        replay_receipt.state != ExternalActionState.succeeded.value
-        or len(evidence_refs) != 2
-        or evidence_refs[0] != recipe.plan_ref
-        or not evidence_refs[1].startswith(projection_prefix)
-        or len(evidence_refs[1]) != len(projection_prefix) + 64
-        or any(
+    success_evidence_valid = (
+        len(evidence_refs) == 2
+        and evidence_refs[0] == recipe.plan_ref
+        and evidence_refs[1].startswith(projection_prefix)
+        and len(evidence_refs[1]) == len(projection_prefix) + 64
+        and not any(
             character not in "0123456789abcdef"
             for character in evidence_refs[1][len(projection_prefix) :]
         )
-    ):
-        raise ValueError(
+    )
+    failure_evidence_valid = evidence_refs == (
+        stable_governed_browser_ref(
+            "evidence-ref:governed-browser-action-plan-failed",
+            {"intent_ref": replay_receipt.intent_ref},
+        ),
+    )
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=success_evidence_valid,
+        failure_evidence_valid=failure_evidence_valid,
+        mismatch_error=(
             "GOVERNED_BROWSER_ACTION_REPLAY_EVIDENCE_PROVENANCE_REQUIRED"
-        )
+        ),
+    )
     return ExternalActionReplayEvidenceExpectation(
         lane_ref=_BROWSER_ACTION_REPLAY_LANE_REF,
         operation_ref=_browser_action_replay_operation_ref(recipe.recipe_ref),

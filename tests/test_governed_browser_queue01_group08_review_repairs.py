@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 from threading import Event
 
@@ -13,9 +15,14 @@ from tests.test_governed_browser_queue01_group08 import (
     _service,
     _transfer_context,
 )
+from tests.test_governed_browser_queue01_group01 import _readiness
 from ultimate_ai_agent.core.governed_browser import (
+    ExactGovernedArtifactTransferRequest,
     ExactGovernedArtifactTransferResult,
+    ExactGovernedArtifactTransferService,
+    ExternalActionState,
     ExternalActionTargetKind,
+    ExternalActionTransactionStore,
     GovernedArtifactMediaType,
     GovernedArtifactPayloadRejected,
     GovernedArtifactQuarantineStore,
@@ -29,6 +36,12 @@ from ultimate_ai_agent.core.governed_browser import (
 from ultimate_ai_agent.core.governed_browser.contracts import (
     governed_receipt_identity_payload,
 )
+from ultimate_ai_agent.core.governed_browser import artifact_transfers as artifact_module
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    ExternalActionReplayValidationContext,
+    replay_validation_context,
+)
+from ultimate_ai_agent.core.time import utc_now
 
 
 def _rehash_receipt(payload: dict[str, object]) -> dict[str, object]:
@@ -38,6 +51,290 @@ def _rehash_receipt(payload: dict[str, object]) -> dict[str, object]:
         governed_receipt_identity_payload(provisional),
     )
     return payload
+
+
+def _rehash_external_and_artifact_receipt(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    return _rehash_receipt(payload)
+
+
+def _download_replay_proof(
+    tmp_path: Path,
+    *,
+    suffix: str,
+) -> tuple[
+    dict[str, object],
+    ExternalActionReplayValidationContext,
+]:
+    store = GovernedArtifactQuarantineStore(tmp_path / f"{suffix}-artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=suffix,
+    )
+    service, kernel, _ = _service(
+        tmp_path / f"{suffix}-kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.execute(
+        exact,
+        injected_download_payload=bytearray(f"{suffix}-payload".encode()),
+    )
+    replay_result = service.execute(exact)
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = artifact_module._artifact_replay_validation_context(
+        kernel=kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    return replay_result.receipt.model_dump(mode="json"), context
+
+
+def _upload_replay_proof(
+    tmp_path: Path,
+    *,
+    suffix: str,
+) -> tuple[
+    dict[str, object],
+    ExternalActionReplayValidationContext,
+]:
+    store = GovernedArtifactQuarantineStore(tmp_path / f"{suffix}-artifacts")
+    download_request, download_recipe, download_registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=f"{suffix}-download",
+    )
+    download_service, download_kernel, _ = _service(
+        tmp_path / f"{suffix}-download-kernel",
+        store=store,
+        request=download_request,
+        registry=download_registry,
+    )
+    downloaded = download_service.execute(
+        _exact(download_request, download_recipe),
+        injected_download_payload=bytearray(f"{suffix}-payload".encode()),
+    )
+    assert downloaded.quarantine is not None
+    upload_request, upload_recipe, upload_registry = _transfer_context(
+        store,
+        operation=(
+            GovernedArtifactTransferOperation.upload_quarantined_artifact_plan
+        ),
+        suffix=f"{suffix}-upload",
+        artifact_ref=download_recipe.artifact_ref,
+        quarantine_ref=download_recipe.quarantine_ref,
+        download_transaction_ref=download_recipe.download_transaction_ref,
+        content_fingerprint_ref=downloaded.quarantine.content_fingerprint_ref,
+        source_download_receipt_ref=(
+            downloaded.receipt.external_action_receipt_ref
+        ),
+        source_download_recipe_ref=download_recipe.recipe_ref,
+    )
+    upload_service, upload_kernel, _ = _service(
+        tmp_path / f"{suffix}-upload-kernel",
+        store=store,
+        request=upload_request,
+        registry=upload_registry,
+        source_download_kernel=download_kernel,
+        source_download_registry=download_registry,
+        source_download_request=_exact(download_request, download_recipe),
+    )
+    exact = _exact(upload_request, upload_recipe)
+    upload_service.execute(exact)
+    replay_result = upload_service.execute(exact)
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=upload_recipe.recipe_ref,
+    )
+    replay_receipt = upload_kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = artifact_module._artifact_replay_validation_context(
+        kernel=upload_kernel,
+        expected_execution=kernel_execution,
+        recipe=upload_recipe,
+        replay_receipt=replay_receipt,
+    )
+    return replay_result.receipt.model_dump(mode="json"), context
+
+
+def _artifact_terminal_replay_proof(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+) -> tuple[
+    dict[str, object],
+    ExternalActionReplayValidationContext,
+    list[str],
+]:
+    suffix = f"terminal-replay-{terminal_state.value}"
+    store = GovernedArtifactQuarantineStore(tmp_path / f"{suffix}-artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=suffix,
+    )
+    kernel_path = tmp_path / f"{suffix}-kernel"
+    service, kernel, _ = _service(
+        kernel_path,
+        store=store,
+        request=request,
+        registry=registry,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == ExternalActionState.blocked
+            else None
+        ),
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    if terminal_state == ExternalActionState.outcome_ambiguous:
+        durable_store = ExternalActionTransactionStore(
+            kernel_path / "transactions.sqlite3"
+        )
+        durable_store.prepare(kernel_execution)
+        assert durable_store.claim_start(kernel_execution) is True
+        with sqlite3.connect(kernel_path / "transactions.sqlite3") as connection:
+            connection.execute(
+                "UPDATE governed_external_actions SET updated_at = ? "
+                "WHERE transaction_ref = ?",
+                (
+                    (utc_now() - timedelta(minutes=2)).isoformat(),
+                    kernel_execution.binding.transaction_ref,
+                ),
+            )
+
+    payload_size = (
+        recipe.max_bytes + 1
+        if terminal_state == ExternalActionState.failed
+        else 16
+    )
+    first = service.execute(
+        exact,
+        injected_download_payload=bytearray(payload_size),
+    )
+    replay = service.execute(
+        exact,
+        injected_download_payload=bytearray(payload_size),
+    )
+    terminal_receipt = kernel.replay_if_terminal(kernel_execution)
+    assert terminal_receipt is not None
+    context = artifact_module._artifact_replay_validation_context(
+        kernel=kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=terminal_receipt,
+    )
+    expected_evidence = {
+        ExternalActionState.blocked: [],
+        ExternalActionState.failed: [
+            stable_governed_browser_ref(
+                "evidence-ref:governed-artifact:download-payload-rejected",
+                {"intent_ref": kernel_execution.intent_ref},
+            )
+        ],
+        ExternalActionState.outcome_ambiguous: [
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:prior-start-recovery",
+                {
+                    "transaction_ref": kernel_execution.binding.transaction_ref,
+                    "intent_ref": kernel_execution.intent_ref,
+                    "binding_ref": kernel_execution.binding.binding_ref,
+                },
+            )
+        ],
+    }[terminal_state]
+    assert first.receipt.replayed is False
+    assert first.receipt.external_action_state == terminal_state.value
+    assert first.receipt.evidence_refs == expected_evidence
+    assert replay.receipt.replayed is True
+    assert replay.receipt.external_action_state == terminal_state.value
+    assert replay.receipt.evidence_refs == expected_evidence
+    return replay.receipt.model_dump(mode="json"), context, expected_evidence
+
+
+def _seed_arbitrary_artifact_terminal_evidence(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+) -> tuple[
+    ExactGovernedArtifactTransferService,
+    ExactGovernedArtifactTransferRequest,
+]:
+    suffix = f"arbitrary-terminal-evidence-{terminal_state.value}"
+    quarantine_store = GovernedArtifactQuarantineStore(
+        tmp_path / f"{suffix}-artifacts"
+    )
+    request, recipe, registry = _transfer_context(
+        quarantine_store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix=suffix,
+    )
+    kernel_path = tmp_path / f"{suffix}-kernel"
+    service, kernel, _ = _service(
+        kernel_path,
+        store=quarantine_store,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = artifact_module._artifact_transfer_kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    durable_store = ExternalActionTransactionStore(
+        kernel_path / "transactions.sqlite3"
+    )
+    durable_store.prepare(kernel_execution)
+    expected_state = ExternalActionState.prepared
+    if terminal_state != ExternalActionState.blocked:
+        assert durable_store.claim_start(kernel_execution) is True
+        expected_state = ExternalActionState.started
+    arbitrary_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-artifact:arbitrary-non-success",
+        {"state": terminal_state.value},
+    )
+    terminal_receipt = kernel._build_receipt(
+        kernel_execution,
+        terminal_state,
+        ["reason-ref:governed-external-action:test-terminal-state"],
+        evidence_refs=[arbitrary_ref],
+    )
+    durable_store.finish(terminal_receipt, expected_state=expected_state)
+    return (
+        service,
+        exact,
+    )
 
 
 def test_exact_scope_real_targets_and_receipt_forgery_fail_closed(
@@ -866,30 +1163,13 @@ def test_artifact_replayed_content_free_requires_succeeded_kernel_state(
         GovernedArtifactTransferReceipt.model_validate(forged)
 
 
-def test_artifact_replayed_success_binds_external_evidence_to_claimed_scope(
+def test_artifact_replayed_success_rejects_standalone_rehashed_scope_forgery(
     tmp_path: Path,
 ) -> None:
-    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
-    request, recipe, registry = _transfer_context(
-        store,
-        operation=GovernedArtifactTransferOperation.download_quarantine,
+    forged, context = _download_replay_proof(
+        tmp_path,
         suffix="replay-evidence-scope",
     )
-    service, _, _ = _service(
-        tmp_path / "kernel",
-        store=store,
-        request=request,
-        registry=registry,
-    )
-    exact = _exact(request, recipe)
-    service.execute(
-        exact,
-        injected_download_payload=bytearray(b"bounded artifact"),
-    )
-    forged = service.execute(
-        exact,
-        injected_download_payload=bytearray(b"replayed artifact"),
-    ).receipt.model_dump(mode="json")
     assert forged["status"] == "replayed_content_free"
     original_evidence_refs = list(forged["evidence_refs"])
     forged["artifact_ref"] = governed_artifact_ref(
@@ -900,9 +1180,9 @@ def test_artifact_replayed_success_binds_external_evidence_to_claimed_scope(
         declared_media_type=GovernedArtifactMediaType.text_plain,
     )
     forged["quarantine_ref"] = governed_artifact_quarantine_ref(
-        origin_ref=recipe.origin_ref,
+        origin_ref=str(forged["origin_ref"]),
         artifact_ref=str(forged["artifact_ref"]),
-        download_transaction_ref=recipe.download_transaction_ref,
+        download_transaction_ref=str(forged["download_transaction_ref"]),
     )
     assert forged["evidence_refs"] == original_evidence_refs
     assert forged["evidence_refs"][:2] != [
@@ -913,9 +1193,247 @@ def test_artifact_replayed_success_binds_external_evidence_to_claimed_scope(
 
     with pytest.raises(
         ValueError,
-        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_MISMATCH",
+        match="GOVERNED_ARTIFACT_REPLAY_SCOPE_ENVELOPE_MISMATCH",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(
+            forged,
+            context=replay_validation_context(context),
+        )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
     ):
         GovernedArtifactTransferReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize("operation", ("download", "upload"))
+def test_artifact_replay_requires_exact_durable_provenance_context(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    payload, context = (
+        _download_replay_proof(tmp_path, suffix="exact-download-context")
+        if operation == "download"
+        else _upload_replay_proof(tmp_path, suffix="exact-upload-context")
+    )
+
+    exact = GovernedArtifactTransferReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    assert exact.replayed is True
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_artifact_terminal_replay_reconstructs_exact_operation_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+) -> None:
+    payload, context, expected_evidence = _artifact_terminal_replay_proof(
+        tmp_path,
+        terminal_state=terminal_state,
+    )
+
+    reconstructed = GovernedArtifactTransferReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+
+    assert reconstructed.replayed is True
+    assert reconstructed.external_action_state == terminal_state.value
+    assert reconstructed.evidence_refs == expected_evidence
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_artifact_terminal_replay_rejects_arbitrary_non_success_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+) -> None:
+    service, exact = _seed_arbitrary_artifact_terminal_evidence(
+        tmp_path,
+        terminal_state=terminal_state,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.execute(
+            exact,
+            injected_download_payload=bytearray(b"replay-only"),
+        )
+
+
+@pytest.mark.parametrize(
+    ("operation", "evidence_index"),
+    (
+        ("download", 0),
+        ("download", 1),
+        ("download", 2),
+        ("download", 3),
+        ("download", 4),
+        ("upload", 0),
+        ("upload", 1),
+        ("upload", 2),
+        ("upload", 3),
+        ("upload", 4),
+        ("upload", 5),
+    ),
+)
+def test_artifact_replay_rejects_every_rehashed_evidence_field_tamper(
+    tmp_path: Path,
+    operation: str,
+    evidence_index: int,
+) -> None:
+    payload, context = (
+        _download_replay_proof(
+            tmp_path,
+            suffix=f"field-download-{evidence_index}",
+        )
+        if operation == "download"
+        else _upload_replay_proof(
+            tmp_path,
+            suffix=f"field-upload-{evidence_index}",
+        )
+    )
+    evidence_refs = list(payload["evidence_refs"])
+    evidence_refs[evidence_index] = stable_governed_browser_ref(
+        "tampered-evidence-ref:governed-artifact",
+        {
+            "operation": operation,
+            "evidence_index": evidence_index,
+        },
+    )
+    payload["evidence_refs"] = evidence_refs
+    _rehash_external_and_artifact_receipt(payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedArtifactTransferReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize(
+    ("operation", "mutation"),
+    (
+        ("download", "reverse"),
+        ("download", "drop"),
+        ("download", "append"),
+        ("download", "duplicate"),
+        ("upload", "reverse"),
+        ("upload", "drop"),
+        ("upload", "append"),
+        ("upload", "duplicate"),
+    ),
+)
+def test_artifact_replay_rejects_rehashed_evidence_order_and_arity_tamper(
+    tmp_path: Path,
+    operation: str,
+    mutation: str,
+) -> None:
+    payload, context = (
+        _download_replay_proof(
+            tmp_path,
+            suffix=f"shape-download-{mutation}",
+        )
+        if operation == "download"
+        else _upload_replay_proof(
+            tmp_path,
+            suffix=f"shape-upload-{mutation}",
+        )
+    )
+    evidence_refs = list(payload["evidence_refs"])
+    if mutation == "reverse":
+        evidence_refs.reverse()
+    elif mutation == "drop":
+        evidence_refs.pop()
+    elif mutation == "append":
+        evidence_refs.append(
+            stable_governed_browser_ref(
+                "tampered-evidence-ref:governed-artifact",
+                {"operation": operation, "mutation": mutation},
+            )
+        )
+    else:
+        evidence_refs.append(evidence_refs[-1])
+    payload["evidence_refs"] = evidence_refs
+    _rehash_external_and_artifact_receipt(payload)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+            "|GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED"
+        ),
+    ):
+        GovernedArtifactTransferReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+def test_artifact_replay_rejects_cross_operation_and_transaction_substitution(
+    tmp_path: Path,
+) -> None:
+    download_a, download_context_a = _download_replay_proof(
+        tmp_path,
+        suffix="cross-download-a",
+    )
+    download_b, _ = _download_replay_proof(
+        tmp_path,
+        suffix="cross-download-b",
+    )
+    upload, upload_context = _upload_replay_proof(
+        tmp_path,
+        suffix="cross-upload",
+    )
+
+    for payload, context, error in (
+        (
+            download_b,
+            download_context_a,
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_OPERATION_MISMATCH"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+        ),
+        (
+            upload,
+            download_context_a,
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LANE_MISMATCH",
+        ),
+        (
+            download_a,
+            upload_context,
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LANE_MISMATCH",
+        ),
+    ):
+        with pytest.raises(ValueError, match=error):
+            GovernedArtifactTransferReceipt.model_validate(
+                payload,
+                context=replay_validation_context(context),
+            )
 
 
 @pytest.mark.parametrize(

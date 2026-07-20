@@ -638,6 +638,142 @@ def test_handoff_replay_reconstruction_requires_exact_terminal_provenance(
 
 
 @pytest.mark.parametrize(
+    ("terminal_state", "first_status"),
+    (
+        ("blocked", "transaction_blocked"),
+        ("failed", "failed"),
+        ("outcome_ambiguous", "outcome_ambiguous"),
+    ),
+)
+def test_handoff_non_success_terminal_replays_use_complete_envelope(
+    tmp_path: Path,
+    terminal_state: str,
+    first_status: str,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix=f"replay-terminal-{terminal_state}"
+    )
+    clock_calls = 0
+
+    def ambiguous_clock():  # type: ignore[no-untyped-def]
+        nonlocal clock_calls
+        clock_calls += 1
+        if clock_calls == 2:
+            raise RuntimeError("injected content-free dispatch clock failure")
+        return recipe.created_at
+
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == "blocked"
+            else None
+        ),
+        clock=(
+            (lambda: recipe.expires_at)
+            if terminal_state == "failed"
+            else ambiguous_clock
+            if terminal_state == "outcome_ambiguous"
+            else utc_now
+        ),
+    )
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+
+    first = service.prepare(exact)
+    replay = service.prepare(exact)
+
+    assert first.receipt.status == first_status
+    assert first.receipt.external_action_state == terminal_state
+    assert first.receipt.replayed is False
+    assert replay.receipt.status == "replayed_content_free"
+    assert replay.receipt.external_action_state == terminal_state
+    assert replay.receipt.replayed is True
+    assert replay.handoff is None
+    payload = replay.receipt.model_dump(mode="json")
+    replay_receipt = _external_receipt_from_handoff_payload(payload)
+    context = human_challenges_module._human_challenge_replay_context(
+        service._kernel,
+        expected_execution=(
+            human_challenges_module._human_challenge_kernel_execution(
+                request,
+                recipe_ref=recipe.recipe_ref,
+            )
+        ),
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    assert (
+        GovernedHumanChallengeHandoffReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+        == replay.receipt
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "evidence_mode"),
+    (
+        ("blocked", "arbitrary"),
+        ("failed", "arbitrary"),
+        ("outcome_ambiguous", "arbitrary"),
+        ("started", "success"),
+        ("prepared", "empty"),
+    ),
+)
+def test_handoff_replay_expectation_rejects_invalid_non_success_envelopes(
+    tmp_path: Path,
+    state: str,
+    evidence_mode: str,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix=f"replay-invalid-envelope-{state}-{evidence_mode}"
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    baseline = _external_receipt_from_handoff_payload(
+        replay.receipt.model_dump(mode="json")
+    )
+    evidence_refs = {
+        "arbitrary": (_ref("evidence", f"handoff-{state}-arbitrary"),),
+        "success": tuple(baseline.evidence_refs),
+        "empty": (),
+    }[evidence_mode]
+    candidate = baseline.model_copy(
+        update={
+            "state": state,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        human_challenges_module._human_challenge_replay_context(
+            service._kernel,
+            expected_execution=(
+                human_challenges_module._human_challenge_kernel_execution(
+                    request,
+                    recipe_ref=recipe.recipe_ref,
+                )
+            ),
+            recipe=recipe,
+            replay_receipt=candidate,
+        )
+
+
+@pytest.mark.parametrize(
     "tamper_mode",
     ("slot-0", "slot-1", "order", "drop", "append"),
 )

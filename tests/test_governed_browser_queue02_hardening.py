@@ -118,6 +118,15 @@ def test_queue02_package_exports_are_declared() -> None:
 
     assert expected.issubset(set(governed_browser_package.__all__))
     assert all(hasattr(governed_browser_package, name) for name in expected)
+    for internal_name in (
+        "ExternalActionReplayEvidenceEnvelope",
+        "ExternalActionReplayEvidenceExpectation",
+        "ExternalActionReplayValidationContext",
+        "build_external_action_replay_validation_context",
+        "replay_validation_context",
+        "require_external_action_replay_provenance",
+    ):
+        assert not hasattr(governed_browser_package, internal_name)
 
 
 def _signals(**updates: bool | int) -> ExternalActionAdversarialSignals:

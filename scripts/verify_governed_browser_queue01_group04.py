@@ -72,6 +72,9 @@ def verify() -> list[str]:
             "GOVERNED_BROWSER_ACTION_REPLAY_STATUS_MISMATCH",
             "GOVERNED_BROWSER_ACTION_PLAN_RECEIPT_MISMATCH",
             "GOVERNED_BROWSER_ACTION_PLAN_PROJECTION_REF_MISMATCH",
+            "_browser_action_kernel_execution",
+            "_browser_action_replay_expectation",
+            "require_external_action_replay_provenance",
         ),
         "broker": (
             "IsolatedBrowserActionDryRunBrokerAdapter",
@@ -97,6 +100,7 @@ def verify() -> list[str]:
             "test_approval_identifier_alone_grants_nothing",
             "test_revalidation_denies_before_action_plan",
             "test_action_plan_is_at_most_once_and_replay_is_content_free",
+            "test_action_blocked_and_failed_terminals_replay_content_free",
             "test_settlement_failure_suppresses_plan_and_forbids_retry",
             "test_hidden_cross_origin_or_executed_transport_output_fails_content_free",
             "test_real_external_target_cannot_create_an_action_recipe",
@@ -109,6 +113,8 @@ def verify() -> list[str]:
             "test_browser_action_non_preflight_rejects_orphan_kernel_proof",
             "test_browser_action_receipt_rejects_kernel_state_status_mismatch",
             "test_browser_action_non_replay_status_rejects_replay_flag",
+            "test_action_replay_requires_exact_durable_provenance",
+            "test_action_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity",
         ),
         "doc": (
             "06. Same-origin visible clicks and GET forms",

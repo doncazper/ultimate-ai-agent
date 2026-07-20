@@ -28,6 +28,10 @@ def verify() -> list[str]:
         "src/ultimate_ai_agent/core/governed_browser/transaction.py",
         failures,
     )
+    replay_provenance = _read(
+        "src/ultimate_ai_agent/core/governed_browser/replay_provenance.py",
+        failures,
+    )
     package = _read(
         "src/ultimate_ai_agent/core/governed_browser/__init__.py",
         failures,
@@ -92,6 +96,11 @@ def verify() -> list[str]:
             "GOVERNED_ARTIFACT_RECEIPT_STATE_MISMATCH",
             "GOVERNED_ARTIFACT_PREFLIGHT_EXTERNAL_PROOF_DENIED",
             "GOVERNED_ARTIFACT_SUCCESS_KERNEL_PROOF_REQUIRED",
+            "_artifact_replay_evidence_expectation",
+            "_artifact_replay_validation_context",
+            "require_external_action_replay_provenance",
+            "GOVERNED_ARTIFACT_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+            "GOVERNED_ARTIFACT_REPLAY_SCOPE_ENVELOPE_MISMATCH",
             "GOVERNED_ARTIFACT_QUARANTINE_RESULT_EVIDENCE_MISMATCH",
             "GOVERNED_ARTIFACT_UPLOAD_PLAN_RESULT_EVIDENCE_MISMATCH",
             "payload_snapshot = bytes(payload)",
@@ -165,8 +174,20 @@ def verify() -> list[str]:
             "test_artifact_preflight_rejects_orphan_kernel_proof",
             "test_artifact_receipt_rejects_kernel_state_status_mismatch",
             "test_artifact_replayed_content_free_requires_succeeded_kernel_state",
-            "test_artifact_replayed_success_binds_external_evidence_to_claimed_scope",
+            "test_artifact_replayed_success_rejects_standalone_rehashed_scope_forgery",
+            "test_artifact_replay_requires_exact_durable_provenance_context",
+            "test_artifact_terminal_replay_reconstructs_exact_operation_evidence",
+            "test_artifact_terminal_replay_rejects_arbitrary_non_success_evidence",
+            "test_artifact_replay_rejects_every_rehashed_evidence_field_tamper",
+            "test_artifact_replay_rejects_rehashed_evidence_order_and_arity_tamper",
+            "test_artifact_replay_rejects_cross_operation_and_transaction_substitution",
             "test_artifact_replayed_success_requires_complete_kernel_proof",
+        ),
+        "replay_provenance": (
+            "ExternalActionReplayEvidenceEnvelope",
+            "_build_external_action_replay_validation_context",
+            "attest_terminal_replay",
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
         ),
         "doc": (
             "10. Download quarantine and exact artifact-bound upload plans",
@@ -198,6 +219,7 @@ def verify() -> list[str]:
     values = {
         "transfers": transfers,
         "transaction": transaction,
+        "replay_provenance": replay_provenance,
         "package": package,
         "tests": tests,
         "doc": doc,

@@ -10,7 +10,9 @@ granting any execution authority.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from threading import RLock
+from typing import Literal
+from weakref import ReferenceType, ref as weakref_ref
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,29 +24,31 @@ from ultimate_ai_agent.core.planning.validation import (
 from .contracts import (
     ExternalActionExecutionRequest,
     ExternalActionReceipt,
+    ExternalActionState,
     stable_governed_browser_ref,
 )
 
 
 _REPLAY_CONTEXT_KEY = "uaa_external_action_replay_validation_context"
-_REPLAY_CONTEXT_TOKEN = object()
 _REPLAY_ENVELOPE_REF_PREFIX = (
     "replay-evidence-envelope-ref:governed-external-action"
 )
-
-
-class _ExternalActionReplayKernel(Protocol):
-    def replay_if_terminal(
-        self,
-        request: ExternalActionExecutionRequest,
-    ) -> ExternalActionReceipt | None: ...
-
-    def terminal_receipt_by_ref(
-        self,
-        *,
-        transaction_ref: str,
-        receipt_ref: str,
-    ) -> ExternalActionReceipt | None: ...
+_KERNEL_AMBIGUITY_REASONS = (
+    "dispatch-capacity-check-failed",
+    "dispatch-capacity-bounded",
+    "dispatch-start-revalidation-denied",
+    "dispatch-timeout",
+    "dispatch-exception",
+    "dispatch-result-invalid",
+    "dispatch-worker-start-failed",
+)
+_POST_START_GUARD_REASON_REFS = {
+    "reason-ref:governed-external-action:post-start-revalidation-denied",
+    (
+        "reason-ref:governed-external-action:"
+        "dispatch-wait-interrupted-before-start"
+    ),
+}
 
 
 class ExternalActionReplayEvidenceExpectation(BaseModel):
@@ -55,6 +59,7 @@ class ExternalActionReplayEvidenceExpectation(BaseModel):
     ] = "uaa-external-action-replay-evidence-expectation.v1"
     lane_ref: str
     operation_ref: str
+    scope_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
 
     model_config = ConfigDict(
@@ -68,6 +73,7 @@ class ExternalActionReplayEvidenceExpectation(BaseModel):
         for value, label in (
             (self.lane_ref, "replay_lane_ref"),
             (self.operation_ref, "replay_operation_ref"),
+            *[(ref, "replay_scope_ref") for ref in self.scope_refs],
             *[(ref, "replay_evidence_ref") for ref in self.evidence_refs],
         ):
             validate_task_ref(value, label)
@@ -87,6 +93,7 @@ class ExternalActionReplayEvidenceEnvelope(BaseModel):
     envelope_ref: str
     lane_ref: str
     operation_ref: str
+    scope_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
     expected_request_fingerprint_ref: str
     terminal_receipt_ref: str
@@ -104,6 +111,7 @@ class ExternalActionReplayEvidenceEnvelope(BaseModel):
             (self.envelope_ref, "replay_envelope_ref"),
             (self.lane_ref, "replay_lane_ref"),
             (self.operation_ref, "replay_operation_ref"),
+            *[(ref, "replay_scope_ref") for ref in self.scope_refs],
             (
                 self.expected_request_fingerprint_ref,
                 "expected_request_fingerprint_ref",
@@ -128,14 +136,21 @@ class ExternalActionReplayEvidenceEnvelope(BaseModel):
         return self
 
 
-@dataclass(frozen=True, slots=True, init=False)
+class _ReplayContextToken:
+    __slots__ = ()
+
+
+@dataclass(frozen=True, slots=True, init=False, weakref_slot=True)
 class ExternalActionReplayValidationContext:
     """Opaque, in-process proof that one replay came from the exact terminal row."""
 
     envelope: ExternalActionReplayEvidenceEnvelope
     expected_execution: ExternalActionExecutionRequest = field(repr=False)
     terminal_receipt: ExternalActionReceipt = field(repr=False)
-    _authentication_token: object = field(repr=False, compare=False)
+    _authentication_token: _ReplayContextToken = field(
+        repr=False,
+        compare=False,
+    )
 
     @classmethod
     def _create(
@@ -152,9 +167,50 @@ class ExternalActionReplayValidationContext:
         object.__setattr__(
             context,
             "_authentication_token",
-            _REPLAY_CONTEXT_TOKEN,
+            _ReplayContextToken(),
         )
         return context
+
+
+@dataclass(frozen=True, slots=True)
+class _ReplayContextIssuance:
+    context_ref: ReferenceType[ExternalActionReplayValidationContext] = field(
+        repr=False,
+        compare=False,
+    )
+    envelope_json: str
+    expected_execution_json: str = field(repr=False)
+    terminal_receipt_json: str = field(repr=False)
+
+
+_REPLAY_CONTEXT_ISSUANCE_LOCK = RLock()
+_REPLAY_CONTEXT_ISSUANCES: dict[_ReplayContextToken, _ReplayContextIssuance] = {}
+
+
+def _discard_replay_context_issuance(token: _ReplayContextToken) -> None:
+    with _REPLAY_CONTEXT_ISSUANCE_LOCK:
+        _REPLAY_CONTEXT_ISSUANCES.pop(token, None)
+
+
+def _register_replay_context_issuance(
+    context: ExternalActionReplayValidationContext,
+) -> None:
+    token = context._authentication_token
+    issuance = _ReplayContextIssuance(
+        context_ref=weakref_ref(
+            context,
+            lambda _context_ref: _discard_replay_context_issuance(token),
+        ),
+        envelope_json=context.envelope.model_dump_json(),
+        expected_execution_json=context.expected_execution.model_dump_json(),
+        terminal_receipt_json=context.terminal_receipt.model_dump_json(),
+    )
+    with _REPLAY_CONTEXT_ISSUANCE_LOCK:
+        if token in _REPLAY_CONTEXT_ISSUANCES:
+            raise ValueError(
+                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
+            )
+        _REPLAY_CONTEXT_ISSUANCES[token] = issuance
 
 
 def _request_fingerprint(
@@ -177,6 +233,113 @@ def _validated_replay_copy(
     )
 
 
+def _kernel_ambiguity_evidence_valid(
+    receipt: ExternalActionReceipt,
+) -> bool:
+    evidence_refs = tuple(receipt.evidence_refs)
+    if len(evidence_refs) != 1:
+        return False
+    evidence_ref = evidence_refs[0]
+    common_payload = {
+        "transaction_ref": receipt.transaction_ref,
+        "intent_ref": receipt.intent_ref,
+        "binding_ref": receipt.binding_ref,
+    }
+    expected_refs = {
+        stable_governed_browser_ref(
+            f"evidence-ref:governed-external-action:{reason}",
+            {"reason": reason, **common_payload},
+        )
+        for reason in _KERNEL_AMBIGUITY_REASONS
+    }
+    expected_refs.add(
+        stable_governed_browser_ref(
+            "evidence-ref:governed-external-action:prior-start-recovery",
+            common_payload,
+        )
+    )
+    if evidence_ref in expected_refs:
+        return True
+    guard_prefix = (
+        "evidence-ref:governed-external-action:post-start-guard:sha256:"
+    )
+    guard_digest = evidence_ref.removeprefix(guard_prefix)
+    return (
+        evidence_ref.startswith(guard_prefix)
+        and len(guard_digest) == 64
+        and all(character in "0123456789abcdef" for character in guard_digest)
+        and bool(_POST_START_GUARD_REASON_REFS.intersection(receipt.reason_refs))
+    )
+
+
+def _require_operation_replay_evidence_envelope(
+    replay_receipt: ExternalActionReceipt,
+    *,
+    success_evidence_valid: bool,
+    failure_evidence_valid: bool,
+    mismatch_error: str,
+) -> None:
+    """Require one complete lane envelope for every durable terminal state."""
+
+    state = ExternalActionState(replay_receipt.state)
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    if state == ExternalActionState.succeeded:
+        valid = success_evidence_valid
+    elif state == ExternalActionState.failed:
+        valid = failure_evidence_valid
+    elif state == ExternalActionState.blocked:
+        valid = not evidence_refs
+    elif state == ExternalActionState.outcome_ambiguous:
+        valid = (
+            success_evidence_valid
+            or failure_evidence_valid
+            or _kernel_ambiguity_evidence_valid(replay_receipt)
+        )
+    else:
+        valid = False
+    if not valid:
+        raise ValueError(mismatch_error)
+
+
+def _authenticated_context_issuance(
+    context: object,
+) -> _ReplayContextIssuance:
+    if not isinstance(context, ExternalActionReplayValidationContext):
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED"
+        )
+    try:
+        token = context._authentication_token
+    except AttributeError as exc:
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
+        ) from exc
+    if not isinstance(token, _ReplayContextToken):
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
+        )
+    with _REPLAY_CONTEXT_ISSUANCE_LOCK:
+        issuance = _REPLAY_CONTEXT_ISSUANCES.get(token)
+    try:
+        context_matches_issuance = (
+            issuance is not None
+            and issuance.context_ref() is context
+            and context.envelope.model_dump_json() == issuance.envelope_json
+            and context.expected_execution.model_dump_json()
+            == issuance.expected_execution_json
+            and context.terminal_receipt.model_dump_json()
+            == issuance.terminal_receipt_json
+        )
+    except (AttributeError, TypeError, ValueError):
+        context_matches_issuance = False
+    if not context_matches_issuance:
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
+        )
+    assert issuance is not None
+    return issuance
+
+
 def _require_authenticated_context(
     context: object,
 ) -> ExternalActionReplayValidationContext:
@@ -184,27 +347,40 @@ def _require_authenticated_context(
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED"
         )
-    try:
-        authenticated = context._authentication_token is _REPLAY_CONTEXT_TOKEN
-    except AttributeError as exc:
-        raise ValueError(
-            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
-        ) from exc
-    if not authenticated:
-        raise ValueError(
-            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_INVALID"
-        )
+    _authenticated_context_issuance(context)
     return context
 
 
-def build_external_action_replay_validation_context(
-    kernel: _ExternalActionReplayKernel,
+def _build_external_action_replay_validation_context(
+    kernel: object,
     *,
     expected_execution: ExternalActionExecutionRequest,
     replay_receipt: ExternalActionReceipt,
     expectation: ExternalActionReplayEvidenceExpectation,
 ) -> ExternalActionReplayValidationContext:
-    """Prove one kernel-returned replay against its exact durable terminal row."""
+    """Prove one replay against an atomically attested concrete kernel row.
+
+    This package-internal issuer is intentionally not part of the governed
+    browser public API. Operation wrappers own the lane/operation expectation;
+    untrusted callers may only present the resulting opaque validation context.
+    """
+
+    # A structurally compatible object is not a durable proof source. Importing
+    # locally avoids a module cycle while requiring the exact production kernel
+    # and its concrete SQLite store to own the attestation.
+    from .transaction import (  # noqa: PLC0415
+        ExternalActionTransactionStore,
+        GovernedExternalActionKernel,
+    )
+
+    store = getattr(kernel, "_store", None)
+    if (
+        type(kernel) is not GovernedExternalActionKernel
+        or type(store) is not ExternalActionTransactionStore
+    ):
+        raise ValueError(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
+        )
 
     expected = ExternalActionExecutionRequest.model_validate(
         expected_execution.model_dump(mode="json")
@@ -216,31 +392,28 @@ def build_external_action_replay_validation_context(
         expectation.model_dump(mode="json")
     )
     try:
-        exact_replay = kernel.replay_if_terminal(expected)
-        terminal = kernel.terminal_receipt_by_ref(
-            transaction_ref=expected.binding.transaction_ref,
+        terminal = GovernedExternalActionKernel.attest_terminal_replay(
+            kernel,
+            expected,
             receipt_ref=replay.receipt_ref,
         )
     except Exception as exc:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LOOKUP_FAILED"
         ) from exc
-    if exact_replay is None or terminal is None:
+    if terminal is None:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_TERMINAL_REQUIRED"
         )
-    exact_replay = ExternalActionReceipt.model_validate(
-        exact_replay.model_dump(mode="json")
-    )
     terminal = ExternalActionReceipt.model_validate(
         terminal.model_dump(mode="json")
     )
-    if not replay.replayed or not exact_replay.replayed or terminal.replayed:
+    if not replay.replayed or terminal.replayed:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_REPLAY_STATE_INVALID"
         )
     expected_replay = _validated_replay_copy(terminal)
-    if exact_replay != expected_replay or replay != expected_replay:
+    if replay != expected_replay:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
         )
@@ -255,6 +428,7 @@ def build_external_action_replay_validation_context(
     envelope_payload = {
         "lane_ref": exact_expectation.lane_ref,
         "operation_ref": exact_expectation.operation_ref,
+        "scope_refs": exact_expectation.scope_refs,
         "evidence_refs": exact_expectation.evidence_refs,
         "expected_request_fingerprint_ref": _request_fingerprint(expected),
         "terminal_receipt_ref": terminal.receipt_ref,
@@ -272,11 +446,13 @@ def build_external_action_replay_validation_context(
         ),
         **envelope_payload,
     )
-    return ExternalActionReplayValidationContext._create(
+    context = ExternalActionReplayValidationContext._create(
         envelope=envelope,
         expected_execution=expected,
         terminal_receipt=terminal,
     )
+    _register_replay_context_issuance(context)
+    return context
 
 
 def replay_validation_context(
@@ -286,6 +462,15 @@ def replay_validation_context(
 
     authenticated = _require_authenticated_context(context)
     return {_REPLAY_CONTEXT_KEY: authenticated}
+
+
+def _authenticated_replay_evidence_envelope(
+    context: ExternalActionReplayValidationContext,
+) -> ExternalActionReplayEvidenceEnvelope:
+    issuance = _authenticated_context_issuance(context)
+    return ExternalActionReplayEvidenceEnvelope.model_validate_json(
+        issuance.envelope_json
+    )
 
 
 def require_external_action_replay_provenance(
@@ -308,7 +493,10 @@ def require_external_action_replay_provenance(
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED"
         )
-    envelope = context.envelope
+    issuance = _authenticated_context_issuance(context)
+    envelope = ExternalActionReplayEvidenceEnvelope.model_validate_json(
+        issuance.envelope_json
+    )
     if envelope.lane_ref != lane_ref:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LANE_MISMATCH"
@@ -317,13 +505,18 @@ def require_external_action_replay_provenance(
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_OPERATION_MISMATCH"
         )
-    expected_fingerprint = _request_fingerprint(context.expected_execution)
+    expected_execution = ExternalActionExecutionRequest.model_validate_json(
+        issuance.expected_execution_json
+    )
+    expected_fingerprint = _request_fingerprint(expected_execution)
     if envelope.expected_request_fingerprint_ref != expected_fingerprint:
         raise ValueError(
             "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_REQUEST_MISMATCH"
         )
     terminal = ExternalActionReceipt.model_validate(
-        context.terminal_receipt.model_dump(mode="json")
+        ExternalActionReceipt.model_validate_json(
+            issuance.terminal_receipt_json
+        ).model_dump(mode="json")
     )
     if (
         terminal.replayed

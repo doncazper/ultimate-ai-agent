@@ -82,6 +82,8 @@ def verify() -> list[str]:
             "captcha_solve_performed: Literal[False]",
             "captcha_bypass_performed: Literal[False]",
             "network_call_performed: Literal[False]",
+            "_human_challenge_replay_context",
+            "require_external_action_replay_provenance",
         ),
         "transaction": (
             "def replay_if_terminal",
@@ -119,6 +121,11 @@ def verify() -> list[str]:
             "test_prepare_handoff_rejects_lease_with_implied_broader_capability",
             "test_replay_transaction_identity_is_bound_to_registered_recipe",
             "test_receipts_are_content_free_and_verifier_passes",
+            "test_handoff_replay_reconstruction_requires_exact_terminal_provenance",
+            "test_handoff_non_success_terminal_replays_use_complete_envelope",
+            "test_handoff_replay_expectation_rejects_invalid_non_success_envelopes",
+            "test_handoff_replay_rejects_fully_rehashed_evidence_tampering",
+            "test_handoff_replay_rejects_cross_transaction_recipe_context",
         ),
         "doc": (
             "09. Human-present MFA, passkey, and CAPTCHA handoff only",

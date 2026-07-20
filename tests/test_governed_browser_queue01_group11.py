@@ -895,6 +895,145 @@ def test_task_composer_replay_wrappers_require_exact_terminal_provenance(
 
 
 @pytest.mark.parametrize(
+    ("terminal_state", "first_status", "replay_status"),
+    (
+        ("blocked", "transaction_blocked", "transaction_blocked"),
+        ("failed", "failed", "failed"),
+        ("outcome_ambiguous", "outcome_ambiguous", "outcome_ambiguous"),
+    ),
+)
+def test_task_composer_non_success_terminal_replays_use_complete_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal_state: str,
+    first_status: str,
+    replay_status: str,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix=f"replay-terminal-{terminal_state}"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == "blocked"
+            else None
+        ),
+    )
+    if terminal_state == "failed":
+        clock_results = iter(
+            (
+                (recipe.created_at, None),
+                (
+                    None,
+                    "reason-ref:governed-task-composer:trusted-clock-invalid",
+                ),
+            )
+        )
+        monkeypatch.setattr(
+            task_composer_module,
+            "_read_clock",
+            lambda clock: next(clock_results),
+        )
+    elif terminal_state == "outcome_ambiguous":
+
+        def fail_plan_build(*args, **kwargs):  # type: ignore[no-untyped-def]
+            del args, kwargs
+            raise RuntimeError("injected local plan failure")
+
+        monkeypatch.setattr(
+            task_composer_module,
+            "_build_plan",
+            fail_plan_build,
+        )
+    exact = _exact(request, recipe)
+
+    first = composer.compose(exact)
+    replay = composer.compose(exact)
+
+    assert first.receipt.status == first_status
+    assert first.receipt.external_action_state == terminal_state
+    assert first.receipt.replayed is False
+    assert replay.receipt.status == replay_status
+    assert replay.receipt.external_action_state == terminal_state
+    assert replay.receipt.replayed is True
+    assert replay.receipt.external_receipt_snapshot is not None
+    assert replay.plan is None
+    context = _task_replay_validation_context(
+        composer=composer,
+        request=request,
+        recipe=recipe,
+    )
+    assert (
+        GovernedTaskCompositionReceipt.model_validate(
+            replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
+        == replay.receipt
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "evidence_mode"),
+    (
+        ("blocked", "arbitrary"),
+        ("failed", "arbitrary"),
+        ("outcome_ambiguous", "arbitrary"),
+        ("started", "success"),
+        ("prepared", "empty"),
+    ),
+)
+def test_task_composer_replay_expectation_rejects_invalid_non_success_envelopes(
+    tmp_path: Path,
+    state: str,
+    evidence_mode: str,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix=f"replay-invalid-envelope-{state}-{evidence_mode}"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    exact = _exact(request, recipe)
+    composer.compose(exact)
+    composer.compose(exact)
+    expected_execution = task_composer_module._composer_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    baseline = composer._kernel.replay_if_terminal(expected_execution)
+    assert baseline is not None
+    evidence_refs = {
+        "arbitrary": (_ref("evidence", f"composer-{state}-arbitrary"),),
+        "success": tuple(baseline.evidence_refs),
+        "empty": (),
+    }[evidence_mode]
+    candidate = baseline.model_copy(
+        update={
+            "state": state,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_TASK_COMPOSER_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        task_composer_module._task_composer_replay_context(
+            composer._kernel,
+            expected_execution=expected_execution,
+            recipe=recipe,
+            replay_receipt=candidate,
+        )
+
+
+@pytest.mark.parametrize(
     "tamper_mode",
     (
         0,

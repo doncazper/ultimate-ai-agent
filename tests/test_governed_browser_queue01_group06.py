@@ -1088,6 +1088,162 @@ def test_origin_replay_reconstruction_requires_exact_terminal_provenance(
 
 
 @pytest.mark.parametrize(
+    ("terminal_state", "first_status"),
+    (
+        ("blocked", "blocked"),
+        ("failed", "failed"),
+        ("outcome_ambiguous", "outcome_ambiguous"),
+    ),
+)
+def test_origin_non_success_terminal_replays_use_complete_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal_state: str,
+    first_status: str,
+) -> None:
+    _, contexts, registry = _lifecycle_context(
+        suffix=f"replay-terminal-{terminal_state}"
+    )
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    keychain = _FakeKeychain(fail_store=terminal_state == "outcome_ambiguous")
+    if terminal_state == "failed":
+
+        def locked_store(
+            registration,  # type: ignore[no-untyped-def]
+            *,
+            request_ref: str,
+            credential_material: bytearray,
+        ) -> GovernedBrowserKeychainOperationReceipt:
+            del registration, credential_material
+            keychain.calls.append(("store", request_ref))
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_LOCKED"
+            )
+
+        monkeypatch.setattr(keychain, "store", locked_store)
+    kernel, _ = _authorized_kernel(
+        tmp_path / "kernel",
+        request,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == "blocked"
+            else None
+        ),
+    )
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(
+            tmp_path / "sessions.sqlite3"
+        ),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+
+    first = service.execute(exact, credential_material=_opaque_material(81))
+    replay = service.execute(exact, credential_material=_opaque_material(82))
+
+    assert first.receipt.status == first_status
+    assert first.receipt.external_receipt_snapshot is not None
+    assert first.receipt.external_receipt_snapshot.state == terminal_state
+    assert first.receipt.replayed is False
+    assert replay.receipt.status == "replayed"
+    assert replay.receipt.external_receipt_snapshot is not None
+    assert replay.receipt.external_receipt_snapshot.state == terminal_state
+    assert replay.receipt.replayed is True
+    assert replay.keychain_receipt is None
+    assert replay.session is None
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+    assert (
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
+        == replay.receipt
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "evidence_mode"),
+    (
+        ("blocked", "arbitrary"),
+        ("failed", "arbitrary"),
+        ("outcome_ambiguous", "arbitrary"),
+        ("started", "success"),
+        ("prepared", "empty"),
+    ),
+)
+def test_origin_replay_expectation_rejects_invalid_non_success_envelopes(
+    tmp_path: Path,
+    state: str,
+    evidence_mode: str,
+) -> None:
+    _, contexts, registry = _lifecycle_context(
+        suffix=f"replay-invalid-envelope-{state}-{evidence_mode}"
+    )
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=_FakeKeychain(),
+        sessions=GovernedBrowserOriginSessionStore(
+            tmp_path / "sessions.sqlite3"
+        ),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(83))
+    replay = service.execute(exact, credential_material=_opaque_material(84))
+    baseline = replay.receipt.external_receipt_snapshot
+    assert baseline is not None
+    evidence_refs = {
+        "arbitrary": (_ref("evidence", f"origin-{state}-arbitrary"),),
+        "success": tuple(baseline.evidence_refs),
+        "empty": (),
+    }[evidence_mode]
+    candidate = baseline.model_copy(
+        update={
+            "state": state,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_"
+            "REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    ):
+        origin_sessions_module._origin_session_replay_context(
+            service._kernel,
+            expected_execution=(
+                origin_sessions_module._origin_session_kernel_execution(
+                    request,
+                    recipe=recipe,
+                )
+            ),
+            recipe=recipe,
+            replay_receipt=candidate,
+        )
+
+
+@pytest.mark.parametrize(
     "tamper_mode",
     ("slot-0", "slot-1", "slot-2", "order", "drop", "append"),
 )
