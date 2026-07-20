@@ -22,6 +22,7 @@ from pydantic import (
     Field,
     StrictBool,
     StrictInt,
+    ValidationInfo,
     model_validator,
 )
 
@@ -41,6 +42,13 @@ from .contracts import (
     ExternalActionTargetKind,
     stable_governed_browser_ref,
 )
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    ExternalActionReplayValidationContext,
+    build_external_action_replay_validation_context,
+    replay_validation_context,
+    require_external_action_replay_provenance,
+)
 from .transaction import (
     ExternalActionTransactionConflict,
     GovernedExternalActionKernel,
@@ -49,6 +57,7 @@ from .transaction import (
 
 MAX_GOVERNED_TASK_COMPOSITION_LIFETIME = timedelta(minutes=10)
 MAX_GOVERNED_TASK_COMPOSITION_STEPS = 8
+_TASK_COMPOSER_REPLAY_LANE_REF = "lane-ref:governed-task-composer"
 _HASH_PINNED_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
 _HASH_PINNED_REF_RE = re.compile(r".+:sha256:[0-9a-f]{64}")
 
@@ -1127,7 +1136,10 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_snapshot(self) -> "GovernedTaskCompositionExternalReceiptSnapshot":
+    def validate_snapshot(
+        self,
+        info: ValidationInfo,
+    ) -> "GovernedTaskCompositionExternalReceiptSnapshot":
         for value, label in (
             (self.snapshot_ref, "external_receipt_snapshot_ref"),
             (self.external_action_receipt_ref, "external_action_receipt_ref"),
@@ -1208,7 +1220,7 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
                 "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
             )
         try:
-            ExternalActionReceipt(
+            external_candidate = ExternalActionReceipt(
                 receipt_ref=self.external_action_receipt_ref,
                 transaction_ref=self.transaction_ref,
                 intent_ref=self.intent_ref,
@@ -1227,6 +1239,13 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
             raise ValueError(
                 "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH"
             ) from exc
+        if self.replayed:
+            require_external_action_replay_provenance(
+                info,
+                lane_ref=_TASK_COMPOSER_REPLAY_LANE_REF,
+                operation_ref=self.binding_ref,
+                candidate=external_candidate,
+            )
         expected_snapshot_ref = stable_governed_browser_ref(
             "external-receipt-snapshot-ref:governed-task-composer",
             _external_receipt_snapshot_identity_payload(self),
@@ -1244,6 +1263,8 @@ class GovernedTaskCompositionExternalReceiptSnapshot(BaseModel):
 
 def _build_external_receipt_snapshot(
     receipt: ExternalActionReceipt,
+    *,
+    validation_context: ExternalActionReplayValidationContext | None = None,
 ) -> GovernedTaskCompositionExternalReceiptSnapshot:
     payload = {
         "external_action_receipt_ref": receipt.receipt_ref,
@@ -1271,9 +1292,17 @@ def _build_external_receipt_snapshot(
             )
         ),
     )
-    return GovernedTaskCompositionExternalReceiptSnapshot(
-        snapshot_ref=snapshot_ref,
+    snapshot_payload = {
+        "snapshot_ref": snapshot_ref,
         **payload,
+    }
+    return (
+        GovernedTaskCompositionExternalReceiptSnapshot.model_validate(
+            snapshot_payload,
+            context=replay_validation_context(validation_context),
+        )
+        if validation_context is not None
+        else GovernedTaskCompositionExternalReceiptSnapshot(**snapshot_payload)
     )
 
 
@@ -1331,7 +1360,10 @@ class GovernedTaskCompositionReceipt(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "GovernedTaskCompositionReceipt":
+    def validate_receipt(
+        self,
+        info: ValidationInfo,
+    ) -> "GovernedTaskCompositionReceipt":
         for value, label in (
             (self.receipt_ref, "receipt_ref"),
             (self.recipe_ref, "recipe_ref"),
@@ -1566,7 +1598,7 @@ class GovernedTaskCompositionReceipt(BaseModel):
                     "GOVERNED_TASK_COMPOSER_AUTHORITY_DECISION_REF_REQUIRED"
                 )
             try:
-                ExternalActionReceipt(
+                external_candidate = ExternalActionReceipt(
                     receipt_ref=self.external_action_receipt_ref,
                     transaction_ref=self.transaction_ref,
                     intent_ref=self.intent_ref,
@@ -1585,6 +1617,13 @@ class GovernedTaskCompositionReceipt(BaseModel):
                 raise ValueError(
                     "GOVERNED_TASK_COMPOSER_EXTERNAL_RECEIPT_REF_MISMATCH"
                 ) from exc
+            if self.replayed:
+                require_external_action_replay_provenance(
+                    info,
+                    lane_ref=_TASK_COMPOSER_REPLAY_LANE_REF,
+                    operation_ref=self.binding_ref,
+                    candidate=external_candidate,
+                )
             external_snapshot = self.external_receipt_snapshot
             if (
                 external_snapshot.external_action_receipt_ref
@@ -1770,6 +1809,12 @@ class ExactGovernedTaskComposer:
                 recipe=recipe,
                 external_receipt=replay,
                 plan=None,
+                validation_context=_task_composer_replay_context(
+                    self._kernel,
+                    expected_execution=kernel_execution,
+                    recipe=recipe,
+                    replay_receipt=replay,
+                ),
             )
         if prior_start is not None:
             return _result_from_external_receipt(
@@ -1845,6 +1890,16 @@ class ExactGovernedTaskComposer:
             recipe=recipe,
             external_receipt=external_receipt,
             plan=plan,
+            validation_context=(
+                _task_composer_replay_context(
+                    self._kernel,
+                    expected_execution=kernel_execution,
+                    recipe=recipe,
+                    replay_receipt=external_receipt,
+                )
+                if external_receipt.replayed
+                else None
+            ),
         )
 
 
@@ -1864,6 +1919,36 @@ def _composer_kernel_execution(
                 },
             ),
         }
+    )
+
+
+def _task_composer_replay_context(
+    kernel: GovernedExternalActionKernel,
+    *,
+    expected_execution: ExternalActionExecutionRequest,
+    recipe: GovernedTaskCompositionRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayValidationContext:
+    expected_evidence = (
+        (
+            recipe.recipe_ref,
+            recipe.plan_ref,
+            recipe.registry_ref,
+            recipe.composer_authority_ref,
+            *(step.operation_ref for step in recipe.steps),
+        )
+        if replay_receipt.state == ExternalActionState.succeeded.value
+        else tuple(replay_receipt.evidence_refs)
+    )
+    return build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=expected_execution,
+        replay_receipt=replay_receipt,
+        expectation=ExternalActionReplayEvidenceExpectation(
+            lane_ref=_TASK_COMPOSER_REPLAY_LANE_REF,
+            operation_ref=recipe.binding_ref,
+            evidence_refs=expected_evidence,
+        ),
     )
 
 
@@ -2053,6 +2138,7 @@ def _result_from_external_receipt(
     recipe: GovernedTaskCompositionRecipe,
     external_receipt: ExternalActionReceipt,
     plan: GovernedTaskCompositionPlan | None,
+    validation_context: ExternalActionReplayValidationContext | None = None,
 ) -> ExactGovernedTaskCompositionResult:
     execution = request.execution_request
     if (
@@ -2113,7 +2199,10 @@ def _result_from_external_receipt(
             f"reason-ref:governed-task-composer:kernel-{status.value}",
         )
     operation_refs = tuple(step.operation_ref for step in recipe.steps)
-    external_receipt_snapshot = _build_external_receipt_snapshot(external_receipt)
+    external_receipt_snapshot = _build_external_receipt_snapshot(
+        external_receipt,
+        validation_context=validation_context,
+    )
     payload = {
         "recipe_ref": recipe.recipe_ref,
         "plan_ref": recipe.plan_ref,
@@ -2154,7 +2243,22 @@ def _result_from_external_receipt(
             )
         ),
     )
+    receipt_payload = {
+        "receipt_ref": receipt_ref,
+        **payload,
+    }
+    result_plan = (
+        plan if status == GovernedTaskCompositionStatus.plan_ready else None
+    )
+    if validation_context is not None:
+        return ExactGovernedTaskCompositionResult.model_validate(
+            {
+                "receipt": receipt_payload,
+                "plan": result_plan,
+            },
+            context=replay_validation_context(validation_context),
+        )
     return ExactGovernedTaskCompositionResult(
-        receipt=GovernedTaskCompositionReceipt(receipt_ref=receipt_ref, **payload),
-        plan=plan if status == GovernedTaskCompositionStatus.plan_ready else None,
+        receipt=GovernedTaskCompositionReceipt(**receipt_payload),
+        plan=result_plan,
     )

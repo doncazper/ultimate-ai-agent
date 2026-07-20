@@ -44,6 +44,9 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_task_composition_schema_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    replay_validation_context,
+)
 from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
 from ultimate_ai_agent.core.time import utc_now
 
@@ -71,6 +74,66 @@ def _rehash_task_composition_receipt(
         identity_payload,
     )
     return payload
+
+
+def _rehash_task_external_projection(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    external_value = payload["external_receipt_snapshot"]
+    assert isinstance(external_value, dict)
+    external = dict(external_value)
+    external_identity = {
+        "transaction_ref": external["transaction_ref"],
+        "intent_ref": external["intent_ref"],
+        "binding_ref": external["binding_ref"],
+        "state": external["state"],
+        "approval_validation_ref": external["approval_validation_ref"],
+        "authority_decision_ref": external["authority_decision_ref"],
+        "budget_reservation_ref": external["budget_reservation_ref"],
+        "budget_settlement_ref": external["budget_settlement_ref"],
+        "evidence_refs": external["evidence_refs"],
+        "reason_refs": external["reason_refs"],
+    }
+    if external.get("budget_release_ref") is not None:
+        external_identity["budget_release_ref"] = external["budget_release_ref"]
+    external_receipt_ref = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_identity,
+    )
+    external["external_action_receipt_ref"] = external_receipt_ref
+    snapshot_identity = {
+        key: value for key, value in external.items() if key != "snapshot_ref"
+    }
+    if snapshot_identity.get("budget_release_ref") is None:
+        snapshot_identity.pop("budget_release_ref", None)
+    external["snapshot_ref"] = stable_governed_browser_ref(
+        "external-receipt-snapshot-ref:governed-task-composer",
+        snapshot_identity,
+    )
+    payload["external_action_receipt_ref"] = external_receipt_ref
+    payload["evidence_refs"] = external["evidence_refs"]
+    payload["external_receipt_snapshot"] = external
+    return _rehash_task_composition_receipt(payload)
+
+
+def _task_replay_validation_context(
+    *,
+    composer: ExactGovernedTaskComposer,
+    request,
+    recipe,
+):  # type: ignore[no-untyped-def]
+    expected_execution = task_composer_module._composer_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = composer._kernel.replay_if_terminal(expected_execution)
+    assert replay_receipt is not None
+    return task_composer_module._task_composer_replay_context(
+        composer._kernel,
+        expected_execution=expected_execution,
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
 
 
 def _operation(
@@ -779,6 +842,179 @@ def test_success_replay_is_content_free_and_idempotency_drift_is_denied(
     assert drifted.receipt.reason_refs == (
         "reason-ref:governed-task-composer:idempotency-conflict",
     )
+
+
+def test_task_composer_replay_wrappers_require_exact_terminal_provenance(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="replay-provenance"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    exact = _exact(request, recipe)
+    composer.compose(exact)
+    replay = composer.compose(exact)
+    payload = replay.receipt.model_dump(mode="json")
+    context = _task_replay_validation_context(
+        composer=composer,
+        request=request,
+        recipe=recipe,
+    )
+
+    restored = GovernedTaskCompositionReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    assert restored == replay.receipt
+    external_payload = payload["external_receipt_snapshot"]
+    assert isinstance(external_payload, dict)
+    restored_external = (
+        task_composer_module.GovernedTaskCompositionExternalReceiptSnapshot.model_validate(
+            external_payload,
+            context=replay_validation_context(context),
+        )
+    )
+    assert restored_external == replay.receipt.external_receipt_snapshot
+    for model, candidate in (
+        (GovernedTaskCompositionReceipt, payload),
+        (
+            task_composer_module.GovernedTaskCompositionExternalReceiptSnapshot,
+            external_payload,
+        ),
+    ):
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+        ):
+            model.model_validate(candidate)
+
+
+@pytest.mark.parametrize(
+    "tamper_mode",
+    (
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        "cross-operation",
+        "order",
+        "drop",
+        "append",
+    ),
+)
+def test_task_composer_replay_rejects_fully_rehashed_evidence_tampering(
+    tmp_path: Path,
+    tamper_mode: int | str,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix=f"replay-tamper-{tamper_mode}"
+    )
+    composer, _ = _composer(
+        tmp_path,
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    exact = _exact(request, recipe)
+    composer.compose(exact)
+    replay = composer.compose(exact)
+    context = _task_replay_validation_context(
+        composer=composer,
+        request=request,
+        recipe=recipe,
+    )
+    forged = replay.receipt.model_dump(mode="json")
+    external = forged["external_receipt_snapshot"]
+    assert isinstance(external, dict)
+    evidence_refs = list(external["evidence_refs"])
+    if isinstance(tamper_mode, int):
+        ref_prefix = evidence_refs[tamper_mode].rsplit(":sha256:", 1)[0]
+        evidence_refs[tamper_mode] = stable_governed_browser_ref(
+            ref_prefix,
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "cross-operation":
+        evidence_refs[4], evidence_refs[5] = (
+            evidence_refs[5],
+            evidence_refs[4],
+        )
+    elif tamper_mode == "order":
+        evidence_refs.reverse()
+    elif tamper_mode == "drop":
+        evidence_refs.pop()
+    else:
+        evidence_refs.append(
+            _pinned(
+                "registered-operation-ref:governed-task-composer",
+                "replay-extra",
+            )
+        )
+    external["evidence_refs"] = evidence_refs
+    forged["external_receipt_snapshot"] = external
+    _rehash_task_external_projection(forged)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_TASK_COMPOSER_SUCCESS_EVIDENCE_MISMATCH"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+        ),
+    ):
+        GovernedTaskCompositionReceipt.model_validate(
+            forged,
+            context=replay_validation_context(context),
+        )
+
+
+def test_task_composer_replay_rejects_cross_transaction_recipe_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, operations, recipes = _composition_context(
+        suffix="replay-context-a"
+    )
+    composer, _ = _composer(
+        tmp_path / "a",
+        request=request,
+        operation_registry=operations,
+        recipe_registry=recipes,
+    )
+    exact = _exact(request, recipe)
+    composer.compose(exact)
+    composer.compose(exact)
+    context = _task_replay_validation_context(
+        composer=composer,
+        request=request,
+        recipe=recipe,
+    )
+
+    other_request, other_recipe, other_operations, other_recipes = (
+        _composition_context(suffix="replay-context-b")
+    )
+    other_composer, _ = _composer(
+        tmp_path / "b",
+        request=other_request,
+        operation_registry=other_operations,
+        recipe_registry=other_recipes,
+    )
+    other_exact = _exact(other_request, other_recipe)
+    other_composer.compose(other_exact)
+    other_replay = other_composer.compose(other_exact)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_OPERATION_MISMATCH",
+    ):
+        GovernedTaskCompositionReceipt.model_validate(
+            other_replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
 
 
 def test_external_receipt_scope_must_match_current_composition_request(

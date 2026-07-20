@@ -10,7 +10,14 @@ from pathlib import Path
 from threading import RLock
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationInfo,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.authority import AuthorityCapability
 from ultimate_ai_agent.core.planning.validation import (
@@ -39,10 +46,18 @@ from .contracts import (
     governed_receipt_identity_payload,
     stable_governed_browser_ref,
 )
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    ExternalActionReplayValidationContext,
+    build_external_action_replay_validation_context,
+    replay_validation_context,
+    require_external_action_replay_provenance,
+)
 from .transaction import GovernedExternalActionKernel
 
 
 MAX_GOVERNED_BROWSER_SESSION_LIFETIME = timedelta(hours=1)
+_ORIGIN_SESSION_REPLAY_LANE_REF = "lane-ref:governed-browser-origin-session"
 _NON_MUTATING_KEYCHAIN_ERROR_CODES = frozenset(
     {
         GOVERNED_BROWSER_KEYCHAIN_ITEM_ALREADY_EXISTS,
@@ -766,6 +781,60 @@ def _origin_session_receipt_identity_payload(
     return payload
 
 
+def _validate_origin_session_success_evidence(
+    *,
+    recipe: GovernedBrowserOriginSessionRecipe,
+    intent_ref: str,
+    evidence_refs: tuple[str, ...],
+) -> None:
+    operation = GovernedBrowserOriginSessionOperation(recipe.operation)
+    operation_ref = stable_governed_browser_ref(
+        "browser-origin-session-operation-ref:governed-browser",
+        {
+            "recipe_ref": recipe.recipe_ref,
+            "intent_ref": intent_ref,
+        },
+    )
+    helper_prefix = "helper-receipt-ref:governed-browser-keychain:"
+    state_prefix = (
+        "browser-origin-session-state-receipt-ref:governed-browser:"
+    )
+    keychain_prefix_valid = (
+        len(evidence_refs) >= 3
+        and evidence_refs[1].startswith(helper_prefix)
+        and evidence_refs[2] == recipe.keychain_item_ref
+    )
+    if operation == GovernedBrowserOriginSessionOperation.enroll_credential:
+        valid = len(evidence_refs) == 3 and keychain_prefix_valid
+    elif operation in {
+        GovernedBrowserOriginSessionOperation.prepare_session,
+        GovernedBrowserOriginSessionOperation.revalidate_session,
+    }:
+        valid = (
+            len(evidence_refs) == 4
+            and keychain_prefix_valid
+            and evidence_refs[3].startswith(state_prefix)
+        )
+    elif operation == GovernedBrowserOriginSessionOperation.close_session:
+        valid = (
+            len(evidence_refs) == 2
+            and evidence_refs[1].startswith(state_prefix)
+        )
+    else:
+        valid = (
+            len(evidence_refs) in {3, 4}
+            and keychain_prefix_valid
+            and (
+                len(evidence_refs) == 3
+                or evidence_refs[3].startswith(state_prefix)
+            )
+        )
+    if not valid or evidence_refs[0] != operation_ref:
+        raise ValueError(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
+        )
+
+
 class GovernedBrowserOriginSessionReceipt(BaseModel):
     """Content-free receipt separate from keychain and session projections."""
 
@@ -808,7 +877,10 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "GovernedBrowserOriginSessionReceipt":
+    def validate_receipt(
+        self,
+        info: ValidationInfo,
+    ) -> "GovernedBrowserOriginSessionReceipt":
         for value in (
             self.receipt_ref,
             self.recipe_ref,
@@ -927,17 +999,11 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
                     "GOVERNED_BROWSER_ORIGIN_SESSION_SUCCESS_KERNEL_PROOF_REQUIRED"
                 )
             if external_snapshot.state == ExternalActionState.succeeded.value:
-                expected_operation_ref = stable_governed_browser_ref(
-                    "browser-origin-session-operation-ref:governed-browser",
-                    {
-                        "recipe_ref": recipe_snapshot.recipe_ref,
-                        "intent_ref": self.intent_ref,
-                    },
+                _validate_origin_session_success_evidence(
+                    recipe=recipe_snapshot,
+                    intent_ref=self.intent_ref,
+                    evidence_refs=tuple(external_snapshot.evidence_refs),
                 )
-                if expected_operation_ref not in external_snapshot.evidence_refs:
-                    raise ValueError(
-                        "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
-                    )
             if external_snapshot.replayed:
                 expected_status = GovernedBrowserOriginSessionStatus.replayed
             elif external_snapshot.state == ExternalActionState.blocked.value:
@@ -979,6 +1045,13 @@ class GovernedBrowserOriginSessionReceipt(BaseModel):
             if self.status != expected_status.value:
                 raise ValueError(
                     "GOVERNED_BROWSER_ORIGIN_SESSION_EXTERNAL_STATE_MISMATCH"
+                )
+            if self.replayed:
+                require_external_action_replay_provenance(
+                    info,
+                    lane_ref=_ORIGIN_SESSION_REPLAY_LANE_REF,
+                    operation_ref=self.recipe_ref,
+                    candidate=external_snapshot,
                 )
         validate_safe_task_payload(
             self.model_dump(
@@ -1160,6 +1233,10 @@ class ExactGovernedBrowserOriginSessionService:
             _zeroize_optional(credential_material)
             return _preflight_blocked(request, scope_reason, recipe=recipe)
         operation = GovernedBrowserOriginSessionOperation(recipe.operation)
+        kernel_execution = _origin_session_kernel_execution(
+            execution,
+            recipe=recipe,
+        )
         if credential_material is not None and not isinstance(
             credential_material, bytearray
         ):
@@ -1396,7 +1473,10 @@ class ExactGovernedBrowserOriginSessionService:
                 _zeroize_optional(dispatch_credential_material)
 
         try:
-            external_receipt = self._kernel.execute(execution, dispatch=dispatch)
+            external_receipt = self._kernel.execute(
+                kernel_execution,
+                dispatch=dispatch,
+            )
         finally:
             _zeroize_optional(credential_material)
             with credential_handoff_lock:
@@ -1409,6 +1489,16 @@ class ExactGovernedBrowserOriginSessionService:
             external_receipt=external_receipt,
             keychain_receipt=captured_keychain,
             session=captured_session,
+            validation_context=(
+                _origin_session_replay_context(
+                    self._kernel,
+                    expected_execution=kernel_execution,
+                    recipe=recipe,
+                    replay_receipt=external_receipt,
+                )
+                if external_receipt.replayed
+                else None
+            ),
         )
 
 
@@ -1590,6 +1680,7 @@ def _result_from_external_receipt(
     external_receipt: ExternalActionReceipt,
     keychain_receipt: GovernedBrowserKeychainOperationReceipt | None,
     session: GovernedBrowserOriginSessionRecord | None,
+    validation_context: ExternalActionReplayValidationContext | None = None,
 ) -> ExactGovernedBrowserOriginSessionResult:
     operation = GovernedBrowserOriginSessionOperation(recipe.operation)
     if external_receipt.replayed:
@@ -1639,7 +1730,17 @@ def _result_from_external_receipt(
         recipe_snapshot=recipe,
         external_receipt=external_receipt,
         reason_refs=tuple(external_receipt.reason_refs),
+        validation_context=validation_context,
     )
+    if validation_context is not None:
+        return ExactGovernedBrowserOriginSessionResult.model_validate(
+            {
+                "receipt": receipt.model_dump(mode="json"),
+                "keychain_receipt": keychain_receipt,
+                "session": session,
+            },
+            context=replay_validation_context(validation_context),
+        )
     return ExactGovernedBrowserOriginSessionResult(
         receipt=receipt,
         keychain_receipt=keychain_receipt,
@@ -1657,6 +1758,7 @@ def _build_operation_receipt(
     reason_refs: tuple[str, ...],
     recipe_snapshot: GovernedBrowserOriginSessionRecipe | None = None,
     external_receipt: ExternalActionReceipt | None = None,
+    validation_context: ExternalActionReplayValidationContext | None = None,
 ) -> GovernedBrowserOriginSessionReceipt:
     payload = {
         "status": status,
@@ -1711,9 +1813,64 @@ def _build_operation_receipt(
         "browser-origin-session-operation-receipt-ref:governed-browser",
         _origin_session_receipt_identity_payload(provisional),
     )
-    return GovernedBrowserOriginSessionReceipt(
-        receipt_ref=receipt_ref,
+    receipt_payload = {
+        "receipt_ref": receipt_ref,
         **payload,
+    }
+    return (
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            receipt_payload,
+            context=replay_validation_context(validation_context),
+        )
+        if validation_context is not None
+        else GovernedBrowserOriginSessionReceipt(**receipt_payload)
+    )
+
+
+def _origin_session_replay_context(
+    kernel: GovernedExternalActionKernel,
+    *,
+    expected_execution: ExternalActionExecutionRequest,
+    recipe: GovernedBrowserOriginSessionRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayValidationContext:
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    if replay_receipt.state == ExternalActionState.succeeded.value:
+        _validate_origin_session_success_evidence(
+            recipe=recipe,
+            intent_ref=expected_execution.intent_ref,
+            evidence_refs=evidence_refs,
+        )
+    return build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=expected_execution,
+        replay_receipt=replay_receipt,
+        expectation=ExternalActionReplayEvidenceExpectation(
+            lane_ref=_ORIGIN_SESSION_REPLAY_LANE_REF,
+            operation_ref=recipe.recipe_ref,
+            evidence_refs=evidence_refs,
+        ),
+    )
+
+
+def _origin_session_kernel_execution(
+    request: ExternalActionExecutionRequest,
+    *,
+    recipe: GovernedBrowserOriginSessionRecipe,
+) -> ExternalActionExecutionRequest:
+    return ExternalActionExecutionRequest.model_validate(
+        {
+            **request.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-browser-origin-session",
+                {
+                    "source_idempotency_ref": request.idempotency_ref,
+                    "recipe_ref": recipe.recipe_ref,
+                    "operation": recipe.operation,
+                    "operation_authority_ref": recipe.operation_authority_ref,
+                },
+            ),
+        }
     )
 
 

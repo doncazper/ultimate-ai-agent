@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+import ultimate_ai_agent.core.governed_browser.origin_sessions as origin_sessions_module
 from scripts.verify_governed_browser_queue01_group06 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -38,6 +39,9 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_browser_origin_session_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    replay_validation_context,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -63,6 +67,55 @@ def _rehash_origin_receipt(payload: dict[str, Any]) -> dict[str, Any]:
         identity_payload,
     )
     return payload
+
+
+def _rehash_origin_external_projection(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    external = dict(payload["external_receipt_snapshot"])
+    external_identity = {
+        key: value
+        for key, value in external.items()
+        if key
+        not in {
+            "receipt_ref",
+            "schema_version",
+            "replayed",
+            "content_free",
+            "automatic_retry_allowed",
+        }
+    }
+    if external_identity.get("budget_release_ref") is None:
+        external_identity.pop("budget_release_ref", None)
+    external["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_identity,
+    )
+    payload["external_action_receipt_ref"] = external["receipt_ref"]
+    payload["external_receipt_snapshot"] = external
+    return _rehash_origin_receipt(payload)
+
+
+def _origin_replay_validation_context(
+    *,
+    service: ExactGovernedBrowserOriginSessionService,
+    request,
+    recipe,
+    replay: ExactGovernedBrowserOriginSessionResult,
+):  # type: ignore[no-untyped-def]
+    external_receipt = replay.receipt.external_receipt_snapshot
+    assert external_receipt is not None
+    return origin_sessions_module._origin_session_replay_context(
+        service._kernel,
+        expected_execution=(
+            origin_sessions_module._origin_session_kernel_execution(
+                request,
+                recipe=recipe,
+            )
+        ),
+        recipe=recipe,
+        replay_receipt=external_receipt,
+    )
 
 
 class _FakeKeychain:
@@ -159,16 +212,26 @@ class _FakeKeychain:
 def _lifecycle_context(
     *,
     target_kind: ExternalActionTargetKind = ExternalActionTargetKind.local_validation,
+    suffix: str = "lifecycle",
 ):  # type: ignore[no-untyped-def]
-    base = _binding(suffix="lifecycle-base", target_kind=target_kind)
+    base = _binding(suffix=f"{suffix}-base", target_kind=target_kind)
     registration = build_governed_browser_credential_registration(
         origin_ref=base.origin_ref,
-        credential_handle_ref="credential-handle-ref:governed-browser:lifecycle",
+        credential_handle_ref=(
+            f"credential-handle-ref:governed-browser:{suffix}"
+        ),
         credential_generation_ref=(
-            "credential-generation-ref:governed-browser:lifecycle-01"
+            f"credential-generation-ref:governed-browser:{suffix}-01"
         ),
     )
-    generation_ref = "browser-session-generation-ref:governed-browser:session-01"
+    generation_ref = (
+        "browser-session-generation-ref:governed-browser:session-01"
+        if suffix == "lifecycle"
+        else (
+            "browser-session-generation-ref:governed-browser:"
+            f"{suffix}-session-01"
+        )
+    )
     session_ref = governed_browser_origin_session_ref(
         registration_ref=registration.registration_ref,
         session_generation_ref=generation_ref,
@@ -188,7 +251,7 @@ def _lifecycle_context(
             )
         )
         current = _binding(
-            suffix=f"lifecycle-{operation.value}",
+            suffix=f"{suffix}-{operation.value}",
             target_kind=target_kind,
         )
         binding = ExternalActionAuthorityBinding.model_validate(
@@ -197,7 +260,7 @@ def _lifecycle_context(
                 "authority_capability": AuthorityCapability.execute,
                 "field_schema_ref": registration.registration_ref,
                 "resource_refs": [
-                    _ref("resource", f"lifecycle-{operation.value}"),
+                    _ref("resource", f"{suffix}-{operation.value}"),
                     operation_authority_ref,
                     registration.registration_ref,
                     registration.credential_handle_ref,
@@ -821,14 +884,23 @@ def test_non_success_origin_result_rejects_unrelated_projection(
     replay = service.execute(exact, credential_material=_opaque_material(62))
     assert first.keychain_receipt is not None
     assert replay.receipt.status == "replayed"
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
 
     with pytest.raises(
         ValueError,
         match="GOVERNED_BROWSER_ORIGIN_SESSION_NON_SUCCESS_PROJECTION_DENIED",
     ):
-        ExactGovernedBrowserOriginSessionResult(
-            receipt=replay.receipt,
-            keychain_receipt=first.keychain_receipt,
+        ExactGovernedBrowserOriginSessionResult.model_validate(
+            {
+                "receipt": replay.receipt.model_dump(mode="json"),
+                "keychain_receipt": first.keychain_receipt,
+            },
+            context=replay_validation_context(context),
         )
 
 
@@ -972,6 +1044,210 @@ def test_lifecycle_replay_is_at_most_once_and_suppresses_projection(
     assert len(keychain.calls) == 1
     assert all(value == 0 for value in first_material)
     assert all(value == 0 for value in replay_material)
+
+
+def test_origin_replay_reconstruction_requires_exact_terminal_provenance(
+    tmp_path: Path,
+) -> None:
+    _, contexts, registry = _lifecycle_context(suffix="replay-provenance")
+    keychain = _FakeKeychain()
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3"),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(71))
+    replay = service.execute(exact, credential_material=_opaque_material(72))
+    payload = replay.receipt.model_dump(mode="json")
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+
+    restored = GovernedBrowserOriginSessionReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    assert restored == replay.receipt
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        GovernedBrowserOriginSessionReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "tamper_mode",
+    ("slot-0", "slot-1", "slot-2", "order", "drop", "append"),
+)
+def test_origin_replay_rejects_fully_rehashed_evidence_tampering(
+    tmp_path: Path,
+    tamper_mode: str,
+) -> None:
+    _, contexts, registry = _lifecycle_context(
+        suffix=f"replay-tamper-{tamper_mode}"
+    )
+    keychain = _FakeKeychain()
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3"),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(73))
+    replay = service.execute(exact, credential_material=_opaque_material(74))
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+    forged = replay.receipt.model_dump(mode="json")
+    external = dict(forged["external_receipt_snapshot"])
+    evidence_refs = list(external["evidence_refs"])
+    if tamper_mode == "slot-0":
+        evidence_refs[0] = stable_governed_browser_ref(
+            "browser-origin-session-operation-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "slot-1":
+        evidence_refs[1] = stable_governed_browser_ref(
+            "helper-receipt-ref:governed-browser-keychain",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "slot-2":
+        evidence_refs[2] = _ref("resource", "unrelated-keychain-item")
+    elif tamper_mode == "order":
+        evidence_refs.reverse()
+    elif tamper_mode == "drop":
+        evidence_refs.pop()
+    else:
+        evidence_refs.append(_ref("evidence", "origin-extra"))
+    external["evidence_refs"] = evidence_refs
+    forged["external_receipt_snapshot"] = external
+    _rehash_origin_external_projection(forged)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+        ),
+    ):
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            forged,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize("substitution", ("cross-operation", "cross-transaction"))
+def test_origin_replay_rejects_cross_scope_provenance_substitution(
+    tmp_path: Path,
+    substitution: str,
+) -> None:
+    _, contexts, registry = _lifecycle_context(suffix="replay-scope-a")
+    keychain = _FakeKeychain()
+    sessions = GovernedBrowserOriginSessionStore(tmp_path / "a-sessions.sqlite3")
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "a-kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=sessions,
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(75))
+    replay = service.execute(exact, credential_material=_opaque_material(76))
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+
+    if substitution == "cross-operation":
+        other_request, other_recipe = contexts[
+            GovernedBrowserOriginSessionOperation.prepare_session
+        ]
+        other_result, other_service = _execute(
+            tmp_path=tmp_path / "other",
+            operation=GovernedBrowserOriginSessionOperation.prepare_session,
+            contexts=contexts,
+            registry=registry,
+            keychain=keychain,
+            sessions=sessions,
+        )
+        assert other_result.receipt.status == "session_prepared"
+        other_exact = ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=other_recipe.recipe_ref,
+            execution_request=other_request,
+        )
+        other_replay = other_service.execute(other_exact)
+    else:
+        _, other_contexts, other_registry = _lifecycle_context(
+            suffix="replay-scope-b"
+        )
+        other_request, other_recipe = other_contexts[
+            GovernedBrowserOriginSessionOperation.enroll_credential
+        ]
+        other_kernel, _ = _authorized_kernel(
+            tmp_path / "b-kernel",
+            other_request,
+        )
+        other_service = ExactGovernedBrowserOriginSessionService(
+            registry=other_registry,
+            kernel=other_kernel,
+            keychain=_FakeKeychain(),
+            sessions=GovernedBrowserOriginSessionStore(
+                tmp_path / "b-sessions.sqlite3"
+            ),
+        )
+        other_exact = ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=other_recipe.recipe_ref,
+            execution_request=other_request,
+        )
+        other_service.execute(
+            other_exact,
+            credential_material=_opaque_material(77),
+        )
+        other_replay = other_service.execute(
+            other_exact,
+            credential_material=_opaque_material(78),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_OPERATION_MISMATCH",
+    ):
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            other_replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
 
 
 def test_revoked_session_cannot_be_reopened_or_closed(
