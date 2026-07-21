@@ -137,6 +137,7 @@ class OriginSessionOperationProofMaterial(BaseModel):
     ]
     disposition: Literal[
         "succeeded",
+        "keychain_mutation_pending",
         "keychain_precondition_failed",
         "state_conflict_failed",
         "revoke_state_conflict_ambiguous",
@@ -917,7 +918,7 @@ def _record_terminal_receipt_binding(
     request_fingerprint_ref: str,
     terminal_receipt: ExternalActionReceipt,
 ) -> GovernedBrowserTerminalReceiptBinding:
-    """Record proof only for the caller's just-committed terminal transition."""
+    """Durably bind the exact terminal candidate before its ledger commit."""
 
     validate_task_ref(
         request_fingerprint_ref,

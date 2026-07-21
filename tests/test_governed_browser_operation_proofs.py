@@ -282,7 +282,7 @@ def test_store_rejects_preexisting_symlink_root(tmp_path: Path) -> None:
         GovernedBrowserOperationProofStore(symlink_root)
 
 
-def test_terminal_binding_write_failure_never_backfills_or_redispatches(
+def test_terminal_binding_write_failure_rolls_back_receipt_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -298,18 +298,25 @@ def test_terminal_binding_write_failure_never_backfills_or_redispatches(
         proof_suffix="terminal-binding-write-failure",
     )
 
-    def fail_terminal_binding_write(
-        _store: GovernedBrowserOperationProofStore,
-        _binding: GovernedBrowserTerminalReceiptBinding,
+    original_save = GovernedBrowserOperationProofStore.save_terminal_binding
+    save_calls = 0
+
+    def fail_first_terminal_binding_write(
+        store: GovernedBrowserOperationProofStore,
+        binding: GovernedBrowserTerminalReceiptBinding,
     ) -> GovernedBrowserTerminalReceiptBinding:
-        raise GovernedBrowserOperationProofError(
-            "GOVERNED_BROWSER_TERMINAL_BINDING_WRITE_FAILED"
-        )
+        nonlocal save_calls
+        save_calls += 1
+        if save_calls == 1:
+            raise GovernedBrowserOperationProofError(
+                "GOVERNED_BROWSER_TERMINAL_BINDING_WRITE_FAILED"
+            )
+        return original_save(store, binding)
 
     monkeypatch.setattr(
         GovernedBrowserOperationProofStore,
         "save_terminal_binding",
-        fail_terminal_binding_write,
+        fail_first_terminal_binding_write,
     )
     with pytest.raises(
         GovernedBrowserOperationProofError,
@@ -320,8 +327,9 @@ def test_terminal_binding_write_failure_never_backfills_or_redispatches(
             expected_state=ExternalActionState.prepared,
         )
 
-    # The exact idempotent finish must not synthesize a binding after the
-    # commit/write boundary failed.
+    assert transaction_store.state_if_exact(request) == ExternalActionState.prepared
+    assert transaction_store.replay_if_terminal(request) is None
+
     transaction_store.finish(
         terminal,
         expected_state=ExternalActionState.prepared,
@@ -336,21 +344,17 @@ def test_terminal_binding_write_failure_never_backfills_or_redispatches(
     replay = kernel.execute(request, dispatch=dispatch)  # type: ignore[arg-type]
     assert replay.replayed
     assert not dispatch_called
-    with pytest.raises(
-        ValueError,
-        match="GOVERNED_EXTERNAL_ACTION_REPLAY_TERMINAL_BINDING_INVALID",
-    ):
-        _build_external_action_replay_validation_context(
-            kernel,
-            expected_execution=request,
-            replay_receipt=replay,
-            expectation=ExternalActionReplayEvidenceExpectation(
-                lane_ref=OBSERVATION_LANE_REF,
-                operation_ref=OBSERVATION_OPERATION_REF,
-                scope_refs=SCOPE_REFS,
-                evidence_refs=evidence_refs,
-            ),
-        )
+    _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=request,
+        replay_receipt=replay,
+        expectation=ExternalActionReplayEvidenceExpectation(
+            lane_ref=OBSERVATION_LANE_REF,
+            operation_ref=OBSERVATION_OPERATION_REF,
+            scope_refs=SCOPE_REFS,
+            evidence_refs=evidence_refs,
+        ),
+    )
 
 
 def test_full_store_keeps_existing_save_idempotent_and_rejects_new_proof(

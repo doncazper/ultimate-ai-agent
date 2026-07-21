@@ -1731,6 +1731,34 @@ class ExactGovernedBrowserOriginSessionService:
                 )
             return proved
 
+        def record_pending_keychain_mutation(
+            expected_keychain: GovernedBrowserKeychainOperationReceipt,
+            *,
+            request_ref: str,
+            session_state_receipt_ref: str | None = None,
+        ) -> None:
+            evidence_refs = [
+                operation_ref,
+                expected_keychain.helper_receipt_ref,
+                expected_keychain.keychain_item_ref,
+            ]
+            if session_state_receipt_ref is not None:
+                evidence_refs.append(session_state_receipt_ref)
+            proved_dispatch_result(
+                ExternalActionDispatchResult(
+                    outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
+                    evidence_refs=evidence_refs,
+                    verified=False,
+                ),
+                material=OriginSessionOperationProofMaterial(
+                    operation=operation.value,
+                    disposition="keychain_mutation_pending",
+                    request_ref=request_ref,
+                    keychain_receipt=expected_keychain,
+                    session_state_receipt_ref=session_state_receipt_ref,
+                ),
+            )
+
         def perform_dispatch_body(
             item: ExternalActionExecutionRequest,
             dispatch_credential_material: bytearray | None,
@@ -1756,22 +1784,9 @@ class ExactGovernedBrowserOriginSessionService:
                         operation=GovernedBrowserKeychainOperation.store,
                         request_ref=request_ref,
                     )
-                    proved_result = proved_dispatch_result(
-                        ExternalActionDispatchResult(
-                            outcome=ExternalActionDispatchOutcome.succeeded,
-                            evidence_refs=[
-                                operation_ref,
-                                expected_keychain.helper_receipt_ref,
-                                expected_keychain.keychain_item_ref,
-                            ],
-                            verified=True,
-                        ),
-                        material=OriginSessionOperationProofMaterial(
-                            operation=operation.value,
-                            disposition="succeeded",
-                            request_ref=request_ref,
-                            keychain_receipt=expected_keychain,
-                        ),
+                    record_pending_keychain_mutation(
+                        expected_keychain,
+                        request_ref=request_ref,
                     )
                     captured_keychain = keychain_store(
                         registration,
@@ -1788,7 +1803,23 @@ class ExactGovernedBrowserOriginSessionService:
                         raise GovernedBrowserKeychainError(
                             "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
                         )
-                    return proved_result
+                    return proved_dispatch_result(
+                        ExternalActionDispatchResult(
+                            outcome=ExternalActionDispatchOutcome.succeeded,
+                            evidence_refs=[
+                                operation_ref,
+                                captured_keychain.helper_receipt_ref,
+                                captured_keychain.keychain_item_ref,
+                            ],
+                            verified=True,
+                        ),
+                        material=OriginSessionOperationProofMaterial(
+                            operation=operation.value,
+                            disposition="succeeded",
+                            request_ref=request_ref,
+                            keychain_receipt=captured_keychain,
+                        ),
+                    )
                 elif (
                     operation
                     == GovernedBrowserOriginSessionOperation.prepare_session
@@ -1891,22 +1922,13 @@ class ExactGovernedBrowserOriginSessionService:
                     if captured_session is not None:
                         evidence_refs.append(captured_session.state_receipt_ref)
                     try:
-                        proved_result = proved_dispatch_result(
-                            ExternalActionDispatchResult(
-                                outcome=ExternalActionDispatchOutcome.succeeded,
-                                evidence_refs=list(dict.fromkeys(evidence_refs)),
-                                verified=True,
-                            ),
-                            material=OriginSessionOperationProofMaterial(
-                                operation=operation.value,
-                                disposition="succeeded",
-                                request_ref=request_ref,
-                                keychain_receipt=expected_keychain,
-                                session_state_receipt_ref=(
-                                    captured_session.state_receipt_ref
-                                    if captured_session is not None
-                                    else None
-                                ),
+                        record_pending_keychain_mutation(
+                            expected_keychain,
+                            request_ref=request_ref,
+                            session_state_receipt_ref=(
+                                captured_session.state_receipt_ref
+                                if captured_session is not None
+                                else None
                             ),
                         )
                     except BaseException:
@@ -1927,6 +1949,24 @@ class ExactGovernedBrowserOriginSessionService:
                         raise GovernedBrowserKeychainError(
                             "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
                         )
+                    proved_result = proved_dispatch_result(
+                        ExternalActionDispatchResult(
+                            outcome=ExternalActionDispatchOutcome.succeeded,
+                            evidence_refs=list(dict.fromkeys(evidence_refs)),
+                            verified=True,
+                        ),
+                        material=OriginSessionOperationProofMaterial(
+                            operation=operation.value,
+                            disposition="succeeded",
+                            request_ref=request_ref,
+                            keychain_receipt=captured_keychain,
+                            session_state_receipt_ref=(
+                                captured_session.state_receipt_ref
+                                if captured_session is not None
+                                else None
+                            ),
+                        ),
+                    )
                     committed = active_pending.commit()
                     if committed != captured_session:
                         captured_session = None
@@ -2412,6 +2452,29 @@ def _validate_origin_session_operation_proof(
         if session_state_ref is not None:
             expected_evidence.append(session_state_ref)
         expected_outcome = ExternalActionDispatchOutcome.succeeded.value
+    elif material.disposition == "keychain_mutation_pending":
+        if (
+            operation
+            not in {
+                GovernedBrowserOriginSessionOperation.enroll_credential,
+                GovernedBrowserOriginSessionOperation.revoke_credential,
+            }
+            or keychain is None
+            or (
+                operation
+                == GovernedBrowserOriginSessionOperation.enroll_credential
+                and session_state_ref is not None
+            )
+        ):
+            raise ValueError(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_PROOF_PENDING_INVALID"
+            )
+        expected_evidence = [operation_ref, *keychain_refs]
+        if session_state_ref is not None:
+            expected_evidence.append(session_state_ref)
+        expected_outcome = (
+            ExternalActionDispatchOutcome.outcome_ambiguous.value
+        )
     elif material.disposition == "keychain_precondition_failed":
         if keychain is not None or session_state_ref is not None:
             raise ValueError(

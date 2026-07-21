@@ -95,6 +95,8 @@ _EXTERNAL_ACTION_KERNEL_REPLAY_SOURCES: WeakKeyDictionary[
     object,
     ReferenceType[object],
 ] = WeakKeyDictionary()
+_DISPATCH_PROCESS_OWNER_LOCK = RLock()
+_DISPATCH_PROCESS_OWNERS: dict[Path, tuple[str, str, int]] = {}
 
 
 def _register_external_action_store_replay_source(
@@ -1012,69 +1014,76 @@ class ExternalActionTransactionStore:
         request: ExternalActionExecutionRequest,
     ) -> int | None:
         """Claim the process-safe dispatch slot and reap only proven stale rows."""
-
-        process_lock_fd = self._try_acquire_dispatch_process_lock()
-        if process_lock_fd is None:
-            return None
-
         fingerprint = stable_governed_browser_ref(
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
-        try:
-            with self._lock, self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
-                row = connection.execute(
-                    "SELECT lock_protocol "
-                    "FROM governed_external_action_dispatch_slot "
-                    "WHERE slot_ref = ?",
-                    (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
-                ).fetchone()
-                # NULL is the only recognized pre-flock migration shape.  The
-                # acquired flock proves that such a legacy row has no current
-                # protocol owner; an unknown non-NULL protocol remains
-                # fail-closed because it may represent a future live owner.
-                if (
-                    row is not None
-                    and row[0] is not None
-                    and row[0] != _DISPATCH_PROCESS_LOCK_PROTOCOL
-                ):
+        process_lock_key = self._dispatch_process_lock_path()
+        with _DISPATCH_PROCESS_OWNER_LOCK:
+            if process_lock_key in _DISPATCH_PROCESS_OWNERS:
+                return None
+            process_lock_fd = self._try_acquire_dispatch_process_lock()
+            if process_lock_fd is None:
+                return None
+            _DISPATCH_PROCESS_OWNERS[process_lock_key] = (
+                request.binding.transaction_ref,
+                fingerprint,
+                process_lock_fd,
+            )
+            try:
+                with self._lock, self._connect() as connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    row = connection.execute(
+                        "SELECT lock_protocol "
+                        "FROM governed_external_action_dispatch_slot "
+                        "WHERE slot_ref = ?",
+                        (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+                    ).fetchone()
+                    # NULL is the only recognized pre-flock migration shape.
+                    # The acquired flock and process-owner registry prove that
+                    # such a legacy row has no live owner. An unknown non-NULL
+                    # protocol remains fail-closed.
+                    if (
+                        row is not None
+                        and row[0] is not None
+                        and row[0] != _DISPATCH_PROCESS_LOCK_PROTOCOL
+                    ):
+                        connection.commit()
+                        self._release_dispatch_process_lock(process_lock_fd)
+                        return None
+                    if row is not None:
+                        if row[0] is None:
+                            connection.execute(
+                                "DELETE FROM governed_external_action_dispatch_slot "
+                                "WHERE slot_ref = ? AND lock_protocol IS NULL",
+                                (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+                            )
+                        else:
+                            connection.execute(
+                                "DELETE FROM governed_external_action_dispatch_slot "
+                                "WHERE slot_ref = ? AND lock_protocol = ?",
+                                (
+                                    GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                                    _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                                ),
+                            )
+                    connection.execute(
+                        "INSERT INTO governed_external_action_dispatch_slot "
+                        "(slot_ref, transaction_ref, fingerprint_ref, "
+                        "lock_protocol, acquired_at) VALUES (?, ?, ?, ?, ?)",
+                        (
+                            GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                            request.binding.transaction_ref,
+                            fingerprint,
+                            _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                            utc_now().isoformat(),
+                        ),
+                    )
                     connection.commit()
-                    self._release_dispatch_process_lock(process_lock_fd)
-                    return None
-                if row is not None:
-                    if row[0] is None:
-                        connection.execute(
-                            "DELETE FROM governed_external_action_dispatch_slot "
-                            "WHERE slot_ref = ? AND lock_protocol IS NULL",
-                            (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
-                        )
-                    else:
-                        connection.execute(
-                            "DELETE FROM governed_external_action_dispatch_slot "
-                            "WHERE slot_ref = ? AND lock_protocol = ?",
-                            (
-                                GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                                _DISPATCH_PROCESS_LOCK_PROTOCOL,
-                            ),
-                        )
-                connection.execute(
-                    "INSERT INTO governed_external_action_dispatch_slot "
-                    "(slot_ref, transaction_ref, fingerprint_ref, lock_protocol, "
-                    "acquired_at) VALUES (?, ?, ?, ?, ?)",
-                    (
-                        GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                        request.binding.transaction_ref,
-                        fingerprint,
-                        _DISPATCH_PROCESS_LOCK_PROTOCOL,
-                        utc_now().isoformat(),
-                    ),
-                )
-                connection.commit()
-            return process_lock_fd
-        except BaseException:
-            self._release_dispatch_process_lock(process_lock_fd)
-            raise
+                return process_lock_fd
+            except BaseException:
+                self._release_dispatch_process_lock(process_lock_fd)
+                raise
 
     def dispatch_slot_is_owned_by(
         self,
@@ -1102,68 +1111,74 @@ class ExternalActionTransactionStore:
                 return False, None
             return True, row[2]
 
-        exact_owner, lock_protocol = exact_owner_row()
-        if not exact_owner:
-            return False
-        # Do not reinterpret an unknown non-NULL protocol as stale.  A NULL
-        # migration row may be reaped only after acquiring the current flock.
-        if (
-            lock_protocol is not None
-            and lock_protocol != _DISPATCH_PROCESS_LOCK_PROTOCOL
-        ):
-            return True
-        process_lock_fd = self._try_acquire_dispatch_process_lock()
-        if process_lock_fd is None:
-            return exact_owner_row()[0]
-        try:
-            with self._lock, self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
-                current_row = connection.execute(
-                    "SELECT transaction_ref, fingerprint_ref, lock_protocol "
-                    "FROM governed_external_action_dispatch_slot "
-                    "WHERE slot_ref = ?",
-                    (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
-                ).fetchone()
-                if current_row is None or current_row[:2] != (
-                    request.binding.transaction_ref,
-                    fingerprint,
-                ):
+        process_lock_key = self._dispatch_process_lock_path()
+        with _DISPATCH_PROCESS_OWNER_LOCK:
+            exact_owner, lock_protocol = exact_owner_row()
+            if not exact_owner:
+                return False
+            # A registered owner is live even if flock permits a second file
+            # descriptor in this process. Never reap its durable slot.
+            if process_lock_key in _DISPATCH_PROCESS_OWNERS:
+                return True
+            # Do not reinterpret an unknown non-NULL protocol as stale. A NULL
+            # migration row may be reaped only after acquiring the current flock.
+            if (
+                lock_protocol is not None
+                and lock_protocol != _DISPATCH_PROCESS_LOCK_PROTOCOL
+            ):
+                return True
+            process_lock_fd = self._try_acquire_dispatch_process_lock()
+            if process_lock_fd is None:
+                return exact_owner_row()[0]
+            try:
+                with self._lock, self._connect() as connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    current_row = connection.execute(
+                        "SELECT transaction_ref, fingerprint_ref, lock_protocol "
+                        "FROM governed_external_action_dispatch_slot "
+                        "WHERE slot_ref = ?",
+                        (GOVERNED_EXTERNAL_ACTION_LANE_REF,),
+                    ).fetchone()
+                    if current_row is None or current_row[:2] != (
+                        request.binding.transaction_ref,
+                        fingerprint,
+                    ):
+                        connection.commit()
+                        return False
+                    current_protocol = current_row[2]
+                    if (
+                        current_protocol is not None
+                        and current_protocol != _DISPATCH_PROCESS_LOCK_PROTOCOL
+                    ):
+                        connection.commit()
+                        return True
+                    if current_protocol is None:
+                        deleted = connection.execute(
+                            "DELETE FROM governed_external_action_dispatch_slot "
+                            "WHERE slot_ref = ? AND transaction_ref = ? "
+                            "AND fingerprint_ref = ? AND lock_protocol IS NULL",
+                            (
+                                GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                                request.binding.transaction_ref,
+                                fingerprint,
+                            ),
+                        )
+                    else:
+                        deleted = connection.execute(
+                            "DELETE FROM governed_external_action_dispatch_slot "
+                            "WHERE slot_ref = ? AND transaction_ref = ? "
+                            "AND fingerprint_ref = ? AND lock_protocol = ?",
+                            (
+                                GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                                request.binding.transaction_ref,
+                                fingerprint,
+                                _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                            ),
+                        )
                     connection.commit()
-                    return False
-                current_protocol = current_row[2]
-                if (
-                    current_protocol is not None
-                    and current_protocol != _DISPATCH_PROCESS_LOCK_PROTOCOL
-                ):
-                    connection.commit()
-                    return True
-                if current_protocol is None:
-                    deleted = connection.execute(
-                        "DELETE FROM governed_external_action_dispatch_slot "
-                        "WHERE slot_ref = ? AND transaction_ref = ? "
-                        "AND fingerprint_ref = ? AND lock_protocol IS NULL",
-                        (
-                            GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                            request.binding.transaction_ref,
-                            fingerprint,
-                        ),
-                    )
-                else:
-                    deleted = connection.execute(
-                        "DELETE FROM governed_external_action_dispatch_slot "
-                        "WHERE slot_ref = ? AND transaction_ref = ? "
-                        "AND fingerprint_ref = ? AND lock_protocol = ?",
-                        (
-                            GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                            request.binding.transaction_ref,
-                            fingerprint,
-                            _DISPATCH_PROCESS_LOCK_PROTOCOL,
-                        ),
-                    )
-                connection.commit()
-            return deleted.rowcount != 1
-        finally:
-            self._release_dispatch_process_lock(process_lock_fd)
+                return deleted.rowcount != 1
+            finally:
+                self._release_dispatch_process_lock(process_lock_fd)
 
     def release_dispatch_slot(
         self,
@@ -1176,31 +1191,49 @@ class ExternalActionTransactionStore:
             "request-fingerprint-ref:governed-external-action",
             request.model_dump(mode="json"),
         )
-        try:
-            with self._lock, self._connect() as connection:
-                connection.execute("BEGIN IMMEDIATE")
-                changed = connection.execute(
-                    "DELETE FROM governed_external_action_dispatch_slot "
-                    "WHERE slot_ref = ? AND transaction_ref = ? "
-                    "AND fingerprint_ref = ? AND lock_protocol = ?",
-                    (
-                        GOVERNED_EXTERNAL_ACTION_LANE_REF,
-                        request.binding.transaction_ref,
-                        fingerprint,
-                        _DISPATCH_PROCESS_LOCK_PROTOCOL,
-                    ),
-                ).rowcount
-                if changed != 1:
-                    connection.rollback()
-                    raise ExternalActionTransactionConflict(
-                        "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
-                    )
-                connection.commit()
-        finally:
-            self._release_dispatch_process_lock(process_lock_fd)
+        with _DISPATCH_PROCESS_OWNER_LOCK:
+            expected_owner = (
+                request.binding.transaction_ref,
+                fingerprint,
+                process_lock_fd,
+            )
+            if (
+                _DISPATCH_PROCESS_OWNERS.get(
+                    self._dispatch_process_lock_path()
+                )
+                != expected_owner
+            ):
+                raise ExternalActionTransactionConflict(
+                    "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
+                )
+            try:
+                with self._lock, self._connect() as connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    changed = connection.execute(
+                        "DELETE FROM governed_external_action_dispatch_slot "
+                        "WHERE slot_ref = ? AND transaction_ref = ? "
+                        "AND fingerprint_ref = ? AND lock_protocol = ?",
+                        (
+                            GOVERNED_EXTERNAL_ACTION_LANE_REF,
+                            request.binding.transaction_ref,
+                            fingerprint,
+                            _DISPATCH_PROCESS_LOCK_PROTOCOL,
+                        ),
+                    ).rowcount
+                    if changed != 1:
+                        connection.rollback()
+                        raise ExternalActionTransactionConflict(
+                            "GOVERNED_EXTERNAL_ACTION_DISPATCH_SLOT_CONFLICT"
+                        )
+                    connection.commit()
+            finally:
+                self._release_dispatch_process_lock(process_lock_fd)
+
+    def _dispatch_process_lock_path(self) -> Path:
+        return self.path.with_name(f"{self.path.name}.dispatch.lock")
 
     def _try_acquire_dispatch_process_lock(self) -> int | None:
-        lock_path = self.path.with_name(f"{self.path.name}.dispatch.lock")
+        lock_path = self._dispatch_process_lock_path()
         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
         try:
             descriptor = os.open(lock_path, flags, 0o600)
@@ -1213,12 +1246,16 @@ class ExternalActionTransactionStore:
             return None
         return descriptor
 
-    @staticmethod
-    def _release_dispatch_process_lock(descriptor: int) -> None:
-        try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
-            os.close(descriptor)
+    def _release_dispatch_process_lock(self, descriptor: int) -> None:
+        process_lock_key = self._dispatch_process_lock_path()
+        with _DISPATCH_PROCESS_OWNER_LOCK:
+            owner = _DISPATCH_PROCESS_OWNERS.get(process_lock_key)
+            if owner is not None and owner[2] == descriptor:
+                del _DISPATCH_PROCESS_OWNERS[process_lock_key]
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
     def finish(
         self,
@@ -1276,71 +1313,25 @@ class ExternalActionTransactionStore:
                 raise ExternalActionTransactionConflict(
                     "GOVERNED_EXTERNAL_ACTION_FINISH_STATE_CONFLICT"
                 )
+            from .operation_proofs import (  # noqa: PLC0415
+                _record_terminal_receipt_binding,
+            )
+
+            try:
+                # Persist and fsync the immutable proof before making the
+                # receipt visible. If proof persistence fails, the SQLite
+                # transition rolls back and remains retryable. A proof written
+                # before a later SQLite commit failure is an inert idempotent
+                # orphan until the exact same receipt is retried.
+                _record_terminal_receipt_binding(
+                    self,
+                    request_fingerprint_ref=row[0],
+                    terminal_receipt=exact_receipt,
+                )
+            except BaseException:
+                connection.rollback()
+                raise
             connection.commit()
-        attested_receipt = ExternalActionTransactionStore._attest_terminal_commit(
-            self,
-            request_fingerprint_ref=row[0],
-            terminal_receipt=exact_receipt,
-        )
-        from .operation_proofs import (  # noqa: PLC0415
-            _record_terminal_receipt_binding,
-        )
-
-        _record_terminal_receipt_binding(
-            self,
-            request_fingerprint_ref=row[0],
-            terminal_receipt=attested_receipt,
-        )
-
-    def _attest_terminal_commit(
-        self,
-        *,
-        request_fingerprint_ref: str,
-        terminal_receipt: ExternalActionReceipt,
-    ) -> ExternalActionReceipt:
-        """Re-read exactly the row just committed before minting provenance."""
-
-        if type(self) is not ExternalActionTransactionStore:
-            raise ExternalActionTransactionConflict(
-                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
-            )
-        validate_task_ref(
-            request_fingerprint_ref,
-            "request_fingerprint_ref",
-        )
-        exact_receipt = ExternalActionReceipt.model_validate(
-            ExternalActionReceipt.model_dump(
-                terminal_receipt,
-                mode="json",
-            )
-        )
-        source = _external_action_store_replay_source(self)
-        if source is None:
-            raise ExternalActionTransactionConflict(
-                "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_SOURCE_INVALID"
-            )
-        source_path, source_lock = source
-        with source_lock, sqlite3.connect(source_path) as connection:
-            row = connection.execute(
-                "SELECT fingerprint_ref, state, receipt_json "
-                "FROM governed_external_actions WHERE transaction_ref = ?",
-                (exact_receipt.transaction_ref,),
-            ).fetchone()
-        if row is None or row[2] is None:
-            raise ExternalActionTransactionConflict(
-                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
-            )
-        attested = ExternalActionReceipt.model_validate_json(row[2])
-        if (
-            row[0] != request_fingerprint_ref
-            or row[1] != exact_receipt.state
-            or attested != exact_receipt
-            or attested.replayed
-        ):
-            raise ExternalActionTransactionConflict(
-                "GOVERNED_EXTERNAL_ACTION_TERMINAL_RECEIPT_CONFLICT"
-            )
-        return attested
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path)

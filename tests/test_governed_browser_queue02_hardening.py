@@ -2275,6 +2275,39 @@ def test_stale_dispatch_slot_is_reaped_before_capacity_denial(tmp_path) -> None:
     assert not any("dispatch-capacity-bounded" in ref for ref in receipt.reason_refs)
 
 
+def test_same_process_store_cannot_reap_a_live_dispatch_slot(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    owner_request = _request(_binding(suffix="same-process-slot-owner"))
+    contender_request = _request(_binding(suffix="same-process-slot-contender"))
+    database_path = tmp_path / "transactions.sqlite3"
+    owner_store = ExternalActionTransactionStore(database_path)
+    contender_store = ExternalActionTransactionStore(database_path)
+
+    owner_process_lock_fd = owner_store.claim_dispatch_slot(owner_request)
+
+    assert owner_process_lock_fd is not None
+    assert contender_store.claim_dispatch_slot(contender_request) is None
+    assert contender_store.dispatch_slot_is_owned_by(owner_request) is True
+    with sqlite3.connect(database_path) as connection:
+        row = connection.execute(
+            "SELECT transaction_ref, lock_protocol "
+            "FROM governed_external_action_dispatch_slot"
+        ).fetchone()
+    assert row == (
+        owner_request.binding.transaction_ref,
+        transaction_module._DISPATCH_PROCESS_LOCK_PROTOCOL,
+    )
+
+    owner_store.release_dispatch_slot(owner_request, owner_process_lock_fd)
+    contender_process_lock_fd = contender_store.claim_dispatch_slot(
+        contender_request
+    )
+    assert contender_process_lock_fd is not None
+    contender_store.release_dispatch_slot(
+        contender_request,
+        contender_process_lock_fd,
+    )
+
+
 def test_migrated_legacy_dispatch_slot_is_reaped_before_a_new_claim(
     tmp_path,
 ) -> None:  # type: ignore[no-untyped-def]

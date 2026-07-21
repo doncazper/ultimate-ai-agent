@@ -616,6 +616,99 @@ def test_operation_proof_failure_leaves_no_origin_session_mutation(
 
 
 @pytest.mark.parametrize(
+    ("operation", "expected_presence"),
+    (
+        (
+            GovernedBrowserOriginSessionOperation.enroll_credential,
+            (False, True),
+        ),
+        (
+            GovernedBrowserOriginSessionOperation.revoke_credential,
+            (True, False),
+        ),
+    ),
+)
+def test_keychain_success_proof_follows_the_validated_helper_receipt(
+    operation: GovernedBrowserOriginSessionOperation,
+    expected_presence: tuple[bool, bool],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    registration, contexts, registry = _lifecycle_context(
+        suffix=f"keychain-proof-order-{operation.value}"
+    )
+    keychain = _FakeKeychain()
+    sessions = GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3")
+    if operation == GovernedBrowserOriginSessionOperation.revoke_credential:
+        _execute(
+            tmp_path=tmp_path / "baseline-enroll",
+            operation=GovernedBrowserOriginSessionOperation.enroll_credential,
+            contexts=contexts,
+            registry=registry,
+            keychain=keychain,
+            sessions=sessions,
+            material=bytearray(range(32)),
+        )
+        _execute(
+            tmp_path=tmp_path / "baseline-prepare",
+            operation=GovernedBrowserOriginSessionOperation.prepare_session,
+            contexts=contexts,
+            registry=registry,
+            keychain=keychain,
+            sessions=sessions,
+        )
+    original_record = origin_sessions_module._record_operation_proof
+    observed: list[tuple[str, bool]] = []
+
+    def record_with_helper_state(*args, **kwargs):  # type: ignore[no-untyped-def]
+        material = kwargs["material"]
+        if material.disposition in {
+            "keychain_mutation_pending",
+            "succeeded",
+        }:
+            observed.append(
+                (
+                    material.disposition,
+                    registration.registration_ref in keychain.present,
+                )
+            )
+        return original_record(*args, **kwargs)
+
+    monkeypatch.setattr(
+        origin_sessions_module,
+        "_record_operation_proof",
+        record_with_helper_state,
+    )
+    material = (
+        bytearray(range(32))
+        if operation
+        == GovernedBrowserOriginSessionOperation.enroll_credential
+        else None
+    )
+
+    result, _ = _execute(
+        tmp_path=tmp_path / operation.value,
+        operation=operation,
+        contexts=contexts,
+        registry=registry,
+        keychain=keychain,
+        sessions=sessions,
+        material=material,
+    )
+
+    assert result.receipt.status == (
+        "credential_stored"
+        if operation
+        == GovernedBrowserOriginSessionOperation.enroll_credential
+        else "credential_revoked"
+    )
+    assert observed == [
+        ("keychain_mutation_pending", expected_presence[0]),
+        ("succeeded", expected_presence[1]),
+    ]
+
+
+@pytest.mark.parametrize(
     "operation",
     [
         GovernedBrowserOriginSessionOperation.prepare_session,
