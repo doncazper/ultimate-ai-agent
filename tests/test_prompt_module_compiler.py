@@ -548,6 +548,45 @@ def test_manifest_read_is_bounded_and_repository_anchored(tmp_path: Path) -> Non
         outside.unlink()
 
 
+def test_missing_source_is_reported_as_unavailable(tmp_path: Path) -> None:
+    manifest = _manifest([_module("missing", "missing.md")], entries=["missing"])
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_UNAVAILABLE"
+    )
+
+
+@pytest.mark.parametrize("coerced_field", ("required", "max_module_bytes"))
+def test_manifest_scalar_coercion_fails_closed(
+    tmp_path: Path,
+    coerced_field: str,
+) -> None:
+    _write(tmp_path, "source.md", "{{ value }}")
+    manifest = _manifest(
+        [_module("source", "source.md", required_variables=["value"])],
+        entries=["source"],
+        variables={
+            "value": PromptVariableDefinition(
+                type=PromptVariableType.string,
+                required=False,
+            )
+        },
+    )
+    payload = manifest.model_dump(mode="json", by_alias=True)
+    if coerced_field == "required":
+        payload["variables"]["value"]["required"] = "false"
+    else:
+        payload["max_module_bytes"] = "262144"
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(PromptCompilationError) as raised:
+        PromptModuleCompiler(tmp_path).load_manifest(path)
+
+    assert raised.value.reason_code == "PROMPT_MANIFEST_INVALID"
+
+
 def test_source_path_substitution_during_read_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -572,6 +611,49 @@ def test_source_path_substitution_during_read_fails_closed(
     assert (
         _error_code(PromptModuleCompiler(tmp_path), manifest)
         == "PROMPT_SOURCE_UNAVAILABLE"
+    )
+
+
+def test_source_parent_substitution_during_read_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "nested"
+    parent.mkdir()
+    source = parent / "source.md"
+    source.write_text("original", encoding="utf-8")
+    manifest = _manifest(
+        [_module("source", "nested/source.md")],
+        entries=["source"],
+    )
+    original_read = compiler_module.os.read
+    replaced = False
+
+    def replacing_read(descriptor: int, byte_count: int) -> bytes:
+        nonlocal replaced
+        chunk = original_read(descriptor, byte_count)
+        if chunk and not replaced:
+            parent.replace(tmp_path / "original-parent")
+            parent.mkdir()
+            (parent / "source.md").write_text("replaced", encoding="utf-8")
+            replaced = True
+        return chunk
+
+    monkeypatch.setattr(compiler_module.os, "read", replacing_read)
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_UNAVAILABLE"
+    )
+
+
+def test_nul_content_cannot_enter_shell_safe_compilation(tmp_path: Path) -> None:
+    _write(tmp_path, "source.md", "unsafe\x00content")
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_MODULE_CONTENT_INVALID"
     )
 
 

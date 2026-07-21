@@ -90,8 +90,9 @@ bundle:
 
 Its existing verifier now compiles the graph and compares the result with the
 golden receipt. The existing shell wrapper atomically emits and passes that
-exact verified compiler artifact to Codex, so the same Python Core contract
-backs direct CLI use and the pack-specific operator path.
+exact verified compiler artifact to Codex from an in-memory handoff, without
+reopening the review copy, so the same Python Core contract backs direct CLI
+use and the pack-specific operator path.
 
 ## CLI
 

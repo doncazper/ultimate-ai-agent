@@ -80,16 +80,14 @@ if [[ "$LIST_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
-
-echo "UAA runtime capability foundation prompt pack:"
-echo "  repository binding: verified"
-echo "  source prompt graph: verified"
-echo "  combined prompt: golden-verified and emitted"
-echo "  sandbox: $SANDBOX"
-echo
-
 if [[ "$DRY_RUN" -eq 1 ]]; then
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
+  echo "UAA runtime capability foundation prompt pack:"
+  echo "  repository binding: verified"
+  echo "  source prompt graph: verified"
+  echo "  combined prompt: golden-verified and emitted"
+  echo "  sandbox: $SANDBOX"
+  echo
   echo "Dry run complete. The prompt pack was validated and emitted without invoking Codex."
   exit 0
 fi
@@ -100,12 +98,27 @@ if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   exit 127
 fi
 
+HANDOFF_SENTINEL="UAA_PROMPT_HANDOFF_SENTINEL_V1"
+COMPILED_PROMPT="$(
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined && \
+    printf '%s' "$HANDOFF_SENTINEL"
+)"
+COMPILED_PROMPT="${COMPILED_PROMPT%"$HANDOFF_SENTINEL"}"
+
+echo "UAA runtime capability foundation prompt pack:"
+echo "  repository binding: verified"
+echo "  source prompt graph: verified"
+echo "  combined prompt: golden-verified and bound in memory"
+echo "  sandbox: $SANDBOX"
+echo
 echo "Running the end-to-end orchestrator prompt with Codex."
 echo "Stop now if you do not want Codex to implement, verify, and harden changes."
 echo
 
 if [[ ${#MODEL_ARG[@]} -gt 0 ]]; then
-  "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" - < "$OUTPUT"
+  printf '%s' "$COMPILED_PROMPT" | \
+    "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" -
 else
-  "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" - < "$OUTPUT"
+  printf '%s' "$COMPILED_PROMPT" | \
+    "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" -
 fi

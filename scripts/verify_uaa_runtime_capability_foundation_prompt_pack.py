@@ -305,10 +305,10 @@ def _verify_module_compilation(
     try:
         compiler = PromptModuleCompiler(ROOT)
         artifact = compiler.compile_file(MODULE_MANIFEST_PATH)
-        expected_payload = json.loads(
-            MODULE_GOLDEN_RECEIPT_PATH.read_text(encoding="utf-8")
+        expected = PromptCompilationReceipt.model_validate_json(
+            MODULE_GOLDEN_RECEIPT_PATH.read_bytes(),
+            strict=True,
         )
-        expected = PromptCompilationReceipt.model_validate(expected_payload)
     except (
         OSError,
         UnicodeDecodeError,
@@ -580,15 +580,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--emit-combined", type=Path, help="write a combined prompt file"
     )
+    parser.add_argument(
+        "--stream-combined", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args(argv)
 
     try:
+        if args.stream_combined and (
+            args.emit_combined is None
+            or args.json
+            or args.list
+            or args.print_hash
+        ):
+            raise VerificationError(
+                "combined prompt streaming requires one dedicated output handoff"
+            )
         manifest, artifact = _verify_manifest_and_artifact(
             allow_placeholder_hash=args.allow_placeholder_hash
         )
         refs = _prompt_refs(manifest)
         if args.emit_combined:
             emit_combined_prompt(artifact, args.emit_combined)
+        if args.stream_combined:
+            sys.stdout.write(artifact.content)
+            return 0
         if args.list:
             for ref in refs:
                 print(ref)

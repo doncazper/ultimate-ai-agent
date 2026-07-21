@@ -67,8 +67,10 @@ def _write_atomic(path: Path, content: str) -> None:
 
 def _load_expected_receipt(path: Path) -> PromptCompilationReceipt:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return PromptCompilationReceipt.model_validate(payload)
+        return PromptCompilationReceipt.model_validate_json(
+            path.read_bytes(),
+            strict=True,
+        )
     except (
         OSError,
         UnicodeDecodeError,

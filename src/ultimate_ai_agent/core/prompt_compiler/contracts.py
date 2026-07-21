@@ -41,6 +41,7 @@ class _PromptCompilerModel(BaseModel):
         populate_by_name=True,
         frozen=True,
         hide_input_in_errors=True,
+        strict=True,
     )
 
 

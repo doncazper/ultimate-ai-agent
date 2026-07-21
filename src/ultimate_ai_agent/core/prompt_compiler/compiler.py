@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -77,8 +78,7 @@ class PromptModuleCompiler:
                 unavailable_code="PROMPT_MANIFEST_UNAVAILABLE",
                 budget_code="PROMPT_MANIFEST_BUDGET_EXCEEDED",
             )
-            payload = json.loads(encoded.decode("utf-8"))
-            return PromptModuleManifest.model_validate(payload)
+            return PromptModuleManifest.model_validate_json(encoded, strict=True)
         except (
             UnicodeDecodeError,
             json.JSONDecodeError,
@@ -178,6 +178,11 @@ class PromptModuleCompiler:
                     "PROMPT_MODULE_ENCODING_INVALID",
                     "A prompt module is not valid UTF-8.",
                 ) from exc
+            if "\x00" in source_text:
+                raise PromptCompilationError(
+                    "PROMPT_MODULE_CONTENT_INVALID",
+                    "A prompt module contains an unsupported control character.",
+                )
             begin_marker = f"<!-- BEGIN {module_id} {module.source_ref} -->\n"
             append_chunk(begin_marker)
             rendered = self._render(
@@ -211,15 +216,15 @@ class PromptModuleCompiler:
             receipt_version="uaa.prompt_compilation_receipt.v1",
             bundle_id=manifest.bundle_id,
             bundle_version=manifest.version,
-            entry_module_ids=entries,
-            ordered_module_ids=ordered_ids,
-            source_receipts=source_receipts,
+            entry_module_ids=tuple(entries),
+            ordered_module_ids=tuple(ordered_ids),
+            source_receipts=tuple(source_receipts),
             manifest_contract_hash=_canonical_hash(
                 manifest.model_dump(mode="json", by_alias=True)
             ),
             dependency_graph_hash=self._graph_hash(manifest, module_by_id),
             variable_contract_hash=self._variable_contract_hash(manifest.variables),
-            supplied_variable_names=sorted(supplied),
+            supplied_variable_names=tuple(sorted(supplied)),
             compiled_artifact_hash=_sha256(compiled_bytes),
             compiled_bytes=len(compiled_bytes),
             raw_prompt_included=False,
@@ -415,6 +420,8 @@ class PromptModuleCompiler:
         file_flags |= getattr(os, "O_NONBLOCK", 0)
         directory_fd = -1
         file_fd = -1
+        validation_fd = -1
+        directory_identities = [self._root_identity]
         try:
             directory_fd = os.open(self._root, directory_flags)
             root_info = os.fstat(directory_fd)
@@ -435,6 +442,7 @@ class PromptModuleCompiler:
                         unsafe_code,
                         "Prompt input parent must be a repository directory.",
                     )
+                directory_identities.append((next_info.st_dev, next_info.st_ino))
                 os.close(directory_fd)
                 directory_fd = next_fd
             file_fd = os.open(parts[-1], file_flags, dir_fd=directory_fd)
@@ -464,9 +472,43 @@ class PromptModuleCompiler:
                     "Prompt input exceeds its configured byte budget.",
                 )
             after = os.fstat(file_fd)
+            validation_fd = os.open(self._root, directory_flags)
+            validation_root = os.fstat(validation_fd)
+            if (
+                not stat.S_ISDIR(validation_root.st_mode)
+                or (validation_root.st_dev, validation_root.st_ino)
+                != directory_identities[0]
+            ):
+                raise PromptCompilationError(
+                    unavailable_code,
+                    "Prompt input path changed during its bounded read.",
+                )
+            for component, expected_identity in zip(
+                parts[:-1],
+                directory_identities[1:],
+                strict=True,
+            ):
+                next_validation_fd = os.open(
+                    component,
+                    directory_flags,
+                    dir_fd=validation_fd,
+                )
+                validation_info = os.fstat(next_validation_fd)
+                if (
+                    not stat.S_ISDIR(validation_info.st_mode)
+                    or (validation_info.st_dev, validation_info.st_ino)
+                    != expected_identity
+                ):
+                    os.close(next_validation_fd)
+                    raise PromptCompilationError(
+                        unavailable_code,
+                        "Prompt input path changed during its bounded read.",
+                    )
+                os.close(validation_fd)
+                validation_fd = next_validation_fd
             path_after = os.stat(
                 parts[-1],
-                dir_fd=directory_fd,
+                dir_fd=validation_fd,
                 follow_symlinks=False,
             )
             root_after = os.stat(self._root, follow_symlinks=False)
@@ -491,15 +533,29 @@ class PromptModuleCompiler:
         except PromptCompilationError:
             raise
         except OSError as exc:
+            availability_errnos = {
+                errno.ENOENT,
+                getattr(errno, "ESTALE", -1),
+            }
+            reason_code = (
+                unavailable_code if exc.errno in availability_errnos else unsafe_code
+            )
+            safe_message = (
+                "Prompt input is unavailable through its repository path."
+                if reason_code == unavailable_code
+                else "Prompt input could not be opened through repository path guards."
+            )
             raise PromptCompilationError(
-                unsafe_code,
-                "Prompt input could not be opened through repository path guards.",
+                reason_code,
+                safe_message,
             ) from exc
         finally:
             if file_fd >= 0:
                 os.close(file_fd)
             if directory_fd >= 0:
                 os.close(directory_fd)
+            if validation_fd >= 0:
+                os.close(validation_fd)
 
     @staticmethod
     def _validate_bindings(
@@ -528,7 +584,8 @@ class PromptModuleCompiler:
                     "Prompt variable exceeds its declared length budget.",
                 )
             if isinstance(value, str) and (
-                _VARIABLE_TOKEN_PATTERN.search(value)
+                "\x00" in value
+                or _VARIABLE_TOKEN_PATTERN.search(value)
                 or _CONTROL_TOKEN_PATTERN.search(value)
             ):
                 raise PromptCompilationError(

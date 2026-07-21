@@ -323,6 +323,39 @@ def test_verifier_emits_the_exact_golden_verified_artifact(
     )
 
 
+def test_stream_handoff_does_not_reopen_a_replaced_review_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = tmp_path / "combined.md"
+    original_emit = pack_verify.emit_combined_prompt
+
+    def replace_review_copy(
+        artifact: pack_verify.PromptCompilationArtifact,
+        target: Path,
+    ) -> None:
+        original_emit(artifact, target)
+        target.write_text("unverified replacement", encoding="utf-8")
+
+    monkeypatch.setattr(pack_verify, "emit_combined_prompt", replace_review_copy)
+
+    assert (
+        pack_verify.main(
+            ["--emit-combined", str(output), "--stream-combined"]
+        )
+        == 0
+    )
+
+    streamed = capsys.readouterr().out
+    golden = json.loads(MODULE_GOLDEN_RECEIPT.read_text(encoding="utf-8"))
+    assert (
+        f"sha256:{hashlib.sha256(streamed.encode()).hexdigest()}"
+        == golden["compiled_artifact_hash"]
+    )
+    assert output.read_text(encoding="utf-8") == "unverified replacement"
+
+
 def test_wrapper_feeds_the_verified_combined_artifact_to_codex(
     tmp_path: Path,
 ) -> None:
