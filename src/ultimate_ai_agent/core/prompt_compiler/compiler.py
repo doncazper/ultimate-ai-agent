@@ -464,11 +464,24 @@ class PromptModuleCompiler:
                     "Prompt input exceeds its configured byte budget.",
                 )
             after = os.fstat(file_fd)
+            path_after = os.stat(
+                parts[-1],
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            root_after = os.stat(self._root, follow_symlinks=False)
             if (
                 (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
                 or after.st_size != before.st_size
                 or after.st_mtime_ns != before.st_mtime_ns
                 or len(payload) != after.st_size
+                or not stat.S_ISREG(path_after.st_mode)
+                or (path_after.st_dev, path_after.st_ino)
+                != (before.st_dev, before.st_ino)
+                or path_after.st_size != before.st_size
+                or path_after.st_mtime_ns != before.st_mtime_ns
+                or not stat.S_ISDIR(root_after.st_mode)
+                or (root_after.st_dev, root_after.st_ino) != self._root_identity
             ):
                 raise PromptCompilationError(
                     unavailable_code,

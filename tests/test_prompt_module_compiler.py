@@ -10,6 +10,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
+from ultimate_ai_agent.core.prompt_compiler import compiler as compiler_module
 from ultimate_ai_agent.core.prompt_compiler import (
     PromptCompilationError,
     PromptCompilationReceipt,
@@ -111,7 +112,7 @@ def test_compilation_is_deterministic_and_dependencies_precede_dependents(
     second = compiler.compile(manifest)
 
     assert first == second
-    assert first.receipt.ordered_module_ids == ["a", "b", "final"]
+    assert first.receipt.ordered_module_ids == ("a", "b", "final")
     assert first.content.index("\nA\n") < first.content.index("\nB\n")
     assert first.content.index("\nB\n") < first.content.index("\nFINAL\n")
     assert first.receipt.compiled_artifact_hash.startswith("sha256:")
@@ -147,7 +148,7 @@ def test_entry_selection_loads_only_transitive_dependencies(tmp_path: Path) -> N
 
     artifact = PromptModuleCompiler(tmp_path).compile(manifest)
 
-    assert artifact.receipt.ordered_module_ids == ["base", "selected"]
+    assert artifact.receipt.ordered_module_ids == ("base", "selected")
     assert "unused" not in artifact.content
 
 
@@ -273,11 +274,11 @@ def test_strict_variables_and_conditions_render_without_receipt_leak(
     assert "Detail 2." in artifact.content
     receipt_json = artifact.receipt.model_dump_json()
     assert secret_value not in receipt_json
-    assert artifact.receipt.supplied_variable_names == [
+    assert artifact.receipt.supplied_variable_names == (
         "count",
         "include_detail",
         "operator",
-    ]
+    )
     assert artifact.receipt.raw_prompt_included is False
     assert artifact.receipt.variable_values_included is False
     assert artifact.receipt.manifest_contract_hash.startswith("sha256:")
@@ -547,6 +548,33 @@ def test_manifest_read_is_bounded_and_repository_anchored(tmp_path: Path) -> Non
         outside.unlink()
 
 
+def test_source_path_substitution_during_read_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.md"
+    source.write_text("original", encoding="utf-8")
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+    original_read = compiler_module.os.read
+    replaced = False
+
+    def replacing_read(descriptor: int, byte_count: int) -> bytes:
+        nonlocal replaced
+        chunk = original_read(descriptor, byte_count)
+        if chunk and not replaced:
+            source.replace(tmp_path / "original.md")
+            source.write_text("replaced", encoding="utf-8")
+            replaced = True
+        return chunk
+
+    monkeypatch.setattr(compiler_module.os, "read", replacing_read)
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_UNAVAILABLE"
+    )
+
+
 def test_prompt_artifact_repr_redacts_content_and_contracts_are_frozen(
     tmp_path: Path,
 ) -> None:
@@ -559,6 +587,16 @@ def test_prompt_artifact_repr_redacts_content_and_contracts_are_frozen(
     assert secret not in repr(artifact)
     with pytest.raises(ValidationError, match="frozen"):
         artifact.receipt.runtime_model_calls = True  # type: ignore[misc]
+    for field_name in (
+        "entry_module_ids",
+        "ordered_module_ids",
+        "source_receipts",
+        "supplied_variable_names",
+    ):
+        collection = getattr(artifact.receipt, field_name)
+        assert isinstance(collection, tuple)
+        with pytest.raises(AttributeError):
+            collection.append("tampered")
 
 
 def test_schema_accepts_dogfooded_foundation_manifest() -> None:

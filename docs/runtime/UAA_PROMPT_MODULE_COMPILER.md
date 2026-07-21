@@ -89,8 +89,9 @@ bundle:
 - `docs/prompts/uaa_runtime_capability_foundation/prompt_module_golden_receipt.json`
 
 Its existing verifier now compiles the graph and compares the result with the
-golden receipt. The existing shell wrapper emits compiler output, so the same
-Python Core contract backs direct CLI use and the pack-specific operator path.
+golden receipt. The existing shell wrapper atomically emits and passes that
+exact verified compiler artifact to Codex, so the same Python Core contract
+backs direct CLI use and the pack-specific operator path.
 
 ## CLI
 

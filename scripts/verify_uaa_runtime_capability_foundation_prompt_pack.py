@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -462,7 +464,9 @@ def _validate_phase_contracts(refs: list[str], prompt_texts: dict[str, str]) -> 
         )
 
 
-def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
+def _verify_manifest_and_artifact(
+    allow_placeholder_hash: bool = False,
+) -> tuple[dict[str, Any], PromptCompilationArtifact]:
     if not README_PATH.is_file():
         raise VerificationError(f"missing README: {README_PATH.relative_to(ROOT)}")
 
@@ -522,7 +526,7 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
     if manifest_hash == f"{HASH_PREFIX}PLACEHOLDER" and allow_placeholder_hash:
         manifest["computed_bundle_hash"] = actual_hash
         manifest["compiled_receipt"] = artifact.receipt.model_dump(mode="json")
-        return manifest
+        return manifest, artifact
     if manifest_hash != actual_hash:
         raise VerificationError(
             f"bundle_hash mismatch: manifest={manifest_hash!r} computed={actual_hash!r}"
@@ -530,17 +534,35 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
 
     manifest["computed_bundle_hash"] = actual_hash
     manifest["compiled_receipt"] = artifact.receipt.model_dump(mode="json")
+    return manifest, artifact
+
+
+def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
+    manifest, _artifact = _verify_manifest_and_artifact(allow_placeholder_hash)
     return manifest
 
 
-def emit_combined_prompt(refs: list[str], output: Path) -> None:
-    del refs
+def emit_combined_prompt(artifact: PromptCompilationArtifact, output: Path) -> None:
+    temporary_path: Path | None = None
     try:
         output.parent.mkdir(parents=True, exist_ok=True)
-        artifact = PromptModuleCompiler(ROOT).compile_file(MODULE_MANIFEST_PATH)
-        output.write_text(artifact.content, encoding="utf-8")
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output.name}.",
+            dir=output.parent,
+            text=True,
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(artifact.content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+        temporary_path = None
     except (OSError, PromptCompilationError) as exc:
         raise VerificationError("combined prompt output failed safely") from exc
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -561,10 +583,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        manifest = verify_manifest(allow_placeholder_hash=args.allow_placeholder_hash)
+        manifest, artifact = _verify_manifest_and_artifact(
+            allow_placeholder_hash=args.allow_placeholder_hash
+        )
         refs = _prompt_refs(manifest)
         if args.emit_combined:
-            emit_combined_prompt(refs, args.emit_combined)
+            emit_combined_prompt(artifact, args.emit_combined)
         if args.list:
             for ref in refs:
                 print(ref)

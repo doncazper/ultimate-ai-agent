@@ -151,7 +151,7 @@ def test_prompt_module_manifest_and_golden_receipt_are_deterministic() -> None:
 
     assert manifest["entry_module_ids"] == ["phase-09"]
     assert artifact.receipt.model_dump(mode="json") == golden
-    assert artifact.receipt.ordered_module_ids == [
+    assert artifact.receipt.ordered_module_ids == (
         "pack-readme",
         "orchestrator",
         "phase-01",
@@ -163,7 +163,7 @@ def test_prompt_module_manifest_and_golden_receipt_are_deterministic() -> None:
         "phase-07",
         "phase-08",
         "phase-09",
-    ]
+    )
     legacy_manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     assert [item.source_ref for item in artifact.receipt.source_receipts] == [
         pack_verify.README_REF,
@@ -290,3 +290,66 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
     assert "Do not automatically continue into another program" in " ".join(
         text.split()
     )
+    assert str(tmp_path) not in result.stdout
+
+
+def test_verifier_emits_the_exact_golden_verified_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    original_compile_file = pack_verify.PromptModuleCompiler.compile_file
+    compile_calls = 0
+
+    def counted_compile_file(*args: object, **kwargs: object):
+        nonlocal compile_calls
+        compile_calls += 1
+        return original_compile_file(*args, **kwargs)
+
+    monkeypatch.setattr(
+        pack_verify.PromptModuleCompiler,
+        "compile_file",
+        counted_compile_file,
+    )
+    output = tmp_path / "combined.md"
+
+    assert pack_verify.main(["--emit-combined", str(output), "--json"]) == 0
+
+    data = json.loads(capsys.readouterr().out)
+    assert compile_calls == 1
+    assert data["combined_output_written"] is True
+    assert data["compiled_artifact_hash"] == (
+        f"sha256:{hashlib.sha256(output.read_bytes()).hexdigest()}"
+    )
+
+
+def test_wrapper_feeds_the_verified_combined_artifact_to_codex(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "combined.md"
+    captured = tmp_path / "captured.md"
+    fake_codex = tmp_path / "fake-codex"
+    fake_codex.write_text(
+        "#!/usr/bin/env bash\nset -euo pipefail\ncat > \"$UAA_TEST_CAPTURE\"\n",
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o700)
+
+    result = subprocess.run(
+        ["bash", str(WRAPPER), "--output", str(output)],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PYTHON": sys.executable,
+            "CODEX_BIN": str(fake_codex),
+            "UAA_TEST_CAPTURE": str(captured),
+        },
+    )
+
+    assert captured.read_bytes() == output.read_bytes()
+    assert captured.read_text(encoding="utf-8").startswith(
+        "# Compiled UAA Prompt Module Bundle"
+    )
+    assert str(tmp_path) not in result.stdout

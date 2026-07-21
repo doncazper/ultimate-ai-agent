@@ -181,16 +181,16 @@ class PromptCompilationReceipt(_PromptCompilerModel):
     receipt_version: Literal["uaa.prompt_compilation_receipt.v1"]
     bundle_id: str = Field(pattern=r"^[a-z][a-z0-9._-]{0,119}$")
     bundle_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
-    entry_module_ids: list[str] = Field(min_length=1, max_length=128)
-    ordered_module_ids: list[str] = Field(min_length=1, max_length=128)
-    source_receipts: list[PromptModuleSourceReceipt] = Field(
+    entry_module_ids: tuple[str, ...] = Field(min_length=1, max_length=128)
+    ordered_module_ids: tuple[str, ...] = Field(min_length=1, max_length=128)
+    source_receipts: tuple[PromptModuleSourceReceipt, ...] = Field(
         min_length=1,
         max_length=128,
     )
     manifest_contract_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     dependency_graph_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     variable_contract_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    supplied_variable_names: list[str] = Field(max_length=128)
+    supplied_variable_names: tuple[str, ...] = Field(max_length=128)
     compiled_artifact_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     compiled_bytes: int = Field(ge=0, le=8_388_608)
     raw_prompt_included: Literal[False]
