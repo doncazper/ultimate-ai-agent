@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -376,6 +377,23 @@ def test_stream_handoff_does_not_reopen_a_replaced_review_copy(
         == golden["compiled_artifact_hash"]
     )
     assert output.read_text(encoding="utf-8") == "unverified replacement"
+
+
+def test_base64_stream_handoff_preserves_exact_verified_bytes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = tmp_path / "combined.md"
+
+    assert (
+        pack_verify.main(
+            ["--emit-combined", str(output), "--stream-combined-base64"]
+        )
+        == 0
+    )
+
+    encoded = capsys.readouterr().out
+    assert base64.b64decode(encoded, validate=True) == output.read_bytes()
 
 
 def test_wrapper_feeds_the_verified_combined_artifact_to_codex(

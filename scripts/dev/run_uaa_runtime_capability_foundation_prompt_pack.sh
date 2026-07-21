@@ -99,12 +99,9 @@ if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   exit 127
 fi
 
-HANDOFF_SENTINEL="UAA_PROMPT_HANDOFF_SENTINEL_V1"
-COMPILED_PROMPT="$(
-  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined && \
-    printf '%s' "$HANDOFF_SENTINEL"
+COMPILED_PROMPT_B64="$(
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined-base64
 )"
-COMPILED_PROMPT="${COMPILED_PROMPT%"$HANDOFF_SENTINEL"}"
 
 echo "UAA runtime capability foundation prompt pack:"
 echo "  repository binding: verified"
@@ -117,9 +114,11 @@ echo "Stop now if you do not want Codex to implement, verify, and harden changes
 echo
 
 if [[ ${#MODEL_ARG[@]} -gt 0 ]]; then
-  printf '%s' "$COMPILED_PROMPT" | \
+  printf '%s' "$COMPILED_PROMPT_B64" | "$PYTHON" -c \
+    'import base64, sys; sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read(), validate=True))' | \
     "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" -
 else
-  printf '%s' "$COMPILED_PROMPT" | \
+  printf '%s' "$COMPILED_PROMPT_B64" | "$PYTHON" -c \
+    'import base64, sys; sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read(), validate=True))' | \
     "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" -
 fi

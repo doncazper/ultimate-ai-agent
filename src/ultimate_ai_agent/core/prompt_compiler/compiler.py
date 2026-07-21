@@ -264,6 +264,13 @@ class PromptModuleCompiler:
                     "PROMPT_SOURCE_PATH_UNSAFE",
                     "Prompt source must be a repository-relative file.",
                 )
+            self._read_repository_file(
+                source_ref,
+                max_bytes=manifest.max_module_bytes,
+                unsafe_code="PROMPT_SOURCE_PATH_UNSAFE",
+                unavailable_code="PROMPT_SOURCE_UNAVAILABLE",
+                budget_code="PROMPT_MODULE_BUDGET_EXCEEDED",
+            )
             if any(
                 dependency not in module_by_id for dependency in module.dependencies
             ):
@@ -577,7 +584,15 @@ class PromptModuleCompiler:
             )
         bindings: dict[str, str | int | bool | None] = {}
         for name, definition in definitions.items():
-            value = supplied.get(name, definition.default)
+            if name in supplied:
+                value = supplied[name]
+                if value is None:
+                    raise PromptCompilationError(
+                        "PROMPT_VARIABLE_TYPE_INVALID",
+                        "Prompt variable does not match its declared type.",
+                    )
+            else:
+                value = definition.default
             if value is None:
                 bindings[name] = None
                 continue

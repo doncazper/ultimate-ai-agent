@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -583,14 +584,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--stream-combined", action="store_true", help=argparse.SUPPRESS
     )
+    parser.add_argument(
+        "--stream-combined-base64", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args(argv)
 
     try:
-        if args.stream_combined and (
+        if (args.stream_combined or args.stream_combined_base64) and (
             args.emit_combined is None
             or args.json
             or args.list
             or args.print_hash
+            or (args.stream_combined and args.stream_combined_base64)
         ):
             raise VerificationError(
                 "combined prompt streaming requires one dedicated output handoff"
@@ -603,6 +608,9 @@ def main(argv: list[str] | None = None) -> int:
             emit_combined_prompt(artifact, args.emit_combined)
         if args.stream_combined:
             sys.stdout.write(artifact.content)
+            return 0
+        if args.stream_combined_base64:
+            sys.stdout.write(base64.b64encode(artifact.content.encode()).decode())
             return 0
         if args.list:
             for ref in refs:

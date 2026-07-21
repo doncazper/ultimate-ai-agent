@@ -152,6 +152,28 @@ def test_entry_selection_loads_only_transitive_dependencies(tmp_path: Path) -> N
     assert "unused" not in artifact.content
 
 
+def test_unselected_symlink_source_fails_path_guards(tmp_path: Path) -> None:
+    _write(tmp_path, "selected.md", "SELECTED")
+    _write(tmp_path, "target.md", "UNSELECTED")
+    link = tmp_path / "unused.md"
+    try:
+        link.symlink_to(tmp_path / "target.md")
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    manifest = _manifest(
+        [
+            _module("selected", "selected.md"),
+            _module("unused", "unused.md"),
+        ],
+        entries=["selected"],
+    )
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_PATH_UNSAFE"
+    )
+
+
 def test_inactive_conditional_branch_does_not_require_its_value(tmp_path: Path) -> None:
     _write(
         tmp_path,
@@ -359,6 +381,31 @@ def test_string_variable_budget_and_control_tokens_fail_closed(
         == expected_code
     )
 
+
+def test_explicit_null_variable_does_not_clear_typed_default(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "template.md", "{{ value }}")
+    manifest = _manifest(
+        [_module("template", "template.md", required_variables=["value"])],
+        entries=["template"],
+        variables={
+            "value": PromptVariableDefinition(
+                type=PromptVariableType.string,
+                required=False,
+                default="reviewed-default",
+            )
+        },
+    )
+
+    assert (
+        _error_code(
+            PromptModuleCompiler(tmp_path),
+            manifest,
+            variables={"value": None},
+        )
+        == "PROMPT_VARIABLE_TYPE_INVALID"
+    )
 
 def test_variable_defaults_and_allowed_values_obey_declared_budget() -> None:
     with pytest.raises(ValueError, match="default exceeds max_length"):
