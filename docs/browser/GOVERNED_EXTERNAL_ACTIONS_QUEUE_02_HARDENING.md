@@ -123,13 +123,15 @@ them in individual lane services:
   is bound to its exact kernel, registry, gateway or Keychain/session
   dependencies, and proof store. Replay independently attests both the
   operation proof and exact terminal kernel row. A distinct immutable
-  terminal-binding record is minted immediately after, and only after, the
-  fresh durable terminal commit is exactly re-attested. It binds the request
-  fingerprint and complete canonical non-replayed receipt, including state,
-  ordered evidence, reasons, approval/authority refs, budget reservation,
-  release or settlement, and the optional operation-proof ref. Idempotent
-  finish, replay, conflict, legacy, and crash-incomplete rows never synthesize
-  or backfill that record. Every replay context, including proof-less
+  terminal-binding record is durably persisted immediately before the SQLite
+  terminal commit. A binding-write failure rolls back that commit; a later
+  SQLite commit failure can leave only an inert, idempotent sidecar that replay
+  cannot recognize without the exact matching durable terminal row. The record
+  binds the request fingerprint and complete canonical non-replayed receipt,
+  including state, ordered evidence, reasons, approval/authority refs, budget
+  reservation, release or settlement, and the optional operation-proof ref.
+  Idempotent finish, replay, conflict, legacy, and crash-incomplete rows never
+  synthesize or backfill a binding. Every replay context, including proof-less
   deterministic kernel ambiguity, requires the exact binding and includes its
   ref in the authenticated envelope. A missing, mutated, reordered, foreign,
   or legacy proof or terminal binding fails closed; replay never reconstructs
