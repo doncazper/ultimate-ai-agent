@@ -636,12 +636,33 @@ class GovernedArtifactQuarantineStore:
         payload = exact.model_dump_json().encode("utf-8")
         try:
             try:
-                descriptor = os.open(
-                    filename,
-                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-                    0o600,
-                    dir_fd=directory_fd,
-                )
+                try:
+                    descriptor = os.open(
+                        filename,
+                        os.O_WRONLY
+                        | os.O_CREAT
+                        | os.O_EXCL
+                        | getattr(os, "O_NOFOLLOW", 0),
+                        0o600,
+                        dir_fd=directory_fd,
+                    )
+                except FileExistsError:
+                    try:
+                        observed = (
+                            GovernedArtifactQuarantineStore._inspect_service_proof(
+                                self,
+                                quarantine_ref=exact.quarantine_ref,
+                            )
+                        )
+                    except GovernedArtifactQuarantinePrecondition as exc:
+                        raise GovernedArtifactQuarantineError(
+                            "GOVERNED_ARTIFACT_SERVICE_PROOF_WRITE_FAILED"
+                        ) from exc
+                    if observed != exact:
+                        raise GovernedArtifactQuarantineError(
+                            "GOVERNED_ARTIFACT_SERVICE_PROOF_WRITE_FAILED"
+                        )
+                    return
                 created = True
                 _write_all(descriptor, payload)
                 os.fsync(descriptor)
@@ -2113,21 +2134,20 @@ class ExactGovernedArtifactTransferService:
             )
         captured_quarantine: ExactGovernedArtifactQuarantine | None = None
         captured_plan: ExactGovernedArtifactUploadPlan | None = None
-        download_payload_exceeds_max = (
+        if (
             operation == GovernedArtifactTransferOperation.download_quarantine
             and injected_download_payload is not None
-            and len(injected_download_payload) > recipe.max_bytes
-        )
-        owned_download_payload = (
+        ):
             (
-                injected_download_payload
-                if download_payload_exceeds_max
-                else bytearray(injected_download_payload)
+                owned_download_payload,
+                download_payload_exceeds_max,
+            ) = _owned_bounded_download_payload(
+                injected_download_payload,
+                max_bytes=recipe.max_bytes,
             )
-            if operation == GovernedArtifactTransferOperation.download_quarantine
-            and injected_download_payload is not None
-            else None
-        )
+        else:
+            owned_download_payload = None
+            download_payload_exceeds_max = False
         payload_handoff_lock = RLock()
         payload_handoff_claimed = False
         payload_handoff_closed = False
@@ -2154,51 +2174,67 @@ class ExactGovernedArtifactTransferService:
                 )
             if operation == GovernedArtifactTransferOperation.download_quarantine:
                 assert dispatch_download_payload is not None
-                if len(dispatch_download_payload) > recipe.max_bytes:
+                if (
+                    download_payload_exceeds_max
+                    or len(dispatch_download_payload) > recipe.max_bytes
+                ):
                     return _failed_dispatch(
                         dispatched_request,
                         "download-payload-rejected",
                     )
                 try:
-                    inspection = GovernedArtifactQuarantineStore.quarantine(
-                        store,
-                        quarantine_ref=recipe.quarantine_ref,
-                        payload=dispatch_download_payload,
-                        declared_media_type=GovernedArtifactMediaType(
-                            recipe.declared_media_type
-                        ),
-                        max_bytes=recipe.max_bytes,
+                    expected_inspection = (
+                        GovernedArtifactQuarantineStore.validate_payload(
+                            payload=dispatch_download_payload,
+                            declared_media_type=GovernedArtifactMediaType(
+                                recipe.declared_media_type
+                            ),
+                            max_bytes=recipe.max_bytes,
+                        )
                     )
                 except GovernedArtifactPayloadRejected:
                     return _failed_dispatch(
                         dispatched_request,
                         "download-payload-rejected",
                     )
-                captured_quarantine = _build_exact_quarantine(
+                expected_quarantine = _build_exact_quarantine(
                     recipe,
-                    inspection,
+                    expected_inspection,
                 )
-                service_proof = _build_service_proof(
+                expected_service_proof = _build_service_proof(
                     recipe,
-                    captured_quarantine,
+                    expected_quarantine,
                 )
                 try:
                     GovernedArtifactQuarantineStore._record_service_proof(
                         store,
-                        service_proof,
+                        expected_service_proof,
                     )
                 except GovernedArtifactQuarantineError:
-                    captured_quarantine = None
                     return _failed_dispatch(
                         dispatched_request,
                         "download-service-proof-write-failed",
                     )
+                inspection = GovernedArtifactQuarantineStore.quarantine(
+                    store,
+                    quarantine_ref=recipe.quarantine_ref,
+                    payload=dispatch_download_payload,
+                    declared_media_type=GovernedArtifactMediaType(
+                        recipe.declared_media_type
+                    ),
+                    max_bytes=recipe.max_bytes,
+                )
+                if inspection != expected_inspection:
+                    raise GovernedArtifactQuarantineError(
+                        "GOVERNED_ARTIFACT_QUARANTINE_PROJECTION_MISMATCH"
+                    )
+                captured_quarantine = expected_quarantine
                 evidence_refs = [
                     recipe.artifact_ref,
                     recipe.quarantine_ref,
-                    inspection.content_fingerprint_ref,
-                    captured_quarantine.quarantine_projection_ref,
-                    service_proof.proof_ref,
+                    expected_inspection.content_fingerprint_ref,
+                    expected_quarantine.quarantine_projection_ref,
+                    expected_service_proof.proof_ref,
                 ]
             else:
                 assert recipe.content_fingerprint_ref is not None
@@ -2573,6 +2609,27 @@ def _zeroize_mutable_payload(payload: bytearray) -> None:
             view[offset : offset + len(chunk)] = chunk
     finally:
         view.release()
+
+
+def _owned_bounded_download_payload(
+    payload: bytearray,
+    *,
+    max_bytes: int,
+) -> tuple[bytearray, bool]:
+    """Capture at most the governed bound and freeze the over-limit decision."""
+
+    observed_length = len(payload)
+    if observed_length > max_bytes:
+        return bytearray(1), True
+    snapshot = payload[: max_bytes + 1]
+    exceeds_max = (
+        len(snapshot) > max_bytes
+        or len(snapshot) != observed_length
+    )
+    if exceeds_max:
+        _zeroize_mutable_payload(snapshot)
+        return bytearray(1), True
+    return snapshot, False
 
 
 def _artifact_replay_lane_ref(

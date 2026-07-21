@@ -21,10 +21,11 @@ them in individual lane services:
 - exact approval, AuthorityLease, and readiness are revalidated before the
   durable start, after the start claim, and after dispatch; the existing
   approval-authority lock serializes the final validation and bounded dispatch
-  handoff against concurrent revocation; normal completion retains the lock
-  through final validation, while a timed-out worker reacquires it after the
-  callback stops, and the latest decision proof is retained in the terminal
-  receipt;
+  handoff against concurrent revocation. The dispatch worker owns that lock
+  while it performs the final authority check and invokes the callback, so
+  callback-local authority inspection is reentrant while an independent
+  revocation still waits. The latest decision proof is retained in the
+  terminal receipt;
 - allowed budget reservation, release, and settlement records require exact
   receipt proof, including on ledger replay where the original semantic status
   remains authoritative and a replayed denial cannot become an allow;
@@ -43,22 +44,24 @@ them in individual lane services:
   OS file lock shared by every kernel instance using the transaction store. The
   exact slot is claimed before budget reservation and the durable start, so it
   covers pre-dispatch revalidation and prevents restart recovery from stealing
-  a live start. Dispatch has a maximum thirty-second deadline; the caller
-  returns at that deadline even
-  when an arbitrary callback remains live, but the detached worker retains the
-  sole durable/process slot through callback completion, budget settlement, and
-  terminal close. A worker that has not begun dispatch by the caller deadline
-  is cancelled before invocation; the caller durably releases the unused
+  a live start. Dispatch has a maximum thirty-second outcome-classification
+  deadline, not a callback-termination or caller-latency promise; the caller
+  marks a started callback's outcome ambiguous at that deadline, but the caller
+  cannot receive a terminal-looking receipt until the callback has quiesced and
+  its exact evidence, budget accounting outcome (settlement proof or explicit
+  settlement ambiguity), and terminal receipt binding are durable. A worker
+  that has not begun dispatch by the caller deadline is
+  cancelled before invocation; the caller durably releases the unused
   reservation and closes the slot before returning, so delayed worker progress
   is not required for cleanup and it cannot start the callback after reporting
-  timeout. The worker also rechecks deadline and readiness authority immediately
-  before dispatch. Exceptions, invalid results,
+  timeout. The worker also rechecks deadline, readiness, approval, and lease
+  authority immediately before dispatch. Exceptions, invalid results,
   deadline overruns, or capacity
   exhaustion are content-free, request-bound, ambiguous, and never
-  automatically retried, and no terminal receipt is written while a detached
-  callback remains live; a lock-protocol-marked stale SQLite slot is reaped
-  only after the OS lock proves the prior process no longer owns dispatch,
-  while an unproven legacy row remains fail closed;
+  automatically retried, and no terminal receipt is written while a callback
+  remains live; a stale SQLite slot, including a legacy row without a protocol
+  marker, is reaped only after the OS lock proves no process owns dispatch,
+  while an unknown non-null protocol remains fail closed;
 - terminal writes use SQLite compare-and-swap from the exact expected state,
   so a concurrent or stale writer cannot overwrite a receipt; a caller that
   loses a pre-start finish transition re-reads durable terminal/state truth and
@@ -137,6 +140,17 @@ them in individual lane services:
   store remains an explicit residual threat. No raw content, credential
   material, profile path, cookie, or new browser/network authority is
   persisted or granted;
+- origin-session state transitions remain inside an uncommitted
+  `BEGIN IMMEDIATE` transaction until their exact operation proof is durable;
+  proof failure rolls the hidden transition back, and a competing store
+  instance cannot observe or adopt it. Download quarantine similarly records
+  the exact content-free service proof before creating the quarantine file,
+  while upload validation requires both the matching file and proof, so an
+  orphan preproof cannot authorize or project an artifact. Oversized mutable
+  download input is classified from its initial size before dispatch and copied
+  only into a bounded one-byte owned sentinel; later caller shrinkage cannot
+  bypass the frozen over-limit decision, and the worker never snapshots the
+  oversized payload;
 - external-operation contract receipts recompute the referenced kernel receipt
   from their copied transaction, state, proof, evidence, and original kernel
   reason fields, even when the operator-facing contract adds a scoped failure
@@ -171,7 +185,7 @@ content-free; this evidence does not stand in for a live external facility.
 | unexpected pop-ups and downloads | Separate popup and download signals block dispatch. |
 | page mutation between approval and dispatch | Repeated readiness checks bind the exact snapshot and mutation signal. |
 | duplicate submission | One action, durable start ownership, idempotency, and duplicate-submit signals prevent retry. |
-| timeout after dispatch | Bounded dispatch returns non-retryable `outcome_ambiguous` at the deadline, retains sole ownership while the callback is live, and closes durably only after it stops. |
+| timeout after dispatch | The deadline marks the attempt non-retryable and ambiguous, but a terminal-looking receipt is withheld until the callback stops and its exact evidence, accounting result, and durable terminal binding are established. |
 | crash, replay, interruption, restart, and settlement recovery | Fresh starts cannot be recovered while an owner may still be live; ownership spans settlement and terminal close, while orphan recovery, terminal replay, prior release/settlement reconciliation, CAS writes, mandatory accounting proof, exact durable-terminal provenance, and typed ordered evidence envelopes preserve ambiguity truth without redispatch. |
 | concurrent execution | Only the durable start owner dispatches; contenders cannot terminalize or clobber it. |
 | kill-switch races | Revalidation after start changes the result to ambiguous without retry. |
@@ -226,7 +240,10 @@ Focused source checks:
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest -q \
   tests/test_governed_browser_queue02_hardening.py \
-  tests/test_governed_browser_queue01_group*.py
+  tests/test_governed_browser_queue01_group*.py \
+  tests/test_governed_browser_replay_provenance.py \
+  tests/test_governed_browser_operation_proofs.py \
+  tests/test_governed_browser_operation_proof_service_bindings.py
 PYTHONPATH=src .venv/bin/python \
   scripts/verify_governed_browser_queue02_hardening.py
 ```

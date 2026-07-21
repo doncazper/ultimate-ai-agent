@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
-from threading import Event
+from threading import Event, get_ident
 
 import pytest
 
@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExternalActionTransactionStore,
     GovernedArtifactMediaType,
     GovernedArtifactPayloadRejected,
+    GovernedArtifactQuarantineError,
     GovernedArtifactQuarantineStore,
     GovernedArtifactTransferOperation,
     GovernedArtifactTransferReceipt,
@@ -979,6 +980,7 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
     entered = Event()
     proceed = Event()
     dispatched_buffers: list[bytearray] = []
+    dispatched_snapshots: list[bytes] = []
 
     def delayed_quarantine(
         _store: GovernedArtifactQuarantineStore,
@@ -987,6 +989,7 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
         **kwargs,  # type: ignore[no-untyped-def]
     ):  # type: ignore[no-untyped-def]
         dispatched_buffers.append(payload)
+        dispatched_snapshots.append(bytes(payload))
         entered.set()
         assert proceed.wait(timeout=2)
         return original_quarantine(payload=payload, **kwargs)
@@ -1006,21 +1009,19 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
             injected_download_payload=payload,
         )
         assert entered.wait(timeout=2)
+        time.sleep(0.03)
+        assert future.done() is False
+        proceed.set()
         result = future.result(timeout=2)
 
     assert result.receipt.status == "outcome_ambiguous"
     assert payload == bytearray(len(payload))
-    assert dispatched_buffers == [bytearray(expected_payload)]
+    assert dispatched_snapshots == [expected_payload]
     assert dispatched_buffers[0] is not payload
-
-    proceed.set()
-    deadline = time.monotonic() + 2
-    while any(dispatched_buffers[0]) and time.monotonic() < deadline:
-        time.sleep(0.005)
     assert dispatched_buffers[0] == bytearray(len(dispatched_buffers[0]))
 
 
-def test_oversized_download_payload_is_rejected_before_owned_copy(
+def test_oversized_download_payload_uses_bounded_owned_sentinel_before_dispatch(
     tmp_path: Path,
 ) -> None:
     store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
@@ -1068,6 +1069,271 @@ def test_oversized_download_payload_is_rejected_before_owned_copy(
     assert result.receipt.evidence_refs == [expected_evidence_ref]
     assert result.receipt.external_action_receipt_ref == expected_external_receipt_ref
     assert payload == bytearray(len(payload))
+
+
+def test_oversized_download_snapshot_is_immune_to_concurrent_caller_mutation(
+    tmp_path: Path,
+) -> None:
+    class DispatchBarrierClock:
+        def __init__(self, value):  # type: ignore[no-untyped-def]
+            self.value = value
+            self.execution_thread_id: int | None = None
+            self.dispatch_entered = Event()
+            self.proceed = Event()
+
+        def __call__(self):  # type: ignore[no-untyped-def]
+            if (
+                self.execution_thread_id is not None
+                and get_ident() != self.execution_thread_id
+            ):
+                self.dispatch_entered.set()
+                assert self.proceed.wait(timeout=2)
+            return self.value
+
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="oversized-snapshot-mutation",
+    )
+    clock = DispatchBarrierClock(recipe.created_at + timedelta(seconds=1))
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+        clock=clock,
+    )
+    payload = bytearray(recipe.max_bytes + 1)
+
+    def execute():  # type: ignore[no-untyped-def]
+        clock.execution_thread_id = get_ident()
+        return service.execute(
+            _exact(request, recipe),
+            injected_download_payload=payload,
+        )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(execute)
+        assert clock.dispatch_entered.wait(timeout=2)
+        payload[:] = b"tiny"
+        clock.proceed.set()
+        result = future.result(timeout=2)
+
+    assert result.receipt.status == "failed"
+    assert result.receipt.evidence_refs[0].startswith(
+        "evidence-ref:governed-artifact:download-payload-rejected:"
+    )
+    assert list((tmp_path / "artifacts").rglob("*.quarantine")) == []
+    assert payload == bytearray(4)
+
+
+def test_oversized_download_uses_only_a_bounded_worker_sentinel(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="oversized-bounded-sentinel",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    payload = bytearray(recipe.max_bytes * 4)
+    observed_zeroizations: list[tuple[bool, int]] = []
+    original_zeroize = artifact_module._zeroize_mutable_payload
+
+    def record_zeroize(candidate: bytearray) -> None:
+        observed_zeroizations.append((candidate is payload, len(candidate)))
+        original_zeroize(candidate)
+
+    monkeypatch.setattr(
+        artifact_module,
+        "_zeroize_mutable_payload",
+        record_zeroize,
+    )
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=payload,
+    )
+
+    assert result.receipt.status == "failed"
+    assert (False, 1) in observed_zeroizations
+    assert (True, recipe.max_bytes * 4) in observed_zeroizations
+    assert all(
+        length <= 1
+        for is_caller, length in observed_zeroizations
+        if not is_caller
+    )
+    assert payload == bytearray(len(payload))
+
+
+def test_service_proof_failure_precedes_quarantine_and_retry_is_clean(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="proof-first-failure",
+    )
+    service, _, _ = _service(
+        tmp_path / "first-kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    original_record = GovernedArtifactQuarantineStore._record_service_proof
+
+    def fail_record(*_args: object, **_kwargs: object) -> None:
+        raise GovernedArtifactQuarantineError(
+            "GOVERNED_ARTIFACT_SERVICE_PROOF_WRITE_FAILED"
+        )
+
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "_record_service_proof",
+        fail_record,
+    )
+    first = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"proof must precede file"),
+    )
+
+    assert first.receipt.status == "failed"
+    assert list((tmp_path / "artifacts").rglob("*.quarantine")) == []
+    assert list((tmp_path / "artifacts").rglob("*.service-proof")) == []
+
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "_record_service_proof",
+        original_record,
+    )
+    retry_service, _, _ = _service(
+        tmp_path / "retry-kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    retry = retry_service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"proof must precede file"),
+    )
+
+    assert retry.receipt.status == "quarantined"
+    assert len(list((tmp_path / "artifacts").rglob("*.quarantine"))) == 1
+    assert len(list((tmp_path / "artifacts").rglob("*.service-proof"))) == 1
+
+
+def test_quarantine_failure_reuses_exact_durable_proof_on_clean_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="quarantine-failure-proof-retry",
+    )
+    service, _, _ = _service(
+        tmp_path / "first-kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    original_quarantine = GovernedArtifactQuarantineStore.quarantine
+
+    def fail_quarantine(*_args: object, **_kwargs: object) -> None:
+        raise GovernedArtifactQuarantineError(
+            "GOVERNED_ARTIFACT_QUARANTINE_WRITE_UNCERTAIN"
+        )
+
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "quarantine",
+        fail_quarantine,
+    )
+    first = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"durable proof retry payload"),
+    )
+
+    assert first.receipt.status == "outcome_ambiguous"
+    assert list((tmp_path / "artifacts").rglob("*.quarantine")) == []
+    assert len(list((tmp_path / "artifacts").rglob("*.service-proof"))) == 1
+
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "quarantine",
+        original_quarantine,
+    )
+    retry_service, _, _ = _service(
+        tmp_path / "retry-kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    retry = retry_service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(
+            b"durable proof retry payload"
+        ),
+    )
+
+    assert retry.receipt.status == "quarantined"
+    assert len(list((tmp_path / "artifacts").rglob("*.quarantine"))) == 1
+    assert len(list((tmp_path / "artifacts").rglob("*.service-proof"))) == 1
+
+
+def test_download_requires_exact_quarantine_return_projection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GovernedArtifactQuarantineStore(tmp_path / "artifacts")
+    request, recipe, registry = _transfer_context(
+        store,
+        operation=GovernedArtifactTransferOperation.download_quarantine,
+        suffix="quarantine-return-projection",
+    )
+    service, _, _ = _service(
+        tmp_path / "kernel",
+        store=store,
+        request=request,
+        registry=registry,
+    )
+    original_quarantine = GovernedArtifactQuarantineStore.quarantine
+
+    def substitute_projection(
+        exact_store: GovernedArtifactQuarantineStore,
+        **kwargs: object,
+    ):  # type: ignore[no-untyped-def]
+        inspection = original_quarantine(exact_store, **kwargs)
+        return inspection.model_copy(
+            update={"byte_count": inspection.byte_count + 1}
+        )
+
+    monkeypatch.setattr(
+        GovernedArtifactQuarantineStore,
+        "quarantine",
+        substitute_projection,
+    )
+
+    result = service.execute(
+        _exact(request, recipe),
+        injected_download_payload=bytearray(b"exact projection required"),
+    )
+
+    assert result.receipt.status == "outcome_ambiguous"
+    assert result.quarantine is None
+    assert len(list((tmp_path / "artifacts").rglob("*.quarantine"))) == 1
+    assert len(list((tmp_path / "artifacts").rglob("*.service-proof"))) == 1
 
 
 def test_artifact_receipt_rejects_rehashed_conflicting_kernel_proofs(

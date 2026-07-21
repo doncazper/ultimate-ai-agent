@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import RLock
-from typing import Literal
+from typing import Callable, Literal
 from weakref import ReferenceType, ref as weakref_ref
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -107,6 +107,113 @@ _DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF = (
 )
 _BUDGET_RELEASE_UNCONFIRMED_REASON_REF = (
     "reason-ref:governed-external-action:budget-release-unconfirmed"
+)
+_BUDGET_RESERVATION_PROOF_MISSING_REASON_REF = (
+    "reason-ref:governed-external-action:budget-reservation-proof-missing"
+)
+_PRIOR_START_RELEASE_RECONCILED_REASON_REF = (
+    "reason-ref:governed-external-action:prior-start-release-reconciled"
+)
+_BUDGET_RELEASE_DETAIL_REASON_REFS = frozenset(
+    {
+        "reason-ref:governed-external-action:budget-release-failed",
+        "reason-ref:authority-budget:dispatch-owner-required",
+        "reason-ref:authority-budget:reservation-not-active",
+    }
+)
+_BUDGET_SETTLEMENT_DETAIL_REASON_REFS = frozenset(
+    {
+        "reason-ref:governed-external-action:budget-settlement-failed",
+        "reason-ref:authority-budget:actual-cost-unresolved",
+        "reason-ref:authority-budget:dispatch-owner-required",
+        "reason-ref:authority-budget:dispatch-start-required",
+        "reason-ref:authority-budget:execution-binding-mismatch",
+        "reason-ref:authority-budget:operation-reservation-overage",
+        "reason-ref:authority-budget:reservation-not-active",
+        "reason-ref:authority-budget:settlement-after-kill-switch",
+        "reason-ref:authority-budget:settlement-after-lease-inactive",
+        "reason-ref:authority-budget:settlement-overage",
+    }
+)
+_BUDGET_RESERVATION_DETAIL_REASON_REFS = frozenset(
+    {
+        "reason-ref:governed-external-action:budget-gate-missing",
+        "reason-ref:governed-external-action:budget-reservation-failed",
+        "reason-ref:governed-external-action:budget-reservation-not-active",
+        "reason-ref:authority-budget:actual-cost-unresolved",
+        "reason-ref:authority-budget:approval-action-mismatch",
+        "reason-ref:authority-budget:approval-missing",
+        "reason-ref:authority-budget:approval-not-valid",
+        "reason-ref:authority-budget:approval-resource-mismatch",
+        "reason-ref:authority-budget:approval-subject-mismatch",
+        "reason-ref:authority-budget:approval-subject-type-mismatch",
+        "reason-ref:authority-budget:approval-validator-failed",
+        "reason-ref:authority-budget:approval-validator-missing",
+        "reason-ref:authority-budget:cost-budget-exhausted",
+        "reason-ref:authority-budget:cost-budget-missing",
+        "reason-ref:authority-budget:cost-claim-mismatch",
+        "reason-ref:authority-budget:cost-governor-denied",
+        "reason-ref:authority-budget:estimated-cost-unknown",
+        "reason-ref:authority-budget:kill-switch-engaged",
+        "reason-ref:authority-budget:lease-binding-mismatch",
+        "reason-ref:authority-budget:operation-budget-exhausted",
+        "reason-ref:authority-budget:operation-budget-missing",
+        "reason-ref:authority-budget:operation-claim-mismatch",
+        "reason-ref:authority-budget:policy-not-allow",
+        "reason-ref:authority-budget:settlement-overage-unreviewed",
+    }
+)
+_APPROVAL_VALIDATION_REF_PREFIX = (
+    "approval-validation-ref:governed-external-action:sha256:"
+)
+_AUTHORITY_DECISION_REF_PREFIX = "authority-policy-decision-ref:sha256:"
+_APPROVAL_REASON_REF_PREFIX = (
+    "approval-reason-ref:governed-external-action:sha256:"
+)
+_BLOCKED_STAGE_BY_PRIMARY_REASON = {
+    **{
+        reason: (False, False, "none")
+        for reason in (
+        "reason-ref:governed-external-action:real-targets-inactive",
+        "reason-ref:governed-external-action:local-validation-disabled",
+        "reason-ref:governed-external-action:invalid-activation-state",
+        "reason-ref:governed-external-action:policy-evaluation-failed",
+        "reason-ref:governed-external-action:policy-denied",
+        "reason-ref:governed-external-action:approval-validation-failed",
+        )
+    },
+    "reason-ref:governed-external-action:approval-invalid": (
+        True,
+        False,
+        "none",
+    ),
+    "reason-ref:governed-external-action:authority-evaluation-failed": (
+        True,
+        False,
+        "none",
+    ),
+    "reason-ref:governed-external-action:exact-lease-required": (
+        True,
+        True,
+        "none",
+    ),
+    "reason-ref:governed-external-action:budget-reservation-denied": (
+        True,
+        True,
+        "reservation",
+    ),
+    "reason-ref:governed-external-action:start-persistence-failed": (
+        True,
+        True,
+        "release",
+    ),
+    (
+        "reason-ref:governed-external-action:"
+        "preclaim-revalidation-interrupted"
+    ): (True, True, "release"),
+}
+_BLOCKED_APPROVAL_INVALID_REASON_REF = (
+    "reason-ref:governed-external-action:approval-invalid"
 )
 
 
@@ -339,12 +446,370 @@ def _validated_replay_copy(
     )
 
 
+def _digest_ref_valid(
+    value: str | None,
+    prefix: str,
+    digest_length: int,
+) -> bool:
+    if value is None or not value.startswith(prefix):
+        return False
+    digest = value.removeprefix(prefix)
+    return len(digest) == digest_length and all(
+        character in "0123456789abcdef" for character in digest
+    )
+
+
+def _governance_stage_refs_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    approval_required: bool,
+    authority_required: bool,
+) -> bool:
+    approval_valid = (
+        _digest_ref_valid(
+            receipt.approval_validation_ref,
+            _APPROVAL_VALIDATION_REF_PREFIX,
+            64,
+        )
+        if approval_required
+        else receipt.approval_validation_ref is None
+    )
+    authority_valid = (
+        _digest_ref_valid(
+            receipt.authority_decision_ref,
+            _AUTHORITY_DECISION_REF_PREFIX,
+            24,
+        )
+        if authority_required
+        else receipt.authority_decision_ref is None
+    )
+    return approval_valid and authority_valid
+
+
+def _hashed_reason_ref_valid(reason_ref: str, prefix: str) -> bool:
+    return _digest_ref_valid(reason_ref, prefix, 64)
+
+
+def _revalidation_reason_valid(reason_ref: str) -> bool:
+    return (
+        reason_ref in _POST_DISPATCH_CONCRETE_REASON_REFS
+        or _hashed_reason_ref_valid(reason_ref, _ADVERSARIAL_REASON_REF_PREFIX)
+    )
+
+
+def _release_detail_reason_valid(reason_ref: str) -> bool:
+    return reason_ref in _BUDGET_RELEASE_DETAIL_REASON_REFS
+
+
+def _settlement_detail_reason_valid(reason_ref: str) -> bool:
+    return reason_ref in _BUDGET_SETTLEMENT_DETAIL_REASON_REFS
+
+
+def _reservation_detail_reason_valid(reason_ref: str) -> bool:
+    return reason_ref in _BUDGET_RESERVATION_DETAIL_REASON_REFS
+
+
+def _bounded_detail_sequence_valid(
+    reason_refs: tuple[str, ...],
+    *,
+    predicate: Callable[[str], bool],
+) -> bool:
+    overflow_indexes = [
+        index
+        for index, reason_ref in enumerate(reason_refs)
+        if _hashed_reason_ref_valid(
+            reason_ref,
+            _REASON_OVERFLOW_REF_PREFIX,
+        )
+    ]
+    if len(overflow_indexes) > 1 or (
+        overflow_indexes and overflow_indexes[0] != len(reason_refs) - 1
+    ):
+        return False
+    ordinary_refs = (
+        reason_refs[:-1] if overflow_indexes else reason_refs
+    )
+    return all(predicate(reason_ref) for reason_ref in ordinary_refs)
+
+
+def _segmented_detail_sequence_valid(
+    reason_refs: tuple[str, ...],
+    *,
+    allow_lifecycle: bool,
+    require_lifecycle: bool,
+    accounting_predicate: Callable[[str], bool] | None,
+) -> bool:
+    overflow_indexes = [
+        index
+        for index, reason_ref in enumerate(reason_refs)
+        if _hashed_reason_ref_valid(
+            reason_ref,
+            _REASON_OVERFLOW_REF_PREFIX,
+        )
+    ]
+    if len(overflow_indexes) > 1 or (
+        overflow_indexes and overflow_indexes[0] != len(reason_refs) - 1
+    ):
+        return False
+    ordinary_refs = reason_refs[:-1] if overflow_indexes else reason_refs
+    lifecycle_count = 0
+    if allow_lifecycle:
+        while (
+            lifecycle_count < len(ordinary_refs)
+            and _revalidation_reason_valid(
+                ordinary_refs[lifecycle_count]
+            )
+        ):
+            lifecycle_count += 1
+    if require_lifecycle and lifecycle_count == 0:
+        return False
+    accounting_refs = ordinary_refs[lifecycle_count:]
+    if accounting_predicate is None:
+        return not accounting_refs
+    return all(accounting_predicate(ref) for ref in accounting_refs)
+
+
+def _completed_dispatch_provenance_valid(
+    receipt: ExternalActionReceipt,
+) -> bool:
+    return (
+        _governance_stage_refs_valid(
+            receipt,
+            approval_required=True,
+            authority_required=True,
+        )
+        and receipt.budget_reservation_ref is not None
+        and receipt.budget_release_ref is None
+        and receipt.budget_settlement_ref is not None
+        and not receipt.reason_refs
+    )
+
+
+def _release_accounting_valid(receipt: ExternalActionReceipt) -> bool:
+    reasons = tuple(receipt.reason_refs)
+    marker_count = reasons.count(_BUDGET_RELEASE_UNCONFIRMED_REASON_REF)
+    if (
+        receipt.budget_reservation_ref is None
+        or receipt.budget_settlement_ref is not None
+    ):
+        return False
+    if receipt.budget_release_ref is not None:
+        return marker_count == 0
+    return (
+        marker_count == 1
+        and reasons[-1] == _BUDGET_RELEASE_UNCONFIRMED_REASON_REF
+    )
+
+
+def _settlement_resolution_valid(receipt: ExternalActionReceipt) -> bool:
+    reasons = tuple(receipt.reason_refs)
+    marker_count = reasons.count(_BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF)
+    if (
+        receipt.budget_reservation_ref is None
+        or receipt.budget_release_ref is not None
+    ):
+        return False
+    if receipt.budget_settlement_ref is not None:
+        return marker_count == 0
+    return (
+        marker_count == 1
+        and reasons[-1] == _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF
+    )
+
+
+def _release_path_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    primary_reason_ref: str,
+    allow_revalidation_details: bool = False,
+    require_revalidation_detail: bool = False,
+    reasons: tuple[str, ...] | None = None,
+) -> bool:
+    if not _release_accounting_valid(receipt):
+        return False
+    reasons = tuple(receipt.reason_refs) if reasons is None else reasons
+    body = (
+        reasons[:-1]
+        if receipt.budget_release_ref is None
+        else reasons
+    )
+    if not body or body[0] != primary_reason_ref:
+        return False
+    details = body[1:]
+    if require_revalidation_detail and (
+        not details or not _revalidation_reason_valid(details[0])
+    ):
+        return False
+    if receipt.budget_release_ref is not None:
+        return _segmented_detail_sequence_valid(
+            details,
+            allow_lifecycle=(
+                allow_revalidation_details or require_revalidation_detail
+            ),
+            require_lifecycle=require_revalidation_detail,
+            accounting_predicate=None,
+        )
+    return _segmented_detail_sequence_valid(
+        details,
+        allow_lifecycle=(
+            allow_revalidation_details or require_revalidation_detail
+        ),
+        require_lifecycle=require_revalidation_detail,
+        accounting_predicate=_release_detail_reason_valid,
+    )
+
+
+def _settlement_path_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    primary_reason_ref: str,
+    allow_revalidation_details: bool = False,
+    allow_post_dispatch_segment: bool = False,
+    require_revalidation_detail: bool = False,
+    reasons: tuple[str, ...] | None = None,
+) -> bool:
+    if not _settlement_resolution_valid(receipt):
+        return False
+    reasons = tuple(receipt.reason_refs) if reasons is None else reasons
+    body = (
+        reasons[:-1]
+        if receipt.budget_settlement_ref is None
+        else reasons
+    )
+    if not body or body[0] != primary_reason_ref:
+        return False
+    details = body[1:]
+    if (
+        allow_post_dispatch_segment
+        and details
+        and details[0] == _POST_DISPATCH_REVALIDATION_REASON_REF
+    ):
+        post_dispatch_details = details[1:]
+        if (
+            not post_dispatch_details
+            or not _revalidation_reason_valid(post_dispatch_details[0])
+        ):
+            return False
+        return _segmented_detail_sequence_valid(
+            post_dispatch_details,
+            allow_lifecycle=True,
+            require_lifecycle=True,
+            accounting_predicate=(
+                _settlement_detail_reason_valid
+                if receipt.budget_settlement_ref is None
+                else None
+            ),
+        )
+    if require_revalidation_detail and (
+        not details or not _revalidation_reason_valid(details[0])
+    ):
+        return False
+    if receipt.budget_settlement_ref is not None:
+        return _segmented_detail_sequence_valid(
+            details,
+            allow_lifecycle=(
+                allow_revalidation_details or require_revalidation_detail
+            ),
+            require_lifecycle=require_revalidation_detail,
+            accounting_predicate=None,
+        )
+    return _segmented_detail_sequence_valid(
+        details,
+        allow_lifecycle=(
+            allow_revalidation_details or require_revalidation_detail
+        ),
+        require_lifecycle=require_revalidation_detail,
+        accounting_predicate=_settlement_detail_reason_valid,
+    )
+
+
+def _prior_start_recovery_valid(receipt: ExternalActionReceipt) -> bool:
+    reasons = tuple(receipt.reason_refs)
+    if receipt.budget_reservation_ref is None:
+        return (
+            reasons
+            == (
+                _PRIOR_START_RECOVERY_REASON_REF,
+                _BUDGET_RESERVATION_PROOF_MISSING_REASON_REF,
+            )
+            and receipt.budget_release_ref is None
+            and receipt.budget_settlement_ref is None
+        )
+    if receipt.budget_release_ref is not None:
+        return (
+            receipt.budget_settlement_ref is None
+            and reasons
+            == (
+                _PRIOR_START_RECOVERY_REASON_REF,
+                _PRIOR_START_RELEASE_RECONCILED_REASON_REF,
+            )
+        )
+    return _settlement_path_valid(
+        receipt,
+        primary_reason_ref=_PRIOR_START_RECOVERY_REASON_REF,
+    )
+
+
+def _kernel_ambiguity_accounting_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    evidence_suffix: str,
+    required_reason_ref: str,
+    reasons: tuple[str, ...] | None = None,
+) -> bool:
+    reasons = tuple(receipt.reason_refs) if reasons is None else reasons
+    if evidence_suffix in {
+        "dispatch-capacity-check-failed",
+        "dispatch-capacity-bounded",
+    }:
+        return (
+            reasons == (required_reason_ref,)
+            and receipt.budget_reservation_ref is None
+            and receipt.budget_release_ref is None
+            and receipt.budget_settlement_ref is None
+        )
+    if evidence_suffix == "prior-start-recovery":
+        return _prior_start_recovery_valid(receipt)
+    if evidence_suffix in {
+        "dispatch-start-revalidation-denied",
+    }:
+        return _release_path_valid(
+            receipt,
+            primary_reason_ref=required_reason_ref,
+            require_revalidation_detail=True,
+        )
+    if evidence_suffix == "dispatch-worker-start-failed":
+        return _release_path_valid(
+            receipt,
+            primary_reason_ref=required_reason_ref,
+        )
+    if evidence_suffix == "dispatch-timeout":
+        if receipt.budget_release_ref is not None or (
+            _BUDGET_RELEASE_UNCONFIRMED_REASON_REF in reasons
+        ):
+            return _release_path_valid(
+                receipt,
+                primary_reason_ref=required_reason_ref,
+                reasons=reasons,
+            )
+        return _settlement_path_valid(
+            receipt,
+            primary_reason_ref=required_reason_ref,
+            allow_post_dispatch_segment=True,
+        )
+    return _settlement_path_valid(
+        receipt,
+        primary_reason_ref=required_reason_ref,
+        allow_post_dispatch_segment=True,
+        reasons=reasons,
+    )
+
 def _kernel_ambiguity_evidence_valid(
     receipt: ExternalActionReceipt,
 ) -> bool:
     evidence_refs = tuple(receipt.evidence_refs)
-    reason_refs = tuple(receipt.reason_refs)
-    if len(evidence_refs) != 1 or not reason_refs:
+    reasons = tuple(receipt.reason_refs)
+    if len(evidence_refs) != 1 or not reasons:
         return False
     evidence_ref = evidence_refs[0]
     common_payload = {
@@ -352,85 +817,234 @@ def _kernel_ambiguity_evidence_valid(
         "intent_ref": receipt.intent_ref,
         "binding_ref": receipt.binding_ref,
     }
-    for (
-        evidence_suffix,
-        required_reason_ref,
-    ) in _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX.items():
+    for suffix, required_reason in (
+        _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX.items()
+    ):
         expected_ref = stable_governed_browser_ref(
-            f"evidence-ref:governed-external-action:{evidence_suffix}",
-            {"reason": evidence_suffix, **common_payload},
+            f"evidence-ref:governed-external-action:{suffix}",
+            {"reason": suffix, **common_payload},
         )
         if evidence_ref == expected_ref:
-            return reason_refs[0] == required_reason_ref
+            body_reasons = (
+                reasons[1:]
+                if (
+                    len(reasons) >= 2
+                    and reasons[0] == _DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF
+                    and reasons[1] == required_reason
+                )
+                else reasons
+            )
+            if not body_reasons:
+                return False
+            governance_valid = (
+                _governance_stage_refs_valid(
+                    receipt,
+                    approval_required=True,
+                    authority_required=True,
+                )
+            )
+            return (
+                body_reasons[0] == required_reason
+                and governance_valid
+                and _kernel_ambiguity_accounting_valid(
+                    receipt,
+                    evidence_suffix=suffix,
+                    required_reason_ref=required_reason,
+                    reasons=body_reasons,
+                )
+            )
     prior_start_ref = stable_governed_browser_ref(
         "evidence-ref:governed-external-action:prior-start-recovery",
         common_payload,
     )
     if evidence_ref == prior_start_ref:
-        return reason_refs[0] == _PRIOR_START_RECOVERY_REASON_REF
-    if reason_refs[0] not in _POST_START_GUARD_REASON_REFS:
+        return (
+            _governance_stage_refs_valid(
+                receipt,
+                approval_required=False,
+                authority_required=False,
+            )
+            and _prior_start_recovery_valid(receipt)
+        )
+    post_start_reasons = (
+        reasons[1:]
+        if (
+            len(reasons) >= 2
+            and reasons[0] == _DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF
+            and reasons[1] in _POST_START_GUARD_REASON_REFS
+        )
+        else reasons
+    )
+    if not post_start_reasons or post_start_reasons[0] not in _POST_START_GUARD_REASON_REFS:
         return False
     expected_guard_ref = stable_governed_browser_ref(
         "evidence-ref:governed-external-action:post-start-guard",
-        {
-            "intent_ref": receipt.intent_ref,
-            "reason_refs": list(reason_refs),
-        },
+        {"intent_ref": receipt.intent_ref, "reason_refs": list(post_start_reasons)},
     )
-    return evidence_ref == expected_guard_ref
+    return (
+        evidence_ref == expected_guard_ref
+        and _governance_stage_refs_valid(
+            receipt,
+            approval_required=True,
+            authority_required=True,
+        )
+        and _release_path_valid(
+            receipt,
+            primary_reason_ref=post_start_reasons[0],
+            require_revalidation_detail=(
+                post_start_reasons[0] == _POST_START_GUARD_REASON_REFS[0]
+            ),
+        )
+    )
 
 
 def _ambiguity_accounting_shape_valid(
     receipt: ExternalActionReceipt,
 ) -> bool:
-    reason_refs = tuple(receipt.reason_refs)
-    if _BUDGET_RELEASE_UNCONFIRMED_REASON_REF in reason_refs and (
-        receipt.budget_release_ref is not None
-        or receipt.budget_settlement_ref is not None
+    reasons = tuple(receipt.reason_refs)
+    release_markers = reasons.count(_BUDGET_RELEASE_UNCONFIRMED_REASON_REF)
+    settlement_markers = reasons.count(
+        _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF
+    )
+    if (
+        len(reasons) != len(set(reasons))
+        or release_markers > 1
+        or settlement_markers > 1
+        or (release_markers and settlement_markers)
     ):
         return False
-    if _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF in reason_refs and (
-        receipt.budget_release_ref is not None
-        or receipt.budget_settlement_ref is not None
-    ):
-        return False
-    return True
+    accounting_proof = (
+        receipt.budget_release_ref or receipt.budget_settlement_ref
+    )
+    return not (
+        (
+            receipt.budget_reservation_ref is None
+            and (accounting_proof or release_markers or settlement_markers)
+        )
+        or ((release_markers or settlement_markers) and accounting_proof)
+    )
 
 
 def _post_dispatch_revalidation_reasons_valid(
     receipt: ExternalActionReceipt,
 ) -> bool:
-    secondary_reasons = tuple(receipt.reason_refs[1:])
-    if not secondary_reasons:
-        return False
-    settlement_marker_index = (
-        secondary_reasons.index(_BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF)
-        if _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF in secondary_reasons
-        else None
+    return _settlement_path_valid(
+        receipt,
+        primary_reason_ref=_POST_DISPATCH_REVALIDATION_REASON_REF,
+        require_revalidation_detail=True,
     )
-    concrete_reasons = (
-        secondary_reasons
-        if settlement_marker_index is None
-        else secondary_reasons[:settlement_marker_index]
+
+
+def _settled_ambiguity_provenance_valid(
+    receipt: ExternalActionReceipt,
+    *,
+    primary_reason_ref: str,
+) -> bool:
+    return _settlement_path_valid(
+        receipt,
+        primary_reason_ref=primary_reason_ref,
+        allow_post_dispatch_segment=True,
     )
-    if not concrete_reasons:
+
+
+def _accounting_only_settlement_ambiguity_valid(
+    receipt: ExternalActionReceipt,
+) -> bool:
+    if (
+        not _settlement_resolution_valid(receipt)
+        or receipt.budget_settlement_ref is not None
+    ):
         return False
-    for reason_ref in concrete_reasons:
-        if reason_ref in _POST_DISPATCH_CONCRETE_REASON_REFS:
-            continue
-        if reason_ref.startswith(_ADVERSARIAL_REASON_REF_PREFIX):
-            digest = reason_ref.removeprefix(_ADVERSARIAL_REASON_REF_PREFIX)
-        elif reason_ref.startswith(_REASON_OVERFLOW_REF_PREFIX):
-            digest = reason_ref.removeprefix(_REASON_OVERFLOW_REF_PREFIX)
-        else:
+    reasons = tuple(receipt.reason_refs)
+    return _bounded_detail_sequence_valid(
+        reasons[:-1],
+        predicate=_settlement_detail_reason_valid,
+    )
+
+
+def _blocked_provenance_valid(receipt: ExternalActionReceipt) -> bool:
+    reasons = tuple(receipt.reason_refs)
+    if (
+        receipt.evidence_refs
+        or not reasons
+        or len(reasons) != len(set(reasons))
+        or receipt.budget_settlement_ref is not None
+    ):
+        return False
+    primary = reasons[0]
+    stage = _BLOCKED_STAGE_BY_PRIMARY_REASON.get(primary)
+    if stage is None and _revalidation_reason_valid(primary):
+        stage = (True, True, "release")
+    if stage is None:
+        return False
+    approval_required, authority_required, accounting = stage
+    if not _governance_stage_refs_valid(
+        receipt,
+        approval_required=approval_required,
+        authority_required=authority_required,
+    ):
+        return False
+    if accounting == "none":
+        if receipt.budget_reservation_ref or receipt.budget_release_ref:
             return False
-        if len(digest) != 64 or any(
-            character not in "0123456789abcdef" for character in digest
-        ):
+        if primary == _BLOCKED_APPROVAL_INVALID_REASON_REF:
+            return all(
+                _hashed_reason_ref_valid(reason, _APPROVAL_REASON_REF_PREFIX)
+                for reason in reasons[1:]
+            )
+        return len(reasons) == 1
+    if accounting == "reservation":
+        if receipt.budget_reservation_ref is None:
+            return (
+                receipt.budget_release_ref is None
+                and len(reasons) >= 1
+                and _bounded_detail_sequence_valid(
+                    reasons[1:],
+                    predicate=_reservation_detail_reason_valid,
+                )
+            )
+        if not _release_accounting_valid(receipt) or reasons.count(
+            _BUDGET_RESERVATION_PROOF_MISSING_REASON_REF
+        ) != 1:
             return False
-    if settlement_marker_index is None:
-        return receipt.budget_settlement_ref is not None
-    return receipt.budget_settlement_ref is None
+        body = (
+            reasons[:-1]
+            if receipt.budget_release_ref is None
+            else reasons
+        )
+        proof_index = body.index(
+            _BUDGET_RESERVATION_PROOF_MISSING_REASON_REF
+        )
+        if proof_index < 1:
+            return False
+        reservation_details = body[1:proof_index]
+        release_details = body[proof_index + 1 :]
+        return (
+            _bounded_detail_sequence_valid(
+                reservation_details,
+                predicate=_reservation_detail_reason_valid,
+            )
+            and _bounded_detail_sequence_valid(
+                release_details,
+                predicate=_release_detail_reason_valid,
+            )
+        )
+    if primary in {
+        "reason-ref:governed-external-action:start-persistence-failed",
+        (
+            "reason-ref:governed-external-action:"
+            "preclaim-revalidation-interrupted"
+        ),
+    }:
+        return _release_path_valid(
+            receipt,
+            primary_reason_ref=primary,
+        )
+    return _release_path_valid(
+        receipt,
+        primary_reason_ref=primary,
+        allow_revalidation_details=True,
+    )
 
 
 def _ambiguity_provenance_valid(
@@ -443,6 +1057,12 @@ def _ambiguity_provenance_valid(
         return False
     if _kernel_ambiguity_evidence_valid(receipt):
         return True
+    if not _governance_stage_refs_valid(
+        receipt,
+        approval_required=True,
+        authority_required=True,
+    ):
+        return False
     reason_refs = tuple(receipt.reason_refs)
     if not reason_refs or receipt.budget_reservation_ref is None:
         return False
@@ -450,13 +1070,26 @@ def _ambiguity_provenance_valid(
     if (
         operation_ambiguity_evidence_valid
         and primary_reason_ref == _DISPATCH_OUTCOME_AMBIGUOUS_REASON_REF
-        and receipt.budget_release_ref is None
     ):
-        return True
+        return _settled_ambiguity_provenance_valid(
+            receipt,
+            primary_reason_ref=primary_reason_ref,
+        )
+    if (
+        (lane_evidence_valid or operation_ambiguity_evidence_valid)
+        and primary_reason_ref
+        == _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX["dispatch-timeout"]
+    ):
+        return _settled_ambiguity_provenance_valid(
+            receipt,
+            primary_reason_ref=primary_reason_ref,
+        )
     if not lane_evidence_valid or receipt.budget_release_ref is not None:
         return False
-    if primary_reason_ref == _BUDGET_SETTLEMENT_AMBIGUOUS_REASON_REF:
-        return receipt.budget_settlement_ref is None
+    if lane_evidence_valid and _accounting_only_settlement_ambiguity_valid(
+        receipt
+    ):
+        return True
     if primary_reason_ref == _POST_DISPATCH_REVALIDATION_REASON_REF:
         return _post_dispatch_revalidation_reasons_valid(receipt)
     return False
@@ -473,13 +1106,18 @@ def _require_operation_replay_evidence_envelope(
     """Require one complete lane envelope for every durable terminal state."""
 
     state = ExternalActionState(replay_receipt.state)
-    evidence_refs = tuple(replay_receipt.evidence_refs)
     if state == ExternalActionState.succeeded:
-        valid = success_evidence_valid
+        valid = (
+            success_evidence_valid
+            and _completed_dispatch_provenance_valid(replay_receipt)
+        )
     elif state == ExternalActionState.failed:
-        valid = failure_evidence_valid
+        valid = (
+            failure_evidence_valid
+            and _completed_dispatch_provenance_valid(replay_receipt)
+        )
     elif state == ExternalActionState.blocked:
-        valid = not evidence_refs
+        valid = _blocked_provenance_valid(replay_receipt)
     elif state == ExternalActionState.outcome_ambiguous:
         valid = _ambiguity_provenance_valid(
             replay_receipt,

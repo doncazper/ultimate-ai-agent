@@ -217,7 +217,16 @@ def _authorized_kernel(
 def _success(_request: ExternalActionExecutionRequest) -> ExternalActionDispatchResult:
     return ExternalActionDispatchResult(
         outcome=ExternalActionDispatchOutcome.succeeded,
-        evidence_refs=[_ref("evidence", "verified")],
+        evidence_refs=[
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:verified",
+                {
+                    "intent_ref": _request.intent_ref,
+                    "binding_ref": _request.binding.binding_ref,
+                    "transaction_ref": _request.binding.transaction_ref,
+                },
+            )
+        ],
         verified=True,
     )
 

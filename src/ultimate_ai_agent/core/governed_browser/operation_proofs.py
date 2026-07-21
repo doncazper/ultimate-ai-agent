@@ -141,6 +141,7 @@ class OriginSessionOperationProofMaterial(BaseModel):
         "state_conflict_failed",
         "revoke_state_conflict_ambiguous",
         "expired_revalidation_failed",
+        "dispatch_callback_exception",
     ]
     request_ref: str
     keychain_receipt: GovernedBrowserKeychainOperationReceipt | None = None

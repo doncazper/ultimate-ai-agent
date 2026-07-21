@@ -34,6 +34,11 @@ from ultimate_ai_agent.core.governed_browser.transaction import (
 
 LANE_REF = "replay-lane-ref:governed-browser:test"
 OPERATION_REF = "replay-operation-ref:governed-browser:test"
+APPROVAL_VALIDATION_REF = stable_governed_browser_ref(
+    "approval-validation-ref:governed-external-action",
+    {"test": "blocked-provenance"},
+)
+AUTHORITY_DECISION_REF = f"authority-policy-decision-ref:sha256:{'a' * 24}"
 
 
 def _ref(prefix: str, suffix: str) -> str:
@@ -99,8 +104,8 @@ def _receipt(
         "intent_ref": request.intent_ref,
         "binding_ref": request.binding.binding_ref,
         "state": state.value,
-        "approval_validation_ref": _ref("approval-validation", proof_suffix),
-        "authority_decision_ref": _ref("authority-decision", proof_suffix),
+        "approval_validation_ref": APPROVAL_VALIDATION_REF,
+        "authority_decision_ref": AUTHORITY_DECISION_REF,
         "budget_reservation_ref": _ref("budget-reservation", proof_suffix),
         "budget_settlement_ref": _ref("budget-settlement", proof_suffix),
         "evidence_refs": list(evidence_refs),
@@ -147,6 +152,31 @@ def _rehash_receipt(
             identity_payload,
         ),
         **payload,
+    )
+
+
+def _blocked_receipt(
+    request: ExternalActionExecutionRequest,
+    *,
+    reason_refs: tuple[str, ...],
+    approval_validation_ref: str | None,
+    authority_decision_ref: str | None,
+    budget_reservation_ref: str | None = None,
+    budget_release_ref: str | None = None,
+) -> ExternalActionReceipt:
+    return _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(),
+            proof_suffix="blocked-provenance",
+            state=ExternalActionState.blocked,
+            reason_refs=reason_refs,
+        ),
+        approval_validation_ref=approval_validation_ref,
+        authority_decision_ref=authority_decision_ref,
+        budget_reservation_ref=budget_reservation_ref,
+        budget_release_ref=budget_release_ref,
+        budget_settlement_ref=None,
     )
 
 
@@ -643,6 +673,145 @@ def test_exact_full_candidate_mismatch_fails_even_with_valid_recomputed_hash(
         )
 
 
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {
+            "approval_validation_ref": stable_governed_browser_ref(
+                "approval-validation-ref:governed-external-action",
+                {"test": "same-shape-substitution"},
+            )
+        },
+        {
+            "authority_decision_ref": (
+                f"authority-policy-decision-ref:sha256:{'b' * 24}"
+            )
+        },
+        {
+            "budget_reservation_ref": _ref(
+                "budget-reservation",
+                "same-shape-substitution",
+            )
+        },
+        {
+            "budget_settlement_ref": _ref(
+                "budget-settlement",
+                "same-shape-substitution",
+            )
+        },
+        {
+            "evidence_refs": (
+                _ref("evidence", "terminal-binding-one"),
+                _ref("evidence", "same-shape-substitution"),
+            )
+        },
+    ],
+    ids=[
+        "approval-validation",
+        "authority-decision",
+        "budget-reservation",
+        "budget-settlement",
+        "operation-evidence",
+    ],
+)
+def test_exact_terminal_binding_rejects_same_shape_proof_substitution(
+    updates: dict[str, object],
+    tmp_path: Path,
+) -> None:
+    _, replay, context = _context_fixture(tmp_path, "terminal-binding")
+    forged = _rehash_receipt(replay, **updates).model_copy(
+        update={"replayed": True}
+    )
+
+    with pytest.raises(ValueError, match="PROVENANCE_RECEIPT_MISMATCH"):
+        require_external_action_replay_provenance(
+            replay_validation_context(context),
+            lane_ref=LANE_REF,
+            operation_ref=OPERATION_REF,
+            candidate=forged,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "mutated_value"),
+    [
+        (
+            "lane_ref",
+            "replay-lane-ref:governed-browser:mutated",
+        ),
+        (
+            "operation_ref",
+            "replay-operation-ref:governed-browser:mutated",
+        ),
+        (
+            "scope_refs",
+            ("replay-scope-ref:governed-browser:mutated",),
+        ),
+        (
+            "evidence_refs",
+            (
+                _ref("evidence", "envelope-fields-one"),
+                _ref("evidence", "mutated"),
+            ),
+        ),
+        (
+            "operation_proof_ref",
+            _ref("evidence", "envelope-fields-two"),
+        ),
+        (
+            "expected_request_fingerprint_ref",
+            _ref("request-fingerprint", "mutated"),
+        ),
+        (
+            "terminal_binding_ref",
+            _ref("terminal-binding", "mutated"),
+        ),
+        (
+            "terminal_receipt_ref",
+            _ref("receipt", "mutated"),
+        ),
+        (
+            "terminal_transaction_ref",
+            _ref("transaction", "mutated"),
+        ),
+    ],
+    ids=[
+        "lane",
+        "operation",
+        "scope",
+        "evidence",
+        "operation-proof",
+        "request-fingerprint",
+        "terminal-binding",
+        "terminal-receipt",
+        "terminal-transaction",
+    ],
+)
+def test_recomputed_envelope_hash_cannot_rebind_any_provenance_field(
+    field_name: str,
+    mutated_value: object,
+    tmp_path: Path,
+) -> None:
+    _, _, context = _context_fixture(tmp_path, "envelope-fields")
+    forged_payload = context.envelope.model_dump(mode="json")
+    forged_payload[field_name] = mutated_value
+    forged_payload["envelope_ref"] = stable_governed_browser_ref(
+        "replay-evidence-envelope-ref:governed-external-action",
+        {
+            key: value
+            for key, value in forged_payload.items()
+            if key != "envelope_ref"
+        },
+    )
+    forged_envelope = ExternalActionReplayEvidenceEnvelope.model_validate(
+        forged_payload
+    )
+    object.__setattr__(context, "envelope", forged_envelope)
+
+    with pytest.raises(ValueError, match="PROVENANCE_CONTEXT_INVALID"):
+        replay_validation_context(context)
+
+
 def test_structurally_compatible_fake_source_cannot_mint_context() -> None:
     request = _request("fake-source")
     terminal = _receipt(
@@ -945,7 +1114,16 @@ def test_context_model_dump_json_shadow_cannot_hide_snapshot_mutation(
     [
         (ExternalActionState.succeeded, "lane", True, False, ()),
         (ExternalActionState.failed, "lane", False, True, ()),
-        (ExternalActionState.blocked, "empty", False, False, ()),
+        (
+            ExternalActionState.blocked,
+            "empty",
+            False,
+            False,
+            (
+                "reason-ref:governed-external-action:"
+                "local-validation-disabled",
+            ),
+        ),
         (
             ExternalActionState.outcome_ambiguous,
             "lane",
@@ -983,6 +1161,7 @@ def test_context_model_dump_json_shadow_cannot_hide_snapshot_mutation(
             (
                 "reason-ref:governed-external-action:"
                 "post-start-revalidation-denied",
+                "reason-ref:governed-external-action:deadline-expired",
             ),
         ),
     ],
@@ -1034,6 +1213,14 @@ def test_complete_terminal_evidence_envelope_accepts_only_defined_shapes(
         and evidence_kind == "lane"
     ):
         receipt = _rehash_receipt(receipt, budget_settlement_ref=None)
+    elif state == ExternalActionState.blocked:
+        receipt = _rehash_receipt(
+            receipt,
+            approval_validation_ref=None,
+            authority_decision_ref=None,
+            budget_reservation_ref=None,
+            budget_settlement_ref=None,
+        )
     elif evidence_kind == "guard":
         receipt = _rehash_receipt(
             receipt,
@@ -1154,6 +1341,41 @@ def test_kernel_ambiguity_evidence_requires_its_exact_primary_reason(
         state=ExternalActionState.outcome_ambiguous,
         reason_refs=(required_reason_ref,),
     )
+    if evidence_suffix in {
+        "dispatch-capacity-check-failed",
+        "dispatch-capacity-bounded",
+    }:
+        valid = _rehash_receipt(
+            valid,
+            budget_reservation_ref=None,
+            budget_settlement_ref=None,
+        )
+    elif evidence_suffix == "prior-start-recovery":
+        valid = _rehash_receipt(
+            valid,
+            approval_validation_ref=None,
+            authority_decision_ref=None,
+        )
+    elif evidence_suffix in {
+        "dispatch-start-revalidation-denied",
+        "dispatch-worker-start-failed",
+    }:
+        valid = _rehash_receipt(
+            valid,
+            reason_refs=(
+                (
+                    required_reason_ref,
+                    "reason-ref:governed-external-action:deadline-expired",
+                )
+                if evidence_suffix == "dispatch-start-revalidation-denied"
+                else (required_reason_ref,)
+            ),
+            budget_release_ref=_ref(
+                "budget-release",
+                f"ambiguity-reason-{evidence_suffix}",
+            ),
+            budget_settlement_ref=None,
+        )
     _require_operation_replay_evidence_envelope(
         valid,
         success_evidence_valid=False,
@@ -1197,9 +1419,13 @@ def test_post_start_guard_replay_recomputes_the_complete_reason_envelope(
     request = _request(f"guard-envelope-{primary_reason_ref.rsplit(':', 1)[-1]}")
     reason_refs = (
         primary_reason_ref,
-        "reason-ref:governed-external-action:guard-detail",
-        "reason-ref:governed-external-action:budget-release-unconfirmed",
+        *(
+            ("reason-ref:governed-external-action:deadline-expired",)
+            if primary_reason_ref.endswith("post-start-revalidation-denied")
+            else ()
+        ),
         "reason-ref:governed-external-action:budget-release-failed",
+        "reason-ref:governed-external-action:budget-release-unconfirmed",
     )
     evidence_ref = stable_governed_browser_ref(
         "evidence-ref:governed-external-action:post-start-guard",
@@ -1270,7 +1496,10 @@ def test_post_start_guard_overflow_uses_the_exact_bounded_reason_envelope() -> N
         "reason-ref:governed-external-action:"
         "post-start-revalidation-denied",
         *[
-            f"reason-ref:governed-external-action:detail-{index}"
+            stable_governed_browser_ref(
+                "reason-ref:governed-external-action:adversarial",
+                {"index": index},
+            )
             for index in range(20)
         ],
         "reason-ref:governed-external-action:budget-release-unconfirmed",
@@ -1442,6 +1671,780 @@ def test_operation_specific_ambiguity_requires_explicit_classification() -> None
     with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
         _require_operation_replay_evidence_envelope(
             receipt,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    ("updates", "valid"),
+    [
+        ({}, True),
+        (
+            {
+                "budget_settlement_ref": None,
+                "reason_refs": (
+                    "reason-ref:governed-external-action:"
+                    "dispatch-outcome-ambiguous",
+                    "reason-ref:governed-external-action:"
+                    "budget-settlement-ambiguous",
+                ),
+            },
+            True,
+        ),
+        ({"budget_settlement_ref": None}, False),
+        ({"budget_reservation_ref": None}, False),
+        (
+            {
+                "budget_release_ref": _ref(
+                    "budget-release",
+                    "operation-ambiguity-invalid",
+                ),
+                "budget_settlement_ref": None,
+            },
+            False,
+        ),
+    ],
+    ids=[
+        "settled",
+        "settlement-ambiguous",
+        "missing-settlement-proof",
+        "missing-reservation",
+        "release-is-not-settlement",
+    ],
+)
+def test_operation_ambiguity_requires_exact_settlement_provenance(
+    updates: dict[str, object],
+    valid: bool,
+) -> None:
+    request = _request("operation-ambiguity-settlement")
+    receipt = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(_ref("evidence", "operation-ambiguity"),),
+            proof_suffix="operation-ambiguity-settlement",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:"
+                "dispatch-outcome-ambiguous",
+            ),
+        ),
+        **updates,
+    )
+
+    def validate() -> None:
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            operation_ambiguity_evidence_valid=True,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+    if valid:
+        validate()
+    else:
+        with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+            validate()
+
+
+@pytest.mark.parametrize(
+    ("updates", "valid"),
+    [
+        ({}, True),
+        (
+            {
+                "budget_settlement_ref": None,
+                "reason_refs": (
+                    "reason-ref:governed-external-action:dispatch-timeout",
+                    "reason-ref:governed-external-action:"
+                    "budget-settlement-ambiguous",
+                ),
+            },
+            True,
+        ),
+        ({"budget_settlement_ref": None}, False),
+        ({"budget_reservation_ref": None}, False),
+        (
+            {
+                "budget_release_ref": _ref(
+                    "budget-release",
+                    "lane-timeout-invalid",
+                ),
+                "budget_settlement_ref": None,
+            },
+            False,
+        ),
+    ],
+    ids=[
+        "settled",
+        "settlement-ambiguous",
+        "missing-settlement-proof",
+        "missing-reservation",
+        "release-is-not-settlement",
+    ],
+)
+def test_exact_lane_timeout_requires_settlement_not_release(
+    updates: dict[str, object],
+    valid: bool,
+) -> None:
+    request = _request("lane-timeout-settlement")
+    receipt = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(_ref("evidence", "exact-lane-timeout-proof"),),
+            proof_suffix="lane-timeout-settlement",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:dispatch-timeout",
+            ),
+        ),
+        **updates,
+    )
+    def validate() -> None:
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=True,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+    if valid:
+        validate()
+    else:
+        with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+            validate()
+
+
+def test_late_operation_ambiguity_timeout_accepts_exact_evidence() -> None:
+    receipt = _receipt(
+        _request("late-operation-ambiguity-timeout"),
+        evidence_refs=(_ref("evidence", "late-operation-ambiguity-timeout"),),
+        proof_suffix="late-operation-ambiguity-timeout",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=(
+            "reason-ref:governed-external-action:dispatch-timeout",
+        ),
+    )
+
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        operation_ambiguity_evidence_valid=True,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            operation_ambiguity_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    ("evidence_suffix", "reason_ref", "accounting", "tamper"),
+    [
+        (
+            "dispatch-exception",
+            "reason-ref:governed-external-action:dispatch-exception",
+            "settlement",
+            {"budget_settlement_ref": None},
+        ),
+        (
+            "dispatch-result-invalid",
+            "reason-ref:governed-external-action:dispatch-result-invalid",
+            "settlement",
+            {"budget_reservation_ref": None},
+        ),
+        (
+            "dispatch-worker-start-failed",
+            (
+                "reason-ref:governed-external-action:"
+                "dispatch-worker-start-failed"
+            ),
+            "release",
+            {"budget_release_ref": None},
+        ),
+        (
+            "dispatch-start-revalidation-denied",
+            (
+                "reason-ref:governed-external-action:"
+                "post-start-revalidation-denied"
+            ),
+            "release",
+            {"budget_reservation_ref": None},
+        ),
+    ],
+)
+def test_kernel_ambiguity_rejects_missing_accounting_provenance(
+    evidence_suffix: str,
+    reason_ref: str,
+    accounting: str,
+    tamper: dict[str, object],
+) -> None:
+    request = _request(f"kernel-accounting-{evidence_suffix}")
+    reason_refs = (
+        (
+            reason_ref,
+            "reason-ref:governed-external-action:deadline-expired",
+        )
+        if evidence_suffix == "dispatch-start-revalidation-denied"
+        else (reason_ref,)
+    )
+    evidence_ref = stable_governed_browser_ref(
+        f"evidence-ref:governed-external-action:{evidence_suffix}",
+        {
+            "reason": evidence_suffix,
+            "transaction_ref": request.binding.transaction_ref,
+            "intent_ref": request.intent_ref,
+            "binding_ref": request.binding.binding_ref,
+        },
+    )
+    valid = _receipt(
+        request,
+        evidence_refs=(evidence_ref,),
+        proof_suffix=f"kernel-accounting-{evidence_suffix}",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=reason_refs,
+    )
+    if accounting == "release":
+        valid = _rehash_receipt(
+            valid,
+            budget_release_ref=_ref(
+                "budget-release",
+                f"kernel-accounting-{evidence_suffix}",
+            ),
+            budget_settlement_ref=None,
+        )
+    _require_operation_replay_evidence_envelope(
+        valid,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    forged = _rehash_receipt(valid, **tamper)
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    "tampered_reasons",
+    [
+        (
+            "reason-ref:governed-external-action:"
+            "post-dispatch-revalidation-denied",
+            "reason-ref:governed-external-action:deadline-expired",
+            "reason-ref:governed-external-action:"
+            "budget-settlement-ambiguous",
+            "reason-ref:governed-external-action:safe-disable-active",
+        ),
+        (
+            "reason-ref:governed-external-action:"
+            "post-dispatch-revalidation-denied",
+            "reason-ref:governed-external-action:"
+            "budget-settlement-ambiguous",
+            "reason-ref:governed-external-action:deadline-expired",
+        ),
+    ],
+    ids=["trailing-reason", "marker-reordered"],
+)
+def test_settlement_ambiguity_marker_must_be_terminal(
+    tampered_reasons: tuple[str, ...],
+) -> None:
+    request = _request("settlement-marker-terminal")
+    valid = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(_ref("evidence", "settlement-marker"),),
+            proof_suffix="settlement-marker-terminal",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:"
+                "post-dispatch-revalidation-denied",
+                "reason-ref:governed-external-action:deadline-expired",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+        ),
+        budget_settlement_ref=None,
+    )
+    _require_operation_replay_evidence_envelope(
+        valid,
+        success_evidence_valid=True,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+    forged = _rehash_receipt(valid, reason_refs=tampered_reasons)
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=True,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    "state",
+    [ExternalActionState.succeeded, ExternalActionState.failed],
+)
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"approval_validation_ref": None},
+        {"authority_decision_ref": None},
+        {"budget_reservation_ref": None},
+        {"budget_settlement_ref": None},
+        {
+            "reason_refs": (
+                "reason-ref:governed-external-action:unrelated",
+            )
+        },
+    ],
+    ids=[
+        "approval-missing",
+        "authority-missing",
+        "reservation-missing",
+        "settlement-missing",
+        "reason-injected",
+    ],
+)
+def test_completed_dispatch_replay_requires_complete_provenance(
+    state: ExternalActionState,
+    updates: dict[str, object],
+) -> None:
+    receipt = _rehash_receipt(
+        _receipt(
+            _request(f"completed-provenance-{state.value}"),
+            evidence_refs=(_ref("evidence", state.value),),
+            proof_suffix=f"completed-provenance-{state.value}",
+            state=state,
+        ),
+        **updates,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=state == ExternalActionState.succeeded,
+            failure_evidence_valid=state == ExternalActionState.failed,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_release_ambiguity_marker_must_be_terminal() -> None:
+    request = _request("release-marker-terminal")
+    reason_refs = (
+        "reason-ref:governed-external-action:"
+        "post-start-revalidation-denied",
+        "reason-ref:governed-external-action:deadline-expired",
+        "reason-ref:governed-external-action:budget-release-unconfirmed",
+        "reason-ref:governed-external-action:budget-release-failed",
+    )
+    evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:post-start-guard",
+        {
+            "intent_ref": request.intent_ref,
+            "reason_refs": list(reason_refs),
+        },
+    )
+    forged = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(evidence_ref,),
+            proof_suffix="release-marker-terminal",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=reason_refs,
+        ),
+        budget_settlement_ref=None,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_kernel_ambiguity_rejects_extra_reason_arity() -> None:
+    request = _request("kernel-extra-reason")
+    suffix = "dispatch-exception"
+    evidence_ref = stable_governed_browser_ref(
+        f"evidence-ref:governed-external-action:{suffix}",
+        {
+            "reason": suffix,
+            "transaction_ref": request.binding.transaction_ref,
+            "intent_ref": request.intent_ref,
+            "binding_ref": request.binding.binding_ref,
+        },
+    )
+    forged = _receipt(
+        request,
+        evidence_refs=(evidence_ref,),
+        proof_suffix="kernel-extra-reason",
+        state=ExternalActionState.outcome_ambiguous,
+        reason_refs=(
+            "reason-ref:governed-external-action:dispatch-exception",
+            "reason-ref:governed-external-action:unrelated",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    ("reason_refs", "operation_ambiguity"),
+    [
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "dispatch-outcome-ambiguous",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-failed",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+            True,
+        ),
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "budget-settlement-failed",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+            False,
+        ),
+    ],
+    ids=["operation-ambiguity", "accounting-only"],
+)
+def test_settlement_detail_precedes_terminal_marker(
+    reason_refs: tuple[str, ...],
+    operation_ambiguity: bool,
+) -> None:
+    receipt = _rehash_receipt(
+        _receipt(
+            _request(f"settlement-detail-{operation_ambiguity}"),
+            evidence_refs=(_ref("evidence", "settlement-detail"),),
+            proof_suffix=f"settlement-detail-{operation_ambiguity}",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=reason_refs,
+        ),
+        budget_settlement_ref=None,
+    )
+
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=not operation_ambiguity,
+        failure_evidence_valid=False,
+        operation_ambiguity_evidence_valid=operation_ambiguity,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+
+def test_release_path_rejects_settlement_detail_substitution() -> None:
+    request = _request("release-cross-accounting")
+    reason_refs = (
+        "reason-ref:governed-external-action:"
+        "dispatch-wait-interrupted-before-start",
+        "reason-ref:governed-external-action:budget-settlement-failed",
+        "reason-ref:governed-external-action:budget-release-unconfirmed",
+    )
+    evidence_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-external-action:post-start-guard",
+        {
+            "intent_ref": request.intent_ref,
+            "reason_refs": list(reason_refs),
+        },
+    )
+    forged = _rehash_receipt(
+        _receipt(
+            request,
+            evidence_refs=(evidence_ref,),
+            proof_suffix="release-cross-accounting",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=reason_refs,
+        ),
+        budget_settlement_ref=None,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_settlement_path_rejects_release_detail_substitution() -> None:
+    forged = _rehash_receipt(
+        _receipt(
+            _request("settlement-cross-accounting"),
+            evidence_refs=(_ref("evidence", "settlement-cross-accounting"),),
+            proof_suffix="settlement-cross-accounting",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:"
+                "dispatch-outcome-ambiguous",
+                "reason-ref:governed-external-action:budget-release-failed",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+        ),
+        budget_settlement_ref=None,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            operation_ambiguity_evidence_valid=True,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_settlement_path_rejects_interleaved_lifecycle_and_accounting() -> None:
+    forged = _rehash_receipt(
+        _receipt(
+            _request("settlement-interleaved"),
+            evidence_refs=(_ref("evidence", "settlement-interleaved"),),
+            proof_suffix="settlement-interleaved",
+            state=ExternalActionState.outcome_ambiguous,
+            reason_refs=(
+                "reason-ref:governed-external-action:"
+                "dispatch-outcome-ambiguous",
+                "reason-ref:governed-external-action:"
+                "post-dispatch-revalidation-denied",
+                "reason-ref:governed-external-action:deadline-expired",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-failed",
+                "reason-ref:governed-external-action:safe-disable-active",
+                "reason-ref:governed-external-action:"
+                "budget-settlement-ambiguous",
+            ),
+        ),
+        budget_settlement_ref=None,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            operation_ambiguity_evidence_valid=True,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+def test_deny_by_default_budget_receipt_has_canonical_blocked_provenance() -> None:
+    receipt = _blocked_receipt(
+        _request("deny-by-default-budget"),
+        reason_refs=(
+            "reason-ref:governed-external-action:"
+            "budget-reservation-denied",
+            "reason-ref:governed-external-action:budget-gate-missing",
+        ),
+        approval_validation_ref=APPROVAL_VALIDATION_REF,
+        authority_decision_ref=AUTHORITY_DECISION_REF,
+    )
+
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+
+def test_blocked_reservation_rejects_arbitrary_secondary_reason() -> None:
+    receipt = _blocked_receipt(
+        _request("blocked-arbitrary-secondary"),
+        reason_refs=(
+            "reason-ref:governed-external-action:budget-reservation-denied",
+            "reason-ref:governed-external-action:unrelated",
+        ),
+        approval_validation_ref=APPROVAL_VALIDATION_REF,
+        authority_decision_ref=AUTHORITY_DECISION_REF,
+    )
+
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            receipt,
+            success_evidence_valid=False,
+            failure_evidence_valid=False,
+            mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+        )
+
+
+@pytest.mark.parametrize(
+    (
+        "reason_refs",
+        "approval_ref",
+        "authority_ref",
+        "reservation_ref",
+        "release_ref",
+    ),
+    [
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "local-validation-disabled",
+            ),
+            None,
+            None,
+            None,
+            None,
+        ),
+        (
+            (
+                "reason-ref:governed-external-action:approval-invalid",
+                stable_governed_browser_ref(
+                    "approval-reason-ref:governed-external-action",
+                    {"code": "approval-missing"},
+                ),
+            ),
+            APPROVAL_VALIDATION_REF,
+            None,
+            None,
+            None,
+        ),
+        (
+            ("reason-ref:governed-external-action:exact-lease-required",),
+            APPROVAL_VALIDATION_REF,
+            AUTHORITY_DECISION_REF,
+            None,
+            None,
+        ),
+        (
+            (
+                "reason-ref:governed-external-action:"
+                "budget-reservation-denied",
+                "reason-ref:authority-budget:operation-budget-exhausted",
+            ),
+            APPROVAL_VALIDATION_REF,
+            AUTHORITY_DECISION_REF,
+            None,
+            None,
+        ),
+        (
+            ("reason-ref:governed-external-action:safe-disable-active",),
+            APPROVAL_VALIDATION_REF,
+            AUTHORITY_DECISION_REF,
+            _ref("budget-reservation", "blocked-released"),
+            _ref("budget-release", "blocked-released"),
+        ),
+        (
+            (
+                "reason-ref:governed-external-action:safe-disable-active",
+                "reason-ref:governed-external-action:budget-release-failed",
+                "reason-ref:governed-external-action:"
+                "budget-release-unconfirmed",
+            ),
+            APPROVAL_VALIDATION_REF,
+            AUTHORITY_DECISION_REF,
+            _ref("budget-reservation", "blocked-unconfirmed"),
+            None,
+        ),
+    ],
+)
+def test_blocked_replay_accepts_only_stage_consistent_provenance(
+    reason_refs: tuple[str, ...],
+    approval_ref: str | None,
+    authority_ref: str | None,
+    reservation_ref: str | None,
+    release_ref: str | None,
+) -> None:
+    receipt = _blocked_receipt(
+        _request(f"blocked-stage-{reason_refs[0].rsplit(':', 1)[-1]}"),
+        reason_refs=reason_refs,
+        approval_validation_ref=approval_ref,
+        authority_decision_ref=authority_ref,
+        budget_reservation_ref=reservation_ref,
+        budget_release_ref=release_ref,
+    )
+    _require_operation_replay_evidence_envelope(
+        receipt,
+        success_evidence_valid=False,
+        failure_evidence_valid=False,
+        mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",
+    )
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {
+            "reason_refs": (
+                "reason-ref:governed-external-action:safe-disable-active",
+            )
+        },
+        {
+            "approval_validation_ref": AUTHORITY_DECISION_REF,
+            "authority_decision_ref": APPROVAL_VALIDATION_REF,
+        },
+        {
+            "reason_refs": (
+                "reason-ref:governed-external-action:"
+                "budget-release-unconfirmed",
+                "reason-ref:governed-external-action:safe-disable-active",
+            )
+        },
+        {"budget_settlement_ref": _ref("budget-settlement", "blocked")},
+        {"reason_refs": ("reason-ref:governed-external-action:unrelated",)},
+        {"evidence_refs": (_ref("evidence", "blocked"),)},
+    ],
+    ids=[
+        "release-marker-dropped",
+        "governance-refs-swapped",
+        "release-marker-reordered",
+        "settlement-injected",
+        "reason-substituted",
+        "evidence-injected",
+    ],
+)
+def test_blocked_replay_fails_closed_on_provenance_tampering(
+    updates: dict[str, object],
+) -> None:
+    valid = _blocked_receipt(
+        _request("blocked-provenance-tampering"),
+        reason_refs=(
+            "reason-ref:governed-external-action:safe-disable-active",
+            "reason-ref:governed-external-action:"
+            "budget-release-unconfirmed",
+        ),
+        approval_validation_ref=APPROVAL_VALIDATION_REF,
+        authority_decision_ref=AUTHORITY_DECISION_REF,
+        budget_reservation_ref=_ref(
+            "budget-reservation",
+            "blocked-provenance-tampering",
+        ),
+    )
+    forged = _rehash_receipt(valid, **updates)
+    with pytest.raises(ValueError, match="TEST_REPLAY_EVIDENCE_MISMATCH"):
+        _require_operation_replay_evidence_envelope(
+            forged,
             success_evidence_valid=False,
             failure_evidence_valid=False,
             mismatch_error="TEST_REPLAY_EVIDENCE_MISMATCH",

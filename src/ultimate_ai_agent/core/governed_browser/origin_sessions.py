@@ -534,6 +534,64 @@ class GovernedBrowserOriginSessionRecord(BaseModel):
         return self
 
 
+class _PendingOriginSessionTransition:
+    """One hidden SQLite transition held until its exact proof is durable."""
+
+    def __init__(
+        self,
+        *,
+        binding: _OriginSessionStoreBinding,
+        connection: sqlite3.Connection,
+        current: GovernedBrowserOriginSessionRecord | None,
+    ) -> None:
+        self._binding = binding
+        self._connection = connection
+        self.current = current
+        self._active = True
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    def commit(self) -> GovernedBrowserOriginSessionRecord | None:
+        self._finish(commit=True)
+        return self.current
+
+    def rollback(self) -> None:
+        self._finish(commit=False)
+
+    def _finish(self, *, commit: bool) -> None:
+        if not self._active:
+            raise GovernedBrowserOriginSessionStateConflict(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_CLOSED"
+            )
+        failure_code = (
+            "GOVERNED_BROWSER_ORIGIN_SESSION_COMMIT_FAILED"
+            if commit
+            else "GOVERNED_BROWSER_ORIGIN_SESSION_ROLLBACK_FAILED"
+        )
+        try:
+            if commit:
+                self._connection.commit()
+            else:
+                self._connection.rollback()
+        except sqlite3.Error as exc:
+            if commit:
+                try:
+                    self._connection.rollback()
+                except sqlite3.Error:
+                    pass
+            raise GovernedBrowserOriginSessionStateConflict(
+                failure_code
+            ) from exc
+        finally:
+            self._active = False
+            try:
+                self._connection.close()
+            finally:
+                self._binding.lock.release()
+
+
 class GovernedBrowserOriginSessionStore:
     """SQLite lifecycle store containing no credential or web content."""
 
@@ -564,54 +622,16 @@ class GovernedBrowserOriginSessionStore:
         operation_ref: str,
         now: datetime,
     ) -> GovernedBrowserOriginSessionRecord:
-        if now >= recipe.expires_at:
-            raise GovernedBrowserOriginSessionStateConflict(
-                "GOVERNED_BROWSER_ORIGIN_SESSION_PREPARE_EXPIRED"
-            )
-        scope_fingerprint_ref = _session_scope_fingerprint_ref(recipe)
-        binding = _exact_origin_session_store_binding(self)
-        with binding.lock, sqlite3.connect(binding.path) as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT scope_fingerprint_ref, record_json "
-                "FROM governed_browser_origin_sessions WHERE session_ref = ?",
-                (recipe.session_ref,),
-            ).fetchone()
-            if row is not None:
-                if row[0] != scope_fingerprint_ref:
-                    connection.rollback()
-                    raise GovernedBrowserOriginSessionStateConflict(
-                        "GOVERNED_BROWSER_ORIGIN_SESSION_SCOPE_CONFLICT"
-                    )
-                record = GovernedBrowserOriginSessionRecord.model_validate_json(
-                    row[1]
-                )
-                connection.commit()
-                if (
-                    record.state
-                    != GovernedBrowserOriginSessionState.prepared_inactive.value
-                ):
-                    raise GovernedBrowserOriginSessionStateConflict(
-                        "GOVERNED_BROWSER_ORIGIN_SESSION_REOPEN_DENIED"
-                    )
-                return record
-            record = _build_session_record(
-                recipe,
-                state=GovernedBrowserOriginSessionState.prepared_inactive,
-                operation_ref=operation_ref,
-                keychain_item_present=True,
-                now=now,
-            )
-            connection.execute(
-                "INSERT INTO governed_browser_origin_sessions VALUES (?, ?, ?)",
-                (
-                    recipe.session_ref,
-                    scope_fingerprint_ref,
-                    record.model_dump_json(),
-                ),
-            )
-            connection.commit()
-            return record
+        pending = GovernedBrowserOriginSessionStore._begin_transition(
+            self,
+            recipe,
+            operation=GovernedBrowserOriginSessionOperation.prepare_session,
+            operation_ref=operation_ref,
+            now=now,
+        )
+        record = pending.commit()
+        assert record is not None
+        return record
 
     def revalidate(
         self,
@@ -620,31 +640,16 @@ class GovernedBrowserOriginSessionStore:
         operation_ref: str,
         now: datetime,
     ) -> GovernedBrowserOriginSessionRecord:
-        current = GovernedBrowserOriginSessionStore._require_exact(
+        pending = GovernedBrowserOriginSessionStore._begin_transition(
             self,
             recipe,
-        )
-        if current.state not in {
-            GovernedBrowserOriginSessionState.prepared_inactive.value,
-            GovernedBrowserOriginSessionState.expired.value,
-        }:
-            raise GovernedBrowserOriginSessionStateConflict(
-                "GOVERNED_BROWSER_ORIGIN_SESSION_REVALIDATION_STATE_DENIED"
-            )
-        state = (
-            GovernedBrowserOriginSessionState.expired
-            if now >= current.expires_at
-            else GovernedBrowserOriginSessionState.prepared_inactive
-        )
-        return GovernedBrowserOriginSessionStore._replace(
-            self,
-            recipe,
-            current=current,
-            state=state,
+            operation=GovernedBrowserOriginSessionOperation.revalidate_session,
             operation_ref=operation_ref,
-            keychain_item_present=True,
             now=now,
         )
+        record = pending.commit()
+        assert record is not None
+        return record
 
     def close(
         self,
@@ -653,25 +658,16 @@ class GovernedBrowserOriginSessionStore:
         operation_ref: str,
         now: datetime,
     ) -> GovernedBrowserOriginSessionRecord:
-        current = GovernedBrowserOriginSessionStore._require_exact(
+        pending = GovernedBrowserOriginSessionStore._begin_transition(
             self,
             recipe,
-        )
-        if current.state == GovernedBrowserOriginSessionState.revoked.value:
-            raise GovernedBrowserOriginSessionStateConflict(
-                "GOVERNED_BROWSER_ORIGIN_SESSION_CLOSE_AFTER_REVOKE_DENIED"
-            )
-        if current.state == GovernedBrowserOriginSessionState.closed.value:
-            return current
-        return GovernedBrowserOriginSessionStore._replace(
-            self,
-            recipe,
-            current=current,
-            state=GovernedBrowserOriginSessionState.closed,
+            operation=GovernedBrowserOriginSessionOperation.close_session,
             operation_ref=operation_ref,
-            keychain_item_present=True,
             now=now,
         )
+        record = pending.commit()
+        assert record is not None
+        return record
 
     def mark_revoked(
         self,
@@ -680,24 +676,14 @@ class GovernedBrowserOriginSessionStore:
         operation_ref: str,
         now: datetime,
     ) -> GovernedBrowserOriginSessionRecord | None:
-        current = GovernedBrowserOriginSessionStore.inspect(
-            self,
-            recipe.session_ref,
-        )
-        if current is None:
-            return None
-        GovernedBrowserOriginSessionStore._validate_scope(recipe, current)
-        if current.state == GovernedBrowserOriginSessionState.revoked.value:
-            return current
-        return GovernedBrowserOriginSessionStore._replace(
+        pending = GovernedBrowserOriginSessionStore._begin_transition(
             self,
             recipe,
-            current=current,
-            state=GovernedBrowserOriginSessionState.revoked,
+            operation=GovernedBrowserOriginSessionOperation.revoke_credential,
             operation_ref=operation_ref,
-            keychain_item_present=False,
             now=now,
         )
+        return pending.commit()
 
     def inspect(
         self,
@@ -717,20 +703,203 @@ class GovernedBrowserOriginSessionStore:
             else None
         )
 
-    def _require_exact(
+    def _begin_transition(
         self,
         recipe: GovernedBrowserOriginSessionRecipe,
-    ) -> GovernedBrowserOriginSessionRecord:
-        record = GovernedBrowserOriginSessionStore.inspect(
-            self,
-            recipe.session_ref,
-        )
-        if record is None:
+        *,
+        operation: GovernedBrowserOriginSessionOperation,
+        operation_ref: str,
+        now: datetime,
+    ) -> _PendingOriginSessionTransition:
+        if operation == GovernedBrowserOriginSessionOperation.enroll_credential:
             raise GovernedBrowserOriginSessionStateConflict(
-                "GOVERNED_BROWSER_ORIGIN_SESSION_NOT_FOUND"
+                "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_OPERATION_INVALID"
             )
-        GovernedBrowserOriginSessionStore._validate_scope(recipe, record)
-        return record
+        if (
+            operation == GovernedBrowserOriginSessionOperation.prepare_session
+            and now >= recipe.expires_at
+        ):
+            raise GovernedBrowserOriginSessionStateConflict(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_PREPARE_EXPIRED"
+            )
+        scope_fingerprint_ref = _session_scope_fingerprint_ref(recipe)
+        binding = _exact_origin_session_store_binding(self)
+        binding.lock.acquire()
+        connection: sqlite3.Connection | None = None
+        try:
+            connection = sqlite3.connect(binding.path)
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT scope_fingerprint_ref, record_json "
+                "FROM governed_browser_origin_sessions WHERE session_ref = ?",
+                (recipe.session_ref,),
+            ).fetchone()
+            previous = (
+                GovernedBrowserOriginSessionRecord.model_validate_json(row[1])
+                if row is not None
+                else None
+            )
+            if row is not None and row[0] != scope_fingerprint_ref:
+                raise GovernedBrowserOriginSessionStateConflict(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_SCOPE_CONFLICT"
+                )
+            if previous is not None:
+                GovernedBrowserOriginSessionStore._validate_scope(
+                    recipe,
+                    previous,
+                )
+
+            record: GovernedBrowserOriginSessionRecord | None
+            if operation == GovernedBrowserOriginSessionOperation.prepare_session:
+                if previous is not None:
+                    if (
+                        previous.state
+                        != GovernedBrowserOriginSessionState.prepared_inactive.value
+                    ):
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_REOPEN_DENIED"
+                        )
+                    record = previous
+                else:
+                    record = _build_session_record(
+                        recipe,
+                        state=(
+                            GovernedBrowserOriginSessionState.prepared_inactive
+                        ),
+                        operation_ref=operation_ref,
+                        keychain_item_present=True,
+                        now=now,
+                    )
+                    connection.execute(
+                        "INSERT INTO governed_browser_origin_sessions "
+                        "VALUES (?, ?, ?)",
+                        (
+                            recipe.session_ref,
+                            scope_fingerprint_ref,
+                            record.model_dump_json(),
+                        ),
+                    )
+            elif previous is None:
+                if (
+                    operation
+                    == GovernedBrowserOriginSessionOperation.revoke_credential
+                ):
+                    record = None
+                else:
+                    raise GovernedBrowserOriginSessionStateConflict(
+                        "GOVERNED_BROWSER_ORIGIN_SESSION_NOT_FOUND"
+                    )
+            elif (
+                operation
+                == GovernedBrowserOriginSessionOperation.revalidate_session
+            ):
+                if previous.state not in {
+                    GovernedBrowserOriginSessionState.prepared_inactive.value,
+                    GovernedBrowserOriginSessionState.expired.value,
+                }:
+                    raise GovernedBrowserOriginSessionStateConflict(
+                        "GOVERNED_BROWSER_ORIGIN_SESSION_REVALIDATION_STATE_DENIED"
+                    )
+                record = _build_session_record(
+                    recipe,
+                    state=(
+                        GovernedBrowserOriginSessionState.expired
+                        if now >= previous.expires_at
+                        else GovernedBrowserOriginSessionState.prepared_inactive
+                    ),
+                    operation_ref=operation_ref,
+                    keychain_item_present=True,
+                    now=now,
+                )
+                GovernedBrowserOriginSessionStore._update_pending_record(
+                    connection,
+                    recipe=recipe,
+                    previous=previous,
+                    record=record,
+                )
+            elif operation == GovernedBrowserOriginSessionOperation.close_session:
+                if (
+                    previous.state
+                    == GovernedBrowserOriginSessionState.revoked.value
+                ):
+                    raise GovernedBrowserOriginSessionStateConflict(
+                        "GOVERNED_BROWSER_ORIGIN_SESSION_CLOSE_AFTER_REVOKE_DENIED"
+                    )
+                if (
+                    previous.state
+                    == GovernedBrowserOriginSessionState.closed.value
+                ):
+                    record = previous
+                else:
+                    record = _build_session_record(
+                        recipe,
+                        state=GovernedBrowserOriginSessionState.closed,
+                        operation_ref=operation_ref,
+                        keychain_item_present=True,
+                        now=now,
+                    )
+                    GovernedBrowserOriginSessionStore._update_pending_record(
+                        connection,
+                        recipe=recipe,
+                        previous=previous,
+                        record=record,
+                    )
+            elif (
+                previous.state
+                == GovernedBrowserOriginSessionState.revoked.value
+            ):
+                record = previous
+            else:
+                record = _build_session_record(
+                    recipe,
+                    state=GovernedBrowserOriginSessionState.revoked,
+                    operation_ref=operation_ref,
+                    keychain_item_present=False,
+                    now=now,
+                )
+                GovernedBrowserOriginSessionStore._update_pending_record(
+                    connection,
+                    recipe=recipe,
+                    previous=previous,
+                    record=record,
+                )
+            return _PendingOriginSessionTransition(
+                binding=binding,
+                connection=connection,
+                current=record,
+            )
+        except BaseException:
+            if connection is not None:
+                try:
+                    connection.rollback()
+                finally:
+                    connection.close()
+            binding.lock.release()
+            raise
+
+    @staticmethod
+    def _update_pending_record(
+        connection: sqlite3.Connection,
+        *,
+        recipe: GovernedBrowserOriginSessionRecipe,
+        previous: GovernedBrowserOriginSessionRecord,
+        record: GovernedBrowserOriginSessionRecord,
+    ) -> None:
+        changed = connection.execute(
+            "UPDATE governed_browser_origin_sessions SET record_json = ? "
+            "WHERE session_ref = ? AND scope_fingerprint_ref = ? "
+            "AND record_json = ?",
+            (
+                record.model_dump_json(),
+                recipe.session_ref,
+                _session_scope_fingerprint_ref(recipe),
+                previous.model_dump_json(),
+            ),
+        ).rowcount
+        if changed != 1:
+            raise GovernedBrowserOriginSessionStateConflict(
+                "GOVERNED_BROWSER_ORIGIN_SESSION_UPDATE_CONFLICT"
+            )
 
     @staticmethod
     def _validate_scope(
@@ -763,45 +932,6 @@ class GovernedBrowserOriginSessionStore:
             raise GovernedBrowserOriginSessionStateConflict(
                 "GOVERNED_BROWSER_ORIGIN_SESSION_SCOPE_CONFLICT"
             )
-
-    def _replace(
-        self,
-        recipe: GovernedBrowserOriginSessionRecipe,
-        *,
-        current: GovernedBrowserOriginSessionRecord,
-        state: GovernedBrowserOriginSessionState,
-        operation_ref: str,
-        keychain_item_present: bool,
-        now: datetime,
-    ) -> GovernedBrowserOriginSessionRecord:
-        record = _build_session_record(
-            recipe,
-            state=state,
-            operation_ref=operation_ref,
-            keychain_item_present=keychain_item_present,
-            now=now,
-        )
-        binding = _exact_origin_session_store_binding(self)
-        with binding.lock, sqlite3.connect(binding.path) as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            changed = connection.execute(
-                "UPDATE governed_browser_origin_sessions SET record_json = ? "
-                "WHERE session_ref = ? AND scope_fingerprint_ref = ? "
-                "AND record_json = ?",
-                (
-                    record.model_dump_json(),
-                    recipe.session_ref,
-                    _session_scope_fingerprint_ref(recipe),
-                    current.model_dump_json(),
-                ),
-            ).rowcount
-            if changed != 1:
-                connection.rollback()
-                raise GovernedBrowserOriginSessionStateConflict(
-                    "GOVERNED_BROWSER_ORIGIN_SESSION_UPDATE_CONFLICT"
-                )
-            connection.commit()
-        return record
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path)
@@ -1379,10 +1509,7 @@ class ExactGovernedBrowserOriginSessionService:
         self._keychain_store = keychain.store
         self._keychain_probe = keychain.probe
         self._keychain_delete = keychain.delete
-        self._session_prepare = sessions.prepare
-        self._session_revalidate = sessions.revalidate
-        self._session_close = sessions.close
-        self._session_mark_revoked = sessions.mark_revoked
+        self._session_begin_transition = sessions._begin_transition
         _register_operation_proof_service(
             self,
             dependencies=(
@@ -1394,10 +1521,10 @@ class ExactGovernedBrowserOriginSessionService:
                 ("_keychain_store", self._keychain_store),
                 ("_keychain_probe", self._keychain_probe),
                 ("_keychain_delete", self._keychain_delete),
-                ("_session_prepare", self._session_prepare),
-                ("_session_revalidate", self._session_revalidate),
-                ("_session_close", self._session_close),
-                ("_session_mark_revoked", self._session_mark_revoked),
+                (
+                    "_session_begin_transition",
+                    self._session_begin_transition,
+                ),
             ),
         )
 
@@ -1406,6 +1533,21 @@ class ExactGovernedBrowserOriginSessionService:
         request: ExactGovernedBrowserOriginSessionRequest,
         *,
         credential_material: bytearray | None = None,
+    ) -> ExactGovernedBrowserOriginSessionResult:
+        try:
+            return ExactGovernedBrowserOriginSessionService._execute(
+                self,
+                request,
+                credential_material=credential_material,
+            )
+        finally:
+            _zeroize_optional(credential_material)
+
+    def _execute(
+        self,
+        request: ExactGovernedBrowserOriginSessionRequest,
+        *,
+        credential_material: bytearray | None,
     ) -> ExactGovernedBrowserOriginSessionResult:
         service_binding = _require_operation_proof_service(self)
         dependencies = dict(service_binding.dependencies)
@@ -1416,10 +1558,7 @@ class ExactGovernedBrowserOriginSessionService:
         keychain_store = dependencies["_keychain_store"]
         keychain_probe = dependencies["_keychain_probe"]
         keychain_delete = dependencies["_keychain_delete"]
-        session_prepare = dependencies["_session_prepare"]
-        session_revalidate = dependencies["_session_revalidate"]
-        session_close = dependencies["_session_close"]
-        session_mark_revoked = dependencies["_session_mark_revoked"]
+        session_begin_transition = dependencies["_session_begin_transition"]
         if (
             type(registry) is not GovernedBrowserOriginSessionRecipeRegistry
             or type(sessions) is not GovernedBrowserOriginSessionStore
@@ -1520,6 +1659,7 @@ class ExactGovernedBrowserOriginSessionService:
             )
         captured_keychain: GovernedBrowserKeychainOperationReceipt | None = None
         captured_session: GovernedBrowserOriginSessionRecord | None = None
+        active_pending: _PendingOriginSessionTransition | None = None
         operation_ref = stable_governed_browser_ref(
             "browser-origin-session-operation-ref:governed-browser",
             {
@@ -1570,11 +1710,34 @@ class ExactGovernedBrowserOriginSessionService:
                 }
             )
 
-        def perform_dispatch(
+        def proved_session_dispatch_result(
+            result: ExternalActionDispatchResult,
+            *,
+            material: OriginSessionOperationProofMaterial,
+            pending: _PendingOriginSessionTransition,
+        ) -> ExternalActionDispatchResult:
+            nonlocal captured_session
+            try:
+                proved = proved_dispatch_result(result, material=material)
+            except BaseException:
+                pending.rollback()
+                captured_session = None
+                raise
+            committed = pending.commit()
+            if committed != captured_session:
+                captured_session = None
+                raise GovernedBrowserOriginSessionStateConflict(
+                    "GOVERNED_BROWSER_ORIGIN_SESSION_COMMIT_PROJECTION_MISMATCH"
+                )
+            return proved
+
+        def perform_dispatch_body(
             item: ExternalActionExecutionRequest,
             dispatch_credential_material: bytearray | None,
         ) -> ExternalActionDispatchResult:
-            nonlocal captured_keychain, captured_session
+            nonlocal active_pending, captured_keychain, captured_session
+            expected_keychain: GovernedBrowserKeychainOperationReceipt | None = None
+            active_pending = None
             request_ref = stable_governed_browser_ref(
                 "request-ref:governed-browser-keychain",
                 {
@@ -1588,6 +1751,28 @@ class ExactGovernedBrowserOriginSessionService:
                     == GovernedBrowserOriginSessionOperation.enroll_credential
                 ):
                     assert dispatch_credential_material is not None
+                    expected_keychain = _expected_origin_keychain_receipt(
+                        registration,
+                        operation=GovernedBrowserKeychainOperation.store,
+                        request_ref=request_ref,
+                    )
+                    proved_result = proved_dispatch_result(
+                        ExternalActionDispatchResult(
+                            outcome=ExternalActionDispatchOutcome.succeeded,
+                            evidence_refs=[
+                                operation_ref,
+                                expected_keychain.helper_receipt_ref,
+                                expected_keychain.keychain_item_ref,
+                            ],
+                            verified=True,
+                        ),
+                        material=OriginSessionOperationProofMaterial(
+                            operation=operation.value,
+                            disposition="succeeded",
+                            request_ref=request_ref,
+                            keychain_receipt=expected_keychain,
+                        ),
+                    )
                     captured_keychain = keychain_store(
                         registration,
                         request_ref=request_ref,
@@ -1599,6 +1784,11 @@ class ExactGovernedBrowserOriginSessionService:
                         operation=GovernedBrowserKeychainOperation.store,
                         request_ref=request_ref,
                     )
+                    if captured_keychain != expected_keychain:
+                        raise GovernedBrowserKeychainError(
+                            "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
+                        )
+                    return proved_result
                 elif (
                     operation
                     == GovernedBrowserOriginSessionOperation.prepare_session
@@ -1613,11 +1803,20 @@ class ExactGovernedBrowserOriginSessionService:
                         operation=GovernedBrowserKeychainOperation.probe,
                         request_ref=request_ref,
                     )
-                    captured_session = session_prepare(
+                    active_pending = session_begin_transition(
                         recipe,
+                        operation=operation,
                         operation_ref=operation_ref,
                         now=clock(),
                     )
+                    if (
+                        type(active_pending)
+                        is not _PendingOriginSessionTransition
+                    ):
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_REQUIRED"
+                        )
+                    captured_session = active_pending.current
                 elif (
                     operation
                     == GovernedBrowserOriginSessionOperation.revalidate_session
@@ -1632,21 +1831,88 @@ class ExactGovernedBrowserOriginSessionService:
                         operation=GovernedBrowserKeychainOperation.probe,
                         request_ref=request_ref,
                     )
-                    captured_session = session_revalidate(
+                    active_pending = session_begin_transition(
                         recipe,
+                        operation=operation,
                         operation_ref=operation_ref,
                         now=clock(),
                     )
+                    if (
+                        type(active_pending)
+                        is not _PendingOriginSessionTransition
+                    ):
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_REQUIRED"
+                        )
+                    captured_session = active_pending.current
                 elif (
                     operation
                     == GovernedBrowserOriginSessionOperation.close_session
                 ):
-                    captured_session = session_close(
+                    active_pending = session_begin_transition(
                         recipe,
+                        operation=operation,
                         operation_ref=operation_ref,
                         now=clock(),
                     )
+                    if (
+                        type(active_pending)
+                        is not _PendingOriginSessionTransition
+                    ):
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_REQUIRED"
+                        )
+                    captured_session = active_pending.current
                 else:
+                    active_pending = session_begin_transition(
+                        recipe,
+                        operation=operation,
+                        operation_ref=operation_ref,
+                        now=clock(),
+                    )
+                    if (
+                        type(active_pending)
+                        is not _PendingOriginSessionTransition
+                    ):
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_TRANSITION_REQUIRED"
+                        )
+                    captured_session = active_pending.current
+                    expected_keychain = _expected_origin_keychain_receipt(
+                        registration,
+                        operation=GovernedBrowserKeychainOperation.delete,
+                        request_ref=request_ref,
+                    )
+                    evidence_refs = [
+                        operation_ref,
+                        expected_keychain.helper_receipt_ref,
+                        expected_keychain.keychain_item_ref,
+                    ]
+                    if captured_session is not None:
+                        evidence_refs.append(captured_session.state_receipt_ref)
+                    try:
+                        proved_result = proved_dispatch_result(
+                            ExternalActionDispatchResult(
+                                outcome=ExternalActionDispatchOutcome.succeeded,
+                                evidence_refs=list(dict.fromkeys(evidence_refs)),
+                                verified=True,
+                            ),
+                            material=OriginSessionOperationProofMaterial(
+                                operation=operation.value,
+                                disposition="succeeded",
+                                request_ref=request_ref,
+                                keychain_receipt=expected_keychain,
+                                session_state_receipt_ref=(
+                                    captured_session.state_receipt_ref
+                                    if captured_session is not None
+                                    else None
+                                ),
+                            ),
+                        )
+                    except BaseException:
+                        active_pending.rollback()
+                        captured_session = None
+                        raise
                     captured_keychain = keychain_delete(
                         registration,
                         request_ref=request_ref,
@@ -1657,20 +1923,59 @@ class ExactGovernedBrowserOriginSessionService:
                         operation=GovernedBrowserKeychainOperation.delete,
                         request_ref=request_ref,
                     )
-                    captured_session = session_mark_revoked(
-                        recipe,
-                        operation_ref=operation_ref,
-                        now=clock(),
-                    )
+                    if captured_keychain != expected_keychain:
+                        raise GovernedBrowserKeychainError(
+                            "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
+                        )
+                    committed = active_pending.commit()
+                    if committed != captured_session:
+                        captured_session = None
+                        raise GovernedBrowserOriginSessionStateConflict(
+                            "GOVERNED_BROWSER_ORIGIN_SESSION_"
+                            "COMMIT_PROJECTION_MISMATCH"
+                        )
+                    return proved_result
             except GovernedBrowserKeychainError as exc:
-                if str(exc) not in _NON_MUTATING_KEYCHAIN_ERROR_CODES:
+                reason_code = str(exc)
+                if (
+                    active_pending is not None
+                    and active_pending.active
+                ):
+                    active_pending.rollback()
+                    active_pending = None
+                    captured_session = None
+                if reason_code == (
+                    "GOVERNED_BROWSER_KEYCHAIN_HELPER_EXECUTION_FAILED"
+                ):
+                    callback_evidence_refs = [operation_ref]
+                    if expected_keychain is not None:
+                        callback_evidence_refs.extend(
+                            (
+                                expected_keychain.helper_receipt_ref,
+                                expected_keychain.keychain_item_ref,
+                            )
+                        )
+                    return proved_dispatch_result(
+                        ExternalActionDispatchResult(
+                            outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
+                            evidence_refs=list(dict.fromkeys(callback_evidence_refs)),
+                            verified=False,
+                        ),
+                        material=OriginSessionOperationProofMaterial(
+                            operation=operation.value,
+                            disposition="dispatch_callback_exception",
+                            request_ref=request_ref,
+                            keychain_receipt=expected_keychain,
+                        ),
+                    )
+                if reason_code not in _NON_MUTATING_KEYCHAIN_ERROR_CODES:
                     raise
                 failure_ref = stable_governed_browser_ref(
                     "evidence-ref:governed-browser-origin-session:"
                     "keychain-precondition-failed",
                     {
                         "operation_ref": operation_ref,
-                        "reason_code": str(exc),
+                        "reason_code": reason_code,
                     },
                 )
                 return proved_dispatch_result(
@@ -1686,6 +1991,13 @@ class ExactGovernedBrowserOriginSessionService:
                     ),
                 )
             except GovernedBrowserOriginSessionStateConflict:
+                if (
+                    active_pending is not None
+                    and active_pending.active
+                ):
+                    active_pending.rollback()
+                    active_pending = None
+                    captured_session = None
                 conflict_evidence_refs = [
                     stable_governed_browser_ref(
                         "evidence-ref:governed-browser-origin-session:"
@@ -1725,6 +2037,40 @@ class ExactGovernedBrowserOriginSessionService:
                         keychain_receipt=captured_keychain,
                     ),
                 )
+            except BaseException as exc:
+                if isinstance(
+                    exc,
+                    (KeyboardInterrupt, SystemExit, GeneratorExit),
+                ):
+                    raise
+                if (
+                    active_pending is not None
+                    and active_pending.active
+                ):
+                    active_pending.rollback()
+                    active_pending = None
+                    captured_session = None
+                callback_evidence_refs = [operation_ref]
+                if expected_keychain is not None:
+                    callback_evidence_refs.extend(
+                        (
+                            expected_keychain.helper_receipt_ref,
+                            expected_keychain.keychain_item_ref,
+                        )
+                    )
+                return proved_dispatch_result(
+                    ExternalActionDispatchResult(
+                        outcome=ExternalActionDispatchOutcome.outcome_ambiguous,
+                        evidence_refs=list(dict.fromkeys(callback_evidence_refs)),
+                        verified=False,
+                    ),
+                    material=OriginSessionOperationProofMaterial(
+                        operation=operation.value,
+                        disposition="dispatch_callback_exception",
+                        request_ref=request_ref,
+                        keychain_receipt=expected_keychain,
+                    ),
+                )
             if (
                 operation
                 == GovernedBrowserOriginSessionOperation.revalidate_session
@@ -1733,7 +2079,8 @@ class ExactGovernedBrowserOriginSessionService:
                 == GovernedBrowserOriginSessionState.expired.value
             ):
                 assert captured_keychain is not None
-                return proved_dispatch_result(
+                assert active_pending is not None
+                return proved_session_dispatch_result(
                     ExternalActionDispatchResult(
                         outcome=ExternalActionDispatchOutcome.failed,
                         evidence_refs=[
@@ -1753,6 +2100,7 @@ class ExactGovernedBrowserOriginSessionService:
                             captured_session.state_receipt_ref
                         ),
                     ),
+                    pending=active_pending,
                 )
             evidence_refs = [operation_ref]
             if captured_keychain is not None:
@@ -1764,7 +2112,8 @@ class ExactGovernedBrowserOriginSessionService:
                 )
             if captured_session is not None:
                 evidence_refs.append(captured_session.state_receipt_ref)
-            return proved_dispatch_result(
+            assert active_pending is not None
+            return proved_session_dispatch_result(
                 ExternalActionDispatchResult(
                     outcome=ExternalActionDispatchOutcome.succeeded,
                     evidence_refs=list(dict.fromkeys(evidence_refs)),
@@ -1781,7 +2130,29 @@ class ExactGovernedBrowserOriginSessionService:
                         else None
                     ),
                 ),
+                pending=active_pending,
             )
+
+        def perform_dispatch(
+            item: ExternalActionExecutionRequest,
+            dispatch_credential_material: bytearray | None,
+        ) -> ExternalActionDispatchResult:
+            nonlocal active_pending, captured_session
+            try:
+                return perform_dispatch_body(
+                    item,
+                    dispatch_credential_material,
+                )
+            finally:
+                if (
+                    active_pending is not None
+                    and active_pending.active
+                ):
+                    try:
+                        active_pending.rollback()
+                    finally:
+                        captured_session = None
+                active_pending = None
 
         def dispatch(
             item: ExternalActionExecutionRequest,
@@ -1895,6 +2266,41 @@ def _validate_origin_keychain_receipt(
             "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
         )
     return exact
+
+
+def _expected_origin_keychain_receipt(
+    registration: GovernedBrowserCredentialRegistration,
+    *,
+    operation: GovernedBrowserKeychainOperation,
+    request_ref: str,
+) -> GovernedBrowserKeychainOperationReceipt:
+    if operation == GovernedBrowserKeychainOperation.probe:
+        raise ValueError(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_PROBE_PREDICTION_DENIED"
+        )
+    return GovernedBrowserKeychainOperationReceipt(
+        operation=operation,
+        registration_ref=registration.registration_ref,
+        origin_ref=registration.origin_ref,
+        credential_handle_ref=registration.credential_handle_ref,
+        credential_generation_ref=registration.credential_generation_ref,
+        keychain_item_ref=registration.keychain_item_ref,
+        helper_receipt_ref=governed_browser_keychain_helper_receipt_ref(
+            operation=operation,
+            request_ref=request_ref,
+        ),
+        created=(
+            True
+            if operation == GovernedBrowserKeychainOperation.store
+            else None
+        ),
+        present=operation == GovernedBrowserKeychainOperation.store,
+        deleted_or_absent=(
+            True
+            if operation == GovernedBrowserKeychainOperation.delete
+            else None
+        ),
+    )
 
 
 def _origin_session_replay_scope_refs(
@@ -2045,6 +2451,15 @@ def _validate_origin_session_operation_proof(
                 "GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_PROOF_AMBIGUITY_INVALID"
             )
         expected_evidence = [conflict_ref, *keychain_refs]
+        expected_outcome = (
+            ExternalActionDispatchOutcome.outcome_ambiguous.value
+        )
+    elif material.disposition == "dispatch_callback_exception":
+        expected_evidence = [operation_ref]
+        if keychain is not None:
+            expected_evidence.extend(keychain_refs)
+        if session_state_ref is not None:
+            expected_evidence.append(session_state_ref)
         expected_outcome = (
             ExternalActionDispatchOutcome.outcome_ambiguous.value
         )

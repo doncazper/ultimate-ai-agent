@@ -1419,6 +1419,202 @@ def test_origin_replay_rejects_cross_scope_provenance_substitution(
         )
 
 
+@pytest.mark.parametrize(
+    "tamper_mode",
+    ("slot-0", "slot-1", "slot-2", "slot-3", "order", "drop", "append"),
+)
+def test_origin_replay_rejects_callback_ambiguity_fully_rehashed_evidence_tampering(
+    tmp_path: Path,
+    tamper_mode: str,
+) -> None:
+    _, contexts, registry = _lifecycle_context(
+        suffix=f"replay-callback-tamper-{tamper_mode}"
+    )
+    keychain = _FakeKeychain(fail_store=True)
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "sessions.sqlite3"),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(103))
+    replay = service.execute(exact, credential_material=_opaque_material(104))
+
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+    forged = replay.receipt.model_dump(mode="json")
+    external = dict(forged["external_receipt_snapshot"])
+    evidence_refs = list(external["evidence_refs"])
+    if tamper_mode == "slot-0":
+        evidence_refs[0] = stable_governed_browser_ref(
+            "browser-origin-session-operation-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "slot-1":
+        evidence_refs[1] = stable_governed_browser_ref(
+            "helper-receipt-ref:governed-browser-keychain",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "slot-2":
+        evidence_refs[2] = _ref("resource", "unrelated-keychain-item")
+    elif tamper_mode == "slot-3":
+        evidence_refs[3] = stable_governed_browser_ref(
+            "operation-proof-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "order":
+        evidence_refs.reverse()
+    elif tamper_mode == "drop":
+        evidence_refs.pop()
+    else:
+        evidence_refs.append(_ref("evidence", "origin-extra"))
+    external["evidence_refs"] = evidence_refs
+    forged["external_receipt_snapshot"] = external
+    _rehash_origin_external_projection(forged)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_BROWSER_ORIGIN_SESSION_RECIPE_EVIDENCE_MISMATCH"
+            "|GOVERNED_BROWSER_ORIGIN_SESSION_OPERATION_PROOF_REQUIRED"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+        ),
+    ):
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            forged,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize("substitution", ("cross-operation", "cross-transaction"))
+def test_origin_replay_rejects_callback_ambiguity_cross_scope_provenance_substitution(
+    tmp_path: Path,
+    substitution: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, contexts, registry = _lifecycle_context(suffix="replay-callback-scope-a")
+    keychain = _FakeKeychain(fail_store=True)
+    request, recipe = contexts[
+        GovernedBrowserOriginSessionOperation.enroll_credential
+    ]
+    kernel, _ = _authorized_kernel(tmp_path / "a-kernel", request)
+    service = ExactGovernedBrowserOriginSessionService(
+        registry=registry,
+        kernel=kernel,
+        keychain=keychain,
+        sessions=GovernedBrowserOriginSessionStore(tmp_path / "a-sessions.sqlite3"),
+    )
+    exact = ExactGovernedBrowserOriginSessionRequest(
+        recipe_ref=recipe.recipe_ref,
+        execution_request=request,
+    )
+    service.execute(exact, credential_material=_opaque_material(105))
+    replay = service.execute(exact, credential_material=_opaque_material(106))
+    context = _origin_replay_validation_context(
+        service=service,
+        request=request,
+        recipe=recipe,
+        replay=replay,
+    )
+
+    if substitution == "cross-operation":
+        _, other_contexts, other_registry = _lifecycle_context(
+            suffix="replay-callback-scope-op"
+        )
+        other_keychain = _FakeKeychain()
+        other_enroll_request, other_enroll_recipe = other_contexts[
+            GovernedBrowserOriginSessionOperation.enroll_credential
+        ]
+        other_prepare_request, other_prepare_recipe = other_contexts[
+            GovernedBrowserOriginSessionOperation.prepare_session
+        ]
+        other_kernel, _ = _authorized_kernel(
+            tmp_path / "op-kernel", other_prepare_request
+        )
+        other_sessions = GovernedBrowserOriginSessionStore(
+            tmp_path / "op-sessions.sqlite3"
+        )
+        other_service = ExactGovernedBrowserOriginSessionService(
+            registry=other_registry,
+            kernel=other_kernel,
+            keychain=other_keychain,
+            sessions=other_sessions,
+        )
+        other_enroll_exact = ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=other_enroll_recipe.recipe_ref,
+            execution_request=other_enroll_request,
+        )
+        other_prepare_exact = ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=other_prepare_recipe.recipe_ref,
+            execution_request=other_prepare_request,
+        )
+        other_service.execute(
+            other_enroll_exact,
+            credential_material=_opaque_material(107),
+        )
+
+        def failing_probe(
+            registration,  # type: ignore[no-untyped-def]
+            *,
+            request_ref: str,
+        ) -> GovernedBrowserKeychainOperationReceipt:
+            other_keychain.calls.append(("probe", request_ref))
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_EXECUTION_FAILED"
+            )
+
+        monkeypatch.setattr(other_keychain, "probe", failing_probe)
+        other_service.execute(other_prepare_exact)
+        other_replay = other_service.execute(other_prepare_exact)
+    else:
+        _, other_contexts, other_registry = _lifecycle_context(
+            suffix="replay-callback-scope-tx"
+        )
+        other_keychain = _FakeKeychain(fail_store=True)
+        other_request, other_recipe = other_contexts[
+            GovernedBrowserOriginSessionOperation.enroll_credential
+        ]
+        other_kernel, _ = _authorized_kernel(
+            tmp_path / "b-kernel", other_request
+        )
+        other_service = ExactGovernedBrowserOriginSessionService(
+            registry=other_registry,
+            kernel=other_kernel,
+            keychain=other_keychain,
+            sessions=GovernedBrowserOriginSessionStore(
+                tmp_path / "b-sessions.sqlite3"
+            ),
+        )
+        other_exact = ExactGovernedBrowserOriginSessionRequest(
+            recipe_ref=other_recipe.recipe_ref,
+            execution_request=other_request,
+        )
+        other_service.execute(other_exact, credential_material=_opaque_material(108))
+        other_replay = other_service.execute(other_exact, credential_material=_opaque_material(109))
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_OPERATION_MISMATCH",
+    ):
+        GovernedBrowserOriginSessionReceipt.model_validate(
+            other_replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
+
+
+
 def test_revoked_session_cannot_be_reopened_or_closed(
     tmp_path: Path,
 ) -> None:
@@ -1633,7 +1829,7 @@ def test_scope_drift_external_target_and_helper_failure_fail_closed(
     assert all(value == 0 for value in replay_material)
 
 
-def test_revoke_state_conflict_after_keychain_delete_is_ambiguous_and_no_retry(
+def test_revoke_state_conflict_before_keychain_delete_is_failed_and_not_retried(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1665,7 +1861,7 @@ def test_revoke_state_conflict_after_keychain_delete_is_ambiguous_and_no_retry(
             "GOVERNED_BROWSER_ORIGIN_SESSION_UPDATE_CONFLICT"
         )
 
-    monkeypatch.setattr(sessions, "mark_revoked", conflict)
+    monkeypatch.setattr(sessions, "_begin_transition", conflict)
     ambiguous, service = _execute(
         tmp_path=tmp_path,
         operation=GovernedBrowserOriginSessionOperation.revoke_credential,
@@ -1684,16 +1880,13 @@ def test_revoke_state_conflict_after_keychain_delete_is_ambiguous_and_no_retry(
         )
     )
 
-    assert ambiguous.receipt.status == "outcome_ambiguous"
-    assert ambiguous.receipt.reason_refs[0] == (
-        "reason-ref:governed-external-action:dispatch-outcome-ambiguous"
-    )
+    assert ambiguous.receipt.status == "failed"
     assert ambiguous.keychain_receipt is None
     assert ambiguous.session is None
     assert replay.receipt.status == "replayed"
     assert replay.receipt.reason_refs == ambiguous.receipt.reason_refs
-    assert sum(operation == "delete" for operation, _ in keychain.calls) == 1
-    assert registration.registration_ref not in keychain.present
+    assert sum(operation == "delete" for operation, _ in keychain.calls) == 0
+    assert registration.registration_ref in keychain.present
     persisted = sessions.inspect(prepared.session.session_ref)
     assert persisted is not None
     assert persisted.state == GovernedBrowserOriginSessionState.prepared_inactive
