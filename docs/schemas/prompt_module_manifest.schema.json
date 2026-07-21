@@ -120,6 +120,80 @@
       },
       "required": [
         "type"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "string"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "allowed_values": {
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "integer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "allowed_values": {
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "boolean"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "allowed_values": {
+                "items": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
       ]
     },
     "module": {
@@ -134,7 +208,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 400,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,399}$"
+          "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,399}$"
         },
         "kind": {
           "enum": [

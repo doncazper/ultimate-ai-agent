@@ -39,11 +39,13 @@ The compiler validates the entire declared graph and fails closed on:
 - non-UTF-8 source material
 - manifest, module, render-expansion, or compiled-output budget exhaustion
 
-Only the transitive dependency closure of the selected entry modules is read
-and compiled. This is the implemented progressive-disclosure foundation:
-unselected modules do not contribute prompt text and do not require their
-variables. Dependencies are emitted before dependents using stable lexical
-tie-breaking, so identical inputs produce identical output and receipts.
+Every declared module source is read through the bounded repository path
+guards so a parked source cannot hide a missing, oversized, symlinked, or
+otherwise unsafe path. Only the transitive dependency closure of the selected
+entry modules is rendered into the compiled artifact. Unselected modules do
+not contribute prompt text and do not require their variables. Dependencies
+are emitted before dependents using stable lexical tie-breaking, so identical
+inputs produce identical output and receipts.
 
 ## Template Grammar
 
@@ -117,7 +119,7 @@ Compile and check the reviewed receipt:
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_prompt_compiler.py compile \
   --manifest docs/prompts/uaa_runtime_capability_foundation/prompt_module_manifest.json \
   --check-receipt docs/prompts/uaa_runtime_capability_foundation/prompt_module_golden_receipt.json \
-  --output /tmp/uaa-prompt-bundle.md
+  --output <output-path>
 ```
 
 The CLI prints only safe metadata and hashes. Compiled prompt text is written

@@ -758,6 +758,47 @@ def test_schema_accepts_dogfooded_foundation_manifest() -> None:
     Draft202012Validator(schema).validate(manifest)
 
 
+@pytest.mark.parametrize(
+    ("variable_type", "default", "allowed_values"),
+    [
+        ("string", 1, ["valid"]),
+        ("integer", "invalid", [1]),
+        ("boolean", 1, [True]),
+        ("string", "valid", [1]),
+        ("integer", 1, ["invalid"]),
+        ("boolean", True, ["invalid"]),
+    ],
+)
+def test_schema_rejects_variable_type_contract_mismatches(
+    variable_type: str,
+    default: str | int | bool,
+    allowed_values: list[str | int | bool],
+) -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
+    manifest["variables"] = {
+        "value": {
+            "type": variable_type,
+            "default": default,
+            "allowed_values": allowed_values,
+        }
+    }
+
+    assert list(Draft202012Validator(schema).iter_errors(manifest))
+
+
+@pytest.mark.parametrize(
+    "source_ref",
+    ("safe/../outside.md", "safe/../../outside.md"),
+)
+def test_schema_rejects_traversing_source_refs(source_ref: str) -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
+    manifest["modules"][0]["source_ref"] = source_ref
+
+    assert list(Draft202012Validator(schema).iter_errors(manifest))
+
+
 def test_cli_compiles_checks_golden_and_never_prints_prompt_text(
     tmp_path: Path,
 ) -> None:
