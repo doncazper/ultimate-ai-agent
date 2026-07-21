@@ -25,6 +25,8 @@ from ultimate_ai_agent.core.prompt_compiler import (  # noqa: E402
     PromptCompilationError,
     PromptCompilationReceipt,
     PromptModuleCompiler,
+)
+from ultimate_ai_agent.core.prompt_compiler.schema_validation import (  # noqa: E402
     prompt_module_manifest_schema_errors,
 )
 

@@ -21,6 +21,8 @@ from ultimate_ai_agent.core.prompt_compiler import (
     PromptStabilityTier,
     PromptVariableDefinition,
     PromptVariableType,
+)
+from ultimate_ai_agent.core.prompt_compiler.schema_validation import (
     prompt_module_manifest_schema_errors,
 )
 
@@ -91,6 +93,35 @@ def _error_code(
     with pytest.raises(PromptCompilationError) as raised:
         compiler.compile(manifest, **kwargs)
     return raised.value.reason_code
+
+
+def test_runtime_compiler_import_does_not_require_dev_jsonschema() -> None:
+    script = f"""
+import builtins
+import sys
+
+sys.path.insert(0, {str(ROOT / 'src')!r})
+real_import = builtins.__import__
+
+def blocked_import(name, *args, **kwargs):
+    if name == 'jsonschema' or name.startswith('jsonschema.'):
+        raise ModuleNotFoundError('jsonschema intentionally unavailable')
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = blocked_import
+from ultimate_ai_agent.core.prompt_compiler import PromptModuleCompiler
+assert PromptModuleCompiler.__name__ == 'PromptModuleCompiler'
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_compilation_is_deterministic_and_dependencies_precede_dependents(
@@ -514,6 +545,49 @@ def test_raw_dot_segment_source_ref_fails_before_path_normalization(
     )
 
 
+def test_duplicate_requested_entry_modules_fail_closed(tmp_path: Path) -> None:
+    _write(tmp_path, "source.md", "source")
+    manifest = _manifest(
+        [_module("source", "source.md")],
+        entries=["source"],
+    )
+
+    assert (
+        _error_code(
+            PromptModuleCompiler(tmp_path),
+            manifest,
+            entry_module_ids=["source", "source"],
+        )
+        == "PROMPT_ENTRY_MODULE_DUPLICATE"
+    )
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        (b"\xff", "PROMPT_MODULE_ENCODING_INVALID"),
+        (b"unsafe\x00content", "PROMPT_MODULE_CONTENT_INVALID"),
+        (b"{% unsupported %}", "PROMPT_TEMPLATE_CONTROL_INVALID"),
+    ],
+)
+def test_unselected_module_content_is_validated_before_entry_closure(
+    tmp_path: Path,
+    payload: bytes,
+    expected_code: str,
+) -> None:
+    _write(tmp_path, "selected.md", "selected")
+    (tmp_path / "parked.md").write_bytes(payload)
+    manifest = _manifest(
+        [
+            _module("selected", "selected.md"),
+            _module("parked", "parked.md"),
+        ],
+        entries=["selected"],
+    )
+
+    assert _error_code(PromptModuleCompiler(tmp_path), manifest) == expected_code
+
+
 def test_render_expansion_is_bounded_before_artifact_assembly(tmp_path: Path) -> None:
     _write(tmp_path, "template.md", "{{ value }}" * 128)
     manifest = _manifest(
@@ -836,9 +910,14 @@ def test_schema_rejects_variable_type_contract_mismatches(
 
 @pytest.mark.parametrize(
     "source_ref",
-    ("safe/../outside.md", "safe/../../outside.md"),
+    (
+        "safe/../outside.md",
+        "safe/../../outside.md",
+        "safe//module.md",
+        "safe/module.md/",
+    ),
 )
-def test_schema_rejects_traversing_source_refs(source_ref: str) -> None:
+def test_schema_rejects_unsafe_source_refs(source_ref: str) -> None:
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
     manifest["modules"][0]["source_ref"] = source_ref

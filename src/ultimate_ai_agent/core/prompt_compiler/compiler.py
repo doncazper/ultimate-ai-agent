@@ -171,18 +171,7 @@ class PromptModuleCompiler:
         for module_id in ordered_ids:
             module = module_by_id[module_id]
             source_bytes = self._read_source(module, manifest.max_module_bytes)
-            try:
-                source_text = source_bytes.decode("utf-8")
-            except UnicodeDecodeError as exc:
-                raise PromptCompilationError(
-                    "PROMPT_MODULE_ENCODING_INVALID",
-                    "A prompt module is not valid UTF-8.",
-                ) from exc
-            if "\x00" in source_text:
-                raise PromptCompilationError(
-                    "PROMPT_MODULE_CONTENT_INVALID",
-                    "A prompt module contains an unsupported control character.",
-                )
+            source_text = self._decode_source(source_bytes)
             begin_marker = f"<!-- BEGIN {module_id} {module.source_ref} -->\n"
             append_chunk(begin_marker)
             rendered = self._render(
@@ -270,13 +259,15 @@ class PromptModuleCompiler:
                     "PROMPT_SOURCE_PATH_UNSAFE",
                     "Prompt source must be a repository-relative file.",
                 )
-            self._read_repository_file(
+            source_bytes = self._read_repository_file(
                 source_ref,
                 max_bytes=manifest.max_module_bytes,
                 unsafe_code="PROMPT_SOURCE_PATH_UNSAFE",
                 unavailable_code="PROMPT_SOURCE_UNAVAILABLE",
                 budget_code="PROMPT_MODULE_BUDGET_EXCEEDED",
             )
+            source_text = self._decode_source(source_bytes)
+            self._validate_template_contract(source_text, manifest.variables)
             if any(
                 dependency not in module_by_id for dependency in module.dependencies
             ):
@@ -328,9 +319,15 @@ class PromptModuleCompiler:
         requested: Iterable[str] | None,
         module_by_id: dict[str, PromptModuleDefinition],
     ) -> list[str]:
-        entries = sorted(
-            set(requested if requested is not None else manifest.entry_module_ids)
+        requested_entries = list(
+            requested if requested is not None else manifest.entry_module_ids
         )
+        if len(requested_entries) != len(set(requested_entries)):
+            raise PromptCompilationError(
+                "PROMPT_ENTRY_MODULE_DUPLICATE",
+                "Prompt compilation entry modules must be unique.",
+            )
+        entries = sorted(requested_entries)
         if not entries:
             raise PromptCompilationError(
                 "PROMPT_ENTRY_MODULE_EMPTY",
@@ -406,6 +403,65 @@ class PromptModuleCompiler:
             unavailable_code="PROMPT_SOURCE_UNAVAILABLE",
             budget_code="PROMPT_MODULE_BUDGET_EXCEEDED",
         )
+
+    @staticmethod
+    def _decode_source(source_bytes: bytes) -> str:
+        try:
+            source_text = source_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise PromptCompilationError(
+                "PROMPT_MODULE_ENCODING_INVALID",
+                "A prompt module is not valid UTF-8.",
+            ) from exc
+        if "\x00" in source_text:
+            raise PromptCompilationError(
+                "PROMPT_MODULE_CONTENT_INVALID",
+                "A prompt module contains an unsupported control character.",
+            )
+        return source_text
+
+    @staticmethod
+    def _validate_template_contract(
+        source: str,
+        definitions: dict[str, PromptVariableDefinition],
+    ) -> None:
+        variable_refs = set(_VARIABLE_PATTERN.findall(source))
+        conditional_matches = list(_CONDITIONAL_PATTERN.finditer(source))
+        conditional_refs = {match.group(1) for match in conditional_matches}
+        if any(name not in definitions for name in variable_refs | conditional_refs):
+            raise PromptCompilationError(
+                "PROMPT_TEMPLATE_VARIABLE_UNDECLARED",
+                "Prompt template references an undeclared variable.",
+            )
+        for match in conditional_matches:
+            if definitions[match.group(1)].type is not PromptVariableType.boolean:
+                raise PromptCompilationError(
+                    "PROMPT_CONDITION_TYPE_INVALID",
+                    "Prompt condition must reference a boolean variable.",
+                )
+            if _CONTROL_TOKEN_PATTERN.search(match.group(2)) or (
+                match.group(3) and _CONTROL_TOKEN_PATTERN.search(match.group(3))
+            ):
+                raise PromptCompilationError(
+                    "PROMPT_TEMPLATE_NESTING_UNSUPPORTED",
+                    "Nested prompt template conditions are not supported.",
+                )
+        branch_content = _CONDITIONAL_PATTERN.sub(
+            lambda match: match.group(2) + (match.group(3) or ""),
+            source,
+        )
+        if _CONTROL_TOKEN_PATTERN.search(branch_content):
+            raise PromptCompilationError(
+                "PROMPT_TEMPLATE_CONTROL_INVALID",
+                "Prompt template contains an invalid control token.",
+            )
+        if _VARIABLE_TOKEN_PATTERN.search(
+            _VARIABLE_PATTERN.sub("", branch_content)
+        ):
+            raise PromptCompilationError(
+                "PROMPT_TEMPLATE_VARIABLE_INVALID",
+                "Prompt template contains an invalid variable token.",
+            )
 
     def _read_repository_file(
         self,
@@ -660,6 +716,7 @@ class PromptModuleCompiler:
         *,
         max_bytes: int,
     ) -> str:
+        PromptModuleCompiler._validate_template_contract(source, definitions)
         variable_refs = set(_VARIABLE_PATTERN.findall(source))
         conditional_refs = {
             match.group(1) for match in _CONDITIONAL_PATTERN.finditer(source)

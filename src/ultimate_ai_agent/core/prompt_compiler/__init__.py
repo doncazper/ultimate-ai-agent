@@ -16,11 +16,6 @@ from ultimate_ai_agent.core.prompt_compiler.contracts import (
     PromptVariableDefinition,
     PromptVariableType,
 )
-from ultimate_ai_agent.core.prompt_compiler.schema_validation import (
-    PromptModuleManifestSchemaValidator,
-    prompt_module_manifest_schema_errors,
-)
-
 __all__ = [
     "PromptCompilationArtifact",
     "PromptCompilationError",
@@ -30,10 +25,8 @@ __all__ = [
     "PromptModuleDefinition",
     "PromptModuleKind",
     "PromptModuleManifest",
-    "PromptModuleManifestSchemaValidator",
     "PromptModuleSourceReceipt",
     "PromptStabilityTier",
     "PromptVariableDefinition",
     "PromptVariableType",
-    "prompt_module_manifest_schema_errors",
 ]
