@@ -428,6 +428,29 @@ def test_source_path_and_size_budgets_fail_closed(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "unsafe_ref",
+    ("safe/../../outside.md", "safe/../outside.md"),
+)
+def test_unselected_unsafe_source_ref_fails_closed(
+    tmp_path: Path,
+    unsafe_ref: str,
+) -> None:
+    _write(tmp_path, "selected.md", "selected")
+    manifest = _manifest(
+        [
+            _module("selected", "selected.md"),
+            _module("unsafe", unsafe_ref),
+        ],
+        entries=["selected"],
+    )
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_PATH_UNSAFE"
+    )
+
+
 def test_render_expansion_is_bounded_before_artifact_assembly(tmp_path: Path) -> None:
     _write(tmp_path, "template.md", "{{ value }}" * 128)
     manifest = _manifest(

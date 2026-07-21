@@ -256,6 +256,14 @@ class PromptModuleCompiler:
         module_by_id = {module.module_id: module for module in manifest.modules}
         known_variables = set(manifest.variables)
         for module in manifest.modules:
+            source_ref = Path(module.source_ref)
+            if not source_ref.parts or source_ref.is_absolute() or any(
+                part in {"", ".", ".."} for part in source_ref.parts
+            ):
+                raise PromptCompilationError(
+                    "PROMPT_SOURCE_PATH_UNSAFE",
+                    "Prompt source must be a repository-relative file.",
+                )
             if any(
                 dependency not in module_by_id for dependency in module.dependencies
             ):

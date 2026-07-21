@@ -278,6 +278,28 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
     )
 
     assert "Dry run complete" in result.stdout
+
+
+def test_wrapper_without_codex_emits_manual_review_artifact(tmp_path: Path) -> None:
+    output = tmp_path / "combined.md"
+
+    result = subprocess.run(
+        ["bash", str(WRAPPER), "--output", str(output)],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PYTHON": sys.executable,
+            "CODEX_BIN": str(tmp_path / "missing-codex"),
+        },
+    )
+
+    assert result.returncode == 127
+    assert output.read_text(encoding="utf-8").startswith(
+        "# Compiled UAA Prompt Module Bundle"
+    )
+    assert "validated combined prompt is available" in result.stderr
     text = output.read_text(encoding="utf-8")
     assert "Compiled UAA Prompt Module Bundle" in text
     assert "00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md" in text

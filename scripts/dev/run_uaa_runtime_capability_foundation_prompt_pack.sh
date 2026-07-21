@@ -93,6 +93,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 fi
 
 if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
   echo "Codex CLI not found. Install Codex or set CODEX_BIN=/path/to/codex." >&2
   echo "The validated combined prompt is available at the configured output path." >&2
   exit 127
