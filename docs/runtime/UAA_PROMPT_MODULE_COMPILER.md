@@ -39,6 +39,11 @@ The compiler validates the entire declared graph and fails closed on:
 - non-UTF-8 source material
 - manifest, module, render-expansion, or compiled-output budget exhaustion
 
+Repository schema gates use `PromptModuleManifestSchemaValidator`. It applies
+Draft 2020-12 plus the declared `x-uaa-uniqueBy` rule for module ids; generic
+JSON Schema validators cover the portable constraints but cannot express
+property-level array uniqueness by themselves.
+
 Every declared module source is read through the bounded repository path
 guards so a parked source cannot hide a missing, oversized, symlinked, or
 otherwise unsafe path. Only the transitive dependency closure of the selected

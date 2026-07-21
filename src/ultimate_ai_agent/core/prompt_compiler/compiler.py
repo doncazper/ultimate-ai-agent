@@ -256,6 +256,12 @@ class PromptModuleCompiler:
         module_by_id = {module.module_id: module for module in manifest.modules}
         known_variables = set(manifest.variables)
         for module in manifest.modules:
+            raw_source_parts = module.source_ref.split("/")
+            if any(part in {"", ".", ".."} for part in raw_source_parts):
+                raise PromptCompilationError(
+                    "PROMPT_SOURCE_PATH_UNSAFE",
+                    "Prompt source must be a repository-relative file.",
+                )
             source_ref = Path(module.source_ref)
             if not source_ref.parts or source_ref.is_absolute() or any(
                 part in {"", ".", ".."} for part in source_ref.parts
@@ -531,12 +537,14 @@ class PromptModuleCompiler:
                 (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
                 or after.st_size != before.st_size
                 or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
                 or len(payload) != after.st_size
                 or not stat.S_ISREG(path_after.st_mode)
                 or (path_after.st_dev, path_after.st_ino)
                 != (before.st_dev, before.st_ino)
                 or path_after.st_size != before.st_size
                 or path_after.st_mtime_ns != before.st_mtime_ns
+                or path_after.st_ctime_ns != before.st_ctime_ns
                 or not stat.S_ISDIR(root_after.st_mode)
                 or (root_after.st_dev, root_after.st_ino) != self._root_identity
             ):

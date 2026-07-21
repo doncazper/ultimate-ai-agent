@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.prompt_compiler import (
     PromptStabilityTier,
     PromptVariableDefinition,
     PromptVariableType,
+    prompt_module_manifest_schema_errors,
 )
 
 
@@ -498,6 +499,21 @@ def test_unselected_unsafe_source_ref_fails_closed(
     )
 
 
+def test_raw_dot_segment_source_ref_fails_before_path_normalization(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "safe/module.md", "content")
+    manifest = _manifest(
+        [_module("module", "safe/./module.md")],
+        entries=["module"],
+    )
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_PATH_UNSAFE"
+    )
+
+
 def test_render_expansion_is_bounded_before_artifact_assembly(tmp_path: Path) -> None:
     _write(tmp_path, "template.md", "{{ value }}" * 128)
     manifest = _manifest(
@@ -717,6 +733,37 @@ def test_source_parent_substitution_during_read_fails_closed(
     )
 
 
+def test_source_in_place_edit_with_restored_mtime_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.md"
+    source.write_text("original", encoding="utf-8")
+    original_stat = source.stat()
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+    original_read = compiler_module.os.read
+    changed = False
+
+    def changing_read(descriptor: int, byte_count: int) -> bytes:
+        nonlocal changed
+        chunk = original_read(descriptor, byte_count)
+        if chunk and not changed:
+            source.write_text("changed!", encoding="utf-8")
+            compiler_module.os.utime(
+                source,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+            )
+            changed = True
+        return chunk
+
+    monkeypatch.setattr(compiler_module.os, "read", changing_read)
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_UNAVAILABLE"
+    )
+
+
 def test_nul_content_cannot_enter_shell_safe_compilation(tmp_path: Path) -> None:
     _write(tmp_path, "source.md", "unsafe\x00content")
     manifest = _manifest([_module("source", "source.md")], entries=["source"])
@@ -797,6 +844,29 @@ def test_schema_rejects_traversing_source_refs(source_ref: str) -> None:
     manifest["modules"][0]["source_ref"] = source_ref
 
     assert list(Draft202012Validator(schema).iter_errors(manifest))
+
+
+def test_schema_contract_rejects_duplicate_allowed_values() -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
+    manifest["variables"] = {
+        "value": {
+            "type": "string",
+            "allowed_values": ["duplicate", "duplicate"],
+        }
+    }
+
+    assert prompt_module_manifest_schema_errors(schema, manifest)
+
+
+def test_schema_contract_rejects_duplicate_module_ids() -> None:
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    manifest = json.loads(FOUNDATION_MANIFEST.read_text(encoding="utf-8"))
+    duplicate = dict(manifest["modules"][0])
+    duplicate["source_ref"] = manifest["modules"][1]["source_ref"]
+    manifest["modules"].append(duplicate)
+
+    assert prompt_module_manifest_schema_errors(schema, manifest)
 
 
 def test_cli_compiles_checks_golden_and_never_prints_prompt_text(

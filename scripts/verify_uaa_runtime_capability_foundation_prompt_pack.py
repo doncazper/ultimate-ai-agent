@@ -25,12 +25,14 @@ from ultimate_ai_agent.core.prompt_compiler import (  # noqa: E402
     PromptCompilationError,
     PromptCompilationReceipt,
     PromptModuleCompiler,
+    prompt_module_manifest_schema_errors,
 )
 
 
 PACK_DIR = ROOT / "docs" / "prompts" / "uaa_runtime_capability_foundation"
 MANIFEST_PATH = PACK_DIR / "prompt_bundle_manifest.json"
 MODULE_MANIFEST_PATH = PACK_DIR / "prompt_module_manifest.json"
+MODULE_MANIFEST_SCHEMA_PATH = ROOT / "docs" / "schemas" / "prompt_module_manifest.schema.json"
 MODULE_GOLDEN_RECEIPT_PATH = PACK_DIR / "prompt_module_golden_receipt.json"
 README_PATH = PACK_DIR / "README.md"
 README_REF = "docs/prompts/uaa_runtime_capability_foundation/README.md"
@@ -304,6 +306,12 @@ def _verify_module_compilation(
     expected_prompt_refs: list[str] | None = None,
 ) -> PromptCompilationArtifact:
     try:
+        schema = json.loads(MODULE_MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        manifest_payload = json.loads(
+            MODULE_MANIFEST_PATH.read_text(encoding="utf-8")
+        )
+        if prompt_module_manifest_schema_errors(schema, manifest_payload):
+            raise ValueError("prompt module manifest schema validation failed")
         compiler = PromptModuleCompiler(ROOT)
         artifact = compiler.compile_file(MODULE_MANIFEST_PATH)
         expected = PromptCompilationReceipt.model_validate_json(
