@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
@@ -40,6 +39,7 @@ from ultimate_ai_agent.core.governed_browser.contracts import (
     governed_receipt_identity_payload,
 )
 from ultimate_ai_agent.core.governed_browser import artifact_transfers as artifact_module
+from ultimate_ai_agent.core.governed_browser import transaction as transaction_module
 from ultimate_ai_agent.core.governed_browser.operation_proofs import (
     _terminal_binding_filename,
 )
@@ -979,8 +979,34 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
     original_quarantine = store.quarantine
     entered = Event()
     proceed = Event()
+    timeout_observed = Event()
+    event_count = 0
     dispatched_buffers: list[bytearray] = []
     dispatched_snapshots: list[bytes] = []
+
+    class TimeoutObservedEvent:
+        def __init__(self) -> None:
+            self._event = Event()
+
+        def set(self) -> None:
+            self._event.set()
+
+        def is_set(self) -> bool:
+            return self._event.is_set()
+
+        def wait(self, timeout=None):  # type: ignore[no-untyped-def]
+            if timeout is not None:
+                assert entered.wait(timeout=2)
+                timeout_observed.set()
+                return False
+            return self._event.wait()
+
+    def event_factory():  # type: ignore[no-untyped-def]
+        nonlocal event_count
+        event_count += 1
+        if event_count == 2:
+            return TimeoutObservedEvent()
+        return Event()
 
     def delayed_quarantine(
         _store: GovernedArtifactQuarantineStore,
@@ -999,6 +1025,7 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
         "quarantine",
         delayed_quarantine,
     )
+    monkeypatch.setattr(transaction_module, "Event", event_factory)
     payload = bytearray(b"bounded timeout artifact")
     expected_payload = bytes(payload)
 
@@ -1009,7 +1036,7 @@ def test_timed_out_quarantine_dispatch_owns_an_independent_mutable_buffer(
             injected_download_payload=payload,
         )
         assert entered.wait(timeout=2)
-        time.sleep(0.03)
+        assert timeout_observed.wait(timeout=2)
         assert future.done() is False
         proceed.set()
         result = future.result(timeout=2)
