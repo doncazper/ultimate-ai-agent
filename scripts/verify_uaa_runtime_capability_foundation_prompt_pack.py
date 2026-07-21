@@ -596,9 +596,7 @@ def main(argv: list[str] | None = None) -> int:
                             "compiled_artifact_hash"
                         ],
                         "golden_receipt_verified": True,
-                        "combined_output": str(args.emit_combined)
-                        if args.emit_combined
-                        else None,
+                        "combined_output_written": args.emit_combined is not None,
                     },
                     indent=2,
                     sort_keys=True,
@@ -610,7 +608,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"{len(refs)} prompts, {manifest['computed_bundle_hash']}"
             )
             if args.emit_combined:
-                print(f"Combined prompt written: {args.emit_combined}")
+                print("Combined prompt written.")
         return 0
     except VerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

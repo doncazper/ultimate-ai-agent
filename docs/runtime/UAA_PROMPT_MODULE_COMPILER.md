@@ -25,7 +25,7 @@ execution authority.
 - dependency edges
 - strict string, integer, and boolean variables
 - bounded string variable lengths and reserved control-token rejection
-- module and compiled-output byte budgets
+- bounded descriptor-anchored manifest/module reads and compiled-output byte budgets
 
 The compiler validates the entire declared graph and fails closed on:
 
@@ -34,9 +34,10 @@ The compiler validates the entire declared graph and fails closed on:
 - duplicate ids, entries, dependencies, or required variables
 - undeclared, missing, mistyped, or disallowed variables
 - invalid or nested template control syntax
-- absolute, traversing, missing, out-of-repository, or symlink source paths
+- absolute, traversing, missing, out-of-repository, symlink, non-regular, or
+  path-substituted manifest/source paths
 - non-UTF-8 source material
-- module or compiled-output budget exhaustion
+- manifest, module, render-expansion, or compiled-output budget exhaustion
 
 Only the transitive dependency closure of the selected entry modules is read
 and compiled. This is the implemented progressive-disclosure foundation:

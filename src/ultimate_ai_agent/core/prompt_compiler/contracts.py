@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Any, Literal
 
@@ -35,7 +36,11 @@ class PromptVariableType(str, Enum):
 
 class _PromptCompilerModel(BaseModel):
     model_config = ConfigDict(
-        extra="forbid", use_enum_values=False, populate_by_name=True
+        extra="forbid",
+        use_enum_values=False,
+        populate_by_name=True,
+        frozen=True,
+        hide_input_in_errors=True,
     )
 
 
@@ -60,6 +65,13 @@ class PromptVariableDefinition(_PromptCompilerModel):
                 raise ValueError(
                     "allowed variable value does not match its declared type"
                 )
+            if isinstance(value, str) and len(value) > self.max_length:
+                raise ValueError("allowed string variable value exceeds max_length")
+        if isinstance(self.default, str) and len(self.default) > self.max_length:
+            raise ValueError("string variable default exceeds max_length")
+        typed_values = [(type(value), value) for value in self.allowed_values]
+        if len(typed_values) != len(set(typed_values)):
+            raise ValueError("duplicate allowed variable values are not allowed")
         if (
             self.default is not None
             and self.allowed_values
@@ -92,6 +104,15 @@ class PromptModuleDefinition(_PromptCompilerModel):
 
     @model_validator(mode="after")
     def reject_self_dependency(self) -> "PromptModuleDefinition":
+        module_pattern = re.compile(r"^[a-z][a-z0-9._-]{0,79}$")
+        variable_pattern = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+        if any(module_pattern.fullmatch(value) is None for value in self.dependencies):
+            raise ValueError("dependency ids must use valid prompt module ids")
+        if any(
+            variable_pattern.fullmatch(value) is None
+            for value in self.required_variables
+        ):
+            raise ValueError("required variable ids must use lower snake case")
         if self.module_id in self.dependencies:
             raise ValueError("a prompt module cannot depend on itself")
         return self
@@ -107,7 +128,10 @@ class PromptModuleManifest(_PromptCompilerModel):
     bundle_id: str = Field(pattern=r"^[a-z][a-z0-9._-]{0,119}$")
     version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
     entry_module_ids: list[str] = Field(min_length=1, max_length=128)
-    variables: dict[str, PromptVariableDefinition] = Field(default_factory=dict)
+    variables: dict[str, PromptVariableDefinition] = Field(
+        default_factory=dict,
+        max_length=128,
+    )
     modules: list[PromptModuleDefinition] = Field(min_length=1, max_length=128)
     max_module_bytes: int = Field(default=262_144, ge=1, le=2_097_152)
     max_compiled_bytes: int = Field(default=2_097_152, ge=1, le=8_388_608)
@@ -118,6 +142,9 @@ class PromptModuleManifest(_PromptCompilerModel):
     def reject_duplicate_entries(cls, values: list[str]) -> list[str]:
         if len(values) != len(set(values)):
             raise ValueError("duplicate entry modules are not allowed")
+        pattern = re.compile(r"^[a-z][a-z0-9._-]{0,79}$")
+        if any(pattern.fullmatch(value) is None for value in values):
+            raise ValueError("entry module ids must use valid prompt module ids")
         return values
 
     @field_validator("variables")
@@ -126,8 +153,6 @@ class PromptModuleManifest(_PromptCompilerModel):
         cls,
         values: dict[str, PromptVariableDefinition],
     ) -> dict[str, PromptVariableDefinition]:
-        import re
-
         pattern = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
         if any(pattern.fullmatch(name) is None for name in values):
             raise ValueError("variable names must use lower snake case")
@@ -179,7 +204,7 @@ class PromptCompilationReceipt(_PromptCompilerModel):
 class PromptCompilationArtifact(_PromptCompilerModel):
     """Transient compiled content plus its safe durable receipt."""
 
-    content: str
+    content: str = Field(repr=False)
     receipt: PromptCompilationReceipt
 
 

@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator
+from pydantic import ValidationError
 
 from ultimate_ai_agent.core.prompt_compiler import (
     PromptCompilationError,
@@ -358,6 +359,25 @@ def test_string_variable_budget_and_control_tokens_fail_closed(
     )
 
 
+def test_variable_defaults_and_allowed_values_obey_declared_budget() -> None:
+    with pytest.raises(ValueError, match="default exceeds max_length"):
+        PromptVariableDefinition(
+            type=PromptVariableType.string,
+            default="too-long",
+            max_length=4,
+        )
+    with pytest.raises(ValueError, match="allowed string variable value"):
+        PromptVariableDefinition(
+            type=PromptVariableType.string,
+            allowed_values=["too-long"],
+            max_length=4,
+        )
+    with pytest.raises(ValueError, match="duplicate allowed"):
+        PromptVariableDefinition(
+            type=PromptVariableType.integer,
+            allowed_values=[1, 1],
+        )
+
 def test_undeclared_template_variable_and_non_boolean_condition_are_rejected(
     tmp_path: Path,
 ) -> None:
@@ -407,6 +427,30 @@ def test_source_path_and_size_budgets_fail_closed(tmp_path: Path) -> None:
     )
 
 
+def test_render_expansion_is_bounded_before_artifact_assembly(tmp_path: Path) -> None:
+    _write(tmp_path, "template.md", "{{ value }}" * 128)
+    manifest = _manifest(
+        [_module("template", "template.md", required_variables=["value"])],
+        entries=["template"],
+        variables={
+            "value": PromptVariableDefinition(
+                type=PromptVariableType.string,
+                max_length=1024,
+            )
+        },
+        max_compiled_bytes=512,
+    )
+
+    assert (
+        _error_code(
+            PromptModuleCompiler(tmp_path),
+            manifest,
+            variables={"value": "x" * 1024},
+        )
+        == "PROMPT_COMPILED_BUDGET_EXCEEDED"
+    )
+
+
 def test_manifest_policy_changes_are_visible_in_receipt_hash(tmp_path: Path) -> None:
     _write(tmp_path, "source.md", "same source")
     compiler = PromptModuleCompiler(tmp_path)
@@ -444,6 +488,26 @@ def test_symlink_source_is_rejected(tmp_path: Path) -> None:
     )
 
 
+def test_symlink_source_parent_is_rejected(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "source.md").write_text("target", encoding="utf-8")
+    link = tmp_path / "linked-parent"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    manifest = _manifest(
+        [_module("linked", "linked-parent/source.md")],
+        entries=["linked"],
+    )
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_SOURCE_PATH_UNSAFE"
+    )
+
+
 def test_symlink_manifest_is_rejected(tmp_path: Path) -> None:
     _write(tmp_path, "source.md", "source")
     manifest = _manifest([_module("source", "source.md")], entries=["source"])
@@ -462,6 +526,39 @@ def test_symlink_manifest_is_rejected(tmp_path: Path) -> None:
         PromptModuleCompiler(tmp_path).load_manifest(link)
 
     assert raised.value.reason_code == "PROMPT_MANIFEST_PATH_UNSAFE"
+
+
+def test_manifest_read_is_bounded_and_repository_anchored(tmp_path: Path) -> None:
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(b"{" + b" " * 1_048_576 + b"}")
+    compiler = PromptModuleCompiler(tmp_path)
+
+    with pytest.raises(PromptCompilationError) as oversized_error:
+        compiler.load_manifest(oversized)
+    assert oversized_error.value.reason_code == "PROMPT_MANIFEST_BUDGET_EXCEEDED"
+
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-manifest.json"
+    outside.write_text("{}", encoding="utf-8")
+    try:
+        with pytest.raises(PromptCompilationError) as outside_error:
+            compiler.load_manifest(outside)
+        assert outside_error.value.reason_code == "PROMPT_MANIFEST_PATH_UNSAFE"
+    finally:
+        outside.unlink()
+
+
+def test_prompt_artifact_repr_redacts_content_and_contracts_are_frozen(
+    tmp_path: Path,
+) -> None:
+    secret = "raw-prompt-must-not-appear-in-repr"
+    _write(tmp_path, "source.md", secret)
+    manifest = _manifest([_module("source", "source.md")], entries=["source"])
+
+    artifact = PromptModuleCompiler(tmp_path).compile(manifest)
+
+    assert secret not in repr(artifact)
+    with pytest.raises(ValidationError, match="frozen"):
+        artifact.receipt.runtime_model_calls = True  # type: ignore[misc]
 
 
 def test_schema_accepts_dogfooded_foundation_manifest() -> None:

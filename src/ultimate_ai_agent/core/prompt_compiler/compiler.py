@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -24,6 +26,8 @@ from ultimate_ai_agent.core.prompt_compiler.contracts import (
 )
 
 HASH_PREFIX = "sha256:"
+MAX_MANIFEST_BYTES = 1_048_576
+_READ_CHUNK_BYTES = 65_536
 _VARIABLE_PATTERN = re.compile(r"{{\s*([a-z][a-z0-9_]{0,79})\s*}}")
 _VARIABLE_TOKEN_PATTERN = re.compile(r"{{|}}")
 _CONDITIONAL_PATTERN = re.compile(
@@ -49,20 +53,33 @@ class PromptModuleCompiler:
     """Compile a strict prompt-module graph without executing tools or models."""
 
     def __init__(self, repository_root: Path) -> None:
-        self._root = repository_root.resolve()
-        if not self._root.is_dir():
+        try:
+            self._root = repository_root.resolve(strict=True)
+            root_info = os.stat(self._root, follow_symlinks=False)
+        except OSError as exc:
+            raise PromptCompilationError(
+                "PROMPT_COMPILER_ROOT_INVALID",
+                "Prompt compiler repository root is unavailable.",
+            ) from exc
+        if not stat.S_ISDIR(root_info.st_mode):
             raise PromptCompilationError(
                 "PROMPT_COMPILER_ROOT_INVALID",
                 "Prompt compiler repository root is unavailable.",
             )
+        self._root_identity = (root_info.st_dev, root_info.st_ino)
 
     def load_manifest(self, manifest_path: Path) -> PromptModuleManifest:
-        path = self._resolve_manifest_path(manifest_path)
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            encoded = self._read_repository_file(
+                manifest_path,
+                max_bytes=MAX_MANIFEST_BYTES,
+                unsafe_code="PROMPT_MANIFEST_PATH_UNSAFE",
+                unavailable_code="PROMPT_MANIFEST_UNAVAILABLE",
+                budget_code="PROMPT_MANIFEST_BUDGET_EXCEEDED",
+            )
+            payload = json.loads(encoded.decode("utf-8"))
             return PromptModuleManifest.model_validate(payload)
         except (
-            OSError,
             UnicodeDecodeError,
             json.JSONDecodeError,
             ValidationError,
@@ -129,12 +146,28 @@ class PromptModuleCompiler:
         )
 
         source_receipts: list[PromptModuleSourceReceipt] = []
-        compiled_chunks = [
+        compiled_chunks: list[str] = []
+        compiled_size = 0
+
+        def append_chunk(chunk: str) -> None:
+            nonlocal compiled_size
+            encoded_size = len(chunk.encode("utf-8"))
+            # The final formatting step removes at most one trailing newline.
+            if compiled_size + encoded_size > manifest.max_compiled_bytes + 1:
+                raise PromptCompilationError(
+                    "PROMPT_COMPILED_BUDGET_EXCEEDED",
+                    "Compiled prompt exceeds its configured byte budget.",
+                )
+            compiled_chunks.append(chunk)
+            compiled_size += encoded_size
+
+        for header_chunk in (
             "# Compiled UAA Prompt Module Bundle\n\n",
             f"Bundle id: `{manifest.bundle_id}`\n",
             f"Bundle version: `{manifest.version}`\n\n",
             "Generated deterministically from repository-owned modules.\n\n",
-        ]
+        ):
+            append_chunk(header_chunk)
         for module_id in ordered_ids:
             module = module_by_id[module_id]
             source_bytes = self._read_source(module, manifest.max_module_bytes)
@@ -145,7 +178,14 @@ class PromptModuleCompiler:
                     "PROMPT_MODULE_ENCODING_INVALID",
                     "A prompt module is not valid UTF-8.",
                 ) from exc
-            rendered = self._render(source_text, manifest.variables, bindings)
+            begin_marker = f"<!-- BEGIN {module_id} {module.source_ref} -->\n"
+            append_chunk(begin_marker)
+            rendered = self._render(
+                source_text,
+                manifest.variables,
+                bindings,
+                max_bytes=manifest.max_compiled_bytes + 1 - compiled_size,
+            )
             source_receipts.append(
                 PromptModuleSourceReceipt(
                     module_id=module_id,
@@ -154,11 +194,10 @@ class PromptModuleCompiler:
                     source_bytes=len(source_bytes),
                 )
             )
-            compiled_chunks.append(f"<!-- BEGIN {module_id} {module.source_ref} -->\n")
-            compiled_chunks.append(rendered)
+            append_chunk(rendered)
             if not rendered.endswith("\n"):
-                compiled_chunks.append("\n")
-            compiled_chunks.append(f"<!-- END {module_id} -->\n\n")
+                append_chunk("\n")
+            append_chunk(f"<!-- END {module_id} -->\n\n")
 
         content = "".join(compiled_chunks).removesuffix("\n")
         compiled_bytes = content.encode("utf-8")
@@ -204,25 +243,6 @@ class PromptModuleCompiler:
             variables=variables,
             entry_module_ids=entry_module_ids,
         )
-
-    def _resolve_manifest_path(self, manifest_path: Path) -> Path:
-        candidate = manifest_path
-        if not candidate.is_absolute():
-            candidate = self._root / candidate
-        try:
-            resolved = candidate.resolve(strict=True)
-            resolved.relative_to(self._root)
-        except (OSError, ValueError) as exc:
-            raise PromptCompilationError(
-                "PROMPT_MANIFEST_PATH_UNSAFE",
-                "Prompt manifest must be a repository-contained file.",
-            ) from exc
-        if not resolved.is_file() or self._contains_symlink(candidate):
-            raise PromptCompilationError(
-                "PROMPT_MANIFEST_PATH_UNSAFE",
-                "Prompt manifest must be a non-symlink repository-contained file.",
-            )
-        return resolved
 
     def _validated_graph(
         self,
@@ -353,53 +373,120 @@ class PromptModuleCompiler:
                 "PROMPT_SOURCE_PATH_UNSAFE",
                 "Prompt source must be a repository-relative file.",
             )
-        candidate = self._root / ref
+        return self._read_repository_file(
+            ref,
+            max_bytes=max_bytes,
+            unsafe_code="PROMPT_SOURCE_PATH_UNSAFE",
+            unavailable_code="PROMPT_SOURCE_UNAVAILABLE",
+            budget_code="PROMPT_MODULE_BUDGET_EXCEEDED",
+        )
+
+    def _read_repository_file(
+        self,
+        path: Path,
+        *,
+        max_bytes: int,
+        unsafe_code: str,
+        unavailable_code: str,
+        budget_code: str,
+    ) -> bytes:
         try:
-            resolved = candidate.resolve(strict=True)
-            resolved.relative_to(self._root)
-        except (OSError, ValueError) as exc:
+            relative = path.relative_to(self._root) if path.is_absolute() else path
+        except ValueError as exc:
             raise PromptCompilationError(
-                "PROMPT_SOURCE_PATH_UNSAFE",
-                "Prompt source must be a repository-contained file.",
+                unsafe_code,
+                "Prompt input must be a repository-contained file.",
             ) from exc
-        if not resolved.is_file() or self._contains_symlink(candidate):
+        parts = relative.parts
+        if not parts or any(part in {"", ".", ".."} for part in parts):
             raise PromptCompilationError(
-                "PROMPT_SOURCE_PATH_UNSAFE",
-                "Prompt source must be a non-symlink repository file.",
+                unsafe_code,
+                "Prompt input must be a non-symlink repository-contained file.",
             )
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise PromptCompilationError(
+                "PROMPT_PATH_GUARD_UNAVAILABLE",
+                "Prompt path safety guards are unavailable on this platform.",
+            )
+
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        directory_flags |= getattr(os, "O_CLOEXEC", 0)
+        file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        file_flags |= getattr(os, "O_NONBLOCK", 0)
+        directory_fd = -1
+        file_fd = -1
         try:
-            size = resolved.stat().st_size
-            if size > max_bytes:
+            directory_fd = os.open(self._root, directory_flags)
+            root_info = os.fstat(directory_fd)
+            if (
+                not stat.S_ISDIR(root_info.st_mode)
+                or (root_info.st_dev, root_info.st_ino) != self._root_identity
+            ):
                 raise PromptCompilationError(
-                    "PROMPT_MODULE_BUDGET_EXCEEDED",
-                    "A prompt module exceeds its configured byte budget.",
+                    unsafe_code,
+                    "Prompt compiler repository root changed during access.",
                 )
-            content = resolved.read_bytes()
-            if len(content) > max_bytes:
+            for component in parts[:-1]:
+                next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+                next_info = os.fstat(next_fd)
+                if not stat.S_ISDIR(next_info.st_mode):
+                    os.close(next_fd)
+                    raise PromptCompilationError(
+                        unsafe_code,
+                        "Prompt input parent must be a repository directory.",
+                    )
+                os.close(directory_fd)
+                directory_fd = next_fd
+            file_fd = os.open(parts[-1], file_flags, dir_fd=directory_fd)
+            before = os.fstat(file_fd)
+            if not stat.S_ISREG(before.st_mode):
                 raise PromptCompilationError(
-                    "PROMPT_MODULE_BUDGET_EXCEEDED",
-                    "A prompt module exceeds its configured byte budget.",
+                    unsafe_code,
+                    "Prompt input must be a regular repository file.",
                 )
-            return content
+            if before.st_size > max_bytes:
+                raise PromptCompilationError(
+                    budget_code,
+                    "Prompt input exceeds its configured byte budget.",
+                )
+            payload = bytearray()
+            while len(payload) <= max_bytes:
+                chunk = os.read(
+                    file_fd,
+                    min(_READ_CHUNK_BYTES, max_bytes + 1 - len(payload)),
+                )
+                if not chunk:
+                    break
+                payload.extend(chunk)
+            if len(payload) > max_bytes:
+                raise PromptCompilationError(
+                    budget_code,
+                    "Prompt input exceeds its configured byte budget.",
+                )
+            after = os.fstat(file_fd)
+            if (
+                (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or len(payload) != after.st_size
+            ):
+                raise PromptCompilationError(
+                    unavailable_code,
+                    "Prompt input changed during its bounded read.",
+                )
+            return bytes(payload)
         except PromptCompilationError:
             raise
         except OSError as exc:
             raise PromptCompilationError(
-                "PROMPT_SOURCE_UNAVAILABLE",
-                "Prompt source could not be read safely.",
+                unsafe_code,
+                "Prompt input could not be opened through repository path guards.",
             ) from exc
-
-    def _contains_symlink(self, candidate: Path) -> bool:
-        try:
-            relative = candidate.relative_to(self._root)
-        except ValueError:
-            return True
-        current = self._root
-        for part in relative.parts:
-            current = current / part
-            if current.is_symlink():
-                return True
-        return False
+        finally:
+            if file_fd >= 0:
+                os.close(file_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
 
     @staticmethod
     def _validate_bindings(
@@ -469,6 +556,8 @@ class PromptModuleCompiler:
         source: str,
         definitions: dict[str, PromptVariableDefinition],
         bindings: dict[str, str | int | bool | None],
+        *,
+        max_bytes: int,
     ) -> str:
         variable_refs = set(_VARIABLE_PATTERN.findall(source))
         conditional_refs = {
@@ -531,7 +620,28 @@ class PromptModuleCompiler:
                 return "true" if value else "false"
             return str(value)
 
-        rendered = _VARIABLE_PATTERN.sub(render_variable, rendered)
+        chunks: list[str] = []
+        rendered_size = 0
+        cursor = 0
+        for match in _VARIABLE_PATTERN.finditer(rendered):
+            for chunk in (rendered[cursor : match.start()], render_variable(match)):
+                rendered_size += len(chunk.encode("utf-8"))
+                if rendered_size > max_bytes:
+                    raise PromptCompilationError(
+                        "PROMPT_COMPILED_BUDGET_EXCEEDED",
+                        "Compiled prompt exceeds its configured byte budget.",
+                    )
+                chunks.append(chunk)
+            cursor = match.end()
+        tail = rendered[cursor:]
+        rendered_size += len(tail.encode("utf-8"))
+        if rendered_size > max_bytes:
+            raise PromptCompilationError(
+                "PROMPT_COMPILED_BUDGET_EXCEEDED",
+                "Compiled prompt exceeds its configured byte budget.",
+            )
+        chunks.append(tail)
+        rendered = "".join(chunks)
         if _VARIABLE_TOKEN_PATTERN.search(rendered):
             raise PromptCompilationError(
                 "PROMPT_TEMPLATE_VARIABLE_INVALID",

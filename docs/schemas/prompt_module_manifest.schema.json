@@ -24,12 +24,14 @@
       "maxItems": 128,
       "uniqueItems": true,
       "items": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,79}$"
       }
     },
     "variables": {
       "type": "object",
       "default": {},
+      "maxProperties": 128,
       "propertyNames": {
         "pattern": "^[a-z][a-z0-9_]{0,79}$"
       },
@@ -154,7 +156,8 @@
           "maxItems": 128,
           "uniqueItems": true,
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,79}$"
           }
         },
         "required_variables": {
@@ -162,7 +165,8 @@
           "maxItems": 128,
           "uniqueItems": true,
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,79}$"
           }
         }
       },

@@ -65,7 +65,29 @@ def test_verifier_accepts_pack() -> None:
     assert data["dependency_graph_hash"].startswith("sha256:")
     assert data["compiled_artifact_hash"].startswith("sha256:")
     assert data["golden_receipt_verified"] is True
+    assert data["combined_output_written"] is False
     assert data["bundle_hash"].startswith("sha256:")
+
+
+def test_verifier_redacts_combined_output_path(tmp_path: Path) -> None:
+    output = tmp_path / "operator-private" / "combined.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(VERIFY),
+            "--emit-combined",
+            str(output),
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    data = json.loads(result.stdout)
+    assert data["combined_output_written"] is True
+    assert str(output) not in result.stdout
+    assert output.is_file()
 
 
 def test_bundle_hash_protects_readme_and_all_prompts() -> None:
