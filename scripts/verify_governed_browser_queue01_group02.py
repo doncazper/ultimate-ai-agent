@@ -52,6 +52,8 @@ def verify() -> list[str]:
             "real_external_targets_enabled: Literal[False]",
             "automatic_retry_allowed: Literal[False]",
             "GOVERNED_BROWSER_INBOX_RECEIPT_BINDING_MISMATCH",
+            "_ACCOUNTING_RECONCILIATION_REASON_MARKERS",
+            "budget-release-unconfirmed",
         ),
         "package": (
             "ExternalActionInboxExecutionEnvelope",
@@ -62,6 +64,8 @@ def verify() -> list[str]:
             "test_approval_identifier_alone_never_enables_execution_and_missing_scope_denies",
             "test_current_safety_posture_is_visible_and_fail_closed",
             "test_ambiguous_receipt_requires_manual_reconciliation_and_never_retries",
+            "test_succeeded_receipt_with_ambiguous_settlement_requires_reconciliation",
+            "test_blocked_receipt_with_unconfirmed_budget_release_requires_reconciliation",
             "test_receipt_from_a_different_transaction_is_rejected",
         ),
         "doc": (

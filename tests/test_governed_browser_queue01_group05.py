@@ -17,6 +17,7 @@ from tests.test_governed_browser_queue01_group01 import (
 )
 from ultimate_ai_agent.core.authority import AuthorityCapability
 from ultimate_ai_agent.core.governed_browser import (
+    ExactBrowserActionReceipt,
     ExactBrowserActionStatus,
     ExactPostFormDryRunTransportResult,
     ExactPostFormRequest,
@@ -34,6 +35,19 @@ from ultimate_ai_agent.core.governed_browser import (
     build_governed_post_form_recipe,
     build_governed_post_form_schema,
     create_isolated_browser_action_dry_run_gateway,
+)
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+    stable_governed_browser_ref,
+)
+from ultimate_ai_agent.core.governed_browser.post_forms import (
+    _post_form_kernel_execution,
+    _post_form_replay_expectation,
+)
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    _build_external_action_replay_validation_context,
+    replay_validation_context,
 )
 from ultimate_ai_agent.core.governed_browser.transaction import BudgetSettlement
 from ultimate_ai_agent.core.web_access import (
@@ -216,6 +230,38 @@ def _plan(service, request, recipe_ref):  # type: ignore[no-untyped-def]
             execution_request=request,
         )
     )
+
+
+def _rehash_post_form_replay(
+    payload: dict[str, Any],
+    *,
+    receipt_prefix: str = "receipt-ref:governed-post-form",
+) -> dict[str, Any]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        receipt_prefix,
+        governed_receipt_identity_payload(
+            ExactBrowserActionReceipt.model_construct(**payload)
+        ),
+    )
+    return payload
 
 
 def test_registered_exact_post_schema_is_governed_and_inactive(
@@ -439,6 +485,8 @@ def test_post_form_revalidation_denies_before_plan(
 
     assert result.receipt.status == ExactBrowserActionStatus.transaction_blocked.value
     assert result.receipt.budget_reservation_ref is not None
+    assert result.receipt.budget_release_ref is not None
+    assert result.receipt.budget_settlement_ref is None
     assert result.plan is None
     assert transport.calls == 0
 
@@ -661,6 +709,280 @@ def test_post_form_plan_is_at_most_once_and_replay_is_content_free(
     assert replay.plan is None
     assert transport.calls == 1
     assert refs["first_value"] not in replay.receipt.model_dump_json()
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate_json(
+            replay.receipt.model_dump_json()
+        )
+
+
+@pytest.mark.parametrize("terminal_state", ("blocked", "failed"))
+def test_post_form_blocked_and_failed_terminals_replay_content_free(
+    tmp_path: Path,
+    terminal_state: str,
+) -> None:
+    request, schema, recipe, _ = _post_context(
+        suffix=f"terminal-replay-{terminal_state}"
+    )
+    kernel, _ = _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=lambda item: _readiness(
+            item,
+            safe_disable=terminal_state == "blocked",
+        ),
+    )
+    transport = _ExactPostFormPlanTransport(
+        **(
+            {"raw_dom": "<html>terminal replay private post form</html>"}
+            if terminal_state == "failed"
+            else {}
+        )
+    )
+    service, _ = _service(
+        request=request,
+        schema=schema,
+        recipe=recipe,
+        kernel=kernel,
+        transport=transport,
+    )
+
+    first = _plan(service, request, recipe.recipe_ref)
+    replay = _plan(service, request, recipe.recipe_ref)
+
+    expected_state = {
+        "blocked": ExternalActionState.blocked.value,
+        "failed": ExternalActionState.failed.value,
+    }[terminal_state]
+    expected_first_status = {
+        "blocked": ExactBrowserActionStatus.transaction_blocked.value,
+        "failed": ExactBrowserActionStatus.failed.value,
+    }[terminal_state]
+    assert first.receipt.status == expected_first_status
+    assert replay.receipt.status == ExactBrowserActionStatus.replayed_content_free.value
+    assert replay.receipt.external_action_state == expected_state
+    assert (
+        replay.receipt.external_action_receipt_ref
+        == first.receipt.external_action_receipt_ref
+    )
+    assert replay.receipt.replayed is True
+    assert replay.receipt.content_free is True
+    assert replay.receipt.automatic_retry_allowed is False
+    assert replay.plan is None
+    assert transport.calls == {"blocked": 0, "failed": 1}[terminal_state]
+    assert "terminal replay private post form" not in replay.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "evidence_plan_substitution",
+        "evidence_projection_substitution",
+        "evidence_order",
+        "evidence_arity_drop",
+        "evidence_arity_extra",
+        "cross_lane",
+        "cross_operation",
+        "cross_recipe",
+        "cross_transaction",
+    ),
+)
+def test_post_form_replay_requires_exact_durable_provenance(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    request, schema, recipe, _ = _post_context(
+        suffix=f"replay-provenance-{mutation}"
+    )
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _service(
+        request=request,
+        schema=schema,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactPostFormPlanTransport(),
+    )
+    _plan(service, request, recipe.recipe_ref)
+    replay = _plan(service, request, recipe.recipe_ref)
+    kernel_request = _post_form_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = kernel.replay_if_terminal(kernel_request)
+    assert replay_receipt is not None
+    expectation = _post_form_replay_expectation(
+        recipe,
+        schema,
+        replay_receipt,
+        kernel=kernel,
+        expected_execution=kernel_request,
+    )
+    provenance = _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=kernel_request,
+        replay_receipt=replay_receipt,
+        expectation=expectation,
+    )
+    context = replay_validation_context(provenance)
+    payload = replay.receipt.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        ExactBrowserActionReceipt.model_validate(payload)
+    assert (
+        ExactBrowserActionReceipt.model_validate(payload, context=context)
+        == replay.receipt
+    )
+
+    receipt_prefix = "receipt-ref:governed-post-form"
+    if mutation == "cross_operation":
+        wrong_expectation = ExternalActionReplayEvidenceExpectation(
+            lane_ref=expectation.lane_ref,
+            operation_ref=_ref("replay-operation", "post-form-cross"),
+            scope_refs=expectation.scope_refs,
+            evidence_refs=expectation.evidence_refs,
+            operation_proof_ref=expectation.operation_proof_ref,
+        )
+        with pytest.raises(
+            ValueError,
+            match="GOVERNED_EXTERNAL_ACTION_REPLAY_OPERATION_PROOF_INVALID",
+        ):
+            _build_external_action_replay_validation_context(
+                kernel,
+                expected_execution=kernel_request,
+                replay_receipt=replay_receipt,
+                expectation=wrong_expectation,
+            )
+        return
+    elif mutation == "evidence_plan_substitution":
+        payload["evidence_refs"][0] = _ref(
+            "evidence",
+            "post-form-replay-provenance-plan-substitute",
+        )
+    elif mutation == "evidence_projection_substitution":
+        payload["evidence_refs"][1] = _ref(
+            "evidence",
+            "post-form-replay-provenance-projection-substitute",
+        )
+    elif mutation == "evidence_order":
+        payload["evidence_refs"] = list(reversed(payload["evidence_refs"]))
+    elif mutation == "evidence_arity_drop":
+        payload["evidence_refs"] = payload["evidence_refs"][:-1]
+    elif mutation == "evidence_arity_extra":
+        payload["evidence_refs"].append(
+            _ref("evidence", "post-form-replay-provenance-extra")
+        )
+    elif mutation == "cross_lane":
+        receipt_prefix = "receipt-ref:governed-browser-action"
+    elif mutation == "cross_recipe":
+        payload["recipe_ref"] = _ref("recipe", "post-form-replay-provenance-cross")
+    else:
+        foreign_request, foreign_schema, foreign_recipe, _ = _post_context(
+            suffix="post-form-replay-provenance-foreign"
+        )
+        foreign_kernel, _ = _authorized_kernel(
+            tmp_path / "foreign",
+            foreign_request,
+        )
+        foreign_service, _ = _service(
+            request=foreign_request,
+            schema=foreign_schema,
+            recipe=foreign_recipe,
+            kernel=foreign_kernel,
+            transport=_ExactPostFormPlanTransport(),
+        )
+        _plan(foreign_service, foreign_request, foreign_recipe.recipe_ref)
+        foreign_kernel_request = _post_form_kernel_execution(
+            foreign_request,
+            recipe_ref=foreign_recipe.recipe_ref,
+        )
+        foreign = foreign_kernel.replay_if_terminal(foreign_kernel_request)
+        assert foreign is not None
+        payload.update(
+            {
+                "transaction_ref": foreign.transaction_ref,
+                "intent_ref": foreign.intent_ref,
+                "binding_ref": foreign.binding_ref,
+                "external_action_state": foreign.state,
+                "approval_validation_ref": foreign.approval_validation_ref,
+                "authority_decision_ref": foreign.authority_decision_ref,
+                "budget_reservation_ref": foreign.budget_reservation_ref,
+                "budget_release_ref": foreign.budget_release_ref,
+                "budget_settlement_ref": foreign.budget_settlement_ref,
+                "evidence_refs": list(foreign.evidence_refs),
+                "reason_refs": list(foreign.reason_refs),
+                "replayed": foreign.replayed,
+            }
+        )
+    forged = _rehash_post_form_replay(
+        payload,
+        receipt_prefix=receipt_prefix,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_",
+    ):
+        ExactBrowserActionReceipt.model_validate(forged, context=context)
+
+
+@pytest.mark.parametrize(
+    "state",
+    (
+        ExternalActionState.prepared,
+        ExternalActionState.started,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_post_form_replay_expectation_rejects_nonterminal_or_arbitrary_ambiguity(
+    tmp_path: Path,
+    state: ExternalActionState,
+) -> None:
+    request, schema, recipe, _ = _post_context(
+        suffix=f"replay-envelope-reject-{state.value}"
+    )
+    kernel, _ = _authorized_kernel(tmp_path, request)
+    service, _ = _service(
+        request=request,
+        schema=schema,
+        recipe=recipe,
+        kernel=kernel,
+        transport=_ExactPostFormPlanTransport(),
+    )
+    _plan(service, request, recipe.recipe_ref)
+    kernel_request = _post_form_kernel_execution(
+        request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    durable = kernel.replay_if_terminal(kernel_request)
+    assert durable is not None
+    evidence_refs = (
+        (_ref("evidence", "arbitrary-post-form-ambiguity"),)
+        if state == ExternalActionState.outcome_ambiguous
+        else durable.evidence_refs
+    )
+    malformed = durable.model_copy(
+        update={
+            "state": state.value,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_POST_FORM_REPLAY_EVIDENCE_PROVENANCE_REQUIRED",
+    ):
+        _post_form_replay_expectation(
+            recipe,
+            schema,
+            malformed,
+            kernel=kernel,
+            expected_execution=kernel_request,
+        )
 
 
 def test_post_form_settlement_failure_suppresses_plan_and_retry(

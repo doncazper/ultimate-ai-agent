@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -88,6 +89,15 @@ def stable_governed_browser_ref(prefix: str, payload: object) -> str:
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def governed_receipt_identity_payload(receipt: BaseModel) -> dict[str, Any]:
+    """Build a receipt identity payload without version-sensitive field metadata."""
+
+    payload = receipt.model_dump(mode="json", exclude={"receipt_ref"})
+    if payload.get("budget_release_ref") is None:
+        payload.pop("budget_release_ref", None)
+    return payload
+
+
 def normalize_exact_origin(value: str) -> str:
     parsed = urlsplit(value)
     try:
@@ -143,19 +153,24 @@ class ExternalActionAuthorityBinding(BaseModel):
     recipient_ref: str = Field(..., min_length=1, max_length=240)
     field_schema_ref: str = Field(..., min_length=1, max_length=240)
     transaction_ref: str = Field(..., min_length=1, max_length=240)
-    artifact_refs: list[str] = Field(..., min_length=1, max_length=8)
-    resource_refs: list[str] = Field(..., min_length=1, max_length=16)
+    artifact_refs: tuple[str, ...] = Field(..., min_length=1, max_length=8)
+    resource_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
     action_count: StrictInt = Field(default=1, ge=1, le=1)
     page_snapshot_ref: str = Field(..., min_length=1, max_length=240)
     start_deadline: datetime
     human_presence_ref: str = Field(..., min_length=1, max_length=240)
     human_present: StrictBool
 
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
 
     @model_validator(mode="after")
     def validate_exact_binding(self) -> "ExternalActionAuthorityBinding":
-        self.origin = normalize_exact_origin(self.origin)
+        object.__setattr__(self, "origin", normalize_exact_origin(self.origin))
         expected_origin_ref = stable_governed_browser_ref(
             "origin-ref:governed-browser", {"origin": self.origin}
         )
@@ -212,7 +227,7 @@ class ExternalActionExecutionRequest(BaseModel):
     lease_ref: str = Field(..., min_length=1, max_length=240)
     approval_ref: str = Field(..., min_length=1, max_length=240)
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_execution_request(self) -> "ExternalActionExecutionRequest":
@@ -236,7 +251,129 @@ class ExternalActionExecutionRequest(BaseModel):
         )
         if self.intent_ref != expected:
             raise ValueError("GOVERNED_BROWSER_INTENT_REF_MISMATCH")
+        if not re.fullmatch(
+            r"idempotency-ref:[a-zA-Z0-9._:-]+:sha256:[0-9a-f]{64}",
+            self.idempotency_ref,
+        ):
+            raise ValueError("GOVERNED_BROWSER_IDEMPOTENCY_REF_MISMATCH")
         return self
+
+
+class ExternalActionAdversarialSignals(BaseModel):
+    """Content-free hostile-site and race signals from one trusted adapter read."""
+
+    schema_version: Literal["uaa-governed-external-action-adversarial-signals.v1"] = (
+        "uaa-governed-external-action-adversarial-signals.v1"
+    )
+    cross_origin_redirect_detected: StrictBool
+    dom_swap_detected: StrictBool
+    hidden_field_detected: StrictBool
+    changed_form_action_detected: StrictBool
+    misleading_control_detected: StrictBool
+    unexpected_popup_detected: StrictBool
+    unexpected_download_detected: StrictBool
+    page_mutation_after_approval_detected: StrictBool
+    duplicate_submission_detected: StrictBool
+    session_fixation_detected: StrictBool
+    origin_confusion_detected: StrictBool
+    upload_artifact_substitution_detected: StrictBool
+    download_filename_attack_detected: StrictBool
+    download_media_type_attack_detected: StrictBool
+    download_signature_attack_detected: StrictBool
+    recipient_substitution_detected: StrictBool
+    content_substitution_detected: StrictBool
+    amount_substitution_detected: StrictBool
+    total_substitution_detected: StrictBool
+    secret_canary_detected: StrictBool
+    credential_canary_detected: StrictBool
+    prompt_injection_detected: StrictBool
+    raw_content_leak_detected: StrictBool
+    raw_path_leak_detected: StrictBool
+    cross_lane_interference_detected: StrictBool
+    retry_requested: StrictBool
+    resource_limit_exceeded: StrictBool
+    active_resource_count: StrictInt = Field(..., ge=0, le=4)
+    cleanup_verified: StrictBool
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    @classmethod
+    def clear_local_validation(cls) -> "ExternalActionAdversarialSignals":
+        return cls(
+            cross_origin_redirect_detected=False,
+            dom_swap_detected=False,
+            hidden_field_detected=False,
+            changed_form_action_detected=False,
+            misleading_control_detected=False,
+            unexpected_popup_detected=False,
+            unexpected_download_detected=False,
+            page_mutation_after_approval_detected=False,
+            duplicate_submission_detected=False,
+            session_fixation_detected=False,
+            origin_confusion_detected=False,
+            upload_artifact_substitution_detected=False,
+            download_filename_attack_detected=False,
+            download_media_type_attack_detected=False,
+            download_signature_attack_detected=False,
+            recipient_substitution_detected=False,
+            content_substitution_detected=False,
+            amount_substitution_detected=False,
+            total_substitution_detected=False,
+            secret_canary_detected=False,
+            credential_canary_detected=False,
+            prompt_injection_detected=False,
+            raw_content_leak_detected=False,
+            raw_path_leak_detected=False,
+            cross_lane_interference_detected=False,
+            retry_requested=False,
+            resource_limit_exceeded=False,
+            active_resource_count=0,
+            cleanup_verified=True,
+        )
+
+    def reason_refs(self) -> tuple[str, ...]:
+        mapping = (
+            ("cross_origin_redirect_detected", "cross-origin-redirect"),
+            ("dom_swap_detected", "dom-swap"),
+            ("hidden_field_detected", "hidden-field"),
+            ("changed_form_action_detected", "changed-form-action"),
+            ("misleading_control_detected", "misleading-control"),
+            ("unexpected_popup_detected", "unexpected-popup"),
+            ("unexpected_download_detected", "unexpected-download"),
+            ("page_mutation_after_approval_detected", "page-mutation-after-approval"),
+            ("duplicate_submission_detected", "duplicate-submission"),
+            ("session_fixation_detected", "session-fixation"),
+            ("origin_confusion_detected", "origin-confusion"),
+            ("upload_artifact_substitution_detected", "upload-artifact-substitution"),
+            ("download_filename_attack_detected", "download-filename-attack"),
+            ("download_media_type_attack_detected", "download-media-type-attack"),
+            ("download_signature_attack_detected", "download-signature-attack"),
+            ("recipient_substitution_detected", "recipient-substitution"),
+            ("content_substitution_detected", "content-substitution"),
+            ("amount_substitution_detected", "amount-substitution"),
+            ("total_substitution_detected", "total-substitution"),
+            ("secret_canary_detected", "secret-canary"),
+            ("credential_canary_detected", "credential-canary"),
+            ("prompt_injection_detected", "prompt-injection-shaped-content"),
+            ("raw_content_leak_detected", "raw-content-leak"),
+            ("raw_path_leak_detected", "raw-path-leak"),
+            ("cross_lane_interference_detected", "cross-lane-interference"),
+            ("retry_requested", "automatic-retry-denied"),
+            ("resource_limit_exceeded", "resource-limit-exceeded"),
+        )
+        reasons = [
+            stable_governed_browser_ref(
+                "reason-ref:governed-external-action:adversarial",
+                {"signal": reason},
+            )
+            for field, reason in mapping
+            if getattr(self, field)
+        ]
+        if not self.cleanup_verified:
+            reasons.append(
+                "reason-ref:governed-external-action:adversarial:cleanup-unverified"
+            )
+        return tuple(reasons)
 
 
 class ExternalActionReadiness(BaseModel):
@@ -245,6 +382,12 @@ class ExternalActionReadiness(BaseModel):
     )
     readiness_ref: str
     binding_ref: str
+    observed_origin_ref: str
+    observed_recipient_ref: str
+    observed_field_schema_ref: str
+    observed_transaction_ref: str
+    observed_artifact_refs: tuple[str, ...] = Field(..., min_length=1, max_length=8)
+    observed_resource_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
     page_snapshot_ref: str
     status: Literal["ready", "blocked"]
     observed_at: datetime
@@ -253,22 +396,118 @@ class ExternalActionReadiness(BaseModel):
     external_mutation_enabled: StrictBool
     safe_disable_active: StrictBool
     kill_switch_engaged: StrictBool
+    adversarial_signals: ExternalActionAdversarialSignals
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_readiness(self) -> "ExternalActionReadiness":
         for value, label in [
             (self.readiness_ref, "readiness_ref"),
             (self.binding_ref, "binding_ref"),
+            (self.observed_origin_ref, "observed_origin_ref"),
+            (self.observed_recipient_ref, "observed_recipient_ref"),
+            (self.observed_field_schema_ref, "observed_field_schema_ref"),
+            (self.observed_transaction_ref, "observed_transaction_ref"),
             (self.page_snapshot_ref, "page_snapshot_ref"),
+            *[(ref, "observed_artifact_ref") for ref in self.observed_artifact_refs],
+            *[(ref, "observed_resource_ref") for ref in self.observed_resource_refs],
         ]:
             validate_task_ref(value, label)
         if self.observed_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("GOVERNED_BROWSER_READINESS_TIMEZONE_REQUIRED")
         if self.expires_at <= self.observed_at:
             raise ValueError("GOVERNED_BROWSER_READINESS_WINDOW_INVALID")
+        expected_ref = stable_governed_browser_ref(
+            "readiness-ref:governed-external-action",
+            self.model_dump(mode="json", exclude={"readiness_ref"}),
+        )
+        if self.readiness_ref != expected_ref:
+            raise ValueError("GOVERNED_BROWSER_READINESS_REF_MISMATCH")
         return self
+
+
+def build_external_action_readiness(
+    request: ExternalActionExecutionRequest,
+    *,
+    status: Literal["ready", "blocked"],
+    observed_at: datetime,
+    expires_at: datetime,
+    broker_integrity_verified: bool,
+    external_mutation_enabled: bool,
+    safe_disable_active: bool,
+    kill_switch_engaged: bool,
+    adversarial_signals: ExternalActionAdversarialSignals | None = None,
+    binding_ref: str | None = None,
+    observed_origin_ref: str | None = None,
+    observed_recipient_ref: str | None = None,
+    observed_field_schema_ref: str | None = None,
+    observed_transaction_ref: str | None = None,
+    observed_artifact_refs: tuple[str, ...] | None = None,
+    observed_resource_refs: tuple[str, ...] | None = None,
+    page_snapshot_ref: str | None = None,
+) -> ExternalActionReadiness:
+    binding = request.binding
+    payload = {
+        "binding_ref": (
+            binding_ref if binding_ref is not None else binding.binding_ref
+        ),
+        "observed_origin_ref": (
+            observed_origin_ref
+            if observed_origin_ref is not None
+            else binding.origin_ref
+        ),
+        "observed_recipient_ref": (
+            observed_recipient_ref
+            if observed_recipient_ref is not None
+            else binding.recipient_ref
+        ),
+        "observed_field_schema_ref": (
+            observed_field_schema_ref
+            if observed_field_schema_ref is not None
+            else binding.field_schema_ref
+        ),
+        "observed_transaction_ref": (
+            observed_transaction_ref
+            if observed_transaction_ref is not None
+            else binding.transaction_ref
+        ),
+        "observed_artifact_refs": (
+            tuple(observed_artifact_refs)
+            if observed_artifact_refs is not None
+            else tuple(binding.artifact_refs)
+        ),
+        "observed_resource_refs": (
+            tuple(observed_resource_refs)
+            if observed_resource_refs is not None
+            else tuple(binding.resource_refs)
+        ),
+        "page_snapshot_ref": (
+            page_snapshot_ref
+            if page_snapshot_ref is not None
+            else binding.page_snapshot_ref
+        ),
+        "status": status,
+        "observed_at": observed_at,
+        "expires_at": expires_at,
+        "broker_integrity_verified": broker_integrity_verified,
+        "external_mutation_enabled": external_mutation_enabled,
+        "safe_disable_active": safe_disable_active,
+        "kill_switch_engaged": kill_switch_engaged,
+        "adversarial_signals": (
+            adversarial_signals
+            or ExternalActionAdversarialSignals.clear_local_validation()
+        ),
+    }
+    draft = ExternalActionReadiness.model_construct(
+        readiness_ref="readiness-ref:governed-external-action:unbound",
+        **payload,
+    )
+    readiness_ref = stable_governed_browser_ref(
+        "readiness-ref:governed-external-action",
+        draft.model_dump(mode="json", exclude={"readiness_ref"}),
+    )
+    return ExternalActionReadiness(readiness_ref=readiness_ref, **payload)
 
 
 class ExternalActionDispatchOutcome(str, Enum):
@@ -279,11 +518,16 @@ class ExternalActionDispatchOutcome(str, Enum):
 
 class ExternalActionDispatchResult(BaseModel):
     outcome: ExternalActionDispatchOutcome
-    evidence_refs: list[str] = Field(..., min_length=1, max_length=12)
+    evidence_refs: tuple[str, ...] = Field(..., min_length=1, max_length=12)
     operation_count: StrictInt = Field(default=1, ge=1, le=1)
     verified: StrictBool
 
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
 
     @model_validator(mode="after")
     def validate_dispatch_result(self) -> "ExternalActionDispatchResult":
@@ -309,14 +553,20 @@ class ExternalActionReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
-    evidence_refs: list[str] = Field(default_factory=list, max_length=12)
-    reason_refs: list[str] = Field(default_factory=list, max_length=16)
+    evidence_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=12)
+    reason_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
     replayed: StrictBool = False
     content_free: Literal[True] = True
     automatic_retry_allowed: Literal[False] = False
 
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(
+        use_enum_values=True,
+        extra="forbid",
+        frozen=True,
+        hide_input_in_errors=True,
+    )
 
     @model_validator(mode="after")
     def validate_receipt(self) -> "ExternalActionReceipt":
@@ -328,12 +578,38 @@ class ExternalActionReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
         ]:
             if value is not None:
                 validate_task_ref(value, label)
+        if (
+            self.budget_release_ref is not None
+            and self.budget_settlement_ref is not None
+        ):
+            raise ValueError("GOVERNED_BROWSER_BUDGET_ACCOUNTING_PROOF_CONFLICT")
+        payload = {
+            "transaction_ref": self.transaction_ref,
+            "intent_ref": self.intent_ref,
+            "binding_ref": self.binding_ref,
+            "state": self.state,
+            "approval_validation_ref": self.approval_validation_ref,
+            "authority_decision_ref": self.authority_decision_ref,
+            "budget_reservation_ref": self.budget_reservation_ref,
+            "budget_settlement_ref": self.budget_settlement_ref,
+            "evidence_refs": list(self.evidence_refs),
+            "reason_refs": list(self.reason_refs),
+        }
+        if self.budget_release_ref is not None:
+            payload["budget_release_ref"] = self.budget_release_ref
+        expected_ref = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            payload,
+        )
+        if self.receipt_ref != expected_ref:
+            raise ValueError("GOVERNED_EXTERNAL_ACTION_RECEIPT_REF_MISMATCH")
         return self
 
 

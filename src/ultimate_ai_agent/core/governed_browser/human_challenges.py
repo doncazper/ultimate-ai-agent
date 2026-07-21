@@ -14,7 +14,14 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationInfo,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.authority import AuthorityCapability
 from ultimate_ai_agent.core.planning.validation import (
@@ -30,13 +37,25 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
+)
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    ExternalActionReplayValidationContext,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
+    replay_validation_context,
+    require_external_action_replay_provenance,
 )
 from .transaction import GovernedExternalActionKernel
 
 
 MAX_HUMAN_CHALLENGE_HANDOFF_LIFETIME = timedelta(minutes=10)
 _HASH_PINNED_SAFE_REF_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
+_HUMAN_CHALLENGE_REPLAY_LANE_REF = (
+    "lane-ref:governed-human-challenge-handoff"
+)
 
 
 class GovernedHumanChallengeKind(str, Enum):
@@ -511,6 +530,7 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
@@ -526,7 +546,10 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "GovernedHumanChallengeHandoffReceipt":
+    def validate_receipt(
+        self,
+        info: ValidationInfo,
+    ) -> "GovernedHumanChallengeHandoffReceipt":
         for value, label in (
             (self.receipt_ref, "receipt_ref"),
             (self.recipe_ref, "recipe_ref"),
@@ -537,6 +560,7 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
@@ -554,12 +578,142 @@ class GovernedHumanChallengeHandoffReceipt(BaseModel):
             and not self.replayed
         ):
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_REPLAY_FLAG_REQUIRED")
+        status = GovernedHumanChallengeHandoffStatus(self.status)
+        state = ExternalActionState(self.external_action_state)
+        if status != GovernedHumanChallengeHandoffStatus.replayed_content_free:
+            expected_states = {
+                GovernedHumanChallengeHandoffStatus.handoff_ready: {
+                    ExternalActionState.succeeded
+                },
+                GovernedHumanChallengeHandoffStatus.preflight_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedHumanChallengeHandoffStatus.transaction_blocked: {
+                    ExternalActionState.blocked
+                },
+                GovernedHumanChallengeHandoffStatus.failed: {
+                    ExternalActionState.failed
+                },
+                GovernedHumanChallengeHandoffStatus.outcome_ambiguous: {
+                    ExternalActionState.outcome_ambiguous,
+                    ExternalActionState.started,
+                    ExternalActionState.prepared,
+                },
+            }[status]
+            if state not in expected_states:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_RECEIPT_STATE_MISMATCH"
+                )
+            if self.replayed:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_REPLAY_STATUS_MISMATCH"
+                )
+        if state == ExternalActionState.succeeded and (
+            any(
+                ref is None
+                for ref in (
+                    self.external_action_receipt_ref,
+                    self.approval_validation_ref,
+                    self.authority_decision_ref,
+                    self.budget_reservation_ref,
+                    self.budget_settlement_ref,
+                )
+            )
+            or not self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_SUCCESS_KERNEL_PROOF_REQUIRED"
+            )
+        if state == ExternalActionState.succeeded and (
+            len(self.evidence_refs) != 2
+            or not self.evidence_refs[0].startswith(
+                "human-challenge-handoff-ref:governed-browser:"
+            )
+            or not self.evidence_refs[1].startswith(
+                "human-challenge-ref:governed-browser:"
+            )
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_SUCCESS_EVIDENCE_MISMATCH"
+            )
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            self.status
+            == GovernedHumanChallengeHandoffStatus.preflight_blocked.value
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_PREFLIGHT_EXTERNAL_PROOF_DENIED"
+            )
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_INVALID"
+            )
+        if (
+            status != GovernedHumanChallengeHandoffStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError(
+                "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_REQUIRED"
+            )
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-human-challenge-handoff",
-            self.model_dump(mode="json", exclude={"receipt_ref"}),
+            governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_RECEIPT_REF_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            if (
+                self.external_action_state == ExternalActionState.failed.value
+                and external_reason_refs
+                == (
+                    "reason-ref:governed-human-challenge:"
+                    "handoff-preparation-failed",
+                )
+            ):
+                external_reason_refs = ()
+            try:
+                external_candidate = ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_HUMAN_CHALLENGE_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
+            if self.replayed:
+                require_external_action_replay_provenance(
+                    info,
+                    lane_ref=_HUMAN_CHALLENGE_REPLAY_LANE_REF,
+                    operation_ref=self.recipe_ref,
+                    candidate=external_candidate,
+                )
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "governed_human_challenge_handoff_receipt",
@@ -583,7 +737,12 @@ class ExactGovernedHumanChallengeHandoffResult(BaseModel):
         ):
             if self.handoff is None:
                 raise ValueError("GOVERNED_HUMAN_CHALLENGE_HANDOFF_REQUIRED")
-            if self.handoff.recipe_ref != self.receipt.recipe_ref:
+            if (
+                self.handoff.recipe_ref != self.receipt.recipe_ref
+                or self.handoff.binding_ref != self.receipt.binding_ref
+                or tuple(self.receipt.evidence_refs)
+                != (self.handoff.handoff_ref, self.handoff.challenge_ref)
+            ):
                 raise ValueError("GOVERNED_HUMAN_CHALLENGE_RECEIPT_MISMATCH")
         elif self.handoff is not None:
             raise ValueError("GOVERNED_HUMAN_CHALLENGE_NON_SUCCESS_HANDOFF_DENIED")
@@ -621,17 +780,9 @@ class ExactGovernedHumanChallengeHandoffService:
         scope_reason = _recipe_scope_reason(recipe, execution)
         if scope_reason is not None:
             return _preflight_blocked(request, scope_reason)
-        kernel_execution = ExternalActionExecutionRequest.model_validate(
-            {
-                **execution.model_dump(mode="json"),
-                "idempotency_ref": stable_governed_browser_ref(
-                    "idempotency-ref:governed-human-challenge-handoff",
-                    {
-                        "source_idempotency_ref": execution.idempotency_ref,
-                        "recipe_ref": recipe.recipe_ref,
-                    },
-                ),
-            }
+        kernel_execution = _human_challenge_kernel_execution(
+            execution,
+            recipe_ref=recipe.recipe_ref,
         )
         if self._clock() < recipe.created_at:
             replay = self._kernel.replay_if_terminal(kernel_execution)
@@ -640,6 +791,12 @@ class ExactGovernedHumanChallengeHandoffService:
                     request=request,
                     external_receipt=replay,
                     handoff=None,
+                    validation_context=_human_challenge_replay_context(
+                        self._kernel,
+                        expected_execution=kernel_execution,
+                        recipe=recipe,
+                        replay_receipt=replay,
+                    ),
                 )
             return _preflight_blocked(
                 request,
@@ -693,7 +850,77 @@ class ExactGovernedHumanChallengeHandoffService:
             request=request,
             external_receipt=external_receipt,
             handoff=handoff,
+            validation_context=(
+                _human_challenge_replay_context(
+                    self._kernel,
+                    expected_execution=kernel_execution,
+                    recipe=recipe,
+                    replay_receipt=external_receipt,
+                )
+                if external_receipt.replayed
+                else None
+            ),
         )
+
+
+def _human_challenge_kernel_execution(
+    request: ExternalActionExecutionRequest,
+    *,
+    recipe_ref: str,
+) -> ExternalActionExecutionRequest:
+    return ExternalActionExecutionRequest.model_validate(
+        {
+            **request.model_dump(mode="json"),
+            "idempotency_ref": stable_governed_browser_ref(
+                "idempotency-ref:governed-human-challenge-handoff",
+                {
+                    "source_idempotency_ref": request.idempotency_ref,
+                    "recipe_ref": recipe_ref,
+                },
+            ),
+        }
+    )
+
+
+def _human_challenge_replay_context(
+    kernel: GovernedExternalActionKernel,
+    *,
+    expected_execution: ExternalActionExecutionRequest,
+    recipe: GovernedHumanChallengeHandoffRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayValidationContext:
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=(
+            evidence_refs == (recipe.handoff_ref, recipe.challenge_ref)
+        ),
+        failure_evidence_valid=(
+            evidence_refs
+            == (
+                stable_governed_browser_ref(
+                    (
+                        "evidence-ref:governed-human-challenge:"
+                        "handoff-revalidation-failed"
+                    ),
+                    {"intent_ref": replay_receipt.intent_ref},
+                ),
+            )
+        ),
+        mismatch_error=(
+            "GOVERNED_HUMAN_CHALLENGE_REPLAY_EVIDENCE_ENVELOPE_MISMATCH"
+        ),
+    )
+    return _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=expected_execution,
+        replay_receipt=replay_receipt,
+        expectation=ExternalActionReplayEvidenceExpectation(
+            lane_ref=_HUMAN_CHALLENGE_REPLAY_LANE_REF,
+            operation_ref=recipe.recipe_ref,
+            evidence_refs=evidence_refs,
+        ),
+    )
 
 
 def _recipe_scope_reason(
@@ -782,10 +1009,14 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-human-challenge-handoff",
-        GovernedHumanChallengeHandoffReceipt.model_construct(
-            receipt_ref=("receipt-ref:governed-human-challenge-handoff:pending"),
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedHumanChallengeHandoffReceipt.model_construct(
+                receipt_ref=(
+                    "receipt-ref:governed-human-challenge-handoff:pending"
+                ),
+                **payload,
+            )
+        ),
     )
     return ExactGovernedHumanChallengeHandoffResult(
         receipt=GovernedHumanChallengeHandoffReceipt(
@@ -800,6 +1031,7 @@ def _result_from_external_receipt(
     request: ExactGovernedHumanChallengeHandoffRequest,
     external_receipt: ExternalActionReceipt,
     handoff: ExactGovernedHumanChallengeHandoff | None,
+    validation_context: ExternalActionReplayValidationContext | None = None,
 ) -> ExactGovernedHumanChallengeHandoffResult:
     state = ExternalActionState(external_receipt.state)
     if external_receipt.replayed:
@@ -837,6 +1069,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,
@@ -844,15 +1077,28 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-human-challenge-handoff",
-        GovernedHumanChallengeHandoffReceipt.model_construct(
-            receipt_ref=("receipt-ref:governed-human-challenge-handoff:pending"),
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
-    )
-    return ExactGovernedHumanChallengeHandoffResult(
-        receipt=GovernedHumanChallengeHandoffReceipt(
-            receipt_ref=receipt_ref,
-            **payload,
+        governed_receipt_identity_payload(
+            GovernedHumanChallengeHandoffReceipt.model_construct(
+                receipt_ref=(
+                    "receipt-ref:governed-human-challenge-handoff:pending"
+                ),
+                **payload,
+            )
         ),
+    )
+    receipt_payload = {
+        "receipt_ref": receipt_ref,
+        **payload,
+    }
+    if validation_context is not None:
+        return ExactGovernedHumanChallengeHandoffResult.model_validate(
+            {
+                "receipt": receipt_payload,
+                "handoff": handoff,
+            },
+            context=replay_validation_context(validation_context),
+        )
+    return ExactGovernedHumanChallengeHandoffResult(
+        receipt=GovernedHumanChallengeHandoffReceipt(**receipt_payload),
         handoff=handoff,
     )

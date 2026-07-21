@@ -87,7 +87,10 @@ def _request(
         run_ref=run_ref,
         task_ref=task_ref,
         intent_ref=intent_ref,
-        idempotency_ref=_ref("idempotency", suffix),
+        idempotency_ref=stable_governed_browser_ref(
+            "idempotency-ref:governed-external-action",
+            {"intent_ref": intent_ref},
+        ),
         lease_ref=lease_ref,
         approval_ref=approval_ref,
     )
@@ -96,6 +99,8 @@ def _request(
 def _receipt(
     request: ExternalActionExecutionRequest,
     state: ExternalActionState,
+    *,
+    reason_refs_override: list[str] | None = None,
 ) -> ExternalActionReceipt:
     evidence_refs = (
         [_ref("evidence", "verified")]
@@ -103,26 +108,36 @@ def _receipt(
         else [_ref("evidence", "dispatch-observed")]
     )
     reason_refs = (
-        [_ref("reason", "outcome-uncertain")]
-        if state == ExternalActionState.outcome_ambiguous
-        else []
+        reason_refs_override
+        if reason_refs_override is not None
+        else (
+            [_ref("reason", "outcome-uncertain")]
+            if state == ExternalActionState.outcome_ambiguous
+            else []
+        )
     )
-    return ExternalActionReceipt(
-        receipt_ref=_ref("receipt", state.value),
-        transaction_ref=request.binding.transaction_ref,
-        intent_ref=request.intent_ref,
-        binding_ref=request.binding.binding_ref,
-        state=state,
-        approval_validation_ref=_ref("approval-validation", "recorded"),
-        authority_decision_ref=_ref("authority-decision", "exact"),
-        budget_reservation_ref=_ref("budget-reservation", "exact"),
-        budget_settlement_ref=(
+    payload = {
+        "transaction_ref": request.binding.transaction_ref,
+        "intent_ref": request.intent_ref,
+        "binding_ref": request.binding.binding_ref,
+        "state": state.value,
+        "approval_validation_ref": _ref("approval-validation", "recorded"),
+        "authority_decision_ref": _ref("authority-decision", "exact"),
+        "budget_reservation_ref": _ref("budget-reservation", "exact"),
+        "budget_settlement_ref": (
             _ref("budget-settlement", "exact")
             if state == ExternalActionState.succeeded
             else None
         ),
-        evidence_refs=evidence_refs,
-        reason_refs=reason_refs,
+        "evidence_refs": evidence_refs,
+        "reason_refs": reason_refs,
+    }
+    return ExternalActionReceipt(
+        receipt_ref=stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            payload,
+        ),
+        **payload,
     )
 
 
@@ -214,7 +229,9 @@ def test_approval_fingerprint_and_scope_bind_exact_request_fields() -> None:
     )
 
 
-def test_approval_identifier_alone_never_enables_execution_and_missing_scope_denies() -> None:
+def test_approval_identifier_alone_never_enables_execution_and_missing_scope_denies() -> (
+    None
+):
     request = _request(
         _binding(), approval_ref="approval-ref:governed-browser:unregistered"
     )
@@ -241,9 +258,7 @@ def test_envelope_rejects_execution_flags_and_unregistered_authority_fields() ->
     open_control = dict(payload["open_in_browser"])
     open_control["performed"] = True
     with pytest.raises(ValidationError):
-        type(envelope).model_validate(
-            {**payload, "open_in_browser": open_control}
-        )
+        type(envelope).model_validate({**payload, "open_in_browser": open_control})
 
 
 @pytest.mark.parametrize(
@@ -346,10 +361,32 @@ def test_success_receipt_is_exactly_bound_and_reconciliation_is_verified() -> No
     assert envelope.retry_posture == ExternalActionRetryPosture.terminal_no_retry.value
     assert receipt.receipt_ref in envelope.receipt_refs
     assert receipt.budget_settlement_ref in envelope.receipt_refs
-    assert envelope.evidence_refs == receipt.evidence_refs
-    assert (
-        envelope.approval_validation_ref == receipt.approval_validation_ref
+    assert envelope.evidence_refs == list(receipt.evidence_refs)
+    assert envelope.approval_validation_ref == receipt.approval_validation_ref
+
+
+def test_succeeded_receipt_with_ambiguous_settlement_requires_reconciliation() -> (
+    None
+):
+    request = _request(_binding(suffix="success-accounting-ambiguous"))
+    receipt = _receipt(
+        request,
+        ExternalActionState.succeeded,
+        reason_refs_override=[
+            "reason-ref:governed-external-action:budget-settlement-ambiguous"
+        ],
     )
+
+    envelope = _envelope(request, receipt=receipt)
+
+    assert envelope.status == ExternalActionInboxStatus.reconciliation_required.value
+    assert (
+        envelope.reconciliation_status
+        == ExternalActionReconciliationStatus.required.value
+    )
+    assert envelope.reconciliation_required is True
+    assert envelope.retry_posture == ExternalActionRetryPosture.terminal_no_retry.value
+    assert envelope.automatic_retry_allowed is False
 
 
 def test_ambiguous_receipt_requires_manual_reconciliation_and_never_retries() -> None:
@@ -368,6 +405,30 @@ def test_ambiguous_receipt_requires_manual_reconciliation_and_never_retries() ->
         envelope.retry_posture
         == ExternalActionRetryPosture.manual_reconciliation_required_no_retry.value
     )
+    assert envelope.automatic_retry_allowed is False
+
+
+def test_blocked_receipt_with_unconfirmed_budget_release_requires_reconciliation() -> (
+    None
+):
+    request = _request(_binding(suffix="blocked-release-unconfirmed"))
+    receipt = _receipt(
+        request,
+        ExternalActionState.blocked,
+        reason_refs_override=[
+            "reason-ref:governed-external-action:budget-release-unconfirmed"
+        ],
+    )
+
+    envelope = _envelope(request, receipt=receipt)
+
+    assert envelope.status == ExternalActionInboxStatus.reconciliation_required.value
+    assert (
+        envelope.reconciliation_status
+        == ExternalActionReconciliationStatus.required.value
+    )
+    assert envelope.reconciliation_required is True
+    assert envelope.retry_posture == ExternalActionRetryPosture.terminal_no_retry.value
     assert envelope.automatic_retry_allowed is False
 
 

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import timedelta
+import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.governed_browser.financial_operation_contracts as financial_operation_module
 from scripts.verify_governed_browser_queue01_group10 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -21,6 +23,7 @@ from ultimate_ai_agent.core.governed_browser import (
     ExactGovernedFinancialRequest,
     ExactGovernedFinancialService,
     ExternalActionAuthorityBinding,
+    ExternalActionState,
     ExternalActionTargetKind,
     ExternalActionTransactionStore,
     GovernedExternalActionKernel,
@@ -35,6 +38,13 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_financial_contract_ref,
     governed_financial_target_ref,
     stable_governed_browser_ref,
+)
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    ExternalActionReplayValidationContext,
+    replay_validation_context,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -229,6 +239,220 @@ def _service(
         ),
         authority,
     )
+
+
+def _rehash_financial_receipt(payload: dict[str, object]) -> dict[str, object]:
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+    return payload
+
+
+def _rehash_external_and_financial_receipt(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    return _rehash_financial_receipt(payload)
+
+
+def _financial_replay_proof(
+    tmp_path: Path,
+    *,
+    operation: GovernedFinancialOperation,
+    suffix: str,
+) -> tuple[dict[str, object], ExternalActionReplayValidationContext]:
+    request, recipe, registry = _financial_context(
+        operation=operation,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path / suffix,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    kernel_execution = financial_operation_module._kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = financial_operation_module._financial_replay_validation_context(
+        kernel=service._kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    return replay.receipt.model_dump(mode="json"), context
+
+
+def _financial_terminal_replay_proof(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[
+    dict[str, object],
+    ExternalActionReplayValidationContext,
+    list[str],
+]:
+    suffix = f"terminal-replay-{terminal_state.value}"
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path / suffix,
+        request=request,
+        registry=registry,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == ExternalActionState.blocked
+            else None
+        ),
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = financial_operation_module._kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    if terminal_state == ExternalActionState.outcome_ambiguous:
+        durable_store = ExternalActionTransactionStore(
+            tmp_path / suffix / "transactions.sqlite3"
+        )
+        durable_store.prepare(kernel_execution)
+        assert durable_store.claim_start(kernel_execution) is True
+        with sqlite3.connect(
+            tmp_path / suffix / "transactions.sqlite3"
+        ) as connection:
+            connection.execute(
+                "UPDATE governed_external_actions SET updated_at = ? "
+                "WHERE transaction_ref = ?",
+                (
+                    (utc_now() - timedelta(minutes=2)).isoformat(),
+                    kernel_execution.binding.transaction_ref,
+                ),
+            )
+    elif terminal_state == ExternalActionState.failed:
+        original_execute = service._kernel.execute
+
+        def execute_with_invalid_dispatch_clock(*args, **kwargs):  # type: ignore[no-untyped-def]
+            monkeypatch.setattr(
+                service,
+                "_clock",
+                lambda: datetime(2026, 7, 20, 12, 0, 0),
+            )
+            return original_execute(*args, **kwargs)
+
+        monkeypatch.setattr(
+            service._kernel,
+            "execute",
+            execute_with_invalid_dispatch_clock,
+        )
+
+    first = service.prepare(exact)
+    if terminal_state == ExternalActionState.failed:
+        monkeypatch.setattr(service._kernel, "execute", original_execute)
+        monkeypatch.setattr(service, "_clock", utc_now)
+    replay = service.prepare(exact)
+    terminal_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert terminal_receipt is not None
+    context = financial_operation_module._financial_replay_validation_context(
+        kernel=service._kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=terminal_receipt,
+    )
+    expected_evidence = {
+        ExternalActionState.blocked: [],
+        ExternalActionState.failed: [
+            stable_governed_browser_ref(
+                "evidence-ref:governed-financial:trusted-clock-invalid",
+                {"intent_ref": kernel_execution.intent_ref},
+            )
+        ],
+        ExternalActionState.outcome_ambiguous: [
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:prior-start-recovery",
+                {
+                    "transaction_ref": kernel_execution.binding.transaction_ref,
+                    "intent_ref": kernel_execution.intent_ref,
+                    "binding_ref": kernel_execution.binding.binding_ref,
+                },
+            )
+        ],
+    }[terminal_state]
+    assert first.receipt.replayed is False
+    assert first.receipt.external_action_state == terminal_state.value
+    assert first.receipt.evidence_refs == expected_evidence
+    assert replay.receipt.replayed is True
+    assert replay.receipt.external_action_state == terminal_state.value
+    assert replay.receipt.evidence_refs == expected_evidence
+    return replay.receipt.model_dump(mode="json"), context, expected_evidence
+
+
+def _seed_arbitrary_financial_terminal_evidence(
+    tmp_path: Path,
+    *,
+    terminal_state: ExternalActionState,
+) -> tuple[ExactGovernedFinancialService, ExactGovernedFinancialRequest]:
+    suffix = f"arbitrary-terminal-evidence-{terminal_state.value}"
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix=suffix,
+    )
+    service, _ = _service(
+        tmp_path / suffix,
+        request=request,
+        registry=registry,
+    )
+    exact = _exact(request, recipe)
+    kernel_execution = financial_operation_module._kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    durable_store = ExternalActionTransactionStore(
+        tmp_path / suffix / "transactions.sqlite3"
+    )
+    durable_store.prepare(kernel_execution)
+    expected_state = ExternalActionState.prepared
+    if terminal_state != ExternalActionState.blocked:
+        assert durable_store.claim_start(kernel_execution) is True
+        expected_state = ExternalActionState.started
+    arbitrary_ref = stable_governed_browser_ref(
+        "evidence-ref:governed-financial:arbitrary-non-success",
+        {"state": terminal_state.value},
+    )
+    terminal_receipt = service._kernel._build_receipt(
+        kernel_execution,
+        terminal_state,
+        ["reason-ref:governed-external-action:test-terminal-state"],
+        evidence_refs=[arbitrary_ref],
+    )
+    durable_store.finish(terminal_receipt, expected_state=expected_state)
+    return service, exact
 
 
 @pytest.mark.parametrize("operation", list(GovernedFinancialOperation))
@@ -541,8 +765,12 @@ def test_safe_disable_and_kill_switch_deny_financial_preparation_and_replay(
     replay = service.prepare(exact)
 
     assert first.receipt.status == "transaction_blocked"
+    assert first.receipt.budget_reservation_ref is not None
+    assert first.receipt.budget_release_ref is not None
+    assert first.receipt.budget_settlement_ref is None
     assert first.contract is None
     assert replay.receipt.status == "transaction_blocked"
+    assert replay.receipt.budget_release_ref == first.receipt.budget_release_ref
     assert replay.receipt.replayed is True
     assert replay.contract is None
 
@@ -562,7 +790,12 @@ def test_success_replay_and_idempotency_drift_are_content_free(
     drifted = service.prepare(
         _exact(
             request.model_copy(
-                update={"idempotency_ref": _ref("idempotency", "drifted")}
+                update={
+                    "idempotency_ref": stable_governed_browser_ref(
+                        "idempotency-ref:governed-financial-contract:drifted",
+                        {"source_idempotency_ref": request.idempotency_ref},
+                    )
+                }
             ),
             recipe,
         )
@@ -578,6 +811,303 @@ def test_success_replay_and_idempotency_drift_are_content_free(
         "reason-ref:governed-financial:idempotency-conflict"
     ]
     assert drifted.contract is None
+
+
+def test_financial_replay_requires_exact_durable_provenance(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.booking,
+        suffix="durable-replay-provenance",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = _exact(request, recipe)
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    kernel_execution = financial_operation_module._kernel_execution(
+        exact.execution_request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    replay_receipt = service._kernel.replay_if_terminal(kernel_execution)
+    assert replay_receipt is not None
+    context = financial_operation_module._financial_replay_validation_context(
+        kernel=service._kernel,
+        expected_execution=kernel_execution,
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    payload = replay.receipt.model_dump(mode="json")
+    GovernedFinancialReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+    payload["budget_settlement_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="forged-replay-settlement",
+    )
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": payload["transaction_ref"],
+            "intent_ref": payload["intent_ref"],
+            "binding_ref": payload["binding_ref"],
+            "state": payload["external_action_state"],
+            "approval_validation_ref": payload["approval_validation_ref"],
+            "authority_decision_ref": payload["authority_decision_ref"],
+            "budget_reservation_ref": payload["budget_reservation_ref"],
+            "budget_settlement_ref": payload["budget_settlement_ref"],
+            "evidence_refs": payload["evidence_refs"],
+            "reason_refs": payload["reason_refs"],
+        },
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_financial_terminal_replay_reconstructs_exact_operation_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload, context, expected_evidence = _financial_terminal_replay_proof(
+        tmp_path,
+        terminal_state=terminal_state,
+        monkeypatch=monkeypatch,
+    )
+
+    reconstructed = GovernedFinancialReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+
+    assert reconstructed.replayed is True
+    assert reconstructed.external_action_state == terminal_state.value
+    assert reconstructed.evidence_refs == expected_evidence
+
+
+@pytest.mark.parametrize(
+    "terminal_state",
+    (
+        ExternalActionState.blocked,
+        ExternalActionState.failed,
+        ExternalActionState.outcome_ambiguous,
+    ),
+)
+def test_financial_terminal_replay_rejects_arbitrary_non_success_evidence(
+    tmp_path: Path,
+    terminal_state: ExternalActionState,
+) -> None:
+    service, exact = _seed_arbitrary_financial_terminal_evidence(
+        tmp_path,
+        terminal_state=terminal_state,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        service.prepare(exact)
+
+
+@pytest.mark.parametrize(
+    ("evidence_index", "receipt_field", "replacement_prefix"),
+    (
+        (
+            0,
+            "contract_ref",
+            "financial-contract-ref:governed-browser",
+        ),
+        (
+            1,
+            "authority_ref",
+            "financial-operation-authority-ref:governed-browser",
+        ),
+        (
+            2,
+            "financial_input_ref",
+            "financial-input-ref:governed-browser",
+        ),
+        (
+            3,
+            "quote_ref",
+            "financial-quote-ref:governed-browser",
+        ),
+        (
+            4,
+            "payment_handle_ref",
+            "payment-handle-ref:governed-browser",
+        ),
+        (
+            5,
+            "rollback_ref",
+            "financial-rollback-ref:governed-browser",
+        ),
+        (
+            6,
+            "reconciliation_ref",
+            "financial-reconciliation-ref:governed-browser",
+        ),
+    ),
+)
+def test_financial_replay_rejects_every_rehashed_evidence_field_tamper(
+    tmp_path: Path,
+    evidence_index: int,
+    receipt_field: str,
+    replacement_prefix: str,
+) -> None:
+    payload, context = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.purchase,
+        suffix=f"replay-field-{evidence_index}",
+    )
+    replacement = _pinned(
+        replacement_prefix,
+        suffix=f"replay-field-{evidence_index}-replacement",
+    )
+    evidence_refs = list(payload["evidence_refs"])
+    evidence_refs[evidence_index] = replacement
+    payload["evidence_refs"] = evidence_refs
+    payload[receipt_field] = replacement
+    _rehash_external_and_financial_receipt(payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ("reverse", "drop", "append", "duplicate"),
+)
+def test_financial_replay_rejects_rehashed_evidence_order_and_arity_tamper(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    payload, context = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.purchase,
+        suffix=f"replay-shape-{mutation}",
+    )
+    evidence_refs = list(payload["evidence_refs"])
+    if mutation == "reverse":
+        evidence_refs.reverse()
+    elif mutation == "drop":
+        evidence_refs.pop()
+    elif mutation == "append":
+        evidence_refs.append(
+            _pinned(
+                "financial-reconciliation-ref:governed-browser",
+                suffix="replay-shape-appended",
+            )
+        )
+    else:
+        evidence_refs.append(evidence_refs[-1])
+    payload["evidence_refs"] = evidence_refs
+    _rehash_external_and_financial_receipt(payload)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_FINANCIAL_SUCCESS_EVIDENCE_MISMATCH"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+        ),
+    ):
+        GovernedFinancialReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+
+
+def test_financial_replay_rejects_cross_operation_substitution(
+    tmp_path: Path,
+) -> None:
+    _, purchase_context = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.purchase,
+        suffix="cross-operation-purchase",
+    )
+    booking_payload, _ = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.booking,
+        suffix="cross-operation-booking",
+    )
+    _rehash_external_and_financial_receipt(booking_payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_LANE_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(
+            booking_payload,
+            context=replay_validation_context(purchase_context),
+        )
+
+
+def test_financial_replay_rejects_cross_transaction_substitution(
+    tmp_path: Path,
+) -> None:
+    payload, context = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.purchase,
+        suffix="cross-transaction-a",
+    )
+    foreign_payload, _ = _financial_replay_proof(
+        tmp_path,
+        operation=GovernedFinancialOperation.purchase,
+        suffix="cross-transaction-b",
+    )
+    for field in (
+        "transaction_ref",
+        "intent_ref",
+        "binding_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_release_ref",
+        "budget_settlement_ref",
+    ):
+        payload[field] = foreign_payload[field]
+    _rehash_external_and_financial_receipt(payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
 
 
 def test_success_receipt_requires_complete_exact_evidence(tmp_path: Path) -> None:
@@ -609,6 +1139,175 @@ def test_success_receipt_requires_complete_exact_evidence(tmp_path: Path) -> Non
     payload = receipt.model_dump(mode="json")
     payload["status"] = "failed"
     with pytest.raises(ValueError, match="RECEIPT_STATE_MISMATCH"):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+def test_financial_receipt_rejects_budget_proof_without_kernel_receipt(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="orphaned-release-proof",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(
+        {
+            "status": "preflight_blocked",
+            "external_action_state": "blocked",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": _pinned(
+                "receipt-ref:authority-budget",
+                suffix="orphaned-release-proof",
+            ),
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+        }
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+def test_financial_non_preflight_receipt_requires_kernel_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="kernel-context-required",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-financial:contract-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "rebound_ref"),
+    (
+        (
+            "transaction_ref",
+            _pinned(
+                "transaction-ref:governed-external-action",
+                suffix="rebound-financial-transaction",
+            ),
+        ),
+        (
+            "budget_settlement_ref",
+            _pinned(
+                "receipt-ref:authority-budget",
+                suffix="rebound-financial-settlement",
+            ),
+        ),
+    ),
+)
+def test_financial_receipt_rejects_rebound_kernel_receipt_fields(
+    tmp_path: Path,
+    field: str,
+    rebound_ref: str,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix=f"kernel-receipt-binding-{field}",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload[field] = rebound_ref
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedFinancialReceipt.model_validate(payload)
+
+
+def test_financial_receipt_rejects_conflicting_rehashed_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _financial_context(
+        operation=GovernedFinancialOperation.purchase,
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    payload = service.prepare(_exact(request, recipe)).receipt.model_dump(mode="json")
+    payload["budget_release_ref"] = _pinned(
+        "receipt-ref:authority-budget",
+        suffix="conflicting-rehashed-kernel-proofs",
+    )
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": payload["transaction_ref"],
+            "intent_ref": payload["intent_ref"],
+            "binding_ref": payload["binding_ref"],
+            "state": payload["external_action_state"],
+            "approval_validation_ref": payload["approval_validation_ref"],
+            "authority_decision_ref": payload["authority_decision_ref"],
+            "budget_reservation_ref": payload["budget_reservation_ref"],
+            "budget_release_ref": payload["budget_release_ref"],
+            "budget_settlement_ref": payload["budget_settlement_ref"],
+            "evidence_refs": payload["evidence_refs"],
+            "reason_refs": payload["reason_refs"],
+        },
+    )
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-financial-contract",
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(**payload)
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
         GovernedFinancialReceipt.model_validate(payload)
 
 
@@ -654,12 +1353,22 @@ def test_expired_recipe_is_preflight_denial_but_prior_start_is_ambiguous(
     )
     store = ExternalActionTransactionStore(recovery_path / "transactions.sqlite3")
     store.prepare(kernel_request)
-    assert store.claim_start(request.binding.transaction_ref) is True
+    assert store.claim_start(kernel_request) is True
+    with sqlite3.connect(recovery_path / "transactions.sqlite3") as connection:
+        connection.execute(
+            "UPDATE governed_external_actions SET updated_at = ? "
+            "WHERE transaction_ref = ?",
+            (
+                (utc_now() - timedelta(minutes=2)).isoformat(),
+                kernel_request.binding.transaction_ref,
+            ),
+        )
     recovered = recovery_service.prepare(_exact(request, recipe))
 
     assert recovered.receipt.status == "outcome_ambiguous"
     assert recovered.receipt.reason_refs == [
-        "reason-ref:governed-external-action:prior-start-unsettled"
+        "reason-ref:governed-external-action:prior-start-unsettled",
+        "reason-ref:governed-external-action:budget-reservation-proof-missing",
     ]
     assert recovered.contract is None
 

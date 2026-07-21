@@ -64,6 +64,28 @@ class GovernedBrowserKeychainOperation(str, Enum):
     delete = "delete"
 
 
+def governed_browser_keychain_helper_receipt_ref(
+    *,
+    operation: GovernedBrowserKeychainOperation,
+    request_ref: str,
+) -> str:
+    """Mirror the pinned helper's exact content-free receipt derivation."""
+
+    exact_operation = GovernedBrowserKeychainOperation(operation)
+    validate_task_ref(request_ref, "request_ref")
+    payload = "\0".join(
+        (
+            exact_operation.value,
+            request_ref,
+            GOVERNED_BROWSER_KEYCHAIN_HELPER_VERSION_REF,
+        )
+    ).encode("utf-8")
+    return (
+        "helper-receipt-ref:governed-browser-keychain:sha256:"
+        f"{hashlib.sha256(payload).hexdigest()}"
+    )
+
+
 def governed_browser_keychain_item_ref(
     *,
     origin_ref: str,
@@ -452,6 +474,7 @@ class MacOSGovernedBrowserKeychainAdapter:
             response,
             registration,
             GovernedBrowserKeychainOperation.store,
+            request_ref=request_ref,
         )
 
     def probe(
@@ -475,6 +498,7 @@ class MacOSGovernedBrowserKeychainAdapter:
             response,
             registration,
             GovernedBrowserKeychainOperation.probe,
+            request_ref=request_ref,
         )
 
     def delete(
@@ -498,6 +522,7 @@ class MacOSGovernedBrowserKeychainAdapter:
             response,
             registration,
             GovernedBrowserKeychainOperation.delete,
+            request_ref=request_ref,
         )
 
     def _operation_receipt(
@@ -505,6 +530,8 @@ class MacOSGovernedBrowserKeychainAdapter:
         response: _HelperResponse,
         registration: GovernedBrowserCredentialRegistration,
         operation: GovernedBrowserKeychainOperation,
+        *,
+        request_ref: str,
     ) -> GovernedBrowserKeychainOperationReceipt:
         if response.operation != operation.value or not response.ok:
             self._raise_helper_failure(response)
@@ -523,6 +550,15 @@ class MacOSGovernedBrowserKeychainAdapter:
         if observed_scope != expected_scope:
             raise GovernedBrowserKeychainError(
                 "GOVERNED_BROWSER_KEYCHAIN_HELPER_BINDING_MISMATCH"
+            )
+        if response.helper_receipt_ref != (
+            governed_browser_keychain_helper_receipt_ref(
+                operation=operation,
+                request_ref=request_ref,
+            )
+        ):
+            raise GovernedBrowserKeychainError(
+                "GOVERNED_BROWSER_KEYCHAIN_HELPER_RECEIPT_MISMATCH"
             )
         assert response.present is not None
         return GovernedBrowserKeychainOperationReceipt(

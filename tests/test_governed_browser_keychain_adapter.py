@@ -14,6 +14,9 @@ from ultimate_ai_agent.core.governed_browser import (
     MacOSGovernedBrowserKeychainAdapter,
     build_governed_browser_credential_registration,
 )
+from ultimate_ai_agent.core.governed_browser.static_safety import (
+    is_exact_governed_browser_keychain_subprocess_site,
+)
 
 
 def _write_fake_helper(
@@ -25,19 +28,31 @@ def _write_fake_helper(
     extra = ', "unexpected": true' if extra_response_field else ""
     created = "True" if store_created else "False"
     source = f"""#!/usr/bin/python3
+import hashlib
 import json
 import sys
 
 request = json.loads(sys.stdin.buffer.read())
 operation = request["operation"]
+helper_version_ref = "helper-version-ref:governed-browser-keychain:v1"
+request_ref = request.get(
+    "request_ref",
+    "request-ref:governed-browser-keychain:version",
+)
+helper_receipt_payload = chr(0).join(
+    (operation, request_ref, helper_version_ref)
+).encode("utf-8")
 response = {{
     "schema_version": "uaa-governed-browser-keychain-helper-response.v1",
     "ok": True,
     "operation": operation,
     "adapter_ref": "adapter-ref:governed-browser-keychain:macos:v1",
     "helper_version": "test",
-    "helper_version_ref": "helper-version-ref:governed-browser-keychain:v1",
-    "helper_receipt_ref": "helper-receipt-ref:governed-browser-keychain:test",
+    "helper_version_ref": helper_version_ref,
+    "helper_receipt_ref": (
+        "helper-receipt-ref:governed-browser-keychain:sha256:"
+        + hashlib.sha256(helper_receipt_payload).hexdigest()
+    ),
     "credential_material_included": False,
     "credential_material_returned": False,
     "browser_session_started": False,
@@ -81,6 +96,29 @@ def _registration():  # type: ignore[no-untyped-def]
 
 def _opaque_material(seed: int, length: int = 32) -> bytearray:
     return bytearray((seed + index) % 256 for index in range(length))
+
+
+def test_static_subprocess_exception_is_exact_source_hash_bound() -> None:
+    relative_path = (
+        "src/ultimate_ai_agent/core/governed_browser/browser_keychain.py"
+    )
+    source = Path(relative_path).read_text(encoding="utf-8")
+    exact = {
+        "rel_path": relative_path,
+        "source": source,
+        "fragment": "subprocess.run(",
+    }
+
+    assert is_exact_governed_browser_keychain_subprocess_site(**exact)
+    assert not is_exact_governed_browser_keychain_subprocess_site(
+        **{**exact, "source": source + "\n# source drift\n"}
+    )
+    assert not is_exact_governed_browser_keychain_subprocess_site(
+        **{**exact, "rel_path": "src/unrelated.py"}
+    )
+    assert not is_exact_governed_browser_keychain_subprocess_site(
+        **{**exact, "fragment": "subprocess.Popen("}
+    )
 
 
 def test_real_adapter_is_hash_pinned_bounded_and_never_returns_material(

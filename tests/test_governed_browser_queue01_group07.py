@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.governed_browser.human_challenges as human_challenges_module
 from scripts.verify_governed_browser_queue01_group07 import verify
 from tests.test_governed_browser_queue01_group01 import (
     _authorized_kernel,
@@ -17,10 +18,13 @@ from tests.test_governed_browser_queue01_group01 import (
 )
 from ultimate_ai_agent.core.authority import AuthorityCapability, AuthorityDomain
 from ultimate_ai_agent.core.governed_browser import (
+    ExactGovernedHumanChallengeHandoff,
     ExactGovernedHumanChallengeHandoffRequest,
+    ExactGovernedHumanChallengeHandoffResult,
     ExactGovernedHumanChallengeHandoffService,
     ExternalActionAuthorityBinding,
     ExternalActionExecutionRequest,
+    ExternalActionReceipt,
     ExternalActionTargetKind,
     GovernedHumanChallengeAction,
     GovernedHumanChallengeHandoffReceipt,
@@ -35,7 +39,80 @@ from ultimate_ai_agent.core.governed_browser import (
     governed_human_challenge_schema_ref,
     stable_governed_browser_ref,
 )
+from ultimate_ai_agent.core.governed_browser.contracts import (
+    governed_receipt_identity_payload,
+)
+from ultimate_ai_agent.core.governed_browser.replay_provenance import (
+    replay_validation_context,
+)
 from ultimate_ai_agent.core.time import utc_now
+
+
+def _rehash_handoff_receipt(payload: dict[str, object]) -> dict[str, object]:
+    identity_payload = {
+        key: value for key, value in payload.items() if key != "receipt_ref"
+    }
+    if identity_payload.get("budget_release_ref") is None:
+        identity_payload.pop("budget_release_ref", None)
+    payload["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        identity_payload,
+    )
+    return payload
+
+
+def _external_receipt_from_handoff_payload(
+    payload: dict[str, object],
+) -> ExternalActionReceipt:
+    external_reason_refs = tuple(payload["reason_refs"])  # type: ignore[arg-type]
+    if (
+        payload["external_action_state"] == "failed"
+        and external_reason_refs
+        == (
+            "reason-ref:governed-human-challenge:"
+            "handoff-preparation-failed",
+        )
+    ):
+        external_reason_refs = ()
+    return ExternalActionReceipt(
+        receipt_ref=str(payload["external_action_receipt_ref"]),
+        transaction_ref=str(payload["transaction_ref"]),
+        intent_ref=str(payload["intent_ref"]),
+        binding_ref=str(payload["binding_ref"]),
+        state=str(payload["external_action_state"]),
+        approval_validation_ref=payload["approval_validation_ref"],  # type: ignore[arg-type]
+        authority_decision_ref=payload["authority_decision_ref"],  # type: ignore[arg-type]
+        budget_reservation_ref=payload["budget_reservation_ref"],  # type: ignore[arg-type]
+        budget_release_ref=payload["budget_release_ref"],  # type: ignore[arg-type]
+        budget_settlement_ref=payload["budget_settlement_ref"],  # type: ignore[arg-type]
+        evidence_refs=tuple(payload["evidence_refs"]),  # type: ignore[arg-type]
+        reason_refs=external_reason_refs,
+        replayed=bool(payload["replayed"]),
+    )
+
+
+def _rehash_handoff_external_projection(
+    payload: dict[str, object],
+) -> dict[str, object]:
+    external_payload = {
+        "transaction_ref": payload["transaction_ref"],
+        "intent_ref": payload["intent_ref"],
+        "binding_ref": payload["binding_ref"],
+        "state": payload["external_action_state"],
+        "approval_validation_ref": payload["approval_validation_ref"],
+        "authority_decision_ref": payload["authority_decision_ref"],
+        "budget_reservation_ref": payload["budget_reservation_ref"],
+        "budget_settlement_ref": payload["budget_settlement_ref"],
+        "evidence_refs": payload["evidence_refs"],
+        "reason_refs": payload["reason_refs"],
+    }
+    if payload["budget_release_ref"] is not None:
+        external_payload["budget_release_ref"] = payload["budget_release_ref"]
+    payload["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        external_payload,
+    )
+    return _rehash_handoff_receipt(payload)
 
 
 def _challenge_context(
@@ -196,6 +273,304 @@ def test_registered_human_challenges_prepare_handoff_only(
     assert result.handoff.external_mutation_performed is False
 
 
+def test_handoff_receipt_rejects_rehashed_conflicting_kernel_proofs(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="conflicting-proofs")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged["budget_release_ref"] = _ref(
+        "budget-release",
+        "human-conflicting-proofs",
+    )
+    forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-external-action",
+        {
+            "transaction_ref": forged["transaction_ref"],
+            "intent_ref": forged["intent_ref"],
+            "binding_ref": forged["binding_ref"],
+            "state": forged["external_action_state"],
+            "approval_validation_ref": forged["approval_validation_ref"],
+            "authority_decision_ref": forged["authority_decision_ref"],
+            "budget_reservation_ref": forged["budget_reservation_ref"],
+            "budget_release_ref": forged["budget_release_ref"],
+            "budget_settlement_ref": forged["budget_settlement_ref"],
+            "evidence_refs": forged["evidence_refs"],
+            "reason_refs": forged["reason_refs"],
+        },
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        {key: value for key, value in forged.items() if key != "receipt_ref"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_EXTERNAL_RECEIPT_REF_MISMATCH",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_non_preflight_receipt_requires_kernel_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="context-required")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": None,
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-human-challenge:handoff-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_REQUIRED",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_non_preflight_rejects_orphan_kernel_proof(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix="non-preflight-orphan-proof"
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    forged = result.receipt.model_dump(mode="json")
+    forged.update(
+        {
+            "status": "failed",
+            "external_action_state": "failed",
+            "external_action_receipt_ref": None,
+            "approval_validation_ref": None,
+            "authority_decision_ref": None,
+            "budget_reservation_ref": None,
+            "budget_release_ref": _ref(
+                "budget-release",
+                "handoff-non-preflight-orphan-proof",
+            ),
+            "budget_settlement_ref": None,
+            "evidence_refs": [],
+            "reason_refs": [
+                "reason-ref:governed-human-challenge:handoff-preparation-failed"
+            ],
+            "replayed": False,
+        }
+    )
+    _rehash_handoff_receipt(forged)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_EXTERNAL_PROOF_CONTEXT_INVALID",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_preflight_rejects_orphan_kernel_proof(tmp_path: Path) -> None:
+    request, recipe, registry = _challenge_context(suffix="preflight-orphan-proof")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    forged = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=(
+                "human-challenge-handoff-recipe-ref:governed-browser:unknown"
+            ),
+        )
+    ).receipt.model_dump(mode="json")
+    forged["budget_release_ref"] = _ref(
+        "budget-release",
+        "human-preflight-orphan-proof",
+    )
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        {key: value for key, value in forged.items() if key != "receipt_ref"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_PREFLIGHT_EXTERNAL_PROOF_DENIED",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_receipt_rejects_kernel_state_status_mismatch(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="state-status-mismatch")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    forged = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    ).receipt.model_dump(mode="json")
+    forged["status"] = "failed"
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_RECEIPT_STATE_MISMATCH",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_non_replay_status_rejects_replay_flag(tmp_path: Path) -> None:
+    request, recipe, registry = _challenge_context(suffix="replay-status-mismatch")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    forged = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    ).receipt.model_dump(mode="json")
+    forged["replayed"] = True
+    identity_payload = {
+        key: value
+        for key, value in forged.items()
+        if key not in {"receipt_ref", "budget_release_ref"}
+    }
+    forged["receipt_ref"] = stable_governed_browser_ref(
+        "receipt-ref:governed-human-challenge-handoff",
+        identity_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_REPLAY_STATUS_MISMATCH",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    (
+        "external_action_receipt_ref",
+        "approval_validation_ref",
+        "authority_decision_ref",
+        "budget_reservation_ref",
+        "budget_settlement_ref",
+        "evidence_refs",
+    ),
+)
+def test_handoff_replayed_success_requires_complete_kernel_proof(
+    tmp_path: Path,
+    missing_field: str,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="proofless-replay")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    forged = service.prepare(exact).receipt.model_dump(mode="json")
+    assert forged["status"] == "replayed_content_free"
+    forged[missing_field] = [] if missing_field == "evidence_refs" else None
+    if missing_field != "external_action_receipt_ref":
+        external_payload = {
+            "transaction_ref": forged["transaction_ref"],
+            "intent_ref": forged["intent_ref"],
+            "binding_ref": forged["binding_ref"],
+            "state": forged["external_action_state"],
+            "approval_validation_ref": forged["approval_validation_ref"],
+            "authority_decision_ref": forged["authority_decision_ref"],
+            "budget_reservation_ref": forged["budget_reservation_ref"],
+            "budget_settlement_ref": forged["budget_settlement_ref"],
+            "evidence_refs": forged["evidence_refs"],
+            "reason_refs": forged["reason_refs"],
+        }
+        if forged["budget_release_ref"] is not None:
+            external_payload["budget_release_ref"] = forged["budget_release_ref"]
+        forged["external_action_receipt_ref"] = stable_governed_browser_ref(
+            "receipt-ref:governed-external-action",
+            external_payload,
+        )
+    _rehash_handoff_receipt(forged)
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_SUCCESS_KERNEL_PROOF_REQUIRED",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(forged)
+
+
+def test_handoff_result_rejects_cross_projection_binding(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="result-projection")
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    result = service.prepare(
+        ExactGovernedHumanChallengeHandoffRequest(
+            execution_request=request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    assert result.handoff is not None
+    forged_handoff = ExactGovernedHumanChallengeHandoff.model_validate(
+        {
+            **result.handoff.model_dump(mode="json"),
+            "binding_ref": _ref("binding", "unrelated-handoff-projection"),
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_RECEIPT_MISMATCH",
+    ):
+        ExactGovernedHumanChallengeHandoffResult(
+            receipt=result.receipt,
+            handoff=forged_handoff,
+        )
+
+
 def test_handoff_replay_is_content_free_and_at_most_once(tmp_path: Path) -> None:
     request, recipe, registry = _challenge_context(suffix="replay")
     service, _ = _service(
@@ -220,6 +595,299 @@ def test_handoff_replay_is_content_free_and_at_most_once(tmp_path: Path) -> None
     assert recipe.challenge_ref.encode() in ledger
     assert b"challenge_material" not in ledger
     assert b"challenge_response" not in ledger
+
+
+def test_handoff_replay_reconstruction_requires_exact_terminal_provenance(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix="replay-provenance"
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    payload = replay.receipt.model_dump(mode="json")
+    external_receipt = _external_receipt_from_handoff_payload(payload)
+    expected_execution = (
+        human_challenges_module._human_challenge_kernel_execution(
+            request,
+            recipe_ref=recipe.recipe_ref,
+        )
+    )
+    context = human_challenges_module._human_challenge_replay_context(
+        service._kernel,
+        expected_execution=expected_execution,
+        recipe=recipe,
+        replay_receipt=external_receipt,
+    )
+
+    restored = GovernedHumanChallengeHandoffReceipt.model_validate(
+        payload,
+        context=replay_validation_context(context),
+    )
+    assert restored == replay.receipt
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_CONTEXT_REQUIRED",
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("terminal_state", "first_status"),
+    (
+        ("blocked", "transaction_blocked"),
+        ("failed", "failed"),
+        ("outcome_ambiguous", "outcome_ambiguous"),
+    ),
+)
+def test_handoff_non_success_terminal_replays_use_complete_envelope(
+    tmp_path: Path,
+    terminal_state: str,
+    first_status: str,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix=f"replay-terminal-{terminal_state}"
+    )
+    clock_calls = 0
+
+    def ambiguous_clock():  # type: ignore[no-untyped-def]
+        nonlocal clock_calls
+        clock_calls += 1
+        if clock_calls == 2:
+            raise RuntimeError("injected content-free dispatch clock failure")
+        return recipe.created_at
+
+    service, _ = _service(
+        tmp_path,
+        request=request,
+        registry=registry,
+        readiness_provider=(
+            (lambda item: _readiness(item, safe_disable=True))
+            if terminal_state == "blocked"
+            else None
+        ),
+        clock=(
+            (lambda: recipe.expires_at)
+            if terminal_state == "failed"
+            else ambiguous_clock
+            if terminal_state == "outcome_ambiguous"
+            else utc_now
+        ),
+    )
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+
+    first = service.prepare(exact)
+    replay = service.prepare(exact)
+
+    assert first.receipt.status == first_status
+    assert first.receipt.external_action_state == terminal_state
+    assert first.receipt.replayed is False
+    assert replay.receipt.status == "replayed_content_free"
+    assert replay.receipt.external_action_state == terminal_state
+    assert replay.receipt.replayed is True
+    assert replay.handoff is None
+    payload = replay.receipt.model_dump(mode="json")
+    replay_receipt = _external_receipt_from_handoff_payload(payload)
+    context = human_challenges_module._human_challenge_replay_context(
+        service._kernel,
+        expected_execution=(
+            human_challenges_module._human_challenge_kernel_execution(
+                request,
+                recipe_ref=recipe.recipe_ref,
+            )
+        ),
+        recipe=recipe,
+        replay_receipt=replay_receipt,
+    )
+    assert (
+        GovernedHumanChallengeHandoffReceipt.model_validate(
+            payload,
+            context=replay_validation_context(context),
+        )
+        == replay.receipt
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "evidence_mode"),
+    (
+        ("blocked", "arbitrary"),
+        ("failed", "arbitrary"),
+        ("outcome_ambiguous", "arbitrary"),
+        ("started", "success"),
+        ("prepared", "empty"),
+    ),
+)
+def test_handoff_replay_expectation_rejects_invalid_non_success_envelopes(
+    tmp_path: Path,
+    state: str,
+    evidence_mode: str,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix=f"replay-invalid-envelope-{state}-{evidence_mode}"
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    baseline = _external_receipt_from_handoff_payload(
+        replay.receipt.model_dump(mode="json")
+    )
+    evidence_refs = {
+        "arbitrary": (_ref("evidence", f"handoff-{state}-arbitrary"),),
+        "success": tuple(baseline.evidence_refs),
+        "empty": (),
+    }[evidence_mode]
+    candidate = baseline.model_copy(
+        update={
+            "state": state,
+            "evidence_refs": evidence_refs,
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOVERNED_HUMAN_CHALLENGE_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    ):
+        human_challenges_module._human_challenge_replay_context(
+            service._kernel,
+            expected_execution=(
+                human_challenges_module._human_challenge_kernel_execution(
+                    request,
+                    recipe_ref=recipe.recipe_ref,
+                )
+            ),
+            recipe=recipe,
+            replay_receipt=candidate,
+        )
+
+
+@pytest.mark.parametrize(
+    "tamper_mode",
+    ("slot-0", "slot-1", "order", "drop", "append"),
+)
+def test_handoff_replay_rejects_fully_rehashed_evidence_tampering(
+    tmp_path: Path,
+    tamper_mode: str,
+) -> None:
+    request, recipe, registry = _challenge_context(
+        suffix=f"replay-tamper-{tamper_mode}"
+    )
+    service, _ = _service(tmp_path, request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    original = replay.receipt.model_dump(mode="json")
+    context = human_challenges_module._human_challenge_replay_context(
+        service._kernel,
+        expected_execution=(
+            human_challenges_module._human_challenge_kernel_execution(
+                request,
+                recipe_ref=recipe.recipe_ref,
+            )
+        ),
+        recipe=recipe,
+        replay_receipt=_external_receipt_from_handoff_payload(original),
+    )
+    forged = replay.receipt.model_dump(mode="json")
+    evidence_refs = list(forged["evidence_refs"])
+    if tamper_mode == "slot-0":
+        evidence_refs[0] = stable_governed_browser_ref(
+            "human-challenge-handoff-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "slot-1":
+        evidence_refs[1] = stable_governed_browser_ref(
+            "human-challenge-ref:governed-browser",
+            {"tamper": tamper_mode},
+        )
+    elif tamper_mode == "order":
+        evidence_refs.reverse()
+    elif tamper_mode == "drop":
+        evidence_refs.pop()
+    else:
+        evidence_refs.append(_ref("evidence", "handoff-extra"))
+    forged["evidence_refs"] = evidence_refs
+    _rehash_handoff_external_projection(forged)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_HUMAN_CHALLENGE_SUCCESS_EVIDENCE_MISMATCH"
+            "|GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_RECEIPT_MISMATCH"
+        ),
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(
+            forged,
+            context=replay_validation_context(context),
+        )
+
+
+def test_handoff_replay_rejects_cross_transaction_recipe_context(
+    tmp_path: Path,
+) -> None:
+    request, recipe, registry = _challenge_context(suffix="replay-context-a")
+    service, _ = _service(tmp_path / "a", request=request, registry=registry)
+    exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=request,
+        recipe_ref=recipe.recipe_ref,
+    )
+    service.prepare(exact)
+    replay = service.prepare(exact)
+    context = human_challenges_module._human_challenge_replay_context(
+        service._kernel,
+        expected_execution=(
+            human_challenges_module._human_challenge_kernel_execution(
+                request,
+                recipe_ref=recipe.recipe_ref,
+            )
+        ),
+        recipe=recipe,
+        replay_receipt=_external_receipt_from_handoff_payload(
+            replay.receipt.model_dump(mode="json")
+        ),
+    )
+
+    other_request, other_recipe, other_registry = _challenge_context(
+        suffix="replay-context-b"
+    )
+    other_service, _ = _service(
+        tmp_path / "b",
+        request=other_request,
+        registry=other_registry,
+    )
+    other_exact = ExactGovernedHumanChallengeHandoffRequest(
+        execution_request=other_request,
+        recipe_ref=other_recipe.recipe_ref,
+    )
+    other_service.prepare(other_exact)
+    other_replay = other_service.prepare(other_exact)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GOVERNED_EXTERNAL_ACTION_REPLAY_PROVENANCE_"
+            "OPERATION_MISMATCH"
+        ),
+    ):
+        GovernedHumanChallengeHandoffReceipt.model_validate(
+            other_replay.receipt.model_dump(mode="json"),
+            context=replay_validation_context(context),
+        )
 
 
 def test_unknown_recipe_and_approval_identifier_alone_do_not_prepare_handoff(
@@ -338,6 +1006,8 @@ def test_shared_revalidation_gates_block_before_handoff(
     assert result.receipt.status == "transaction_blocked"
     assert result.handoff is None
     assert result.receipt.budget_reservation_ref
+    assert result.receipt.budget_release_ref
+    assert result.receipt.budget_settlement_ref is None
 
 
 def test_exact_scope_human_presence_and_real_targets_fail_closed(
@@ -648,10 +1318,12 @@ def test_contracts_reject_raw_or_unbound_handoff_fields() -> None:
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-human-challenge-handoff",
-        GovernedHumanChallengeHandoffReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-human-challenge-handoff:pending",
-            **receipt_payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedHumanChallengeHandoffReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-human-challenge-handoff:pending",
+                **receipt_payload,
+            )
+        ),
     )
     parsed = GovernedHumanChallengeHandoffReceipt(
         receipt_ref=receipt_ref,

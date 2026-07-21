@@ -36,6 +36,10 @@ from .contracts import (
 GOVERNED_EXTERNAL_ACTION_INBOX_CONTRACT_REF = (
     "contract-ref:governed-external-action-inbox-envelope:v1"
 )
+_ACCOUNTING_RECONCILIATION_REASON_MARKERS = (
+    "budget-release-unconfirmed",
+    "budget-settlement-ambiguous",
+)
 
 
 class ExternalActionInboxStatus(str, Enum):
@@ -339,6 +343,8 @@ def build_external_action_inbox_envelope(
     approval_validation_ref: str | None = None
     if receipt is not None:
         receipt_refs.append(receipt.receipt_ref)
+        if receipt.budget_release_ref:
+            receipt_refs.append(receipt.budget_release_ref)
         if receipt.budget_settlement_ref:
             receipt_refs.append(receipt.budget_settlement_ref)
         evidence_refs.extend(receipt.evidence_refs)
@@ -446,6 +452,12 @@ def _reconciliation_posture(
 ) -> tuple[ExternalActionReconciliationStatus, bool]:
     if receipt is None:
         return ExternalActionReconciliationStatus.pending_dispatch, False
+    if any(
+        marker in reason_ref
+        for reason_ref in receipt.reason_refs
+        for marker in _ACCOUNTING_RECONCILIATION_REASON_MARKERS
+    ):
+        return ExternalActionReconciliationStatus.required, True
     if receipt.state == ExternalActionState.succeeded.value and receipt.evidence_refs:
         return ExternalActionReconciliationStatus.verified, False
     if receipt.state == ExternalActionState.blocked.value:

@@ -20,6 +20,7 @@ from pydantic import (
     Field,
     StrictBool,
     StrictInt,
+    ValidationInfo,
     model_validator,
 )
 
@@ -37,7 +38,16 @@ from .contracts import (
     ExternalActionReceipt,
     ExternalActionState,
     ExternalActionTargetKind,
+    governed_receipt_identity_payload,
     stable_governed_browser_ref,
+)
+from .replay_provenance import (
+    ExternalActionReplayEvidenceExpectation,
+    ExternalActionReplayValidationContext,
+    _build_external_action_replay_validation_context,
+    _require_operation_replay_evidence_envelope,
+    replay_validation_context,
+    require_external_action_replay_provenance,
 )
 from .transaction import (
     ExternalActionTransactionConflict,
@@ -49,6 +59,7 @@ MAX_GOVERNED_FINANCIAL_RECIPE_LIFETIME = timedelta(minutes=10)
 MAX_GOVERNED_FINANCIAL_AMOUNT_MINOR_UNITS = 1_000_000_000
 _HASH_SUFFIX_RE = re.compile(r"sha256:[0-9a-f]{64}")
 _AUTHORITY_PREFIX = "financial-operation-authority-ref:governed-browser:"
+_FINANCIAL_REPLAY_LANE_REF = "lane-ref:governed-financial-operation"
 
 
 class GovernedFinancialOperation(str, Enum):
@@ -742,7 +753,7 @@ def build_governed_financial_recipe(
         raise ValueError("GOVERNED_FINANCIAL_TARGET_NOT_AUTHORITY_BOUND")
     if binding.field_schema_ref != scope.schema_ref:
         raise ValueError("GOVERNED_FINANCIAL_SCHEMA_NOT_AUTHORITY_BOUND")
-    if binding.artifact_refs != scope.artifact_refs:
+    if binding.artifact_refs != tuple(scope.artifact_refs):
         raise ValueError("GOVERNED_FINANCIAL_ARTIFACT_NOT_AUTHORITY_BOUND")
     if created_at.tzinfo is None or expires_at.tzinfo is None:
         raise ValueError("GOVERNED_FINANCIAL_TIMEZONE_REQUIRED")
@@ -914,6 +925,7 @@ class GovernedFinancialReceipt(BaseModel):
     approval_validation_ref: str | None = None
     authority_decision_ref: str | None = None
     budget_reservation_ref: str | None = None
+    budget_release_ref: str | None = None
     budget_settlement_ref: str | None = None
     evidence_refs: list[str] = Field(default_factory=list, max_length=12)
     reason_refs: list[str] = Field(default_factory=list, max_length=16)
@@ -936,7 +948,10 @@ class GovernedFinancialReceipt(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> GovernedFinancialReceipt:
+    def validate_receipt(
+        self,
+        info: ValidationInfo,
+    ) -> GovernedFinancialReceipt:
         for value, label in (
             (self.receipt_ref, "receipt_ref"),
             (self.recipe_ref, "recipe_ref"),
@@ -955,6 +970,7 @@ class GovernedFinancialReceipt(BaseModel):
             (self.approval_validation_ref, "approval_validation_ref"),
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.budget_reservation_ref, "budget_reservation_ref"),
+            (self.budget_release_ref, "budget_release_ref"),
             (self.budget_settlement_ref, "budget_settlement_ref"),
             *[(ref, "evidence_ref") for ref in self.evidence_refs],
             *[(ref, "reason_ref") for ref in self.reason_refs],
@@ -967,25 +983,27 @@ class GovernedFinancialReceipt(BaseModel):
             GovernedFinancialContractStatus.contract_ready,
             GovernedFinancialContractStatus.replayed_content_free,
         }
-        expected_state = {
+        expected_states = {
             GovernedFinancialContractStatus.contract_ready: (
-                ExternalActionState.succeeded
+                ExternalActionState.succeeded,
             ),
             GovernedFinancialContractStatus.replayed_content_free: (
-                ExternalActionState.succeeded
+                ExternalActionState.succeeded,
             ),
             GovernedFinancialContractStatus.preflight_blocked: (
-                ExternalActionState.blocked
+                ExternalActionState.blocked,
             ),
             GovernedFinancialContractStatus.transaction_blocked: (
-                ExternalActionState.blocked
+                ExternalActionState.blocked,
             ),
-            GovernedFinancialContractStatus.failed: ExternalActionState.failed,
+            GovernedFinancialContractStatus.failed: (ExternalActionState.failed,),
             GovernedFinancialContractStatus.outcome_ambiguous: (
-                ExternalActionState.outcome_ambiguous
+                ExternalActionState.outcome_ambiguous,
+                ExternalActionState.started,
+                ExternalActionState.prepared,
             ),
         }[status]
-        if state != expected_state:
+        if state not in expected_states:
             raise ValueError("GOVERNED_FINANCIAL_RECEIPT_STATE_MISMATCH")
         if status == GovernedFinancialContractStatus.contract_ready and (self.replayed):
             raise ValueError("GOVERNED_FINANCIAL_READY_STATE_MISMATCH")
@@ -993,6 +1011,33 @@ class GovernedFinancialReceipt(BaseModel):
             not self.replayed
         ):
             raise ValueError("GOVERNED_FINANCIAL_REPLAY_STATE_MISMATCH")
+        external_kernel_proof_refs = (
+            self.approval_validation_ref,
+            self.authority_decision_ref,
+            self.budget_reservation_ref,
+            self.budget_release_ref,
+            self.budget_settlement_ref,
+        )
+        external_proof_context_present = (
+            self.external_action_receipt_ref is not None
+            or any(ref is not None for ref in external_kernel_proof_refs)
+            or bool(self.evidence_refs)
+        )
+        if (
+            status == GovernedFinancialContractStatus.preflight_blocked
+            and (external_proof_context_present or self.replayed)
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
+        if self.external_action_receipt_ref is None and (
+            any(ref is not None for ref in external_kernel_proof_refs)
+            or self.evidence_refs
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_INVALID")
+        if (
+            status != GovernedFinancialContractStatus.preflight_blocked
+            and self.external_action_receipt_ref is None
+        ):
+            raise ValueError("GOVERNED_FINANCIAL_EXTERNAL_PROOF_CONTEXT_REQUIRED")
         if status in successful:
             kernel_refs = (
                 self.external_action_receipt_ref,
@@ -1080,9 +1125,44 @@ class GovernedFinancialReceipt(BaseModel):
                 raise ValueError("GOVERNED_FINANCIAL_SUCCESS_EVIDENCE_MISMATCH")
             if self.reason_refs:
                 raise ValueError("GOVERNED_FINANCIAL_SUCCESS_REASON_MISMATCH")
+        if self.external_action_receipt_ref is not None:
+            external_reason_refs = tuple(self.reason_refs)
+            if (
+                status == GovernedFinancialContractStatus.failed
+                and external_reason_refs
+                == ("reason-ref:governed-financial:contract-preparation-failed",)
+            ):
+                external_reason_refs = ()
+            try:
+                external_receipt = ExternalActionReceipt(
+                    receipt_ref=self.external_action_receipt_ref,
+                    transaction_ref=self.transaction_ref,
+                    intent_ref=self.intent_ref,
+                    binding_ref=self.binding_ref,
+                    state=self.external_action_state,
+                    approval_validation_ref=self.approval_validation_ref,
+                    authority_decision_ref=self.authority_decision_ref,
+                    budget_reservation_ref=self.budget_reservation_ref,
+                    budget_release_ref=self.budget_release_ref,
+                    budget_settlement_ref=self.budget_settlement_ref,
+                    evidence_refs=tuple(self.evidence_refs),
+                    reason_refs=external_reason_refs,
+                    replayed=self.replayed,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "GOVERNED_FINANCIAL_EXTERNAL_RECEIPT_REF_MISMATCH"
+                ) from exc
+            if self.replayed:
+                require_external_action_replay_provenance(
+                    info,
+                    lane_ref=_financial_replay_lane_ref(self.operation),
+                    operation_ref=self.recipe_ref,
+                    candidate=external_receipt,
+                )
         expected_receipt_ref = stable_governed_browser_ref(
             "receipt-ref:governed-financial-contract",
-            self.model_dump(mode="json", exclude={"receipt_ref"}),
+            governed_receipt_identity_payload(self),
         )
         if self.receipt_ref != expected_receipt_ref:
             raise ValueError("GOVERNED_FINANCIAL_RECEIPT_REF_MISMATCH")
@@ -1178,11 +1258,18 @@ class ExactGovernedFinancialService:
                 "reason-ref:governed-financial:idempotency-conflict",
             )
         if replay is not None:
+            replay_context = _financial_replay_validation_context(
+                kernel=self._kernel,
+                expected_execution=kernel_execution,
+                recipe=recipe,
+                replay_receipt=replay,
+            )
             return _result_from_external_receipt(
                 request=request,
                 recipe=recipe,
                 external_receipt=replay,
                 contract=None,
+                replay_context=replay_context,
             )
         try:
             prior_start = self._kernel.recover_if_prior_start(kernel_execution)
@@ -1256,12 +1343,81 @@ class ExactGovernedFinancialService:
             or external_receipt.state != ExternalActionState.succeeded.value
         ):
             contract = None
+        replay_context = (
+            _financial_replay_validation_context(
+                kernel=self._kernel,
+                expected_execution=kernel_execution,
+                recipe=recipe,
+                replay_receipt=external_receipt,
+            )
+            if external_receipt.replayed
+            else None
+        )
         return _result_from_external_receipt(
             request=request,
             recipe=recipe,
             external_receipt=external_receipt,
             contract=contract,
+            replay_context=replay_context,
         )
+
+
+def _financial_replay_lane_ref(
+    operation: GovernedFinancialOperation | str,
+) -> str:
+    exact_operation = GovernedFinancialOperation(operation)
+    return f"{_FINANCIAL_REPLAY_LANE_REF}:{exact_operation.value}"
+
+
+def _financial_replay_evidence_expectation(
+    *,
+    recipe: GovernedFinancialRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayEvidenceExpectation:
+    operation = GovernedFinancialOperation(recipe.scope.operation)
+    evidence_refs = tuple(replay_receipt.evidence_refs)
+    expected_failure_refs = {
+        stable_governed_browser_ref(
+            f"evidence-ref:governed-financial:{suffix}",
+            {"intent_ref": replay_receipt.intent_ref},
+        )
+        for suffix in (
+            "trusted-clock-invalid",
+            "contract-revalidation-failed",
+        )
+    }
+    _require_operation_replay_evidence_envelope(
+        replay_receipt,
+        success_evidence_valid=evidence_refs == tuple(_success_evidence(recipe)),
+        failure_evidence_valid=(
+            len(evidence_refs) == 1
+            and evidence_refs[0] in expected_failure_refs
+        ),
+        mismatch_error="GOVERNED_FINANCIAL_REPLAY_EVIDENCE_ENVELOPE_MISMATCH",
+    )
+    return ExternalActionReplayEvidenceExpectation(
+        lane_ref=_financial_replay_lane_ref(operation),
+        operation_ref=recipe.recipe_ref,
+        evidence_refs=evidence_refs,
+    )
+
+
+def _financial_replay_validation_context(
+    *,
+    kernel: GovernedExternalActionKernel,
+    expected_execution: ExternalActionExecutionRequest,
+    recipe: GovernedFinancialRecipe,
+    replay_receipt: ExternalActionReceipt,
+) -> ExternalActionReplayValidationContext:
+    return _build_external_action_replay_validation_context(
+        kernel,
+        expected_execution=expected_execution,
+        replay_receipt=replay_receipt,
+        expectation=_financial_replay_evidence_expectation(
+            recipe=recipe,
+            replay_receipt=replay_receipt,
+        ),
+    )
 
 
 def _kernel_execution(
@@ -1317,7 +1473,7 @@ def _recipe_scope_reason(
             "reason-ref:governed-financial:schema-mismatch",
         ),
         (
-            binding.artifact_refs == recipe.scope.artifact_refs,
+            binding.artifact_refs == tuple(recipe.scope.artifact_refs),
             "reason-ref:governed-financial:artifact-mismatch",
         ),
         (
@@ -1427,10 +1583,12 @@ def _preflight_blocked(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-financial-contract",
-        GovernedFinancialReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-financial-contract:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-financial-contract:pending",
+                **payload,
+            )
+        ),
     )
     return ExactGovernedFinancialResult(
         receipt=GovernedFinancialReceipt(
@@ -1446,6 +1604,7 @@ def _result_from_external_receipt(
     recipe: GovernedFinancialRecipe,
     external_receipt: ExternalActionReceipt,
     contract: ExactGovernedFinancialContract | None,
+    replay_context: ExternalActionReplayValidationContext | None = None,
 ) -> ExactGovernedFinancialResult:
     state = ExternalActionState(external_receipt.state)
     if external_receipt.replayed and state == ExternalActionState.succeeded:
@@ -1491,6 +1650,7 @@ def _result_from_external_receipt(
         "approval_validation_ref": external_receipt.approval_validation_ref,
         "authority_decision_ref": external_receipt.authority_decision_ref,
         "budget_reservation_ref": external_receipt.budget_reservation_ref,
+        "budget_release_ref": external_receipt.budget_release_ref,
         "budget_settlement_ref": external_receipt.budget_settlement_ref,
         "evidence_refs": list(external_receipt.evidence_refs),
         "reason_refs": reason_refs,
@@ -1498,15 +1658,23 @@ def _result_from_external_receipt(
     }
     receipt_ref = stable_governed_browser_ref(
         "receipt-ref:governed-financial-contract",
-        GovernedFinancialReceipt.model_construct(
-            receipt_ref="receipt-ref:governed-financial-contract:pending",
-            **payload,
-        ).model_dump(mode="json", exclude={"receipt_ref"}),
-    )
-    return ExactGovernedFinancialResult(
-        receipt=GovernedFinancialReceipt(
-            receipt_ref=receipt_ref,
-            **payload,
+        governed_receipt_identity_payload(
+            GovernedFinancialReceipt.model_construct(
+                receipt_ref="receipt-ref:governed-financial-contract:pending",
+                **payload,
+            )
         ),
-        contract=contract,
+    )
+    return ExactGovernedFinancialResult.model_validate(
+        {
+            "receipt": {"receipt_ref": receipt_ref, **payload},
+            "contract": (
+                contract.model_dump(mode="json") if contract is not None else None
+            ),
+        },
+        context=(
+            replay_validation_context(replay_context)
+            if replay_context is not None
+            else None
+        ),
     )

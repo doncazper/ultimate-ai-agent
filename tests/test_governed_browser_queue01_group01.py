@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.governed_browser import (
     GovernedExternalActionKernel,
     IsolatedBrowserBrokerAdapter,
     build_external_action_approval_request,
+    build_external_action_readiness,
     create_isolated_browser_broker_gateway,
     stable_governed_browser_ref,
 )
@@ -107,7 +108,10 @@ def _request(
         run_ref=run_ref,
         task_ref=task_ref,
         intent_ref=intent_ref,
-        idempotency_ref=_ref("idempotency", binding.transaction_ref.rsplit(":", 1)[-1]),
+        idempotency_ref=stable_governed_browser_ref(
+            "idempotency-ref:governed-external-action",
+            {"intent_ref": intent_ref},
+        ),
         lease_ref=lease_ref,
         approval_ref=approval_ref,
     )
@@ -162,10 +166,8 @@ def _readiness(
     kill_switch: bool = False,
 ) -> ExternalActionReadiness:
     now = utc_now()
-    return ExternalActionReadiness(
-        readiness_ref=_ref("readiness", "exact"),
-        binding_ref=request.binding.binding_ref,
-        page_snapshot_ref=snapshot_ref or request.binding.page_snapshot_ref,
+    return build_external_action_readiness(
+        request,
         status="ready" if ready else "blocked",
         observed_at=now - timedelta(seconds=1),
         expires_at=min(
@@ -176,6 +178,7 @@ def _readiness(
         external_mutation_enabled=True,
         safe_disable_active=safe_disable,
         kill_switch_engaged=kill_switch,
+        page_snapshot_ref=snapshot_ref,
     )
 
 
@@ -214,7 +217,16 @@ def _authorized_kernel(
 def _success(_request: ExternalActionExecutionRequest) -> ExternalActionDispatchResult:
     return ExternalActionDispatchResult(
         outcome=ExternalActionDispatchOutcome.succeeded,
-        evidence_refs=[_ref("evidence", "verified")],
+        evidence_refs=[
+            stable_governed_browser_ref(
+                "evidence-ref:governed-external-action:verified",
+                {
+                    "intent_ref": _request.intent_ref,
+                    "binding_ref": _request.binding.binding_ref,
+                    "transaction_ref": _request.binding.transaction_ref,
+                },
+            )
+        ],
         verified=True,
     )
 
@@ -469,6 +481,13 @@ def test_revalidation_fails_closed_after_budget_reservation(
     receipt = kernel.execute(request, dispatch=dispatch)
     assert receipt.state == ExternalActionState.blocked.value
     assert receipt.budget_reservation_ref is not None
+    assert receipt.budget_release_ref is not None
+    stored = kernel.terminal_receipt_by_ref(
+        transaction_ref=request.binding.transaction_ref,
+        receipt_ref=receipt.receipt_ref,
+    )
+    assert stored is not None
+    assert stored.budget_release_ref == receipt.budget_release_ref
     assert calls == 0
 
 

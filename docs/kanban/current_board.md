@@ -852,7 +852,12 @@ Composition uses exact `prepare` authority and produces only a safe-ref plan;
 every step retains its own later exact authority requirement. No
 `complete_any_task` or wildcard grant, model call, operation execution, browser
 activity, live network, or external mutation is enabled. Queue 02 adversarial
-validation remains an ordered prerequisite before any external activation.
+hardening closes the shared source-hardening gate with repeated exact approval,
+lease and readiness evaluation, terminal CAS protection, bounded dispatch,
+hostile-state coverage, concurrency-owner protection, and a separate
+thirteen-lane all-inactive matrix. Every lane remains `implemented_inactive`,
+`adapter_required`, `configuration_required`, `external_facility_required`, or
+`blocked_pending_live_evidence`; no external activation occurred.
 Queue 01 items 01–03 remain the
 immutable first landed group; Queue 01 items 01–04 remain the prior accepted
 boundary; Queue 01 items 01–05 remain the prior accepted evidence-recipe
@@ -866,6 +871,9 @@ is the separately verified ninth group. Queue 01 items 01–11 remain the prior
 accepted ninth-group boundary. Item 12 is the separately verified tenth group.
 Queue 01 items 01–12 remain that prior accepted boundary. Item 13 is the
 separately verified eleventh group.
+Queue 02 adversarial hardening is the separately verified hardening boundary;
+its canonical evidence is
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_02_HARDENING.md`.
 Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
 governed read-only fetch, provider shells and diagnostics, read-only provider
 adapter, browser observe, browser action dry-run, low-risk clicks,

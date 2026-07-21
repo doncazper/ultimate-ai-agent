@@ -27,17 +27,17 @@ download, upload, purchase, publishing action, or production authority.
 |---|---|---|---|
 | 01. Exact authority semantics | `implemented_inactive` | Exact origin, recipient, field schema, transaction, artifact, resource, action-count, page-snapshot, start-deadline, and human-presence binding; `admin` and `destructive` no longer imply unrelated capabilities. | Real external execution and standing grants. |
 | 02. Isolated browser broker | `implemented_inactive` | Injected observation adapter behind `WebAccessGateway`, bounded concurrency, exact origin refs, ephemeral private profile directories, ordinary-profile denial, hostile-content quarantine, and external mutation disabled. | Browser engine, navigation, real network, ordinary user profiles, clicks, forms, auth/cookies, downloads/uploads, and external mutation. |
-| 03. External-action transaction kernel | `implemented_inactive` | Durable safe-ref intent precedes effects; exact policy, LocalApprovalAuthority, AuthorityLease, budget reservation, readiness, page snapshot, deadline, human-presence, safe-disable, and kill-switch checks precede one dispatch; verify and settlement produce a content-free receipt. | Real external targets and adversarial cross-lane validation required by Queue 02. |
-| 04. Action Inbox execution envelope | `implemented_inactive` | Backend-owned content-free projection exposes readable exact scope, side-effect and data-classification posture, expiry, reversibility, retry truth, approval fingerprint, expected/observed receipts, reconciliation state, and manual-only Open in browser / Human takeover controls. | No UI handler, browser launch, approval validation, dispatch, real external target, or automatic retry; Queue 02 remains required. |
-| 05. Evidence Recipes and exact browser observation | `implemented_inactive` | A registered Evidence Recipe binds the exact authority binding, origin, page snapshot, schema, target, safe URL ref, capture fields, and size limits. The service composes the existing transaction kernel, WebAccessGateway, and isolated broker to return one bounded redacted evidence projection plus a separate content-free receipt during injected local validation. | No browser engine, live navigation/network, arbitrary recipe, raw DOM/screenshot, authenticated profile, browser action, external mutation, or real external target; Queue 02 remains required. |
-| 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; Queue 02 remains required. |
-| 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; Queue 02 remains required. |
-| 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
+| 03. External-action transaction kernel | `implemented_inactive` | Durable safe-ref intent precedes effects; exact policy, LocalApprovalAuthority, AuthorityLease, budget reservation, readiness, page snapshot, deadline, human-presence, safe-disable, and kill-switch checks precede one dispatch; verify and settlement produce a content-free receipt. | Queue 02 hardened cross-lane validation; real targets and separate external activation remain unavailable. |
+| 04. Action Inbox execution envelope | `implemented_inactive` | Backend-owned content-free projection exposes readable exact scope, side-effect and data-classification posture, expiry, reversibility, retry truth, approval fingerprint, expected/observed receipts, reconciliation state, and manual-only Open in browser / Human takeover controls. | No UI handler, browser launch, approval validation, dispatch, real external target, or automatic retry; separate external activation remains required. |
+| 05. Evidence Recipes and exact browser observation | `implemented_inactive` | A registered Evidence Recipe binds the exact authority binding, origin, page snapshot, schema, target, safe URL ref, capture fields, and size limits. The service composes the existing transaction kernel, WebAccessGateway, and isolated broker to return one bounded redacted evidence projection plus a separate content-free receipt during injected local validation. | No browser engine, live navigation/network, arbitrary recipe, raw DOM/screenshot, authenticated profile, browser action, external mutation, or real external target; an external facility remains required. |
+| 06. Same-origin visible clicks and GET forms | `implemented_inactive` | A registered action recipe binds the exact `click` or `form_fill` lease capability, prior observation, page snapshot, source/destination safe URL refs, same origin, visible element/proof, field schema, and opaque GET-form value refs. The existing kernel and WebAccessGateway produce one injected action plan plus a separate content-free receipt. | Plan-only: no browser session, navigation, click, form fill/submission, request body, network call, authenticated profile, external mutation, or real external target; an external facility remains required. |
+| 07. Registered exact POST-form schemas | `implemented_inactive` | A content-derived schema registry binds the exact origin, snapshot, prior observation, source/destination safe URL refs, visible form/proof, bounded safe-ref-only field definitions, encoding, and total byte ceiling. A separate registered recipe binds the exact field-to-opaque-value refs and `form_fill` lease scope, then produces one injected POST-schema plan and content-free receipt through the existing kernel and gateway. | Schema-plan only: the gateway envelope remains internal GET, and no field value is resolved, request body is materialized, browser/session starts, form is filled/submitted, authenticated state is used, network call or external mutation occurs, or real external target is enabled; an external facility remains required. |
+| 08. Real macOS Keychain opaque-handle adapter and per-origin session lifecycle | `implemented_inactive` | A purpose-specific Security.framework helper stores, probes, and idempotently deletes one exact origin/opaque-handle/generation item in device-only, nonsynchronizing macOS Keychain storage. Python invokes only an owner-controlled absolute helper through a source-hash-sealed, executable-hash-pinned, bounded local subprocess. Registered lifecycle recipes bind exactly one operation-specific authority ref and compose PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness/deadline/human-presence/safe-disable/kill-switch checks, at-most-once dispatch, and a safe-ref-only SQLite session record. Duplicate enrollment is rejected, expired preparation is blocked, and a missing credential is a deterministic failed precondition rather than an ambiguous effect. | Keychain enrollment and deletion are local governed operations only. Session state is `prepared_inactive`: no browser session, authentication, cookie use, navigation, live network, external mutation, real external target, route, or UI control is enabled. An external facility remains required. |
 | 09. Human-present MFA, passkey, and CAPTCHA handoff only | `implemented_inactive` | An immutable registry binds one visible challenge kind, content-derived challenge/schema/handoff refs, exact origin and page snapshot, prior observation, visibility proof, handoff surface, expiry, current human-presence assertion, and exact `prepare` capability. Material-like values hidden inside handoff refs are denied unless the ref is a SHA-256-pinned identifier. The existing transaction kernel rejects implied broader lease capabilities and produces a content-free human-action handoff and receipt only after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, shared budget, readiness, deadline, safe-disable, and kill-switch validation. Its recipe-bound transaction fingerprint prevents a receipt for one registered recipe from being replayed as another. | Handoff only: UAA does not handle challenge material or responses, operate a passkey, solve or bypass CAPTCHA, open a browser, start a session, authenticate, navigate, use cookies, call a network, complete the challenge, mutate an external target, expose a route/UI handler, or enable a real external target. An external facility and Queue 02 validation remain required. |
 | 10. Download quarantine and exact artifact-bound upload plans | `implemented_inactive` | A registered, unexpired recipe binds one exact `download` or `upload` capability, origin, snapshot, artifact, source download transaction, derived quarantine, app-owned store, transfer surface, visibility proof, schema, byte limit, and single operation authority. Upload plans additionally bind the exact content fingerprint, source download receipt, registered source download recipe, and recipe-bound source execution request. Injected download bytes pass the shared transaction gates before bounded owner-only artifact and service-proof writes. Upload planning requires the exact unexpired source receipt, its stored request fingerprint, and the service-owned proof sidecar before re-reading quarantine and verifying its fingerprint. | UAA does not download from a network or browser and does not upload anything. No ordinary path, raw artifact, upload body, browser/session, navigation, authentication/cookies, live network, external mutation, real external target, route, or UI control is enabled. Queue 02 remains required. |
 | 11. Exact communications, publishing, account creation, legal consent, and delete contracts | `implemented_inactive` | One immutable registry binds each operation to its exact capability, hash-pinned target, schema, input-artifact set, single operation-authority ref, page snapshot, expiry, reversibility, rollback, and reconciliation refs. Legal consent additionally requires one exact legal instrument and explicit accept or decline; account creation cannot imply legal consent. Delete additionally requires the exact deletion target. The shared kernel produces only a content-free plan-only contract and receipt after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, and kill-switch checks. | Contract preparation is not execution. UAA does not send, does not publish, does not create an account, does not record legal consent, and does not delete. Payload materialization, browser/session activity, live network, external mutation, real external targets, runtime routes, and UI controls remain disabled. A separate exact execution promotion plus Queue 02 validation is required. |
 | 12. Exact purchases/bookings, checkout/payment, and financial-transaction contracts | `implemented_inactive` | One immutable registry binds each operation to its exact `purchase` or `purchase_under_budget` capability, counterparty target, quote, currency, opaque payment-handle ref, positive amount, exact spend ceiling, input artifacts, operation-specific booking/checkout/instrument and cancellation/refund policy refs, snapshot, expiry, reversibility, rollback, and reconciliation. The shared kernel produces only a content-free plan after PolicyEngine, LocalApprovalAuthority, exact AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, and kill-switch checks. | Contract preparation is not financial execution. UAA does not resolve payment data, does not purchase, does not book, does not open checkout, does not pay, and does not transfer funds. Browser/session activity, live network, external mutation, real external targets, runtime routes, and UI controls remain disabled. A separate exact monetary-budget revalidation and execution promotion plus Queue 02 validation is required. |
-| 13. Exact registered-operation task composer | `implemented_inactive` | An immutable operation registry accepts only content-pinned exact source recipe, contract, binding, authority, target, and schema refs from ten bounded Queue 01 operation families. One registered acyclic recipe maps a hash-pinned broad-intent ref to at most eight unique ordered registered operations. Composition itself is bound to exact `prepare` authority and the shared PolicyEngine, LocalApprovalAuthority, AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, kill-switch, idempotency, and receipt gates. | The composer does not execute any step and cannot transfer its `prepare` authority into a step. Every operation still requires its own later exact authority. Raw intent, model calls, wildcard capability, `complete_any_task`, browser action, network activity, external mutation, real external targets, runtime routes, and UI controls remain disabled. Queue 02 adversarial validation remains required. |
+| 13. Exact registered-operation task composer | `implemented_inactive` | An immutable operation registry accepts only content-pinned exact source recipe, contract, binding, authority, target, and schema refs from ten bounded Queue 01 operation families. One registered acyclic recipe maps a hash-pinned broad-intent ref to at most eight unique ordered registered operations. Composition itself is bound to exact `prepare` authority and the shared PolicyEngine, LocalApprovalAuthority, AuthorityLease, budget, readiness, deadline, human-presence, safe-disable, kill-switch, idempotency, and receipt gates. | The composer does not execute any step and cannot transfer its `prepare` authority into a step. Every operation still requires its own later exact authority. Raw intent, model calls, wildcard capability, `complete_any_task`, browser action, network activity, external mutation, real external targets, runtime routes, and UI controls remain disabled. An external facility and separate activation remain required. |
 
 ## Exact Authority Is Not A Superuser Hierarchy
 
@@ -317,8 +317,37 @@ uncertain helper failures after the durable start claim remain
 or lifecycle-request validation fails. Native helper input is read
 incrementally with a hard 16 KiB cap, helper file stat/open failures map to
 the existing untrusted precondition, and every Keychain query explicitly
-disables authentication UI. Replay does not call Keychain again or return a
-state projection.
+disables authentication UI.
+
+Before an origin-session dispatch result returns, a content-free operation proof
+is written to a separate immutable owner-only proof store and its ref is
+appended to the ordered kernel evidence. The exact proof binds the
+construction-time store, lane, recipe and scope, exact request fingerprint,
+transaction, intent, authority binding, dispatch outcome, base evidence, and
+typed Keychain/session-state projection. Helper receipt refs are recomputed
+from the exact helper operation, request ref, and helper version rather than
+accepted by prefix. The proof store uses bounded no-follow reads and writes,
+owner-only files, construction-bound directory identities, and exact
+service/kernel dependencies; replacing a store, path, helper, session
+dependency, or reader method cannot redirect replay.
+
+Replay succeeds only when the independently stored operation proof and the
+exact durable terminal kernel row agree on the complete ordered evidence
+envelope, and only when a separate immutable terminal binding proves that exact
+non-replayed receipt was freshly committed. The binding covers the request
+fingerprint, complete receipt state, ordered evidence, reasons, accounting
+refs, and optional operation-proof ref. It is minted only after a fresh durable
+terminal commit, never from an idempotent finish, replay, conflict, or legacy
+row. Missing, drifted, cross-operation, or cross-transaction proof material,
+and every terminal row missing its binding, fail closed even when all
+content-derived receipt or wrapper hashes are recomputed. Legacy terminal lane
+evidence is not upgraded or inferred from current Keychain/session state.
+Replay does not call Keychain again or return a state projection. This is local
+structural provenance, not a signature, external timestamp, non-repudiation,
+or standing authority, and it stores no credential material, web content,
+cookies, or raw local path. Coordinated owner-level rewriting of both the
+transaction ledger and immutable proof store remains an explicit local threat
+boundary.
 
 This item is a real local macOS Keychain adapter, not real browser
 authentication. There is no browser session, authentication, passkey/MFA
@@ -452,10 +481,35 @@ cannot be paired with an earlier receipt.
 The transaction fingerprint includes the registered recipe. A content-free
 terminal replay is resolved from the ledger before any transient download
 payload requirement, so callers can retrieve the terminal receipt without
-retaining or fabricating bytes. Replay does not read or write quarantine again.
+retaining or fabricating bytes. Successful replay then re-establishes the
+complete operation-specific evidence envelope from the exact app-owned store
+without writing it: download replay performs bounded no-follow reads of the
+service proof and payload and rebuilds the fingerprint, quarantine projection,
+and service proof. Upload replay performs the same bounded proof and payload
+inspection, re-attests the exact bound source download request and recipe
+against its concrete durable non-replayed terminal kernel receipt, and rebuilds
+the exact upload plan. Source attestation uses the exact construction-bound
+kernel and registry through concrete class methods; a missing source ledger,
+terminal row, or service proof cannot be replaced by matching wrapper refs.
+The transfer service binds its registry, kernel, quarantine store, source
+kernel, source registry, source request snapshot, and clock at construction.
+Those bindings and the store's immutable construction-time root, quarantine
+directory, inode identities, and store ref prevent later dependency,
+instance-field, or reader-method substitution from redirecting replay
+provenance. The terminal kernel evidence must equal that independently derived tuple
+in exact order and arity. Missing or drifted durable artifacts,
+correlated fingerprint/projection/proof substitution, a foreign valid upload
+plan, and cross-operation or cross-transaction evidence substitution all fail
+closed even when receipt hashes are recomputed. The replay result remains
+content-free and returns no projection or plan.
 Upload-body denial is evaluated before replay, so raw bytes can never accompany
 an upload-plan request. Successful replays use `replayed_content_free`; blocked,
 failed, or ambiguous terminal replays preserve their original transfer status.
+An already accepted successful terminal replay does not reapply current recipe
+or source-recipe expiry; it proves the exact durable receipt that was accepted
+while that authority window was valid. Failed and blocked legacy replays do not
+invent a source-proof requirement that their original terminal evidence did
+not carry.
 An expired current recipe is rejected during non-mutating preflight before the
 kernel claims its transaction, so a later refreshed recipe for the same
 transaction is not poisoned by a stale fingerprint. Upload planning also
@@ -600,7 +654,8 @@ fallback when the kernel reports none; its operator-facing denial reason cannot
 be independently rewritten. It does not execute an operation,
 call a model, open or act in a browser, call a
 network, mutate an external target, add a route, or add a Control Center
-control. Queue 02 remains required before any external activation.
+control. Queue 02 hardening is now complete at the source boundary; a separate
+external facility and exact activation review remain required.
 
 ## Validation Boundary
 
@@ -661,5 +716,7 @@ PYTHONPATH=src .venv/bin/python -m pytest -q \
 ```
 
 Queue 01 items 01–13 are implemented only at the inactive local-validation
-boundary. Queue 02 remains the separate adversarial hardening gate; no status
-in this document satisfies or bypasses that gate.
+boundary. Queue 02 adversarial hardening is recorded in
+`docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_02_HARDENING.md`; it repairs the
+shared kernel and records separate all-inactive evidence decisions, but no
+status in either document activates or bypasses a lane-specific promotion.

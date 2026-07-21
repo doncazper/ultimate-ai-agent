@@ -1,5 +1,14 @@
 """Governed browser and external-action contracts."""
 
+from .adversarial_hardening import (
+    GovernedBrowserActivationPosture as GovernedBrowserActivationPosture,
+    GovernedBrowserLaneActivationDecision as GovernedBrowserLaneActivationDecision,
+    GovernedBrowserLaneActivationEvidence as GovernedBrowserLaneActivationEvidence,
+    GovernedBrowserQueue02Lane as GovernedBrowserQueue02Lane,
+    decide_governed_browser_lane_activation as decide_governed_browser_lane_activation,
+    governed_browser_queue02_inactive_activation_matrix as governed_browser_queue02_inactive_activation_matrix,
+)
+
 from .action_inbox import (
     ExternalActionHandoffKind,
     ExternalActionInboxExecutionEnvelope,
@@ -67,9 +76,11 @@ from .browser_keychain import (
     GovernedBrowserKeychainStatus,
     MacOSGovernedBrowserKeychainAdapter,
     build_governed_browser_credential_registration,
+    governed_browser_keychain_helper_receipt_ref,
     governed_browser_keychain_item_ref,
 )
 from .contracts import (
+    ExternalActionAdversarialSignals as ExternalActionAdversarialSignals,
     ExternalActionAuthorityBinding,
     ExternalActionDispatchOutcome,
     ExternalActionDispatchResult,
@@ -80,6 +91,7 @@ from .contracts import (
     ExternalActionTargetKind,
     build_external_action_approval_request,
     build_external_action_authority_request,
+    build_external_action_readiness as build_external_action_readiness,
     stable_governed_browser_ref,
 )
 from .evidence_recipes import (
@@ -223,6 +235,7 @@ __all__ = [
     "AuthorityBudgetStoreGate",
     "BrowserActionDryRunTransportResult",
     "DenyByDefaultBudgetGate",
+    "ExternalActionAdversarialSignals",
     "ExternalActionAuthorityBinding",
     "ExternalActionDispatchOutcome",
     "ExternalActionDispatchResult",
@@ -288,7 +301,11 @@ __all__ = [
     "GovernedBrowserActionKind",
     "GovernedBrowserActionRecipe",
     "GovernedBrowserActionRecipeRegistry",
+    "GovernedBrowserActivationPosture",
     "GovernedBrowserCredentialRegistration",
+    "GovernedBrowserLaneActivationDecision",
+    "GovernedBrowserLaneActivationEvidence",
+    "GovernedBrowserQueue02Lane",
     "GovernedPostFormFieldSchema",
     "GovernedPostFormFieldValueBinding",
     "GovernedPostFormRecipe",
@@ -365,6 +382,7 @@ __all__ = [
     "GOVERNED_BROWSER_KEYCHAIN_ADAPTER_REF",
     "build_external_action_approval_request",
     "build_external_action_authority_request",
+    "build_external_action_readiness",
     "build_external_action_inbox_envelope",
     "build_governed_browser_action_recipe",
     "build_governed_artifact_transfer_recipe",
@@ -382,6 +400,8 @@ __all__ = [
     "build_registered_governed_task_operation",
     "create_isolated_browser_action_dry_run_gateway",
     "create_isolated_browser_broker_gateway",
+    "decide_governed_browser_lane_activation",
+    "governed_browser_keychain_helper_receipt_ref",
     "governed_browser_keychain_item_ref",
     "governed_artifact_quarantine_ref",
     "governed_artifact_ref",
@@ -390,6 +410,7 @@ __all__ = [
     "governed_artifact_transfer_schema_ref",
     "governed_browser_origin_session_operation_authority_ref",
     "governed_browser_origin_session_ref",
+    "governed_browser_queue02_inactive_activation_matrix",
     "governed_external_operation_authority_ref",
     "governed_external_operation_contract_ref",
     "governed_external_operation_input_ref",
