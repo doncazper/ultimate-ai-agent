@@ -85,6 +85,9 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
     assert "foundation-manifest" in section
     assert section.count('--envelope "$') == 12
     assert "verify_ci_evidence_dag.py" in section
+    assert "Install canonical frontend runtime" in section
+    assert "working-directory: apps/control-center" in section
+    assert "run: npm ci" in section
     assert "if: always()" in section
     assert "uaa_foundation_prerequisite_manifest.json" in section
     assert '--github-output-file "$GITHUB_OUTPUT"' in section

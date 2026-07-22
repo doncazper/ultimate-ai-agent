@@ -300,6 +300,9 @@ def verify(root: Path = ROOT) -> list[str]:
             "uaa_foundation_prerequisite_manifest.json",
             "verify_ci_evidence_dag.py",
             "uaa_ci_evidence_dag_gate.json",
+            "Install canonical frontend runtime",
+            "working-directory: apps/control-center",
+            "run: npm ci",
             "if: always()",
         )
     ) or foundation_job.count('--envelope "$') != 12:

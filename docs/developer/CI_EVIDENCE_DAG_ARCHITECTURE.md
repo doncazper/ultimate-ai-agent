@@ -36,7 +36,8 @@ declared concurrency set above the fixed machine budget.
 `UAA_CI_EXACT_SHA` binds the event head and checkout. The comparison base is an
 exact commit and affected preflight preserves its local ref. Manifest
 attestation resolves one bounded exact-diff visual scope and publishes it as a
-job output; every later plan and the visual execution decision consume that
+job output through a descriptor-relative, owner/root-controlled parent chain;
+every later plan and the visual execution decision consume that
 same value, so affected-path proof cannot diverge between lanes. Every required command job
 emits a content-bound GitHub job-output envelope from the canonical lane runner.
 The envelope binds:
@@ -57,9 +58,14 @@ posture does not match its point in the DAG. Typed-optional lanes remain in the
 ordered result set but emit envelopes only when their optional execution runs;
 a missing required envelope is never accepted. Foundation also reconstructs the
 legacy prerequisite manifest from the expanded pre-suite, pytest, and static
-receipt chain, preserving the existing report contract.
+receipt chain, preserving the existing report contract. Before accepting any
+TypeScript-executing receipt, the terminal job installs the frozen frontend
+dependencies and independently resolves the bounded version-only runtime
+binding; it does not repeat typechecking.
 
-The validator writes one owner-only, non-symlink, content-free local manifest.
+The validator writes one owner-only, non-symlink, content-free local manifest
+through a descriptor-relative parent chain that rejects untrusted writable
+directories.
 No raw output, path, environment, prompt, response, credential, provider
 payload, or host identity is durable evidence.
 

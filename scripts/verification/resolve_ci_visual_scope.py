@@ -21,6 +21,17 @@ MAX_PATHS = 4096
 MAX_GITHUB_OUTPUT_BYTES = 1024 * 1024
 
 
+def _validate_output_directory(descriptor: int) -> None:
+    info = os.fstat(descriptor)
+    mode = stat.S_IMODE(info.st_mode)
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or info.st_uid not in {0, os.geteuid()}
+        or (mode & 0o022 and not mode & stat.S_ISVTX)
+    ):
+        raise ValueError("GitHub output parent is unsafe")
+
+
 def resolve_visual_scope(repo: Path, base_sha: str, repository_sha: str) -> str:
     if SHA.fullmatch(base_sha) is None or SHA.fullmatch(repository_sha) is None:
         raise ValueError("exact comparison SHAs are required")
@@ -65,6 +76,7 @@ def append_scope_output(path: Path, scope: str) -> None:
     parent_descriptor = os.open(absolute.anchor, directory_flags)
     descriptor: int | None = None
     try:
+        _validate_output_directory(parent_descriptor)
         for component in absolute.parent.parts[1:]:
             if component in {"", ".", ".."}:
                 raise ValueError("GitHub output path is unsafe")
@@ -73,6 +85,7 @@ def append_scope_output(path: Path, scope: str) -> None:
                 directory_flags,
                 dir_fd=parent_descriptor,
             )
+            _validate_output_directory(child_descriptor)
             os.close(parent_descriptor)
             parent_descriptor = child_descriptor
         descriptor = os.open(

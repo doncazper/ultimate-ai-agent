@@ -863,6 +863,10 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
+      - name: Install canonical frontend runtime
+        working-directory: apps/control-center
+        run: npm ci
+
       - name: Validate complete exact-head evidence DAG
         env:
           MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}

@@ -49,6 +49,7 @@ from scripts.verification.verification_github_transport import (
     decode_github_job_output,
     encode_github_job_output,
 )
+from scripts.verification.typescript_binding import TypeScriptBindingError
 
 
 def test_prerequisite_builder_is_standalone_workflow_command() -> None:
@@ -70,6 +71,19 @@ SHA = "a" * 40
 DIGEST = "b" * 64
 SURFACE = "surface-ref:github"
 UNITS_BY_REF = {unit.unit_ref: unit for unit in VERIFICATION_DAG}
+
+
+@pytest.fixture(autouse=True)
+def _canonical_terminal_typescript_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        evidence_dag,
+        "_resolve_canonical_typescript_runtime",
+        lambda *_args: (DIGEST, "typescript-version-ref:test"),
+    )
+
+
 TIMES = {
     "manifest-attestation": ("2026-07-15T00:00:00Z", "2026-07-15T00:00:01Z"),
     "lint": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
@@ -199,6 +213,8 @@ def _receipt(
     status: VerificationTerminalStatus = VerificationTerminalStatus.PASSED,
     started_at: str | None = None,
     completed_at: str | None = None,
+    typescript_runtime_fingerprint: str = DIGEST,
+    typescript_version_ref: str = "typescript-version-ref:test",
 ) -> VerificationReceipt:
     unit = UNITS_BY_REF[unit_ref]
     typescript_execution = bool(
@@ -246,9 +262,11 @@ def _receipt(
             plan,
             unit,
             execution_surface_ref=SURFACE,
-            typescript_runtime_fingerprint=(DIGEST if typescript_execution else None),
+            typescript_runtime_fingerprint=(
+                typescript_runtime_fingerprint if typescript_execution else None
+            ),
             typescript_version_ref=(
-                "typescript-version-ref:test" if typescript_execution else None
+                typescript_version_ref if typescript_execution else None
             ),
         ).identity_ref,
         executed_command_result_bindings=tuple(
@@ -260,9 +278,11 @@ def _receipt(
         typescript_project_fingerprint=(
             plan.typescript_project_fingerprint if typescript_execution else None
         ),
-        typescript_runtime_fingerprint=(DIGEST if typescript_execution else None),
+        typescript_runtime_fingerprint=(
+            typescript_runtime_fingerprint if typescript_execution else None
+        ),
         typescript_version_ref=(
-            "typescript-version-ref:test" if typescript_execution else None
+            typescript_version_ref if typescript_execution else None
         ),
     )
     fingerprint = verification_receipt_fingerprint(receipt)
@@ -1022,6 +1042,31 @@ def test_final_ci_evidence_dag_redacts_plan_reconstruction_failures(
     assert error.value.reason_ref == "reason-ref:ci-evidence:canonical-plan-invalid"
 
 
+def test_final_ci_evidence_dag_redacts_typescript_plan_binding_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+
+    def fail_plan(*_args: object, **_kwargs: object) -> VerificationPlan:
+        raise TypeScriptBindingError("typescript-declaration:private-path-invalid")
+
+    monkeypatch.setattr(evidence_dag, "build_plan", fail_plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:canonical-plan-invalid"
+
+
 def test_final_ci_evidence_dag_rejects_recomputed_noncanonical_unit_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1057,6 +1102,43 @@ def test_final_ci_evidence_dag_rejects_recomputed_noncanonical_unit_receipt(
         )
 
     assert error.value.reason_ref == "reason-ref:ci-evidence:receipt-unit-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_recomputed_typescript_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    substituted = _encoded(
+        plan,
+        "control-center-frontend",
+        typescript_runtime_fingerprint="c" * 64,
+        typescript_version_ref="typescript-version-ref:substituted",
+    )
+    tampered = tuple(
+        (
+            f"control-center-frontend={substituted}"
+            if binding.startswith("control-center-frontend=")
+            else binding
+        )
+        for binding in envelopes
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            tampered,
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == (
+        "reason-ref:ci-evidence:typescript-runtime-invalid"
+    )
 
 
 def test_final_ci_evidence_dag_rejects_missing_affected_visual_envelope(
@@ -1139,6 +1221,62 @@ def test_final_ci_evidence_dag_output_rejects_symlink_without_mutating_target(
         evidence_dag._write_output(output, {"schema_version": "test"})
 
     assert target.read_text(encoding="ascii") == "unchanged"
+
+
+def test_final_ci_evidence_dag_output_rejects_symlinked_parent(
+    tmp_path: Path,
+) -> None:
+    real_parent = tmp_path / "real"
+    real_parent.mkdir()
+    symlinked_parent = tmp_path / "linked"
+    symlinked_parent.symlink_to(real_parent, target_is_directory=True)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag._write_output(
+            symlinked_parent / "evidence.json",
+            {"schema_version": "test"},
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:output-invalid"
+    assert not (real_parent / "evidence.json").exists()
+
+
+def test_final_ci_evidence_dag_output_rejects_writable_nonsticky_parent(
+    tmp_path: Path,
+) -> None:
+    writable_parent = tmp_path / "writable-parent"
+    writable_parent.mkdir()
+    writable_parent.chmod(0o777)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag._write_output(
+            writable_parent / "evidence.json",
+            {"schema_version": "test"},
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:output-invalid"
+    assert not (writable_parent / "evidence.json").exists()
+
+
+def test_final_ci_evidence_dag_output_redacts_low_level_write_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unsafe_detail = f"private output path {tmp_path}"
+
+    def fail_write(*_args: object, **_kwargs: object) -> int:
+        raise OSError(unsafe_detail)
+
+    monkeypatch.setattr(evidence_dag.os, "write", fail_write)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag._write_output(
+            tmp_path / "evidence.json",
+            {"schema_version": "test"},
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:output-invalid"
+    assert unsafe_detail not in str(error.value)
 
 
 def test_public_github_output_helper_rejects_raw_values_and_fifos(

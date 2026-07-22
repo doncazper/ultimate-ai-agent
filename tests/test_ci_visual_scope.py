@@ -82,6 +82,22 @@ def test_visual_scope_output_rejects_symlinked_parent(tmp_path: Path) -> None:
     assert output.read_text(encoding="ascii") == "unchanged"
 
 
+def test_visual_scope_output_rejects_writable_nonsticky_parent(
+    tmp_path: Path,
+) -> None:
+    writable_parent = tmp_path / "writable-parent"
+    writable_parent.mkdir()
+    writable_parent.chmod(0o777)
+    output = writable_parent / "github-output"
+    output.write_text("unchanged", encoding="ascii")
+    output.chmod(0o644)
+
+    with pytest.raises(ValueError):
+        resolver.append_scope_output(output, "affected")
+
+    assert output.read_text(encoding="ascii") == "unchanged"
+
+
 def test_visual_scope_output_rejects_fifo_without_blocking(tmp_path: Path) -> None:
     output = tmp_path / "github-output"
     output.parent.mkdir(parents=True, exist_ok=True)

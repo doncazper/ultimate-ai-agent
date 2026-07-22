@@ -23,6 +23,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     ci_architecture_inventory,
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
+    TYPESCRIPT_EXECUTION_COMMAND_REFS,
     VerificationTerminalStatus,
     VerificationUnitKind,
     dependency_lock_set_fingerprint,
@@ -34,6 +35,11 @@ from scripts.verification.verification_github_transport import (  # noqa: E402
 )
 from scripts.verification.verification_run_aggregator import (  # noqa: E402
     validate_receipt_for_plan_unit,
+)
+from scripts.verification.typescript_binding import (  # noqa: E402
+    TypeScriptBindingError,
+    build_declared_typescript_binding,
+    resolve_typescript_runtime_binding,
 )
 
 SCHEMA_VERSION = "uaa_ci_evidence_dag_gate.v1"
@@ -91,6 +97,28 @@ def _optional_map(
     return result
 
 
+def _resolve_canonical_typescript_runtime(
+    repo: Path,
+    expected_project_fingerprint: str,
+) -> tuple[str, str]:
+    try:
+        declared = build_declared_typescript_binding(repo / "apps/control-center")
+        if declared.declared_project_fingerprint != expected_project_fingerprint:
+            raise TypeScriptBindingError(
+                "typescript-runtime:terminal-plan-binding-mismatch"
+            )
+        runtime = resolve_typescript_runtime_binding(
+            repo / "apps/control-center",
+            declared,
+        )
+    except (OSError, subprocess.SubprocessError, TypeScriptBindingError, ValueError):
+        _fail("reason-ref:ci-evidence:typescript-runtime-invalid")
+    return (
+        runtime.resolved_runtime_fingerprint,
+        f"typescript-version:{runtime.typescript_version}",
+    )
+
+
 def validate_final_gate(
     repo: Path,
     repository_sha: str,
@@ -139,8 +167,12 @@ def validate_final_gate(
             frontend_visual_scope=visual_scope,
             verify_repository_state=True,
         )
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, TypeScriptBindingError, ValueError):
         _fail("reason-ref:ci-evidence:canonical-plan-invalid")
+    canonical_typescript_runtime = _resolve_canonical_typescript_runtime(
+        repo,
+        plan.typescript_project_fingerprint,
+    )
     units_by_ref = {unit.unit_ref: unit for unit in upstream_units}
     receipt_refs: list[tuple[str, str]] = []
     envelope_refs: list[tuple[str, str]] = []
@@ -173,6 +205,11 @@ def validate_final_gate(
             )
         except ValueError:
             _fail("reason-ref:ci-evidence:receipt-unit-invalid")
+        if set(unit.command_refs).intersection(TYPESCRIPT_EXECUTION_COMMAND_REFS) and (
+            receipt.typescript_runtime_fingerprint,
+            receipt.typescript_version_ref,
+        ) != canonical_typescript_runtime:
+            _fail("reason-ref:ci-evidence:typescript-runtime-invalid")
         if receipt.status is not VerificationTerminalStatus.PASSED:
             _fail("reason-ref:ci-evidence:receipt-not-accepted")
         if unit.unit_kind is VerificationUnitKind.AGGREGATE:
@@ -223,6 +260,18 @@ def _write_output(path: Path, payload: dict[str, Any]) -> None:
     encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
     if len(encoded) > MAX_OUTPUT_BYTES:
         _fail("reason-ref:ci-evidence:output-size-invalid")
+    absolute = Path(os.path.abspath(os.fspath(path)))
+    if absolute == Path(absolute.anchor) or absolute.name in {"", ".", ".."}:
+        _fail("reason-ref:ci-evidence:output-invalid")
+    parent_components = absolute.parent.parts[1:]
+    if any(component in {"", ".", ".."} for component in parent_components):
+        _fail("reason-ref:ci-evidence:output-invalid")
+    directory_flags = (
+        os.O_RDONLY
+        | os.O_DIRECTORY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
     flags = (
         os.O_WRONLY
         | os.O_CREAT
@@ -231,11 +280,41 @@ def _write_output(path: Path, payload: dict[str, Any]) -> None:
         | getattr(os, "O_NOFOLLOW", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
+    parent_descriptor: int | None = None
+    descriptor: int | None = None
     try:
-        descriptor = os.open(path, flags, 0o600)
-    except OSError:
-        _fail("reason-ref:ci-evidence:output-invalid")
-    try:
+        parent_descriptor = os.open(absolute.anchor, directory_flags)
+        root_info = os.fstat(parent_descriptor)
+        root_mode = stat.S_IMODE(root_info.st_mode)
+        if (
+            not stat.S_ISDIR(root_info.st_mode)
+            or root_info.st_uid not in {0, os.geteuid()}
+            or (root_mode & 0o022 and not root_mode & stat.S_ISVTX)
+        ):
+            _fail("reason-ref:ci-evidence:output-invalid")
+        for component in parent_components:
+            child_descriptor = os.open(
+                component,
+                directory_flags,
+                dir_fd=parent_descriptor,
+            )
+            child_info = os.fstat(child_descriptor)
+            child_mode = stat.S_IMODE(child_info.st_mode)
+            if (
+                not stat.S_ISDIR(child_info.st_mode)
+                or child_info.st_uid not in {0, os.geteuid()}
+                or (child_mode & 0o022 and not child_mode & stat.S_ISVTX)
+            ):
+                os.close(child_descriptor)
+                _fail("reason-ref:ci-evidence:output-invalid")
+            os.close(parent_descriptor)
+            parent_descriptor = child_descriptor
+        descriptor = os.open(
+            absolute.name,
+            flags,
+            0o600,
+            dir_fd=parent_descriptor,
+        )
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
@@ -259,8 +338,19 @@ def _write_output(path: Path, payload: dict[str, Any]) -> None:
             or final_info.st_size != len(encoded)
         ):
             _fail("reason-ref:ci-evidence:output-invalid")
+    except OSError:
+        _fail("reason-ref:ci-evidence:output-invalid")
     finally:
-        os.close(descriptor)
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if parent_descriptor is not None:
+            try:
+                os.close(parent_descriptor)
+            except OSError:
+                pass
 
 
 def main() -> int:
