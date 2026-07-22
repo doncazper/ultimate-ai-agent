@@ -39,6 +39,7 @@ _CONDITIONAL_PATTERN = re.compile(
     flags=re.DOTALL,
 )
 _CONTROL_TOKEN_PATTERN = re.compile(r"{%|%}")
+_MODULE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{0,79}$")
 
 
 class PromptCompilationError(RuntimeError):
@@ -100,7 +101,22 @@ class PromptModuleCompiler:
         entries = self._entry_ids(manifest, entry_module_ids, module_by_id)
         ordered = self._topological_closure(entries, module_by_id)
         reverse = self._reverse_dependencies(module_by_id)
-        changed = sorted(set(changed_module_ids))
+        requested_changed = list(changed_module_ids)
+        if any(
+            not isinstance(module_id, str)
+            or _MODULE_ID_PATTERN.fullmatch(module_id) is None
+            for module_id in requested_changed
+        ):
+            raise PromptCompilationError(
+                "PROMPT_CHANGED_MODULE_INVALID",
+                "Blast-radius inspection requires valid prompt module ids.",
+            )
+        if len(requested_changed) != len(set(requested_changed)):
+            raise PromptCompilationError(
+                "PROMPT_CHANGED_MODULE_DUPLICATE",
+                "Blast-radius inspection module ids must be unique.",
+            )
+        changed = sorted(requested_changed)
         unknown_changed = [
             module_id for module_id in changed if module_id not in module_by_id
         ]
@@ -322,6 +338,14 @@ class PromptModuleCompiler:
         requested_entries = list(
             requested if requested is not None else manifest.entry_module_ids
         )
+        if any(
+            not isinstance(entry, str) or _MODULE_ID_PATTERN.fullmatch(entry) is None
+            for entry in requested_entries
+        ):
+            raise PromptCompilationError(
+                "PROMPT_ENTRY_MODULE_INVALID",
+                "Prompt compilation requires valid prompt entry module ids.",
+            )
         if len(requested_entries) != len(set(requested_entries)):
             raise PromptCompilationError(
                 "PROMPT_ENTRY_MODULE_DUPLICATE",

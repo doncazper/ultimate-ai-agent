@@ -563,6 +563,45 @@ def test_duplicate_requested_entry_modules_fail_closed(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("method", "kwargs", "expected_code"),
+    [
+        (
+            "compile",
+            {"entry_module_ids": ["Invalid"]},
+            "PROMPT_ENTRY_MODULE_INVALID",
+        ),
+        (
+            "inspect",
+            {"changed_module_ids": ["source", "source"]},
+            "PROMPT_CHANGED_MODULE_DUPLICATE",
+        ),
+        (
+            "inspect",
+            {"changed_module_ids": ["Invalid"]},
+            "PROMPT_CHANGED_MODULE_INVALID",
+        ),
+    ],
+)
+def test_operator_module_overrides_fail_closed_before_normalization(
+    tmp_path: Path,
+    method: str,
+    kwargs: dict[str, Any],
+    expected_code: str,
+) -> None:
+    _write(tmp_path, "source.md", "source")
+    manifest = _manifest(
+        [_module("source", "source.md")],
+        entries=["source"],
+    )
+    compiler = PromptModuleCompiler(tmp_path)
+
+    with pytest.raises(PromptCompilationError) as raised:
+        getattr(compiler, method)(manifest, **kwargs)
+
+    assert raised.value.reason_code == expected_code
+
+
+@pytest.mark.parametrize(
     ("payload", "expected_code"),
     [
         (b"\xff", "PROMPT_MODULE_ENCODING_INVALID"),
