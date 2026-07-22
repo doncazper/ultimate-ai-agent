@@ -699,6 +699,8 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
             self.status_code is not None
             or self.response_received
             or self.response_byte_count != 0
+            or self.response_truncated
+            or self.bounded_preview_returned
         ):
             raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID")
         return self

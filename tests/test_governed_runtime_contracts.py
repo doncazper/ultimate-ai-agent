@@ -1673,6 +1673,65 @@ def test_runtime_gateway_local_model_replay_binds_exact_receipt_inside_store_loc
     assert changed is True
 
 
+def test_runtime_gateway_local_model_replay_key_binds_exact_durable_receipt(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_RECEIPT_KEY_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="receipt key prompt must not persist",
+            )
+        ],
+        safe_summary="Bind replay idempotency to the exact durable receipt.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-receipt-key"
+    first = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    replay = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    assert replay.record.receipt == first.record.receipt
+    assert first.record.receipt is not None
+
+    replacement = first.record.receipt.model_copy(
+        update={"created_at": first.record.receipt.created_at + timedelta(seconds=1)}
+    )
+    store.record_receipt(
+        first.record.invocation_ref,
+        replacement,
+        idempotency_ref="idempotency-ref:runtime-local-model-receipt-key-write",
+        payload_fingerprint_ref=(
+            "runtime-operation-fingerprint-ref:receipt-key-write"
+        ),
+    )
+    replacement_replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert calls == 1
+    assert replacement_replay.replayed is True
+    assert replacement_replay.record.receipt == replacement
+    assert replacement_replay.record.receipt != replay.record.receipt
+
+
 def test_runtime_gateway_blocked_replay_revalidates_before_equal_posture_return(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3914,6 +3973,111 @@ def test_runtime_gateway_persists_unknown_attempt_marker_before_transport(
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
     assert replay.record.policy_decision.allowed_to_execute is False
     assert replay.record.receipt == marker.receipt
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("status_code", 200),
+        ("response_received", True),
+        ("response_byte_count", 1),
+        ("response_truncated", True),
+        ("bounded_preview_returned", True),
+    ],
+)
+def test_runtime_unknown_attempt_marker_rejects_response_evidence(
+    field: str,
+    value: object,
+) -> None:
+    payload: dict[str, object] = {
+        "model_ref": "uaa-local-runtime",
+        "endpoint_ref": "runtime-endpoint-ref:unknown-attempt-validation",
+        "error_category": "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
+        "attempt_outcome_unknown": True,
+    }
+    payload[field] = value
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID",
+    ):
+        RuntimeLocalModelReceiptMetadata(**payload)
+
+
+def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
+    tmp_path: Path,
+) -> None:
+    transport_started = threading.Event()
+    release_transport = threading.Event()
+    calls = 0
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        transport_started.set()
+        assert release_transport.wait(timeout=5)
+        return FakeM164GatewayTransport("INFLIGHT_POLICY_PROVENANCE_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="inflight policy prompt must not persist",
+            )
+        ],
+        safe_summary="Preserve exact policy provenance for an in-flight call.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-inflight-policy"
+
+    def invoke_first() -> None:
+        try:
+            results.append(
+                gateway.invoke_local_model(
+                    request,
+                    idempotency_ref=idempotency_ref,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    first = threading.Thread(target=invoke_first)
+    first.start()
+    assert transport_started.wait(timeout=5)
+    duplicate = gateway.invoke_local_model(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert duplicate.replayed is True
+    assert duplicate.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
+    assert duplicate.record.policy_decision.allowed_to_execute is False
+
+    release_transport.set()
+    first.join(timeout=5)
+
+    assert errors == []
+    assert len(results) == 1
+    assert calls == 1
+    durable = store.get_invocation(duplicate.record.invocation_ref)
+    assert durable.receipt is not None
+    assert durable.receipt.model_call_performed is True
+    assert durable.policy_decision.allowed_to_execute is True
+    assert durable.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-execute"
+    )
 
 
 def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_receipt(

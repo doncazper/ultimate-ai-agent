@@ -581,6 +581,7 @@ class RuntimeGateway:
                 },
             ),
         )
+        attempt_policy_decision = record.policy_decision
 
         attempt = self.local_model_adapter.invoke(request)
         metadata = RuntimeLocalModelReceiptMetadata(
@@ -620,6 +621,7 @@ class RuntimeGateway:
                     "metadata": metadata.model_dump(mode="json"),
                 },
             ),
+            policy_decision=attempt_policy_decision,
         )
         return RuntimeLocalModelGatewayResult(
             record=updated,
@@ -656,6 +658,7 @@ class RuntimeGateway:
                     exclude={"decided_at"},
                 ),
                 "prior_status": record.status,
+                "receipt": record.receipt.model_dump(mode="json"),
                 "policy_decision": policy_decision.model_dump(
                     mode="json",
                     exclude={"decided_at"},
