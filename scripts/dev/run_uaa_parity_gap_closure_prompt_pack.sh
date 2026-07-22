@@ -2,17 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PROMPT="$ROOT/docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md"
 VERIFY="$ROOT/scripts/verify_uaa_parity_gap_closure_prompt_pack.py"
 OUTPUT="${UAA_PARITY_GAP_CLOSURE_OUTPUT:-/tmp/uaa-parity-gap-closure-prompt-pack.md}"
 CODEX_BIN="${CODEX_BIN:-codex}"
 SANDBOX="${UAA_PARITY_GAP_CLOSURE_SANDBOX:-workspace-write}"
 DRY_RUN=0
 LIST_ONLY=0
-MODEL_ARG=()
+CODEX_ARGS=(exec -C "$ROOT" --sandbox "$SANDBOX")
 
 if [[ -n "${UAA_PARITY_GAP_CLOSURE_MODEL:-}" ]]; then
-  MODEL_ARG=(--model "$UAA_PARITY_GAP_CLOSURE_MODEL")
+  CODEX_ARGS+=(--model "$UAA_PARITY_GAP_CLOSURE_MODEL")
 fi
 
 if [[ -x "$ROOT/.venv/bin/python" ]]; then
@@ -78,9 +77,9 @@ fi
 "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
 
 echo "UAA Hermes/OpenClaw parity gap closure prompt pack:"
-echo "  repo: $ROOT"
-echo "  wrapper: $PROMPT"
-echo "  combined prompt: $OUTPUT"
+echo "  repo: repository-root-ref"
+echo "  wrapper: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md"
+echo "  combined prompt: configured-output-ref"
 echo "  sandbox: $SANDBOX"
 echo
 
@@ -91,8 +90,8 @@ fi
 
 if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   echo "Codex CLI not found. Install Codex or set CODEX_BIN=/path/to/codex." >&2
-  echo "Validated wrapper: $PROMPT" >&2
-  echo "Combined pack: $OUTPUT" >&2
+  echo "Validated wrapper: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md" >&2
+  echo "Combined pack: configured-output-ref" >&2
   exit 127
 fi
 
@@ -100,4 +99,4 @@ echo "Running the overlap-aware end-to-end wrapper with Codex."
 echo "The wrapper may create, push, review, and merge scoped phase PRs."
 echo
 
-"$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" - < "$PROMPT"
+"$CODEX_BIN" "${CODEX_ARGS[@]}" - < "$OUTPUT"

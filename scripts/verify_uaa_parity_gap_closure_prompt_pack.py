@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACK_DIR = ROOT / "docs" / "prompts" / "uaa_parity_gap_closure"
 MANIFEST_PATH = PACK_DIR / "prompt_bundle_manifest.json"
 README_PATH = PACK_DIR / "README.md"
+MANIFEST_REF = "docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json"
 README_REF = "docs/prompts/uaa_parity_gap_closure/README.md"
 EXPECTED_VERSION = "1.0.0"
 EXPECTED_BUNDLE_ID = "uaa-hermes-openclaw-parity-gap-closure-001"
@@ -103,9 +104,13 @@ class VerificationError(RuntimeError):
 
 def _load_manifest() -> dict[str, Any]:
     try:
-        value = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError) as exc:
-        raise VerificationError(f"invalid manifest: {exc}") from exc
+        value = json.loads(_repo_path(MANIFEST_REF).read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise VerificationError("manifest is missing or unreadable") from exc
+    except json.JSONDecodeError as exc:
+        raise VerificationError(
+            f"manifest JSON is invalid at line {exc.lineno}, column {exc.colno}"
+        ) from exc
     if not isinstance(value, dict):
         raise VerificationError("manifest must be a JSON object")
     return value
@@ -118,11 +123,36 @@ def _prompt_refs(manifest: dict[str, Any]) -> list[str]:
     return list(refs)
 
 
+def _manifest_strings(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        strings: list[str] = []
+        for key, nested in value.items():
+            strings.append(str(key))
+            strings.extend(_manifest_strings(nested))
+        return strings
+    if isinstance(value, list):
+        strings = []
+        for nested in value:
+            strings.extend(_manifest_strings(nested))
+        return strings
+    return []
+
+
 def _repo_path(ref: str) -> Path:
     candidate = Path(ref)
     if candidate.is_absolute() or ".." in candidate.parts:
         raise VerificationError(f"unsafe prompt ref: {ref}")
-    return ROOT / candidate
+    path = ROOT / candidate
+    cursor = ROOT
+    for part in candidate.parts:
+        cursor /= part
+        if cursor.is_symlink():
+            raise VerificationError(f"symlinked prompt-pack path is unsafe: {ref}")
+    if not path.resolve(strict=False).is_relative_to(ROOT.resolve(strict=True)):
+        raise VerificationError(f"prompt ref escapes the repository: {ref}")
+    return path
 
 
 def compute_bundle_hash(refs: list[str]) -> str:
@@ -173,6 +203,8 @@ def _validate_coverage_matrix(readme: str) -> None:
 
 def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
     manifest = _load_manifest()
+    for manifest_text in _manifest_strings(manifest):
+        _validate_text(MANIFEST_PATH, manifest_text)
     if manifest.get("bundle_id") != EXPECTED_BUNDLE_ID:
         raise VerificationError("unexpected bundle_id")
     if manifest.get("version") != EXPECTED_VERSION:
@@ -202,7 +234,10 @@ def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
         _validate_text(path, text)
         texts.append(text)
 
-    readme = README_PATH.read_text(encoding="utf-8")
+    try:
+        readme = _repo_path(README_REF).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise VerificationError("pack README is missing or unreadable") from exc
     _validate_text(README_PATH, readme)
     _validate_coverage_matrix(readme)
     _require_fragments("README convergence and coverage contract", readme, README_REQUIRED)
@@ -247,7 +282,7 @@ def emit_combined(refs: list[str], output: Path) -> None:
         f"Bundle hash: `{manifest['bundle_hash']}`\n\n"
         "Generated for operator review. Source prompt files remain canonical.\n",
         f"\n<!-- BEGIN {README_REF} -->\n",
-        README_PATH.read_text(encoding="utf-8").rstrip(),
+        _repo_path(README_REF).read_text(encoding="utf-8").rstrip(),
         f"\n<!-- END {README_REF} -->\n",
     ]
     for ref in refs:
@@ -280,7 +315,7 @@ def main() -> int:
         print("\n".join(refs))
     elif args.emit_combined:
         emit_combined(refs, args.emit_combined)
-        print(f"emitted combined prompt pack: {args.emit_combined}")
+        print("emitted combined prompt pack: configured-output-ref")
     elif args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
