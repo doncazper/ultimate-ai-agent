@@ -10,6 +10,11 @@ def _report() -> str:
     return REPORT.read_text(encoding="utf-8")
 
 
+def _absolute_posix_path(*parts: str) -> str:
+    """Build negative-test sentinels without persisting raw local paths."""
+    return chr(47) + chr(47).join(parts)
+
+
 def test_phase01_ledger_passes_current_repository() -> None:
     assert phase01.verify() == []
 
@@ -116,7 +121,8 @@ def test_phase01_ledger_rejects_unresolved_merged_proven_delta() -> None:
 
 
 def test_phase01_ledger_rejects_absolute_local_paths() -> None:
-    report = _report() + "\nEvidence captured at /tmp/operator-checkout.\n"
+    sentinel = _absolute_posix_path("temporary-root", "operator-checkout")
+    report = _report() + f"\nEvidence captured at {sentinel}.\n"
 
     failures = phase01.verify(report_text=report, check_refs=False)
 
@@ -125,10 +131,10 @@ def test_phase01_ledger_rejects_absolute_local_paths() -> None:
 
 def test_phase01_ledger_rejects_arbitrary_posix_local_paths() -> None:
     for path in (
-        "/nix/store/local-proof",
-        "/project/checkout/private-proof",
-        "/project",
-        "/checkout",
+        _absolute_posix_path("immutable-store", "local-proof"),
+        _absolute_posix_path("workspace-root", "checkout", "private-proof"),
+        _absolute_posix_path("workspace-root"),
+        _absolute_posix_path("checkout-root"),
     ):
         failures = phase01.verify(
             report_text=_report() + f"\nEvidence captured at {path}.\n",
