@@ -8,6 +8,7 @@ CODEX_BIN="${CODEX_BIN:-codex}"
 SANDBOX="${UAA_PARITY_GAP_CLOSURE_SANDBOX:-workspace-write}"
 DRY_RUN=0
 LIST_ONLY=0
+NETWORK_ACCESS=0
 CODEX_ARGS=(exec -C "$ROOT" --sandbox "$SANDBOX")
 
 if [[ -n "${UAA_PARITY_GAP_CLOSURE_MODEL:-}" ]]; then
@@ -28,6 +29,7 @@ Usage:
 Options:
   --dry-run          Verify and emit the combined pack without invoking Codex.
   --list             List ordered prompt files and exit.
+  --allow-network    Explicitly allow network access for the GitHub-dependent run.
   --output PATH      Set the combined prompt output path.
   --help             Show this help.
 
@@ -47,6 +49,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --list)
       LIST_ONLY=1
+      shift
+      ;;
+    --allow-network)
+      NETWORK_ACCESS=1
       shift
       ;;
     --output)
@@ -92,6 +98,22 @@ if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   echo "Wrapper ref: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md" >&2
   echo "Combined pack: not-emitted" >&2
   exit 127
+fi
+
+if [[ "$SANDBOX" == "read-only" ]]; then
+  echo "The end-to-end run requires a writable Codex sandbox." >&2
+  echo "Use the default workspace-write sandbox or an explicitly reviewed stronger sandbox." >&2
+  exit 2
+fi
+
+if [[ "$NETWORK_ACCESS" -ne 1 ]]; then
+  echo "Network access was not authorized for this GitHub-dependent run." >&2
+  echo "Re-run with --allow-network after reviewing the required fetch, push, PR, CI, review, and merge access." >&2
+  exit 2
+fi
+
+if [[ "$SANDBOX" == "workspace-write" ]]; then
+  CODEX_ARGS+=(-c sandbox_workspace_write.network_access=true)
 fi
 
 echo "Running the overlap-aware end-to-end wrapper with Codex."

@@ -16,7 +16,7 @@ from other Codex tasks is proven and reused rather than reimplemented.
 - `VERSION.md`
 - `SECURITY.md`
 - `docs/prompts/uaa_parity_gap_closure/README.md`
-- every prompt and the manifest in this directory
+- the verified manifest snapshot and every prompt in this combined snapshot
 - `docs/prompts/authority_graduation_program/README.md`
 - `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`
 - `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`
@@ -94,9 +94,10 @@ the phase complete.
 4. Rebuild the coverage ledger using the classification vocabulary in the
    pack README.
 5. Prove every proposed skip from current `main` using code plus tests.
-6. Use the current phase prompt from this verified combined snapshot. Refresh
+6. Use the current phase prompt and manifest from the verified combined snapshot.
+   Refresh
    repository and code inventory from synchronized `main`, but do not replace
-   the snapshot's prompt text with mutable worktree content.
+   the snapshot's manifest or prompt text with mutable worktree content.
 
 When the current worktree is dirty or owned by another task, create a separate
 clean orchestration worktree from current `origin/main`. Do not touch the

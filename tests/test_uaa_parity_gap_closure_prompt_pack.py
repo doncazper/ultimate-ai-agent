@@ -23,6 +23,20 @@ def test_manifest_refs_are_ordered_unique_and_present() -> None:
     assert all((ROOT / ref).is_file() for ref in refs)
 
 
+def test_verifier_rejects_noncanonical_shadow_prompt_ref(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = json.loads(pack_verify.MANIFEST_PATH.read_text(encoding="utf-8"))
+    original = manifest["developer_prompt_refs"][2]
+    manifest["developer_prompt_refs"][2] = (
+        "docs/prompts/uaa_parity_gap_closure/shadow/" + Path(original).name
+    )
+    monkeypatch.setattr(pack_verify, "_load_manifest", lambda: manifest)
+
+    with pytest.raises(pack_verify.VerificationError, match="canonical ordered"):
+        pack_verify.verify_manifest()
+
+
 def test_verifier_accepts_overlap_aware_live_data_pack() -> None:
     result = subprocess.run(
         [sys.executable, str(VERIFY), "--json"],
@@ -97,6 +111,17 @@ def test_verifier_rejects_self_authorizing_manifest_text(
         pack_verify.verify_manifest()
 
 
+def test_bundle_hash_binds_manifest_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = json.loads(pack_verify.MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["purpose"] += " Verified metadata drift."
+    monkeypatch.setattr(pack_verify, "_load_manifest", lambda: manifest)
+
+    with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
+        pack_verify.verify_manifest()
+
+
 def test_placeholder_hash_cannot_bypass_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -122,6 +147,8 @@ def test_placeholder_hash_cannot_bypass_verification(
         "/Volumes/Work/repo/file",
         "/workspace/repo/file",
         "C:\\Users\\operator\\repo\\file",
+        "output=/tmp/run.log",
+        "cwd:C:\\Users\\operator\\repo",
     ),
 )
 def test_common_local_absolute_paths_are_rejected(path: str) -> None:
@@ -236,15 +263,17 @@ def test_verified_snapshot_renders_without_rereading_sources(
 def test_runner_feeds_codex_the_exact_verified_combined_pack(tmp_path: Path) -> None:
     output = tmp_path / "combined.prompt.md"
     captured = tmp_path / "codex-stdin.prompt.md"
+    captured_args = tmp_path / "codex-args.txt"
     fake_codex = tmp_path / "codex"
     fake_codex.write_text(
-        '#!/usr/bin/env bash\nset -euo pipefail\ncat > "$CAPTURE"\n',
+        '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s\\n" "$@" > "$ARGS_CAPTURE"\ncat > "$CAPTURE"\n',
         encoding="utf-8",
     )
     fake_codex.chmod(0o700)
     env = os.environ.copy()
     env.update(
         {
+            "ARGS_CAPTURE": str(captured_args),
             "CAPTURE": str(captured),
             "CODEX_BIN": str(fake_codex),
             "PYTHON": sys.executable,
@@ -252,7 +281,13 @@ def test_runner_feeds_codex_the_exact_verified_combined_pack(tmp_path: Path) -> 
     )
 
     subprocess.run(
-        ["bash", str(WRAPPER), "--output", str(output)],
+        [
+            "bash",
+            str(WRAPPER),
+            "--allow-network",
+            "--output",
+            str(output),
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -260,6 +295,47 @@ def test_runner_feeds_codex_the_exact_verified_combined_pack(tmp_path: Path) -> 
     )
 
     assert captured.read_bytes() == output.read_bytes()
+    assert "sandbox_workspace_write.network_access=true" in (
+        captured_args.read_text(encoding="utf-8").splitlines()
+    )
     combined = captured.read_text(encoding="utf-8")
+    assert (
+        "<!-- BEGIN docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json -->"
+        in combined
+    )
     assert "<!-- BEGIN docs/prompts/uaa_parity_gap_closure/README.md -->" in combined
     assert "# Phase 10: End-To-End Acceptance And Parity Truth" in combined
+
+
+def test_runner_fails_fast_without_explicit_network_access(tmp_path: Path) -> None:
+    output = tmp_path / "combined.prompt.md"
+    marker = tmp_path / "codex-invoked"
+    fake_codex = tmp_path / "codex"
+    fake_codex.write_text(
+        '#!/usr/bin/env bash\ntouch "$MARKER"\n',
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o700)
+    env = os.environ.copy()
+    env.update(
+        {
+            "CODEX_BIN": str(fake_codex),
+            "MARKER": str(marker),
+            "PYTHON": sys.executable,
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(WRAPPER), "--output", str(output)],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 2
+    assert not marker.exists()
+    assert "Network access was not authorized" in result.stderr
+    assert "--allow-network" in result.stderr
+    assert str(ROOT) not in result.stdout + result.stderr
+    assert str(tmp_path) not in result.stdout + result.stderr

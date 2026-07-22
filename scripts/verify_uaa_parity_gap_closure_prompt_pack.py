@@ -37,8 +37,11 @@ EXPECTED_PROMPTS = (
     "09_cross_cutting_reliability_and_future_lane_proofs.prompt.md",
     "10_end_to_end_acceptance_and_parity_truth.prompt.md",
 )
+EXPECTED_PROMPT_REFS = tuple(
+    f"docs/prompts/uaa_parity_gap_closure/{name}" for name in EXPECTED_PROMPTS
+)
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:^|[\s(`'\"])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
+    r"(?:^|[\s(`'\"=:\[\]{},])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
     r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin|"
     r"workspace|build|runner|github)"
     r"(?:/|\b)|~/|[A-Za-z]:\\Users\\|\\\\)",
@@ -76,7 +79,7 @@ WRAPPER_REQUIRED = (
     "Update local `main` to the exact remote merge SHA",
     "Remove only clean, merged temporary phase branches/worktrees",
     "verified combined snapshot",
-    "do not replace the snapshot's prompt text",
+    "do not replace the snapshot's manifest or prompt text",
     "Do not commit repairs directly to `main`",
     "at most two focused repair passes",
     "Do not generate another pack",
@@ -231,9 +234,11 @@ def _decode_utf8(ref: str, content: bytes, label: str) -> str:
 
 
 def _bundle_hash_from_contents(
-    refs: tuple[str, ...], contents: dict[str, bytes]
+    refs: tuple[str, ...], contents: dict[str, bytes], manifest: dict[str, Any]
 ) -> str:
     digest = hashlib.sha256()
+    digest.update(b"\n--UAA-PROMPT-PACK-MANIFEST--\n")
+    digest.update(_canonical_manifest_bytes(manifest, omit_bundle_hash=True))
     for ref in (README_REF, *refs):
         digest.update(b"\n--UAA-PROMPT-PACK-FILE--\n")
         digest.update(ref.encode("utf-8"))
@@ -244,11 +249,21 @@ def _bundle_hash_from_contents(
 
 def compute_bundle_hash(refs: list[str]) -> str:
     ordered_refs = tuple(refs)
+    manifest = _load_manifest()
     contents = {
         ref: _read_repo_bytes(ref, "prompt-pack source")
         for ref in (README_REF, *ordered_refs)
     }
-    return _bundle_hash_from_contents(ordered_refs, contents)
+    return _bundle_hash_from_contents(ordered_refs, contents, manifest)
+
+
+def _canonical_manifest_bytes(
+    manifest: dict[str, Any], *, omit_bundle_hash: bool
+) -> bytes:
+    payload = dict(manifest)
+    if omit_bundle_hash:
+        payload.pop("bundle_hash", None)
+    return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _require_fragments(label: str, text: str, fragments: tuple[str, ...]) -> None:
@@ -303,9 +318,10 @@ def _verify_pack() -> VerifiedPromptPack:
         raise VerificationError("stable_within_run must be true")
 
     refs = tuple(_prompt_refs(manifest))
-    names = tuple(Path(ref).name for ref in refs)
-    if names != EXPECTED_PROMPTS:
-        raise VerificationError("prompt refs must contain the ordered 00-10 pack")
+    if refs != EXPECTED_PROMPT_REFS:
+        raise VerificationError(
+            "prompt refs must match the canonical ordered 00-10 pack"
+        )
     if len(refs) != len(set(refs)):
         raise VerificationError("prompt refs must be unique")
 
@@ -339,14 +355,17 @@ def _verify_pack() -> VerifiedPromptPack:
             raise VerificationError(f"phase {phase:02d} has the wrong heading")
         _require_fragments(f"phase {phase:02d} contract", texts[phase], fragments)
 
-    actual_hash = _bundle_hash_from_contents(refs, contents)
+    actual_hash = _bundle_hash_from_contents(refs, contents, manifest)
     configured_hash = manifest.get("bundle_hash")
     if configured_hash != actual_hash:
         raise VerificationError(
             f"bundle_hash mismatch: expected {actual_hash}, got {configured_hash}"
         )
 
-    ordered_contents = tuple((ref, contents[ref]) for ref in (README_REF, *refs))
+    ordered_contents = (
+        (MANIFEST_REF, _canonical_manifest_bytes(manifest, omit_bundle_hash=False)),
+        *((ref, contents[ref]) for ref in (README_REF, *refs)),
+    )
     return VerifiedPromptPack(
         bundle_id=EXPECTED_BUNDLE_ID,
         version=EXPECTED_VERSION,
@@ -367,6 +386,13 @@ def render_combined(pack: VerifiedPromptPack) -> bytes:
         f"Bundle version: `{pack.version}`\n\n"
         f"Bundle hash: `{pack.bundle_hash}`\n\n"
         "Generated for operator review. Source prompt files remain canonical.\n",
+        f"\n<!-- BEGIN {MANIFEST_REF} -->\n",
+        _decode_utf8(
+            MANIFEST_REF,
+            pack.content(MANIFEST_REF),
+            "verified manifest",
+        ).rstrip(),
+        f"\n<!-- END {MANIFEST_REF} -->\n",
         f"\n<!-- BEGIN {README_REF} -->\n",
         _decode_utf8(README_REF, pack.content(README_REF), "verified README").rstrip(),
         f"\n<!-- END {README_REF} -->\n",

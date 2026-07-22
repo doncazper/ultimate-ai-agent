@@ -20,8 +20,14 @@ runtime behavior.
 From the repository root:
 
 ```bash
-bash scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh
+bash scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh --allow-network
 ```
+
+The non-dry-run wrapper fails before invoking Codex unless network access is
+explicitly authorized with `--allow-network`. Under the default
+`workspace-write` sandbox, the wrapper then enables Codex workspace network
+access for the GitHub fetch, push, PR, CI, review, and merge gates required by
+the program. Dry-run and list operations remain offline.
 
 Validate and emit the combined pack without invoking Codex:
 
@@ -50,10 +56,11 @@ bash scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh --list
 11. `10_end_to_end_acceptance_and_parity_truth.prompt.md`
 
 Use Prompt 00 for a single continuous run. The verified combined snapshot keeps
-all phase instructions stable for that run. Before each phase, synchronize and
+the validated manifest and all phase instructions stable for that run. Before
+each phase, synchronize and
 reinspect repository/code state from `main` so merged work from other tasks is
 incorporated rather than repeated; do not replace the snapshot's prompt text
-with mutable worktree content.
+or manifest with mutable worktree content.
 
 ## Convergence And Non-Duplication Contract
 
