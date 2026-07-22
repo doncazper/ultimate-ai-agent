@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import stat
 import threading
 import subprocess
 import sys
@@ -813,6 +814,43 @@ def test_runtime_store_ledger_append_rejects_inode_substitution_after_fsync(
     assert not (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).exists()
 
 
+def test_runtime_store_ledger_append_rechecks_inode_after_directory_fsync(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    RuntimeInvocationStore(tmp_path).create_invocation(
+        _runtime_request(),
+        idempotency_ref="idempotency-ref:ledger-directory-fsync-race-setup",
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    replacement_path = tmp_path / "replacement-directory-fsync-ledger.jsonl"
+    replacement_path.write_bytes(ledger_path.read_bytes())
+    replacement_bytes = replacement_path.read_bytes()
+    real_fsync = os.fsync
+    substituted = False
+
+    def substituting_directory_fsync(fd: int) -> None:
+        nonlocal substituted
+        real_fsync(fd)
+        if not substituted and stat.S_ISDIR(os.fstat(fd).st_mode):
+            substituted = True
+            os.replace(replacement_path, ledger_path)
+
+    monkeypatch.setattr(os, "fsync", substituting_directory_fsync)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).safe_disable(
+            RuntimeSafeDisableRequest(reason_ref="reason-ref:ledger-directory-fsync-race"),
+            idempotency_ref="idempotency-ref:ledger-directory-fsync-race",
+        )
+    assert substituted is True
+    assert ledger_path.read_bytes() == replacement_bytes
+    assert not (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).exists()
+
+
 def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1021,6 +1059,18 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     assert result.record.receipt.model_call_performed is True
     assert result.record.receipt.model_output_non_authoritative is True
     assert result.response_preview == "UAA_LOCAL_RUNTIME_OK"
+    attempt_markers = [
+        entry.record.receipt
+        for entry in gateway.store.list_entries()
+        if entry.record.receipt is not None
+        and entry.record.receipt.model_receipt_metadata is not None
+        and entry.record.receipt.model_receipt_metadata.attempt_outcome_unknown
+    ]
+    assert len(attempt_markers) == 1
+    assert attempt_markers[0].receipt_ref != result.record.receipt.receipt_ref
+    assert attempt_markers[0].artifact_refs[0].artifact_kind == (
+        "local_model_runtime_attempt_marker"
+    )
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
@@ -1028,6 +1078,58 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     assert "allowed prompt should not persist" not in persisted
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "provider_payload" not in persisted
+
+
+def test_runtime_gateway_blocked_receipt_stays_non_executable_after_authority_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("MUST_NOT_RUN_ON_BLOCKED_REPLAY")
+
+    store = RuntimeInvocationStore(tmp_path, active_authority_leases=[])
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="blocked authority prompt must not persist",
+            )
+        ],
+        safe_summary="Keep a previously blocked model call non-executable.",
+    )
+    idempotency_ref = "idempotency-ref:blocked-receipt-later-authority"
+    first = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    monkeypatch.setattr(
+        store,
+        "current_authority_leases",
+        lambda: [provider_model_execute_authority_lease()],
+    )
+    replay = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 0
+    assert first.record.receipt is not None
+    assert first.record.receipt.model_call_performed is False
+    assert replay.replayed is True
+    assert replay.record.status == "execution_blocked"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.model_call_enabled is False
+    assert replay.record.receipt == first.record.receipt
 
 
 def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_policy(
@@ -1081,6 +1183,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
             local_model_gateway_validated=True,
             gateway_error_category=None,
             gateway_error_recheck=lambda: None,
+            expected_receipt=first.record.receipt,
             idempotency_ref="idempotency-ref:stale-replay-posture",
             payload_fingerprint_ref="runtime-operation-fingerprint-ref:stale-posture",
         )
@@ -1283,6 +1386,15 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
     assert revalidated_again.record.receipt == replacement_again.record.receipt
     assert ledger_path.read_bytes() != before_revalidated_replay
     assert store.get_invocation(first.record.invocation_ref) == revalidated_again.record
+    before_stable_replay = ledger_path.read_bytes()
+    stable_replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+    assert stable_replay.record.updated_at == revalidated_again.record.updated_at
+    assert stable_replay.record.policy_decision == revalidated_again.record.policy_decision
+    assert stable_replay.record.receipt == revalidated_again.record.receipt
+    assert ledger_path.read_bytes() == before_stable_replay
 
 
 @pytest.mark.parametrize("posture_change", ["lease_revoked", "kill_switch"])
@@ -1487,6 +1599,78 @@ def test_runtime_gateway_local_model_replay_binds_exact_gateway_error_category(
     )
     assert persisted.policy_decision == first.record.policy_decision
     assert persisted.receipt == first.record.receipt
+
+
+def test_runtime_gateway_local_model_replay_binds_exact_receipt_inside_store_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_RECEIPT_RACE_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="receipt race prompt must not persist",
+            )
+        ],
+        safe_summary="Bind replay to the exact durable receipt.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-receipt-race"
+    first = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    original_record_replay_posture = store.record_replay_posture
+    changed = False
+
+    def racing_record_replay_posture(*args: object, **kwargs: object) -> object:
+        nonlocal changed
+        if not changed:
+            changed = True
+            current = store.get_invocation(first.record.invocation_ref)
+            assert current.receipt is not None
+            replacement = current.receipt.model_copy(
+                update={"created_at": current.receipt.created_at + timedelta(seconds=1)}
+            )
+            store.record_receipt(
+                current.invocation_ref,
+                replacement,
+                idempotency_ref="idempotency-ref:runtime-local-model-receipt-race-write",
+                payload_fingerprint_ref=(
+                    "runtime-operation-fingerprint-ref:receipt-race-write"
+                ),
+            )
+        return original_record_replay_posture(*args, **kwargs)
+
+    monkeypatch.setattr(
+        store,
+        "record_replay_posture",
+        racing_record_replay_posture,
+    )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_REPLAY_POSTURE_RECEIPT_CHANGED_DURING_REVALIDATION",
+    ):
+        gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 1
+    assert changed is True
 
 
 def test_runtime_gateway_blocked_replay_revalidates_before_equal_posture_return(
@@ -3579,7 +3763,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
             request,
             idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
         )
-    assert calls == 1
+    assert calls == 0
 
     store.record_receipt = original_record_receipt  # type: ignore[method-assign]
     if posture_change == "lease_revoked":
@@ -3619,7 +3803,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
     )
 
-    assert calls == 1
+    assert calls == 0
     assert replay.replayed is True
     expected_status = (
         "execution_blocked"
@@ -3649,7 +3833,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
         request,
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
     )
-    assert calls == 1
+    assert calls == 0
     assert second_replay.replayed is True
     assert second_replay.record.status == expected_status
     assert second_replay.error_category == (
@@ -3662,6 +3846,74 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
     assert second_replay.record.policy_decision.allowed_to_execute is False
     assert second_replay.record.policy_decision.adapter_execution_enabled is False
     assert second_replay.record.policy_decision.model_call_enabled is False
+
+
+def test_runtime_gateway_persists_unknown_attempt_marker_before_transport(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("ATTEMPT_WITH_RECEIPT_WRITE_FAILURE")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    original_record_receipt = store.record_receipt
+    receipt_writes = 0
+
+    def fail_final_receipt(*args: object, **kwargs: object) -> object:
+        nonlocal receipt_writes
+        receipt_writes += 1
+        if receipt_writes == 1:
+            return original_record_receipt(*args, **kwargs)
+        raise RuntimeError("simulated final receipt write failure")
+
+    store.record_receipt = fail_final_receipt  # type: ignore[method-assign]
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="unknown attempt prompt must not persist",
+            )
+        ],
+        safe_summary="Persist an outcome-unknown marker before transport.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-unknown-attempt"
+
+    with pytest.raises(RuntimeError, match="final receipt write failure"):
+        gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 1
+    marker = store.get_invocation_for_idempotency(idempotency_ref)
+    assert marker is not None
+    assert marker.receipt is not None
+    assert marker.receipt.model_receipt_metadata is not None
+    assert marker.receipt.model_receipt_metadata.attempt_outcome_unknown is True
+    assert marker.receipt.model_receipt_metadata.error_category == (
+        "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
+    )
+    assert marker.receipt.model_call_performed is False
+
+    store.record_receipt = original_record_receipt  # type: ignore[method-assign]
+    replay = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 1
+    assert replay.replayed is True
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.receipt == marker.receipt
 
 
 def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_receipt(
@@ -3745,7 +3997,7 @@ def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_rece
     )
     replay = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
 
-    assert calls == 1
+    assert calls == 0
     assert durable_receipt is not None
     assert replay.replayed is True
     assert replay.error_category is None

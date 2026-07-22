@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway.command import (
     invoke_approved_governed_command,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationStorageError,
     RuntimeInvocationStore,
     active_runtime_authority_leases,
 )
@@ -364,6 +365,7 @@ class RuntimeGateway:
                     if record.receipt.model_receipt_metadata is not None
                     else None
                 ) or "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_BLOCKED"
+                replay_gateway_validated = False
             replay_status = (
                 RuntimeInvocationStatus.safe_disabled
                 if replay_runtime_disabled
@@ -540,6 +542,46 @@ class RuntimeGateway:
                 local_model_runtime_enabled=runtime_enabled,
             )
 
+        attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
+            model_ref=request.model_ref,
+            endpoint_ref=_endpoint_ref(request.base_url),
+            profile=record.policy_decision.profile,
+            request_byte_count=_request_byte_count(request),
+            response_byte_count=0,
+            status_code=None,
+            response_received=False,
+            response_truncated=False,
+            bounded_preview_returned=False,
+            bounded_preview_persisted=False,
+            error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
+            attempt_outcome_unknown=True,
+            safe_summary=(
+                "Local model transport attempt was authorized; outcome is not yet known."
+            ),
+        )
+        attempt_marker = build_local_model_receipt(
+            record,
+            metadata=attempt_marker_metadata,
+            execution_performed=False,
+            model_call_performed=False,
+            status=RuntimeInvocationStatus.receipt_recorded,
+        )
+        record = self.store.record_receipt(
+            record.invocation_ref,
+            attempt_marker,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "local-model-attempt-marker",
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                record.invocation_ref,
+                {
+                    "operation": "local_model_attempt_marker",
+                    "metadata": attempt_marker_metadata.model_dump(mode="json"),
+                },
+            ),
+        )
+
         attempt = self.local_model_adapter.invoke(request)
         metadata = RuntimeLocalModelReceiptMetadata(
             model_ref=request.model_ref,
@@ -602,13 +644,22 @@ class RuntimeGateway:
         local_model_gateway_validated: bool,
         gateway_error_category: str | None,
     ) -> RuntimeInvocationRecord:
+        if record.receipt is None:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_REPLAY_POSTURE_RECEIPT_REQUIRED"
+            )
         posture_ref = _hash_ref(
             "runtime-local-model-replay-posture-ref",
             {
-                "prior_policy_decision": record.policy_decision.model_dump(mode="json"),
+                "prior_policy_decision": record.policy_decision.model_dump(
+                    mode="json",
+                    exclude={"decided_at"},
+                ),
                 "prior_status": record.status,
-                "prior_updated_at": record.updated_at.isoformat(),
-                "policy_decision": policy_decision.model_dump(mode="json"),
+                "policy_decision": policy_decision.model_dump(
+                    mode="json",
+                    exclude={"decided_at"},
+                ),
                 "status": status.value,
                 "error_category": error_category,
             },
@@ -624,6 +675,7 @@ class RuntimeGateway:
                 runtime_enabled=self._runtime_local_model_enabled(),
                 endpoint_error=_validate_loopback_endpoint(request),
             ),
+            expected_receipt=record.receipt,
             idempotency_ref=_operation_idempotency_ref(
                 idempotency_ref,
                 posture_ref,

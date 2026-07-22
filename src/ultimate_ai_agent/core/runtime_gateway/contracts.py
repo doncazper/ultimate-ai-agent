@@ -655,6 +655,7 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
     bounded_preview_returned: bool = False
     bounded_preview_persisted: bool = False
     error_category: str | None = None
+    attempt_outcome_unknown: bool = False
     model_output_non_authoritative: bool = True
     tools_executed: bool = False
     memory_written: bool = False
@@ -692,6 +693,14 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
             raise ValueError("RUNTIME_MODEL_SIDE_EFFECT_DENIED")
         if self.error_category:
             validate_safe_execution_text(self.error_category, "error_category")
+        if self.attempt_outcome_unknown != (
+            self.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
+        ) or self.attempt_outcome_unknown and (
+            self.status_code is not None
+            or self.response_received
+            or self.response_byte_count != 0
+        ):
+            raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID")
         return self
 
 
@@ -1170,8 +1179,29 @@ def build_local_model_receipt(
     model_call_performed: bool = True,
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.receipt_recorded,
 ) -> RuntimeInvocationReceipt:
+    receipt_ref = (
+        _stable_ref(
+            "runtime-receipt-ref",
+            {
+                "invocation_ref": record.invocation_ref,
+                "status": "attempt_outcome_unknown",
+            },
+        )
+        if metadata.attempt_outcome_unknown
+        else runtime_receipt_ref(record.invocation_ref, status)
+    )
+    artifact_kind = (
+        "local_model_runtime_attempt_marker"
+        if metadata.attempt_outcome_unknown
+        else "local_model_runtime_receipt"
+    )
+    evidence_status = (
+        "local-model-attempt-marker"
+        if metadata.attempt_outcome_unknown
+        else "local-model-receipt"
+    )
     return RuntimeInvocationReceipt(
-        receipt_ref=runtime_receipt_ref(record.invocation_ref, status),
+        receipt_ref=receipt_ref,
         invocation_ref=record.invocation_ref,
         policy_decision_ref=record.policy_decision.policy_decision_ref,
         invocation_status=status,
@@ -1179,16 +1209,16 @@ def build_local_model_receipt(
             RuntimeArtifactRef(
                 artifact_ref=_stable_ref(
                     "runtime-artifact-ref",
-                    {"invocation_ref": record.invocation_ref, "kind": "local-model-receipt"},
+                    {"invocation_ref": record.invocation_ref, "kind": evidence_status},
                 ),
-                artifact_kind="local_model_runtime_receipt",
+                artifact_kind=artifact_kind,
                 safe_summary="Local model runtime receipt stores metadata and safe refs only.",
             )
         ],
         evidence_refs=[
             _stable_ref(
                 "runtime-evidence-ref",
-                {"invocation_ref": record.invocation_ref, "status": "local-model-receipt"},
+                {"invocation_ref": record.invocation_ref, "status": evidence_status},
             )
         ],
         blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
@@ -1202,9 +1232,13 @@ def build_local_model_receipt(
         browser_automation_performed=False,
         model_output_non_authoritative=True,
         safe_summary=(
-            "Local model runtime attempt was blocked before transport; metadata only."
-            if status == RuntimeInvocationStatus.execution_blocked
-            else "Local model runtime attempt completed; output is an untrusted proposal."
+            "Local model transport attempt was authorized; its outcome remains unknown."
+            if metadata.attempt_outcome_unknown
+            else (
+                "Local model runtime attempt was blocked before transport; metadata only."
+                if status == RuntimeInvocationStatus.execution_blocked
+                else "Local model runtime attempt completed; output is an untrusted proposal."
+            )
         ),
     )
 
