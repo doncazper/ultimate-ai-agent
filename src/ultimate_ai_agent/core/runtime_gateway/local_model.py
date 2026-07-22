@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
     RuntimeLocalModelReceiptMetadata,
+    RuntimePolicyDecision,
     RuntimeProfile,
     build_local_model_receipt,
     build_policy_decision,
@@ -349,10 +350,7 @@ class RuntimeGateway:
                 runtime_enabled=replay_runtime_enabled,
                 endpoint_error=replay_endpoint_error,
             )
-            if (
-                replay_blocked_error is None
-                and record.status == RuntimeInvocationStatus.safe_disabled.value
-            ):
+            if replay_blocked_error is None and replay_runtime_disabled:
                 replay_blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
             if (
                 replay_blocked_error is None
@@ -364,11 +362,20 @@ class RuntimeGateway:
                     if record.receipt.model_receipt_metadata is not None
                     else None
                 ) or "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_BLOCKED"
+            replay_status = (
+                RuntimeInvocationStatus.safe_disabled
+                if replay_runtime_disabled
+                else (
+                    RuntimeInvocationStatus.execution_blocked
+                    if replay_blocked_error is not None
+                    else RuntimeInvocationStatus.receipt_recorded
+                )
+            )
             replay_policy_decision = build_policy_decision(
                 record.request,
                 invocation_ref=record.invocation_ref,
                 approval_ref=record.approval_requirement.approval_ref,
-                status=RuntimeInvocationStatus(record.status),
+                status=replay_status,
                 local_model_gateway_validated=replay_blocked_error is None,
                 active_authority_leases=self.store.current_authority_leases(),
                 kill_switch_engaged=(
@@ -382,26 +389,21 @@ class RuntimeGateway:
                 replay_blocked_error = (
                     "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
                 )
-            if replay_blocked_error is not None:
-                replay_policy_decision = replay_policy_decision.model_copy(
-                    update={
-                        "approval_requirement": record.approval_requirement,
-                        "invocation_status": (
-                            RuntimeInvocationStatus.safe_disabled
-                            if replay_runtime_disabled
-                            else RuntimeInvocationStatus.execution_blocked
-                        ),
-                    }
-                )
+                replay_status = RuntimeInvocationStatus.execution_blocked
+            replay_policy_decision = replay_policy_decision.model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": replay_status,
+                }
+            )
             if record.receipt is not None:
                 if replay_blocked_error is None:
-                    revalidated = record.model_copy(
-                        update={
-                            "approval_requirement": (
-                                replay_policy_decision.approval_requirement
-                            ),
-                            "policy_decision": replay_policy_decision,
-                        }
+                    revalidated = self._record_local_model_replay_posture(
+                        record,
+                        policy_decision=replay_policy_decision,
+                        status=RuntimeInvocationStatus.receipt_recorded,
+                        error_category=None,
+                        idempotency_ref=idempotency_ref,
                     )
                     return RuntimeLocalModelGatewayResult(
                         record=revalidated,
@@ -418,12 +420,8 @@ class RuntimeGateway:
                         replayed=True,
                         local_model_runtime_enabled=replay_runtime_enabled,
                     )
-                if (
-                    record.status == RuntimeInvocationStatus.execution_blocked.value
-                    and record.receipt.model_receipt_metadata
-                    and record.receipt.model_receipt_metadata.error_category
-                    == replay_blocked_error
-                    and record.policy_decision == replay_policy_decision
+                if record.status == replay_status.value and (
+                    record.policy_decision == replay_policy_decision
                 ):
                     return RuntimeLocalModelGatewayResult(
                         record=record,
@@ -441,47 +439,17 @@ class RuntimeGateway:
                         replayed=True,
                         local_model_runtime_enabled=replay_runtime_enabled,
                     )
-                metadata = RuntimeLocalModelReceiptMetadata(
-                    model_ref=request.model_ref,
-                    endpoint_ref=_endpoint_ref(request.base_url),
-                    profile=RuntimeProfile(request.requested_profile),
-                    request_byte_count=_request_byte_count(request),
-                    response_byte_count=0,
-                    status_code=None,
-                    response_received=False,
-                    response_truncated=False,
-                    bounded_preview_returned=False,
-                    bounded_preview_persisted=False,
-                    error_category=replay_blocked_error,
-                    safe_summary="Local model runtime replay was blocked by current posture.",
-                )
-                receipt = build_local_model_receipt(
+                updated = self._record_local_model_replay_posture(
                     record,
-                    metadata=metadata,
-                    execution_performed=False,
-                    model_call_performed=False,
-                    status=RuntimeInvocationStatus.execution_blocked,
-                )
-                updated = self.store.record_receipt(
-                    record.invocation_ref,
-                    receipt,
-                    idempotency_ref=_operation_idempotency_ref(
-                        idempotency_ref,
-                        "local-model-replay-posture-blocked",
-                    ),
-                    payload_fingerprint_ref=_operation_fingerprint_ref(
-                        record.invocation_ref,
-                        {
-                            "operation": "local_model_replay_posture_blocked",
-                            "metadata": metadata.model_dump(mode="json"),
-                        },
-                    ),
                     policy_decision=replay_policy_decision,
+                    status=replay_status,
+                    error_category=replay_blocked_error,
+                    idempotency_ref=idempotency_ref,
                 )
                 return RuntimeLocalModelGatewayResult(
                     record=updated,
-                    request_byte_count=metadata.request_byte_count,
-                    error_category=metadata.error_category,
+                    request_byte_count=_request_byte_count(request),
+                    error_category=replay_blocked_error,
                     replayed=True,
                     local_model_runtime_enabled=replay_runtime_enabled,
                 )
@@ -621,6 +589,43 @@ class RuntimeGateway:
             local_model_runtime_enabled=runtime_enabled,
         )
 
+    def _record_local_model_replay_posture(
+        self,
+        record: RuntimeInvocationRecord,
+        *,
+        policy_decision: RuntimePolicyDecision,
+        status: RuntimeInvocationStatus,
+        error_category: str | None,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord:
+        posture_ref = _hash_ref(
+            "runtime-local-model-replay-posture-ref",
+            {
+                "prior_policy_decision": record.policy_decision.model_dump(mode="json"),
+                "prior_status": record.status,
+                "prior_updated_at": record.updated_at.isoformat(),
+                "policy_decision": policy_decision.model_dump(mode="json"),
+                "status": status.value,
+                "error_category": error_category,
+            },
+        )
+        return self.store.record_replay_posture(
+            record.invocation_ref,
+            policy_decision,
+            status,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                posture_ref,
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                record.invocation_ref,
+                {
+                    "operation": "local_model_replay_posture_recorded",
+                    "posture_ref": posture_ref,
+                },
+            ),
+        )
+
     def _runtime_local_model_enabled(self) -> bool:
         if self._local_model_runtime_enabled is not None:
             return self._local_model_runtime_enabled
@@ -712,7 +717,8 @@ def _receipt_proves_successful_local_model_call(
     metadata = receipt.model_receipt_metadata if receipt is not None else None
     return bool(
         receipt is not None
-        and record.status == RuntimeInvocationStatus.receipt_recorded.value
+        and receipt.invocation_status
+        == RuntimeInvocationStatus.receipt_recorded.value
         and receipt.execution_performed
         and receipt.model_call_performed
         and metadata is not None

@@ -455,7 +455,8 @@ def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport
     assert replay.status_code == 200
     replay_body = replay.json()
     assert replay_body["data"]["replayed"] is True
-    assert replay_body["data"]["execution_performed"] is False
+    assert replay_body["data"]["execution_performed"] is True
+    assert replay_body["data"]["model_call_performed"] is True
     assert replay_body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
     assert replay_body["data"]["record"]["status"] == "safe_disabled"
     assert calls == 1

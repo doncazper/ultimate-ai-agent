@@ -1183,6 +1183,64 @@ class RuntimeInvocationStore:
             )
             return updated
 
+    def record_replay_posture(
+        self,
+        invocation_ref: str,
+        policy_decision: RuntimePolicyDecision,
+        status: RuntimeInvocationStatus,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> RuntimeInvocationRecord:
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            validate_execution_ref(
+                payload_fingerprint_ref,
+                "payload_fingerprint_ref",
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            if (
+                policy_decision.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_POLICY_DECISION_REF_MISMATCH"
+                )
+            if record.receipt is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_RECEIPT_REQUIRED"
+                )
+            if policy_decision.invocation_status != status:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_STATUS_MISMATCH"
+                )
+            target_status = _status_after_safe_disable(record, status)
+            if target_status != status:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION"
+                )
+            updated = record.model_copy(
+                update={
+                    "approval_requirement": policy_decision.approval_requirement,
+                    "policy_decision": policy_decision,
+                    "status": target_status,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "replay_posture_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
+
     def mark_action_inbox_execution_receipt(
         self,
         invocation_ref: str,
@@ -1307,10 +1365,11 @@ class RuntimeInvocationStore:
             replayed = self._idempotent_operation_replay(
                 idempotency_ref,
                 payload_fingerprint_ref,
+                preserve_original_result=True,
             )
             if replayed is not None and replayed.safe_disable:
-                self._persist_operator_safe_disable_state(replayed.safe_disable)
-                self._canonical_safe_disable_state = replayed.safe_disable
+                if replayed.safe_disable == self._canonical_safe_disable_state:
+                    self._persist_operator_safe_disable_state(replayed.safe_disable)
                 return replayed.safe_disable
             state = RuntimeSafeDisableState(
                 reason_ref=request.reason_ref,
@@ -1679,6 +1738,8 @@ class RuntimeInvocationStore:
         self,
         idempotency_ref: str,
         payload_fingerprint_ref: str,
+        *,
+        preserve_original_result: bool = False,
     ) -> RuntimeInvocationRecord | None:
         existing_ref = self._idempotency_index.get(idempotency_ref)
         if existing_ref is None:
@@ -1687,8 +1748,15 @@ class RuntimeInvocationStore:
         if existing_fingerprint != payload_fingerprint_ref:
             raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
         existing = self._records[existing_ref]
+        if preserve_original_result:
+            existing = next(
+                entry.record
+                for entry in self._entries
+                if entry.idempotency_ref == idempotency_ref
+            )
         replayed = existing.model_copy(update={"replay_count": existing.replay_count + 1})
-        self._records[existing_ref] = replayed
+        if not preserve_original_result:
+            self._records[existing_ref] = replayed
         return replayed
 
     def _append(

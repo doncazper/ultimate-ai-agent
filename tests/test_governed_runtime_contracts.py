@@ -439,6 +439,39 @@ def test_runtime_store_safe_disable_state_uses_canonical_sidecar(tmp_path: Path)
     assert reloaded_state.safe_disable_posture_ref == state.safe_disable_posture_ref
 
 
+def test_runtime_store_safe_disable_replay_returns_original_without_rollback(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    first = store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:safe-disable-first"),
+        idempotency_ref="idempotency-ref:safe-disable-first",
+    )
+    second = store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:safe-disable-second"),
+        idempotency_ref="idempotency-ref:safe-disable-second",
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    before_replay = ledger_path.read_bytes()
+
+    replayed_first = store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:safe-disable-first"),
+        idempotency_ref="idempotency-ref:safe-disable-first",
+    )
+
+    assert replayed_first == first
+    assert replayed_first != second
+    assert ledger_path.read_bytes() == before_replay
+    assert store.operator_safe_disable_state() == second
+    assert RuntimeInvocationStore(tmp_path).operator_safe_disable_state() == second
+    sidecar = json.loads(
+        (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert sidecar["reason_ref"] == "reason-ref:safe-disable-second"
+
+
 def test_runtime_store_safe_disable_sidecar_rejects_deactivation_tamper(
     tmp_path: Path,
 ) -> None:
@@ -805,6 +838,21 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
         RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-replay-safe-disable"),
         idempotency_ref="idempotency-ref:runtime-local-model-replay-safe-disable",
     )
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION",
+    ):
+        store.record_replay_posture(
+            first.record.invocation_ref,
+            first.record.policy_decision.model_copy(
+                update={
+                    "invocation_status": RuntimeInvocationStatus.receipt_recorded,
+                }
+            ),
+            RuntimeInvocationStatus.receipt_recorded,
+            idempotency_ref="idempotency-ref:stale-replay-posture",
+            payload_fingerprint_ref="runtime-operation-fingerprint-ref:stale-posture",
+        )
     replay = gateway.invoke_local_model(
         request,
         idempotency_ref="idempotency-ref:runtime-local-model-replay-policy",
@@ -818,12 +866,16 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
     assert replay.record.status == "safe_disabled"
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
     assert replay.record.receipt is not None
-    assert replay.record.receipt.model_call_performed is False
+    assert replay.record.receipt.execution_performed is True
+    assert replay.record.receipt.model_call_performed is True
     assert replay.record.receipt.safe_disable.active is True
     assert (
         replay.record.receipt.safe_disable.reason_ref
         == "reason-ref:runtime-local-model-replay-safe-disable"
     )
+    persisted_record = store.get_invocation(replay.record.invocation_ref)
+    assert persisted_record.receipt is not None
+    assert persisted_record.receipt.model_call_performed is True
 
 
 def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_closed(
@@ -886,8 +938,15 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
             == "degrade_to_draft"
         )
         assert replay.record.receipt is not None
-        assert replay.record.receipt.execution_performed is False
-        assert replay.record.receipt.model_call_performed is False
+        assert replay.record.receipt.execution_performed is True
+        assert replay.record.receipt.model_call_performed is True
+
+    persisted_record = store.get_invocation(first.record.invocation_ref)
+    assert persisted_record.status == "execution_blocked"
+    assert persisted_record.policy_decision.allowed_to_execute is False
+    assert persisted_record.receipt is not None
+    assert persisted_record.receipt.execution_performed is True
+    assert persisted_record.receipt.model_call_performed is True
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
@@ -952,6 +1011,43 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
     )
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is True
+    persisted_record = store.get_invocation(first.record.invocation_ref)
+    assert persisted_record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-replacement"
+    )
+    assert persisted_record.receipt is not None
+    assert persisted_record.receipt.model_call_performed is True
+
+    original = provider_model_execute_authority_lease()
+    monkeypatch.setattr(store, "current_authority_leases", lambda: [original])
+    restored = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+    monkeypatch.setattr(store, "current_authority_leases", lambda: [replacement])
+    replacement_again = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    before_revalidated_replay = ledger_path.read_bytes()
+    revalidated_again = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+
+    assert restored.record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-execute"
+    )
+    assert replacement_again.record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-replacement"
+    )
+    assert revalidated_again.record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-replacement"
+    )
+    assert revalidated_again.record.receipt == replacement_again.record.receipt
+    assert ledger_path.read_bytes() != before_revalidated_replay
+    assert store.get_invocation(first.record.invocation_ref) == revalidated_again.record
 
 
 def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
