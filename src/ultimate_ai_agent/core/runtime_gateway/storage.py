@@ -1189,6 +1189,7 @@ class RuntimeInvocationStore:
         policy_decision: RuntimePolicyDecision,
         status: RuntimeInvocationStatus,
         *,
+        local_model_gateway_validated: bool,
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> RuntimeInvocationRecord:
@@ -1199,12 +1200,6 @@ class RuntimeInvocationStore:
                 payload_fingerprint_ref,
                 "payload_fingerprint_ref",
             )
-            replayed = self._idempotent_operation_replay(
-                idempotency_ref,
-                payload_fingerprint_ref,
-            )
-            if replayed is not None:
-                return replayed
             if (
                 policy_decision.policy_decision_ref
                 != record.policy_decision.policy_decision_ref
@@ -1225,6 +1220,38 @@ class RuntimeInvocationStore:
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION"
                 )
+            current_policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=status,
+                local_model_gateway_validated=local_model_gateway_validated,
+                active_authority_leases=self.current_authority_leases(),
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": status,
+                }
+            )
+            expected_policy_posture = policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            current_policy_posture = current_policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            if expected_policy_posture != current_policy_posture:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_AUTHORITY_CHANGED_DURING_REVALIDATION"
+                )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
             updated = record.model_copy(
                 update={
                     "approval_requirement": policy_decision.approval_requirement,

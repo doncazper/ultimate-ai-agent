@@ -362,6 +362,7 @@ class RuntimeGateway:
                     if record.receipt.model_receipt_metadata is not None
                     else None
                 ) or "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_BLOCKED"
+            replay_gateway_validated = replay_blocked_error is None
             replay_status = (
                 RuntimeInvocationStatus.safe_disabled
                 if replay_runtime_disabled
@@ -376,7 +377,7 @@ class RuntimeGateway:
                 invocation_ref=record.invocation_ref,
                 approval_ref=record.approval_requirement.approval_ref,
                 status=replay_status,
-                local_model_gateway_validated=replay_blocked_error is None,
+                local_model_gateway_validated=replay_gateway_validated,
                 active_authority_leases=self.store.current_authority_leases(),
                 kill_switch_engaged=(
                     self.store.authority_lease_kill_switch_engaged()
@@ -404,6 +405,7 @@ class RuntimeGateway:
                         status=RuntimeInvocationStatus.receipt_recorded,
                         error_category=None,
                         idempotency_ref=idempotency_ref,
+                        local_model_gateway_validated=replay_gateway_validated,
                     )
                     return RuntimeLocalModelGatewayResult(
                         record=revalidated,
@@ -445,6 +447,7 @@ class RuntimeGateway:
                     status=replay_status,
                     error_category=replay_blocked_error,
                     idempotency_ref=idempotency_ref,
+                    local_model_gateway_validated=replay_gateway_validated,
                 )
                 return RuntimeLocalModelGatewayResult(
                     record=updated,
@@ -597,6 +600,7 @@ class RuntimeGateway:
         status: RuntimeInvocationStatus,
         error_category: str | None,
         idempotency_ref: str,
+        local_model_gateway_validated: bool,
     ) -> RuntimeInvocationRecord:
         posture_ref = _hash_ref(
             "runtime-local-model-replay-posture-ref",
@@ -613,6 +617,7 @@ class RuntimeGateway:
             record.invocation_ref,
             policy_decision,
             status,
+            local_model_gateway_validated=local_model_gateway_validated,
             idempotency_ref=_operation_idempotency_ref(
                 idempotency_ref,
                 posture_ref,

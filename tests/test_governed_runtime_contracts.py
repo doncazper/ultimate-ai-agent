@@ -850,6 +850,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
                 }
             ),
             RuntimeInvocationStatus.receipt_recorded,
+            local_model_gateway_validated=True,
             idempotency_ref="idempotency-ref:stale-replay-posture",
             payload_fingerprint_ref="runtime-operation-fingerprint-ref:stale-posture",
         )
@@ -1048,6 +1049,87 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
     assert revalidated_again.record.receipt == replacement_again.record.receipt
     assert ledger_path.read_bytes() != before_revalidated_replay
     assert store.get_invocation(first.record.invocation_ref) == revalidated_again.record
+
+
+@pytest.mark.parametrize("posture_change", ["lease_revoked", "kill_switch"])
+def test_runtime_gateway_local_model_replay_rejects_posture_change_in_store_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    posture_change: str,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_AUTHORITY_RACE_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="authority race prompt must not persist",
+            )
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-authority-race"
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    if posture_change == "lease_revoked":
+        replacement = provider_model_execute_authority_lease().model_copy(
+            update={
+                "lease_ref": "authority-lease-ref:test-provider-model-race",
+            }
+        )
+        authority_snapshots = iter(([replacement], []))
+        monkeypatch.setattr(
+            store,
+            "current_authority_leases",
+            lambda: next(authority_snapshots),
+        )
+    else:
+        kill_switch_snapshots = iter((False, True))
+        monkeypatch.setattr(
+            store,
+            "authority_lease_kill_switch_engaged",
+            lambda: next(kill_switch_snapshots),
+        )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    before_replay = ledger_path.read_bytes()
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_REPLAY_POSTURE_AUTHORITY_CHANGED_DURING_REVALIDATION",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+
+    assert calls == 1
+    assert ledger_path.read_bytes() == before_replay
+    persisted = RuntimeInvocationStore(tmp_path).get_invocation(
+        first.record.invocation_ref
+    )
+    assert persisted.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-execute"
+    )
+    assert persisted.receipt == first.record.receipt
 
 
 def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
