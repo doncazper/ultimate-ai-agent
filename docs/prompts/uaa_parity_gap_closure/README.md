@@ -49,9 +49,11 @@ bash scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh --list
 10. `09_cross_cutting_reliability_and_future_lane_proofs.prompt.md`
 11. `10_end_to_end_acceptance_and_parity_truth.prompt.md`
 
-Use Prompt 00 for a single continuous run. It rereads the remaining phase
-prompts from the just-synchronized `main` before starting each phase, so merged
-work from other tasks is incorporated rather than repeated.
+Use Prompt 00 for a single continuous run. The verified combined snapshot keeps
+all phase instructions stable for that run. Before each phase, synchronize and
+reinspect repository/code state from `main` so merged work from other tasks is
+incorporated rather than repeated; do not replace the snapshot's prompt text
+with mutable worktree content.
 
 ## Convergence And Non-Duplication Contract
 

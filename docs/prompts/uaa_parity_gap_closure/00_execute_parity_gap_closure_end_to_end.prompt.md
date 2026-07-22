@@ -94,7 +94,9 @@ the phase complete.
 4. Rebuild the coverage ledger using the classification vocabulary in the
    pack README.
 5. Prove every proposed skip from current `main` using code plus tests.
-6. Re-read the current phase prompt from synchronized `main`.
+6. Use the current phase prompt from this verified combined snapshot. Refresh
+   repository and code inventory from synchronized `main`, but do not replace
+   the snapshot's prompt text with mutable worktree content.
 
 When the current worktree is dirty or owned by another task, create a separate
 clean orchestration worktree from current `origin/main`. Do not touch the

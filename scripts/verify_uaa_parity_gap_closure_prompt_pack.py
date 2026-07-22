@@ -38,9 +38,11 @@ EXPECTED_PROMPTS = (
     "10_end_to_end_acceptance_and_parity_truth.prompt.md",
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:/Users/|/home/|/workspace/|/tmp/|/private/tmp/|/var/tmp/|"
-    r"/private/var/tmp/|/var/folders/|"
-    r"[A-Za-z]:\\Users\\)[^)\s`]+"
+    r"(?:^|[\s(`'\"])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
+    r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin|"
+    r"workspace|build|runner|github)"
+    r"(?:/|\b)|~/|[A-Za-z]:\\Users\\|\\\\)",
+    re.MULTILINE,
 )
 FORBIDDEN_SELF_AUTHORITY_PHRASES = (
     "this pack authorizes",
@@ -73,6 +75,8 @@ WRAPPER_REQUIRED = (
     "Merge only when required checks are green",
     "Update local `main` to the exact remote merge SHA",
     "Remove only clean, merged temporary phase branches/worktrees",
+    "verified combined snapshot",
+    "do not replace the snapshot's prompt text",
     "Do not commit repairs directly to `main`",
     "at most two focused repair passes",
     "Do not generate another pack",
@@ -434,7 +438,6 @@ def main() -> int:
             return 1
         sys.stdout.buffer.write(combined)
     elif args.list:
-        print(README_REF)
         print("\n".join(pack.refs))
     elif args.emit_combined:
         print("emitted combined prompt pack: configured-output-ref")

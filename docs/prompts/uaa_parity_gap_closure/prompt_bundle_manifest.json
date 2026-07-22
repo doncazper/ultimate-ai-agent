@@ -16,7 +16,7 @@
     "docs/prompts/uaa_parity_gap_closure/09_cross_cutting_reliability_and_future_lane_proofs.prompt.md",
     "docs/prompts/uaa_parity_gap_closure/10_end_to_end_acceptance_and_parity_truth.prompt.md"
   ],
-  "bundle_hash": "sha256:ec81b8f357c408ab7be82f8af592f2bf3a6346769fdd8f65afbd85198de7dd3a",
+  "bundle_hash": "sha256:e6cebcc53f1acf80f1b5e45d1ce4b11148e710d63e435894972fa7ef49f9ea2e",
   "stable_within_run": true,
   "created_at": "2026-07-14"
 }

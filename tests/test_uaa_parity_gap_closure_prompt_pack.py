@@ -108,10 +108,50 @@ def test_placeholder_hash_cannot_bypass_verification(
         pack_verify.verify_manifest()
 
 
-@pytest.mark.parametrize("path", ("/tmp/repo/file", "/var/tmp/repo/file"))
-def test_common_temp_checkout_paths_are_rejected(path: str) -> None:
+@pytest.mark.parametrize(
+    "path",
+    (
+        "/Users/operator/repo/file",
+        "/home/operator/repo/file",
+        "/root/.cache/file",
+        "/tmp/repo/file",
+        "/private/tmp/repo/file",
+        "/var/tmp/repo/file",
+        "/opt/tool/file",
+        "/mnt/work/repo/file",
+        "/Volumes/Work/repo/file",
+        "/workspace/repo/file",
+        "C:\\Users\\operator\\repo\\file",
+    ),
+)
+def test_common_local_absolute_paths_are_rejected(path: str) -> None:
     with pytest.raises(pack_verify.VerificationError, match="absolute local path"):
         pack_verify._validate_text(pack_verify.README_PATH, path)
+
+
+def test_list_contains_only_ordered_developer_prompt_refs() -> None:
+    result = subprocess.run(
+        [sys.executable, str(VERIFY), "--list"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    expected = [
+        f"docs/prompts/uaa_parity_gap_closure/{name}"
+        for name in pack_verify.EXPECTED_PROMPTS
+    ]
+    assert result.stdout.splitlines() == expected
+    assert pack_verify.README_REF not in result.stdout.splitlines()
+
+
+def test_wrapper_binds_phase_instructions_to_verified_snapshot() -> None:
+    wrapper_ref = pack_verify._prompt_refs(pack_verify._load_manifest())[0]
+    wrapper_prompt = (ROOT / wrapper_ref).read_text(encoding="utf-8")
+
+    assert "verified combined snapshot" in wrapper_prompt
+    assert "do not replace" in wrapper_prompt
+    assert "Re-read the current phase prompt" not in wrapper_prompt
 
 
 def test_repo_path_rejects_symlinked_pack_input(
