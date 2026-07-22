@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path, PurePosixPath
 
@@ -102,6 +103,62 @@ EXPECTED_PHASES = {
     "L15": "05",
     "L16": "07",
 }
+EXPECTED_OUTCOMES = {
+    "H01": "outcome:persistent-goal-lifecycle",
+    "H02": "outcome:durable-event-lifecycle",
+    "H03": "outcome:memory-integrity",
+    "H04": "outcome:briefing-worker",
+    "H05": "outcome:local-setup-lifecycle",
+    "H06": "outcome:cross-session-search",
+    "O01": "outcome:persistent-goal-lifecycle",
+    "O02": "outcome:backend-truth",
+    "O03": "outcome:durable-event-lifecycle",
+    "O04": "outcome:verified-backup-restore",
+    "O05": "outcome:work-board-reconciliation",
+    "O06": "outcome:connector-delivery-evidence",
+    "O07": "outcome:session-ux",
+    "O08": "outcome:briefing-worker",
+    "P01": "outcome:startup-budgets",
+    "P02": "outcome:ordered-read-fanout",
+    "P03": "outcome:cross-session-search",
+    "P04": "outcome:bounded-cache-policy",
+    "P05": "outcome:single-flight-provider-work",
+    "P06": "outcome:abort-aware-io",
+    "P07": "outcome:event-backpressure",
+    "P08": "outcome:briefing-worker",
+    "P09": "outcome:frontend-work-deduplication",
+    "P10": "outcome:exact-head-ci-budget",
+    "B01": "outcome:exact-approval-ownership",
+    "B02": "outcome:approval-fail-closed",
+    "B03": "outcome:connector-delivery-evidence",
+    "B04": "outcome:restart-admission-fence",
+    "B05": "outcome:backend-truth",
+    "B06": "outcome:event-backpressure",
+    "B07": "outcome:provider-side-effect-fence",
+    "B08": "outcome:memory-integrity",
+    "B09": "outcome:storage-budget-integrity",
+    "B10": "outcome:archive-path-safety",
+    "B11": "outcome:chunk-redaction",
+    "B12": "outcome:revisioned-autosave",
+    "B13": "outcome:approval-wait-lifecycle",
+    "B14": "outcome:backend-truth",
+    "L01": "outcome:backend-truth",
+    "L02": "outcome:local-setup-lifecycle",
+    "L03": "outcome:backend-truth",
+    "L04": "outcome:backend-truth",
+    "L05": "outcome:action-inbox-ux",
+    "L06": "outcome:persistent-goal-lifecycle",
+    "L07": "outcome:durable-event-lifecycle",
+    "L08": "outcome:briefing-worker",
+    "L09": "outcome:work-board-reconciliation",
+    "L10": "outcome:briefing-worker",
+    "L11": "outcome:verified-backup-restore",
+    "L12": "outcome:memory-integrity",
+    "L13": "outcome:product-performance-budgets",
+    "L14": "outcome:locked-supply-chain",
+    "L15": "outcome:session-ux",
+    "L16": "outcome:cross-session-search",
+}
 EXPECTED_MERGED_PROOF_REFS = {
     "P10": {
         ".github/workflows/ci.yml",
@@ -173,11 +230,34 @@ EXECUTION_ROW = re.compile(
     r"^\| (?P<phase>\d{2}) \| (?P<state>[^|]+?) \| (?P<action>[^|]+?) \|$",
     re.MULTILINE,
 )
+VISIBLE_SURFACE_ROW = re.compile(
+    r"^\| (?P<surface>[^|]+?) \| (?P<posture>[^|]+?) \| (?P<gap>[^|]+?) \|$",
+    re.MULTILINE,
+)
+EXPECTED_VISIBLE_SURFACE_ROWS = (
+    ("Start Here", "backend-owned, partial", "proof/detail completion and full failure-state walkthrough"),
+    ("Today", "storage-backed, partial", "complete readable loop and source adapters"),
+    ("Inbox", "backend source status only", "live email/calendar ingestion absent"),
+    ("Action Inbox", "backend-owned, proofed exact local decision lane", "broader actions remain blocked; UX/revision hardening remains"),
+    ("Morning Briefing", "storage-backed, partial", "live sources and exact refresh worker absent"),
+    ("Plans / Work Board", "backend-owned, partial", "durable goals and multi-client reconciliation incomplete"),
+    ("Memory", "reviewed local state, partial", "integrity/ranking/migration hardening incomplete"),
+    ("Evidence / Proof", "backend-owned, partial", "stale-evidence end-to-end truth proof incomplete"),
+    ("Setup", "real installer core, partial product integration", "shared Setup API/UI lifecycle incomplete"),
+    ("Chat / Sessions", "backend-owned local state, partial", "session UX and compact cross-session search remain"),
+    ("Runtime", "backend status only", "broad execution stays blocked"),
+    ("Settings", "backend status and authority cockpit only", "no authority-minting toggles or unsupported writes"),
+)
+EXPECTED_AUTHORITY_BULLETS = (
+    "The exact Morning Briefing source-refresh/background-worker lane remains `blocked_by_authority`; Phase 06 may implement independent contracts and tests but cannot claim execution without a separately accepted exact lane.",
+    "Connector account reads, sends, writes, notifications, provider/model calls, browser execution, unrestricted shell execution, and production authority remain blocked.",
+    "`pr:319` owns its exact approval/admin/destructive semantics paths until merge or explicit handoff.",
+)
 ABSOLUTE_PATH = re.compile(
     r"(?<![A-Za-z0-9_.:/~-])(?:"
     r"file:(?://)?/|"
     r"/(?!control-center(?:/|\b)|runtime(?:/|\b)|api(?:/|\b)|v1(?:/|\b))"
-    r"[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)+|"
+    r"[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*|"
     r"/(?:Users|home|root|private|tmp|var|etc|System|Library|Applications|opt|usr|"
     r"Volumes|srv|mnt|proc|dev|run|bin|sbin|workspace|build|runner|github)(?:/|\b)|"
     r"~/|[A-Za-z]:\\|\\\\"
@@ -185,13 +265,23 @@ ABSOLUTE_PATH = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 OPAQUE_PROOF_REF = re.compile(r"^(?:pr|commit):[A-Za-z0-9._-]+$")
-REPOSITORY_PATH_PREFIXES = (".github/", "apps/", "docs/", "reports/", "scripts/", "src/", "tests/")
+REPOSITORY_PATH_PREFIXES = (
+    ".github/",
+    "apps/",
+    "docs/",
+    "packaging/",
+    "reports/",
+    "scripts/",
+    "src/",
+    "tests/",
+)
 ROOT_REPOSITORY_REF = re.compile(
     r"^(?:Makefile|[A-Za-z0-9][A-Za-z0-9_.-]*\."
     r"(?:json|lock|md|toml|txt|yaml|yml))$"
 )
 EXPECTED_INVENTORY_BASE = "35d66a04680cbe6fa5356001dd90256bd36f9fd8"
 EXPECTED_ACTIVE_BASELINE = "v0.104.0"
+EXPECTED_REPORT_SHA256 = "789f9af379d633cfa5a3a1e182fe39d8d99bc1131fb50d563a5472fbe92134d4"
 REQUIRED_SNIPPETS = (
     "Status: current-main inventory; no runtime authority grant",
     f"- Inventory base: `commit:{EXPECTED_INVENTORY_BASE}`",
@@ -233,6 +323,21 @@ def _section(text: str, heading: str) -> str:
     return remainder.split("\n## ", 1)[0]
 
 
+def _markdown_bullets(text: str) -> tuple[str, ...]:
+    bullets: list[str] = []
+    current: list[str] = []
+    for line in text.splitlines():
+        if line.startswith("- "):
+            if current:
+                bullets.append(" ".join(current))
+            current = [line[2:].strip()]
+        elif current and line.strip():
+            current.append(line.strip())
+    if current:
+        bullets.append(" ".join(current))
+    return tuple(bullets)
+
+
 def _repo_path(ref: str) -> Path | None:
     """Return a contained repository path for a canonical POSIX proof ref."""
     cleaned = _clean_ref(ref)
@@ -270,6 +375,10 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
     except OSError:
         return ["Phase 01 convergence ledger is missing or unreadable"]
 
+    report_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if report_digest != EXPECTED_REPORT_SHA256:
+        failures.append("convergence ledger content digest drifted")
+
     for snippet in REQUIRED_SNIPPETS:
         if snippet not in text:
             failures.append(f"ledger missing required section marker: {snippet}")
@@ -286,11 +395,19 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
         failures.append("coverage ledger must contain all 54 IDs exactly once and in order")
     if tuple(EXPECTED_PHASES) != EXPECTED_IDS:
         failures.append("internal expected phase mapping must cover all 54 IDs in order")
+    if tuple(EXPECTED_OUTCOMES) != EXPECTED_IDS:
+        failures.append("internal expected outcome mapping must cover all 54 IDs in order")
     outcomes_by_id: dict[str, str] = {}
     for row in rows:
         item_id = row.group("id")
         status = row.group("status")
         outcomes_by_id[item_id] = row.group("outcome")
+        expected_outcome = EXPECTED_OUTCOMES.get(item_id)
+        if expected_outcome is not None and row.group("outcome") != expected_outcome:
+            failures.append(
+                f"{item_id} outcome drifted: expected {expected_outcome}, "
+                f"observed {row.group('outcome')}"
+            )
         if status not in ALLOWED_STATUSES:
             failures.append(f"{item_id} has invalid status {status}")
         expected_status = EXPECTED_STATUSES.get(item_id)
@@ -362,6 +479,20 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
     )
     if execution_rows != EXPECTED_EXECUTION_ROWS:
         failures.append("phase execution ledger drifted")
+
+    visible_surface_rows = tuple(
+        (match.group("surface"), match.group("posture"), match.group("gap"))
+        for match in VISIBLE_SURFACE_ROW.finditer(
+            _section(text, "Visible Surface Truth")
+        )
+        if match.group("surface") not in {"Surface", "---"}
+    )
+    if visible_surface_rows != EXPECTED_VISIBLE_SURFACE_ROWS:
+        failures.append("visible surface truth ledger drifted")
+
+    authority_bullets = _markdown_bullets(_section(text, "Authority Prerequisites"))
+    if authority_bullets != EXPECTED_AUTHORITY_BULLETS:
+        failures.append("authority prerequisites drifted")
 
     if check_refs:
         refs = _repository_refs(text, rows)

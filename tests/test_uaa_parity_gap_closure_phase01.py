@@ -124,13 +124,70 @@ def test_phase01_ledger_rejects_absolute_local_paths() -> None:
 
 
 def test_phase01_ledger_rejects_arbitrary_posix_local_paths() -> None:
-    for path in ("/nix/store/local-proof", "/project/checkout/private-proof"):
+    for path in (
+        "/nix/store/local-proof",
+        "/project/checkout/private-proof",
+        "/project",
+        "/checkout",
+    ):
         failures = phase01.verify(
             report_text=_report() + f"\nEvidence captured at {path}.\n",
             check_refs=False,
         )
 
         assert "ledger contains an absolute local path" in failures
+
+
+def test_phase01_ledger_binds_every_id_to_its_expected_outcome() -> None:
+    report = _report().replace(
+        "| P10 | `outcome:exact-head-ci-budget` |",
+        "| P10 | `outcome:unrelated-work` |",
+        1,
+    )
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert any("P10 outcome drifted" in failure for failure in failures)
+
+
+def test_phase01_ledger_validates_packaging_overlap_refs() -> None:
+    report = _report().replace("`packaging/macos/`", "`packaging/missing/`", 1)
+
+    failures = phase01.verify(report_text=report, check_refs=True)
+
+    assert "ledger proof ref is missing: packaging/missing/" in failures
+
+
+def test_phase01_ledger_rejects_visible_surface_truth_drift() -> None:
+    report = _report().replace(
+        "| Today | storage-backed, partial | complete readable loop and source adapters |",
+        "| Today | production-ready | none |",
+        1,
+    )
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert "visible surface truth ledger drifted" in failures
+
+
+def test_phase01_ledger_requires_authority_to_remain_blocked() -> None:
+    report = _report().replace(
+        "and production authority\n  remain blocked.",
+        "and production authority\n  are now enabled.",
+        1,
+    )
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert "authority prerequisites drifted" in failures
+
+
+def test_phase01_ledger_rejects_unmodeled_content_drift() -> None:
+    report = _report().replace("Inventory date: `2026-07-22`", "Inventory date: `2026-07-23`", 1)
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert "convergence ledger content digest drifted" in failures
 
 
 def test_phase01_ledger_rejects_traversal_proof_refs() -> None:
