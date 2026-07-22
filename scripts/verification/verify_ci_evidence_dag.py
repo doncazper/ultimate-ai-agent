@@ -20,15 +20,19 @@ if str(ROOT) not in sys.path:
 from scripts.verification.ci_command_manifest import (  # noqa: E402
     CI_ARCHITECTURE_PROFILE_REF,
     CI_JOB_GRAPH,
+    VERIFICATION_DAG,
     build_plan,
     ci_architecture_inventory,
+    lane_registry,
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
     TYPESCRIPT_EXECUTION_COMMAND_REFS,
     VerificationReceipt,
     VerificationTerminalStatus,
     VerificationUnitKind,
+    dependency_closed_unit_refs,
     dependency_lock_set_fingerprint,
+    verification_run_manifest_payload,
 )
 from scripts.verification.verification_github_transport import (  # noqa: E402
     VerificationGithubTransportError,
@@ -36,6 +40,7 @@ from scripts.verification.verification_github_transport import (  # noqa: E402
     validate_github_job_output_against_plan,
 )
 from scripts.verification.verification_run_aggregator import (  # noqa: E402
+    aggregate_verification_run,
     validate_receipt_for_plan_unit,
 )
 from scripts.verification.typescript_binding import (  # noqa: E402
@@ -92,7 +97,7 @@ def _optional_map(
     expected_refs: tuple[str, ...],
 ) -> dict[str, str]:
     if not values:
-        return {unit_ref: "" for unit_ref in expected_refs}
+        _fail("reason-ref:ci-evidence:optional-envelope-missing")
     result: dict[str, str] = {}
     for value in values:
         if not isinstance(value, str) or "=" not in value:
@@ -103,6 +108,8 @@ def _optional_map(
         result[unit_ref] = bound_value
     if tuple(result) != expected_refs:
         _fail("reason-ref:ci-evidence:optional-envelope-membership-invalid")
+    if any(not result[unit_ref] for unit_ref in expected_refs):
+        _fail("reason-ref:ci-evidence:optional-envelope-missing")
     return result
 
 
@@ -165,9 +172,6 @@ def validate_final_gate(
         _fail("reason-ref:ci-evidence:envelope-membership-invalid")
     if any(results[unit_ref] != "success" for unit_ref in expected_refs):
         _fail("reason-ref:ci-evidence:upstream-not-successful")
-    visual_envelope = optional_envelopes["release-lane-visual-regression"]
-    if (visual_scope == "affected") != bool(visual_envelope):
-        _fail("reason-ref:ci-evidence:visual-envelope-posture-invalid")
     try:
         plan = build_plan(
             repo,
@@ -215,21 +219,68 @@ def validate_final_gate(
             )
         except ValueError:
             _fail("reason-ref:ci-evidence:receipt-unit-invalid")
-        if set(unit.command_refs).intersection(TYPESCRIPT_EXECUTION_COMMAND_REFS) and (
+        receipt_typescript_commands = {
+            command_ref
+            for command_ref, _result_ref in (
+                *receipt.executed_command_result_bindings,
+                *receipt.reused_command_receipt_bindings,
+            )
+        }.intersection(TYPESCRIPT_EXECUTION_COMMAND_REFS)
+        if receipt_typescript_commands and (
             receipt.typescript_runtime_fingerprint,
             receipt.typescript_version_ref,
         ) != canonical_typescript_runtime:
             _fail("reason-ref:ci-evidence:typescript-runtime-invalid")
-        if receipt.status is not VerificationTerminalStatus.PASSED:
+        optional_nonexecution_commands = tuple(
+            command_ref
+            for command_ref, _result_ref, _reason_ref in (
+                receipt.nonexecuted_command_result_bindings
+            )
+        )
+        expected_optional_commands = (
+            lane_registry()[unit.lane_ref].optional_command_refs
+            if unit.lane_ref is not None
+            else ()
+        )
+        if unit.evidence_posture == "typed_optional":
+            if (
+                receipt.status not in {
+                    VerificationTerminalStatus.PASSED,
+                    VerificationTerminalStatus.BLOCKED,
+                }
+                or (
+                    receipt.status is VerificationTerminalStatus.BLOCKED
+                    and optional_nonexecution_commands != expected_optional_commands
+                )
+                or (
+                    receipt.status is VerificationTerminalStatus.PASSED
+                    and optional_nonexecution_commands
+                )
+            ):
+                _fail("reason-ref:ci-evidence:optional-command-proof-invalid")
+            if unit_ref == "release-lane-visual-regression" and (
+                (visual_scope == "affected")
+                != (receipt.status is VerificationTerminalStatus.PASSED)
+            ):
+                _fail("reason-ref:ci-evidence:visual-envelope-posture-invalid")
+        elif (
+            receipt.status is not VerificationTerminalStatus.PASSED
+            or optional_nonexecution_commands
+        ):
             _fail("reason-ref:ci-evidence:receipt-not-accepted")
         for dependency_ref in unit.needs:
             dependency_unit = units_by_ref[dependency_ref]
             dependency_receipt = decoded_receipts.get(dependency_ref)
             if dependency_receipt is None:
-                if dependency_unit.evidence_posture == "typed_optional":
-                    continue
                 _fail("reason-ref:ci-evidence:dependency-proof-invalid")
-            if dependency_receipt.status is not VerificationTerminalStatus.PASSED:
+            if not (
+                dependency_receipt.status is VerificationTerminalStatus.PASSED
+                or (
+                    dependency_unit.evidence_posture == "typed_optional"
+                    and dependency_receipt.status
+                    is VerificationTerminalStatus.BLOCKED
+                )
+            ):
                 _fail("reason-ref:ci-evidence:dependency-proof-invalid")
             # A derived aggregate's interval is the span of its dependencies,
             # so its completion is the causal boundary. Executed units must
@@ -243,13 +294,39 @@ def validate_final_gate(
                 _fail("reason-ref:ci-evidence:dependency-proof-invalid")
         if unit.unit_kind is VerificationUnitKind.AGGREGATE:
             run = envelope.final_run_manifest
+            aggregate_dependency_refs = dependency_closed_unit_refs(
+                CI_JOB_GRAPH,
+                unit.needs,
+            )
             expected_dependency_refs = tuple(
                 decoded_receipts[dependency_ref].receipt_ref
-                for dependency_ref in unit.needs
+                for dependency_ref in aggregate_dependency_refs
             )
             expected_dependency_digest = hashlib.sha256(
                 json.dumps(expected_dependency_refs, separators=(",", ":")).encode()
             ).hexdigest()
+            dependency_receipts = tuple(
+                decoded_receipts[dependency_ref]
+                for dependency_ref in aggregate_dependency_refs
+            )
+            expected_started_at = min(
+                dependency_receipts,
+                key=lambda dependency: _timestamp(dependency.started_at),
+            ).started_at
+            expected_completed_at = max(
+                dependency_receipts,
+                key=lambda dependency: _timestamp(dependency.completed_at),
+            ).completed_at
+            expected_duration_ms = max(
+                0,
+                int(
+                    (
+                        _timestamp(expected_completed_at)
+                        - _timestamp(expected_started_at)
+                    ).total_seconds()
+                    * 1000
+                ),
+            )
             expected_aggregate_bindings = tuple(
                 (*receipt_refs, (unit_ref, receipt.receipt_ref))
             )
@@ -265,7 +342,12 @@ def validate_final_gate(
                 or run.status is not VerificationTerminalStatus.BLOCKED
                 or receipt.result_refs != expected_dependency_refs
                 or receipt.output_digest != expected_dependency_digest
+                or receipt.started_at != expected_started_at
+                or receipt.completed_at != expected_completed_at
+                or receipt.duration_ms != expected_duration_ms
                 or run.unit_receipt_bindings != expected_aggregate_bindings
+                or run.started_at != expected_started_at
+                or run.completed_at != expected_completed_at
                 or run.missing_unit_refs != expected_missing
                 or run.failed_unit_refs
                 or run.reason_refs != ("reason-ref:verification:whole-run-incomplete",)
@@ -286,6 +368,34 @@ def validate_final_gate(
         decoded_receipts[unit_ref] = receipt
         receipt_refs.append((unit_ref, receipt.receipt_ref))
         envelope_refs.append((unit_ref, envelope.content_ref))
+    aggregate_result = aggregate_verification_run(
+        plan,
+        VERIFICATION_DAG,
+        tuple(
+            receipt
+            for unit_ref, receipt in decoded_receipts.items()
+            if units_by_ref[unit_ref].unit_kind is not VerificationUnitKind.AGGREGATE
+        ),
+        execution_surface_ref="surface-ref:github",
+    )
+    derived_pytest = next(
+        (
+            receipt
+            for receipt in aggregate_result.derived_receipts
+            if receipt.unit_ref == "pytest"
+        ),
+        None,
+    )
+    terminal_run = aggregate_result.run_manifest
+    if (
+        derived_pytest != decoded_receipts.get("pytest")
+        or terminal_run.status is not VerificationTerminalStatus.BLOCKED
+        or terminal_run.missing_unit_refs != ("foundation-gate-report",)
+        or terminal_run.failed_unit_refs
+        or terminal_run.reason_refs
+        != ("reason-ref:verification:whole-run-incomplete",)
+    ):
+        _fail("reason-ref:ci-evidence:terminal-run-proof-invalid")
     inventory = ci_architecture_inventory()
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -300,6 +410,7 @@ def validate_final_gate(
         "required_check_contexts": inventory["required_check_contexts"],
         "receipt_bindings": tuple(receipt_refs),
         "envelope_bindings": tuple(envelope_refs),
+        "terminal_run_manifest": verification_run_manifest_payload(terminal_run),
         "redaction_status": "content_free_refs_hashes_and_statuses_only",
     }
     payload["content_fingerprint"] = hashlib.sha256(

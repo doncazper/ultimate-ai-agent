@@ -740,17 +740,13 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         run: |
-          github_output_args=()
-          if [ "${{ needs.manifest-attestation.outputs.visual-scope }}" = "affected" ]; then
-            github_output_args=(--github-output-file "$GITHUB_OUTPUT")
-          fi
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane visual-regression \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
-            "${github_output_args[@]}" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-desktop-packaging:
@@ -807,10 +803,8 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         run: |
           docker_posture="unavailable"
-          github_output_args=()
           if [ "$DOCKER_AVAILABLE" = "true" ]; then
             docker_posture="available"
-            github_output_args=(--github-output-file "$GITHUB_OUTPUT")
           fi
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane desktop-packaging \
@@ -819,7 +813,7 @@ jobs:
             --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --docker-available "$docker_posture" \
-            "${github_output_args[@]}" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   foundation-gate-report:
@@ -986,6 +980,25 @@ jobs:
 
       - name: Run Foundation Gate report
         id: canonical
+        env:
+          MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
+          LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
+          AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          DOCS_ENVELOPE: ${{ needs.release-lane-docs.outputs.verification-envelope }}
+          OPENAPI_ENVELOPE: ${{ needs.release-lane-openapi.outputs.verification-envelope }}
+          API_SAFETY_ENVELOPE: ${{ needs.release-lane-api-safety.outputs.verification-envelope }}
+          SECURITY_REDACTION_ENVELOPE: ${{ needs.release-lane-security-redaction.outputs.verification-envelope }}
+          PRODUCT_TRUTH_ENVELOPE: ${{ needs.release-lane-product-truth.outputs.verification-envelope }}
+          LOCAL_MODEL_ENVELOPE: ${{ needs.release-lane-local-model-e2e.outputs.verification-envelope }}
+          DURABILITY_ENVELOPE: ${{ needs.release-lane-durability.outputs.verification-envelope }}
+          PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
+          PYTEST_ENVELOPE: ${{ needs.pytest.outputs.verification-envelope }}
+          STATIC_ENVELOPE: ${{ needs.static-verification.outputs.verification-envelope }}
+          CONTROL_CENTER_ENVELOPE: ${{ needs.control-center-frontend.outputs.verification-envelope }}
+          DESKTOP_ENVELOPE: ${{ needs.release-lane-desktop-packaging.outputs.verification-envelope }}
+          FRONTEND_ENVELOPE: ${{ needs.release-lane-frontend.outputs.verification-envelope }}
+          VISUAL_ENVELOPE: ${{ needs.release-lane-visual-regression.outputs.verification-envelope }}
+          PERFORMANCE_ENVELOPE: ${{ needs.release-lane-performance.outputs.verification-envelope }}
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-foundation-report \
@@ -993,6 +1006,24 @@ jobs:
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --dependency-envelope "$MANIFEST_ENVELOPE" \
+            --dependency-envelope "$LINT_ENVELOPE" \
+            --dependency-envelope "$AFFECTED_ENVELOPE" \
+            --dependency-envelope "$PYTEST_SHARDS_ENVELOPE" \
+            --dependency-envelope "$PYTEST_ENVELOPE" \
+            --dependency-envelope "$STATIC_ENVELOPE" \
+            --dependency-envelope "$DOCS_ENVELOPE" \
+            --dependency-envelope "$OPENAPI_ENVELOPE" \
+            --dependency-envelope "$API_SAFETY_ENVELOPE" \
+            --dependency-envelope "$SECURITY_REDACTION_ENVELOPE" \
+            --dependency-envelope "$PRODUCT_TRUTH_ENVELOPE" \
+            --dependency-envelope "$LOCAL_MODEL_ENVELOPE" \
+            --dependency-envelope "$DURABILITY_ENVELOPE" \
+            --dependency-envelope "$FRONTEND_ENVELOPE" \
+            --dependency-envelope "$VISUAL_ENVELOPE" \
+            --dependency-envelope "$DESKTOP_ENVELOPE" \
+            --dependency-envelope "$PERFORMANCE_ENVELOPE" \
+            --dependency-envelope "$CONTROL_CENTER_ENVELOPE" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 

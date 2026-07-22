@@ -276,9 +276,23 @@ def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
         in desktop_job
     )
     assert '--docker-available "$docker_posture"' in workflow
+    assert '--github-output-file "$GITHUB_OUTPUT"' in desktop_job
     assert "command:desktop-packaging.contract" in lane_registry()[
         "desktop-packaging"
     ].command_refs
+
+
+def test_typed_optional_jobs_and_terminal_foundation_emit_exact_receipts() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    visual_job = verifier.job_section(workflow, "release-lane-visual-regression")
+    desktop_job = verifier.job_section(workflow, "release-lane-desktop-packaging")
+    foundation_job = verifier.job_section(workflow, "foundation-gate-report")
+
+    assert '--github-output-file "$GITHUB_OUTPUT"' in visual_job
+    assert '--github-output-file "$GITHUB_OUTPUT"' in desktop_job
+    assert foundation_job.count('--dependency-envelope "$') == 18
+    assert '--dependency-envelope "$PYTEST_ENVELOPE"' in foundation_job
+    assert '--dependency-envelope "$PERFORMANCE_ENVELOPE"' in foundation_job
 
 
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:

@@ -806,9 +806,22 @@ def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     receipt_digest = next((store_root / "receipts").glob("*.json")).stem
     typed = store.get_receipt(receipt_digest)
     assert observed_scopes == ["not_affected", "not_affected", "not_affected"]
-    assert typed.schema_version == "uaa_verification_receipt.v2"
+    assert typed.schema_version == "uaa_verification_receipt.v3"
     assert typed.status is VerificationTerminalStatus.BLOCKED
-    assert typed.executed_command_result_bindings == ()
+    assert tuple(
+        command_ref for command_ref, _result_ref in typed.executed_command_result_bindings
+    ) == ("command:frontend.visual-regression-contract",)
+    assert tuple(
+        (command_ref, reason_ref)
+        for command_ref, _result_ref, reason_ref in (
+            typed.nonexecuted_command_result_bindings
+        )
+    ) == (
+        (
+            "command:frontend.visual-regression",
+            "reason-ref:visual-regression:not-affected",
+        ),
+    )
 
 
 def test_typed_frontend_release_rejects_synthetic_dependency_reuse(

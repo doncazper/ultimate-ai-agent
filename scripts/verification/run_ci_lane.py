@@ -25,6 +25,7 @@ if str(ROOT) not in sys.path:
 from scripts.verification.ci_command_manifest import (  # noqa: E402
     GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
     CI_JOB_GRAPH,
+    VERIFICATION_DAG,
     PLAYWRIGHT_BROWSER_DIRNAME,
     PROFILE_REF,
     CommandSpec,
@@ -75,6 +76,7 @@ from scripts.verification.verification_contracts import (  # noqa: E402
     VerificationReceipt,
     VerificationRunManifest,
     VerificationTerminalStatus,
+    VerificationUnitKind,
     dependency_lock_set_fingerprint,
     dependency_state_fingerprint,
     verification_receipt_fingerprint,
@@ -100,6 +102,7 @@ from scripts.verification.verification_github_prerequisites import (  # noqa: E4
     append_github_output,
 )
 from scripts.verification.verification_run_aggregator import (  # noqa: E402
+    aggregate_verification_run,
     validate_receipt_for_plan_unit,
 )
 from scripts.verification.verification_receipt_store import (  # noqa: E402
@@ -779,6 +782,7 @@ def _build_typed_lane_evidence(
     if len(matching_units) != 1:
         raise ValueError("typed CI evidence requires one exact canonical unit")
     unit = matching_units[0]
+    lane = lane_registry()[lane_ref]
     result_command_refs = tuple(str(result["command_ref"]) for result in results)
     if (
         not result_command_refs
@@ -916,20 +920,40 @@ def _build_typed_lane_evidence(
                 f"typescript-version:{runtime_typescript.typescript_version}"
             )
             typescript_binding_posture = "resolved"
-    nonexecution_unbound = any(
-        result["status"]
-        in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
+    nonexecution_results = tuple(
+        result
         for result in results
+        if result["status"]
+        in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
     )
-    receipt_schema_version = (
-        "uaa_verification_receipt.v2"
-        if nonexecution_unbound
-        else "uaa_verification_receipt.v3"
+    nonexecution_unbound = bool(nonexecution_results)
+    declared_optional_nonexecution = bool(nonexecution_results) and (
+        result_command_refs == unit.command_refs
+        and {str(result["command_ref"]) for result in nonexecution_results}
+        <= set(lane.optional_command_refs)
     )
+    if nonexecution_unbound and not declared_optional_nonexecution:
+        receipt_schema_version = "uaa_verification_receipt.v2"
+    else:
+        receipt_schema_version = "uaa_verification_receipt.v3"
     executed_command_result_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"]))
         for result in results
-        if result["status"] != "reused_exact_receipt"
+        if result["status"]
+        not in {
+            "reused_exact_receipt",
+            "skipped",
+            "not_applicable",
+            "satisfied_by_required_dependency",
+        }
+    )
+    nonexecuted_command_result_bindings = tuple(
+        (
+            str(result["command_ref"]),
+            str(result["result_ref"]),
+            str(result["reason_ref"]),
+        )
+        for result in nonexecution_results
     )
     reused_command_receipt_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"]))
@@ -1006,6 +1030,11 @@ def _build_typed_lane_evidence(
         execution_identity_ref=execution_identity_ref,
         executed_command_result_bindings=(
             executed_command_result_bindings
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else ()
+        ),
+        nonexecuted_command_result_bindings=(
+            nonexecuted_command_result_bindings
             if receipt_schema_version == "uaa_verification_receipt.v3"
             else ()
         ),
@@ -1120,6 +1149,59 @@ def _build_typed_lane_evidence(
     )
     run.validate()
     return receipt, run
+
+
+def _build_terminal_foundation_run(
+    full_plan: Any,
+    dependency_receipts_by_unit: dict[str, VerificationReceipt],
+    foundation_receipt: VerificationReceipt,
+    *,
+    execution_surface_ref: str,
+) -> VerificationRunManifest:
+    foundation_unit = next(
+        unit for unit in CI_JOB_GRAPH if unit.unit_ref == "foundation-gate-report"
+    )
+    if foundation_receipt.unit_ref != foundation_unit.unit_ref or (
+        tuple(dependency_receipts_by_unit) != foundation_unit.needs
+    ):
+        raise ValueError("terminal dependency evidence is incomplete")
+    aggregate_result = aggregate_verification_run(
+        full_plan,
+        VERIFICATION_DAG,
+        (
+            *(
+                dependency_receipts_by_unit[dependency_ref]
+                for dependency_ref in foundation_unit.needs
+                if next(
+                    unit
+                    for unit in CI_JOB_GRAPH
+                    if unit.unit_ref == dependency_ref
+                ).unit_kind
+                is not VerificationUnitKind.AGGREGATE
+            ),
+            foundation_receipt,
+        ),
+        execution_surface_ref=execution_surface_ref,
+    )
+    incoming_aggregate = dependency_receipts_by_unit.get("pytest")
+    derived_aggregate = next(
+        (
+            receipt
+            for receipt in aggregate_result.derived_receipts
+            if receipt.unit_ref == "pytest"
+        ),
+        None,
+    )
+    if (
+        incoming_aggregate is None
+        or derived_aggregate != incoming_aggregate
+        or aggregate_result.run_manifest.status
+        is not VerificationTerminalStatus.PASSED
+        or aggregate_result.run_manifest.missing_unit_refs
+        or aggregate_result.run_manifest.failed_unit_refs
+    ):
+        raise ValueError("terminal verification run proof is incomplete")
+    return aggregate_result.run_manifest
 
 
 def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
@@ -1282,6 +1364,7 @@ def run_lane(
     identity_typescript_version_ref: str | None = None
     typed_unit = None
     reused_receipts_by_command: dict[str, VerificationReceipt] = {}
+    dependency_receipts_by_unit: dict[str, VerificationReceipt] = {}
     if full_plan_before is not None:
         matching_units = tuple(
             unit for unit in CI_JOB_GRAPH if unit.lane_ref == lane_ref
@@ -1290,11 +1373,13 @@ def run_lane(
             raise ValueError("typed CI evidence requires one exact canonical unit")
         typed_unit = matching_units[0]
         if dependency_envelopes:
-            if not lane.satisfied_command_refs:
+            terminal_foundation = typed_unit.unit_ref == "foundation-gate-report"
+            if not lane.satisfied_command_refs and not terminal_foundation:
                 raise ValueError(
                     "verification dependency envelopes are not declared for this lane"
                 )
-            direct_dependencies = set(typed_unit.needs)
+            direct_dependencies = tuple(typed_unit.needs)
+            direct_dependency_set = set(direct_dependencies)
             source_receipt_refs: set[str] = set()
             for encoded_envelope in dependency_envelopes:
                 envelope = decode_github_job_output(encoded_envelope)
@@ -1312,11 +1397,15 @@ def run_lane(
                     None,
                 )
                 if (
-                    envelope.final_run_manifest is not None
-                    or source_receipt.unit_ref not in direct_dependencies
+                    (
+                        envelope.final_run_manifest is not None
+                        and source_unit is not None
+                        and source_unit.unit_kind is not VerificationUnitKind.AGGREGATE
+                    )
+                    or source_receipt.unit_ref not in direct_dependency_set
                     or source_unit is None
-                    or source_receipt.status is not VerificationTerminalStatus.PASSED
                     or source_receipt.receipt_ref in source_receipt_refs
+                    or source_receipt.unit_ref in dependency_receipts_by_unit
                 ):
                     raise ValueError("verification dependency envelope is invalid")
                 validate_receipt_for_plan_unit(
@@ -1325,28 +1414,48 @@ def run_lane(
                     unit=source_unit,
                     execution_surface_ref="surface-ref:github",
                 )
-                source_receipt_refs.add(source_receipt.receipt_ref)
-                executed_commands = dict(
-                    source_receipt.executed_command_result_bindings
-                )
-                source_matched = False
-                for satisfied_command_ref in lane.satisfied_command_refs:
-                    if satisfied_command_ref in executed_commands:
-                        source_matched = True
-                        if satisfied_command_ref in reused_receipts_by_command:
-                            raise ValueError(
-                                "verification dependency command proof is ambiguous"
-                            )
-                        reused_receipts_by_command[satisfied_command_ref] = (
-                            source_receipt
-                        )
-                if not source_matched:
-                    raise ValueError(
-                        "verification dependency envelope proves no reused command"
+                if not (
+                    source_receipt.status is VerificationTerminalStatus.PASSED
+                    or (
+                        source_unit.evidence_posture == "typed_optional"
+                        and source_receipt.status
+                        in {
+                            VerificationTerminalStatus.BLOCKED,
+                            VerificationTerminalStatus.SKIPPED,
+                        }
                     )
-            if set(reused_receipts_by_command) != set(lane.satisfied_command_refs):
+                ):
+                    raise ValueError("verification dependency evidence did not pass")
+                source_receipt_refs.add(source_receipt.receipt_ref)
+                dependency_receipts_by_unit[source_receipt.unit_ref] = source_receipt
+                if lane.satisfied_command_refs:
+                    executed_commands = dict(
+                        source_receipt.executed_command_result_bindings
+                    )
+                    source_matched = False
+                    for satisfied_command_ref in lane.satisfied_command_refs:
+                        if satisfied_command_ref in executed_commands:
+                            source_matched = True
+                            if satisfied_command_ref in reused_receipts_by_command:
+                                raise ValueError(
+                                    "verification dependency command proof is ambiguous"
+                                )
+                            reused_receipts_by_command[satisfied_command_ref] = (
+                                source_receipt
+                            )
+                    if not source_matched:
+                        raise ValueError(
+                            "verification dependency envelope proves no reused command"
+                        )
+            if terminal_foundation and (
+                tuple(dependency_receipts_by_unit) != direct_dependencies
+            ):
+                raise ValueError("terminal dependency evidence is incomplete")
+            if lane.satisfied_command_refs and set(reused_receipts_by_command) != set(
+                lane.satisfied_command_refs
+            ):
                 raise ValueError("verification dependency command proof is incomplete")
-        elif lane.satisfied_command_refs:
+        elif lane.satisfied_command_refs or typed_unit.unit_ref == "foundation-gate-report":
             raise ValueError("synthetic dependency satisfaction is forbidden")
         if not lane.satisfied_command_refs:
             identity_typescript_runtime_fingerprint = (
@@ -1780,6 +1889,13 @@ def run_lane(
             pre_typescript_runtime=pre_typescript_runtime,
             pre_execution_identity_ref=pre_execution_identity_ref,
         )
+        if typed_unit is not None and typed_unit.unit_ref == "foundation-gate-report":
+            run_manifest = _build_terminal_foundation_run(
+                full_plan,
+                dependency_receipts_by_unit,
+                typed_receipt,
+                execution_surface_ref=f"surface-ref:{resolved_execution_surface}",
+            )
         _write_receipt(
             verification_receipt_file,
             verification_receipt_payload(typed_receipt),
@@ -1833,6 +1949,12 @@ def run_lane(
             envelope = build_github_job_output_envelope(
                 full_plan,
                 typed_receipt,
+                final_run_manifest=(
+                    run_manifest
+                    if typed_unit is not None
+                    and typed_unit.unit_ref == "foundation-gate-report"
+                    else None
+                ),
             )
             append_github_output(
                 github_output_file,

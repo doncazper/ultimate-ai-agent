@@ -48,19 +48,32 @@ The envelope binds:
   project/runtime fingerprints where applicable;
 - terminal receipt, command/result membership, redaction posture, and proof
   equivalence;
-- the derived pytest run manifest for the commandless `pytest` context.
+- the derived pytest run manifest for the commandless `pytest` context; that
+  derived receipt spans and content-binds the complete transitive pre-suite
+  dependency closure rather than only the final shard edge.
 
 The terminal validator accepts one ordered result and envelope per upstream
 job. It rejects arity or order drift, duplicate bindings, cross-operation or
 cross-head substitution, wrapper/content-fingerprint tampering, non-success job
 results, unexpected receipt status, dependency chronology drift, or an
-aggregate whose exact receipt bindings and missing-unit posture do not match
-its point in the DAG. The commandless pytest receipt is also bound to the exact
-dependency receipt refs from which it was derived. Typed-optional lanes remain
-in the ordered result set but emit envelopes only when their optional execution
-runs; a missing required envelope is never accepted. The frontend release lane
+aggregate whose exact receipt bindings, dependency-span timestamps, duration,
+and missing-unit posture do not match its point in the DAG. The commandless
+pytest receipt is also bound to the exact dependency receipt refs from which it
+was derived. Typed-optional lanes always emit a v3 envelope. Their required
+contract commands remain exact executed evidence, while a declared optional
+command that does not run is separately bound to a content-free reason ref and
+the receipt remains blocked; classifying a required command as optional
+nonexecution is rejected. The frontend release lane
 must reuse the exact passing `command:frontend.check` receipt emitted by its
 declared Control Center dependency; a fresh or substituted proof is rejected.
+After all upstream envelopes validate, the terminal validator constructs a
+formal whole-plan run manifest that binds every exact post-pytest receipt ref
+(and therefore each receipt's output digest). The Foundation lane consumes the
+same complete ordered dependency envelope set, independently re-derives the
+pytest aggregate, adds its own receipt, requires a fully passing whole-plan run,
+and emits that final run manifest in its exact GitHub output envelope. This is
+the durable downstream seal for static, frontend, visual, packaging,
+performance, and Foundation proof.
 Foundation also reconstructs the legacy prerequisite manifest from the
 expanded pre-suite, pytest, and static receipt chain, preserving the existing
 report contract. That content-bound manifest persists the exact visual scope,
@@ -88,8 +101,8 @@ payload, or host identity is durable evidence.
   a different plan and rejects prior envelopes even if a wrapper hash is
   recomputed.
 - Typed-optional visual or packaging execution may be inapplicable only through
-  its declared lane posture; its check must still succeed. An exact envelope is
-  required whenever that optional execution runs.
+  its declared command posture; its required contract command and exact blocked
+  envelope must still be present, and its check must still succeed.
 
 Focused tests inject every result terminal state and the membership, ordering,
 same-plan/cross-plan substitution, chronology, visual-scope, and frontend reuse

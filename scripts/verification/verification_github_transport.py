@@ -8,7 +8,7 @@ import math
 import re
 import types
 import zlib
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import MISSING, dataclass, fields, is_dataclass, replace
 from enum import Enum
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
@@ -620,7 +620,16 @@ def _coerce_json_value(value: Any, expected_type: Any) -> Any:
 
 def _contract_from_payload(contract_type: type[Any], payload: dict[str, Any]) -> Any:
     contract_fields = {field.name: field for field in fields(contract_type)}
-    if set(payload) != set(contract_fields):
+    required_fields = {
+        field_name
+        for field_name, field in contract_fields.items()
+        if field.default is MISSING and field.default_factory is MISSING
+    }
+    payload_fields = set(payload)
+    if (
+        not required_fields.issubset(payload_fields)
+        or payload_fields - set(contract_fields)
+    ):
         _fail("reason-ref:github-transport:contract-fields-invalid")
     try:
         type_hints = get_type_hints(contract_type)

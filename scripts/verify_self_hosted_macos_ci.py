@@ -259,8 +259,7 @@ def verify(root: Path = ROOT) -> list[str]:
         "          fetch-depth: 0\n",
         "needs.manifest-attestation.outputs.visual-scope == 'affected'",
         '            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \\\n',
-        '            github_output_args=(--github-output-file "$GITHUB_OUTPUT")\n',
-        '            "${github_output_args[@]}" \\\n',
+        '            --github-output-file "$GITHUB_OUTPUT" \\\n',
         "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n",
         "            --lane visual-regression \\\n",
     ):
@@ -303,9 +302,15 @@ def verify(root: Path = ROOT) -> list[str]:
             "Install canonical frontend runtime",
             "working-directory: apps/control-center",
             "run: npm ci",
+            '--dependency-envelope "$PYTEST_ENVELOPE"',
+            '--dependency-envelope "$PERFORMANCE_ENVELOPE"',
+            '--dependency-envelope "$VISUAL_ENVELOPE"',
+            '--dependency-envelope "$DESKTOP_ENVELOPE"',
             "if: always()",
         )
-    ) or foundation_job.count('--envelope "$') != 12:
+    ) or foundation_job.count('--envelope "$') != 12 or foundation_job.count(
+        '--dependency-envelope "$'
+    ) != 18:
         failures.append(
             "Foundation Gate must revalidate all prerequisite receipt envelopes"
         )
