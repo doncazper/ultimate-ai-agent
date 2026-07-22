@@ -452,11 +452,13 @@ def test_runtime_store_safe_disable_sidecar_rejects_deactivation_tamper(
     payload["active"] = False
     state_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    with pytest.raises(
-        RuntimeInvocationStorageError,
-        match="RUNTIME_SAFE_DISABLE_STATE_INVALID",
-    ):
-        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+    reloaded = RuntimeInvocationStore(tmp_path)
+    for _attempt in range(2):
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_SAFE_DISABLE_STATE_INVALID",
+        ):
+            reloaded.operator_safe_disable_active()
 
 
 @pytest.mark.parametrize(
@@ -523,12 +525,12 @@ def test_runtime_store_safe_disable_sidecar_must_match_durable_ledger(
         RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
 
 
-def test_runtime_store_safe_disable_sidecar_atomic_failure_preserves_prior_state(
+def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = RuntimeInvocationStore(tmp_path)
-    first = store.safe_disable(
+    store.safe_disable(
         RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-first"),
         idempotency_ref="idempotency-ref:runtime-sidecar-first",
     )
@@ -550,10 +552,76 @@ def test_runtime_store_safe_disable_sidecar_atomic_failure_preserves_prior_state
 
     assert state_path.read_bytes() == before
     assert not list(tmp_path.glob(".runtime_gateway_safe_disable_state.json.*.tmp"))
-    assert store.operator_safe_disable_state() == first
-    reloaded = RuntimeInvocationStore(tmp_path).operator_safe_disable_state()
-    assert reloaded.active is True
-    assert reloaded.reason_ref == first.reason_ref
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "reason-ref:runtime-sidecar-second" in persisted
+    for _attempt in range(2):
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_SAFE_DISABLE_STATE_MISMATCH",
+        ):
+            store.operator_safe_disable_state()
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_MISMATCH",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_state()
+
+
+def test_runtime_store_partial_safe_disable_ledger_commit_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    for index in range(2):
+        store.create_invocation(
+            RuntimeInvocationRequest(
+                requested_authority="local_model",
+                requested_profile="sealed",
+                input_ref=f"runtime-input-ref:partial-safe-disable-{index}",
+                safe_summary="Record an isolated governed runtime request.",
+            ),
+            idempotency_ref=f"idempotency-ref:partial-safe-disable-{index}",
+        )
+
+    original_append = store._append
+    safe_disable_appends = 0
+
+    def fail_second_safe_disable_append(*args: object, **kwargs: object) -> None:
+        nonlocal safe_disable_appends
+        if args[0] == "safe_disable_recorded":
+            safe_disable_appends += 1
+            if safe_disable_appends == 2:
+                raise RuntimeInvocationStorageError(
+                    "INJECTED_SAFE_DISABLE_APPEND_FAILURE"
+                )
+        original_append(*args, **kwargs)
+
+    monkeypatch.setattr(store, "_append", fail_second_safe_disable_append)
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="INJECTED_SAFE_DISABLE_APPEND_FAILURE",
+    ):
+        store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:runtime-partial-safe-disable"
+            ),
+            idempotency_ref="idempotency-ref:runtime-partial-safe-disable",
+        )
+
+    assert not (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).exists()
+    for _attempt in range(2):
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_SAFE_DISABLE_LEDGER_MISMATCH",
+        ):
+            store.operator_safe_disable_state()
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_LEDGER_MISMATCH",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_state()
 
 
 def test_runtime_gateway_local_model_call_blocks_without_provider_execute_authority(
@@ -729,6 +797,76 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
         replay.record.receipt.safe_disable.reason_ref
         == "reason-ref:runtime-local-model-replay-safe-disable"
     )
+
+
+def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_AUTHORITY_REPLAY_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="revoked authority prompt must not persist",
+            )
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+        allow_bounded_preview=True,
+        max_preview_chars=40,
+    )
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-revoked-replay",
+    )
+    monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+    first_replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-revoked-replay",
+    )
+    second_replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-revoked-replay",
+    )
+
+    assert calls == 1
+    assert first.record.status == "receipt_recorded"
+    assert first.record.receipt is not None
+    assert first.record.receipt.model_call_performed is True
+    for replay in (first_replay, second_replay):
+        assert replay.replayed is True
+        assert replay.error_category == "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+        assert replay.record.status == "execution_blocked"
+        assert replay.record.policy_decision.allowed_to_execute is False
+        assert (
+            replay.record.policy_decision.authority_decision_outcome
+            == "degrade_to_draft"
+        )
+        assert replay.record.receipt is not None
+        assert replay.record.receipt.execution_performed is False
+        assert replay.record.receipt.model_call_performed is False
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "revoked authority prompt must not persist" not in persisted
+    assert "LOCAL_MODEL_AUTHORITY_REPLAY_OK" not in persisted
 
 
 def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path) -> None:

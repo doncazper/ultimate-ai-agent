@@ -229,10 +229,22 @@ def _operator_safe_disable_active(record: RuntimeInvocationRecord) -> bool:
 def _operator_safe_disable_state(
     records: Iterable[RuntimeInvocationRecord],
 ) -> RuntimeSafeDisableState | None:
-    for record in records:
-        if _operator_safe_disable_active(record):
-            return record.safe_disable
-    return None
+    materialized = list(records)
+    operator_states = [
+        record.safe_disable
+        for record in materialized
+        if _operator_safe_disable_active(record)
+    ]
+    if not operator_states:
+        return None
+    canonical = operator_states[0]
+    if len(operator_states) != len(materialized) or any(
+        state != canonical for state in operator_states[1:]
+    ):
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_SAFE_DISABLE_LEDGER_MISMATCH"
+        )
+    return canonical
 
 
 def _runtime_default_safe_disable_state() -> RuntimeSafeDisableState:
@@ -1107,6 +1119,7 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
         payload_fingerprint_ref: str | None = None,
+        policy_decision: RuntimePolicyDecision | None = None,
     ) -> RuntimeInvocationRecord:
         with self._exclusive_mutation():
             record = self.get_invocation(invocation_ref)
@@ -1126,9 +1139,23 @@ class RuntimeInvocationStore:
             )
             if replayed is not None:
                 return replayed
-            receipt_to_store = receipt.model_copy(update={"safe_disable": record.safe_disable})
+            decision_to_store = policy_decision or record.policy_decision
+            if (
+                decision_to_store.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_POLICY_DECISION_REF_MISMATCH"
+                )
+            receipt_to_store = receipt.model_copy(
+                update={
+                    "policy_decision_ref": decision_to_store.policy_decision_ref,
+                    "safe_disable": record.safe_disable,
+                }
+            )
             updated = record.model_copy(
                 update={
+                    "policy_decision": decision_to_store,
                     "receipt": receipt_to_store,
                     "status": _status_after_safe_disable(
                         record,
@@ -1278,8 +1305,6 @@ class RuntimeInvocationStore:
                 reason_ref=request.reason_ref,
                 safe_summary="Runtime pilot safe-disable posture recorded; operator summary omitted.",
             )
-            self._persist_operator_safe_disable_state(state)
-            self._canonical_safe_disable_state = state
             if self._records:
                 for index, record in enumerate(list(self._records.values())):
                     policy_decision = build_policy_decision(
@@ -1348,6 +1373,8 @@ class RuntimeInvocationStore:
                     entry_idempotency_ref=idempotency_ref,
                     payload_fingerprint_ref=payload_fingerprint_ref,
                 )
+            self._canonical_safe_disable_state = state
+            self._persist_operator_safe_disable_state(state)
             return state
 
     def _persist_operator_safe_disable_state(
@@ -1560,47 +1587,63 @@ class RuntimeInvocationStore:
         self._idempotency_fingerprint_index = {}
         self._last_entry_hash_ref = None
         self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
-        self._loaded = True
-        if not self.path.exists():
-            if self._safe_disable_state_path_present():
-                self._canonical_safe_disable_state = (
-                    self._load_operator_safe_disable_state()
-                )
-            return
-        previous_hash: str | None = None
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            payload = json.loads(line)
-            try:
-                entry = RuntimeGatewayStorageEntry(**payload)
-            except ValidationError as exc:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_ENTRY_INVALID") from exc
-            expected_hash = _entry_hash(
-                entry.model_dump(mode="json", exclude={"entry_hash_ref"})
+        self._loaded = False
+        try:
+            if not self.path.exists():
+                if self._safe_disable_state_path_present():
+                    self._canonical_safe_disable_state = (
+                        self._load_operator_safe_disable_state()
+                    )
+            else:
+                previous_hash: str | None = None
+                for line in self.path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    payload = json.loads(line)
+                    try:
+                        entry = RuntimeGatewayStorageEntry(**payload)
+                    except ValidationError as exc:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_ENTRY_INVALID"
+                        ) from exc
+                    expected_hash = _entry_hash(
+                        entry.model_dump(mode="json", exclude={"entry_hash_ref"})
+                    )
+                    if entry.entry_hash_ref != expected_hash:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_ENTRY_HASH_MISMATCH"
+                        )
+                    if entry.previous_entry_hash_ref != previous_hash:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_HASH_CHAIN_MISMATCH"
+                        )
+                    self._records[entry.invocation_ref] = entry.record
+                    self._idempotency_index[entry.idempotency_ref] = (
+                        entry.invocation_ref
+                    )
+                    self._idempotency_fingerprint_index[entry.idempotency_ref] = (
+                        entry.payload_fingerprint_ref
+                    )
+                    self._entries.append(entry)
+                    previous_hash = entry.entry_hash_ref
+                derived_state = _operator_safe_disable_state(self._records.values())
+                if self._safe_disable_state_path_present():
+                    persisted_state = self._load_operator_safe_disable_state()
+                    if derived_state is not None and persisted_state != derived_state:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                        )
+                    self._canonical_safe_disable_state = persisted_state
+                elif derived_state is not None:
+                    self._canonical_safe_disable_state = derived_state
+                self._last_entry_hash_ref = previous_hash
+            self._loaded = True
+        except BaseException:
+            self._loaded = False
+            self._canonical_safe_disable_state = (
+                _runtime_default_safe_disable_state()
             )
-            if entry.entry_hash_ref != expected_hash:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_ENTRY_HASH_MISMATCH")
-            if entry.previous_entry_hash_ref != previous_hash:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_HASH_CHAIN_MISMATCH")
-            self._records[entry.invocation_ref] = entry.record
-            self._idempotency_index[entry.idempotency_ref] = entry.invocation_ref
-            self._idempotency_fingerprint_index[entry.idempotency_ref] = (
-                entry.payload_fingerprint_ref
-            )
-            self._entries.append(entry)
-            previous_hash = entry.entry_hash_ref
-        derived_state = _operator_safe_disable_state(self._records.values())
-        if self._safe_disable_state_path_present():
-            persisted_state = self._load_operator_safe_disable_state()
-            if derived_state is not None and persisted_state != derived_state:
-                raise RuntimeInvocationStorageError(
-                    "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
-                )
-            self._canonical_safe_disable_state = persisted_state
-        elif derived_state is not None:
-            self._canonical_safe_disable_state = derived_state
-        self._last_entry_hash_ref = previous_hash
+            raise
 
     @contextmanager
     def _exclusive_mutation(self):
@@ -1611,6 +1654,9 @@ class RuntimeInvocationStore:
                 try:
                     self._reload()
                     yield
+                except BaseException:
+                    self._loaded = False
+                    raise
                 finally:
                     fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
