@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -70,6 +72,7 @@ RUNTIME_GATEWAY_STORAGE_SCHEMA_VERSION = "runtime_gateway_storage.v1"
 RUNTIME_GATEWAY_STATE_DIR_ENV = "UAA_RUNTIME_GATEWAY_STATE_DIR"
 RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
 RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON = "runtime_gateway_safe_disable_state.json"
+RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES = 16_384
 RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
@@ -1268,15 +1271,15 @@ class RuntimeInvocationStore:
                 payload_fingerprint_ref,
             )
             if replayed is not None and replayed.safe_disable:
-                self._canonical_safe_disable_state = replayed.safe_disable
                 self._persist_operator_safe_disable_state(replayed.safe_disable)
+                self._canonical_safe_disable_state = replayed.safe_disable
                 return replayed.safe_disable
             state = RuntimeSafeDisableState(
                 reason_ref=request.reason_ref,
                 safe_summary="Runtime pilot safe-disable posture recorded; operator summary omitted.",
             )
-            self._canonical_safe_disable_state = state
             self._persist_operator_safe_disable_state(state)
+            self._canonical_safe_disable_state = state
             if self._records:
                 for index, record in enumerate(list(self._records.values())):
                     policy_decision = build_policy_decision(
@@ -1351,22 +1354,196 @@ class RuntimeInvocationStore:
         self,
         state: RuntimeSafeDisableState,
     ) -> None:
+        if not state.active:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            )
         payload = state.model_dump(mode="json")
         _validate_storage_payload(payload, "runtime_safe_disable_state")
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        self._safe_disable_state_path.write_text(
-            _canonical_json(payload),
-            encoding="utf-8",
-        )
+        encoded = _canonical_json(payload).encode("utf-8")
+        if len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            )
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
+            )
+
+        directory_fd = -1
+        temporary_fd = -1
+        temporary_name: str | None = None
+        try:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            directory_info = os.fstat(directory_fd)
+            if not stat.S_ISDIR(directory_info.st_mode):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            for _attempt in range(16):
+                candidate = (
+                    f".{RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON}."
+                    f"{secrets.token_hex(12)}.tmp"
+                )
+                try:
+                    temporary_fd = os.open(
+                        candidate,
+                        os.O_WRONLY
+                        | os.O_CREAT
+                        | os.O_EXCL
+                        | os.O_NOFOLLOW
+                        | getattr(os, "O_CLOEXEC", 0),
+                        0o600,
+                        dir_fd=directory_fd,
+                    )
+                    temporary_name = candidate
+                    break
+                except FileExistsError:
+                    continue
+            if temporary_fd < 0 or temporary_name is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+                )
+            written = 0
+            while written < len(encoded):
+                write_count = os.write(temporary_fd, encoded[written:])
+                if write_count <= 0:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+                    )
+                written += write_count
+            os.fsync(temporary_fd)
+            os.close(temporary_fd)
+            temporary_fd = -1
+            os.replace(
+                temporary_name,
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+            )
+            temporary_name = None
+            os.fsync(directory_fd)
+        except RuntimeInvocationStorageError:
+            raise
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+            ) from exc
+        finally:
+            if temporary_fd >= 0:
+                os.close(temporary_fd)
+            if temporary_name is not None and directory_fd >= 0:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+            if directory_fd >= 0:
+                os.close(directory_fd)
 
     def _load_operator_safe_disable_state(self) -> RuntimeSafeDisableState:
-        payload = json.loads(self._safe_disable_state_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise RuntimeInvocationStorageError("RUNTIME_SAFE_DISABLE_STATE_INVALID")
-        _validate_storage_payload(payload, "runtime_safe_disable_state")
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
+            )
+        directory_fd = -1
+        state_fd = -1
         try:
-            return RuntimeSafeDisableState(**payload)
-        except ValidationError as exc:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            state_fd = os.open(
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | os.O_NONBLOCK
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=directory_fd,
+            )
+            before = os.fstat(state_fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_size > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            encoded = bytearray()
+            while len(encoded) <= RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
+                chunk = os.read(
+                    state_fd,
+                    min(
+                        65_536,
+                        RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+                        + 1
+                        - len(encoded),
+                    ),
+                )
+                if not chunk:
+                    break
+                encoded.extend(chunk)
+            after = os.fstat(state_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+                or len(encoded) != after.st_size
+                or not stat.S_ISREG(path_after.st_mode)
+                or (before.st_dev, before.st_ino)
+                != (after.st_dev, after.st_ino)
+                or (before.st_dev, before.st_ino)
+                != (path_after.st_dev, path_after.st_ino)
+                or before.st_size != after.st_size
+                or before.st_mtime_ns != after.st_mtime_ns
+                or before.st_ctime_ns != after.st_ctime_ns
+                or before.st_size != path_after.st_size
+                or before.st_mtime_ns != path_after.st_mtime_ns
+                or before.st_ctime_ns != path_after.st_ctime_ns
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            payload = json.loads(bytes(encoded).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            _validate_storage_payload(payload, "runtime_safe_disable_state")
+            state = RuntimeSafeDisableState.model_validate_json(
+                bytes(encoded),
+                strict=True,
+            )
+            if not state.active:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            return state
+        except RuntimeInvocationStorageError:
+            raise
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValidationError) as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            ) from exc
+        finally:
+            if state_fd >= 0:
+                os.close(state_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
+
+    def _safe_disable_state_path_present(self) -> bool:
+        try:
+            os.lstat(self._safe_disable_state_path)
+            return True
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
             raise RuntimeInvocationStorageError(
                 "RUNTIME_SAFE_DISABLE_STATE_INVALID"
             ) from exc
@@ -1385,7 +1562,7 @@ class RuntimeInvocationStore:
         self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._loaded = True
         if not self.path.exists():
-            if self._safe_disable_state_path.exists():
+            if self._safe_disable_state_path_present():
                 self._canonical_safe_disable_state = (
                     self._load_operator_safe_disable_state()
                 )
@@ -1413,14 +1590,16 @@ class RuntimeInvocationStore:
             )
             self._entries.append(entry)
             previous_hash = entry.entry_hash_ref
-        if self._safe_disable_state_path.exists():
-            self._canonical_safe_disable_state = (
-                self._load_operator_safe_disable_state()
-            )
-        else:
-            derived_state = _operator_safe_disable_state(self._records.values())
-            if derived_state is not None:
-                self._canonical_safe_disable_state = derived_state
+        derived_state = _operator_safe_disable_state(self._records.values())
+        if self._safe_disable_state_path_present():
+            persisted_state = self._load_operator_safe_disable_state()
+            if derived_state is not None and persisted_state != derived_state:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                )
+            self._canonical_safe_disable_state = persisted_state
+        elif derived_state is not None:
+            self._canonical_safe_disable_state = derived_state
         self._last_entry_hash_ref = previous_hash
 
     @contextmanager

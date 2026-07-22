@@ -439,6 +439,123 @@ def test_runtime_store_safe_disable_state_uses_canonical_sidecar(tmp_path: Path)
     assert reloaded_state.safe_disable_posture_ref == state.safe_disable_posture_ref
 
 
+def test_runtime_store_safe_disable_sidecar_rejects_deactivation_tamper(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-active"),
+        idempotency_ref="idempotency-ref:runtime-sidecar-active",
+    )
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    payload["active"] = False
+    state_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+
+
+@pytest.mark.parametrize(
+    "encoded",
+    [
+        b"[]",
+        b'{"active":',
+        b"x" * 16_385,
+    ],
+)
+def test_runtime_store_safe_disable_sidecar_rejects_malformed_or_oversized_state(
+    tmp_path: Path,
+    encoded: bytes,
+) -> None:
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    state_path.write_bytes(encoded)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+
+
+def test_runtime_store_safe_disable_sidecar_rejects_symlink_substitution(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-symlink"),
+        idempotency_ref="idempotency-ref:runtime-sidecar-symlink",
+    )
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    external = tmp_path / "external-safe-disable-state.json"
+    external.write_bytes(state_path.read_bytes())
+    state_path.unlink()
+    state_path.symlink_to(external)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+
+
+def test_runtime_store_safe_disable_sidecar_must_match_durable_ledger(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-ledger"),
+        idempotency_ref="idempotency-ref:runtime-sidecar-ledger",
+    )
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    payload["reason_ref"] = "reason-ref:runtime-sidecar-substitution"
+    state_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_MISMATCH",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+
+
+def test_runtime_store_safe_disable_sidecar_atomic_failure_preserves_prior_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    first = store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-first"),
+        idempotency_ref="idempotency-ref:runtime-sidecar-first",
+    )
+    state_path = tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+    before = state_path.read_bytes()
+
+    def fail_replace(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED",
+    ):
+        store.safe_disable(
+            RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-sidecar-second"),
+            idempotency_ref="idempotency-ref:runtime-sidecar-second",
+        )
+
+    assert state_path.read_bytes() == before
+    assert not list(tmp_path.glob(".runtime_gateway_safe_disable_state.json.*.tmp"))
+    assert store.operator_safe_disable_state() == first
+    reloaded = RuntimeInvocationStore(tmp_path).operator_safe_disable_state()
+    assert reloaded.active is True
+    assert reloaded.reason_ref == first.reason_ref
+
+
 def test_runtime_gateway_local_model_call_blocks_without_provider_execute_authority(
     tmp_path: Path,
 ) -> None:
