@@ -1,0 +1,22 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "uaa-hermes-openclaw-parity-gap-closure-001",
+  "version": "1.0.0",
+  "purpose": "Overlap-aware, live-data, merge-gated implementation prompts for closing every recommended Hermes/OpenClaw parity, performance, reliability, and UAA backlog item without repeating work already proven on main or weakening UAA authority boundaries.",
+  "developer_prompt_refs": [
+    "docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/01_fresh_inventory_and_convergence_ledger.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/02_backend_truth_first_loop_and_evidence.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/03_live_local_setup_and_packaging.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/04_goals_durable_events_and_lifecycle.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/05_action_inbox_work_board_and_session_ux.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/06_morning_briefing_sources_and_background_worker.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/07_memory_search_backup_and_storage_integrity.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/08_performance_supply_chain_and_efficiency.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/09_cross_cutting_reliability_and_future_lane_proofs.prompt.md",
+    "docs/prompts/uaa_parity_gap_closure/10_end_to_end_acceptance_and_parity_truth.prompt.md"
+  ],
+  "bundle_hash": "sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
+  "stable_within_run": true,
+  "created_at": "2026-07-14"
+}
