@@ -350,6 +350,11 @@ class RuntimeGateway:
                 runtime_enabled=replay_runtime_enabled,
                 endpoint_error=replay_endpoint_error,
             )
+            replay_gateway_validated = (
+                not replay_runtime_disabled
+                and replay_runtime_enabled
+                and replay_endpoint_error is None
+            )
             if replay_blocked_error is None and replay_runtime_disabled:
                 replay_blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
             if (
@@ -362,7 +367,6 @@ class RuntimeGateway:
                     if record.receipt.model_receipt_metadata is not None
                     else None
                 ) or "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_BLOCKED"
-            replay_gateway_validated = replay_blocked_error is None
             replay_status = (
                 RuntimeInvocationStatus.safe_disabled
                 if replay_runtime_disabled
@@ -401,6 +405,7 @@ class RuntimeGateway:
                 if replay_blocked_error is None:
                     revalidated = self._record_local_model_replay_posture(
                         record,
+                        request=request,
                         policy_decision=replay_policy_decision,
                         status=RuntimeInvocationStatus.receipt_recorded,
                         error_category=None,
@@ -443,6 +448,7 @@ class RuntimeGateway:
                     )
                 updated = self._record_local_model_replay_posture(
                     record,
+                    request=request,
                     policy_decision=replay_policy_decision,
                     status=replay_status,
                     error_category=replay_blocked_error,
@@ -602,6 +608,7 @@ class RuntimeGateway:
         self,
         record: RuntimeInvocationRecord,
         *,
+        request: RuntimeLocalModelCallRequest,
         policy_decision: RuntimePolicyDecision,
         status: RuntimeInvocationStatus,
         error_category: str | None,
@@ -624,6 +631,11 @@ class RuntimeGateway:
             policy_decision,
             status,
             local_model_gateway_validated=local_model_gateway_validated,
+            gateway_validation_recheck=lambda: (
+                not self.store.operator_safe_disable_active()
+                and self._runtime_local_model_enabled()
+                and _validate_loopback_endpoint(request) is None
+            ),
             idempotency_ref=_operation_idempotency_ref(
                 idempotency_ref,
                 posture_ref,

@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import fcntl
 
@@ -736,6 +736,7 @@ class RuntimeInvocationStore:
         self._idempotency_fingerprint_index: dict[str, str] = {}
         self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._last_entry_hash_ref: str | None = None
+        self._loaded_ledger_identity: tuple[int, int] | None = None
         self._loaded = False
         self._process_lock = threading.RLock()
 
@@ -1229,7 +1230,7 @@ class RuntimeInvocationStore:
                 metadata=metadata,
                 execution_performed=False,
                 model_call_performed=False,
-                status=status,
+                status=RuntimeInvocationStatus.execution_blocked,
             ).model_copy(
                 update={
                     "policy_decision_ref": policy_decision.policy_decision_ref,
@@ -1259,6 +1260,7 @@ class RuntimeInvocationStore:
         status: RuntimeInvocationStatus,
         *,
         local_model_gateway_validated: bool,
+        gateway_validation_recheck: Callable[[], bool],
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> RuntimeInvocationRecord:
@@ -1289,12 +1291,20 @@ class RuntimeInvocationStore:
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION"
                 )
+            revalidated_gateway = gateway_validation_recheck()
+            if (
+                not isinstance(revalidated_gateway, bool)
+                or revalidated_gateway != local_model_gateway_validated
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_GATEWAY_CHANGED_DURING_REVALIDATION"
+                )
             current_policy_decision = build_policy_decision(
                 record.request,
                 invocation_ref=record.invocation_ref,
                 approval_ref=record.approval_requirement.approval_ref,
                 status=status,
-                local_model_gateway_validated=local_model_gateway_validated,
+                local_model_gateway_validated=revalidated_gateway,
                 active_authority_leases=self.current_authority_leases(),
                 kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
             ).model_copy(
@@ -1741,20 +1751,90 @@ class RuntimeInvocationStore:
                 "RUNTIME_SAFE_DISABLE_STATE_INVALID"
             ) from exc
 
-    def _ledger_path_present(self) -> bool:
+    def _read_ledger_text(self) -> str | None:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
+            )
+        directory_fd = -1
+        ledger_fd = -1
         try:
-            mode = os.lstat(self.path).st_mode
-        except FileNotFoundError:
-            return False
-        except OSError as exc:
+            try:
+                directory_fd = os.open(
+                    self.state_dir,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                )
+            except FileNotFoundError:
+                return None
+            try:
+                expected_info = os.stat(
+                    RUNTIME_GATEWAY_JSONL,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                return None
+            if not stat.S_ISREG(expected_info.st_mode):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            ledger_fd = os.open(
+                RUNTIME_GATEWAY_JSONL,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=directory_fd,
+            )
+            opened_info = os.fstat(ledger_fd)
+            if (
+                not stat.S_ISREG(opened_info.st_mode)
+                or not os.path.samestat(expected_info, opened_info)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            chunks: list[bytes] = []
+            while True:
+                chunk = os.read(ledger_fd, 64 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            after_info = os.fstat(ledger_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_JSONL,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(path_after.st_mode)
+                or not os.path.samestat(expected_info, after_info)
+                or not os.path.samestat(expected_info, path_after)
+                or expected_info.st_size != after_info.st_size
+                or expected_info.st_size != path_after.st_size
+                or expected_info.st_mtime_ns != after_info.st_mtime_ns
+                or expected_info.st_mtime_ns != path_after.st_mtime_ns
+                or expected_info.st_ctime_ns != after_info.st_ctime_ns
+                or expected_info.st_ctime_ns != path_after.st_ctime_ns
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            self._loaded_ledger_identity = (
+                opened_info.st_dev,
+                opened_info.st_ino,
+            )
+            return b"".join(chunks).decode("utf-8")
+        except RuntimeInvocationStorageError:
+            raise
+        except (OSError, UnicodeDecodeError) as exc:
             raise RuntimeInvocationStorageError(
                 "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
             ) from exc
-        if not stat.S_ISREG(mode):
-            raise RuntimeInvocationStorageError(
-                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
-            )
-        return True
+        finally:
+            if ledger_fd >= 0:
+                os.close(ledger_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
 
     def _load(self) -> None:
         if self._loaded:
@@ -1768,16 +1848,18 @@ class RuntimeInvocationStore:
         self._idempotency_fingerprint_index = {}
         self._last_entry_hash_ref = None
         self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
+        self._loaded_ledger_identity = None
         self._loaded = False
         try:
-            if not self._ledger_path_present():
+            ledger_text = self._read_ledger_text()
+            if ledger_text is None:
                 if self._safe_disable_state_path_present():
                     self._canonical_safe_disable_state = (
                         self._load_operator_safe_disable_state()
                     )
             else:
                 previous_hash: str | None = None
-                for line in self.path.read_text(encoding="utf-8").splitlines():
+                for line in ledger_text.splitlines():
                     if not line.strip():
                         continue
                     payload = json.loads(line)
@@ -1870,6 +1952,90 @@ class RuntimeInvocationStore:
             self._records[existing_ref] = replayed
         return replayed
 
+    def _append_ledger_line(self, encoded_line: bytes) -> None:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
+            )
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        directory_fd = -1
+        ledger_fd = -1
+        created = False
+        try:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            open_flags = (
+                os.O_WRONLY
+                | os.O_APPEND
+                | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0)
+            )
+            try:
+                ledger_fd = os.open(
+                    RUNTIME_GATEWAY_JSONL,
+                    open_flags,
+                    dir_fd=directory_fd,
+                )
+            except FileNotFoundError:
+                if self._loaded_ledger_identity is not None:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                    )
+                try:
+                    ledger_fd = os.open(
+                        RUNTIME_GATEWAY_JSONL,
+                        open_flags | os.O_CREAT | os.O_EXCL,
+                        0o600,
+                        dir_fd=directory_fd,
+                    )
+                    created = True
+                except FileExistsError:
+                    ledger_fd = os.open(
+                        RUNTIME_GATEWAY_JSONL,
+                        open_flags,
+                        dir_fd=directory_fd,
+                    )
+            ledger_info = os.fstat(ledger_fd)
+            ledger_identity = (ledger_info.st_dev, ledger_info.st_ino)
+            if (
+                not stat.S_ISREG(ledger_info.st_mode)
+                or (
+                    self._loaded_ledger_identity is None
+                    and not created
+                )
+                or (
+                    self._loaded_ledger_identity is not None
+                    and ledger_identity != self._loaded_ledger_identity
+                )
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            written = 0
+            while written < len(encoded_line):
+                write_count = os.write(ledger_fd, encoded_line[written:])
+                if write_count <= 0:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_WRITE_FAILED"
+                    )
+                written += write_count
+            os.fsync(ledger_fd)
+            os.fsync(directory_fd)
+            self._loaded_ledger_identity = ledger_identity
+        except RuntimeInvocationStorageError:
+            raise
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_WRITE_FAILED"
+            ) from exc
+        finally:
+            if ledger_fd >= 0:
+                os.close(ledger_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
+
     def _append(
         self,
         entry_kind: str,
@@ -1905,9 +2071,10 @@ class RuntimeInvocationStore:
             "entry_hash_ref": _entry_hash(payload_without_hash),
         }
         entry = RuntimeGatewayStorageEntry(**entry_payload)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(_canonical_json(entry.model_dump(mode="json")) + "\n")
+        encoded_line = (
+            _canonical_json(entry.model_dump(mode="json")) + "\n"
+        ).encode("utf-8")
+        self._append_ledger_line(encoded_line)
         self._records[record.invocation_ref] = record
         self._entries.append(entry)
         self._idempotency_index[entry_idempotency_ref] = record.invocation_ref

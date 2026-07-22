@@ -640,6 +640,133 @@ def test_runtime_store_rejects_sidecar_with_symlinked_present_ledger(
         RuntimeInvocationStore(target_dir).operator_safe_disable_active()
 
 
+def test_runtime_store_ledger_read_rejects_inode_substitution_between_stat_and_open(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:ledger-inode-race"),
+        idempotency_ref="idempotency-ref:ledger-inode-race",
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    replacement_path = tmp_path / "replacement-ledger.jsonl"
+    replacement_path.write_bytes(ledger_path.read_bytes())
+    real_open = os.open
+    substituted = False
+
+    def substituting_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal substituted
+        if (
+            not substituted
+            and path == "runtime_gateway_invocations.jsonl"
+            and dir_fd is not None
+            and not flags & (os.O_WRONLY | os.O_RDWR)
+        ):
+            substituted = True
+            ledger_path.unlink()
+            ledger_path.symlink_to(replacement_path)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", substituting_open)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
+    assert substituted is True
+
+
+def test_runtime_store_ledger_append_rejects_inode_substitution_after_reload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    RuntimeInvocationStore(tmp_path).create_invocation(
+        _runtime_request(),
+        idempotency_ref="idempotency-ref:ledger-append-inode-race",
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    replacement_path = tmp_path / "replacement-append-ledger.jsonl"
+    replacement_path.write_bytes(ledger_path.read_bytes())
+    replacement_bytes = replacement_path.read_bytes()
+    real_open = os.open
+    substituted = False
+
+    def substituting_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal substituted
+        if (
+            not substituted
+            and path == "runtime_gateway_invocations.jsonl"
+            and dir_fd is not None
+            and flags & os.O_WRONLY
+        ):
+            substituted = True
+            os.replace(replacement_path, ledger_path)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", substituting_open)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(tmp_path).safe_disable(
+            RuntimeSafeDisableRequest(reason_ref="reason-ref:ledger-append-race"),
+            idempotency_ref="idempotency-ref:ledger-append-race",
+        )
+    assert substituted is True
+    assert ledger_path.read_bytes() == replacement_bytes
+    assert not (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).exists()
+
+
+def test_runtime_store_fsyncs_ledger_before_publishing_safe_disable_sidecar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    ordering: list[str] = []
+    real_fsync = os.fsync
+    real_replace = os.replace
+
+    def recording_fsync(fd: int) -> None:
+        if ledger_path.exists() and os.path.samestat(
+            os.fstat(fd),
+            os.stat(ledger_path, follow_symlinks=False),
+        ):
+            ordering.append("ledger_fsync")
+        real_fsync(fd)
+
+    def recording_replace(*args: object, **kwargs: object) -> None:
+        ordering.append("sidecar_replace")
+        real_replace(*args, **kwargs)
+
+    monkeypatch.setattr(os, "fsync", recording_fsync)
+    monkeypatch.setattr(os, "replace", recording_replace)
+
+    RuntimeInvocationStore(tmp_path).safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:ledger-fsync-order"),
+        idempotency_ref="idempotency-ref:ledger-fsync-order",
+    )
+
+    assert ordering.count("ledger_fsync") >= 1
+    assert max(
+        index for index, event in enumerate(ordering) if event == "ledger_fsync"
+    ) < ordering.index("sidecar_replace")
+
+
 def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -906,6 +1033,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
             ),
             RuntimeInvocationStatus.receipt_recorded,
             local_model_gateway_validated=True,
+            gateway_validation_recheck=lambda: True,
             idempotency_ref="idempotency-ref:stale-replay-posture",
             payload_fingerprint_ref="runtime-operation-fingerprint-ref:stale-posture",
         )
@@ -1188,6 +1316,64 @@ def test_runtime_gateway_local_model_replay_rejects_posture_change_in_store_lock
     assert persisted.policy_decision.authority_lease_ref == (
         "authority-lease-ref:test-provider-model-execute"
     )
+    assert persisted.receipt == first.record.receipt
+
+
+def test_runtime_gateway_local_model_replay_rejects_gateway_change_in_store_lock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("LOCAL_MODEL_GATEWAY_RACE_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="gateway race prompt must not persist",
+            )
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-gateway-race"
+    first = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    gateway_snapshots = iter((True, True, False))
+    monkeypatch.setattr(
+        gateway,
+        "_runtime_local_model_enabled",
+        lambda: next(gateway_snapshots),
+    )
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    before_replay = ledger_path.read_bytes()
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_REPLAY_POSTURE_GATEWAY_CHANGED_DURING_REVALIDATION",
+    ):
+        gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 1
+    assert ledger_path.read_bytes() == before_replay
+    persisted = RuntimeInvocationStore(tmp_path).get_invocation(
+        first.record.invocation_ref
+    )
+    assert persisted.policy_decision == first.record.policy_decision
     assert persisted.receipt == first.record.receipt
 
 
@@ -3268,7 +3454,8 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
-    assert replay.record.receipt.invocation_status == expected_status
+    assert replay.record.receipt.invocation_status == "execution_blocked"
+    assert "blocked before transport" in replay.record.receipt.safe_summary.lower()
     assert replay.record.policy_decision.allowed_to_execute is False
     assert replay.record.policy_decision.adapter_execution_enabled is False
     assert replay.record.policy_decision.model_call_enabled is False
