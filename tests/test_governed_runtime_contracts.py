@@ -1386,6 +1386,10 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         "authority-lease-ref:test-provider-model-replacement"
     )
     assert revalidated_again.record.receipt == replacement_again.record.receipt
+    assert (
+        revalidated_again.record.replay_count
+        == replacement_again.record.replay_count + 1
+    )
     assert before_revalidated_replay != before_replacement_again
     assert ledger_path.read_bytes() == before_revalidated_replay
     assert store.get_invocation(first.record.invocation_ref) == revalidated_again.record
@@ -1397,6 +1401,7 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
     assert stable_replay.record.updated_at == revalidated_again.record.updated_at
     assert stable_replay.record.policy_decision == revalidated_again.record.policy_decision
     assert stable_replay.record.receipt == revalidated_again.record.receipt
+    assert stable_replay.record.replay_count == revalidated_again.record.replay_count
     assert ledger_path.read_bytes() == before_stable_replay
 
 
@@ -4448,3 +4453,108 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
         result.record.receipt.safe_disable.reason_ref
         == "reason-ref:runtime-local-model-race-disable"
     )
+
+
+@pytest.mark.parametrize(
+    "posture_change",
+    ["safe_disabled", "lease_revoked", "kill_switch"],
+)
+def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    posture_change: str,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("SHOULD_NOT_RUN")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    original_record_receipt = store.record_receipt
+    receipt_writes = 0
+
+    def change_posture_during_attempt_marker(
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        nonlocal receipt_writes
+        receipt_writes += 1
+        if receipt_writes == 1:
+            if posture_change == "safe_disabled":
+                store.safe_disable(
+                    RuntimeSafeDisableRequest(
+                        reason_ref="reason-ref:runtime-local-model-marker-disable"
+                    ),
+                    idempotency_ref=(
+                        "idempotency-ref:runtime-local-model-marker-disable"
+                    ),
+                )
+            elif posture_change == "lease_revoked":
+                monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+            else:
+                monkeypatch.setattr(
+                    store,
+                    "authority_lease_kill_switch_engaged",
+                    lambda: True,
+                )
+        return original_record_receipt(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        store,
+        "record_receipt",
+        change_posture_during_attempt_marker,
+    )
+    result = gateway.invoke_local_model(
+        RuntimeLocalModelCallRequest(
+            base_url="http://127.0.0.1:8080",
+            model_ref="uaa-local-runtime",
+            messages=[
+                RuntimeLocalModelMessage(
+                    role="user",
+                    content=REDACTED_TEST_PROMPT,
+                )
+            ],
+            safe_summary="Block changed runtime posture before transport.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-local-model-marker-race",
+    )
+
+    assert receipt_writes == 2
+    assert calls == 0
+    expected_error = (
+        "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+        if posture_change == "safe_disabled"
+        else "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+    )
+    expected_status = (
+        "safe_disabled"
+        if posture_change == "safe_disabled"
+        else "execution_blocked"
+    )
+    assert result.error_category == expected_error
+    assert result.record.status == expected_status
+    assert result.record.policy_decision.allowed_to_execute is False
+    assert result.record.policy_decision.adapter_execution_enabled is False
+    assert result.record.policy_decision.model_call_enabled is False
+    assert result.record.receipt is not None
+    assert result.record.receipt.execution_performed is False
+    assert result.record.receipt.adapter_execution_performed is False
+    assert result.record.receipt.model_call_performed is False
+    assert result.record.receipt.model_receipt_metadata is not None
+    assert result.record.receipt.model_receipt_metadata.attempt_outcome_unknown is False
+    assert result.record.receipt.model_receipt_metadata.error_category == expected_error
+    if posture_change == "safe_disabled":
+        assert result.record.receipt.safe_disable.reason_ref == (
+            "reason-ref:runtime-local-model-marker-disable"
+        )

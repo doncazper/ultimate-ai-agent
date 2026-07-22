@@ -596,7 +596,116 @@ class RuntimeGateway:
                 },
             ),
         )
-        attempt_policy_decision = record.policy_decision
+        post_marker_runtime_disabled = self.store.operator_safe_disable_active()
+        post_marker_gateway_error = _blocked_error_category(
+            runtime_disabled=post_marker_runtime_disabled,
+            runtime_enabled=self._runtime_local_model_enabled(),
+            endpoint_error=_validate_loopback_endpoint(request),
+        )
+        post_marker_safe_disabled = (
+            record.status == RuntimeInvocationStatus.safe_disabled.value
+            or post_marker_runtime_disabled
+        )
+        post_marker_status = (
+            RuntimeInvocationStatus.safe_disabled
+            if post_marker_safe_disabled
+            else (
+                RuntimeInvocationStatus.execution_blocked
+                if post_marker_gateway_error is not None
+                else RuntimeInvocationStatus.receipt_recorded
+            )
+        )
+        post_marker_policy_decision = build_policy_decision(
+            record.request,
+            invocation_ref=record.invocation_ref,
+            approval_ref=record.approval_requirement.approval_ref,
+            status=post_marker_status,
+            local_model_gateway_validated=post_marker_gateway_error is None,
+            active_authority_leases=self.store.current_authority_leases(),
+            kill_switch_engaged=self.store.authority_lease_kill_switch_engaged(),
+        ).model_copy(
+            update={
+                "approval_requirement": record.approval_requirement,
+                "invocation_status": post_marker_status,
+            }
+        )
+        marker_blocked_error = (
+            "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+            if post_marker_safe_disabled
+            else post_marker_gateway_error
+        )
+        if (
+            marker_blocked_error is None
+            and not post_marker_policy_decision.allowed_to_execute
+        ):
+            marker_blocked_error = "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+            post_marker_status = RuntimeInvocationStatus.execution_blocked
+            post_marker_policy_decision = post_marker_policy_decision.model_copy(
+                update={"invocation_status": post_marker_status}
+            )
+        if marker_blocked_error is not None:
+            blocked_policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=post_marker_status,
+                local_model_gateway_validated=False,
+                active_authority_leases=self.store.current_authority_leases(),
+                kill_switch_engaged=self.store.authority_lease_kill_switch_engaged(),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": post_marker_status,
+                }
+            )
+            marker_blocked_metadata = RuntimeLocalModelReceiptMetadata(
+                model_ref=request.model_ref,
+                endpoint_ref=_endpoint_ref(request.base_url),
+                profile=RuntimeProfile(request.requested_profile),
+                request_byte_count=_request_byte_count(request),
+                response_byte_count=0,
+                status_code=None,
+                response_received=False,
+                response_truncated=False,
+                bounded_preview_returned=False,
+                bounded_preview_persisted=False,
+                error_category=marker_blocked_error,
+                safe_summary=(
+                    "Local model runtime request was blocked after its durable "
+                    "attempt marker and before transport."
+                ),
+            )
+            marker_blocked_receipt = build_local_model_receipt(
+                record,
+                metadata=marker_blocked_metadata,
+                execution_performed=False,
+                model_call_performed=False,
+                status=RuntimeInvocationStatus.execution_blocked,
+            )
+            updated = self.store.record_receipt(
+                record.invocation_ref,
+                marker_blocked_receipt,
+                idempotency_ref=_operation_idempotency_ref(
+                    idempotency_ref,
+                    "local-model-post-marker-blocked",
+                ),
+                payload_fingerprint_ref=_operation_fingerprint_ref(
+                    record.invocation_ref,
+                    {
+                        "operation": "local_model_post_marker_blocked",
+                        "metadata": marker_blocked_metadata.model_dump(mode="json"),
+                    },
+                ),
+                policy_decision=blocked_policy_decision,
+                local_model_gateway_error_recheck=lambda: marker_blocked_error,
+            )
+            return RuntimeLocalModelGatewayResult(
+                record=updated,
+                request_byte_count=marker_blocked_metadata.request_byte_count,
+                error_category=marker_blocked_error,
+                local_model_runtime_enabled=runtime_enabled,
+            )
+        attempt_policy_decision = post_marker_policy_decision
 
         attempt = self.local_model_adapter.invoke(request)
         metadata = RuntimeLocalModelReceiptMetadata(
