@@ -190,6 +190,7 @@ class PromptCompilationReceipt(_PromptCompilerModel):
     )
     manifest_contract_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     dependency_graph_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    declared_source_contract_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     variable_contract_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     supplied_variable_names: tuple[str, ...] = Field(max_length=128)
     compiled_artifact_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")

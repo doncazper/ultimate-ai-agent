@@ -80,6 +80,7 @@ The receipt contains:
 - normalized manifest contract hash
 - dependency-first module order
 - per-module source refs, sizes, and SHA-256 hashes
+- a full declared-source contract hash, including parked modules
 - dependency-graph and variable-contract hashes
 - supplied variable names, never values
 - compiled artifact hash and byte count

@@ -602,6 +602,57 @@ def test_operator_module_overrides_fail_closed_before_normalization(
 
 
 @pytest.mark.parametrize(
+    ("method", "kwargs", "expected_code"),
+    [
+        (
+            "compile",
+            {"entry_module_ids": "ab"},
+            "PROMPT_ENTRY_MODULE_INVALID",
+        ),
+        (
+            "inspect",
+            {"changed_module_ids": "ab"},
+            "PROMPT_CHANGED_MODULE_INVALID",
+        ),
+    ],
+)
+def test_scalar_string_module_overrides_do_not_expand_into_valid_ids(
+    tmp_path: Path,
+    method: str,
+    kwargs: dict[str, Any],
+    expected_code: str,
+) -> None:
+    _write(tmp_path, "a.md", "a")
+    _write(tmp_path, "b.md", "b")
+    manifest = _manifest(
+        [_module("a", "a.md"), _module("b", "b.md")],
+        entries=["a"],
+    )
+
+    with pytest.raises(PromptCompilationError) as raised:
+        getattr(PromptModuleCompiler(tmp_path), method)(manifest, **kwargs)
+
+    assert raised.value.reason_code == expected_code
+
+
+def test_post_validation_duplicate_module_mutation_fails_closed(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "source.md", "source")
+    _write(tmp_path, "replacement.md", "replacement")
+    manifest = _manifest(
+        [_module("source", "source.md")],
+        entries=["source"],
+    )
+    manifest.modules.append(_module("source", "replacement.md"))
+
+    assert (
+        _error_code(PromptModuleCompiler(tmp_path), manifest)
+        == "PROMPT_MANIFEST_MUTATED"
+    )
+
+
+@pytest.mark.parametrize(
     ("payload", "expected_code"),
     [
         (b"\xff", "PROMPT_MODULE_ENCODING_INVALID"),
@@ -625,6 +676,32 @@ def test_unselected_module_content_is_validated_before_entry_closure(
     )
 
     assert _error_code(PromptModuleCompiler(tmp_path), manifest) == expected_code
+
+
+def test_parked_module_source_drift_changes_declared_source_contract(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "selected.md", "selected")
+    _write(tmp_path, "parked.md", "parked-v1")
+    manifest = _manifest(
+        [
+            _module("selected", "selected.md"),
+            _module("parked", "parked.md"),
+        ],
+        entries=["selected"],
+    )
+    compiler = PromptModuleCompiler(tmp_path)
+
+    before = compiler.compile(manifest).receipt
+    _write(tmp_path, "parked.md", "parked-v2")
+    after = compiler.compile(manifest).receipt
+
+    assert before.compiled_artifact_hash == after.compiled_artifact_hash
+    assert before.source_receipts == after.source_receipts
+    assert (
+        before.declared_source_contract_hash
+        != after.declared_source_contract_hash
+    )
 
 
 def test_render_expansion_is_bounded_before_artifact_assembly(tmp_path: Path) -> None:

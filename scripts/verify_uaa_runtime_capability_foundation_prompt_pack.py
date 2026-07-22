@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError as PydanticValidationError
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -326,6 +328,7 @@ def _verify_module_compilation(
         json.JSONDecodeError,
         ValueError,
         PromptCompilationError,
+        PydanticValidationError,
     ) as exc:
         raise VerificationError(
             "prompt module compilation validation failed safely"
@@ -648,6 +651,9 @@ def main(argv: list[str] | None = None) -> int:
                         ),
                         "dependency_graph_hash": compiled_receipt[
                             "dependency_graph_hash"
+                        ],
+                        "declared_source_contract_hash": compiled_receipt[
+                            "declared_source_contract_hash"
                         ],
                         "compiled_artifact_hash": compiled_receipt[
                             "compiled_artifact_hash"

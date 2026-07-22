@@ -64,6 +64,7 @@ def test_verifier_accepts_pack() -> None:
     assert data["readme_integrity_protected"] is True
     assert data["prompt_module_count"] == 11
     assert data["dependency_graph_hash"].startswith("sha256:")
+    assert data["declared_source_contract_hash"].startswith("sha256:")
     assert data["compiled_artifact_hash"].startswith("sha256:")
     assert data["golden_receipt_verified"] is True
     assert data["combined_output_written"] is False
@@ -186,6 +187,21 @@ def test_verifier_rejects_prompt_module_golden_drift(
     monkeypatch.setattr(pack_verify, "MODULE_GOLDEN_RECEIPT_PATH", drifted)
 
     with pytest.raises(pack_verify.VerificationError, match="golden receipt"):
+        pack_verify._verify_module_compilation()
+
+
+def test_verifier_wraps_malformed_prompt_module_golden_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    malformed = tmp_path / "malformed-receipt.json"
+    malformed.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(pack_verify, "MODULE_GOLDEN_RECEIPT_PATH", malformed)
+
+    with pytest.raises(
+        pack_verify.VerificationError,
+        match="compilation validation failed safely",
+    ):
         pack_verify._verify_module_compilation()
 
 

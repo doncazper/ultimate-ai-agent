@@ -5,6 +5,7 @@
   "bundle_version": "1.0.0",
   "compiled_artifact_hash": "sha256:73365e3611652f012117484c9356de1065dbb1a52ec3ba96b41dcc2da98bc18f",
   "compiled_bytes": 54223,
+  "declared_source_contract_hash": "sha256:609e541c152760c4359e371f4cec8cc9c7a293d6ea870d90987fc10b12ef58ef",
   "dependency_graph_hash": "sha256:23e99318f129990a9b473b067e82fc532f32c1770794154ff704fd58b01f05d7",
   "entry_module_ids": [
     "phase-09"

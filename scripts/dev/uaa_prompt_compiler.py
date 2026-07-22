@@ -173,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
                     "compiled_bytes": artifact.receipt.compiled_bytes,
                     "manifest_contract_hash": artifact.receipt.manifest_contract_hash,
                     "dependency_graph_hash": artifact.receipt.dependency_graph_hash,
+                    "declared_source_contract_hash": (
+                        artifact.receipt.declared_source_contract_hash
+                    ),
                     "golden_receipt_verified": args.check_receipt is not None,
                     "output_written": args.output is not None,
                     "receipt_written": args.receipt is not None,

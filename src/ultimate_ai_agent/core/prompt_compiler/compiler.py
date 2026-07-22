@@ -97,10 +97,16 @@ class PromptModuleCompiler:
         entry_module_ids: Iterable[str] | None = None,
         changed_module_ids: Iterable[str] = (),
     ) -> PromptGraphInspection:
-        module_by_id = self._validated_graph(manifest)
+        manifest = self._revalidate_manifest(manifest)
+        module_by_id, _source_bytes_by_id = self._validated_graph(manifest)
         entries = self._entry_ids(manifest, entry_module_ids, module_by_id)
         ordered = self._topological_closure(entries, module_by_id)
         reverse = self._reverse_dependencies(module_by_id)
+        if isinstance(changed_module_ids, str):
+            raise PromptCompilationError(
+                "PROMPT_CHANGED_MODULE_INVALID",
+                "Blast-radius inspection requires valid prompt module ids.",
+            )
         requested_changed = list(changed_module_ids)
         if any(
             not isinstance(module_id, str)
@@ -149,8 +155,9 @@ class PromptModuleCompiler:
         variables: dict[str, Any] | None = None,
         entry_module_ids: Iterable[str] | None = None,
     ) -> PromptCompilationArtifact:
+        manifest = self._revalidate_manifest(manifest)
         supplied = dict(variables or {})
-        module_by_id = self._validated_graph(manifest)
+        module_by_id, source_bytes_by_id = self._validated_graph(manifest)
         entries = self._entry_ids(manifest, entry_module_ids, module_by_id)
         ordered_ids = self._topological_closure(entries, module_by_id)
         bindings = self._validate_bindings(manifest.variables, supplied)
@@ -186,7 +193,7 @@ class PromptModuleCompiler:
             append_chunk(header_chunk)
         for module_id in ordered_ids:
             module = module_by_id[module_id]
-            source_bytes = self._read_source(module, manifest.max_module_bytes)
+            source_bytes = source_bytes_by_id[module_id]
             source_text = self._decode_source(source_bytes)
             begin_marker = f"<!-- BEGIN {module_id} {module.source_ref} -->\n"
             append_chunk(begin_marker)
@@ -228,6 +235,10 @@ class PromptModuleCompiler:
                 manifest.model_dump(mode="json", by_alias=True)
             ),
             dependency_graph_hash=self._graph_hash(manifest, module_by_id),
+            declared_source_contract_hash=self._declared_source_contract_hash(
+                module_by_id,
+                source_bytes_by_id,
+            ),
             variable_contract_hash=self._variable_contract_hash(manifest.variables),
             supplied_variable_names=tuple(sorted(supplied)),
             compiled_artifact_hash=_sha256(compiled_bytes),
@@ -254,11 +265,34 @@ class PromptModuleCompiler:
             entry_module_ids=entry_module_ids,
         )
 
+    @staticmethod
+    def _revalidate_manifest(manifest: PromptModuleManifest) -> PromptModuleManifest:
+        """Detach and revalidate mutable nested values before each operation."""
+
+        try:
+            payload = manifest.model_dump(mode="python", by_alias=True)
+            return PromptModuleManifest.model_validate(payload, strict=True)
+        except (AttributeError, TypeError, ValueError, ValidationError) as exc:
+            raise PromptCompilationError(
+                "PROMPT_MANIFEST_MUTATED",
+                "Prompt module manifest changed after validation.",
+            ) from exc
+
     def _validated_graph(
         self,
         manifest: PromptModuleManifest,
-    ) -> dict[str, PromptModuleDefinition]:
+    ) -> tuple[
+        dict[str, PromptModuleDefinition],
+        dict[str, bytes],
+    ]:
+        module_ids = [module.module_id for module in manifest.modules]
+        if len(module_ids) != len(set(module_ids)):
+            raise PromptCompilationError(
+                "PROMPT_MODULE_ID_DUPLICATE",
+                "Prompt module ids must remain unique during compilation.",
+            )
         module_by_id = {module.module_id: module for module in manifest.modules}
+        source_bytes_by_id: dict[str, bytes] = {}
         known_variables = set(manifest.variables)
         for module in manifest.modules:
             raw_source_parts = module.source_ref.split("/")
@@ -284,6 +318,7 @@ class PromptModuleCompiler:
             )
             source_text = self._decode_source(source_bytes)
             self._validate_template_contract(source_text, manifest.variables)
+            source_bytes_by_id[module.module_id] = source_bytes
             if any(
                 dependency not in module_by_id for dependency in module.dependencies
             ):
@@ -305,7 +340,7 @@ class PromptModuleCompiler:
                 "Prompt manifest references an unknown entry module.",
             )
         self._assert_acyclic(module_by_id)
-        return module_by_id
+        return module_by_id, source_bytes_by_id
 
     @staticmethod
     def _assert_acyclic(module_by_id: dict[str, PromptModuleDefinition]) -> None:
@@ -335,6 +370,11 @@ class PromptModuleCompiler:
         requested: Iterable[str] | None,
         module_by_id: dict[str, PromptModuleDefinition],
     ) -> list[str]:
+        if isinstance(requested, str):
+            raise PromptCompilationError(
+                "PROMPT_ENTRY_MODULE_INVALID",
+                "Prompt compilation requires valid prompt entry module ids.",
+            )
         requested_entries = list(
             requested if requested is not None else manifest.entry_module_ids
         )
@@ -412,21 +452,6 @@ class PromptModuleCompiler:
             impacted.add(module_id)
             pending.extend(reverse[module_id])
         return sorted(impacted)
-
-    def _read_source(self, module: PromptModuleDefinition, max_bytes: int) -> bytes:
-        ref = Path(module.source_ref)
-        if ref.is_absolute() or ".." in ref.parts:
-            raise PromptCompilationError(
-                "PROMPT_SOURCE_PATH_UNSAFE",
-                "Prompt source must be a repository-relative file.",
-            )
-        return self._read_repository_file(
-            ref,
-            max_bytes=max_bytes,
-            unsafe_code="PROMPT_SOURCE_PATH_UNSAFE",
-            unavailable_code="PROMPT_SOURCE_UNAVAILABLE",
-            budget_code="PROMPT_MODULE_BUDGET_EXCEEDED",
-        )
 
     @staticmethod
     def _decode_source(source_bytes: bytes) -> str:
@@ -863,6 +888,22 @@ class PromptModuleCompiler:
             name: definition.model_dump(mode="json")
             for name, definition in sorted(definitions.items())
         }
+        return _canonical_hash(payload)
+
+    @staticmethod
+    def _declared_source_contract_hash(
+        module_by_id: dict[str, PromptModuleDefinition],
+        source_bytes_by_id: dict[str, bytes],
+    ) -> str:
+        payload = [
+            {
+                "module_id": module_id,
+                "source_ref": module_by_id[module_id].source_ref,
+                "source_hash": _sha256(source_bytes_by_id[module_id]),
+                "source_bytes": len(source_bytes_by_id[module_id]),
+            }
+            for module_id in sorted(module_by_id)
+        ]
         return _canonical_hash(payload)
 
 
