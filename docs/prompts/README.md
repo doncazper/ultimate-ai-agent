@@ -194,6 +194,22 @@ authority by themselves. Use
 `docs/prompts/hermes_runtime_adoption/00_execute_all_45_review_fix_merge_harden.prompt.md`
 for the strict wrapper.
 
+## Hermes/OpenClaw parity gap closure prompts
+
+Stored execution prompts for closing the July 2026 Hermes Agent and OpenClaw
+parity recommendations live in `docs/prompts/uaa_parity_gap_closure/`. The
+wrapper takes a fresh inventory of current `main`, open and recently merged
+pull requests, branches, worktrees, manifests, tests, and—when task tools are
+available—other active UAA Codex tasks before every phase. Only merged,
+meaningfully tested, backend-owned behavior is skipped; open PRs, mocks,
+contracts, plans, static renders, and disabled adapters do not count as
+implemented runtime behavior. Each unresolved phase is implemented, hardened,
+verified, committed, pushed, reviewed, and merged before the inventory is
+refreshed for the next phase. The pack itself grants no runtime authority. Use
+`docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md`
+or `scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh` for the continuous
+wrapper.
+
 ## UAA runtime capability foundation prompts
 
 Stored execution prompts for the UAA runtime capability foundation sequence live in
