@@ -87,6 +87,22 @@ def test_phase01_ledger_rejects_cross_item_merged_proof() -> None:
     assert any("P10 merged_proven proof drifted" in failure for failure in failures)
 
 
+def test_phase01_ledger_validates_root_level_proof_refs() -> None:
+    report = _report().replace("`uv.lock`", "`missing-root-proof.lock`", 1)
+
+    failures = phase01.verify(report_text=report, check_refs=True)
+
+    assert "ledger proof ref is missing: missing-root-proof.lock" in failures
+
+
+def test_phase01_ledger_validates_root_level_ledger_refs() -> None:
+    report = _report().replace("`Makefile`", "`MISSING.md`", 1)
+
+    failures = phase01.verify(report_text=report, check_refs=True)
+
+    assert "ledger proof ref is missing: MISSING.md" in failures
+
+
 def test_phase01_ledger_rejects_unresolved_merged_proven_delta() -> None:
     report = _report().replace(
         "none; preserve eight shards",
@@ -105,6 +121,16 @@ def test_phase01_ledger_rejects_absolute_local_paths() -> None:
     failures = phase01.verify(report_text=report, check_refs=False)
 
     assert "ledger contains an absolute local path" in failures
+
+
+def test_phase01_ledger_rejects_arbitrary_posix_local_paths() -> None:
+    for path in ("/nix/store/local-proof", "/project/checkout/private-proof"):
+        failures = phase01.verify(
+            report_text=_report() + f"\nEvidence captured at {path}.\n",
+            check_refs=False,
+        )
+
+        assert "ledger contains an absolute local path" in failures
 
 
 def test_phase01_ledger_rejects_traversal_proof_refs() -> None:
@@ -159,6 +185,18 @@ def test_phase01_ledger_rejects_dependency_graph_drift() -> None:
     assert "phase dependency graph drifted" in failures
 
 
+def test_phase01_ledger_rejects_per_id_phase_drift() -> None:
+    report = _report().replace(
+        "| H01 | `outcome:persistent-goal-lifecycle` | 04 |",
+        "| H01 | `outcome:persistent-goal-lifecycle` | 09 |",
+        1,
+    )
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert any("H01 phase drifted" in failure for failure in failures)
+
+
 def test_phase01_ledger_rejects_execution_prerequisite_drift() -> None:
     report = _report().replace(
         "| 08 | ready after 04/06/07 | performance; preserve proven P10/L14 |",
@@ -177,3 +215,16 @@ def test_phase01_ledger_rejects_unresolved_inventory_placeholders() -> None:
     failures = phase01.verify(report_text=report, check_refs=False)
 
     assert any("INVENTORY_SHA" in failure for failure in failures)
+
+
+def test_phase01_ledger_requires_exact_inventory_and_baseline_anchors() -> None:
+    report = _report().replace(
+        phase01.EXPECTED_INVENTORY_BASE,
+        "0000000000000000000000000000000000000000",
+        1,
+    ).replace(phase01.EXPECTED_ACTIVE_BASELINE, "v0.0.0", 1)
+
+    failures = phase01.verify(report_text=report, check_refs=False)
+
+    assert any("Inventory base" in failure for failure in failures)
+    assert any("Active baseline" in failure for failure in failures)

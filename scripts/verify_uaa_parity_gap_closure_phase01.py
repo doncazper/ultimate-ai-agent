@@ -46,6 +46,62 @@ EXPECTED_STATUSES.update(
         "L14": "merged_proven",
     }
 )
+EXPECTED_PHASES = {
+    "H01": "04",
+    "H02": "04",
+    "H03": "07",
+    "H04": "06",
+    "H05": "03",
+    "H06": "07",
+    "O01": "04",
+    "O02": "02",
+    "O03": "04",
+    "O04": "07",
+    "O05": "05",
+    "O06": "09",
+    "O07": "05",
+    "O08": "06",
+    "P01": "08",
+    "P02": "08",
+    "P03": "07, 08",
+    "P04": "08",
+    "P05": "09",
+    "P06": "08, 09",
+    "P07": "04, 08",
+    "P08": "06, 08",
+    "P09": "08",
+    "P10": "08",
+    "B01": "09",
+    "B02": "09",
+    "B03": "09",
+    "B04": "04, 09",
+    "B05": "02, 09",
+    "B06": "04, 09",
+    "B07": "09",
+    "B08": "07, 09",
+    "B09": "07, 09",
+    "B10": "07, 09",
+    "B11": "09",
+    "B12": "05, 09",
+    "B13": "04, 09",
+    "B14": "02, 09",
+    "L01": "02",
+    "L02": "03",
+    "L03": "02",
+    "L04": "02",
+    "L05": "05",
+    "L06": "04",
+    "L07": "04",
+    "L08": "06",
+    "L09": "05",
+    "L10": "04, 06",
+    "L11": "07",
+    "L12": "07",
+    "L13": "08",
+    "L14": "08",
+    "L15": "05",
+    "L16": "07",
+}
 EXPECTED_MERGED_PROOF_REFS = {
     "P10": {
         ".github/workflows/ci.yml",
@@ -118,13 +174,28 @@ EXECUTION_ROW = re.compile(
     re.MULTILINE,
 )
 ABSOLUTE_PATH = re.compile(
-    r"(?<![A-Za-z0-9_.-])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
-    r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin|"
-    r"workspace|build|runner|github)(?:/|\b)|~/|[A-Za-z]:\\Users\\|\\\\)",
+    r"(?<![A-Za-z0-9_.:/~-])(?:"
+    r"file:(?://)?/|"
+    r"/(?!control-center(?:/|\b)|runtime(?:/|\b)|api(?:/|\b)|v1(?:/|\b))"
+    r"[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)+|"
+    r"/(?:Users|home|root|private|tmp|var|etc|System|Library|Applications|opt|usr|"
+    r"Volumes|srv|mnt|proc|dev|run|bin|sbin|workspace|build|runner|github)(?:/|\b)|"
+    r"~/|[A-Za-z]:\\|\\\\"
+    r")",
     re.IGNORECASE | re.MULTILINE,
 )
+OPAQUE_PROOF_REF = re.compile(r"^(?:pr|commit):[A-Za-z0-9._-]+$")
+REPOSITORY_PATH_PREFIXES = (".github/", "apps/", "docs/", "reports/", "scripts/", "src/", "tests/")
+ROOT_REPOSITORY_REF = re.compile(
+    r"^(?:Makefile|[A-Za-z0-9][A-Za-z0-9_.-]*\."
+    r"(?:json|lock|md|toml|txt|yaml|yml))$"
+)
+EXPECTED_INVENTORY_BASE = "35d66a04680cbe6fa5356001dd90256bd36f9fd8"
+EXPECTED_ACTIVE_BASELINE = "v0.104.0"
 REQUIRED_SNIPPETS = (
     "Status: current-main inventory; no runtime authority grant",
+    f"- Inventory base: `commit:{EXPECTED_INVENTORY_BASE}`",
+    f"- Active baseline: `{EXPECTED_ACTIVE_BASELINE}`",
     "`pr:319`",
     "branch:codex/harden-verification-recovery-auth-ci-identity",
     "## Recent Merge And Remote Ledger",
@@ -176,6 +247,22 @@ def _repo_path(ref: str) -> Path | None:
     return candidate
 
 
+def _repository_refs(text: str, rows: list[re.Match[str]]) -> set[str]:
+    refs = {
+        ref
+        for ref in re.findall(r"`([^`]+)`", text)
+        if ref.startswith(REPOSITORY_PATH_PREFIXES)
+        or ROOT_REPOSITORY_REF.fullmatch(ref)
+    }
+    refs.update(
+        ref
+        for row in rows
+        for ref in re.findall(r"`([^`]+)`", row.group("proof"))
+        if not OPAQUE_PROOF_REF.fullmatch(ref)
+    )
+    return refs
+
+
 def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[str]:
     failures: list[str] = []
     try:
@@ -197,6 +284,8 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
     observed = tuple(row.group("id") for row in rows)
     if observed != EXPECTED_IDS:
         failures.append("coverage ledger must contain all 54 IDs exactly once and in order")
+    if tuple(EXPECTED_PHASES) != EXPECTED_IDS:
+        failures.append("internal expected phase mapping must cover all 54 IDs in order")
     outcomes_by_id: dict[str, str] = {}
     for row in rows:
         item_id = row.group("id")
@@ -209,11 +298,17 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
             failures.append(
                 f"{item_id} status drifted: expected {expected_status}, observed {status}"
             )
-        phases = [part.strip() for part in row.group("phase").split(",")]
+        phase = row.group("phase")
+        phases = [part.strip() for part in phase.split(",")]
         if not phases or any(
             not part.isdigit() or not 2 <= int(part) <= 9 for part in phases
         ):
             failures.append(f"{item_id} has invalid phase mapping")
+        expected_phase = EXPECTED_PHASES.get(item_id)
+        if expected_phase is not None and phase != expected_phase:
+            failures.append(
+                f"{item_id} phase drifted: expected {expected_phase}, observed {phase}"
+            )
         proof = row.group("proof")
         if status == "merged_proven":
             if "tests/" not in proof:
@@ -269,12 +364,7 @@ def verify(*, report_text: str | None = None, check_refs: bool = True) -> list[s
         failures.append("phase execution ledger drifted")
 
     if check_refs:
-        refs = set(
-            re.findall(
-                r"`((?:\.github|apps|docs|reports|scripts|src|tests)/[^`]+)`",
-                text,
-            )
-        )
+        refs = _repository_refs(text, rows)
         for ref in sorted(refs):
             path = _repo_path(ref)
             if path is None:
