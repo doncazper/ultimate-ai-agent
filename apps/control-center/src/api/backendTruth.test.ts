@@ -15,7 +15,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
   const refs = [
     ["start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
     ["today", "Today", ["/", "/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
-    ["plans", "Plans", ["/plans"], ["GET /control-center/product-proof/founder-loop"]],
+    ["plans", "Plans", ["/plans"], ["GET /control-center/today/summary"]],
     ["action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
     ["approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
     ["work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board"]],

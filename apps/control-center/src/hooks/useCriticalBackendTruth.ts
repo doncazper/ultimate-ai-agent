@@ -38,24 +38,39 @@ export function useCriticalBackendTruth(
   loader: () => Promise<ControlCenterBackendTruth> = loadControlCenterBackendTruth,
 ): CriticalBackendTruthState {
   const generation = useRef(0);
+  const activation = useRef(0);
+  const previousEnabled = useRef(enabled);
   const lastVerified = useRef<LastVerifiedBackendTruth | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [state, setState] = useState<Omit<CriticalBackendTruthState, "retry">>({
+  const [state, setState] = useState<
+    Omit<CriticalBackendTruthState, "retry"> & { activation: number }
+  >({
     status: "loading",
     truth: null,
     errorRef: null,
     lastVerified: null,
+    activation: 0,
   });
+
+  if (previousEnabled.current !== enabled) {
+    previousEnabled.current = enabled;
+    activation.current += 1;
+  }
 
   const refresh = useCallback(() => {
     if (!enabled) return;
     const requestGeneration = ++generation.current;
+    const requestActivation = activation.current;
     if (timer.current) clearTimeout(timer.current);
     loader()
       .then((truth) => {
         if (requestGeneration !== generation.current) return;
-        if (truth.evidence_binding.status === "invalid_evidence") {
-          throw new Error("BACKEND_TRUTH_EVIDENCE_INVALID");
+        if (truth.evidence_binding.status !== "verified_complete") {
+          throw new Error(
+            truth.evidence_binding.status === "invalid_evidence"
+              ? "BACKEND_TRUTH_EVIDENCE_INVALID"
+              : "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+          );
         }
         const verified = {
           verifiedAt: new Date().toISOString(),
@@ -68,6 +83,7 @@ export function useCriticalBackendTruth(
           truth,
           errorRef: null,
           lastVerified: verified,
+          activation: requestActivation,
         });
       })
       .catch((error: unknown) => {
@@ -80,6 +96,7 @@ export function useCriticalBackendTruth(
               ? error.message
               : "BACKEND_TRUTH_UNAVAILABLE",
           lastVerified: lastVerified.current,
+          activation: requestActivation,
         });
       })
       .finally(() => {
@@ -98,5 +115,16 @@ export function useCriticalBackendTruth(
     };
   }, [enabled, refresh]);
 
-  return { ...state, retry: refresh } as CriticalBackendTruthState;
+  if (!enabled || state.activation !== activation.current) {
+    return {
+      status: "loading",
+      truth: null,
+      errorRef: null,
+      lastVerified: lastVerified.current,
+      retry: refresh,
+    };
+  }
+
+  const { activation: _activation, ...visibleState } = state;
+  return { ...visibleState, retry: refresh } as CriticalBackendTruthState;
 }

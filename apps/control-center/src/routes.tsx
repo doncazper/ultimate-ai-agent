@@ -138,6 +138,7 @@ export const supportingNavItems = navItems.filter(
 );
 
 export function getRouteSurfaceLabel(path: string): string {
+  if (path === "/morning-briefing") return "Briefing";
   return navItems.find((item) => item.path === path)?.label ?? "Control Center";
 }
 
@@ -455,6 +456,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         </>
       );
     case "/briefing":
+    case "/morning-briefing":
       return (
         <>
           <FounderLoopSpinePanel

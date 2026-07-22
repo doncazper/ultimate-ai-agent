@@ -6,7 +6,7 @@ const INTEGRITY_PREFIX = "proof-ref:backend-truth-envelope:sha256:";
 const EXPECTED_SURFACES = [
   ["critical-surface:start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
   ["critical-surface:today", "Today", ["/", "/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
-  ["critical-surface:plans", "Plans", ["/plans"], ["GET /control-center/product-proof/founder-loop"]],
+  ["critical-surface:plans", "Plans", ["/plans"], ["GET /control-center/today/summary"]],
   ["critical-surface:action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
   ["critical-surface:approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
   ["critical-surface:work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board"]],

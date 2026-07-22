@@ -133,6 +133,26 @@ export function NorthStarRoute({
   }
 
   if (state.status === "loading") {
+    if (criticalPath) {
+      return (
+        <AppShell activePath={activePath}>
+          <RouteStatePanel
+            state={{
+              kind: "loading",
+              statusLabel: "loading",
+              surfaceLabel: activeSurfaceLabel,
+              title: `${activeSurfaceLabel} is loading local route state`,
+              message:
+                "The workspace is waiting for backend-owned read models before rendering critical product content.",
+              nextSafeAction:
+                "Wait for the local backend read or inspect CLI/verifier evidence before relying on this surface.",
+              sourceLabel: "Route truth: pending local backend read.",
+            }}
+          />
+          <LoadingState surfaceLabel={activeSurfaceLabel} />
+        </AppShell>
+      );
+    }
     return (
       <Suspense
         fallback={

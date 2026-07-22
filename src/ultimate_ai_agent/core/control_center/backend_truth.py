@@ -180,7 +180,7 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         surface_ref="critical-surface:plans",
         label="Plans",
         frontend_paths=["/plans"],
-        backend_route_refs=["GET /control-center/product-proof/founder-loop"],
+        backend_route_refs=["GET /control-center/today/summary"],
     ),
     CriticalSurfaceBinding(
         surface_ref="critical-surface:action-inbox",

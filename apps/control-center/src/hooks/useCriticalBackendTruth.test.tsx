@@ -5,7 +5,7 @@ import { useCriticalBackendTruth } from "./useCriticalBackendTruth";
 
 function truth(
   revision: string,
-  evidenceStatus: ControlCenterBackendTruth["evidence_binding"]["status"] = "unverified_incomplete",
+  evidenceStatus: ControlCenterBackendTruth["evidence_binding"]["status"] = "verified_complete",
 ): ControlCenterBackendTruth {
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
@@ -21,12 +21,19 @@ function truth(
       acceptance_integrity_ref: "proof-ref:test",
       action_refs: [],
       run_refs: [],
-      proof_refs: [],
+      proof_refs:
+        evidenceStatus === "verified_complete" ? ["proof-ref:test"] : [],
       receipt_refs:
-        evidenceStatus === "invalid_evidence" ? ["receipt-ref:corrupt-proof"] : [],
-      evidence_refs: [],
+        evidenceStatus === "verified_complete"
+          ? ["receipt-ref:test"]
+          : evidenceStatus === "invalid_evidence"
+            ? ["receipt-ref:corrupt-proof"]
+            : [],
+      evidence_refs:
+        evidenceStatus === "verified_complete" ? ["evidence-ref:test"] : [],
       memory_candidate_refs: [],
-      issue_refs: ["issue-ref:test"],
+      issue_refs:
+        evidenceStatus === "verified_complete" ? [] : ["issue-ref:test"],
     },
     authority_posture: {
       mode_ref: "authority-mode-ref:read-only-local",
@@ -112,6 +119,40 @@ describe("useCriticalBackendTruth", () => {
     expect(result.current.errorRef).toBe("BACKEND_TRUTH_EVIDENCE_INVALID");
     expect(result.current.lastVerified?.backendRevisionRef).toBe(
       "commit-ref:git:verified",
+    );
+  });
+
+  it("fails closed when durable evidence is incomplete", async () => {
+    const loader = vi.fn<() => Promise<ControlCenterBackendTruth>>().mockResolvedValue(
+      truth("commit-ref:git:verified", "unverified_incomplete"),
+    );
+    const { result } = renderHook(() => useCriticalBackendTruth(true, loader));
+
+    await waitFor(() => expect(result.current.status).toBe("degraded"));
+    expect(result.current.errorRef).toBe("BACKEND_TRUTH_EVIDENCE_INCOMPLETE");
+  });
+
+  it("requires a fresh validation after the boundary is disabled and re-enabled", async () => {
+    const second = deferred<ControlCenterBackendTruth>();
+    const loader = vi
+      .fn<() => Promise<ControlCenterBackendTruth>>()
+      .mockResolvedValueOnce(truth("commit-ref:git:first"))
+      .mockReturnValueOnce(second.promise);
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useCriticalBackendTruth(enabled, loader),
+      { initialProps: { enabled: true } },
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    rerender({ enabled: false });
+    expect(result.current.status).toBe("loading");
+    rerender({ enabled: true });
+    expect(result.current.status).toBe("loading");
+
+    await act(async () => second.resolve(truth("commit-ref:git:second")));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.lastVerified?.backendRevisionRef).toBe(
+      "commit-ref:git:second",
     );
   });
 });

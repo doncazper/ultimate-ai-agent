@@ -107,4 +107,28 @@ describe("critical backend truth boundary", () => {
     expect(screen.queryByText(/not showing unverified product state/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
   });
+
+  it("routes the critical Morning Briefing alias to the briefing surface", () => {
+    window.history.pushState({}, "", "/morning-briefing");
+    const data = backendData("backend_owned");
+    data.routeStates["/briefing"].state = "backend_owned";
+    mocked.controlCenterState = { status: "ready", data, error: null };
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Morning Briefing" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
+  });
+
+  it("does not render mock workspace product content while critical data loads", async () => {
+    window.history.pushState({}, "", "/workspace/today");
+    mocked.controlCenterState = { status: "loading", data: null, error: null };
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(/is loading local route state$/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Preview data")).not.toBeInTheDocument();
+  });
 });
