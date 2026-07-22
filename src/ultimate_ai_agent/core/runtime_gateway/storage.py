@@ -1134,6 +1134,7 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         payload_fingerprint_ref: str | None = None,
         policy_decision: RuntimePolicyDecision | None = None,
+        local_model_gateway_error_recheck: Callable[[], str | None] | None = None,
     ) -> RuntimeInvocationRecord:
         with self._exclusive_mutation():
             record = self.get_invocation(invocation_ref)
@@ -1153,9 +1154,58 @@ class RuntimeInvocationStore:
             )
             if replayed is not None:
                 return replayed
-            decision_to_store = policy_decision or record.policy_decision
             if (
-                decision_to_store.policy_decision_ref
+                local_model_gateway_error_recheck is not None
+                and policy_decision is None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_LOCAL_MODEL_ATTEMPT_POLICY_REQUIRED"
+                )
+            receipt_policy_decision = policy_decision or record.policy_decision
+            decision_to_store = receipt_policy_decision
+            status_to_store = _status_after_safe_disable(
+                record,
+                RuntimeInvocationStatus(receipt.invocation_status),
+            )
+            if local_model_gateway_error_recheck is not None:
+                gateway_error = local_model_gateway_error_recheck()
+                if gateway_error is not None and not isinstance(gateway_error, str):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_LOCAL_MODEL_GATEWAY_RECHECK_INVALID"
+                    )
+                if gateway_error is not None:
+                    validate_safe_execution_text(
+                        gateway_error,
+                        "gateway_error_category",
+                    )
+                    if status_to_store is not RuntimeInvocationStatus.safe_disabled:
+                        status_to_store = RuntimeInvocationStatus.execution_blocked
+                decision_to_store = build_policy_decision(
+                    record.request,
+                    invocation_ref=record.invocation_ref,
+                    approval_ref=record.approval_requirement.approval_ref,
+                    status=status_to_store,
+                    local_model_gateway_validated=gateway_error is None,
+                    active_authority_leases=self.current_authority_leases(),
+                    kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+                ).model_copy(
+                    update={
+                        "approval_requirement": record.approval_requirement,
+                        "invocation_status": status_to_store,
+                    }
+                )
+                if (
+                    status_to_store is not RuntimeInvocationStatus.safe_disabled
+                    and not decision_to_store.allowed_to_execute
+                ):
+                    status_to_store = RuntimeInvocationStatus.execution_blocked
+                    decision_to_store = decision_to_store.model_copy(
+                        update={"invocation_status": status_to_store}
+                    )
+            if (
+                receipt_policy_decision.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+                or decision_to_store.policy_decision_ref
                 != record.policy_decision.policy_decision_ref
             ):
                 raise RuntimeInvocationStorageError(
@@ -1163,7 +1213,7 @@ class RuntimeInvocationStore:
                 )
             receipt_to_store = receipt.model_copy(
                 update={
-                    "policy_decision_ref": decision_to_store.policy_decision_ref,
+                    "policy_decision_ref": receipt_policy_decision.policy_decision_ref,
                     "safe_disable": record.safe_disable,
                 }
             )
@@ -1171,10 +1221,7 @@ class RuntimeInvocationStore:
                 update={
                     "policy_decision": decision_to_store,
                     "receipt": receipt_to_store,
-                    "status": _status_after_safe_disable(
-                        record,
-                        receipt.invocation_status,
-                    ),
+                    "status": status_to_store,
                     "updated_at": utc_now(),
                 }
             )
@@ -1345,8 +1392,40 @@ class RuntimeInvocationStore:
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_REPLAY_POSTURE_AUTHORITY_CHANGED_DURING_REVALIDATION"
                 )
+            persisted_policy_posture = record.policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            if (
+                record.status == target_status.value
+                and persisted_policy_posture == expected_policy_posture
+            ):
+                replayed = record.model_copy(
+                    update={"replay_count": record.replay_count + 1}
+                )
+                self._records[record.invocation_ref] = replayed
+                return replayed
+            prior_entry_hash_ref = next(
+                (
+                    entry.entry_hash_ref
+                    for entry in reversed(self._entries)
+                    if entry.invocation_ref == invocation_ref
+                ),
+                None,
+            )
+            if prior_entry_hash_ref is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_PRIOR_ENTRY_REQUIRED"
+                )
+            transition_idempotency_ref = _hash_ref(
+                "idempotency-ref",
+                {
+                    "base_idempotency_ref": idempotency_ref,
+                    "prior_entry_hash_ref": prior_entry_hash_ref,
+                },
+            )
             replayed = self._idempotent_operation_replay(
-                idempotency_ref,
+                transition_idempotency_ref,
                 payload_fingerprint_ref,
             )
             if replayed is not None:
@@ -1362,7 +1441,7 @@ class RuntimeInvocationStore:
             self._append(
                 "replay_posture_recorded",
                 updated,
-                entry_idempotency_ref=idempotency_ref,
+                entry_idempotency_ref=transition_idempotency_ref,
                 payload_fingerprint_ref=payload_fingerprint_ref,
             )
             return updated

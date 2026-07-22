@@ -637,6 +637,11 @@ class RuntimeGateway:
                 },
             ),
             policy_decision=attempt_policy_decision,
+            local_model_gateway_error_recheck=lambda: _blocked_error_category(
+                runtime_disabled=self.store.operator_safe_disable_active(),
+                runtime_enabled=self._runtime_local_model_enabled(),
+                endpoint_error=_validate_loopback_endpoint(request),
+            ),
         )
         return RuntimeLocalModelGatewayResult(
             record=updated,

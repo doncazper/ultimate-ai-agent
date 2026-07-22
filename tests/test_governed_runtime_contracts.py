@@ -65,6 +65,7 @@ from tests.authority_helpers import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REDACTED_TEST_PROMPT = "[redacted-test-input]"
 
 
 def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
@@ -964,7 +965,7 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
         messages=[
-            RuntimeLocalModelMessage(role="user", content="local prompt should not persist")
+            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
@@ -1001,7 +1002,7 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
-    assert "local prompt should not persist" not in persisted
+    assert REDACTED_TEST_PROMPT not in persisted
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "raw_prompt" not in persisted
     assert "provider_payload" not in persisted
@@ -1028,7 +1029,7 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
         messages=[
-            RuntimeLocalModelMessage(role="user", content="allowed prompt should not persist")
+            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
@@ -1075,7 +1076,7 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
-    assert "allowed prompt should not persist" not in persisted
+    assert REDACTED_TEST_PROMPT not in persisted
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "provider_payload" not in persisted
 
@@ -1107,7 +1108,7 @@ def test_runtime_gateway_blocked_receipt_stays_non_executable_after_authority_gr
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="blocked authority prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Keep a previously blocked model call non-executable.",
@@ -1154,7 +1155,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
         messages=[
-            RuntimeLocalModelMessage(role="user", content="replay should observe latest posture")
+            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
@@ -1239,7 +1240,7 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="revoked authority prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1289,7 +1290,7 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
-    assert "revoked authority prompt must not persist" not in persisted
+    assert REDACTED_TEST_PROMPT not in persisted
     assert "LOCAL_MODEL_AUTHORITY_REPLAY_OK" not in persisted
 
 
@@ -1313,7 +1314,7 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="replacement authority prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1363,11 +1364,12 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
     )
     monkeypatch.setattr(store, "current_authority_leases", lambda: [replacement])
+    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
+    before_replacement_again = ledger_path.read_bytes()
     replacement_again = gateway.invoke_local_model(
         request,
         idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
     )
-    ledger_path = tmp_path / "runtime_gateway_invocations.jsonl"
     before_revalidated_replay = ledger_path.read_bytes()
     revalidated_again = gateway.invoke_local_model(
         request,
@@ -1384,7 +1386,8 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         "authority-lease-ref:test-provider-model-replacement"
     )
     assert revalidated_again.record.receipt == replacement_again.record.receipt
-    assert ledger_path.read_bytes() != before_revalidated_replay
+    assert before_revalidated_replay != before_replacement_again
+    assert ledger_path.read_bytes() == before_revalidated_replay
     assert store.get_invocation(first.record.invocation_ref) == revalidated_again.record
     before_stable_replay = ledger_path.read_bytes()
     stable_replay = gateway.invoke_local_model(
@@ -1426,7 +1429,7 @@ def test_runtime_gateway_local_model_replay_rejects_posture_change_in_store_lock
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="authority race prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1505,7 +1508,7 @@ def test_runtime_gateway_local_model_replay_rejects_gateway_change_in_store_lock
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="gateway race prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1563,7 +1566,7 @@ def test_runtime_gateway_local_model_replay_binds_exact_gateway_error_category(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="gateway cause race prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1628,7 +1631,7 @@ def test_runtime_gateway_local_model_replay_binds_exact_receipt_inside_store_loc
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="receipt race prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Bind replay to the exact durable receipt.",
@@ -1699,7 +1702,7 @@ def test_runtime_gateway_local_model_replay_key_binds_exact_durable_receipt(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="receipt key prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Bind replay idempotency to the exact durable receipt.",
@@ -1759,7 +1762,7 @@ def test_runtime_gateway_blocked_replay_revalidates_before_equal_posture_return(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="blocked replay race prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Keep disabled local model runtime blocked.",
@@ -1819,7 +1822,7 @@ def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="posture replay prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -1854,7 +1857,7 @@ def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path)
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
         messages=[
-            RuntimeLocalModelMessage(role="user", content="disabled prompt should not persist")
+            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
     )
@@ -1874,7 +1877,7 @@ def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path)
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
-    assert "disabled prompt should not persist" not in persisted
+    assert REDACTED_TEST_PROMPT not in persisted
     assert "SHOULD_NOT_RUN" not in persisted
 
 
@@ -1888,7 +1891,7 @@ def test_runtime_gateway_blocks_non_loopback_model_url_without_persisting_url(
     request = RuntimeLocalModelCallRequest(
         base_url="http://example.com:8080",
         model_ref="uaa-local-runtime",
-        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Attempt local model runtime with endpoint validation.",
     )
 
@@ -1906,7 +1909,7 @@ def test_runtime_gateway_blocks_non_loopback_model_url_without_persisting_url(
         encoding="utf-8"
     )
     assert "example.com" not in persisted
-    assert "safe transient prompt" not in persisted
+    assert REDACTED_TEST_PROMPT not in persisted
 
 
 @pytest.mark.parametrize(
@@ -1937,7 +1940,7 @@ def test_runtime_gateway_blocks_unconfigured_or_scoped_model_urls_without_transp
     request = RuntimeLocalModelCallRequest(
         base_url=base_url,
         model_ref="uaa-local-runtime",
-        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Attempt local model runtime with endpoint validation.",
     )
 
@@ -3814,7 +3817,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
     )
     with pytest.raises(RuntimeError):
@@ -3944,7 +3947,7 @@ def test_runtime_gateway_persists_unknown_attempt_marker_before_transport(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="unknown attempt prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Persist an outcome-unknown marker before transport.",
@@ -4064,7 +4067,7 @@ def test_runtime_gateway_replays_complete_failed_local_model_receipt_exactly(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="failed receipt prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Replay one complete failed receipt exactly.",
@@ -4118,7 +4121,7 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="inflight policy prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Preserve exact policy provenance for an in-flight call.",
@@ -4162,6 +4165,96 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     )
 
 
+@pytest.mark.parametrize("posture_change", ["safe_disabled", "lease_revoked"])
+def test_runtime_gateway_inflight_final_receipt_preserves_current_denial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    posture_change: str,
+) -> None:
+    transport_started = threading.Event()
+    release_transport = threading.Event()
+    calls = 0
+    invocation_refs: list[str] = []
+    errors: list[BaseException] = []
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        transport_started.set()
+        assert release_transport.wait(timeout=5)
+        return FakeM164GatewayTransport("INFLIGHT_DENIAL_PROVENANCE_OK")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content=REDACTED_TEST_PROMPT,
+            )
+        ],
+        safe_summary="Preserve current denial after an in-flight attempt.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-inflight-denial"
+
+    def invoke_first() -> None:
+        try:
+            result = gateway.invoke_local_model(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+            invocation_refs.append(result.record.invocation_ref)
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    first = threading.Thread(target=invoke_first)
+    first.start()
+    assert transport_started.wait(timeout=5)
+    if posture_change == "safe_disabled":
+        store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:inflight-finalization-denial"
+            ),
+            idempotency_ref="idempotency-ref:inflight-finalization-denial",
+        )
+    else:
+        monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+    release_transport.set()
+    first.join(timeout=5)
+
+    assert errors == []
+    assert len(invocation_refs) == 1
+    assert calls == 1
+    durable = store.get_invocation(invocation_refs[0])
+    assert durable.status == (
+        "safe_disabled"
+        if posture_change == "safe_disabled"
+        else "execution_blocked"
+    )
+    assert durable.policy_decision.allowed_to_execute is False
+    assert durable.policy_decision.adapter_execution_enabled is False
+    assert durable.policy_decision.model_call_enabled is False
+    assert durable.receipt is not None
+    assert durable.receipt.execution_performed is True
+    assert durable.receipt.adapter_execution_performed is True
+    assert durable.receipt.model_call_performed is True
+    assert durable.receipt.model_receipt_metadata is not None
+    assert durable.receipt.model_receipt_metadata.error_category is None
+    assert durable.receipt.safe_disable.active is (
+        posture_change == "safe_disabled"
+    )
+
+
 def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_receipt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4195,7 +4288,7 @@ def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_rece
         messages=[
             RuntimeLocalModelMessage(
                 role="user",
-                content="concurrent receipt prompt must not persist",
+                content=REDACTED_TEST_PROMPT,
             )
         ],
         safe_summary="Run local model runtime as an untrusted proposal.",
@@ -4272,7 +4365,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
     )
     first = gateway.invoke_local_model(
@@ -4340,7 +4433,7 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
         RuntimeLocalModelCallRequest(
             base_url="http://127.0.0.1:8080",
             model_ref="uaa-local-runtime",
-            messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+            messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
             safe_summary="Run local model runtime as an untrusted proposal.",
         ),
         idempotency_ref="idempotency-ref:runtime-local-model-race",
