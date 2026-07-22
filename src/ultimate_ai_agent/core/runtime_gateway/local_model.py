@@ -31,6 +31,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeProfile,
     build_local_model_receipt,
     build_policy_decision,
+    runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.command import (
     GovernedCommandRuntimeAdapter,
@@ -308,13 +309,29 @@ class RuntimeGateway:
             runtime_enabled=runtime_enabled,
             endpoint_error=endpoint_error,
         )
+        force_sealed = blocked_error not in {
+            None,
+            "RUNTIME_LOCAL_MODEL_SAFE_DISABLED",
+        }
         invocation_request = _runtime_invocation_request(
             request,
-            force_sealed=blocked_error not in {
-                None,
-                "RUNTIME_LOCAL_MODEL_SAFE_DISABLED",
-            },
+            force_sealed=force_sealed,
         )
+        existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        if (
+            existing is not None
+            and runtime_payload_fingerprint_ref(invocation_request)
+            != existing.payload_fingerprint_ref
+        ):
+            alternate_request = _runtime_invocation_request(
+                request,
+                force_sealed=not force_sealed,
+            )
+            if (
+                runtime_payload_fingerprint_ref(alternate_request)
+                == existing.payload_fingerprint_ref
+            ):
+                invocation_request = alternate_request
         created = self.store.create_invocation(
             invocation_request,
             idempotency_ref=idempotency_ref,
@@ -337,6 +354,16 @@ class RuntimeGateway:
                 and record.status == RuntimeInvocationStatus.safe_disabled.value
             ):
                 replay_blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+            if (
+                replay_blocked_error is None
+                and record.receipt is not None
+                and not _receipt_proves_successful_local_model_call(record)
+            ):
+                replay_blocked_error = (
+                    record.receipt.model_receipt_metadata.error_category
+                    if record.receipt.model_receipt_metadata is not None
+                    else None
+                ) or "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_BLOCKED"
             replay_policy_decision = build_policy_decision(
                 record.request,
                 invocation_ref=record.invocation_ref,
@@ -368,8 +395,16 @@ class RuntimeGateway:
                 )
             if record.receipt is not None:
                 if replay_blocked_error is None:
+                    revalidated = record.model_copy(
+                        update={
+                            "approval_requirement": (
+                                replay_policy_decision.approval_requirement
+                            ),
+                            "policy_decision": replay_policy_decision,
+                        }
+                    )
                     return RuntimeLocalModelGatewayResult(
-                        record=record,
+                        record=revalidated,
                         request_byte_count=(
                             record.receipt.model_receipt_metadata.request_byte_count
                             if record.receipt.model_receipt_metadata
@@ -667,6 +702,21 @@ def _runtime_invocation_request(
             *([request.mission_ref] if request.mission_ref else []),
             *request.metadata_refs,
         ],
+    )
+
+
+def _receipt_proves_successful_local_model_call(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    receipt = record.receipt
+    metadata = receipt.model_receipt_metadata if receipt is not None else None
+    return bool(
+        receipt is not None
+        and record.status == RuntimeInvocationStatus.receipt_recorded.value
+        and receipt.execution_performed
+        and receipt.model_call_performed
+        and metadata is not None
+        and metadata.error_category is None
     )
 
 

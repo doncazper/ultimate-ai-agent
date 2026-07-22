@@ -764,6 +764,17 @@ class RuntimeInvocationStore:
         except KeyError as exc:
             raise RuntimeInvocationNotFoundError(invocation_ref) from exc
 
+    def get_invocation_for_idempotency(
+        self,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord | None:
+        self._load()
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        invocation_ref = self._idempotency_index.get(idempotency_ref)
+        if invocation_ref is None:
+            return None
+        return self._records[invocation_ref]
+
     def operator_safe_disable_active(self) -> bool:
         self._load()
         return self._canonical_safe_disable_state.active
@@ -1629,6 +1640,10 @@ class RuntimeInvocationStore:
                 derived_state = _operator_safe_disable_state(self._records.values())
                 if self._safe_disable_state_path_present():
                     persisted_state = self._load_operator_safe_disable_state()
+                    if self._records and derived_state is None:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                        )
                     if derived_state is not None and persisted_state != derived_state:
                         raise RuntimeInvocationStorageError(
                             "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"

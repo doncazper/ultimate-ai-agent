@@ -525,6 +525,33 @@ def test_runtime_store_safe_disable_sidecar_must_match_durable_ledger(
         RuntimeInvocationStore(tmp_path).operator_safe_disable_active()
 
 
+def test_runtime_store_rejects_sidecar_without_matching_ledger_state(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "source"
+    source = RuntimeInvocationStore(source_dir)
+    source.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:sidecar-without-ledger"),
+        idempotency_ref="idempotency-ref:sidecar-without-ledger",
+    )
+
+    target_dir = tmp_path / "target"
+    target = RuntimeInvocationStore(target_dir)
+    target.create_invocation(
+        _runtime_request(),
+        idempotency_ref="idempotency-ref:target-ledger-without-safe-disable",
+    )
+    (target_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).write_bytes(
+        (source_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_bytes()
+    )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_MISMATCH",
+    ):
+        RuntimeInvocationStore(target_dir).operator_safe_disable_active()
+
+
 def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -867,6 +894,111 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
     )
     assert "revoked authority prompt must not persist" not in persisted
     assert "LOCAL_MODEL_AUTHORITY_REPLAY_OK" not in persisted
+
+
+def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=lambda request: FakeM164GatewayTransport(
+                "LOCAL_MODEL_REVALIDATED_AUTHORITY_OK"
+            )
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="replacement authority prompt must not persist",
+            )
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+    replacement = provider_model_execute_authority_lease().model_copy(
+        update={
+            "lease_ref": "authority-lease-ref:test-provider-model-replacement"
+        }
+    )
+    monkeypatch.setattr(
+        store,
+        "current_authority_leases",
+        lambda: [replacement],
+    )
+
+    replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
+    )
+
+    assert first.record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-execute"
+    )
+    assert replay.replayed is True
+    assert replay.error_category is None
+    assert replay.record.policy_decision.allowed_to_execute is True
+    assert replay.record.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-provider-model-replacement"
+    )
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.model_call_performed is True
+
+
+def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("SHOULD_NOT_RUN_ON_BLOCKED_REPLAY")
+
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=False,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="posture replay prompt must not persist",
+            )
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-posture-fingerprint",
+    )
+    gateway._local_model_runtime_enabled = True
+    replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-posture-fingerprint",
+    )
+
+    assert calls == 0
+    assert first.error_category == "RUNTIME_LOCAL_MODEL_DISABLED_BY_DEFAULT"
+    assert replay.replayed is True
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_DISABLED_BY_DEFAULT"
+    assert replay.record.status == "execution_blocked"
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.model_call_performed is False
 
 
 def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path) -> None:
@@ -2859,6 +2991,20 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
+
+    second_replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
+    )
+    assert calls == 0
+    assert second_replay.replayed is True
+    assert second_replay.record.status == "execution_blocked"
+    assert (
+        second_replay.error_category
+        == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    )
+    assert second_replay.record.receipt is not None
+    assert second_replay.record.receipt.model_call_performed is False
 
 
 def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency_shape(
