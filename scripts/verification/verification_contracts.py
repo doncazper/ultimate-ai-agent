@@ -207,6 +207,11 @@ class VerificationUnit:
     parallel_safe: bool = True
     exclusive_resource_refs: tuple[str, ...] = ()
     proof_equivalence_ref: str = "proof-equivalence-ref:none"
+    resource_class_ref: str = "resource-class:lightweight"
+    resource_stage_ref: str = "resource-stage:unconstrained"
+    cpu_units: int = 1
+    memory_units: int = 1
+    evidence_posture: str = "required"
 
     @property
     def job_ref(self) -> str:
@@ -232,6 +237,20 @@ class VerificationUnit:
             label="verification exclusive resource refs",
         )
         _validate_ref(self.proof_equivalence_ref, label="proof equivalence ref")
+        _validate_ref(self.resource_class_ref, label="resource class ref")
+        _validate_ref(self.resource_stage_ref, label="resource stage ref")
+        if self.evidence_posture not in {"required", "derived", "typed_optional"}:
+            raise ValueError("verification unit evidence posture is invalid")
+        for value, label in (
+            (self.cpu_units, "verification unit CPU units"),
+            (self.memory_units, "verification unit memory units"),
+        ):
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 0 < value <= 4
+            ):
+                raise ValueError(f"{label} are invalid")
         if not isinstance(self.unit_kind, VerificationUnitKind):
             raise ValueError("verification unit kind is invalid")
         if not isinstance(self.minimum_risk_tier, VerificationRiskTier):

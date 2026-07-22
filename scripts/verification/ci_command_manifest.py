@@ -57,6 +57,19 @@ PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
 PLAYWRIGHT_BROWSER_DIRNAME = "playwright-browsers"
 GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS = 600
 PYTEST_JOB_SETUP_BUDGET_SECONDS = 900
+CI_MACHINE_CPU_BUDGET_UNITS = 4
+CI_MACHINE_MEMORY_BUDGET_UNITS = 4
+CI_RUNNER_SERVICE_COUNT = 4
+CI_ARCHITECTURE_PROFILE_REF = "ci-architecture:exact-head-evidence-dag-v1"
+CI_RESOURCE_STAGE_CAPACITIES = {
+    "resource-stage:bootstrap": 1,
+    "resource-stage:pre-suite-pool": 4,
+    "resource-stage:pytest-exclusive": 4,
+    "resource-stage:pytest-derived": 1,
+    "resource-stage:post-suite-pool": 4,
+    "resource-stage:performance-exclusive": 4,
+    "resource-stage:foundation-exclusive": 4,
+}
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 LOCKFILE_REFS = (
     "pyproject.toml",
@@ -588,24 +601,96 @@ _CI_JOB_GRAPH_BASE = (
         "manifest-attestation",
         "ci-manifest-attestation",
         (),
+        resource_stage_ref="resource-stage:bootstrap",
     ),
-    JobSpec("lint", "lint", "ci-lint", ("manifest-attestation",)),
+    JobSpec(
+        "lint",
+        "lint",
+        "ci-lint",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
     JobSpec(
         "affected-preflight",
         "affected-preflight",
         "ci-affected-preflight",
         ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-docs",
+        "Release Lane / Documentation Integrity",
+        "docs",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-openapi",
+        "Release Lane / OpenAPI Contract",
+        "openapi",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-api-safety",
+        "Release Lane / API Safety",
+        "api-safety",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-security-redaction",
+        "Release Lane / Security and Redaction",
+        "security-redaction",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-product-truth",
+        "Release Lane / Product Truth Regression",
+        "product-truth-regression",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-local-model-e2e",
+        "Release Lane / Local Model E2E",
+        "local-model-e2e",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
+    ),
+    JobSpec(
+        "release-lane-durability",
+        "Release Lane / Durability",
+        "durability",
+        ("manifest-attestation",),
+        resource_stage_ref="resource-stage:pre-suite-pool",
     ),
     JobSpec(
         "pytest-shards",
         "pytest / sharded suite",
         "ci-pytest-shards",
-        ("lint", "affected-preflight"),
+        (
+            "manifest-attestation",
+            "lint",
+            "affected-preflight",
+            "release-lane-docs",
+            "release-lane-openapi",
+            "release-lane-api-safety",
+            "release-lane-security-redaction",
+            "release-lane-product-truth",
+            "release-lane-local-model-e2e",
+            "release-lane-durability",
+        ),
         timeout_minutes=60,
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
         exclusive_resource_refs=("resource-ref:complete-pytest",),
         proof_equivalence_ref="proof-equivalence-ref:complete-pytest",
+        resource_class_ref="resource-class:exclusive-machine",
+        resource_stage_ref="resource-stage:pytest-exclusive",
+        cpu_units=4,
+        memory_units=4,
     ),
     JobSpec(
         "pytest",
@@ -616,115 +701,81 @@ _CI_JOB_GRAPH_BASE = (
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
         proof_equivalence_ref="proof-equivalence-ref:complete-pytest-aggregate",
-    ),
-    JobSpec("static-verification", "static-verification", "ci-static", ("pytest",)),
-    JobSpec(
-        "release-lane-docs",
-        "Release Lane / Documentation Integrity",
-        "docs",
-        ("pytest",),
+        resource_stage_ref="resource-stage:pytest-derived",
+        evidence_posture="derived",
     ),
     JobSpec(
-        "release-lane-openapi",
-        "Release Lane / OpenAPI Contract",
-        "openapi",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-api-safety",
-        "Release Lane / API Safety",
-        "api-safety",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-security-redaction",
-        "Release Lane / Security and Redaction",
-        "security-redaction",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-product-truth",
-        "Release Lane / Product Truth Regression",
-        "product-truth-regression",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-local-model-e2e",
-        "Release Lane / Local Model E2E",
-        "local-model-e2e",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-durability",
-        "Release Lane / Durability",
-        "durability",
-        ("pytest",),
-    ),
-    JobSpec(
-        "release-lane-desktop-packaging",
-        "Release Lane / Desktop and Local Packaging Proof",
-        "desktop-packaging",
-        ("pytest",),
+        "static-verification",
+        "static-verification",
+        "ci-static",
+        ("manifest-attestation", "pytest"),
+        resource_class_ref="resource-class:cpu-half-machine",
+        resource_stage_ref="resource-stage:post-suite-pool",
+        cpu_units=2,
+        memory_units=2,
     ),
     JobSpec(
         "control-center-frontend",
         "control-center-frontend",
         "ci-control-center-frontend",
-        (
-            "static-verification",
-            "release-lane-docs",
-            "release-lane-openapi",
-            "release-lane-api-safety",
-            "release-lane-security-redaction",
-            "release-lane-product-truth",
-            "release-lane-local-model-e2e",
-            "release-lane-durability",
-            "release-lane-desktop-packaging",
-        ),
+        ("manifest-attestation", "pytest"),
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
         exclusive_resource_refs=("resource-ref:typescript-typecheck",),
         proof_equivalence_ref="proof-equivalence-ref:frontend-complete",
+        resource_class_ref="resource-class:cpu-half-machine",
+        resource_stage_ref="resource-stage:post-suite-pool",
+        cpu_units=2,
+        memory_units=2,
+    ),
+    JobSpec(
+        "release-lane-desktop-packaging",
+        "Release Lane / Desktop and Local Packaging Proof",
+        "desktop-packaging",
+        ("manifest-attestation", "static-verification"),
+        resource_stage_ref="resource-stage:post-suite-pool",
+        evidence_posture="typed_optional",
     ),
     JobSpec(
         "release-lane-frontend",
         "Release Lane / Control Center Frontend",
         "frontend",
-        ("control-center-frontend",),
+        ("manifest-attestation", "control-center-frontend"),
+        resource_stage_ref="resource-stage:post-suite-pool",
     ),
     JobSpec(
         "release-lane-visual-regression",
         "Release Lane / Control Center Visual Regression",
         "visual-regression",
-        ("control-center-frontend",),
+        ("manifest-attestation", "control-center-frontend"),
+        resource_stage_ref="resource-stage:post-suite-pool",
+        evidence_posture="typed_optional",
     ),
     JobSpec(
         "release-lane-performance",
         "Release Lane / Performance",
         "performance",
         (
-            "lint",
-            "pytest",
+            "manifest-attestation",
             "static-verification",
-            "release-lane-docs",
-            "release-lane-openapi",
-            "release-lane-api-safety",
-            "release-lane-security-redaction",
-            "release-lane-product-truth",
-            "release-lane-local-model-e2e",
-            "release-lane-durability",
             "release-lane-frontend",
             "release-lane-visual-regression",
             "release-lane-desktop-packaging",
-            "control-center-frontend",
         ),
+        resource_class_ref="resource-class:exclusive-machine",
+        resource_stage_ref="resource-stage:performance-exclusive",
+        cpu_units=4,
+        memory_units=4,
     ),
     JobSpec(
         "foundation-gate-report",
         "foundation-gate-report",
         "ci-foundation-report",
         (
+            "manifest-attestation",
             "lint",
+            "affected-preflight",
+            "pytest-shards",
             "pytest",
             "static-verification",
             "release-lane-docs",
@@ -738,7 +789,12 @@ _CI_JOB_GRAPH_BASE = (
             "release-lane-visual-regression",
             "release-lane-desktop-packaging",
             "release-lane-performance",
+            "control-center-frontend",
         ),
+        resource_class_ref="resource-class:exclusive-machine",
+        resource_stage_ref="resource-stage:foundation-exclusive",
+        cpu_units=4,
+        memory_units=4,
     ),
 )
 
@@ -753,6 +809,64 @@ CI_JOB_GRAPH = tuple(
     )
     for unit in _CI_JOB_GRAPH_BASE
 )
+
+CI_REQUIRED_CHECK_CONTEXTS = tuple(unit.display_name for unit in CI_JOB_GRAPH)
+CI_MANDATORY_EVIDENCE_UNIT_REFS = tuple(
+    unit.unit_ref
+    for unit in CI_JOB_GRAPH
+    if unit.unit_kind is not VerificationUnitKind.AGGREGATE
+    and unit.evidence_posture == "required"
+)
+CI_TYPED_OPTIONAL_EVIDENCE_UNIT_REFS = tuple(
+    unit.unit_ref
+    for unit in CI_JOB_GRAPH
+    if unit.evidence_posture == "typed_optional"
+)
+CI_RESOURCE_CONCURRENCY_SETS = (
+    ("static-verification", "control-center-frontend"),
+    (
+        "static-verification",
+        "release-lane-frontend",
+        "release-lane-visual-regression",
+    ),
+    (
+        "release-lane-desktop-packaging",
+        "release-lane-frontend",
+        "release-lane-visual-regression",
+    ),
+)
+
+
+def ci_architecture_inventory() -> dict[str, Any]:
+    """Return the content-free old/new CI architecture inventory."""
+
+    return {
+        "schema_version": "uaa_ci_architecture_inventory.v1",
+        "previous_profile_ref": "ci-architecture:serialized-post-pytest-v1",
+        "current_profile_ref": CI_ARCHITECTURE_PROFILE_REF,
+        "runner_service_count": CI_RUNNER_SERVICE_COUNT,
+        "machine_cpu_budget_units": CI_MACHINE_CPU_BUDGET_UNITS,
+        "machine_memory_budget_units": CI_MACHINE_MEMORY_BUDGET_UNITS,
+        "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
+        "pytest_worker_count": 4,
+        "required_check_contexts": CI_REQUIRED_CHECK_CONTEXTS,
+        "mandatory_evidence_unit_refs": CI_MANDATORY_EVIDENCE_UNIT_REFS,
+        "typed_optional_evidence_unit_refs": CI_TYPED_OPTIONAL_EVIDENCE_UNIT_REFS,
+        "resource_stage_capacities": tuple(sorted(CI_RESOURCE_STAGE_CAPACITIES.items())),
+        "job_profiles": tuple(
+            (
+                unit.unit_ref,
+                unit.needs,
+                unit.resource_class_ref,
+                unit.resource_stage_ref,
+                unit.cpu_units,
+                unit.memory_units,
+                unit.evidence_posture,
+            )
+            for unit in CI_JOB_GRAPH
+        ),
+        "redaction_status": "content_free_refs_counts_and_budgets_only",
+    }
 
 
 VERIFICATION_DAG = (
@@ -817,6 +931,7 @@ def definition_payload() -> dict[str, Any]:
         "commands": [asdict(commands[key]) for key in sorted(commands)],
         "lanes": [asdict(lanes[key]) for key in sorted(lanes)],
         "risk_manifest": risk_definition_payload(),
+        "ci_architecture": ci_architecture_inventory(),
         "verification_dag": [asdict(unit) for unit in VERIFICATION_DAG],
         "job_graph": [
             {
@@ -825,6 +940,11 @@ def definition_payload() -> dict[str, Any]:
                 "lane_ref": job.lane_ref,
                 "needs": list(job.needs),
                 "timeout_minutes": job.timeout_minutes,
+                "resource_class_ref": job.resource_class_ref,
+                "resource_stage_ref": job.resource_stage_ref,
+                "cpu_units": job.cpu_units,
+                "memory_units": job.memory_units,
+                "evidence_posture": job.evidence_posture,
             }
             for job in CI_JOB_GRAPH
         ],
@@ -920,6 +1040,31 @@ def validate_definition() -> list[str]:
         for dependency in job.needs:
             if dependency not in job_refs:
                 failures.append(f"unknown job dependency: {job.job_ref}:{dependency}")
+        stage_capacity = CI_RESOURCE_STAGE_CAPACITIES.get(job.resource_stage_ref)
+        if stage_capacity is None:
+            failures.append(f"unknown resource stage: {job.job_ref}")
+        elif job.cpu_units > stage_capacity or job.memory_units > stage_capacity:
+            failures.append(f"job exceeds resource stage capacity: {job.job_ref}")
+        if (
+            job.cpu_units > CI_MACHINE_CPU_BUDGET_UNITS
+            or job.memory_units > CI_MACHINE_MEMORY_BUDGET_UNITS
+        ):
+            failures.append(f"job exceeds machine resource budget: {job.job_ref}")
+    if CI_RUNNER_SERVICE_COUNT != CI_MACHINE_CPU_BUDGET_UNITS:
+        failures.append("runner service count must equal the machine CPU budget")
+    jobs_by_ref = {job.job_ref: job for job in CI_JOB_GRAPH}
+    for concurrency_set in CI_RESOURCE_CONCURRENCY_SETS:
+        units = tuple(jobs_by_ref[unit_ref] for unit_ref in concurrency_set)
+        if sum(unit.cpu_units for unit in units) > CI_MACHINE_CPU_BUDGET_UNITS:
+            failures.append("concurrent CI set exceeds machine CPU budget")
+        if sum(unit.memory_units for unit in units) > CI_MACHINE_MEMORY_BUDGET_UNITS:
+            failures.append("concurrent CI set exceeds machine memory budget")
+    for job in CI_JOB_GRAPH:
+        if job.resource_class_ref == "resource-class:exclusive-machine" and (
+            job.cpu_units != CI_MACHINE_CPU_BUDGET_UNITS
+            or job.memory_units != CI_MACHINE_MEMORY_BUDGET_UNITS
+        ):
+            failures.append(f"exclusive machine job is under-declared: {job.job_ref}")
     unit_refs = {unit.unit_ref for unit in VERIFICATION_DAG}
     for tier_refs in risk_definition_payload()["tier_base_unit_refs"].values():
         for unit_ref in tier_refs:

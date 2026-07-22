@@ -45,7 +45,20 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         job for job in manifest.CI_JOB_GRAPH if job.job_ref == "pytest-shards"
     )
     assert affected.needs == ("manifest-attestation",)
-    assert pytest_job.needs == ("lint", "affected-preflight")
+    assert pytest_job.needs[:3] == (
+        "manifest-attestation",
+        "lint",
+        "affected-preflight",
+    )
+    assert set(pytest_job.needs[3:]) == {
+        "release-lane-docs",
+        "release-lane-openapi",
+        "release-lane-api-safety",
+        "release-lane-security-redaction",
+        "release-lane-product-truth",
+        "release-lane-local-model-e2e",
+        "release-lane-durability",
+    }
     assert pytest_job.command_refs == ("command:pytest.sharded-suite",)
     assert all(
         job.command_refs == manifest.lane_registry()[job.lane_ref].command_refs
@@ -72,6 +85,26 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
             )
         )
     ]
+
+
+def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -> None:
+    inventory = manifest.ci_architecture_inventory()
+    jobs = {job.job_ref: job for job in manifest.CI_JOB_GRAPH}
+
+    assert inventory["current_profile_ref"] == (
+        "ci-architecture:exact-head-evidence-dag-v1"
+    )
+    assert inventory["runner_service_count"] == 4
+    assert inventory["pytest_shard_count"] == 8
+    assert inventory["pytest_worker_count"] == 4
+    assert inventory["required_check_contexts"] == tuple(
+        job.display_name for job in manifest.CI_JOB_GRAPH
+    )
+    for concurrent_refs in manifest.CI_RESOURCE_CONCURRENCY_SETS:
+        assert sum(jobs[ref].cpu_units for ref in concurrent_refs) <= 4
+        assert sum(jobs[ref].memory_units for ref in concurrent_refs) <= 4
+    for ref in ("pytest-shards", "release-lane-performance", "foundation-gate-report"):
+        assert jobs[ref].cpu_units == jobs[ref].memory_units == 4
 
 
 def test_definition_rejects_private_on_a_runtime_ineligible_unit(
@@ -243,14 +276,14 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert plan.schema_version == "uaa_ci_command_manifest.v3"
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
-    assert plan.selected_command_refs == (
+    assert plan.selected_command_refs[0:4] == (
         "command:ci.manifest-attestation",
         "command:ci.ruff",
         "command:ci.self-hosted-contract",
         "command:affected.preflight",
-        "command:pytest.sharded-suite",
-        "command:docs.integrity",
     )
+    assert "command:pytest.sharded-suite" in plan.selected_command_refs
+    assert "command:docs.integrity" in plan.selected_command_refs
     assert plan.frontend_visual_scope == "affected"
     assert len(plan.pytest_shard_plan_fingerprint) == 64
     assert len(plan.platform_fingerprint) == 64

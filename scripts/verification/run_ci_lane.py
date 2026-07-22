@@ -191,6 +191,7 @@ def _safe_env(
     command: CommandSpec,
     temp_root: Path,
     base_sha: str | None = None,
+    visual_scope: str | None = None,
 ) -> dict[str, str]:
     env = build_shard_env(ROOT)
     isolated_home = temp_root / "runtime-home"
@@ -214,6 +215,8 @@ def _safe_env(
     )
     if base_sha is not None:
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
+    if visual_scope is not None:
+        env["UAA_VERIFICATION_VISUAL_SCOPE"] = visual_scope
     if command.command_ref in {
         "command:frontend.check",
         "command:frontend.visual-regression",
@@ -435,6 +438,7 @@ def _run_command(
     *,
     repository_sha: str,
     base_sha: str | None = None,
+    visual_scope: str | None = None,
     temp_root: Path,
     validate_start: Callable[[], None] | None = None,
     before_start: Callable[[], None] | None = None,
@@ -496,7 +500,12 @@ def _run_command(
                                 resolved_base_sha,
                             ),
                             cwd=ROOT,
-                            env=_safe_env(command, temp_root, resolved_base_sha),
+                            env=_safe_env(
+                                command,
+                                temp_root,
+                                resolved_base_sha,
+                                visual_scope,
+                            ),
                             stdout=output,
                             stderr=subprocess.STDOUT,
                         )
@@ -811,11 +820,13 @@ def _build_typed_lane_evidence(
             ).removeprefix("sha256:")
             observed_test_count = int(pytest_collection["collected_test_count"])
     elif any(
-        command_ref in {
+        result["command_ref"] in {
             "command:frontend.check",
             "command:frontend.visual-regression",
         }
-        for command_ref in result_command_refs
+        and result["status"]
+        not in {"skipped", "not_applicable", "satisfied_by_required_dependency"}
+        for result in results
     ):
         frontend_is_reused = any(
             result["command_ref"] == "command:frontend.check"
@@ -1602,6 +1613,7 @@ def run_lane(
                 commands[command_ref],
                 repository_sha=repository_sha,
                 base_sha=resolved_base_sha,
+                visual_scope=visual_scope,
                 temp_root=temp_root,
                 validate_start=(
                     validate_command_start

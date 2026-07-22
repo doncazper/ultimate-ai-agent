@@ -6,7 +6,7 @@ from collections import Counter
 from typing import Protocol
 
 
-CANONICAL_PYTEST_SHARD_COUNT = 9
+CANONICAL_PYTEST_SHARD_COUNT = 8
 
 
 class ShardPlanLike(Protocol):

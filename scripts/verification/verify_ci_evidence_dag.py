@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import stat
+import sys
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verification.ci_command_manifest import (  # noqa: E402
+    CI_ARCHITECTURE_PROFILE_REF,
+    CI_JOB_GRAPH,
+    build_plan,
+    ci_architecture_inventory,
+)
+from scripts.verification.verification_contracts import (  # noqa: E402
+    VerificationTerminalStatus,
+    VerificationUnitKind,
+    dependency_lock_set_fingerprint,
+)
+from scripts.verification.verification_github_transport import (  # noqa: E402
+    VerificationGithubTransportError,
+    decode_github_job_output,
+    validate_github_job_output_against_plan,
+)
+
+SCHEMA_VERSION = "uaa_ci_evidence_dag_gate.v1"
+SAFE_REF = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,191}$")
+SHA = re.compile(r"^[0-9a-f]{40}$")
+MAX_ENVELOPE_CHARS = 400_000
+MAX_OUTPUT_BYTES = 128 * 1024
+
+
+class CiEvidenceDagError(ValueError):
+    def __init__(self, reason_ref: str) -> None:
+        self.reason_ref = reason_ref
+        super().__init__(f"CI evidence DAG rejected ({reason_ref})")
+
+
+def _fail(reason_ref: str) -> None:
+    raise CiEvidenceDagError(reason_ref)
+
+
+def _parse_binding(value: str, *, label: str) -> tuple[str, str]:
+    if not isinstance(value, str) or "=" not in value:
+        _fail(f"reason-ref:ci-evidence:{label}-binding-invalid")
+    unit_ref, bound_value = value.split("=", 1)
+    if SAFE_REF.fullmatch(unit_ref) is None or not bound_value:
+        _fail(f"reason-ref:ci-evidence:{label}-binding-invalid")
+    return unit_ref, bound_value
+
+
+def _exact_map(values: tuple[str, ...], *, label: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for value in values:
+        unit_ref, bound_value = _parse_binding(value, label=label)
+        if unit_ref in result:
+            _fail(f"reason-ref:ci-evidence:{label}-duplicate")
+        result[unit_ref] = bound_value
+    return result
+
+
+def _optional_map(
+    values: tuple[str, ...],
+    expected_refs: tuple[str, ...],
+) -> dict[str, str]:
+    if not values:
+        return {unit_ref: "" for unit_ref in expected_refs}
+    result: dict[str, str] = {}
+    for value in values:
+        if not isinstance(value, str) or "=" not in value:
+            _fail("reason-ref:ci-evidence:optional-envelope-binding-invalid")
+        unit_ref, bound_value = value.split("=", 1)
+        if SAFE_REF.fullmatch(unit_ref) is None or unit_ref in result:
+            _fail("reason-ref:ci-evidence:optional-envelope-binding-invalid")
+        result[unit_ref] = bound_value
+    if tuple(result) != expected_refs:
+        _fail("reason-ref:ci-evidence:optional-envelope-membership-invalid")
+    return result
+
+
+def validate_final_gate(
+    repo: Path,
+    repository_sha: str,
+    base_sha: str,
+    visual_scope: str,
+    result_bindings: tuple[str, ...],
+    envelope_bindings: tuple[str, ...],
+    optional_envelope_bindings: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    if SHA.fullmatch(repository_sha) is None or SHA.fullmatch(base_sha) is None:
+        _fail("reason-ref:ci-evidence:sha-invalid")
+    if visual_scope not in {"affected", "not_affected"}:
+        _fail("reason-ref:ci-evidence:visual-scope-invalid")
+    upstream_units = tuple(unit for unit in CI_JOB_GRAPH if unit.unit_ref != "foundation-gate-report")
+    expected_refs = tuple(unit.unit_ref for unit in upstream_units)
+    expected_envelope_refs = tuple(
+        unit.unit_ref
+        for unit in upstream_units
+        if unit.evidence_posture != "typed_optional"
+    )
+    expected_optional_refs = tuple(
+        unit.unit_ref
+        for unit in upstream_units
+        if unit.evidence_posture == "typed_optional"
+    )
+    results = _exact_map(result_bindings, label="result")
+    envelopes = _exact_map(envelope_bindings, label="envelope")
+    optional_envelopes = _optional_map(
+        optional_envelope_bindings,
+        expected_optional_refs,
+    )
+    if tuple(results) != expected_refs:
+        _fail("reason-ref:ci-evidence:result-membership-invalid")
+    if tuple(envelopes) != expected_envelope_refs:
+        _fail("reason-ref:ci-evidence:envelope-membership-invalid")
+    if any(results[unit_ref] != "success" for unit_ref in expected_refs):
+        _fail("reason-ref:ci-evidence:upstream-not-successful")
+    try:
+        plan = build_plan(
+            repo,
+            repository_sha,
+            base_sha=base_sha,
+            frontend_visual_scope=visual_scope,
+            verify_repository_state=True,
+        )
+    except ValueError:
+        _fail("reason-ref:ci-evidence:canonical-plan-invalid")
+    units_by_ref = {unit.unit_ref: unit for unit in upstream_units}
+    receipt_refs: list[tuple[str, str]] = []
+    envelope_refs: list[tuple[str, str]] = []
+    for unit in upstream_units:
+        unit_ref = unit.unit_ref
+        encoded = (
+            optional_envelopes[unit_ref]
+            if unit_ref in optional_envelopes
+            else envelopes[unit_ref]
+        )
+        if not encoded:
+            continue
+        if len(encoded) > MAX_ENVELOPE_CHARS:
+            _fail("reason-ref:ci-evidence:envelope-size-invalid")
+        try:
+            envelope = decode_github_job_output(encoded)
+            validate_github_job_output_against_plan(envelope, plan)
+        except VerificationGithubTransportError:
+            _fail("reason-ref:ci-evidence:envelope-invalid")
+        receipt = envelope.receipt
+        unit = units_by_ref[unit_ref]
+        if receipt.unit_ref != unit_ref:
+            _fail("reason-ref:ci-evidence:cross-unit-substitution")
+        if receipt.status is not VerificationTerminalStatus.PASSED:
+            _fail("reason-ref:ci-evidence:receipt-not-accepted")
+        if unit.unit_kind is VerificationUnitKind.AGGREGATE:
+            run = envelope.final_run_manifest
+            expected_missing = tuple(
+                candidate.unit_ref
+                for candidate in CI_JOB_GRAPH
+                if candidate.unit_ref not in {
+                    *tuple(item.unit_ref for item in upstream_units[: upstream_units.index(unit) + 1])
+                }
+            )
+            if (
+                run is None
+                or run.status is not VerificationTerminalStatus.BLOCKED
+                or unit_ref not in dict(run.unit_receipt_bindings)
+                or run.missing_unit_refs != expected_missing
+                or run.failed_unit_refs
+                or run.reason_refs != ("reason-ref:verification:whole-run-incomplete",)
+            ):
+                _fail("reason-ref:ci-evidence:aggregate-proof-invalid")
+        elif envelope.final_run_manifest is not None:
+            _fail("reason-ref:ci-evidence:unexpected-run-manifest")
+        receipt_refs.append((unit_ref, receipt.receipt_ref))
+        envelope_refs.append((unit_ref, envelope.content_ref))
+    inventory = ci_architecture_inventory()
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "architecture_profile_ref": CI_ARCHITECTURE_PROFILE_REF,
+        "repository_sha": repository_sha,
+        "base_sha": base_sha,
+        "frontend_visual_scope": visual_scope,
+        "plan_fingerprint": plan.plan_fingerprint,
+        "command_manifest_fingerprint": plan.command_manifest_fingerprint,
+        "dependency_lock_set_fingerprint": dependency_lock_set_fingerprint(plan),
+        "verifier_definition_fingerprint": plan.verifier_definition_fingerprint,
+        "required_check_contexts": inventory["required_check_contexts"],
+        "receipt_bindings": tuple(receipt_refs),
+        "envelope_bindings": tuple(envelope_refs),
+        "redaction_status": "content_free_refs_hashes_and_statuses_only",
+    }
+    payload["content_fingerprint"] = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+    ).hexdigest()
+    return payload
+
+
+def _write_output(path: Path, payload: dict[str, Any]) -> None:
+    encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
+    if len(encoded) > MAX_OUTPUT_BYTES:
+        _fail("reason-ref:ci-evidence:output-size-invalid")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except OSError:
+        _fail("reason-ref:ci-evidence:output-invalid")
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            _fail("reason-ref:ci-evidence:output-invalid")
+        os.write(descriptor, encoded)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Validate the exact-head CI evidence DAG")
+    parser.add_argument("--repo", type=Path, default=ROOT)
+    parser.add_argument("--sha", required=True)
+    parser.add_argument("--base-sha", required=True)
+    parser.add_argument(
+        "--visual-scope",
+        required=True,
+        choices=("affected", "not_affected"),
+    )
+    parser.add_argument("--result", action="append", default=[])
+    parser.add_argument("--envelope", action="append", default=[])
+    parser.add_argument("--optional-envelope", action="append", default=[])
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        payload = validate_final_gate(
+            args.repo.resolve(),
+            args.sha,
+            args.base_sha,
+            args.visual_scope,
+            tuple(args.result),
+            tuple(args.envelope),
+            tuple(args.optional_envelope),
+        )
+        _write_output(args.output, payload)
+    except CiEvidenceDagError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    print("PASS: exact-head CI evidence DAG is complete and content-bound")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

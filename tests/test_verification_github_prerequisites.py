@@ -11,12 +11,15 @@ from pathlib import Path
 import pytest
 
 import scripts.verification.verification_github_prerequisites as prerequisites
+import scripts.verification.verify_ci_evidence_dag as evidence_dag
 from scripts.verification.ci_command_manifest import CI_JOB_GRAPH, VERIFICATION_DAG
 from scripts.verification.verification_contracts import (
     VerificationPlan,
     VerificationReceipt,
     VerificationRiskTier,
     VerificationTerminalStatus,
+    TEST_EXECUTION_COMMAND_REFS,
+    TYPESCRIPT_EXECUTION_COMMAND_REFS,
     dependency_lock_set_fingerprint,
     dependency_state_fingerprint,
     verification_dag_definition_fingerprint,
@@ -33,6 +36,7 @@ from scripts.verification.verification_github_prerequisites import (
     PYTEST_AGGREGATE_SOURCE_UNIT_REFS,
     VerificationGithubPrerequisiteError,
     append_github_output,
+    collect_pytest_aggregate,
     collect_foundation_prerequisites,
     encode_foundation_prerequisite_manifest,
     load_foundation_prerequisite_manifest,
@@ -73,14 +77,37 @@ TIMES = {
         "2026-07-15T00:00:01Z",
         "2026-07-15T00:00:02Z",
     ),
+    "release-lane-docs": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-openapi": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-api-safety": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-security-redaction": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-product-truth": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-local-model-e2e": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
+    "release-lane-durability": ("2026-07-15T00:00:01Z", "2026-07-15T00:00:02Z"),
     "pytest-shards": ("2026-07-15T00:00:02Z", "2026-07-15T00:00:03Z"),
     "static-verification": (
         "2026-07-15T00:00:03Z",
         "2026-07-15T00:00:04Z",
     ),
-    "release-lane-docs": (
+    "control-center-frontend": (
         "2026-07-15T00:00:03Z",
         "2026-07-15T00:00:04Z",
+    ),
+    "release-lane-desktop-packaging": (
+        "2026-07-15T00:00:04Z",
+        "2026-07-15T00:00:05Z",
+    ),
+    "release-lane-frontend": (
+        "2026-07-15T00:00:04Z",
+        "2026-07-15T00:00:05Z",
+    ),
+    "release-lane-visual-regression": (
+        "2026-07-15T00:00:04Z",
+        "2026-07-15T00:00:05Z",
+    ),
+    "release-lane-performance": (
+        "2026-07-15T00:00:05Z",
+        "2026-07-15T00:00:06Z",
     ),
 }
 
@@ -173,12 +200,19 @@ def _receipt(
     completed_at: str | None = None,
 ) -> VerificationReceipt:
     unit = UNITS_BY_REF[unit_ref]
+    typescript_execution = bool(
+        set(unit.command_refs).intersection(TYPESCRIPT_EXECUTION_COMMAND_REFS)
+    )
     default_started, default_completed = TIMES[unit_ref]
     result_refs = tuple(
         f"result-ref:verification:{hashlib.sha256(f'{unit_ref}:{command_ref}'.encode()).hexdigest()}"
         for command_ref in unit.command_refs
     )
-    collected = unit_ref == "pytest-shards"
+    collected = any(
+        command_ref.startswith("command:pytest.")
+        or command_ref in TEST_EXECUTION_COMMAND_REFS
+        for command_ref in unit.command_refs
+    )
     receipt = VerificationReceipt(
         schema_version="uaa_verification_receipt.v3",
         receipt_ref=f"receipt:verification:{'0' * 64}",
@@ -211,9 +245,23 @@ def _receipt(
             plan,
             unit,
             execution_surface_ref=SURFACE,
+            typescript_runtime_fingerprint=(DIGEST if typescript_execution else None),
+            typescript_version_ref=(
+                "typescript-version-ref:test" if typescript_execution else None
+            ),
         ).identity_ref,
         executed_command_result_bindings=tuple(
             zip(unit.command_refs, result_refs, strict=True)
+        ),
+        typescript_binding_posture=(
+            "resolved" if typescript_execution else "not_applicable"
+        ),
+        typescript_project_fingerprint=(
+            plan.typescript_project_fingerprint if typescript_execution else None
+        ),
+        typescript_runtime_fingerprint=(DIGEST if typescript_execution else None),
+        typescript_version_ref=(
+            "typescript-version-ref:test" if typescript_execution else None
         ),
     )
     fingerprint = verification_receipt_fingerprint(receipt)
@@ -288,7 +336,7 @@ def test_missing_duplicate_and_extra_envelopes_fail_closed() -> None:
     _assert_reason(
         lambda: collect_foundation_prerequisites(
             plan,
-            (*envelopes[:-1], _encoded(plan, "release-lane-docs")),
+            (*envelopes[:-1], _encoded(plan, "release-lane-performance")),
         ),
         "reason-ref:github-prerequisite:extra-evidence",
     )
@@ -479,7 +527,7 @@ def test_cli_aggregate_writes_one_owner_safe_github_output(
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
-        lambda _repo, _sha, _base_sha: plan,
+        lambda _repo, _sha, _base_sha, _visual_scope: plan,
     )
     github_output = tmp_path / "github-output"
     github_output.write_bytes(b"")
@@ -520,7 +568,12 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
     )
     observed_base_shas: list[str] = []
 
-    def reconstruct(_repo: Path, _sha: str, base_sha: str) -> VerificationPlan:
+    def reconstruct(
+        _repo: Path,
+        _sha: str,
+        base_sha: str,
+        _visual_scope: str,
+    ) -> VerificationPlan:
         observed_base_shas.append(base_sha)
         return plan
 
@@ -583,7 +636,7 @@ def test_loader_recomputes_receipts_instead_of_trusting_content_refs(
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
-        lambda _repo, _sha, _base_sha: plan,
+        lambda _repo, _sha, _base_sha, _visual_scope: plan,
     )
     output = tmp_path / "foundation.json"
     assert (
@@ -665,7 +718,7 @@ def test_cli_owner_safe_outputs_reject_symlinks_and_unsafe_modes(
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
-        lambda _repo, _sha, _base_sha: plan,
+        lambda _repo, _sha, _base_sha, _visual_scope: plan,
     )
     target = tmp_path / "target"
     target.write_text("unchanged", encoding="ascii")
@@ -719,7 +772,7 @@ def test_github_output_append_is_bounded_and_preserves_existing_entries(
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
-        lambda _repo, _sha, _base_sha: plan,
+        lambda _repo, _sha, _base_sha, _visual_scope: plan,
     )
     github_output = tmp_path / "github-output"
     github_output.write_text("prior=value\n", encoding="ascii")
@@ -744,6 +797,187 @@ def test_github_output_append_is_bounded_and_preserves_existing_entries(
     )
     assert github_output.read_text(encoding="ascii").startswith("prior=value\n")
     assert os.path.getsize(github_output) < prerequisites.MAX_GITHUB_OUTPUT_BYTES
+
+
+def _final_gate_bindings(
+    plan: VerificationPlan,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    upstream = tuple(
+        unit for unit in CI_JOB_GRAPH if unit.unit_ref != "foundation-gate-report"
+    )
+    aggregate = collect_pytest_aggregate(
+        plan,
+        tuple(_encoded(plan, unit_ref) for unit_ref in PYTEST_AGGREGATE_SOURCE_UNIT_REFS),
+    )
+    aggregate_envelope = encode_github_job_output(
+        build_github_job_output_envelope(
+            plan,
+            aggregate.receipt,
+            final_run_manifest=aggregate.run_manifest,
+        )
+    )
+    envelopes = tuple(
+        f"{unit.unit_ref}="
+        + (
+            aggregate_envelope
+            if unit.unit_ref == "pytest"
+            else _encoded(
+                plan,
+                unit.unit_ref,
+                **(
+                    {"status": VerificationTerminalStatus.BLOCKED}
+                    if unit.evidence_posture == "typed_optional"
+                    else {}
+                ),
+            )
+        )
+        for unit in upstream
+        if unit.evidence_posture != "typed_optional"
+    )
+    results = tuple(f"{unit.unit_ref}=success" for unit in upstream)
+    return results, envelopes
+
+
+def test_final_ci_evidence_dag_accepts_only_the_complete_exact_ordered_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    payload = evidence_dag.validate_final_gate(
+        Path("."),
+        plan.repository_sha,
+        plan.base_sha,
+        plan.frontend_visual_scope,
+        results,
+        envelopes,
+    )
+
+    assert payload["repository_sha"] == plan.repository_sha
+    assert payload["plan_fingerprint"] == plan.plan_fingerprint
+    assert len(payload["receipt_bindings"]) == len(CI_JOB_GRAPH) - 3
+    assert len(payload["content_fingerprint"]) == 64
+
+
+def test_final_ci_evidence_dag_validates_present_typed_optional_envelopes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    optional = (
+        "release-lane-desktop-packaging="
+        + _encoded(plan, "release-lane-desktop-packaging"),
+        "release-lane-visual-regression="
+        + _encoded(plan, "release-lane-visual-regression"),
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    payload = evidence_dag.validate_final_gate(
+        Path("."),
+        plan.repository_sha,
+        plan.base_sha,
+        plan.frontend_visual_scope,
+        results,
+        envelopes,
+        optional,
+    )
+
+    assert len(payload["receipt_bindings"]) == len(CI_JOB_GRAPH) - 1
+
+
+@pytest.mark.parametrize("result_status", ("failure", "cancelled", "skipped"))
+def test_final_ci_evidence_dag_rejects_every_non_success_terminal_result(
+    monkeypatch: pytest.MonkeyPatch,
+    result_status: str,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+    tampered = (*results[:-1], f"release-lane-performance={result_status}")
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            tampered,
+            envelopes,
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:upstream-not-successful"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason_ref"),
+    (
+        ("missing", "reason-ref:ci-evidence:envelope-membership-invalid"),
+        ("reordered", "reason-ref:ci-evidence:envelope-membership-invalid"),
+        ("duplicate", "reason-ref:ci-evidence:envelope-duplicate"),
+        ("cross_unit", "reason-ref:ci-evidence:cross-unit-substitution"),
+    ),
+)
+def test_final_ci_evidence_dag_rejects_arity_order_and_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+    reason_ref: str,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+    if mutation == "missing":
+        tampered = envelopes[:-1]
+    elif mutation == "reordered":
+        tampered = (envelopes[1], envelopes[0], *envelopes[2:])
+    elif mutation == "duplicate":
+        tampered = (*envelopes, envelopes[0])
+    else:
+        first_ref, first_value = envelopes[0].split("=", 1)
+        second_ref, second_value = envelopes[1].split("=", 1)
+        tampered = (
+            f"{first_ref}={second_value}",
+            f"{second_ref}={first_value}",
+            *envelopes[2:],
+        )
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            tampered,
+        )
+
+    assert error.value.reason_ref == reason_ref
+
+
+def test_final_ci_evidence_dag_rejects_cross_plan_recomputed_envelopes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    other_plan = _plan(
+        repository_sha="c" * 40,
+        schema_version="uaa_ci_command_manifest.v3",
+    )
+    results, envelopes = _final_gate_bindings(plan)
+    other_envelope = _encoded(other_plan, "manifest-attestation")
+    tampered = (f"manifest-attestation={other_envelope}", *envelopes[1:])
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            tampered,
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:envelope-invalid"
 
 
 def test_public_github_output_helper_rejects_raw_values_and_fifos(

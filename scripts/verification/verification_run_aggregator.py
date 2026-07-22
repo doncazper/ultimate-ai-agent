@@ -306,6 +306,17 @@ def aggregate_verification_run(
         receipts_by_unit[unit_ref] = aggregate
         derived.append(aggregate)
 
+    def satisfies_dependency(unit_ref: str, receipt: VerificationReceipt) -> bool:
+        unit = canonical_by_ref[unit_ref]
+        return receipt.status is VerificationTerminalStatus.PASSED or (
+            unit.evidence_posture == "typed_optional"
+            and receipt.status
+            in {
+                VerificationTerminalStatus.BLOCKED,
+                VerificationTerminalStatus.SKIPPED,
+            }
+        )
+
     for unit_ref, receipt in receipts_by_unit.items():
         unit = canonical_by_ref[unit_ref]
         if unit.unit_kind is VerificationUnitKind.AGGREGATE:
@@ -314,7 +325,7 @@ def aggregate_verification_run(
             dependency = receipts_by_unit.get(dependency_ref)
             if (
                 dependency is None
-                or dependency.status is not VerificationTerminalStatus.PASSED
+                or not satisfies_dependency(dependency_ref, dependency)
             ):
                 raise ValueError(
                     "verification receipt contradicts dependency completion"
@@ -343,7 +354,7 @@ def aggregate_verification_run(
     nonpassing = tuple(
         receipt.unit_ref
         for receipt in ordered_receipts
-        if receipt.status is not VerificationTerminalStatus.PASSED
+        if not satisfies_dependency(receipt.unit_ref, receipt)
     )
     if failed_units:
         status = VerificationTerminalStatus.FAILED

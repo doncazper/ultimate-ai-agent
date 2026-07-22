@@ -114,7 +114,7 @@ def test_fast_gate_defaults_to_canonical_pytest_shard_count(
     assert (
         gate.parse_args([]).pytest_shards
         == gate.CANONICAL_PYTEST_SHARD_COUNT
-        == 9
+        == 8
     )
 
 

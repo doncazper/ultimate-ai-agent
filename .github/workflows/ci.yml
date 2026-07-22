@@ -35,13 +35,14 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
+      visual-scope: ${{ steps.visual-scope.outputs.visual_scope }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           clean: true
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
 
@@ -51,6 +52,15 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
+      - name: Resolve canonical visual scope
+        id: visual-scope
+        run: |
+          .venv/bin/python scripts/verification/resolve_ci_visual_scope.py \
+            --repo . \
+            --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --github-output-file "$GITHUB_OUTPUT"
+
       - name: Run canonical manifest attestation
         id: canonical
         run: |
@@ -58,6 +68,7 @@ jobs:
             --lane ci-manifest-attestation \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ steps.visual-scope.outputs.visual_scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -93,6 +104,7 @@ jobs:
             --lane ci-lint \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -138,6 +150,7 @@ jobs:
             --lane ci-affected-preflight \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -148,8 +161,16 @@ jobs:
     timeout-minutes: 60
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
+      - manifest-attestation
       - lint
       - affected-preflight
+      - release-lane-docs
+      - release-lane-openapi
+      - release-lane-api-safety
+      - release-lane-security-redaction
+      - release-lane-product-truth
+      - release-lane-local-model-e2e
+      - release-lane-durability
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
     steps:
@@ -195,6 +216,7 @@ jobs:
             --lane ci-pytest-shards \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --verification-execution-fence-root /private/tmp/uaa-verification-execution-fence-v2 \
             --github-output-file "$GITHUB_OUTPUT" \
@@ -214,6 +236,13 @@ jobs:
       - manifest-attestation
       - lint
       - affected-preflight
+      - release-lane-docs
+      - release-lane-openapi
+      - release-lane-api-safety
+      - release-lane-security-redaction
+      - release-lane-product-truth
+      - release-lane-local-model-e2e
+      - release-lane-durability
       - pytest-shards
     if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 45
@@ -236,15 +265,36 @@ jobs:
           MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
           LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
           AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          DOCS_ENVELOPE: ${{ needs.release-lane-docs.outputs.verification-envelope }}
+          OPENAPI_ENVELOPE: ${{ needs.release-lane-openapi.outputs.verification-envelope }}
+          API_SAFETY_ENVELOPE: ${{ needs.release-lane-api-safety.outputs.verification-envelope }}
+          SECURITY_REDACTION_ENVELOPE: ${{ needs.release-lane-security-redaction.outputs.verification-envelope }}
+          PRODUCT_TRUTH_ENVELOPE: ${{ needs.release-lane-product-truth.outputs.verification-envelope }}
+          LOCAL_MODEL_ENVELOPE: ${{ needs.release-lane-local-model-e2e.outputs.verification-envelope }}
+          DURABILITY_ENVELOPE: ${{ needs.release-lane-durability.outputs.verification-envelope }}
           PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
           MANIFEST_RESULT: ${{ needs.manifest-attestation.result }}
           LINT_RESULT: ${{ needs.lint.result }}
           AFFECTED_RESULT: ${{ needs.affected-preflight.result }}
+          DOCS_RESULT: ${{ needs.release-lane-docs.result }}
+          OPENAPI_RESULT: ${{ needs.release-lane-openapi.result }}
+          API_SAFETY_RESULT: ${{ needs.release-lane-api-safety.result }}
+          SECURITY_REDACTION_RESULT: ${{ needs.release-lane-security-redaction.result }}
+          PRODUCT_TRUTH_RESULT: ${{ needs.release-lane-product-truth.result }}
+          LOCAL_MODEL_RESULT: ${{ needs.release-lane-local-model-e2e.result }}
+          DURABILITY_RESULT: ${{ needs.release-lane-durability.result }}
           PYTEST_SHARDS_RESULT: ${{ needs.pytest-shards.result }}
         run: |
           if [ "$MANIFEST_RESULT" != "success" ] || \
             [ "$LINT_RESULT" != "success" ] || \
             [ "$AFFECTED_RESULT" != "success" ] || \
+            [ "$DOCS_RESULT" != "success" ] || \
+            [ "$OPENAPI_RESULT" != "success" ] || \
+            [ "$API_SAFETY_RESULT" != "success" ] || \
+            [ "$SECURITY_REDACTION_RESULT" != "success" ] || \
+            [ "$PRODUCT_TRUTH_RESULT" != "success" ] || \
+            [ "$LOCAL_MODEL_RESULT" != "success" ] || \
+            [ "$DURABILITY_RESULT" != "success" ] || \
             [ "$PYTEST_SHARDS_RESULT" != "success" ]; then
             echo "Pytest sharded suite did not complete successfully."
             exit 1
@@ -254,9 +304,17 @@ jobs:
             --repo . \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --envelope "$MANIFEST_ENVELOPE" \
             --envelope "$LINT_ENVELOPE" \
             --envelope "$AFFECTED_ENVELOPE" \
+            --envelope "$DOCS_ENVELOPE" \
+            --envelope "$OPENAPI_ENVELOPE" \
+            --envelope "$API_SAFETY_ENVELOPE" \
+            --envelope "$SECURITY_REDACTION_ENVELOPE" \
+            --envelope "$PRODUCT_TRUTH_ENVELOPE" \
+            --envelope "$LOCAL_MODEL_ENVELOPE" \
+            --envelope "$DURABILITY_ENVELOPE" \
             --envelope "$PYTEST_SHARDS_ENVELOPE" \
             --github-output-file "$GITHUB_OUTPUT"
 
@@ -265,6 +323,7 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
+      - manifest-attestation
       - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
@@ -292,6 +351,7 @@ jobs:
             --lane ci-static \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -302,7 +362,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -320,11 +382,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run docs release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane docs \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-openapi:
@@ -333,7 +399,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -351,11 +419,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run OpenAPI release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane openapi \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-api-safety:
@@ -364,7 +436,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -382,11 +456,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run API safety release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane api-safety \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-security-redaction:
@@ -395,7 +473,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -413,11 +493,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run security and redaction release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane security-redaction \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-product-truth:
@@ -426,7 +510,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -444,11 +530,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run product truth regression lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane product-truth-regression \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-local-model-e2e:
@@ -457,7 +547,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -475,11 +567,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run local model E2E release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane local-model-e2e \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-durability:
@@ -488,7 +584,9 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -506,11 +604,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run durability release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane durability \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-frontend:
@@ -519,6 +621,7 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
+      - manifest-attestation
       - control-center-frontend
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
@@ -547,6 +650,7 @@ jobs:
             --lane frontend \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --dependency-envelope "$CONTROL_CENTER_FRONTEND_ENVELOPE" \
             --github-output-file "$GITHUB_OUTPUT" \
@@ -558,20 +662,13 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - lint
-      - pytest
+      - manifest-attestation
       - static-verification
-      - release-lane-docs
-      - release-lane-openapi
-      - release-lane-api-safety
-      - release-lane-security-redaction
-      - release-lane-product-truth
-      - release-lane-local-model-e2e
-      - release-lane-durability
       - release-lane-frontend
       - release-lane-visual-regression
       - release-lane-desktop-packaging
-      - control-center-frontend
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -589,11 +686,15 @@ jobs:
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
       - name: Run performance release lane
+        id: canonical
         run: |
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane performance \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
+            --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   release-lane-visual-regression:
@@ -602,6 +703,7 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
+      - manifest-attestation
       - control-center-frontend
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
@@ -621,49 +723,13 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
-      - name: Determine visual regression scope
-        id: visual-scope
-        env:
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
-          RANGE_HEAD_SHA: ${{ env.UAA_CI_EXACT_SHA }}
-        run: |
-          run_visual=true
-          reason_ref="reason-ref:visual-regression:fail-closed"
-          range_base="$PUSH_BEFORE_SHA"
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            range_base="$PULL_REQUEST_BASE_SHA"
-          fi
-          zero_sha="0000000000000000000000000000000000000000"
-          if [ -n "$range_base" ] && [ "$range_base" != "$zero_sha" ] && \
-            git cat-file -e "${range_base}^{commit}" 2>/dev/null && \
-            git cat-file -e "${RANGE_HEAD_SHA}^{commit}" 2>/dev/null && \
-            git diff --no-renames --quiet "$range_base" "$RANGE_HEAD_SHA" -- \
-              apps/control-center \
-              docs/control_center \
-              docs/design/control_center_north_star \
-              docs/schemas/control_center_release_surface.schema.json \
-              scripts/verify_beta_local.py \
-              scripts/verify_beta_13_frontend_loading_visual_proof.py \
-              scripts/verify_control_center_visual_regression.py \
-              scripts/verify_control_center_release_surface.py \
-              scripts/verify_fcc_polish_001_native_apple_grade_ux_layer.py \
-              tests/test_control_center_release_surface_manifest.py \
-              tests/test_control_center_visual_and_packaging_proofs.py \
-              tests/test_fcc_polish_001_native_apple_grade_ux_layer.py; then
-            run_visual=false
-            reason_ref="reason-ref:visual-regression:not-affected"
-          fi
-          echo "run_visual=${run_visual}" >> "$GITHUB_OUTPUT"
-          echo "reason_ref=${reason_ref}" >> "$GITHUB_OUTPUT"
-
       - name: Install Control Center dependencies
-        if: steps.visual-scope.outputs.run_visual == 'true'
+        if: needs.manifest-attestation.outputs.visual-scope == 'affected'
         working-directory: apps/control-center
         run: npm ci
 
       - name: Install Playwright Chromium
-        if: steps.visual-scope.outputs.run_visual == 'true'
+        if: needs.manifest-attestation.outputs.visual-scope == 'affected'
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         working-directory: apps/control-center
@@ -673,20 +739,17 @@ jobs:
         id: canonical
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
-          RUN_VISUAL: ${{ steps.visual-scope.outputs.run_visual }}
         run: |
-          visual_scope="not_affected"
           github_output_args=()
-          if [ "$RUN_VISUAL" = "true" ]; then
-            visual_scope="affected"
+          if [ "${{ needs.manifest-attestation.outputs.visual-scope }}" = "affected" ]; then
             github_output_args=(--github-output-file "$GITHUB_OUTPUT")
           fi
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane visual-regression \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
-            --visual-scope "$visual_scope" \
             "${github_output_args[@]}" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
@@ -696,7 +759,10 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - pytest
+      - manifest-attestation
+      - static-verification
+    outputs:
+      verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
@@ -735,32 +801,35 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run desktop packaging release lane
+        id: canonical
         env:
           DOCKER_AVAILABLE: ${{ steps.docker.outputs.available }}
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
         run: |
           docker_posture="unavailable"
+          github_output_args=()
           if [ "$DOCKER_AVAILABLE" = "true" ]; then
             docker_posture="available"
+            github_output_args=(--github-output-file "$GITHUB_OUTPUT")
           fi
           .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane desktop-packaging \
             --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --docker-available "$docker_posture" \
+            "${github_output_args[@]}" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   foundation-gate-report:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
       - manifest-attestation
       - lint
       - affected-preflight
-      - pytest-shards
-      - pytest
-      - static-verification
       - release-lane-docs
       - release-lane-openapi
       - release-lane-api-safety
@@ -768,9 +837,13 @@ jobs:
       - release-lane-product-truth
       - release-lane-local-model-e2e
       - release-lane-durability
+      - pytest-shards
+      - pytest
+      - static-verification
+      - control-center-frontend
+      - release-lane-desktop-packaging
       - release-lane-frontend
       - release-lane-visual-regression
-      - release-lane-desktop-packaging
       - release-lane-performance
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
@@ -790,11 +863,100 @@ jobs:
           .ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
           .ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
 
+      - name: Validate complete exact-head evidence DAG
+        env:
+          MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
+          LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
+          AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          DOCS_ENVELOPE: ${{ needs.release-lane-docs.outputs.verification-envelope }}
+          OPENAPI_ENVELOPE: ${{ needs.release-lane-openapi.outputs.verification-envelope }}
+          API_SAFETY_ENVELOPE: ${{ needs.release-lane-api-safety.outputs.verification-envelope }}
+          SECURITY_REDACTION_ENVELOPE: ${{ needs.release-lane-security-redaction.outputs.verification-envelope }}
+          PRODUCT_TRUTH_ENVELOPE: ${{ needs.release-lane-product-truth.outputs.verification-envelope }}
+          LOCAL_MODEL_ENVELOPE: ${{ needs.release-lane-local-model-e2e.outputs.verification-envelope }}
+          DURABILITY_ENVELOPE: ${{ needs.release-lane-durability.outputs.verification-envelope }}
+          PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
+          PYTEST_ENVELOPE: ${{ needs.pytest.outputs.verification-envelope }}
+          STATIC_ENVELOPE: ${{ needs.static-verification.outputs.verification-envelope }}
+          CONTROL_CENTER_ENVELOPE: ${{ needs.control-center-frontend.outputs.verification-envelope }}
+          DESKTOP_ENVELOPE: ${{ needs.release-lane-desktop-packaging.outputs.verification-envelope }}
+          FRONTEND_ENVELOPE: ${{ needs.release-lane-frontend.outputs.verification-envelope }}
+          VISUAL_ENVELOPE: ${{ needs.release-lane-visual-regression.outputs.verification-envelope }}
+          PERFORMANCE_ENVELOPE: ${{ needs.release-lane-performance.outputs.verification-envelope }}
+          MANIFEST_RESULT: ${{ needs.manifest-attestation.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          AFFECTED_RESULT: ${{ needs.affected-preflight.result }}
+          DOCS_RESULT: ${{ needs.release-lane-docs.result }}
+          OPENAPI_RESULT: ${{ needs.release-lane-openapi.result }}
+          API_SAFETY_RESULT: ${{ needs.release-lane-api-safety.result }}
+          SECURITY_REDACTION_RESULT: ${{ needs.release-lane-security-redaction.result }}
+          PRODUCT_TRUTH_RESULT: ${{ needs.release-lane-product-truth.result }}
+          LOCAL_MODEL_RESULT: ${{ needs.release-lane-local-model-e2e.result }}
+          DURABILITY_RESULT: ${{ needs.release-lane-durability.result }}
+          PYTEST_SHARDS_RESULT: ${{ needs.pytest-shards.result }}
+          PYTEST_RESULT: ${{ needs.pytest.result }}
+          STATIC_RESULT: ${{ needs.static-verification.result }}
+          CONTROL_CENTER_RESULT: ${{ needs.control-center-frontend.result }}
+          DESKTOP_RESULT: ${{ needs.release-lane-desktop-packaging.result }}
+          FRONTEND_RESULT: ${{ needs.release-lane-frontend.result }}
+          VISUAL_RESULT: ${{ needs.release-lane-visual-regression.result }}
+          PERFORMANCE_RESULT: ${{ needs.release-lane-performance.result }}
+        run: |
+          .venv/bin/python scripts/verification/verify_ci_evidence_dag.py \
+            --repo . \
+            --sha "$UAA_CI_EXACT_SHA" \
+            --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
+            --result "manifest-attestation=$MANIFEST_RESULT" \
+            --result "lint=$LINT_RESULT" \
+            --result "affected-preflight=$AFFECTED_RESULT" \
+            --result "release-lane-docs=$DOCS_RESULT" \
+            --result "release-lane-openapi=$OPENAPI_RESULT" \
+            --result "release-lane-api-safety=$API_SAFETY_RESULT" \
+            --result "release-lane-security-redaction=$SECURITY_REDACTION_RESULT" \
+            --result "release-lane-product-truth=$PRODUCT_TRUTH_RESULT" \
+            --result "release-lane-local-model-e2e=$LOCAL_MODEL_RESULT" \
+            --result "release-lane-durability=$DURABILITY_RESULT" \
+            --result "pytest-shards=$PYTEST_SHARDS_RESULT" \
+            --result "pytest=$PYTEST_RESULT" \
+            --result "static-verification=$STATIC_RESULT" \
+            --result "control-center-frontend=$CONTROL_CENTER_RESULT" \
+            --result "release-lane-desktop-packaging=$DESKTOP_RESULT" \
+            --result "release-lane-frontend=$FRONTEND_RESULT" \
+            --result "release-lane-visual-regression=$VISUAL_RESULT" \
+            --result "release-lane-performance=$PERFORMANCE_RESULT" \
+            --envelope "manifest-attestation=$MANIFEST_ENVELOPE" \
+            --envelope "lint=$LINT_ENVELOPE" \
+            --envelope "affected-preflight=$AFFECTED_ENVELOPE" \
+            --envelope "release-lane-docs=$DOCS_ENVELOPE" \
+            --envelope "release-lane-openapi=$OPENAPI_ENVELOPE" \
+            --envelope "release-lane-api-safety=$API_SAFETY_ENVELOPE" \
+            --envelope "release-lane-security-redaction=$SECURITY_REDACTION_ENVELOPE" \
+            --envelope "release-lane-product-truth=$PRODUCT_TRUTH_ENVELOPE" \
+            --envelope "release-lane-local-model-e2e=$LOCAL_MODEL_ENVELOPE" \
+            --envelope "release-lane-durability=$DURABILITY_ENVELOPE" \
+            --envelope "pytest-shards=$PYTEST_SHARDS_ENVELOPE" \
+            --envelope "pytest=$PYTEST_ENVELOPE" \
+            --envelope "static-verification=$STATIC_ENVELOPE" \
+            --envelope "control-center-frontend=$CONTROL_CENTER_ENVELOPE" \
+            --envelope "release-lane-frontend=$FRONTEND_ENVELOPE" \
+            --envelope "release-lane-performance=$PERFORMANCE_ENVELOPE" \
+            --optional-envelope "release-lane-desktop-packaging=$DESKTOP_ENVELOPE" \
+            --optional-envelope "release-lane-visual-regression=$VISUAL_ENVELOPE" \
+            --output "$RUNNER_TEMP/uaa_ci_evidence_dag_gate.json"
+
       - name: Revalidate exact prerequisite receipts
         env:
           MANIFEST_ENVELOPE: ${{ needs.manifest-attestation.outputs.verification-envelope }}
           LINT_ENVELOPE: ${{ needs.lint.outputs.verification-envelope }}
           AFFECTED_ENVELOPE: ${{ needs.affected-preflight.outputs.verification-envelope }}
+          DOCS_ENVELOPE: ${{ needs.release-lane-docs.outputs.verification-envelope }}
+          OPENAPI_ENVELOPE: ${{ needs.release-lane-openapi.outputs.verification-envelope }}
+          API_SAFETY_ENVELOPE: ${{ needs.release-lane-api-safety.outputs.verification-envelope }}
+          SECURITY_REDACTION_ENVELOPE: ${{ needs.release-lane-security-redaction.outputs.verification-envelope }}
+          PRODUCT_TRUTH_ENVELOPE: ${{ needs.release-lane-product-truth.outputs.verification-envelope }}
+          LOCAL_MODEL_ENVELOPE: ${{ needs.release-lane-local-model-e2e.outputs.verification-envelope }}
+          DURABILITY_ENVELOPE: ${{ needs.release-lane-durability.outputs.verification-envelope }}
           PYTEST_SHARDS_ENVELOPE: ${{ needs.pytest-shards.outputs.verification-envelope }}
           STATIC_ENVELOPE: ${{ needs.static-verification.outputs.verification-envelope }}
         run: |
@@ -803,9 +965,17 @@ jobs:
             --repo . \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --envelope "$MANIFEST_ENVELOPE" \
             --envelope "$LINT_ENVELOPE" \
             --envelope "$AFFECTED_ENVELOPE" \
+            --envelope "$DOCS_ENVELOPE" \
+            --envelope "$OPENAPI_ENVELOPE" \
+            --envelope "$API_SAFETY_ENVELOPE" \
+            --envelope "$SECURITY_REDACTION_ENVELOPE" \
+            --envelope "$PRODUCT_TRUTH_ENVELOPE" \
+            --envelope "$LOCAL_MODEL_ENVELOPE" \
+            --envelope "$DURABILITY_ENVELOPE" \
             --envelope "$PYTEST_SHARDS_ENVELOPE" \
             --envelope "$STATIC_ENVELOPE" \
             --output "$RUNNER_TEMP/uaa_foundation_prerequisite_manifest.json"
@@ -817,6 +987,7 @@ jobs:
             --lane ci-foundation-report \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -826,15 +997,8 @@ jobs:
     timeout-minutes: 45
     runs-on: [self-hosted, macOS, ARM64, uaa-ci]
     needs:
-      - static-verification
-      - release-lane-docs
-      - release-lane-openapi
-      - release-lane-api-safety
-      - release-lane-security-redaction
-      - release-lane-product-truth
-      - release-lane-local-model-e2e
-      - release-lane-durability
-      - release-lane-desktop-packaging
+      - manifest-attestation
+      - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
@@ -864,6 +1028,7 @@ jobs:
             --lane ci-control-center-frontend \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
+            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
             --verification-execution-fence-root /private/tmp/uaa-verification-execution-fence-v2 \
             --github-output-file "$GITHUB_OUTPUT" \
