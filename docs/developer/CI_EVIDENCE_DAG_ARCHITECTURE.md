@@ -62,8 +62,10 @@ pytest receipt is also bound to the exact dependency receipt refs from which it
 was derived. Typed-optional lanes always emit a v3 envelope. Their required
 contract commands remain exact executed evidence, while a declared optional
 command that does not run is separately bound to a content-free reason ref and
-the receipt remains blocked; classifying a required command as optional
-nonexecution is rejected. The frontend release lane
+the receipt remains blocked. The terminal validator re-derives the only allowed
+reason and result refs from the exact head, command, and affected scope, so a
+recomputed wrapper cannot substitute nonexecution provenance; classifying a
+required command as optional nonexecution is rejected. The frontend release lane
 must reuse the exact passing `command:frontend.check` receipt emitted by its
 declared Control Center dependency; a fresh or substituted proof is rejected.
 After all upstream envelopes validate, the terminal validator constructs a

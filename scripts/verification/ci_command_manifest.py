@@ -432,6 +432,38 @@ def lane_registry() -> dict[str, LaneSpec]:
     return lanes
 
 
+def optional_nonexecution_reason_ref(
+    command_ref: str,
+    *,
+    frontend_visual_scope: str,
+) -> str | None:
+    """Return the only accepted nonexecution reason for a typed-optional command."""
+
+    if (
+        command_ref == "command:frontend.visual-regression"
+        and frontend_visual_scope == "not_affected"
+    ):
+        return "reason-ref:visual-regression:not-affected"
+    if command_ref == "command:desktop-packaging.proof":
+        return "reason-ref:self-hosted-runner-docker-unavailable"
+    return None
+
+
+def optional_nonexecution_result_ref(
+    repository_sha: str,
+    command_ref: str,
+    reason_ref: str,
+) -> str:
+    """Derive the content-bound result ref for a declared nonexecution."""
+
+    return (
+        "result-ref:ci:"
+        + hashlib.sha256(
+            (repository_sha + command_ref + reason_ref).encode()
+        ).hexdigest()
+    )
+
+
 FOCUSED_VERIFICATION_UNITS = (
     VerificationUnit(
         "risk-diff-check",

@@ -24,6 +24,8 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     build_plan,
     ci_architecture_inventory,
     lane_registry,
+    optional_nonexecution_reason_ref,
+    optional_nonexecution_result_ref,
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
     TYPESCRIPT_EXECUTION_COMMAND_REFS,
@@ -242,6 +244,25 @@ def validate_final_gate(
             if unit.lane_ref is not None
             else ()
         )
+        expected_nonexecution_bindings = tuple(
+            (
+                command_ref,
+                optional_nonexecution_result_ref(
+                    repository_sha,
+                    command_ref,
+                    reason_ref,
+                ),
+                reason_ref,
+            )
+            for command_ref in expected_optional_commands
+            if (
+                reason_ref := optional_nonexecution_reason_ref(
+                    command_ref,
+                    frontend_visual_scope=visual_scope,
+                )
+            )
+            is not None
+        )
         if unit.evidence_posture == "typed_optional":
             if (
                 receipt.status not in {
@@ -250,7 +271,11 @@ def validate_final_gate(
                 }
                 or (
                     receipt.status is VerificationTerminalStatus.BLOCKED
-                    and optional_nonexecution_commands != expected_optional_commands
+                    and (
+                        optional_nonexecution_commands != expected_optional_commands
+                        or receipt.nonexecuted_command_result_bindings
+                        != expected_nonexecution_bindings
+                    )
                 )
                 or (
                     receipt.status is VerificationTerminalStatus.PASSED

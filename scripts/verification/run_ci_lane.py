@@ -32,6 +32,8 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     build_plan,
     command_registry,
     lane_registry,
+    optional_nonexecution_reason_ref,
+    optional_nonexecution_result_ref,
 )
 from scripts.verification.pytest_collection_evidence import (  # noqa: E402
     CollectionEvidenceError,
@@ -1647,17 +1649,15 @@ def run_lane(
                     }
                 )
                 continue
-            skip_reason: str | None = None
-            if (
-                command_ref == "command:frontend.visual-regression"
-                and visual_scope == "not_affected"
-            ):
-                skip_reason = "reason-ref:visual-regression:not-affected"
+            skip_reason = optional_nonexecution_reason_ref(
+                command_ref,
+                frontend_visual_scope=visual_scope,
+            )
             if (
                 command_ref == "command:desktop-packaging.proof"
-                and docker_available == "unavailable"
+                and docker_available != "unavailable"
             ):
-                skip_reason = "reason-ref:self-hosted-runner-docker-unavailable"
+                skip_reason = None
             if skip_reason is not None:
                 skip_status = (
                     "not_applicable" if "not-affected" in skip_reason else "skipped"
@@ -1669,7 +1669,11 @@ def run_lane(
                         "status": skip_status,
                         "duration_ms": 0,
                         "reason_ref": skip_reason,
-                        "result_ref": f"result-ref:ci:{hashlib.sha256((repository_sha + command_ref + skip_reason).encode()).hexdigest()}",
+                        "result_ref": optional_nonexecution_result_ref(
+                            repository_sha,
+                            command_ref,
+                            skip_reason,
+                        ),
                         "redaction_status": "content_free_output_metadata_only",
                     }
                 )

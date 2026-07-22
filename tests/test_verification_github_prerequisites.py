@@ -13,7 +13,12 @@ import pytest
 import scripts.verification.verification_github_prerequisites as prerequisites
 import scripts.verification.run_ci_lane as lane_runner
 import scripts.verification.verify_ci_evidence_dag as evidence_dag
-from scripts.verification.ci_command_manifest import CI_JOB_GRAPH, VERIFICATION_DAG
+from scripts.verification.ci_command_manifest import (
+    CI_JOB_GRAPH,
+    VERIFICATION_DAG,
+    optional_nonexecution_reason_ref,
+    optional_nonexecution_result_ref,
+)
 from scripts.verification.verification_contracts import (
     VerificationPlan,
     VerificationReceipt,
@@ -245,11 +250,21 @@ def _receipt(
     nonexecuted_bindings = tuple(
         (
             command_ref,
-            "result-ref:verification:"
-            + hashlib.sha256(f"{unit_ref}:{command_ref}:not-executed".encode()).hexdigest(),
-            "reason-ref:test:declared-optional-not-executed",
+            optional_nonexecution_result_ref(
+                plan.repository_sha,
+                command_ref,
+                reason_ref,
+            ),
+            reason_ref,
         )
         for command_ref in nonexecuted_command_refs
+        for reason_ref in (
+            optional_nonexecution_reason_ref(
+                command_ref,
+                frontend_visual_scope=plan.frontend_visual_scope,
+            )
+            or "reason-ref:test:declared-nonexecution",
+        )
     )
     nonexecuted_by_command = {
         command_ref: result_ref
@@ -1468,6 +1483,88 @@ def test_final_ci_evidence_dag_rejects_required_command_as_optional_nonexecution
             results,
             envelopes,
             optional,
+        )
+
+    assert error.value.reason_ref == (
+        "reason-ref:ci-evidence:optional-command-proof-invalid"
+    )
+
+
+@pytest.mark.parametrize(
+    ("unit_ref", "command_ref"),
+    (
+        (
+            "release-lane-desktop-packaging",
+            "command:desktop-packaging.proof",
+        ),
+        (
+            "release-lane-visual-regression",
+            "command:frontend.visual-regression",
+        ),
+    ),
+)
+def test_final_ci_evidence_dag_rejects_recomputed_optional_nonexecution_forgery(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_ref: str,
+    command_ref: str,
+) -> None:
+    plan = _plan(
+        schema_version="uaa_ci_command_manifest.v3",
+        frontend_visual_scope="not_affected",
+    )
+    results, envelopes = _final_gate_bindings(plan)
+    receipt = _receipt(
+        plan,
+        unit_ref,
+        status=VerificationTerminalStatus.BLOCKED,
+        nonexecuted_command_refs=(command_ref,),
+    )
+    forged_reason = "reason-ref:forged:optional-nonexecution"
+    forged_result = optional_nonexecution_result_ref(
+        plan.repository_sha,
+        command_ref,
+        forged_reason,
+    )
+    forged = replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        receipt_fingerprint="0" * 64,
+        result_refs=tuple(
+            forged_result if ref == command_ref else result_ref
+            for ref, result_ref in zip(
+                UNITS_BY_REF[unit_ref].command_refs,
+                receipt.result_refs,
+                strict=True,
+            )
+        ),
+        nonexecuted_command_result_bindings=(
+            (command_ref, forged_result, forged_reason),
+        ),
+    )
+    forged_fingerprint = verification_receipt_fingerprint(forged)
+    forged = replace(
+        forged,
+        receipt_ref=f"receipt:verification:{forged_fingerprint}",
+        receipt_fingerprint=forged_fingerprint,
+    )
+    substituted = encode_github_job_output(
+        build_github_job_output_envelope(plan, forged)
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+            _replace_binding(
+                _final_optional_bindings(plan),
+                unit_ref,
+                substituted,
+            ),
         )
 
     assert error.value.reason_ref == (
