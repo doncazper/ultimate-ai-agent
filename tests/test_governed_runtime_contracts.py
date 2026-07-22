@@ -7,6 +7,7 @@ import subprocess
 import sys
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -66,6 +67,34 @@ from tests.authority_helpers import (
 
 ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
+
+
+class _BlockingFakeM164GatewayTransport(FakeM164GatewayTransport):
+    def __init__(
+        self,
+        content: str,
+        *,
+        transport_started: threading.Event,
+        release_transport: threading.Event,
+    ) -> None:
+        super().__init__(content)
+        self._transport_started = transport_started
+        self._release_transport = release_transport
+
+    def chat_completions(
+        self,
+        gateway_model: Any,
+        chat_request: Any,
+        *,
+        api_key: str | None = None,
+    ) -> dict[str, Any]:
+        self._transport_started.set()
+        assert self._release_transport.wait(timeout=5)
+        return super().chat_completions(
+            gateway_model,
+            chat_request,
+            api_key=api_key,
+        )
 
 
 def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
@@ -4102,15 +4131,18 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     calls = 0
     results: list[object] = []
     errors: list[BaseException] = []
+    transport = _BlockingFakeM164GatewayTransport(
+        "INFLIGHT_POLICY_PROVENANCE_OK",
+        transport_started=transport_started,
+        release_transport=release_transport,
+    )
 
     def transport_factory(
         request: RuntimeLocalModelCallRequest,
     ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
-        transport_started.set()
-        assert release_transport.wait(timeout=5)
-        return FakeM164GatewayTransport("INFLIGHT_POLICY_PROVENANCE_OK")
+        return transport
 
     store = _runtime_store_with_provider_model_execute(tmp_path)
     gateway = RuntimeGateway(
@@ -4181,15 +4213,18 @@ def test_runtime_gateway_inflight_final_receipt_preserves_current_denial(
     calls = 0
     invocation_refs: list[str] = []
     errors: list[BaseException] = []
+    transport = _BlockingFakeM164GatewayTransport(
+        "INFLIGHT_DENIAL_PROVENANCE_OK",
+        transport_started=transport_started,
+        release_transport=release_transport,
+    )
 
     def transport_factory(
         request: RuntimeLocalModelCallRequest,
     ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
-        transport_started.set()
-        assert release_transport.wait(timeout=5)
-        return FakeM164GatewayTransport("INFLIGHT_DENIAL_PROVENANCE_OK")
+        return transport
 
     store = _runtime_store_with_provider_model_execute(tmp_path)
     gateway = RuntimeGateway(
@@ -4457,40 +4492,24 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
 
 @pytest.mark.parametrize(
     "posture_change",
-    ["safe_disabled", "lease_revoked", "kill_switch"],
+    ["safe_disabled", "runtime_disabled", "lease_revoked", "kill_switch"],
 )
-def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks_transport(
+def test_runtime_gateway_local_model_posture_change_at_transport_boundary_blocks_send(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     posture_change: str,
 ) -> None:
     calls = 0
+    transport = FakeM164GatewayTransport("SHOULD_NOT_RUN")
+    posture_changed = False
 
     def transport_factory(
         request: RuntimeLocalModelCallRequest,
     ) -> FakeM164GatewayTransport:
-        nonlocal calls
+        nonlocal calls, posture_changed
         calls += 1
-        return FakeM164GatewayTransport("SHOULD_NOT_RUN")
-
-    store = _runtime_store_with_provider_model_execute(tmp_path)
-    gateway = RuntimeGateway(
-        store=store,
-        local_model_adapter=LocalModelRuntimeAdapter(
-            transport_factory=transport_factory,
-        ),
-        local_model_runtime_enabled=True,
-    )
-    original_record_receipt = store.record_receipt
-    receipt_writes = 0
-
-    def change_posture_during_attempt_marker(
-        *args: object,
-        **kwargs: object,
-    ) -> object:
-        nonlocal receipt_writes
-        receipt_writes += 1
-        if receipt_writes == 1:
+        if not posture_changed:
+            posture_changed = True
             if posture_change == "safe_disabled":
                 store.safe_disable(
                     RuntimeSafeDisableRequest(
@@ -4502,18 +4521,27 @@ def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks
                 )
             elif posture_change == "lease_revoked":
                 monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+            elif posture_change == "runtime_disabled":
+                monkeypatch.setattr(
+                    gateway,
+                    "_local_model_runtime_enabled",
+                    False,
+                )
             else:
                 monkeypatch.setattr(
                     store,
                     "authority_lease_kill_switch_engaged",
                     lambda: True,
                 )
-        return original_record_receipt(*args, **kwargs)  # type: ignore[arg-type]
+        return transport
 
-    monkeypatch.setattr(
-        store,
-        "record_receipt",
-        change_posture_during_attempt_marker,
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
     )
     result = gateway.invoke_local_model(
         RuntimeLocalModelCallRequest(
@@ -4530,12 +4558,17 @@ def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks
         idempotency_ref="idempotency-ref:runtime-local-model-marker-race",
     )
 
-    assert receipt_writes == 2
-    assert calls == 0
+    assert posture_changed is True
+    assert calls == 1
+    assert transport.calls == []
     expected_error = (
         "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
         if posture_change == "safe_disabled"
-        else "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+        else (
+            "RUNTIME_LOCAL_MODEL_DISABLED_BY_DEFAULT"
+            if posture_change == "runtime_disabled"
+            else "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+        )
     )
     expected_status = (
         "safe_disabled"
@@ -4547,6 +4580,9 @@ def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks
     assert result.record.policy_decision.allowed_to_execute is False
     assert result.record.policy_decision.adapter_execution_enabled is False
     assert result.record.policy_decision.model_call_enabled is False
+    assert result.local_model_runtime_enabled is (
+        posture_change != "runtime_disabled"
+    )
     assert result.record.receipt is not None
     assert result.record.receipt.execution_performed is False
     assert result.record.receipt.adapter_execution_performed is False
@@ -4557,4 +4593,13 @@ def test_runtime_gateway_local_model_posture_change_during_attempt_marker_blocks
     if posture_change == "safe_disabled":
         assert result.record.receipt.safe_disable.reason_ref == (
             "reason-ref:runtime-local-model-marker-disable"
+        )
+    if posture_change in {"lease_revoked", "kill_switch"}:
+        assert (
+            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED"
+            not in result.record.policy_decision.reason_codes
+        )
+    if posture_change == "lease_revoked":
+        assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+            result.record.policy_decision.reason_codes
         )

@@ -1036,9 +1036,22 @@ def build_policy_decision(
             RuntimeProfile.local_runtime,
             RuntimeProfile.operator_approved,
         }
+        and not local_model_gateway_validated
     ):
         reason_codes = [
             "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED",
+            "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
+        ]
+    elif (
+        request.requested_authority == RuntimeAuthority.local_model.value
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    ):
+        reason_codes = [
+            "GOVERNED_RUNTIME_EXECUTION_DISABLED_OR_AUTHORITY_LEASE_REQUIRED",
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     elif (
