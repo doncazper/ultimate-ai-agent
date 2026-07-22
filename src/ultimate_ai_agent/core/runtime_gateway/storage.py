@@ -1193,7 +1193,7 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
         payload_fingerprint_ref: str,
-    ) -> RuntimeInvocationRecord:
+    ) -> RuntimeInvocationStoreResult:
         with self._exclusive_mutation():
             record = self.get_invocation(invocation_ref)
             validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -1201,12 +1201,14 @@ class RuntimeInvocationStore:
                 payload_fingerprint_ref,
                 "payload_fingerprint_ref",
             )
+            if record.receipt is not None:
+                return RuntimeInvocationStoreResult(record=record, replayed=True)
             replayed = self._idempotent_operation_replay(
                 idempotency_ref,
                 payload_fingerprint_ref,
             )
             if replayed is not None:
-                return replayed
+                return RuntimeInvocationStoreResult(record=replayed, replayed=True)
             status = _status_after_safe_disable(
                 record,
                 RuntimeInvocationStatus.execution_blocked,
@@ -1251,7 +1253,7 @@ class RuntimeInvocationStore:
                 entry_idempotency_ref=idempotency_ref,
                 payload_fingerprint_ref=payload_fingerprint_ref,
             )
-            return updated
+            return RuntimeInvocationStoreResult(record=updated, replayed=False)
 
     def record_replay_posture(
         self,
@@ -1260,7 +1262,8 @@ class RuntimeInvocationStore:
         status: RuntimeInvocationStatus,
         *,
         local_model_gateway_validated: bool,
-        gateway_validation_recheck: Callable[[], bool],
+        gateway_error_category: str | None,
+        gateway_error_recheck: Callable[[], str | None],
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> RuntimeInvocationRecord:
@@ -1291,20 +1294,32 @@ class RuntimeInvocationStore:
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION"
                 )
-            revalidated_gateway = gateway_validation_recheck()
+            revalidated_gateway_error = gateway_error_recheck()
             if (
-                not isinstance(revalidated_gateway, bool)
-                or revalidated_gateway != local_model_gateway_validated
+                (
+                    revalidated_gateway_error is not None
+                    and not isinstance(revalidated_gateway_error, str)
+                )
+                or revalidated_gateway_error != gateway_error_category
+                or local_model_gateway_validated
+                != (revalidated_gateway_error is None)
             ):
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_REPLAY_POSTURE_GATEWAY_CHANGED_DURING_REVALIDATION"
+                )
+            if revalidated_gateway_error is not None:
+                validate_safe_execution_text(
+                    revalidated_gateway_error,
+                    "gateway_error_category",
                 )
             current_policy_decision = build_policy_decision(
                 record.request,
                 invocation_ref=record.invocation_ref,
                 approval_ref=record.approval_requirement.approval_ref,
                 status=status,
-                local_model_gateway_validated=revalidated_gateway,
+                local_model_gateway_validated=(
+                    revalidated_gateway_error is None
+                ),
                 active_authority_leases=self.current_authority_leases(),
                 kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
             ).model_copy(
@@ -1854,8 +1869,9 @@ class RuntimeInvocationStore:
             ledger_text = self._read_ledger_text()
             if ledger_text is None:
                 if self._safe_disable_state_path_present():
-                    self._canonical_safe_disable_state = (
-                        self._load_operator_safe_disable_state()
+                    self._load_operator_safe_disable_state()
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
                     )
             else:
                 previous_hash: str | None = None
@@ -2022,6 +2038,18 @@ class RuntimeInvocationStore:
                     )
                 written += write_count
             os.fsync(ledger_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_JSONL,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(path_after.st_mode)
+                or not os.path.samestat(ledger_info, path_after)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
             os.fsync(directory_fd)
             self._loaded_ledger_identity = ledger_identity
         except RuntimeInvocationStorageError:
