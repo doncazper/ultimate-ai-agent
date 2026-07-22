@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import fcntl
 
@@ -54,10 +56,13 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
+    RuntimeLocalModelReceiptMetadata,
+    RuntimeProfile,
     RuntimePolicyDecision,
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
     build_blocked_receipt,
+    build_local_model_receipt,
     build_policy_decision,
     runtime_invocation_ref,
     runtime_payload_fingerprint_ref,
@@ -68,6 +73,8 @@ from ultimate_ai_agent.core.time import utc_now
 RUNTIME_GATEWAY_STORAGE_SCHEMA_VERSION = "runtime_gateway_storage.v1"
 RUNTIME_GATEWAY_STATE_DIR_ENV = "UAA_RUNTIME_GATEWAY_STATE_DIR"
 RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
+RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON = "runtime_gateway_safe_disable_state.json"
+RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES = 16_384
 RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
@@ -224,10 +231,31 @@ def _operator_safe_disable_active(record: RuntimeInvocationRecord) -> bool:
 def _operator_safe_disable_state(
     records: Iterable[RuntimeInvocationRecord],
 ) -> RuntimeSafeDisableState | None:
-    for record in records:
-        if _operator_safe_disable_active(record):
-            return record.safe_disable
-    return None
+    materialized = list(records)
+    operator_states = [
+        record.safe_disable
+        for record in materialized
+        if _operator_safe_disable_active(record)
+    ]
+    if not operator_states:
+        return None
+    canonical = operator_states[0]
+    if len(operator_states) != len(materialized) or any(
+        state != canonical for state in operator_states[1:]
+    ):
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_SAFE_DISABLE_LEDGER_MISMATCH"
+        )
+    return canonical
+
+
+def _runtime_default_safe_disable_state() -> RuntimeSafeDisableState:
+    return RuntimeSafeDisableState(
+        active=False,
+        profile=RuntimeProfile.sealed.value,
+        reason_ref="reason-ref:governed-runtime-local-model-active",
+        safe_summary="Runtime profile is active for this exact invocation only.",
+    )
 
 
 def _status_after_safe_disable(
@@ -694,6 +722,9 @@ class RuntimeInvocationStore:
         self.state_dir = state_dir or runtime_gateway_state_dir()
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
         self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
+        self._safe_disable_state_path = (
+            self.state_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        )
         self._explicit_active_authority_leases = (
             list(active_authority_leases)
             if active_authority_leases is not None
@@ -703,7 +734,9 @@ class RuntimeInvocationStore:
         self._entries: list[RuntimeGatewayStorageEntry] = []
         self._idempotency_index: dict[str, str] = {}
         self._idempotency_fingerprint_index: dict[str, str] = {}
+        self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._last_entry_hash_ref: str | None = None
+        self._loaded_ledger_identity: tuple[int, int] | None = None
         self._loaded = False
         self._process_lock = threading.RLock()
 
@@ -734,9 +767,24 @@ class RuntimeInvocationStore:
         except KeyError as exc:
             raise RuntimeInvocationNotFoundError(invocation_ref) from exc
 
+    def get_invocation_for_idempotency(
+        self,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord | None:
+        self._load()
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        invocation_ref = self._idempotency_index.get(idempotency_ref)
+        if invocation_ref is None:
+            return None
+        return self._records[invocation_ref]
+
     def operator_safe_disable_active(self) -> bool:
         self._load()
-        return any(_operator_safe_disable_active(record) for record in self._records.values())
+        return self._canonical_safe_disable_state.active
+
+    def operator_safe_disable_state(self) -> RuntimeSafeDisableState:
+        self._load()
+        return self._canonical_safe_disable_state.model_copy()
 
     def create_invocation(
         self,
@@ -777,8 +825,8 @@ class RuntimeInvocationStore:
             self._records[existing_ref] = replayed
             return RuntimeInvocationStoreResult(record=replayed, replayed=True)
 
-        operator_safe_disable = _operator_safe_disable_state(self._records.values())
-        if operator_safe_disable is not None:
+        operator_safe_disable = self._canonical_safe_disable_state
+        if operator_safe_disable.active:
             local_model_gateway_validated = False
             command_gateway_validated = False
         invocation_ref = runtime_invocation_ref(idempotency_ref, payload_fingerprint_ref)
@@ -805,21 +853,21 @@ class RuntimeInvocationStore:
             idempotency_ref=idempotency_ref,
             safe_disable=(
                 operator_safe_disable
-                if operator_safe_disable is not None
+                if operator_safe_disable.active
                 else (
-                RuntimeSafeDisableState(
-                    active=False,
-                    profile=policy_decision.profile,
-                    reason_ref="reason-ref:governed-runtime-local-model-active",
-                    safe_summary="Runtime profile is active for this exact invocation only.",
-                )
-                if policy_decision.allowed_to_execute
-                else RuntimeSafeDisableState()
+                    RuntimeSafeDisableState(
+                        active=False,
+                        profile=policy_decision.profile,
+                        reason_ref="reason-ref:governed-runtime-local-model-active",
+                        safe_summary="Runtime profile is active for this exact invocation only.",
+                    )
+                    if policy_decision.allowed_to_execute
+                    else RuntimeSafeDisableState()
                 )
             ),
             status=(
                 RuntimeInvocationStatus.safe_disabled
-                if operator_safe_disable is not None
+                if operator_safe_disable.active
                 else RuntimeInvocationStatus.pending_approval
             ),
         )
@@ -1085,6 +1133,8 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
         payload_fingerprint_ref: str | None = None,
+        policy_decision: RuntimePolicyDecision | None = None,
+        local_model_gateway_error_recheck: Callable[[], str | None] | None = None,
     ) -> RuntimeInvocationRecord:
         with self._exclusive_mutation():
             record = self.get_invocation(invocation_ref)
@@ -1104,14 +1154,74 @@ class RuntimeInvocationStore:
             )
             if replayed is not None:
                 return replayed
-            receipt_to_store = receipt.model_copy(update={"safe_disable": record.safe_disable})
+            if (
+                local_model_gateway_error_recheck is not None
+                and policy_decision is None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_LOCAL_MODEL_ATTEMPT_POLICY_REQUIRED"
+                )
+            receipt_policy_decision = policy_decision or record.policy_decision
+            decision_to_store = receipt_policy_decision
+            status_to_store = _status_after_safe_disable(
+                record,
+                RuntimeInvocationStatus(receipt.invocation_status),
+            )
+            if local_model_gateway_error_recheck is not None:
+                gateway_error = local_model_gateway_error_recheck()
+                if gateway_error is not None and not isinstance(gateway_error, str):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_LOCAL_MODEL_GATEWAY_RECHECK_INVALID"
+                    )
+                if gateway_error is not None:
+                    validate_safe_execution_text(
+                        gateway_error,
+                        "gateway_error_category",
+                    )
+                    if status_to_store is not RuntimeInvocationStatus.safe_disabled:
+                        status_to_store = RuntimeInvocationStatus.execution_blocked
+                decision_to_store = build_policy_decision(
+                    record.request,
+                    invocation_ref=record.invocation_ref,
+                    approval_ref=record.approval_requirement.approval_ref,
+                    status=status_to_store,
+                    local_model_gateway_validated=gateway_error is None,
+                    active_authority_leases=self.current_authority_leases(),
+                    kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+                ).model_copy(
+                    update={
+                        "approval_requirement": record.approval_requirement,
+                        "invocation_status": status_to_store,
+                    }
+                )
+                if (
+                    status_to_store is not RuntimeInvocationStatus.safe_disabled
+                    and not decision_to_store.allowed_to_execute
+                ):
+                    status_to_store = RuntimeInvocationStatus.execution_blocked
+                    decision_to_store = decision_to_store.model_copy(
+                        update={"invocation_status": status_to_store}
+                    )
+            if (
+                receipt_policy_decision.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+                or decision_to_store.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_POLICY_DECISION_REF_MISMATCH"
+                )
+            receipt_to_store = receipt.model_copy(
+                update={
+                    "policy_decision_ref": receipt_policy_decision.policy_decision_ref,
+                    "safe_disable": record.safe_disable,
+                }
+            )
             updated = record.model_copy(
                 update={
+                    "policy_decision": decision_to_store,
                     "receipt": receipt_to_store,
-                    "status": _status_after_safe_disable(
-                        record,
-                        receipt.invocation_status,
-                    ),
+                    "status": status_to_store,
                     "updated_at": utc_now(),
                 }
             )
@@ -1119,6 +1229,219 @@ class RuntimeInvocationStore:
                 "receipt_recorded",
                 updated,
                 entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
+
+    def record_local_model_replay_without_receipt(
+        self,
+        invocation_ref: str,
+        metadata: RuntimeLocalModelReceiptMetadata,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> RuntimeInvocationStoreResult:
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            validate_execution_ref(
+                payload_fingerprint_ref,
+                "payload_fingerprint_ref",
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return RuntimeInvocationStoreResult(record=replayed, replayed=True)
+            if record.receipt is not None:
+                return RuntimeInvocationStoreResult(record=record, replayed=True)
+            status = _status_after_safe_disable(
+                record,
+                RuntimeInvocationStatus.execution_blocked,
+            )
+            policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=status,
+                local_model_gateway_validated=False,
+                active_authority_leases=self.current_authority_leases(),
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": status,
+                }
+            )
+            receipt = build_local_model_receipt(
+                record,
+                metadata=metadata,
+                execution_performed=False,
+                model_call_performed=False,
+                status=RuntimeInvocationStatus.execution_blocked,
+            ).model_copy(
+                update={
+                    "policy_decision_ref": policy_decision.policy_decision_ref,
+                    "safe_disable": record.safe_disable,
+                }
+            )
+            updated = record.model_copy(
+                update={
+                    "policy_decision": policy_decision,
+                    "receipt": receipt,
+                    "status": status,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "receipt_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return RuntimeInvocationStoreResult(record=updated, replayed=False)
+
+    def record_replay_posture(
+        self,
+        invocation_ref: str,
+        policy_decision: RuntimePolicyDecision,
+        status: RuntimeInvocationStatus,
+        *,
+        local_model_gateway_validated: bool,
+        gateway_error_category: str | None,
+        gateway_error_recheck: Callable[[], str | None],
+        expected_receipt: RuntimeInvocationReceipt,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> RuntimeInvocationRecord:
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            validate_execution_ref(
+                payload_fingerprint_ref,
+                "payload_fingerprint_ref",
+            )
+            if (
+                policy_decision.policy_decision_ref
+                != record.policy_decision.policy_decision_ref
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_POLICY_DECISION_REF_MISMATCH"
+                )
+            if record.receipt is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_RECEIPT_REQUIRED"
+                )
+            if policy_decision.invocation_status != status:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_STATUS_MISMATCH"
+                )
+            target_status = _status_after_safe_disable(record, status)
+            if target_status != status:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_CHANGED_DURING_REVALIDATION"
+                )
+            if record.receipt != expected_receipt:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_RECEIPT_CHANGED_DURING_REVALIDATION"
+                )
+            revalidated_gateway_error = gateway_error_recheck()
+            if (
+                (
+                    revalidated_gateway_error is not None
+                    and not isinstance(revalidated_gateway_error, str)
+                )
+                or revalidated_gateway_error != gateway_error_category
+                or (
+                    local_model_gateway_validated
+                    and revalidated_gateway_error is not None
+                )
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_GATEWAY_CHANGED_DURING_REVALIDATION"
+                )
+            if revalidated_gateway_error is not None:
+                validate_safe_execution_text(
+                    revalidated_gateway_error,
+                    "gateway_error_category",
+                )
+            current_policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=status,
+                local_model_gateway_validated=local_model_gateway_validated,
+                active_authority_leases=self.current_authority_leases(),
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": status,
+                }
+            )
+            expected_policy_posture = policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            current_policy_posture = current_policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            if expected_policy_posture != current_policy_posture:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_AUTHORITY_CHANGED_DURING_REVALIDATION"
+                )
+            persisted_policy_posture = record.policy_decision.model_dump(
+                mode="json",
+                exclude={"decided_at"},
+            )
+            if (
+                record.status == target_status.value
+                and persisted_policy_posture == expected_policy_posture
+            ):
+                replayed = record.model_copy(
+                    update={"replay_count": record.replay_count + 1}
+                )
+                self._records[record.invocation_ref] = replayed
+                return replayed
+            prior_entry_hash_ref = next(
+                (
+                    entry.entry_hash_ref
+                    for entry in reversed(self._entries)
+                    if entry.invocation_ref == invocation_ref
+                ),
+                None,
+            )
+            if prior_entry_hash_ref is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_REPLAY_POSTURE_PRIOR_ENTRY_REQUIRED"
+                )
+            transition_idempotency_ref = _hash_ref(
+                "idempotency-ref",
+                {
+                    "base_idempotency_ref": idempotency_ref,
+                    "prior_entry_hash_ref": prior_entry_hash_ref,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                transition_idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            updated = record.model_copy(
+                update={
+                    "approval_requirement": policy_decision.approval_requirement,
+                    "policy_decision": policy_decision,
+                    "status": target_status,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "replay_posture_recorded",
+                updated,
+                entry_idempotency_ref=transition_idempotency_ref,
                 payload_fingerprint_ref=payload_fingerprint_ref,
             )
             return updated
@@ -1247,8 +1570,11 @@ class RuntimeInvocationStore:
             replayed = self._idempotent_operation_replay(
                 idempotency_ref,
                 payload_fingerprint_ref,
+                preserve_original_result=True,
             )
             if replayed is not None and replayed.safe_disable:
+                if replayed.safe_disable == self._canonical_safe_disable_state:
+                    self._persist_operator_safe_disable_state(replayed.safe_disable)
                 return replayed.safe_disable
             state = RuntimeSafeDisableState(
                 reason_ref=request.reason_ref,
@@ -1322,7 +1648,292 @@ class RuntimeInvocationStore:
                     entry_idempotency_ref=idempotency_ref,
                     payload_fingerprint_ref=payload_fingerprint_ref,
                 )
+            self._canonical_safe_disable_state = state
+            self._persist_operator_safe_disable_state(state)
             return state
+
+    def _persist_operator_safe_disable_state(
+        self,
+        state: RuntimeSafeDisableState,
+    ) -> None:
+        if not state.active:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            )
+        payload = state.model_dump(mode="json")
+        _validate_storage_payload(payload, "runtime_safe_disable_state")
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        encoded = _canonical_json(payload).encode("utf-8")
+        if len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            )
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
+            )
+
+        directory_fd = -1
+        temporary_fd = -1
+        temporary_name: str | None = None
+        try:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            directory_info = os.fstat(directory_fd)
+            if not stat.S_ISDIR(directory_info.st_mode):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            for _attempt in range(16):
+                candidate = (
+                    f".{RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON}."
+                    f"{secrets.token_hex(12)}.tmp"
+                )
+                try:
+                    temporary_fd = os.open(
+                        candidate,
+                        os.O_WRONLY
+                        | os.O_CREAT
+                        | os.O_EXCL
+                        | os.O_NOFOLLOW
+                        | getattr(os, "O_CLOEXEC", 0),
+                        0o600,
+                        dir_fd=directory_fd,
+                    )
+                    temporary_name = candidate
+                    break
+                except FileExistsError:
+                    continue
+            if temporary_fd < 0 or temporary_name is None:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+                )
+            written = 0
+            while written < len(encoded):
+                write_count = os.write(temporary_fd, encoded[written:])
+                if write_count <= 0:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+                    )
+                written += write_count
+            os.fsync(temporary_fd)
+            os.close(temporary_fd)
+            temporary_fd = -1
+            os.replace(
+                temporary_name,
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+            )
+            temporary_name = None
+            os.fsync(directory_fd)
+        except RuntimeInvocationStorageError:
+            raise
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_WRITE_FAILED"
+            ) from exc
+        finally:
+            if temporary_fd >= 0:
+                os.close(temporary_fd)
+            if temporary_name is not None and directory_fd >= 0:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+            if directory_fd >= 0:
+                os.close(directory_fd)
+
+    def _load_operator_safe_disable_state(self) -> RuntimeSafeDisableState:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
+            )
+        directory_fd = -1
+        state_fd = -1
+        try:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            state_fd = os.open(
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | os.O_NONBLOCK
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=directory_fd,
+            )
+            before = os.fstat(state_fd)
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_size > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            encoded = bytearray()
+            while len(encoded) <= RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
+                chunk = os.read(
+                    state_fd,
+                    min(
+                        65_536,
+                        RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+                        + 1
+                        - len(encoded),
+                    ),
+                )
+                if not chunk:
+                    break
+                encoded.extend(chunk)
+            after = os.fstat(state_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES
+                or len(encoded) != after.st_size
+                or not stat.S_ISREG(path_after.st_mode)
+                or (before.st_dev, before.st_ino)
+                != (after.st_dev, after.st_ino)
+                or (before.st_dev, before.st_ino)
+                != (path_after.st_dev, path_after.st_ino)
+                or before.st_size != after.st_size
+                or before.st_mtime_ns != after.st_mtime_ns
+                or before.st_ctime_ns != after.st_ctime_ns
+                or before.st_size != path_after.st_size
+                or before.st_mtime_ns != path_after.st_mtime_ns
+                or before.st_ctime_ns != path_after.st_ctime_ns
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            payload = json.loads(bytes(encoded).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            _validate_storage_payload(payload, "runtime_safe_disable_state")
+            state = RuntimeSafeDisableState.model_validate_json(
+                bytes(encoded),
+                strict=True,
+            )
+            if not state.active:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+                )
+            return state
+        except RuntimeInvocationStorageError:
+            raise
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValidationError) as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            ) from exc
+        finally:
+            if state_fd >= 0:
+                os.close(state_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
+
+    def _safe_disable_state_path_present(self) -> bool:
+        try:
+            os.lstat(self._safe_disable_state_path)
+            return True
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_SAFE_DISABLE_STATE_INVALID"
+            ) from exc
+
+    def _read_ledger_text(self) -> str | None:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
+            )
+        directory_fd = -1
+        ledger_fd = -1
+        try:
+            try:
+                directory_fd = os.open(
+                    self.state_dir,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                )
+            except FileNotFoundError:
+                return None
+            try:
+                expected_info = os.stat(
+                    RUNTIME_GATEWAY_JSONL,
+                    dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                return None
+            if not stat.S_ISREG(expected_info.st_mode):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            ledger_fd = os.open(
+                RUNTIME_GATEWAY_JSONL,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=directory_fd,
+            )
+            opened_info = os.fstat(ledger_fd)
+            if (
+                not stat.S_ISREG(opened_info.st_mode)
+                or not os.path.samestat(expected_info, opened_info)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            chunks: list[bytes] = []
+            while True:
+                chunk = os.read(ledger_fd, 64 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            after_info = os.fstat(ledger_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_JSONL,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(path_after.st_mode)
+                or not os.path.samestat(expected_info, after_info)
+                or not os.path.samestat(expected_info, path_after)
+                or expected_info.st_size != after_info.st_size
+                or expected_info.st_size != path_after.st_size
+                or expected_info.st_mtime_ns != after_info.st_mtime_ns
+                or expected_info.st_mtime_ns != path_after.st_mtime_ns
+                or expected_info.st_ctime_ns != after_info.st_ctime_ns
+                or expected_info.st_ctime_ns != path_after.st_ctime_ns
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            self._loaded_ledger_identity = (
+                opened_info.st_dev,
+                opened_info.st_ino,
+            )
+            return b"".join(chunks).decode("utf-8")
+        except RuntimeInvocationStorageError:
+            raise
+        except (OSError, UnicodeDecodeError) as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            ) from exc
+        finally:
+            if ledger_fd >= 0:
+                os.close(ledger_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
 
     def _load(self) -> None:
         if self._loaded:
@@ -1335,33 +1946,71 @@ class RuntimeInvocationStore:
         self._idempotency_index = {}
         self._idempotency_fingerprint_index = {}
         self._last_entry_hash_ref = None
-        self._loaded = True
-        if not self.path.exists():
-            return
-        previous_hash: str | None = None
-        for line in self.path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            payload = json.loads(line)
-            try:
-                entry = RuntimeGatewayStorageEntry(**payload)
-            except ValidationError as exc:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_ENTRY_INVALID") from exc
-            expected_hash = _entry_hash(
-                entry.model_dump(mode="json", exclude={"entry_hash_ref"})
+        self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
+        self._loaded_ledger_identity = None
+        self._loaded = False
+        try:
+            ledger_text = self._read_ledger_text()
+            if ledger_text is None:
+                if self._safe_disable_state_path_present():
+                    self._load_operator_safe_disable_state()
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                    )
+            else:
+                previous_hash: str | None = None
+                for line in ledger_text.splitlines():
+                    if not line.strip():
+                        continue
+                    payload = json.loads(line)
+                    try:
+                        entry = RuntimeGatewayStorageEntry(**payload)
+                    except ValidationError as exc:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_ENTRY_INVALID"
+                        ) from exc
+                    expected_hash = _entry_hash(
+                        entry.model_dump(mode="json", exclude={"entry_hash_ref"})
+                    )
+                    if entry.entry_hash_ref != expected_hash:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_ENTRY_HASH_MISMATCH"
+                        )
+                    if entry.previous_entry_hash_ref != previous_hash:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_HASH_CHAIN_MISMATCH"
+                        )
+                    self._records[entry.invocation_ref] = entry.record
+                    self._idempotency_index[entry.idempotency_ref] = (
+                        entry.invocation_ref
+                    )
+                    self._idempotency_fingerprint_index[entry.idempotency_ref] = (
+                        entry.payload_fingerprint_ref
+                    )
+                    self._entries.append(entry)
+                    previous_hash = entry.entry_hash_ref
+                derived_state = _operator_safe_disable_state(self._records.values())
+                if self._safe_disable_state_path_present():
+                    persisted_state = self._load_operator_safe_disable_state()
+                    if derived_state is None:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                        )
+                    if derived_state is not None and persisted_state != derived_state:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
+                        )
+                    self._canonical_safe_disable_state = persisted_state
+                elif derived_state is not None:
+                    self._canonical_safe_disable_state = derived_state
+                self._last_entry_hash_ref = previous_hash
+            self._loaded = True
+        except BaseException:
+            self._loaded = False
+            self._canonical_safe_disable_state = (
+                _runtime_default_safe_disable_state()
             )
-            if entry.entry_hash_ref != expected_hash:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_ENTRY_HASH_MISMATCH")
-            if entry.previous_entry_hash_ref != previous_hash:
-                raise RuntimeInvocationStorageError("RUNTIME_STORAGE_HASH_CHAIN_MISMATCH")
-            self._records[entry.invocation_ref] = entry.record
-            self._idempotency_index[entry.idempotency_ref] = entry.invocation_ref
-            self._idempotency_fingerprint_index[entry.idempotency_ref] = (
-                entry.payload_fingerprint_ref
-            )
-            self._entries.append(entry)
-            previous_hash = entry.entry_hash_ref
-        self._last_entry_hash_ref = previous_hash
+            raise
 
     @contextmanager
     def _exclusive_mutation(self):
@@ -1372,6 +2021,9 @@ class RuntimeInvocationStore:
                 try:
                     self._reload()
                     yield
+                except BaseException:
+                    self._loaded = False
+                    raise
                 finally:
                     fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
@@ -1379,6 +2031,8 @@ class RuntimeInvocationStore:
         self,
         idempotency_ref: str,
         payload_fingerprint_ref: str,
+        *,
+        preserve_original_result: bool = False,
     ) -> RuntimeInvocationRecord | None:
         existing_ref = self._idempotency_index.get(idempotency_ref)
         if existing_ref is None:
@@ -1387,9 +2041,124 @@ class RuntimeInvocationStore:
         if existing_fingerprint != payload_fingerprint_ref:
             raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
         existing = self._records[existing_ref]
+        if preserve_original_result:
+            existing = next(
+                entry.record
+                for entry in self._entries
+                if entry.idempotency_ref == idempotency_ref
+            )
         replayed = existing.model_copy(update={"replay_count": existing.replay_count + 1})
-        self._records[existing_ref] = replayed
+        if not preserve_original_result:
+            self._records[existing_ref] = replayed
         return replayed
+
+    def _append_ledger_line(self, encoded_line: bytes) -> None:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
+            )
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        directory_fd = -1
+        ledger_fd = -1
+        created = False
+        try:
+            directory_fd = os.open(
+                self.state_dir,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+            open_flags = (
+                os.O_WRONLY
+                | os.O_APPEND
+                | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0)
+            )
+            try:
+                ledger_fd = os.open(
+                    RUNTIME_GATEWAY_JSONL,
+                    open_flags,
+                    dir_fd=directory_fd,
+                )
+            except FileNotFoundError:
+                if self._loaded_ledger_identity is not None:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                    )
+                try:
+                    ledger_fd = os.open(
+                        RUNTIME_GATEWAY_JSONL,
+                        open_flags | os.O_CREAT | os.O_EXCL,
+                        0o600,
+                        dir_fd=directory_fd,
+                    )
+                    created = True
+                except FileExistsError:
+                    ledger_fd = os.open(
+                        RUNTIME_GATEWAY_JSONL,
+                        open_flags,
+                        dir_fd=directory_fd,
+                    )
+            ledger_info = os.fstat(ledger_fd)
+            ledger_identity = (ledger_info.st_dev, ledger_info.st_ino)
+            if (
+                not stat.S_ISREG(ledger_info.st_mode)
+                or (
+                    self._loaded_ledger_identity is None
+                    and not created
+                )
+                or (
+                    self._loaded_ledger_identity is not None
+                    and ledger_identity != self._loaded_ledger_identity
+                )
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            written = 0
+            while written < len(encoded_line):
+                write_count = os.write(ledger_fd, encoded_line[written:])
+                if write_count <= 0:
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_WRITE_FAILED"
+                    )
+                written += write_count
+            os.fsync(ledger_fd)
+            path_after = os.stat(
+                RUNTIME_GATEWAY_JSONL,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(path_after.st_mode)
+                or not os.path.samestat(ledger_info, path_after)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            os.fsync(directory_fd)
+            durable_path = os.stat(
+                RUNTIME_GATEWAY_JSONL,
+                dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(durable_path.st_mode)
+                or not os.path.samestat(ledger_info, durable_path)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                )
+            self._loaded_ledger_identity = ledger_identity
+        except RuntimeInvocationStorageError:
+            raise
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_WRITE_FAILED"
+            ) from exc
+        finally:
+            if ledger_fd >= 0:
+                os.close(ledger_fd)
+            if directory_fd >= 0:
+                os.close(directory_fd)
 
     def _append(
         self,
@@ -1426,9 +2195,10 @@ class RuntimeInvocationStore:
             "entry_hash_ref": _entry_hash(payload_without_hash),
         }
         entry = RuntimeGatewayStorageEntry(**entry_payload)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(_canonical_json(entry.model_dump(mode="json")) + "\n")
+        encoded_line = (
+            _canonical_json(entry.model_dump(mode="json")) + "\n"
+        ).encode("utf-8")
+        self._append_ledger_line(encoded_line)
         self._records[record.invocation_ref] = record
         self._entries.append(entry)
         self._idempotency_index[entry_idempotency_ref] = record.invocation_ref

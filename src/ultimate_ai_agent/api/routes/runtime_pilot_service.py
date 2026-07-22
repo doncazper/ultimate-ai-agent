@@ -2414,6 +2414,8 @@ def post_api_runtime_safe_disable(
         trace_id=state.safe_disable_ref,
         data={
             "safe_disable": state.model_dump(mode="json"),
+            "safe_disable_ref": state.safe_disable_ref,
+            "safe_disable_posture_ref": state.safe_disable_posture_ref,
             "adapter_execution_enabled": False,
             "execution_performed": False,
         },

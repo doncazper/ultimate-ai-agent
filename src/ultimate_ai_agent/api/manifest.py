@@ -1459,7 +1459,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/safe-disable":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime safe-disable route is mutation-like authority posture only; it records local safe-disable posture, and idempotency, audit, and profile downgrade posture are required.",
+            "Governed runtime safe-disable route is mutating authority-only posture-only control; it writes a canonical runtime safe-disable snapshot with stable posture refs, and idempotency, audit, replay-idempotent behavior, and profile downgrade posture are required.",
         )
     if (
         normalized_method == "POST"

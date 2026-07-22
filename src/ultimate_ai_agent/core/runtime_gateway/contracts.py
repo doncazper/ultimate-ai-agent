@@ -515,6 +515,14 @@ class RuntimeInvocationReceipt(BaseModel):
                 raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
             if self.command_receipt_metadata is not None:
                 raise ValueError("RUNTIME_COMMAND_AND_MODEL_METADATA_MUTUALLY_EXCLUSIVE")
+            if self.model_receipt_metadata.attempt_outcome_unknown and any(
+                (
+                    self.execution_performed,
+                    self.adapter_execution_performed,
+                    self.model_call_performed,
+                )
+            ):
+                raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_EXECUTION_INVALID")
         if self.command_receipt_metadata is not None:
             if (
                 self.connector_write_performed
@@ -655,6 +663,7 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
     bounded_preview_returned: bool = False
     bounded_preview_persisted: bool = False
     error_category: str | None = None
+    attempt_outcome_unknown: bool = False
     model_output_non_authoritative: bool = True
     tools_executed: bool = False
     memory_written: bool = False
@@ -692,6 +701,16 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
             raise ValueError("RUNTIME_MODEL_SIDE_EFFECT_DENIED")
         if self.error_category:
             validate_safe_execution_text(self.error_category, "error_category")
+        if self.attempt_outcome_unknown != (
+            self.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
+        ) or self.attempt_outcome_unknown and (
+            self.status_code is not None
+            or self.response_received
+            or self.response_byte_count != 0
+            or self.response_truncated
+            or self.bounded_preview_returned
+        ):
+            raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID")
         return self
 
 
@@ -1017,9 +1036,22 @@ def build_policy_decision(
             RuntimeProfile.local_runtime,
             RuntimeProfile.operator_approved,
         }
+        and not local_model_gateway_validated
     ):
         reason_codes = [
             "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED",
+            "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
+        ]
+    elif (
+        request.requested_authority == RuntimeAuthority.local_model.value
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    ):
+        reason_codes = [
+            "GOVERNED_RUNTIME_EXECUTION_DISABLED_OR_AUTHORITY_LEASE_REQUIRED",
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     elif (
@@ -1166,12 +1198,37 @@ def build_local_model_receipt(
     record: RuntimeInvocationRecord,
     *,
     metadata: RuntimeLocalModelReceiptMetadata,
-    execution_performed: bool = True,
-    model_call_performed: bool = True,
+    execution_performed: bool | None = None,
+    model_call_performed: bool | None = None,
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.receipt_recorded,
 ) -> RuntimeInvocationReceipt:
+    if execution_performed is None:
+        execution_performed = not metadata.attempt_outcome_unknown
+    if model_call_performed is None:
+        model_call_performed = not metadata.attempt_outcome_unknown
+    receipt_ref = (
+        _stable_ref(
+            "runtime-receipt-ref",
+            {
+                "invocation_ref": record.invocation_ref,
+                "status": "attempt_outcome_unknown",
+            },
+        )
+        if metadata.attempt_outcome_unknown
+        else runtime_receipt_ref(record.invocation_ref, status)
+    )
+    artifact_kind = (
+        "local_model_runtime_attempt_marker"
+        if metadata.attempt_outcome_unknown
+        else "local_model_runtime_receipt"
+    )
+    evidence_status = (
+        "local-model-attempt-marker"
+        if metadata.attempt_outcome_unknown
+        else "local-model-receipt"
+    )
     return RuntimeInvocationReceipt(
-        receipt_ref=runtime_receipt_ref(record.invocation_ref, status),
+        receipt_ref=receipt_ref,
         invocation_ref=record.invocation_ref,
         policy_decision_ref=record.policy_decision.policy_decision_ref,
         invocation_status=status,
@@ -1179,16 +1236,16 @@ def build_local_model_receipt(
             RuntimeArtifactRef(
                 artifact_ref=_stable_ref(
                     "runtime-artifact-ref",
-                    {"invocation_ref": record.invocation_ref, "kind": "local-model-receipt"},
+                    {"invocation_ref": record.invocation_ref, "kind": evidence_status},
                 ),
-                artifact_kind="local_model_runtime_receipt",
+                artifact_kind=artifact_kind,
                 safe_summary="Local model runtime receipt stores metadata and safe refs only.",
             )
         ],
         evidence_refs=[
             _stable_ref(
                 "runtime-evidence-ref",
-                {"invocation_ref": record.invocation_ref, "status": "local-model-receipt"},
+                {"invocation_ref": record.invocation_ref, "status": evidence_status},
             )
         ],
         blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
@@ -1202,9 +1259,13 @@ def build_local_model_receipt(
         browser_automation_performed=False,
         model_output_non_authoritative=True,
         safe_summary=(
-            "Local model runtime attempt was blocked before transport; metadata only."
-            if status == RuntimeInvocationStatus.execution_blocked
-            else "Local model runtime attempt completed; output is an untrusted proposal."
+            "Local model transport attempt was authorized; its outcome remains unknown."
+            if metadata.attempt_outcome_unknown
+            else (
+                "Local model runtime attempt was blocked before transport; metadata only."
+                if status == RuntimeInvocationStatus.execution_blocked
+                else "Local model runtime attempt completed; output is an untrusted proposal."
+            )
         ),
     )
 
