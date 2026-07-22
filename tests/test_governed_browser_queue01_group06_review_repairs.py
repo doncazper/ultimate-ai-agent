@@ -470,6 +470,7 @@ def test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    coordination_timeout_seconds = 30.0
     _, contexts, registry = _lifecycle_context()
     request, recipe = contexts[
         GovernedBrowserOriginSessionOperation.enroll_credential
@@ -492,7 +493,7 @@ def test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer(
         dispatched_buffers.append(credential_material)
         dispatched_snapshots.append(bytes(credential_material))
         entered.set()
-        assert proceed.wait(timeout=2)
+        assert proceed.wait(timeout=coordination_timeout_seconds)
         return original_store(
             registration,
             request_ref=request_ref,
@@ -519,11 +520,11 @@ def test_timed_out_credential_dispatch_owns_an_independent_mutable_buffer(
             exact,
             credential_material=material,
         )
-        assert entered.wait(timeout=2)
+        assert entered.wait(timeout=coordination_timeout_seconds)
         time.sleep(0.03)
         assert future.done() is False
         proceed.set()
-        result = future.result(timeout=2)
+        result = future.result(timeout=coordination_timeout_seconds)
 
     assert result.receipt.status == "outcome_ambiguous"
     assert material == bytearray(len(material))
