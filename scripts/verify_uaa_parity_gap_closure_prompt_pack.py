@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +38,8 @@ EXPECTED_PROMPTS = (
     "10_end_to_end_acceptance_and_parity_truth.prompt.md",
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:/Users/|/home/|/workspace/|/private/tmp/|/var/folders/|"
+    r"(?:/Users/|/home/|/workspace/|/tmp/|/private/tmp/|/var/tmp/|"
+    r"/private/var/tmp/|/var/folders/|"
     r"[A-Za-z]:\\Users\\)[^)\s`]+"
 )
 FORBIDDEN_SELF_AUTHORITY_PHRASES = (
@@ -74,16 +78,36 @@ WRAPPER_REQUIRED = (
     "Do not generate another pack",
 )
 PHASE_REQUIRED: dict[int, tuple[str, ...]] = {
-    1: ("H01-H06", "open_pr_owned_elsewhere", "Every skip is backed by current-main code"),
+    1: (
+        "H01-H06",
+        "open_pr_owned_elsewhere",
+        "Every skip is backed by current-main code",
+    ),
     2: ("mockControlCenterData", "complete one readable path", "Stop the backend"),
-    3: ("smallest real, safe, macOS-first setup lifecycle", "This pack is not authority", "stop and rollback"),
+    3: (
+        "smallest real, safe, macOS-first setup lifecycle",
+        "This pack is not authority",
+        "stop and rollback",
+    ),
     4: ("verified_complete", "real durable event source", "arbitrary UTF-8 splits"),
     5: ("backend revision/version", "stale approvals", "two clients"),
-    6: ("real accepted read-only email/calendar adapters", "one named Morning Briefing refresh job", "connector writes"),
+    6: (
+        "real accepted read-only email/calendar adapters",
+        "one named Morning Briefing refresh job",
+        "connector writes",
+    ),
     7: ("LLM-Free Search Outcomes", "fresh target", "archive bombs"),
-    8: ("before/after measurements", "Inventory every cache", "locked Python and Node installations"),
+    8: (
+        "before/after measurements",
+        "Inventory every cache",
+        "locked Python and Node installations",
+    ),
     9: ("B01-B14", "Delivery-attempt state machine", "single-flight invocation guard"),
-    10: ("Required Live-Data Journeys", "at most two focused repair branches", "No critical journey may rely"),
+    10: (
+        "Required Live-Data Journeys",
+        "at most two focused repair branches",
+        "No critical journey may rely",
+    ),
 }
 EXPECTED_COVERAGE_IDS = tuple(
     [f"H{index:02d}" for index in range(1, 7)]
@@ -102,9 +126,42 @@ class VerificationError(RuntimeError):
     """Raised when the prompt pack violates integrity or safety rules."""
 
 
+@dataclass(frozen=True)
+class VerifiedPromptPack:
+    """Immutable verified prompt graph used for rendering and execution."""
+
+    bundle_id: str
+    version: str
+    bundle_hash: str
+    refs: tuple[str, ...]
+    contents: tuple[tuple[str, bytes], ...]
+
+    def content(self, ref: str) -> bytes:
+        for content_ref, content in self.contents:
+            if content_ref == ref:
+                return content
+        raise VerificationError(f"verified prompt-pack content is missing: {ref}")
+
+    def result(self) -> dict[str, Any]:
+        return {
+            "bundle_id": self.bundle_id,
+            "version": self.version,
+            "prompt_count": len(self.refs),
+            "phase_count": len(self.refs) - 1,
+            "coverage_item_count": len(EXPECTED_COVERAGE_IDS),
+            "bundle_hash": self.bundle_hash,
+            "fresh_inventory_before_each_phase": True,
+            "live_data_completion_floor": True,
+            "overlap_ownership_protected": True,
+            "merge_gated_execution": True,
+            "self_authorizing_phrases_rejected": True,
+        }
+
+
 def _load_manifest() -> dict[str, Any]:
     try:
-        value = json.loads(_repo_path(MANIFEST_REF).read_text(encoding="utf-8"))
+        raw = _read_repo_bytes(MANIFEST_REF, "manifest")
+        value = json.loads(_decode_utf8(MANIFEST_REF, raw, "manifest"))
     except OSError as exc:
         raise VerificationError("manifest is missing or unreadable") from exc
     except json.JSONDecodeError as exc:
@@ -155,14 +212,39 @@ def _repo_path(ref: str) -> Path:
     return path
 
 
-def compute_bundle_hash(refs: list[str]) -> str:
+def _read_repo_bytes(ref: str, label: str) -> bytes:
+    try:
+        return _repo_path(ref).read_bytes()
+    except OSError as exc:
+        raise VerificationError(f"{label} is missing or unreadable") from exc
+
+
+def _decode_utf8(ref: str, content: bytes, label: str) -> str:
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise VerificationError(f"{label} is not valid UTF-8: {ref}") from exc
+
+
+def _bundle_hash_from_contents(
+    refs: tuple[str, ...], contents: dict[str, bytes]
+) -> str:
     digest = hashlib.sha256()
     for ref in (README_REF, *refs):
         digest.update(b"\n--UAA-PROMPT-PACK-FILE--\n")
         digest.update(ref.encode("utf-8"))
         digest.update(b"\n")
-        digest.update(_repo_path(ref).read_bytes())
+        digest.update(contents[ref])
     return f"{HASH_PREFIX}{digest.hexdigest()}"
+
+
+def compute_bundle_hash(refs: list[str]) -> str:
+    ordered_refs = tuple(refs)
+    contents = {
+        ref: _read_repo_bytes(ref, "prompt-pack source")
+        for ref in (README_REF, *ordered_refs)
+    }
+    return _bundle_hash_from_contents(ordered_refs, contents)
 
 
 def _require_fragments(label: str, text: str, fragments: tuple[str, ...]) -> None:
@@ -183,7 +265,9 @@ def _validate_text(path: Path, text: str) -> None:
     lowered = text.lower()
     for phrase in FORBIDDEN_SELF_AUTHORITY_PHRASES:
         if phrase in lowered:
-            raise VerificationError(f"{path.name} contains self-authorizing phrase: {phrase}")
+            raise VerificationError(
+                f"{path.name} contains self-authorizing phrase: {phrase}"
+            )
 
 
 def _validate_coverage_matrix(readme: str) -> None:
@@ -195,13 +279,15 @@ def _validate_coverage_matrix(readme: str) -> None:
         )
     for match in rows:
         phases = [value.strip() for value in match.group("phase").split(",")]
-        if not phases or any(not value.isdigit() or not 2 <= int(value) <= 9 for value in phases):
+        if not phases or any(
+            not value.isdigit() or not 2 <= int(value) <= 9 for value in phases
+        ):
             raise VerificationError(
                 f"invalid phase mapping for {match.group('coverage_id')}: {match.group('phase')}"
             )
 
 
-def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
+def _verify_pack() -> VerifiedPromptPack:
     manifest = _load_manifest()
     for manifest_text in _manifest_strings(manifest):
         _validate_text(MANIFEST_PATH, manifest_text)
@@ -212,7 +298,7 @@ def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
     if manifest.get("stable_within_run") is not True:
         raise VerificationError("stable_within_run must be true")
 
-    refs = _prompt_refs(manifest)
+    refs = tuple(_prompt_refs(manifest))
     names = tuple(Path(ref).name for ref in refs)
     if names != EXPECTED_PROMPTS:
         raise VerificationError("prompt refs must contain the ordered 00-10 pack")
@@ -220,27 +306,28 @@ def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
         raise VerificationError("prompt refs must be unique")
 
     prefix = "docs/prompts/uaa_parity_gap_closure/"
+    contents: dict[str, bytes] = {}
     texts: list[str] = []
     for ref in refs:
         if not ref.startswith(prefix):
             raise VerificationError(f"prompt ref is outside the pack: {ref}")
         path = _repo_path(ref)
-        try:
-            text = path.read_text(encoding="utf-8")
-        except FileNotFoundError as exc:
-            raise VerificationError(f"missing prompt: {ref}") from exc
+        content = _read_repo_bytes(ref, "prompt")
+        text = _decode_utf8(ref, content, "prompt")
         if not text.startswith("# "):
             raise VerificationError(f"prompt must start with a Markdown heading: {ref}")
         _validate_text(path, text)
+        contents[ref] = content
         texts.append(text)
 
-    try:
-        readme = _repo_path(README_REF).read_text(encoding="utf-8")
-    except OSError as exc:
-        raise VerificationError("pack README is missing or unreadable") from exc
+    readme_content = _read_repo_bytes(README_REF, "pack README")
+    readme = _decode_utf8(README_REF, readme_content, "pack README")
+    contents[README_REF] = readme_content
     _validate_text(README_PATH, readme)
     _validate_coverage_matrix(readme)
-    _require_fragments("README convergence and coverage contract", readme, README_REQUIRED)
+    _require_fragments(
+        "README convergence and coverage contract", readme, README_REQUIRED
+    )
     _require_fragments("wrapper continuous merge loop", texts[0], WRAPPER_REQUIRED)
     for phase, fragments in PHASE_REQUIRED.items():
         expected_heading = f"# Phase {phase:02d}:"
@@ -248,52 +335,69 @@ def verify_manifest(*, allow_placeholder_hash: bool = False) -> dict[str, Any]:
             raise VerificationError(f"phase {phase:02d} has the wrong heading")
         _require_fragments(f"phase {phase:02d} contract", texts[phase], fragments)
 
-    actual_hash = compute_bundle_hash(refs)
+    actual_hash = _bundle_hash_from_contents(refs, contents)
     configured_hash = manifest.get("bundle_hash")
-    if configured_hash == f"{HASH_PREFIX}PLACEHOLDER" and allow_placeholder_hash:
-        pass
-    elif configured_hash != actual_hash:
+    if configured_hash != actual_hash:
         raise VerificationError(
             f"bundle_hash mismatch: expected {actual_hash}, got {configured_hash}"
         )
 
-    return {
-        "bundle_id": EXPECTED_BUNDLE_ID,
-        "version": EXPECTED_VERSION,
-        "prompt_count": len(refs),
-        "phase_count": len(refs) - 1,
-        "coverage_item_count": len(EXPECTED_COVERAGE_IDS),
-        "bundle_hash": actual_hash,
-        "fresh_inventory_before_each_phase": True,
-        "live_data_completion_floor": True,
-        "overlap_ownership_protected": True,
-        "merge_gated_execution": True,
-        "self_authorizing_phrases_rejected": True,
-    }
+    ordered_contents = tuple((ref, contents[ref]) for ref in (README_REF, *refs))
+    return VerifiedPromptPack(
+        bundle_id=EXPECTED_BUNDLE_ID,
+        version=EXPECTED_VERSION,
+        bundle_hash=actual_hash,
+        refs=refs,
+        contents=ordered_contents,
+    )
 
 
-def emit_combined(refs: list[str], output: Path) -> None:
-    manifest = _load_manifest()
-    output.parent.mkdir(parents=True, exist_ok=True)
+def verify_manifest() -> dict[str, Any]:
+    return _verify_pack().result()
+
+
+def render_combined(pack: VerifiedPromptPack) -> bytes:
     chunks = [
         "# UAA Hermes/OpenClaw Parity Gap Closure Combined Prompt Pack\n\n"
-        f"Bundle id: `{manifest['bundle_id']}`\n\n"
-        f"Bundle version: `{manifest['version']}`\n\n"
-        f"Bundle hash: `{manifest['bundle_hash']}`\n\n"
+        f"Bundle id: `{pack.bundle_id}`\n\n"
+        f"Bundle version: `{pack.version}`\n\n"
+        f"Bundle hash: `{pack.bundle_hash}`\n\n"
         "Generated for operator review. Source prompt files remain canonical.\n",
         f"\n<!-- BEGIN {README_REF} -->\n",
-        _repo_path(README_REF).read_text(encoding="utf-8").rstrip(),
+        _decode_utf8(README_REF, pack.content(README_REF), "verified README").rstrip(),
         f"\n<!-- END {README_REF} -->\n",
     ]
-    for ref in refs:
+    for ref in pack.refs:
         chunks.extend(
             [
                 f"\n<!-- BEGIN {ref} -->\n",
-                _repo_path(ref).read_text(encoding="utf-8").rstrip(),
+                _decode_utf8(ref, pack.content(ref), "verified prompt").rstrip(),
                 f"\n<!-- END {ref} -->\n",
             ]
         )
-    output.write_text("\n".join(chunks) + "\n", encoding="utf-8")
+    return ("\n".join(chunks) + "\n").encode("utf-8")
+
+
+def emit_combined(content: bytes, output: Path) -> None:
+    temporary_path: Path | None = None
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".uaa-parity-gap-closure-",
+            dir=output.parent,
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+        temporary_path = None
+    except OSError as exc:
+        raise VerificationError("combined prompt output is unavailable") from exc
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -301,20 +405,38 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--emit-combined", type=Path)
-    parser.add_argument("--allow-placeholder-hash", action="store_true")
+    parser.add_argument("--stream-combined", action="store_true")
     args = parser.parse_args()
+    if args.stream_combined and (args.json or args.list):
+        parser.error("--stream-combined cannot be combined with --json or --list")
     try:
-        result = verify_manifest(allow_placeholder_hash=args.allow_placeholder_hash)
-        refs = _prompt_refs(_load_manifest())
+        pack = _verify_pack()
+        result = pack.result()
+        combined = (
+            render_combined(pack)
+            if args.emit_combined or args.stream_combined
+            else None
+        )
+        if args.emit_combined:
+            if combined is None:
+                raise VerificationError("combined prompt rendering is unavailable")
+            emit_combined(combined, args.emit_combined)
     except VerificationError as exc:
-        print(f"parity gap closure prompt pack verification failed: {exc}", file=sys.stderr)
+        print(
+            f"parity gap closure prompt pack verification failed: {exc}",
+            file=sys.stderr,
+        )
         return 1
 
-    if args.list:
+    if args.stream_combined:
+        if combined is None:
+            print("combined prompt rendering is unavailable", file=sys.stderr)
+            return 1
+        sys.stdout.buffer.write(combined)
+    elif args.list:
         print(README_REF)
-        print("\n".join(refs))
+        print("\n".join(pack.refs))
     elif args.emit_combined:
-        emit_combined(refs, args.emit_combined)
         print("emitted combined prompt pack: configured-output-ref")
     elif args.json:
         print(json.dumps(result, indent=2, sort_keys=True))

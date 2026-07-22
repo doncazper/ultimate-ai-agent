@@ -52,7 +52,9 @@ def test_verifier_rejects_prompt_tamper(
     monkeypatch.setattr(
         pack_verify,
         "_repo_path",
-        lambda candidate: tampered if candidate == ref else original_repo_path(candidate),
+        lambda candidate: (
+            tampered if candidate == ref else original_repo_path(candidate)
+        ),
     )
 
     with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
@@ -95,6 +97,23 @@ def test_verifier_rejects_self_authorizing_manifest_text(
         pack_verify.verify_manifest()
 
 
+def test_placeholder_hash_cannot_bypass_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = json.loads(pack_verify.MANIFEST_PATH.read_text(encoding="utf-8"))
+    manifest["bundle_hash"] = "sha256:PLACEHOLDER"
+    monkeypatch.setattr(pack_verify, "_load_manifest", lambda: manifest)
+
+    with pytest.raises(pack_verify.VerificationError, match="bundle_hash mismatch"):
+        pack_verify.verify_manifest()
+
+
+@pytest.mark.parametrize("path", ("/tmp/repo/file", "/var/tmp/repo/file"))
+def test_common_temp_checkout_paths_are_rejected(path: str) -> None:
+    with pytest.raises(pack_verify.VerificationError, match="absolute local path"):
+        pack_verify._validate_text(pack_verify.README_PATH, path)
+
+
 def test_repo_path_rejects_symlinked_pack_input(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -107,9 +126,7 @@ def test_repo_path_rejects_symlinked_pack_input(
     monkeypatch.setattr(pack_verify, "ROOT", root)
 
     with pytest.raises(pack_verify.VerificationError, match="symlinked"):
-        pack_verify._repo_path(
-            "docs/prompts/uaa_parity_gap_closure/unsafe.prompt.md"
-        )
+        pack_verify._repo_path("docs/prompts/uaa_parity_gap_closure/unsafe.prompt.md")
 
 
 def test_missing_manifest_error_does_not_disclose_checkout_path(
@@ -142,6 +159,38 @@ def test_dry_run_redacts_local_paths_from_console(tmp_path: Path) -> None:
     assert str(tmp_path) not in result.stderr
     assert "repository-root-ref" in result.stdout
     assert "configured-output-ref" in result.stdout
+
+
+def test_streamed_combined_bytes_match_atomic_review_copy(tmp_path: Path) -> None:
+    output = tmp_path / "combined.prompt.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(VERIFY),
+            "--emit-combined",
+            str(output),
+            "--stream-combined",
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    assert result.stderr == b""
+    assert result.stdout == output.read_bytes()
+
+
+def test_verified_snapshot_renders_without_rereading_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pack = pack_verify._verify_pack()
+    expected = pack_verify.render_combined(pack)
+    monkeypatch.setattr(
+        pack_verify,
+        "_repo_path",
+        lambda _ref: (_ for _ in ()).throw(AssertionError("unexpected reread")),
+    )
+
+    assert pack_verify.render_combined(pack) == expected
 
 
 def test_runner_feeds_codex_the_exact_verified_combined_pack(tmp_path: Path) -> None:

@@ -74,8 +74,6 @@ if [[ "$LIST_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
-
 echo "UAA Hermes/OpenClaw parity gap closure prompt pack:"
 echo "  repo: repository-root-ref"
 echo "  wrapper: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md"
@@ -84,14 +82,15 @@ echo "  sandbox: $SANDBOX"
 echo
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
   echo "Dry run complete. The validated pack was emitted without invoking Codex."
   exit 0
 fi
 
 if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   echo "Codex CLI not found. Install Codex or set CODEX_BIN=/path/to/codex." >&2
-  echo "Validated wrapper: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md" >&2
-  echo "Combined pack: configured-output-ref" >&2
+  echo "Wrapper ref: docs/prompts/uaa_parity_gap_closure/00_execute_parity_gap_closure_end_to_end.prompt.md" >&2
+  echo "Combined pack: not-emitted" >&2
   exit 127
 fi
 
@@ -99,4 +98,5 @@ echo "Running the overlap-aware end-to-end wrapper with Codex."
 echo "The wrapper may create, push, review, and merge scoped phase PRs."
 echo
 
-"$CODEX_BIN" "${CODEX_ARGS[@]}" - < "$OUTPUT"
+"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined \
+  | "$CODEX_BIN" "${CODEX_ARGS[@]}" -
