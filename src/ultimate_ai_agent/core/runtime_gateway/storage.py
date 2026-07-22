@@ -1726,7 +1726,7 @@ class RuntimeInvocationStore:
                 derived_state = _operator_safe_disable_state(self._records.values())
                 if self._safe_disable_state_path_present():
                     persisted_state = self._load_operator_safe_disable_state()
-                    if self._records and derived_state is None:
+                    if derived_state is None:
                         raise RuntimeInvocationStorageError(
                             "RUNTIME_SAFE_DISABLE_STATE_MISMATCH"
                         )

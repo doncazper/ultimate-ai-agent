@@ -477,6 +477,22 @@ class RuntimeGateway:
                 model_call_performed=False,
                 status=RuntimeInvocationStatus.execution_blocked,
             )
+            blocked_replay_policy = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=RuntimeInvocationStatus.execution_blocked,
+                local_model_gateway_validated=False,
+                active_authority_leases=self.store.current_authority_leases(),
+                kill_switch_engaged=(
+                    self.store.authority_lease_kill_switch_engaged()
+                ),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": RuntimeInvocationStatus.execution_blocked,
+                }
+            )
             updated = self.store.record_receipt(
                 record.invocation_ref,
                 receipt,
@@ -491,7 +507,7 @@ class RuntimeGateway:
                         "metadata": metadata.model_dump(mode="json"),
                     },
                 ),
-                policy_decision=replay_policy_decision,
+                policy_decision=blocked_replay_policy,
             )
             return RuntimeLocalModelGatewayResult(
                 record=updated,

@@ -585,6 +585,32 @@ def test_runtime_store_rejects_sidecar_without_matching_ledger_state(
         RuntimeInvocationStore(target_dir).operator_safe_disable_active()
 
 
+@pytest.mark.parametrize("ledger_payload", [b"", b"\n\n"])
+def test_runtime_store_rejects_sidecar_with_empty_present_ledger(
+    tmp_path: Path,
+    ledger_payload: bytes,
+) -> None:
+    source_dir = tmp_path / "source"
+    source = RuntimeInvocationStore(source_dir)
+    source.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:sidecar-empty-ledger"),
+        idempotency_ref="idempotency-ref:sidecar-empty-ledger",
+    )
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "runtime_gateway_invocations.jsonl").write_bytes(ledger_payload)
+    (target_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).write_bytes(
+        (source_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_bytes()
+    )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_SAFE_DISABLE_STATE_MISMATCH",
+    ):
+        RuntimeInvocationStore(target_dir).operator_safe_disable_active()
+
+
 def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3132,7 +3158,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
         calls += 1
         return FakeM164GatewayTransport("FIRST_MODEL_ATTEMPT")
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_provider_model_execute(tmp_path)
     gateway = RuntimeGateway(
         store=store,
         local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
@@ -3155,7 +3181,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
             request,
             idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
         )
-    assert calls == 0
+    assert calls == 1
 
     store.record_receipt = original_record_receipt  # type: ignore[method-assign]
     replay = gateway.invoke_local_model(
@@ -3163,18 +3189,21 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
     )
 
-    assert calls == 0
+    assert calls == 1
     assert replay.replayed is True
     assert replay.record.status == "execution_blocked"
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.model_call_enabled is False
 
     second_replay = gateway.invoke_local_model(
         request,
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
     )
-    assert calls == 0
+    assert calls == 1
     assert second_replay.replayed is True
     assert second_replay.record.status == "execution_blocked"
     assert (
@@ -3183,6 +3212,9 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
     )
     assert second_replay.record.receipt is not None
     assert second_replay.record.receipt.model_call_performed is False
+    assert second_replay.record.policy_decision.allowed_to_execute is False
+    assert second_replay.record.policy_decision.adapter_execution_enabled is False
+    assert second_replay.record.policy_decision.model_call_enabled is False
 
 
 def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency_shape(
