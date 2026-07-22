@@ -475,7 +475,7 @@ def test_tracked_timing_seed_is_safe_advisory_and_covers_most_current_files() ->
     assert all(path.startswith("tests/test_") for path in timings)
 
 
-def test_canonical_plan_binds_nine_shards_and_preserves_local_timeout_margin() -> None:
+def test_canonical_plan_binds_eight_shards_and_preserves_local_timeout_margin() -> None:
     runner = load_runner()
     files = runner.discover_test_files(ROOT)
     timings, _source = runner.load_timing_profiles([TIMING_SEED], files)
@@ -496,7 +496,7 @@ def test_canonical_plan_binds_nine_shards_and_preserves_local_timeout_margin() -
         affinity_groups,
         exclusive_groups,
     )
-    assert len(plans) == runner.CANONICAL_PYTEST_SHARD_COUNT == 9
+    assert len(plans) == runner.CANONICAL_PYTEST_SHARD_COUNT == 8
     assert plans[0].serialized_preflight is True
     assert plans[0].files == (
         "tests/test_msg_mx_005_matrix_session_dispatch.py",

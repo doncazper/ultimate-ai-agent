@@ -151,9 +151,10 @@ def test_release_lanes_capture_failures_and_isolate_performance_measurement() ->
         "\n  release-lane-visual-regression:", 1
     )[0]
     assert "    needs:\n" in performance_job
-    assert "      - pytest\n" in performance_job
     assert "      - static-verification\n" in performance_job
-    assert "      - control-center-frontend\n" in performance_job
+    assert "      - release-lane-frontend\n" in performance_job
+    assert "      - release-lane-visual-regression\n" in performance_job
+    assert "      - release-lane-desktop-packaging\n" in performance_job
 
 
 def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
@@ -188,8 +189,8 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
         in pytest_shards_job
     )
     assert "--verification-execution-fence-root /tmp/" not in pytest_shards_job
+    assert "      - pytest\n" in verifier.job_section(workflow, "static-verification")
     for job_name in (
-        "static-verification",
         "release-lane-docs",
         "release-lane-openapi",
         "release-lane-api-safety",
@@ -197,13 +198,15 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
         "release-lane-product-truth",
         "release-lane-local-model-e2e",
         "release-lane-durability",
-        "release-lane-desktop-packaging",
     ):
-        assert "      - pytest\n" in verifier.job_section(workflow, job_name)
+        assert "      - manifest-attestation\n" in verifier.job_section(workflow, job_name)
+        assert f"      - {job_name}\n" in pytest_shards_job
+    assert "      - static-verification\n" in verifier.job_section(
+        workflow, "release-lane-desktop-packaging"
+    )
 
     control_center_job = verifier.job_section(workflow, "control-center-frontend")
-    assert "      - static-verification\n" in control_center_job
-    assert "      - release-lane-desktop-packaging\n" in control_center_job
+    assert "      - pytest\n" in control_center_job
     assert "verification-envelope:" in control_center_job
     assert (
         "--verification-execution-fence-root "
@@ -228,39 +231,16 @@ def test_shared_mac_ci_stages_cpu_and_io_heavy_job_classes() -> None:
 def test_visual_regression_runs_only_for_affected_control_center_paths() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     visual_job = verifier.job_section(workflow, "release-lane-visual-regression")
+    manifest_job = verifier.job_section(workflow, "manifest-attestation")
 
     assert "          fetch-depth: 0\n" in visual_job
-    assert "PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}" in visual_job
-    assert "PUSH_BEFORE_SHA: ${{ github.event.before }}" in visual_job
-    assert 'if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then' in visual_job
-    assert 'git cat-file -e "${range_base}^{commit}"' in visual_job
-    assert 'git diff --no-renames --quiet "$range_base" "$RANGE_HEAD_SHA" --' in visual_job
-    for path in (
-        "apps/control-center",
-        "docs/control_center",
-        "docs/design/control_center_north_star",
-        "docs/schemas/control_center_release_surface.schema.json",
-        "scripts/verify_beta_local.py",
-        "scripts/verify_beta_13_frontend_loading_visual_proof.py",
-        "scripts/verify_control_center_visual_regression.py",
-        "scripts/verify_control_center_release_surface.py",
-        "scripts/verify_fcc_polish_001_native_apple_grade_ux_layer.py",
-        "tests/test_control_center_release_surface_manifest.py",
-        "tests/test_control_center_visual_and_packaging_proofs.py",
-        "tests/test_fcc_polish_001_native_apple_grade_ux_layer.py",
-    ):
-        assert path in visual_job
+    assert "scripts/verification/resolve_ci_visual_scope.py" in manifest_job
+    assert "visual-scope: ${{ steps.visual-scope.outputs.visual_scope }}" in manifest_job
     assert visual_job.count(
-        "if: steps.visual-scope.outputs.run_visual == 'true'"
+        "if: needs.manifest-attestation.outputs.visual-scope == 'affected'"
     ) == 2
-    assert 'if [ "$RUN_VISUAL" = "true" ]; then' in visual_job
-    assert "github_output_args=()" in visual_job
-    assert (
-        'github_output_args=(--github-output-file "$GITHUB_OUTPUT")'
-        in visual_job
-    )
-    assert '"${github_output_args[@]}"' in visual_job
-    assert "reason-ref:visual-regression:not-affected" in visual_job
+    assert '--visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}"' in visual_job
+    assert visual_job.count('--github-output-file "$GITHUB_OUTPUT"') == 1
     assert (
         "PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers"
         in visual_job
@@ -296,9 +276,23 @@ def test_desktop_packaging_preserves_non_admin_docker_boundary() -> None:
         in desktop_job
     )
     assert '--docker-available "$docker_posture"' in workflow
+    assert '--github-output-file "$GITHUB_OUTPUT"' in desktop_job
     assert "command:desktop-packaging.contract" in lane_registry()[
         "desktop-packaging"
     ].command_refs
+
+
+def test_typed_optional_jobs_and_terminal_foundation_emit_exact_receipts() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    visual_job = verifier.job_section(workflow, "release-lane-visual-regression")
+    desktop_job = verifier.job_section(workflow, "release-lane-desktop-packaging")
+    foundation_job = verifier.job_section(workflow, "foundation-gate-report")
+
+    assert '--github-output-file "$GITHUB_OUTPUT"' in visual_job
+    assert '--github-output-file "$GITHUB_OUTPUT"' in desktop_job
+    assert foundation_job.count('--dependency-envelope "$') == 18
+    assert '--dependency-envelope "$PYTEST_ENVELOPE"' in foundation_job
+    assert '--dependency-envelope "$PERFORMANCE_ENVELOPE"' in foundation_job
 
 
 def test_verifier_rejects_hosted_runner_and_cache_regression(tmp_path: Path) -> None:

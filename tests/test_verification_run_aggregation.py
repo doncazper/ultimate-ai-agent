@@ -223,6 +223,31 @@ def test_whole_run_is_canonical_content_bound_and_order_independent() -> None:
     first.run_manifest.validate()
 
 
+def test_declared_typed_optional_block_does_not_weaken_required_units() -> None:
+    base_units = _units()
+    units = (
+        replace(base_units[0], evidence_posture="typed_optional"),
+        *base_units[1:],
+    )
+    plan = _plan(units)
+    optional = _receipt(
+        plan,
+        units[0],
+        status=VerificationTerminalStatus.BLOCKED,
+    )
+    required = _receipt(plan, units[1])
+
+    result = aggregate_verification_run(
+        plan,
+        units,
+        (optional, required),
+        execution_surface_ref=SURFACE,
+    )
+
+    assert result.run_manifest.status is VerificationTerminalStatus.PASSED
+    assert result.run_manifest.missing_unit_refs == ()
+
+
 def test_missing_audit_is_blocked_and_never_synthesized() -> None:
     units = _units(include_audit=True)
     plan = _plan(units)

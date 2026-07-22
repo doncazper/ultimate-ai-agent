@@ -168,12 +168,10 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append(
             "pytest execution fence must use the real owner-only macOS temp root"
         )
-    receipt_source_jobs = (
-        "manifest-attestation",
-        "lint",
-        "affected-preflight",
-        "pytest-shards",
-        "static-verification",
+    receipt_source_jobs = tuple(
+        job.job_ref
+        for job in CI_JOB_GRAPH
+        if job.lane_ref is not None
     )
     for job_name in receipt_source_jobs:
         section = job_section(workflow, job_name)
@@ -184,6 +182,7 @@ def verify(root: Path = ROOT) -> list[str]:
                 "steps.canonical.outputs.verification_envelope",
                 "        id: canonical\n",
                 '--github-output-file "$GITHUB_OUTPUT"',
+                "--visual-scope",
             )
         ):
             failures.append(
@@ -201,10 +200,9 @@ def verify(root: Path = ROOT) -> list[str]:
             "needs.pytest-shards.outputs.verification-envelope",
             '--github-output-file "$GITHUB_OUTPUT"',
         )
-    ) or pytest_aggregate.count('--envelope "$') != 4:
-        failures.append("pytest aggregate must derive one exact receipt from four sources")
-    pytest_gated_jobs = (
-        "static-verification",
+    ) or pytest_aggregate.count('--envelope "$') != 11:
+        failures.append("pytest aggregate must derive one exact receipt from all pre-suite sources")
+    pre_pytest_jobs = (
         "release-lane-docs",
         "release-lane-openapi",
         "release-lane-api-safety",
@@ -212,25 +210,20 @@ def verify(root: Path = ROOT) -> list[str]:
         "release-lane-product-truth",
         "release-lane-local-model-e2e",
         "release-lane-durability",
-        "release-lane-desktop-packaging",
     )
     if any(
-        "    needs:\n      - pytest\n" not in job_section(workflow, job_name)
-        for job_name in pytest_gated_jobs
+        "    needs:\n      - manifest-attestation\n" not in job_section(workflow, job_name)
+        for job_name in pre_pytest_jobs
     ):
-        failures.append("backend release checks must wait for isolated pytest shards")
+        failures.append("backend release checks must fan out in the pre-suite pool")
+    if any(
+        f"      - {job_name}\n" not in pytest_shards_job
+        for job_name in pre_pytest_jobs
+    ):
+        failures.append("isolated pytest must wait for every pre-suite resource-pool lane")
     control_center_job = job_section(workflow, "control-center-frontend")
-    if not all(
-        f"      - {dependency}\n" in control_center_job
-        for dependency in (
-            "static-verification",
-            "release-lane-docs",
-            "release-lane-api-safety",
-            "release-lane-security-redaction",
-            "release-lane-desktop-packaging",
-        )
-    ):
-        failures.append("Control Center verification must wait for backend release checks")
+    if "      - pytest\n" not in control_center_job:
+        failures.append("Control Center verification must start in the post-suite pool")
     if not all(
         fragment in control_center_job
         for fragment in (
@@ -264,41 +257,35 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("visual regression must wait for Control Center verification")
     for fragment in (
         "          fetch-depth: 0\n",
-        "      - name: Determine visual regression scope\n",
-        "          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}\n",
-        "          PUSH_BEFORE_SHA: ${{ github.event.before }}\n",
-        '          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then\n',
-        'git cat-file -e "${range_base}^{commit}"',
-        'git diff --no-renames --quiet "$range_base" "$RANGE_HEAD_SHA" --',
-        "              apps/control-center \\\n",
-        "              docs/control_center \\\n",
-        "              docs/schemas/control_center_release_surface.schema.json \\\n",
-        "              tests/test_control_center_visual_and_packaging_proofs.py \\\n",
-        "          run_visual=false\n",
-        '          echo "run_visual=${run_visual}" >> "$GITHUB_OUTPUT"\n',
-        "        if: steps.visual-scope.outputs.run_visual == 'true'\n",
-        "          github_output_args=()\n",
-        '          if [ "$RUN_VISUAL" = "true" ]; then\n',
-        '            github_output_args=(--github-output-file "$GITHUB_OUTPUT")\n',
-        '            "${github_output_args[@]}" \\\n',
-        "reason-ref:visual-regression:not-affected",
+        "needs.manifest-attestation.outputs.visual-scope == 'affected'",
+        '            --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \\\n',
+        '            --github-output-file "$GITHUB_OUTPUT" \\\n',
         "      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers\n",
         "            --lane visual-regression \\\n",
-        '            --visual-scope "$visual_scope" \\\n',
     ):
         if fragment not in visual_regression_job:
             failures.append("visual regression scope must be affected-path bound and fail closed")
+    manifest_job = job_section(workflow, "manifest-attestation")
+    for fragment in (
+        "visual-scope: ${{ steps.visual-scope.outputs.visual_scope }}",
+        "scripts/verification/resolve_ci_visual_scope.py",
+        '            --base-sha "$UAA_CI_COMPARISON_BASE_SHA"',
+        '            --github-output-file "$GITHUB_OUTPUT"',
+    ):
+        if fragment not in manifest_job:
+            failures.append("manifest attestation must resolve one canonical visual scope")
     performance_job = job_section(workflow, "release-lane-performance")
     if not all(
         fragment in performance_job
         for fragment in (
             "    needs:\n",
-            "      - pytest\n",
             "      - static-verification\n",
-            "      - control-center-frontend\n",
+            "      - release-lane-frontend\n",
+            "      - release-lane-visual-regression\n",
+            "      - release-lane-desktop-packaging\n",
         )
     ):
-        failures.append("performance verification must run after the shared-Mac matrix")
+        failures.append("performance verification must run as an isolated final measurement")
     foundation_job = job_section(workflow, "foundation-gate-report")
     if not all(
         fragment in foundation_job
@@ -310,10 +297,22 @@ def verify(root: Path = ROOT) -> list[str]:
             "needs.pytest-shards.outputs.verification-envelope",
             "needs.static-verification.outputs.verification-envelope",
             "uaa_foundation_prerequisite_manifest.json",
+            "verify_ci_evidence_dag.py",
+            "uaa_ci_evidence_dag_gate.json",
+            "Install canonical frontend runtime",
+            "working-directory: apps/control-center",
+            "run: npm ci",
+            '--dependency-envelope "$PYTEST_ENVELOPE"',
+            '--dependency-envelope "$PERFORMANCE_ENVELOPE"',
+            '--dependency-envelope "$VISUAL_ENVELOPE"',
+            '--dependency-envelope "$DESKTOP_ENVELOPE"',
+            "if: always()",
         )
-    ) or foundation_job.count('--envelope "$') != 5:
+    ) or foundation_job.count('--envelope "$') != 12 or foundation_job.count(
+        '--dependency-envelope "$'
+    ) != 18:
         failures.append(
-            "Foundation Gate must revalidate five exact source receipt envelopes"
+            "Foundation Gate must revalidate all prerequisite receipt envelopes"
         )
     foundation_argv = command_registry()["command:foundation-gate.ci-parallel"].argv
     if not all(

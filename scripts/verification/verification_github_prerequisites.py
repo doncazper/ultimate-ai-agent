@@ -40,32 +40,40 @@ from scripts.verification.verification_github_transport import (  # noqa: E402
 from scripts.verification.verification_run_aggregator import (  # noqa: E402
     aggregate_verification_run,
 )
+from scripts.verification.typescript_binding import TypeScriptBindingError  # noqa: E402
 
 
 SCHEMA_VERSION = "uaa_foundation_prerequisite_manifest.v1"
 CONSTRUCTION_POSTURE = "repository_constructed_non_authoritative"
 REDACTION_STATUS = "content_free_refs_hashes_counts_and_unit_bindings_only"
 CONTENT_REF_PREFIX = "foundation-prerequisite:"
-MAX_ENVELOPES = 5
 MAX_MANIFEST_BYTES = 64 * 1024
 MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 MAX_INTEGER = (1 << 63) - 1
 MAX_GITHUB_OUTPUT_BYTES = 1024 * 1024
 OWNER_FILE_MODE = 0o600
 
-PREREQUISITE_SOURCE_UNIT_REFS = (
+PRE_PYTEST_SOURCE_UNIT_REFS = (
     "manifest-attestation",
     "lint",
     "affected-preflight",
-    "pytest-shards",
-    "static-verification",
+    "release-lane-docs",
+    "release-lane-openapi",
+    "release-lane-api-safety",
+    "release-lane-security-redaction",
+    "release-lane-product-truth",
+    "release-lane-local-model-e2e",
+    "release-lane-durability",
 )
 PYTEST_AGGREGATE_SOURCE_UNIT_REFS = (
-    "manifest-attestation",
-    "lint",
-    "affected-preflight",
+    *PRE_PYTEST_SOURCE_UNIT_REFS,
     "pytest-shards",
 )
+PREREQUISITE_SOURCE_UNIT_REFS = (
+    *PYTEST_AGGREGATE_SOURCE_UNIT_REFS,
+    "static-verification",
+)
+MAX_ENVELOPES = len(PREREQUISITE_SOURCE_UNIT_REFS)
 PREREQUISITE_CHAIN_UNIT_REFS = (
     "manifest-attestation",
     "lint",
@@ -84,6 +92,7 @@ _MANIFEST_FIELDS = frozenset(
         "construction_posture",
         "repository_sha",
         "plan_fingerprint",
+        "frontend_visual_scope",
         "source_envelope_refs",
         "prerequisite_unit_refs",
         "prerequisite_receipt_refs",
@@ -154,6 +163,7 @@ class FoundationPrerequisiteManifest:
     construction_posture: str
     repository_sha: str
     plan_fingerprint: str
+    frontend_visual_scope: str
     source_envelope_refs: tuple[str, ...]
     prerequisite_unit_refs: tuple[str, ...]
     prerequisite_receipt_refs: tuple[str, ...]
@@ -175,6 +185,8 @@ class FoundationPrerequisiteManifest:
             _fail("reason-ref:github-prerequisite:redaction-posture-invalid")
         if _SHA_PATTERN.fullmatch(self.repository_sha) is None:
             _fail("reason-ref:github-prerequisite:sha-invalid")
+        if self.frontend_visual_scope not in {"affected", "not_affected"}:
+            _fail("reason-ref:github-prerequisite:visual-scope-invalid")
         for digest in (
             self.plan_fingerprint,
             self.run_manifest_fingerprint,
@@ -492,6 +504,7 @@ def collect_foundation_prerequisites(
         construction_posture=CONSTRUCTION_POSTURE,
         repository_sha=plan.repository_sha,
         plan_fingerprint=plan.plan_fingerprint,
+        frontend_visual_scope=plan.frontend_visual_scope,
         source_envelope_refs=tuple(
             envelope.content_ref for envelope in ordered_envelopes
         ),
@@ -927,7 +940,12 @@ def _read_owner_safe(path: Path, *, max_bytes: int) -> bytes:
         os.close(parent_descriptor)
 
 
-def _reconstruct_plan(repo: Path, sha: str, base_sha: str) -> VerificationPlan:
+def _reconstruct_plan(
+    repo: Path,
+    sha: str,
+    base_sha: str,
+    visual_scope: str,
+) -> VerificationPlan:
     if (
         _SHA_PATTERN.fullmatch(sha) is None
         or _SHA_PATTERN.fullmatch(base_sha) is None
@@ -938,10 +956,11 @@ def _reconstruct_plan(repo: Path, sha: str, base_sha: str) -> VerificationPlan:
             repo,
             sha,
             base_sha=base_sha,
+            frontend_visual_scope=visual_scope,
             force_full=True,
             verify_repository_state=True,
         )
-    except (OSError, ValueError):
+    except (OSError, TypeScriptBindingError, ValueError):
         _fail("reason-ref:github-prerequisite:plan-reconstruction-failed")
 
 
@@ -960,7 +979,8 @@ def load_foundation_prerequisite_manifest(
         "UAA_VERIFICATION_BASE_SHA",
         sha,
     )
-    plan = _reconstruct_plan(Path(repo), sha, resolved_base_sha)
+    visual_scope = evidence.manifest.frontend_visual_scope
+    plan = _reconstruct_plan(Path(repo), sha, resolved_base_sha, visual_scope)
     if (
         evidence.repository_sha != sha
         or evidence.plan_fingerprint != plan.plan_fingerprint
@@ -988,6 +1008,11 @@ def _parser() -> argparse.ArgumentParser:
         subparser.add_argument("--repo", type=Path, required=True)
         subparser.add_argument("--sha", required=True)
         subparser.add_argument("--base-sha", required=True)
+        subparser.add_argument(
+            "--visual-scope",
+            default="unknown_fail_closed",
+            choices=("affected", "not_affected", "unknown_fail_closed"),
+        )
         subparser.add_argument("--envelope", action="append", required=True)
         if command == "aggregate":
             subparser.add_argument("--github-output-file", type=Path, required=True)
@@ -999,7 +1024,12 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        plan = _reconstruct_plan(args.repo, args.sha, args.base_sha)
+        plan = _reconstruct_plan(
+            args.repo,
+            args.sha,
+            args.base_sha,
+            args.visual_scope,
+        )
         if args.command == "aggregate":
             aggregate = collect_pytest_aggregate(plan, tuple(args.envelope))
             output_envelope = build_github_job_output_envelope(

@@ -89,6 +89,10 @@ def validate_receipt_for_plan_unit(
         or receipt.proof_equivalence_ref != unit.proof_equivalence_ref
         or receipt.execution_surface_ref != execution_surface_ref
         or receipt.execution_identity_ref != expected_identity_ref
+        or (
+            receipt.nonexecuted_command_result_bindings
+            and unit.evidence_posture != "typed_optional"
+        )
     ):
         raise ValueError("verification receipt does not match the exact plan")
     if (
@@ -105,13 +109,25 @@ def _derive_aggregate_receipt(
     dependencies: tuple[VerificationReceipt, ...],
     *,
     execution_surface_ref: str,
+    typed_optional_unit_refs: frozenset[str] = frozenset(),
 ) -> VerificationReceipt:
     if unit.unit_kind is not VerificationUnitKind.AGGREGATE or not dependencies:
         raise ValueError("aggregate receipt requires exact dependency evidence")
     dependency_statuses = {receipt.status for receipt in dependencies}
     if VerificationTerminalStatus.FAILED in dependency_statuses:
         status = VerificationTerminalStatus.FAILED
-    elif dependency_statuses == {VerificationTerminalStatus.PASSED}:
+    elif all(
+        receipt.status is VerificationTerminalStatus.PASSED
+        or (
+            receipt.unit_ref in typed_optional_unit_refs
+            and receipt.status
+            in {
+                VerificationTerminalStatus.BLOCKED,
+                VerificationTerminalStatus.SKIPPED,
+            }
+        )
+        for receipt in dependencies
+    ):
         status = VerificationTerminalStatus.PASSED
     else:
         status = VerificationTerminalStatus.BLOCKED
@@ -295,16 +311,39 @@ def aggregate_verification_run(
         unit = canonical_by_ref[unit_ref]
         if unit.unit_kind is not VerificationUnitKind.AGGREGATE:
             continue
-        if not unit.needs or any(need not in receipts_by_unit for need in unit.needs):
+        dependency_closure = dependency_closed_unit_refs(
+            canonical_units,
+            unit.needs,
+        )
+        if not dependency_closure or any(
+            dependency_ref not in receipts_by_unit
+            for dependency_ref in dependency_closure
+        ):
             continue
         aggregate = _derive_aggregate_receipt(
             plan,
             unit,
-            tuple(receipts_by_unit[need] for need in unit.needs),
+            tuple(receipts_by_unit[dependency_ref] for dependency_ref in dependency_closure),
             execution_surface_ref=execution_surface_ref,
+            typed_optional_unit_refs=frozenset(
+                candidate.unit_ref
+                for candidate in canonical_units
+                if candidate.evidence_posture == "typed_optional"
+            ),
         )
         receipts_by_unit[unit_ref] = aggregate
         derived.append(aggregate)
+
+    def satisfies_dependency(unit_ref: str, receipt: VerificationReceipt) -> bool:
+        unit = canonical_by_ref[unit_ref]
+        return receipt.status is VerificationTerminalStatus.PASSED or (
+            unit.evidence_posture == "typed_optional"
+            and receipt.status
+            in {
+                VerificationTerminalStatus.BLOCKED,
+                VerificationTerminalStatus.SKIPPED,
+            }
+        )
 
     for unit_ref, receipt in receipts_by_unit.items():
         unit = canonical_by_ref[unit_ref]
@@ -314,7 +353,7 @@ def aggregate_verification_run(
             dependency = receipts_by_unit.get(dependency_ref)
             if (
                 dependency is None
-                or dependency.status is not VerificationTerminalStatus.PASSED
+                or not satisfies_dependency(dependency_ref, dependency)
             ):
                 raise ValueError(
                     "verification receipt contradicts dependency completion"
@@ -343,7 +382,7 @@ def aggregate_verification_run(
     nonpassing = tuple(
         receipt.unit_ref
         for receipt in ordered_receipts
-        if receipt.status is not VerificationTerminalStatus.PASSED
+        if not satisfies_dependency(receipt.unit_ref, receipt)
     )
     if failed_units:
         status = VerificationTerminalStatus.FAILED

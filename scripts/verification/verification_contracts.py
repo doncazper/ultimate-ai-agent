@@ -55,6 +55,7 @@ V3_RECEIPT_ONLY_FIELDS = frozenset(
         "pytest_shard_plan_fingerprint",
         "execution_identity_ref",
         "executed_command_result_bindings",
+        "nonexecuted_command_result_bindings",
         "reused_command_receipt_bindings",
     }
 )
@@ -207,6 +208,11 @@ class VerificationUnit:
     parallel_safe: bool = True
     exclusive_resource_refs: tuple[str, ...] = ()
     proof_equivalence_ref: str = "proof-equivalence-ref:none"
+    resource_class_ref: str = "resource-class:lightweight"
+    resource_stage_ref: str = "resource-stage:unconstrained"
+    cpu_units: int = 1
+    memory_units: int = 1
+    evidence_posture: str = "required"
 
     @property
     def job_ref(self) -> str:
@@ -232,6 +238,20 @@ class VerificationUnit:
             label="verification exclusive resource refs",
         )
         _validate_ref(self.proof_equivalence_ref, label="proof equivalence ref")
+        _validate_ref(self.resource_class_ref, label="resource class ref")
+        _validate_ref(self.resource_stage_ref, label="resource stage ref")
+        if self.evidence_posture not in {"required", "derived", "typed_optional"}:
+            raise ValueError("verification unit evidence posture is invalid")
+        for value, label in (
+            (self.cpu_units, "verification unit CPU units"),
+            (self.memory_units, "verification unit memory units"),
+        ):
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 0 < value <= 4
+            ):
+                raise ValueError(f"{label} are invalid")
         if not isinstance(self.unit_kind, VerificationUnitKind):
             raise ValueError("verification unit kind is invalid")
         if not isinstance(self.minimum_risk_tier, VerificationRiskTier):
@@ -519,6 +539,7 @@ class VerificationReceipt:
     pytest_shard_plan_fingerprint: str | None = None
     execution_identity_ref: str | None = None
     executed_command_result_bindings: tuple[tuple[str, str], ...] = ()
+    nonexecuted_command_result_bindings: tuple[tuple[str, str, str], ...] = ()
     reused_command_receipt_bindings: tuple[tuple[str, str], ...] = ()
 
     def validate(self) -> None:
@@ -719,6 +740,21 @@ class VerificationReceipt:
                     )
                     executed_commands.append(command_ref)
                     executed_results.append(result_ref)
+                nonexecuted_commands: list[str] = []
+                nonexecuted_results: list[str] = []
+                for (
+                    command_ref,
+                    result_ref,
+                    reason_ref,
+                ) in self.nonexecuted_command_result_bindings:
+                    _validate_ref(command_ref, label="nonexecuted command binding ref")
+                    _validate_v3_executed_result_ref(
+                        result_ref,
+                        label="nonexecuted command result ref",
+                    )
+                    _validate_ref(reason_ref, label="nonexecuted command reason ref")
+                    nonexecuted_commands.append(command_ref)
+                    nonexecuted_results.append(result_ref)
                 reused_commands: list[str] = []
                 reused_receipts: list[str] = []
                 for command_ref, receipt_ref in self.reused_command_receipt_bindings:
@@ -732,14 +768,24 @@ class VerificationReceipt:
                     reused_receipts.append(receipt_ref)
                 command_evidence = {
                     **dict(self.executed_command_result_bindings),
+                    **{
+                        command_ref: result_ref
+                        for command_ref, result_ref, _reason_ref in (
+                            self.nonexecuted_command_result_bindings
+                        )
+                    },
                     **dict(self.reused_command_receipt_bindings),
                 }
                 if (
                     len(executed_commands) != len(set(executed_commands))
                     or len(executed_results) != len(set(executed_results))
+                    or len(nonexecuted_commands) != len(set(nonexecuted_commands))
+                    or len(nonexecuted_results) != len(set(nonexecuted_results))
                     or len(reused_commands) != len(set(reused_commands))
                     or len(reused_receipts) != len(set(reused_receipts))
-                    or set(executed_commands) & set(reused_commands)
+                    or set(executed_commands)
+                    & (set(nonexecuted_commands) | set(reused_commands))
+                    or set(nonexecuted_commands) & set(reused_commands)
                     or tuple(binding_commands) != tuple(executed_commands)
                     or tuple(binding_results) != tuple(executed_results)
                     or set(command_evidence) != set(self.command_refs)
@@ -752,6 +798,12 @@ class VerificationReceipt:
                     raise ValueError(
                         "v3 verification receipt command evidence is not exactly bound"
                     )
+                if self.nonexecuted_command_result_bindings and (
+                    self.status is not VerificationTerminalStatus.BLOCKED
+                ):
+                    raise ValueError(
+                        "v3 nonexecution evidence requires blocked terminal posture"
+                    )
             if self.status is VerificationTerminalStatus.PASSED and any(
                 command_ref.startswith("command:pytest.")
                 or command_ref in TEST_EXECUTION_COMMAND_REFS
@@ -761,7 +813,16 @@ class VerificationReceipt:
             if self.schema_version == "uaa_verification_receipt.v3":
                 typescript_execution = any(
                     command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
-                    for command_ref in self.command_refs
+                    for command_ref in (
+                        *(
+                            binding[0]
+                            for binding in self.executed_command_result_bindings
+                        ),
+                        *(
+                            binding[0]
+                            for binding in self.reused_command_receipt_bindings
+                        ),
+                    )
                 )
                 if (
                     typescript_execution
@@ -797,6 +858,11 @@ def verification_receipt_payload(
     excluded = set()
     if receipt.schema_version != "uaa_verification_receipt.v3":
         excluded.update(V3_RECEIPT_ONLY_FIELDS)
+    elif not receipt.nonexecuted_command_result_bindings:
+        # Preserve the content identity of existing v3 receipts. The new field
+        # is an additive typed-optional extension and is serialized only when
+        # it carries proof.
+        excluded.add("nonexecuted_command_result_bindings")
     if not include_content_identity:
         excluded.update({"receipt_ref", "receipt_fingerprint"})
     return {

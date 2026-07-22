@@ -49,17 +49,20 @@ provider, connector, production, or AuthorityLease capability.
 - Pytest shard basetemps, performance reports, and static-verification timings
   use each job's private `RUNNER_TEMP`. The shared-Mac CI budget keeps a
   900-second stretch goal, reports a 1200-second target, and enforces an
-  1800-second hard timeout for the complete nine-shard suite. The wider suite
+  1800-second hard timeout for the complete eight-shard suite. The wider suite
   ceiling absorbs measured single-host variance without hiding it; only the
   hard timeout terminates the sharded run.
 - The performance release lane waits for the rest of the CI matrix before it
   measures latency. This keeps the four-runner pool useful for functional
   checks without treating whole-machine contention as product latency.
-- CPU- and I/O-heavy job classes are staged: lint, pytest shards, backend and
-  release checks, Control Center verification, visual regression, performance,
-  then the aggregate Foundation Gate. Jobs within a stage still use the four
-  runners concurrently. This prevents unrelated scans from exhausting pytest
-  and Vitest per-test deadlines on one physical Mac.
+- The repository-owned exact-head evidence DAG is the single CI topology. After
+  manifest attestation, lint, affected preflight, and required backend release
+  lanes fill a four-slot pre-suite pool. Complete pytest then owns all four
+  declared CPU and memory units. Static verification and Control Center may
+  overlap at two units each; frontend/visual/packaging follow their real proof
+  dependencies. Performance and Foundation each own the machine budget after
+  their prerequisites. The typed resource declarations and concurrency sets
+  are validated by the static CI contract.
 - After manifest attestation, lint and a canonical fast affected-path preflight
   run in parallel. The preflight binds the exact pull-request base or prior push
   SHA and can fail quickly on focused Python, documentation, or frontend-safety
@@ -71,9 +74,9 @@ provider, connector, production, or AuthorityLease capability.
   every CI invocation, and missing Git history fails closed to the full browser
   lane. This preserves the macOS image gate for affected UI changes without
   making unrelated integration work inherit stale image drift.
-- Pytest keeps nine deterministic logical shards inside one job and one
-  installed environment: one serialized Matrix resource preflight followed by
-  eight timing-balanced shards. Fixed-port owners and tests that copy, probe,
+- Pytest keeps eight deterministic logical shards inside one job and one
+  installed environment: one serialized Matrix resource-owner shard followed by
+  seven timing-balanced shards. Fixed-port owners and tests that copy, probe,
   or execute the bounded Matrix Node runtime stay in that preflight instead of
   competing with the parallel wave. Four isolated workers overlap other
   subprocess-heavy shard waits while avoiding the lock starvation and repeated
@@ -180,6 +183,34 @@ Open a same-repository pull request only after at least one runner is online.
 All named release lanes remain present. With fewer than four local runner
 instances they queue and serialize rather than consume GitHub-hosted minutes.
 
+## Exact-head evidence DAG
+
+Every required command-bearing CI job emits a bounded job-output envelope. Envelopes are
+repository-constructed, non-authoritative evidence; they contain safe refs,
+hashes, counts, timestamps, statuses, and exact plan bindings only. The final
+`foundation-gate-report` job uses `if: always()` and validates the complete
+ordered upstream set before the Foundation command can start. It fails closed
+for a failed, cancelled, or unexpectedly skipped job; missing, extra,
+duplicated, or reordered evidence; cross-job substitution; event/checkout SHA
+disagreement; comparison-base drift; command-manifest drift; dependency-lock
+drift; or verifier-definition drift. Typed-optional visual and desktop proof
+may report the existing explicit blocked/not-applicable posture. Their job
+result remains mandatory; their envelope is required when optional execution
+actually runs.
+
+The derived `pytest` check still preserves its existing visible context. Its
+envelope is reconstructed from every pre-suite receipt and proves the complete
+pytest aggregate while truthfully recording later units as not yet available.
+The terminal validator then binds that aggregate beside every downstream
+receipt. No artifact upload, cache service, hosted runner, or paid service is
+introduced.
+
+The machine-verifiable old/new inventory and resource profiles live in
+`ci_architecture_inventory()` in
+`scripts/verification/ci_command_manifest.py`. The detailed architecture,
+failure matrix, and timing-measurement procedure are in
+`docs/developer/CI_EVIDENCE_DAG_ARCHITECTURE.md`.
+
 ## GitHub-first private fallback
 
 GitHub Actions remains the authoritative merge gate. Normal flow is an affected
@@ -187,8 +218,9 @@ local preflight, push of one exact SHA, and one required GitHub run on the
 repository-scoped runners. Pull requests explicitly check out and attest the
 pushed head SHA instead of GitHub's synthetic merge ref. The required
 `manifest-attestation` job validates the exact repository-owned plan before
-parallel lint and fast affected preflight can start. Complete pytest waits for
-both. The workflow concurrency key cancels superseded
+the pre-suite pool can start. Complete pytest waits for every required
+pre-suite receipt, including lint and affected preflight. The workflow
+concurrency key cancels superseded
 SHAs, and the shared host guard plus exact resource-attempt fence permit only
 one complete pytest attempt for that SHA and dependency state across GitHub and
 local execution surfaces.
@@ -250,7 +282,7 @@ started is `github_code_failure` and never enters private fallback.
 
 An operator can reproduce one exact deterministic failed shard without rerunning
 the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
-0 through 8). These fixed reproduction lanes come from the same canonical
+0 through 7). These fixed reproduction lanes come from the same canonical
 manifest and do not satisfy the GitHub merge gate.
 
 Eligible private fallback creates a standalone credential-free local clone at

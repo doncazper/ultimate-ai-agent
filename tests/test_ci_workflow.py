@@ -83,7 +83,12 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
         assert f"needs.{dependency}.outputs.verification-envelope" in section
     assert "verification_github_prerequisites.py" in section
     assert "foundation-manifest" in section
-    assert section.count('--envelope "$') == 5
+    assert section.count('--envelope "$') == 12
+    assert "verify_ci_evidence_dag.py" in section
+    assert "Install canonical frontend runtime" in section
+    assert "working-directory: apps/control-center" in section
+    assert "run: npm ci" in section
+    assert "if: always()" in section
     assert "uaa_foundation_prerequisite_manifest.json" in section
     assert '--github-output-file "$GITHUB_OUTPUT"' in section
 
@@ -119,7 +124,7 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     assert '!= "success"' in aggregate
     assert "verification_github_prerequisites.py" in aggregate
     assert "aggregate" in aggregate
-    assert aggregate.count('--envelope "$') == 4
+    assert aggregate.count('--envelope "$') == 11
     assert "STATIC_ENVELOPE" not in aggregate
     assert '--github-output-file "$GITHUB_OUTPUT"' in aggregate
 
@@ -154,7 +159,7 @@ def test_exact_github_receipt_outputs_are_non_artifact_job_dependencies() -> Non
     aggregate = _extract_job_block(workflow, "pytest")
     foundation = _extract_job_block(workflow, "foundation-gate-report")
     assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in aggregate
-    assert foundation.count('--base-sha "$UAA_CI_COMPARISON_BASE_SHA"') == 2
+    assert foundation.count('--base-sha "$UAA_CI_COMPARISON_BASE_SHA"') == 3
 
 
 def test_frontend_exact_receipt_is_fenced_and_reused_by_release_lane() -> None:
@@ -177,9 +182,7 @@ def test_frontend_exact_receipt_is_fenced_and_reused_by_release_lane() -> None:
     assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in release
 
     assert "verification-envelope:" in visual
-    assert "github_output_args=()" in visual
-    assert 'github_output_args=(--github-output-file "$GITHUB_OUTPUT")' in visual
-    assert '"${github_output_args[@]}"' in visual
+    assert visual.count('--github-output-file "$GITHUB_OUTPUT"') == 1
     assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in visual
 
 
