@@ -215,14 +215,34 @@ def _receipt(
     completed_at: str | None = None,
     typescript_runtime_fingerprint: str = DIGEST,
     typescript_version_ref: str = "typescript-version-ref:test",
+    reused_command_receipt_bindings: tuple[tuple[str, str], ...] = (),
+    output_digest: str = DIGEST,
 ) -> VerificationReceipt:
     unit = UNITS_BY_REF[unit_ref]
     typescript_execution = bool(
         set(unit.command_refs).intersection(TYPESCRIPT_EXECUTION_COMMAND_REFS)
     )
     default_started, default_completed = TIMES[unit_ref]
-    result_refs = tuple(
+    reused_by_command = dict(reused_command_receipt_bindings)
+    executed_command_refs = tuple(
+        command_ref
+        for command_ref in unit.command_refs
+        if command_ref not in reused_by_command
+    )
+    executed_result_refs = tuple(
         f"result-ref:verification:{hashlib.sha256(f'{unit_ref}:{command_ref}'.encode()).hexdigest()}"
+        for command_ref in executed_command_refs
+    )
+    executed_bindings = tuple(
+        zip(executed_command_refs, executed_result_refs, strict=True)
+    )
+    executed_by_command = dict(executed_bindings)
+    result_refs = tuple(
+        (
+            reused_by_command[command_ref]
+            if command_ref in reused_by_command
+            else executed_by_command[command_ref]
+        )
         for command_ref in unit.command_refs
     )
     collected = any(
@@ -247,9 +267,9 @@ def _receipt(
         duration_ms=1_000,
         result_refs=result_refs,
         output_byte_count=0,
-        output_digest=DIGEST,
+        output_digest=output_digest,
         command_refs=unit.command_refs,
-        command_result_bindings=tuple(zip(unit.command_refs, result_refs, strict=True)),
+        command_result_bindings=executed_bindings,
         execution_surface_ref=SURFACE,
         proof_equivalence_ref=unit.proof_equivalence_ref,
         test_collection_posture="collected" if collected else "not_applicable",
@@ -269,9 +289,8 @@ def _receipt(
                 typescript_version_ref if typescript_execution else None
             ),
         ).identity_ref,
-        executed_command_result_bindings=tuple(
-            zip(unit.command_refs, result_refs, strict=True)
-        ),
+        executed_command_result_bindings=executed_bindings,
+        reused_command_receipt_bindings=reused_command_receipt_bindings,
         typescript_binding_posture=(
             "resolved" if typescript_execution else "not_applicable"
         ),
@@ -500,6 +519,15 @@ def test_manifest_parser_rejects_gate_claims_unknowns_duplicates_and_drift() -> 
         "reason-ref:github-prerequisite:content-fingerprint-mismatch",
     )
 
+    payload = json.loads(encoded)
+    payload["frontend_visual_scope"] = "unknown_fail_closed"
+    _assert_reason(
+        lambda: parse_foundation_prerequisite_manifest(
+            json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        ),
+        "reason-ref:github-prerequisite:visual-scope-invalid",
+    )
+
 
 def test_manifest_parser_rejects_malformed_shapes_and_nonfinite_numbers() -> None:
     plan = _plan()
@@ -587,15 +615,15 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
         schema_version="uaa_ci_command_manifest.v3",
         base_sha="d" * 40,
     )
-    observed_base_shas: list[str] = []
+    observed_reconstruction: list[tuple[str, str]] = []
 
     def reconstruct(
         _repo: Path,
         _sha: str,
         base_sha: str,
-        _visual_scope: str,
+        visual_scope: str,
     ) -> VerificationPlan:
-        observed_base_shas.append(base_sha)
+        observed_reconstruction.append((base_sha, visual_scope))
         return plan
 
     monkeypatch.setattr(
@@ -604,6 +632,7 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
         reconstruct,
     )
     monkeypatch.setenv("UAA_VERIFICATION_BASE_SHA", plan.base_sha)
+    monkeypatch.setenv("UAA_VERIFICATION_VISUAL_SCOPE", "not_affected")
     output = tmp_path / "foundation.json"
 
     exit_code = main(
@@ -615,6 +644,8 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
             SHA,
             "--base-sha",
             plan.base_sha,
+            "--visual-scope",
+            plan.frontend_visual_scope,
             *_cli_envelope_args(plan),
             "--output",
             str(output),
@@ -628,7 +659,11 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
         output.read_text(encoding="ascii")
     )
     assert loaded == evidence.manifest
-    assert observed_base_shas[:2] == [plan.base_sha, plan.base_sha]
+    assert loaded.frontend_visual_scope == plan.frontend_visual_scope
+    assert observed_reconstruction[:2] == [
+        (plan.base_sha, plan.frontend_visual_scope),
+        (plan.base_sha, plan.frontend_visual_scope),
+    ]
 
     with pytest.raises(VerificationGithubPrerequisiteError) as mismatch:
         load_foundation_prerequisite_manifest(output, Path("."), "c" * 40)
@@ -670,6 +705,8 @@ def test_loader_recomputes_receipts_instead_of_trusting_content_refs(
                 SHA,
                 "--base-sha",
                 plan.base_sha,
+                "--visual-scope",
+                plan.frontend_visual_scope,
                 *_cli_envelope_args(plan),
                 "--output",
                 str(output),
@@ -837,6 +874,7 @@ def _final_gate_bindings(
             final_run_manifest=aggregate.run_manifest,
         )
     )
+    frontend_source_ref = _receipt(plan, "control-center-frontend").receipt_ref
     envelopes = tuple(
         f"{unit.unit_ref}="
         + (
@@ -846,7 +884,13 @@ def _final_gate_bindings(
                 plan,
                 unit.unit_ref,
                 **(
-                    {"status": VerificationTerminalStatus.BLOCKED}
+                    {
+                        "reused_command_receipt_bindings": (
+                            ("command:frontend.check", frontend_source_ref),
+                        )
+                    }
+                    if unit.unit_ref == "release-lane-frontend"
+                    else {"status": VerificationTerminalStatus.BLOCKED}
                     if unit.evidence_posture == "typed_optional"
                     else {}
                 ),
@@ -868,6 +912,17 @@ def _final_optional_bindings(plan: VerificationPlan) -> tuple[str, str]:
     return (
         "release-lane-desktop-packaging=",
         f"release-lane-visual-regression={visual}",
+    )
+
+
+def _replace_binding(
+    bindings: tuple[str, ...],
+    unit_ref: str,
+    encoded: str,
+) -> tuple[str, ...]:
+    return tuple(
+        f"{unit_ref}={encoded}" if binding.startswith(f"{unit_ref}=") else binding
+        for binding in bindings
     )
 
 
@@ -1139,6 +1194,104 @@ def test_final_ci_evidence_dag_rejects_recomputed_typescript_runtime(
     assert error.value.reason_ref == (
         "reason-ref:ci-evidence:typescript-runtime-invalid"
     )
+
+
+def test_final_ci_evidence_dag_rejects_same_plan_receipt_substitution_outside_aggregate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    substituted = _encoded(plan, "lint", output_digest="c" * 64)
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            _replace_binding(envelopes, "lint", substituted),
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:aggregate-proof-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_dependency_chronology_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    substituted = _encoded(
+        plan,
+        "static-verification",
+        started_at="2026-07-15T00:00:02Z",
+        completed_at="2026-07-15T00:00:03Z",
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            _replace_binding(envelopes, "static-verification", substituted),
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:dependency-proof-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_fresh_frontend_execution_in_reuse_lane(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    fresh = _encoded(plan, "release-lane-frontend")
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            _replace_binding(envelopes, "release-lane-frontend", fresh),
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:reused-proof-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_cross_receipt_frontend_reuse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    wrong_source = _receipt(plan, "lint").receipt_ref
+    substituted = _encoded(
+        plan,
+        "release-lane-frontend",
+        reused_command_receipt_bindings=(("command:frontend.check", wrong_source),),
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            _replace_binding(envelopes, "release-lane-frontend", substituted),
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:reused-proof-invalid"
 
 
 def test_final_ci_evidence_dag_rejects_missing_affected_visual_envelope(

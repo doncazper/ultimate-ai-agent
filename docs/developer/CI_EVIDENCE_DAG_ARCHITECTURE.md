@@ -53,15 +53,21 @@ The envelope binds:
 The terminal validator accepts one ordered result and envelope per upstream
 job. It rejects arity or order drift, duplicate bindings, cross-operation or
 cross-head substitution, wrapper/content-fingerprint tampering, non-success job
-results, unexpected receipt status, or an aggregate whose exact missing-unit
-posture does not match its point in the DAG. Typed-optional lanes remain in the
-ordered result set but emit envelopes only when their optional execution runs;
-a missing required envelope is never accepted. Foundation also reconstructs the
-legacy prerequisite manifest from the expanded pre-suite, pytest, and static
-receipt chain, preserving the existing report contract. Before accepting any
-TypeScript-executing receipt, the terminal job installs the frozen frontend
-dependencies and independently resolves the bounded version-only runtime
-binding; it does not repeat typechecking.
+results, unexpected receipt status, dependency chronology drift, or an
+aggregate whose exact receipt bindings and missing-unit posture do not match
+its point in the DAG. The commandless pytest receipt is also bound to the exact
+dependency receipt refs from which it was derived. Typed-optional lanes remain
+in the ordered result set but emit envelopes only when their optional execution
+runs; a missing required envelope is never accepted. The frontend release lane
+must reuse the exact passing `command:frontend.check` receipt emitted by its
+declared Control Center dependency; a fresh or substituted proof is rejected.
+Foundation also reconstructs the legacy prerequisite manifest from the
+expanded pre-suite, pytest, and static receipt chain, preserving the existing
+report contract. That content-bound manifest persists the exact visual scope,
+so standalone Foundation loading does not depend on ambient process state.
+Before accepting any TypeScript-executing receipt, the terminal job installs
+the frozen frontend dependencies and independently resolves the bounded
+version-only runtime binding; it does not repeat typechecking.
 
 The validator writes one owner-only, non-symlink, content-free local manifest
 through a descriptor-relative parent chain that rejects untrusted writable
@@ -85,9 +91,9 @@ payload, or host identity is durable evidence.
   its declared lane posture; its check must still succeed. An exact envelope is
   required whenever that optional execution runs.
 
-Focused tests inject every result terminal state and the membership,
-ordering, substitution, and cross-plan failures above. The hosted run is not
-duplicated for benchmarking or diagnosis.
+Focused tests inject every result terminal state and the membership, ordering,
+same-plan/cross-plan substitution, chronology, visual-scope, and frontend reuse
+failures above. The hosted run is not duplicated for benchmarking or diagnosis.
 
 ## Timing acceptance
 

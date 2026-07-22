@@ -40,6 +40,7 @@ from scripts.verification.verification_github_transport import (  # noqa: E402
 from scripts.verification.verification_run_aggregator import (  # noqa: E402
     aggregate_verification_run,
 )
+from scripts.verification.typescript_binding import TypeScriptBindingError  # noqa: E402
 
 
 SCHEMA_VERSION = "uaa_foundation_prerequisite_manifest.v1"
@@ -91,6 +92,7 @@ _MANIFEST_FIELDS = frozenset(
         "construction_posture",
         "repository_sha",
         "plan_fingerprint",
+        "frontend_visual_scope",
         "source_envelope_refs",
         "prerequisite_unit_refs",
         "prerequisite_receipt_refs",
@@ -161,6 +163,7 @@ class FoundationPrerequisiteManifest:
     construction_posture: str
     repository_sha: str
     plan_fingerprint: str
+    frontend_visual_scope: str
     source_envelope_refs: tuple[str, ...]
     prerequisite_unit_refs: tuple[str, ...]
     prerequisite_receipt_refs: tuple[str, ...]
@@ -182,6 +185,8 @@ class FoundationPrerequisiteManifest:
             _fail("reason-ref:github-prerequisite:redaction-posture-invalid")
         if _SHA_PATTERN.fullmatch(self.repository_sha) is None:
             _fail("reason-ref:github-prerequisite:sha-invalid")
+        if self.frontend_visual_scope not in {"affected", "not_affected"}:
+            _fail("reason-ref:github-prerequisite:visual-scope-invalid")
         for digest in (
             self.plan_fingerprint,
             self.run_manifest_fingerprint,
@@ -499,6 +504,7 @@ def collect_foundation_prerequisites(
         construction_posture=CONSTRUCTION_POSTURE,
         repository_sha=plan.repository_sha,
         plan_fingerprint=plan.plan_fingerprint,
+        frontend_visual_scope=plan.frontend_visual_scope,
         source_envelope_refs=tuple(
             envelope.content_ref for envelope in ordered_envelopes
         ),
@@ -954,7 +960,7 @@ def _reconstruct_plan(
             force_full=True,
             verify_repository_state=True,
         )
-    except (OSError, ValueError):
+    except (OSError, TypeScriptBindingError, ValueError):
         _fail("reason-ref:github-prerequisite:plan-reconstruction-failed")
 
 
@@ -973,10 +979,7 @@ def load_foundation_prerequisite_manifest(
         "UAA_VERIFICATION_BASE_SHA",
         sha,
     )
-    visual_scope = os.environ.get(
-        "UAA_VERIFICATION_VISUAL_SCOPE",
-        "unknown_fail_closed",
-    )
+    visual_scope = evidence.manifest.frontend_visual_scope
     plan = _reconstruct_plan(Path(repo), sha, resolved_base_sha, visual_scope)
     if (
         evidence.repository_sha != sha

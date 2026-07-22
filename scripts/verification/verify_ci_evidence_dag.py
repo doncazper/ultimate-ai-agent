@@ -9,6 +9,7 @@ import re
 import stat
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
 )
 from scripts.verification.verification_contracts import (  # noqa: E402
     TYPESCRIPT_EXECUTION_COMMAND_REFS,
+    VerificationReceipt,
     VerificationTerminalStatus,
     VerificationUnitKind,
     dependency_lock_set_fingerprint,
@@ -57,6 +59,13 @@ class CiEvidenceDagError(ValueError):
 
 def _fail(reason_ref: str) -> None:
     raise CiEvidenceDagError(reason_ref)
+
+
+def _timestamp(value: str) -> datetime:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        _fail("reason-ref:ci-evidence:receipt-timestamp-invalid")
 
 
 def _parse_binding(value: str, *, label: str) -> tuple[str, str]:
@@ -174,6 +183,7 @@ def validate_final_gate(
         plan.typescript_project_fingerprint,
     )
     units_by_ref = {unit.unit_ref: unit for unit in upstream_units}
+    decoded_receipts: dict[str, VerificationReceipt] = {}
     receipt_refs: list[tuple[str, str]] = []
     envelope_refs: list[tuple[str, str]] = []
     for unit in upstream_units:
@@ -212,8 +222,37 @@ def validate_final_gate(
             _fail("reason-ref:ci-evidence:typescript-runtime-invalid")
         if receipt.status is not VerificationTerminalStatus.PASSED:
             _fail("reason-ref:ci-evidence:receipt-not-accepted")
+        for dependency_ref in unit.needs:
+            dependency_unit = units_by_ref[dependency_ref]
+            dependency_receipt = decoded_receipts.get(dependency_ref)
+            if dependency_receipt is None:
+                if dependency_unit.evidence_posture == "typed_optional":
+                    continue
+                _fail("reason-ref:ci-evidence:dependency-proof-invalid")
+            if dependency_receipt.status is not VerificationTerminalStatus.PASSED:
+                _fail("reason-ref:ci-evidence:dependency-proof-invalid")
+            # A derived aggregate's interval is the span of its dependencies,
+            # so its completion is the causal boundary. Executed units must
+            # instead start only after every dependency completes.
+            comparison_time = (
+                receipt.completed_at
+                if unit.unit_kind is VerificationUnitKind.AGGREGATE
+                else receipt.started_at
+            )
+            if _timestamp(dependency_receipt.completed_at) > _timestamp(comparison_time):
+                _fail("reason-ref:ci-evidence:dependency-proof-invalid")
         if unit.unit_kind is VerificationUnitKind.AGGREGATE:
             run = envelope.final_run_manifest
+            expected_dependency_refs = tuple(
+                decoded_receipts[dependency_ref].receipt_ref
+                for dependency_ref in unit.needs
+            )
+            expected_dependency_digest = hashlib.sha256(
+                json.dumps(expected_dependency_refs, separators=(",", ":")).encode()
+            ).hexdigest()
+            expected_aggregate_bindings = tuple(
+                (*receipt_refs, (unit_ref, receipt.receipt_ref))
+            )
             expected_missing = tuple(
                 candidate.unit_ref
                 for candidate in CI_JOB_GRAPH
@@ -224,7 +263,9 @@ def validate_final_gate(
             if (
                 run is None
                 or run.status is not VerificationTerminalStatus.BLOCKED
-                or unit_ref not in dict(run.unit_receipt_bindings)
+                or receipt.result_refs != expected_dependency_refs
+                or receipt.output_digest != expected_dependency_digest
+                or run.unit_receipt_bindings != expected_aggregate_bindings
                 or run.missing_unit_refs != expected_missing
                 or run.failed_unit_refs
                 or run.reason_refs != ("reason-ref:verification:whole-run-incomplete",)
@@ -232,6 +273,17 @@ def validate_final_gate(
                 _fail("reason-ref:ci-evidence:aggregate-proof-invalid")
         elif envelope.final_run_manifest is not None:
             _fail("reason-ref:ci-evidence:unexpected-run-manifest")
+        if unit_ref == "release-lane-frontend":
+            frontend_source = decoded_receipts.get("control-center-frontend")
+            if (
+                frontend_source is None
+                or "command:frontend.check"
+                not in dict(frontend_source.executed_command_result_bindings)
+                or receipt.reused_command_receipt_bindings
+                != (("command:frontend.check", frontend_source.receipt_ref),)
+            ):
+                _fail("reason-ref:ci-evidence:reused-proof-invalid")
+        decoded_receipts[unit_ref] = receipt
         receipt_refs.append((unit_ref, receipt.receipt_ref))
         envelope_refs.append((unit_ref, envelope.content_ref))
     inventory = ci_architecture_inventory()
