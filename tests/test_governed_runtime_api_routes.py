@@ -457,8 +457,12 @@ def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport
     assert replay_body["data"]["replayed"] is True
     assert replay_body["data"]["execution_performed"] is True
     assert replay_body["data"]["model_call_performed"] is True
-    assert replay_body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+    assert replay_body["data"]["error_category"] is None
     assert replay_body["data"]["record"]["status"] == "safe_disabled"
+    assert (
+        replay_body["data"]["record"]["policy_decision"]["allowed_to_execute"]
+        is False
+    )
     assert calls == 1
 
 

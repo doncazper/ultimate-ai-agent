@@ -1198,7 +1198,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
     assert first.record.receipt.model_call_performed is True
     assert replay.replayed is True
     assert replay.record.status == "safe_disabled"
-    assert replay.error_category == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+    assert replay.error_category is None
     assert replay.record.receipt is not None
     assert replay.record.receipt.execution_performed is True
     assert replay.record.receipt.model_call_performed is True
@@ -4002,6 +4002,88 @@ def test_runtime_unknown_attempt_marker_rejects_response_evidence(
         match="RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID",
     ):
         RuntimeLocalModelReceiptMetadata(**payload)
+
+
+def test_runtime_unknown_attempt_marker_builder_defaults_execution_flags_off(
+    tmp_path: Path,
+) -> None:
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    created = store.create_invocation(
+        _runtime_request(),
+        idempotency_ref="idempotency-ref:unknown-marker-builder",
+    )
+    metadata = RuntimeLocalModelReceiptMetadata(
+        model_ref="uaa-local-runtime",
+        endpoint_ref="runtime-endpoint-ref:unknown-marker-builder",
+        error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
+        attempt_outcome_unknown=True,
+    )
+
+    receipt = build_local_model_receipt(created.record, metadata=metadata)
+
+    assert receipt.execution_performed is False
+    assert receipt.adapter_execution_performed is False
+    assert receipt.model_call_performed is False
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_EXECUTION_INVALID",
+    ):
+        RuntimeInvocationReceipt.model_validate(
+            {
+                **receipt.model_dump(mode="json"),
+                "execution_performed": True,
+                "adapter_execution_performed": True,
+                "model_call_performed": True,
+            }
+        )
+
+
+def test_runtime_gateway_replays_complete_failed_local_model_receipt_exactly(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        raise ValueError("M164_MODEL_ID_UNSAFE")
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content="failed receipt prompt must not persist",
+            )
+        ],
+        safe_summary="Replay one complete failed receipt exactly.",
+    )
+    idempotency_ref = "idempotency-ref:runtime-local-model-complete-error"
+
+    first = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+    replay = gateway.invoke_local_model(request, idempotency_ref=idempotency_ref)
+
+    assert calls == 1
+    assert first.error_category == "M164_MODEL_ID_UNSAFE"
+    assert first.record.status == "receipt_recorded"
+    assert first.record.receipt is not None
+    assert first.record.receipt.model_receipt_metadata is not None
+    assert first.record.receipt.model_receipt_metadata.attempt_outcome_unknown is False
+    assert replay.replayed is True
+    assert replay.error_category == first.error_category
+    assert replay.record.status == "receipt_recorded"
+    assert replay.record.receipt == first.record.receipt
 
 
 def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(

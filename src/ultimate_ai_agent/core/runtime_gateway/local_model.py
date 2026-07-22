@@ -353,12 +353,20 @@ class RuntimeGateway:
             )
             replay_blocked_error = replay_gateway_error
             replay_gateway_validated = replay_gateway_error is None
+            completed_receipt = _receipt_proves_completed_local_model_attempt(record)
+            completed_receipt_error = (
+                record.receipt.model_receipt_metadata.error_category
+                if completed_receipt
+                and record.receipt is not None
+                and record.receipt.model_receipt_metadata is not None
+                else None
+            )
             if replay_blocked_error is None and replay_runtime_disabled:
                 replay_blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
             if (
                 replay_blocked_error is None
                 and record.receipt is not None
-                and not _receipt_proves_successful_local_model_call(record)
+                and not completed_receipt
             ):
                 replay_blocked_error = (
                     record.receipt.model_receipt_metadata.error_category
@@ -424,6 +432,7 @@ class RuntimeGateway:
                             if record.receipt.model_receipt_metadata
                             else 0
                         ),
+                        error_category=completed_receipt_error,
                         replayed=True,
                         local_model_runtime_enabled=replay_runtime_enabled,
                     )
@@ -454,7 +463,13 @@ class RuntimeGateway:
                         if receipt_metadata is not None
                         else 0
                     ),
-                    error_category=replay_blocked_error,
+                    error_category=(
+                        completed_receipt_error
+                        if completed_receipt
+                        and replay_blocked_error
+                        != "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+                        else replay_blocked_error
+                    ),
                     replayed=True,
                     local_model_runtime_enabled=replay_runtime_enabled,
                 )
@@ -776,7 +791,7 @@ def _runtime_invocation_request(
     )
 
 
-def _receipt_proves_successful_local_model_call(
+def _receipt_proves_completed_local_model_attempt(
     record: RuntimeInvocationRecord,
 ) -> bool:
     receipt = record.receipt
@@ -785,10 +800,8 @@ def _receipt_proves_successful_local_model_call(
         receipt is not None
         and receipt.invocation_status
         == RuntimeInvocationStatus.receipt_recorded.value
-        and receipt.execution_performed
-        and receipt.model_call_performed
         and metadata is not None
-        and metadata.error_category is None
+        and not metadata.attempt_outcome_unknown
     )
 
 

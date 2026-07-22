@@ -515,6 +515,14 @@ class RuntimeInvocationReceipt(BaseModel):
                 raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
             if self.command_receipt_metadata is not None:
                 raise ValueError("RUNTIME_COMMAND_AND_MODEL_METADATA_MUTUALLY_EXCLUSIVE")
+            if self.model_receipt_metadata.attempt_outcome_unknown and any(
+                (
+                    self.execution_performed,
+                    self.adapter_execution_performed,
+                    self.model_call_performed,
+                )
+            ):
+                raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_EXECUTION_INVALID")
         if self.command_receipt_metadata is not None:
             if (
                 self.connector_write_performed
@@ -1177,10 +1185,14 @@ def build_local_model_receipt(
     record: RuntimeInvocationRecord,
     *,
     metadata: RuntimeLocalModelReceiptMetadata,
-    execution_performed: bool = True,
-    model_call_performed: bool = True,
+    execution_performed: bool | None = None,
+    model_call_performed: bool | None = None,
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.receipt_recorded,
 ) -> RuntimeInvocationReceipt:
+    if execution_performed is None:
+        execution_performed = not metadata.attempt_outcome_unknown
+    if model_call_performed is None:
+        model_call_performed = not metadata.attempt_outcome_unknown
     receipt_ref = (
         _stable_ref(
             "runtime-receipt-ref",
