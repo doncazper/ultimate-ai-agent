@@ -4603,3 +4603,109 @@ def test_runtime_gateway_local_model_posture_change_at_transport_boundary_blocks
         assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
             result.record.policy_decision.reason_codes
         )
+
+
+@pytest.mark.parametrize(
+    "posture_change",
+    ["runtime_disabled", "lease_revoked", "kill_switch"],
+)
+def test_runtime_gateway_local_model_boundary_denial_survives_restored_posture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    posture_change: str,
+) -> None:
+    transport = FakeM164GatewayTransport("SHOULD_NOT_RUN")
+
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
+        if posture_change == "runtime_disabled":
+            monkeypatch.setattr(gateway, "_local_model_runtime_enabled", False)
+        elif posture_change == "lease_revoked":
+            monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+        else:
+            monkeypatch.setattr(
+                store,
+                "authority_lease_kill_switch_engaged",
+                lambda: True,
+            )
+        return transport
+
+    store = _runtime_store_with_provider_model_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    original_record_receipt = store.record_receipt
+    receipt_writes = 0
+
+    def restore_posture_before_final_receipt(
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        nonlocal receipt_writes
+        receipt_writes += 1
+        if receipt_writes == 2:
+            if posture_change == "runtime_disabled":
+                monkeypatch.setattr(gateway, "_local_model_runtime_enabled", True)
+            elif posture_change == "lease_revoked":
+                monkeypatch.setattr(
+                    store,
+                    "current_authority_leases",
+                    lambda: [provider_model_execute_authority_lease()],
+                )
+            else:
+                monkeypatch.setattr(
+                    store,
+                    "authority_lease_kill_switch_engaged",
+                    lambda: False,
+                )
+        return original_record_receipt(*args, **kwargs)
+
+    monkeypatch.setattr(
+        store,
+        "record_receipt",
+        restore_posture_before_final_receipt,
+    )
+    result = gateway.invoke_local_model(
+        RuntimeLocalModelCallRequest(
+            base_url="http://127.0.0.1:8080",
+            model_ref="uaa-local-runtime",
+            messages=[
+                RuntimeLocalModelMessage(
+                    role="user",
+                    content=REDACTED_TEST_PROMPT,
+                )
+            ],
+            safe_summary="Preserve exact transport-boundary denial evidence.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-boundary-denial-restored",
+    )
+
+    assert receipt_writes == 2
+    assert transport.calls == []
+    assert result.record.status == "execution_blocked"
+    assert result.record.policy_decision.allowed_to_execute is False
+    assert result.record.policy_decision.adapter_execution_enabled is False
+    assert result.record.policy_decision.model_call_enabled is False
+    assert result.record.receipt is not None
+    assert result.record.receipt.execution_performed is False
+    assert result.record.receipt.model_call_performed is False
+    assert result.record.receipt.model_receipt_metadata is not None
+    assert result.record.receipt.model_receipt_metadata.error_category == (
+        "RUNTIME_LOCAL_MODEL_DISABLED_BY_DEFAULT"
+        if posture_change == "runtime_disabled"
+        else "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+    )
+    if posture_change in {"lease_revoked", "kill_switch"}:
+        assert (
+            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED"
+            not in result.record.policy_decision.reason_codes
+        )
+    if posture_change == "lease_revoked":
+        assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+            result.record.policy_decision.reason_codes
+        )
