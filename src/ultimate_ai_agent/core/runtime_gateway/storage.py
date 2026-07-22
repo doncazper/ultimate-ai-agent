@@ -56,11 +56,13 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
+    RuntimeLocalModelReceiptMetadata,
     RuntimeProfile,
     RuntimePolicyDecision,
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
     build_blocked_receipt,
+    build_local_model_receipt,
     build_policy_decision,
     runtime_invocation_ref,
     runtime_payload_fingerprint_ref,
@@ -1183,6 +1185,73 @@ class RuntimeInvocationStore:
             )
             return updated
 
+    def record_local_model_replay_without_receipt(
+        self,
+        invocation_ref: str,
+        metadata: RuntimeLocalModelReceiptMetadata,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> RuntimeInvocationRecord:
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            validate_execution_ref(
+                payload_fingerprint_ref,
+                "payload_fingerprint_ref",
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            status = _status_after_safe_disable(
+                record,
+                RuntimeInvocationStatus.execution_blocked,
+            )
+            policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=status,
+                local_model_gateway_validated=False,
+                active_authority_leases=self.current_authority_leases(),
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+            ).model_copy(
+                update={
+                    "approval_requirement": record.approval_requirement,
+                    "invocation_status": status,
+                }
+            )
+            receipt = build_local_model_receipt(
+                record,
+                metadata=metadata,
+                execution_performed=False,
+                model_call_performed=False,
+                status=status,
+            ).model_copy(
+                update={
+                    "policy_decision_ref": policy_decision.policy_decision_ref,
+                    "safe_disable": record.safe_disable,
+                }
+            )
+            updated = record.model_copy(
+                update={
+                    "policy_decision": policy_decision,
+                    "receipt": receipt,
+                    "status": status,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "receipt_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
+
     def record_replay_posture(
         self,
         invocation_ref: str,
@@ -1672,6 +1741,21 @@ class RuntimeInvocationStore:
                 "RUNTIME_SAFE_DISABLE_STATE_INVALID"
             ) from exc
 
+    def _ledger_path_present(self) -> bool:
+        try:
+            mode = os.lstat(self.path).st_mode
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            ) from exc
+        if not stat.S_ISREG(mode):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        return True
+
     def _load(self) -> None:
         if self._loaded:
             return
@@ -1686,7 +1770,7 @@ class RuntimeInvocationStore:
         self._canonical_safe_disable_state = _runtime_default_safe_disable_state()
         self._loaded = False
         try:
-            if not self.path.exists():
+            if not self._ledger_path_present():
                 if self._safe_disable_state_path_present():
                     self._canonical_safe_disable_state = (
                         self._load_operator_safe_disable_state()

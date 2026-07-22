@@ -611,6 +611,35 @@ def test_runtime_store_rejects_sidecar_with_empty_present_ledger(
         RuntimeInvocationStore(target_dir).operator_safe_disable_active()
 
 
+@pytest.mark.parametrize("dangling", [False, True])
+def test_runtime_store_rejects_sidecar_with_symlinked_present_ledger(
+    tmp_path: Path,
+    dangling: bool,
+) -> None:
+    source_dir = tmp_path / "source"
+    source = RuntimeInvocationStore(source_dir)
+    source.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:sidecar-symlink-ledger"),
+        idempotency_ref="idempotency-ref:sidecar-symlink-ledger",
+    )
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    symlink_target = target_dir / "substituted-ledger.jsonl"
+    if not dangling:
+        symlink_target.write_text("", encoding="utf-8")
+    (target_dir / "runtime_gateway_invocations.jsonl").symlink_to(symlink_target)
+    (target_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).write_bytes(
+        (source_dir / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_bytes()
+    )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(target_dir).operator_safe_disable_active()
+
+
 def test_runtime_store_safe_disable_sidecar_atomic_failure_fails_closed_after_ledger_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -896,6 +925,8 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
     assert replay.record.receipt.execution_performed is True
     assert replay.record.receipt.model_call_performed is True
     assert replay.record.receipt.safe_disable.active is True
+    assert replay.request_byte_count == first.request_byte_count
+    assert replay.response_byte_count == first.response_byte_count
     assert (
         replay.record.receipt.safe_disable.reason_ref
         == "reason-ref:runtime-local-model-replay-safe-disable"
@@ -967,6 +998,8 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
         assert replay.record.receipt is not None
         assert replay.record.receipt.execution_performed is True
         assert replay.record.receipt.model_call_performed is True
+        assert replay.request_byte_count == first.request_byte_count
+        assert replay.response_byte_count == first.response_byte_count
 
     persisted_record = store.get_invocation(first.record.invocation_ref)
     assert persisted_record.status == "execution_blocked"
@@ -3148,8 +3181,11 @@ def test_runtime_gateway_command_nonzero_and_timeout_receipts(
     assert timeout.record.receipt.command_receipt_metadata.status_category == "timeout"
 
 
-def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transport(
+@pytest.mark.parametrize("posture_change", ["lease_revoked", "safe_disable"])
+def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_transport(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    posture_change: str,
 ) -> None:
     calls = 0
 
@@ -3184,6 +3220,38 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
     assert calls == 1
 
     store.record_receipt = original_record_receipt  # type: ignore[method-assign]
+    if posture_change == "lease_revoked":
+        authority_snapshots = iter(
+            ([provider_model_execute_authority_lease()], [])
+        )
+        monkeypatch.setattr(
+            store,
+            "current_authority_leases",
+            lambda: next(authority_snapshots),
+        )
+    else:
+        original_replay_recovery = (
+            store.record_local_model_replay_without_receipt
+        )
+        safe_disable_recorded = False
+
+        def racing_replay_recovery(*args: object, **kwargs: object) -> object:
+            nonlocal safe_disable_recorded
+            if not safe_disable_recorded:
+                safe_disable_recorded = True
+                store.safe_disable(
+                    RuntimeSafeDisableRequest(
+                        reason_ref="reason-ref:no-receipt-replay-race"
+                    ),
+                    idempotency_ref="idempotency-ref:no-receipt-replay-race",
+                )
+            return original_replay_recovery(*args, **kwargs)
+
+        monkeypatch.setattr(
+            store,
+            "record_local_model_replay_without_receipt",
+            racing_replay_recovery,
+        )
     replay = gateway.invoke_local_model(
         request,
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
@@ -3191,13 +3259,28 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
 
     assert calls == 1
     assert replay.replayed is True
-    assert replay.record.status == "execution_blocked"
+    expected_status = (
+        "execution_blocked"
+        if posture_change == "lease_revoked"
+        else "safe_disabled"
+    )
+    assert replay.record.status == expected_status
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
+    assert replay.record.receipt.invocation_status == expected_status
     assert replay.record.policy_decision.allowed_to_execute is False
     assert replay.record.policy_decision.adapter_execution_enabled is False
     assert replay.record.policy_decision.model_call_enabled is False
+    assert replay.record.policy_decision.invocation_status == expected_status
+    if posture_change == "lease_revoked":
+        assert replay.record.policy_decision.authority_decision_outcome == (
+            "degrade_to_draft"
+        )
+        monkeypatch.setattr(store, "current_authority_leases", lambda: [])
+    else:
+        assert replay.record.safe_disable.active is True
+        assert replay.record.receipt.safe_disable.active is True
 
     second_replay = gateway.invoke_local_model(
         request,
@@ -3205,10 +3288,11 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
     )
     assert calls == 1
     assert second_replay.replayed is True
-    assert second_replay.record.status == "execution_blocked"
-    assert (
-        second_replay.error_category
-        == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    assert second_replay.record.status == expected_status
+    assert second_replay.error_category == (
+        "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+        if posture_change == "lease_revoked"
+        else "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
     )
     assert second_replay.record.receipt is not None
     assert second_replay.record.receipt.model_call_performed is False

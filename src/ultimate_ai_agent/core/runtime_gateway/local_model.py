@@ -449,9 +449,23 @@ class RuntimeGateway:
                     idempotency_ref=idempotency_ref,
                     local_model_gateway_validated=replay_gateway_validated,
                 )
+                receipt_metadata = (
+                    updated.receipt.model_receipt_metadata
+                    if updated.receipt is not None
+                    else None
+                )
                 return RuntimeLocalModelGatewayResult(
                     record=updated,
-                    request_byte_count=_request_byte_count(request),
+                    request_byte_count=(
+                        receipt_metadata.request_byte_count
+                        if receipt_metadata is not None
+                        else 0
+                    ),
+                    response_byte_count=(
+                        receipt_metadata.response_byte_count
+                        if receipt_metadata is not None
+                        else 0
+                    ),
                     error_category=replay_blocked_error,
                     replayed=True,
                     local_model_runtime_enabled=replay_runtime_enabled,
@@ -470,32 +484,9 @@ class RuntimeGateway:
                 error_category="RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 safe_summary="Local model runtime replay was blocked before transport.",
             )
-            receipt = build_local_model_receipt(
-                record,
-                metadata=metadata,
-                execution_performed=False,
-                model_call_performed=False,
-                status=RuntimeInvocationStatus.execution_blocked,
-            )
-            blocked_replay_policy = build_policy_decision(
-                record.request,
-                invocation_ref=record.invocation_ref,
-                approval_ref=record.approval_requirement.approval_ref,
-                status=RuntimeInvocationStatus.execution_blocked,
-                local_model_gateway_validated=False,
-                active_authority_leases=self.store.current_authority_leases(),
-                kill_switch_engaged=(
-                    self.store.authority_lease_kill_switch_engaged()
-                ),
-            ).model_copy(
-                update={
-                    "approval_requirement": record.approval_requirement,
-                    "invocation_status": RuntimeInvocationStatus.execution_blocked,
-                }
-            )
-            updated = self.store.record_receipt(
+            updated = self.store.record_local_model_replay_without_receipt(
                 record.invocation_ref,
-                receipt,
+                metadata,
                 idempotency_ref=_operation_idempotency_ref(
                     idempotency_ref,
                     "local-model-replay-without-receipt",
@@ -507,7 +498,6 @@ class RuntimeGateway:
                         "metadata": metadata.model_dump(mode="json"),
                     },
                 ),
-                policy_decision=blocked_replay_policy,
             )
             return RuntimeLocalModelGatewayResult(
                 record=updated,
