@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,9 @@ from scripts.verification.verification_github_transport import (  # noqa: E402
     VerificationGithubTransportError,
     decode_github_job_output,
     validate_github_job_output_against_plan,
+)
+from scripts.verification.verification_run_aggregator import (  # noqa: E402
+    validate_receipt_for_plan_unit,
 )
 
 SCHEMA_VERSION = "uaa_ci_evidence_dag_gate.v1"
@@ -124,6 +128,9 @@ def validate_final_gate(
         _fail("reason-ref:ci-evidence:envelope-membership-invalid")
     if any(results[unit_ref] != "success" for unit_ref in expected_refs):
         _fail("reason-ref:ci-evidence:upstream-not-successful")
+    visual_envelope = optional_envelopes["release-lane-visual-regression"]
+    if (visual_scope == "affected") != bool(visual_envelope):
+        _fail("reason-ref:ci-evidence:visual-envelope-posture-invalid")
     try:
         plan = build_plan(
             repo,
@@ -132,7 +139,7 @@ def validate_final_gate(
             frontend_visual_scope=visual_scope,
             verify_repository_state=True,
         )
-    except ValueError:
+    except (OSError, subprocess.SubprocessError, ValueError):
         _fail("reason-ref:ci-evidence:canonical-plan-invalid")
     units_by_ref = {unit.unit_ref: unit for unit in upstream_units}
     receipt_refs: list[tuple[str, str]] = []
@@ -157,6 +164,15 @@ def validate_final_gate(
         unit = units_by_ref[unit_ref]
         if receipt.unit_ref != unit_ref:
             _fail("reason-ref:ci-evidence:cross-unit-substitution")
+        try:
+            validate_receipt_for_plan_unit(
+                receipt,
+                plan=plan,
+                unit=unit,
+                execution_surface_ref="surface-ref:github",
+            )
+        except ValueError:
+            _fail("reason-ref:ci-evidence:receipt-unit-invalid")
         if receipt.status is not VerificationTerminalStatus.PASSED:
             _fail("reason-ref:ci-evidence:receipt-not-accepted")
         if unit.unit_kind is VerificationUnitKind.AGGREGATE:
@@ -207,19 +223,42 @@ def _write_output(path: Path, payload: dict[str, Any]) -> None:
     encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
     if len(encoded) > MAX_OUTPUT_BYTES:
         _fail("reason-ref:ci-evidence:output-size-invalid")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags, 0o600)
     except OSError:
         _fail("reason-ref:ci-evidence:output-invalid")
     try:
         info = os.fstat(descriptor)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) & 0o077
+        ):
             _fail("reason-ref:ci-evidence:output-invalid")
-        os.write(descriptor, encoded)
+        offset = 0
+        while offset < len(encoded):
+            written = os.write(descriptor, encoded[offset:])
+            if written <= 0:
+                _fail("reason-ref:ci-evidence:output-invalid")
+            offset += written
         os.fsync(descriptor)
+        final_info = os.fstat(descriptor)
+        if (
+            final_info.st_dev != info.st_dev
+            or final_info.st_ino != info.st_ino
+            or final_info.st_uid != info.st_uid
+            or final_info.st_size != len(encoded)
+        ):
+            _fail("reason-ref:ci-evidence:output-invalid")
     finally:
         os.close(descriptor)
 

@@ -123,6 +123,7 @@ def _plan(
     selected_unit_refs: tuple[str, ...] | None = None,
     change_fingerprint: str = DIGEST,
     schema_version: str = "uaa_verification_plan.v3",
+    frontend_visual_scope: str = "affected",
 ) -> VerificationPlan:
     selected = selected_unit_refs or tuple(unit.unit_ref for unit in CI_JOB_GRAPH)
     selected_units = tuple(UNITS_BY_REF[unit_ref] for unit_ref in selected)
@@ -149,7 +150,7 @@ def _plan(
             )
         ),
         pytest_shard_plan_fingerprint=DIGEST,
-        frontend_visual_scope="affected",
+        frontend_visual_scope=frontend_visual_scope,
         redaction_status="content_free_refs_hashes_and_repo_paths_only",
         plan_fingerprint="0" * 64,
         base_sha=base_sha or repository_sha,
@@ -838,6 +839,18 @@ def _final_gate_bindings(
     return results, envelopes
 
 
+def _final_optional_bindings(plan: VerificationPlan) -> tuple[str, str]:
+    visual = (
+        _encoded(plan, "release-lane-visual-regression")
+        if plan.frontend_visual_scope == "affected"
+        else ""
+    )
+    return (
+        "release-lane-desktop-packaging=",
+        f"release-lane-visual-regression={visual}",
+    )
+
+
 def test_final_ci_evidence_dag_accepts_only_the_complete_exact_ordered_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -852,11 +865,12 @@ def test_final_ci_evidence_dag_accepts_only_the_complete_exact_ordered_head(
         plan.frontend_visual_scope,
         results,
         envelopes,
+        _final_optional_bindings(plan),
     )
 
     assert payload["repository_sha"] == plan.repository_sha
     assert payload["plan_fingerprint"] == plan.plan_fingerprint
-    assert len(payload["receipt_bindings"]) == len(CI_JOB_GRAPH) - 3
+    assert len(payload["receipt_bindings"]) == len(CI_JOB_GRAPH) - 2
     assert len(payload["content_fingerprint"]) == 64
 
 
@@ -904,6 +918,7 @@ def test_final_ci_evidence_dag_rejects_every_non_success_terminal_result(
             plan.frontend_visual_scope,
             tampered,
             envelopes,
+            _final_optional_bindings(plan),
         )
 
     assert error.value.reason_ref == "reason-ref:ci-evidence:upstream-not-successful"
@@ -949,6 +964,7 @@ def test_final_ci_evidence_dag_rejects_arity_order_and_substitution(
             plan.frontend_visual_scope,
             results,
             tampered,
+            _final_optional_bindings(plan),
         )
 
     assert error.value.reason_ref == reason_ref
@@ -975,9 +991,154 @@ def test_final_ci_evidence_dag_rejects_cross_plan_recomputed_envelopes(
             plan.frontend_visual_scope,
             results,
             tampered,
+            _final_optional_bindings(plan),
         )
 
     assert error.value.reason_ref == "reason-ref:ci-evidence:envelope-invalid"
+
+
+def test_final_ci_evidence_dag_redacts_plan_reconstruction_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+
+    def fail_plan(*_args: object, **_kwargs: object) -> VerificationPlan:
+        raise subprocess.CalledProcessError(1, ("git", "status"))
+
+    monkeypatch.setattr(evidence_dag, "build_plan", fail_plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:canonical-plan-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_recomputed_noncanonical_unit_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    receipt = replace(
+        _receipt(plan, "manifest-attestation"),
+        proof_equivalence_ref="proof-equivalence-ref:substituted",
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        receipt_fingerprint="0" * 64,
+    )
+    fingerprint = verification_receipt_fingerprint(receipt)
+    receipt = replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{fingerprint}",
+        receipt_fingerprint=fingerprint,
+    )
+    recomputed = encode_github_job_output(
+        build_github_job_output_envelope(plan, receipt)
+    )
+    tampered = (f"manifest-attestation={recomputed}", *envelopes[1:])
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            tampered,
+            _final_optional_bindings(plan),
+        )
+
+    assert error.value.reason_ref == "reason-ref:ci-evidence:receipt-unit-invalid"
+
+
+def test_final_ci_evidence_dag_rejects_missing_affected_visual_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    results, envelopes = _final_gate_bindings(plan)
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+        )
+
+    assert error.value.reason_ref == (
+        "reason-ref:ci-evidence:visual-envelope-posture-invalid"
+    )
+
+
+def test_final_ci_evidence_dag_rejects_visual_envelope_when_not_affected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(
+        schema_version="uaa_ci_command_manifest.v3",
+        frontend_visual_scope="not_affected",
+    )
+    results, envelopes = _final_gate_bindings(plan)
+    optional = (
+        "release-lane-desktop-packaging=",
+        "release-lane-visual-regression="
+        + _encoded(plan, "release-lane-visual-regression"),
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+            optional,
+        )
+
+    assert error.value.reason_ref == (
+        "reason-ref:ci-evidence:visual-envelope-posture-invalid"
+    )
+
+
+def test_final_ci_evidence_dag_output_is_exclusive_and_owner_only(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "evidence.json"
+    payload = {"schema_version": "test"}
+
+    evidence_dag._write_output(output, payload)
+
+    assert output.stat().st_mode & 0o077 == 0
+    original = output.read_bytes()
+    with pytest.raises(evidence_dag.CiEvidenceDagError):
+        evidence_dag._write_output(output, payload)
+    assert output.read_bytes() == original
+
+
+def test_final_ci_evidence_dag_output_rejects_symlink_without_mutating_target(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target"
+    target.write_text("unchanged", encoding="ascii")
+    output = tmp_path / "evidence.json"
+    output.symlink_to(target)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError):
+        evidence_dag._write_output(output, {"schema_version": "test"})
+
+    assert target.read_text(encoding="ascii") == "unchanged"
 
 
 def test_public_github_output_helper_rejects_raw_values_and_fifos(

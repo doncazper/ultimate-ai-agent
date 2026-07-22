@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -66,13 +67,57 @@ def test_visual_scope_output_rejects_symlink(tmp_path: Path) -> None:
     assert target.read_text(encoding="ascii") == "unchanged"
 
 
-def test_visual_scope_output_appends_to_owner_only_regular_file(tmp_path: Path) -> None:
+def test_visual_scope_output_rejects_symlinked_parent(tmp_path: Path) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    output = real_parent / "github-output"
+    output.write_text("unchanged", encoding="ascii")
+    output.chmod(0o600)
+    symlinked_parent = tmp_path / "linked-parent"
+    symlinked_parent.symlink_to(real_parent, target_is_directory=True)
+
+    with pytest.raises(OSError):
+        resolver.append_scope_output(symlinked_parent / output.name, "affected")
+
+    assert output.read_text(encoding="ascii") == "unchanged"
+
+
+def test_visual_scope_output_rejects_fifo_without_blocking(tmp_path: Path) -> None:
+    output = tmp_path / "github-output"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.unlink(missing_ok=True)
+    os.mkfifo(output, mode=0o600)
+
+    with pytest.raises(OSError):
+        resolver.append_scope_output(output, "affected")
+
+
+@pytest.mark.parametrize("mode", (0o600, 0o644))
+def test_visual_scope_output_appends_to_owner_controlled_regular_file(
+    tmp_path: Path,
+    mode: int,
+) -> None:
     output = tmp_path / "github-output"
     output.write_text("prior=value\n", encoding="ascii")
-    output.chmod(0o600)
+    output.chmod(mode)
 
     resolver.append_scope_output(output, "not_affected")
 
     assert output.read_text(encoding="ascii") == (
         "prior=value\nvisual_scope=not_affected\n"
     )
+
+
+@pytest.mark.parametrize("mode", (0o620, 0o602, 0o666))
+def test_visual_scope_output_rejects_group_or_other_writable_file(
+    tmp_path: Path,
+    mode: int,
+) -> None:
+    output = tmp_path / "github-output"
+    output.write_text("unchanged\n", encoding="ascii")
+    output.chmod(mode)
+
+    with pytest.raises(ValueError):
+        resolver.append_scope_output(output, "affected")
+
+    assert output.read_text(encoding="ascii") == "unchanged\n"

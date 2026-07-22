@@ -53,21 +53,53 @@ def resolve_visual_scope(repo: Path, base_sha: str, repository_sha: str) -> str:
 def append_scope_output(path: Path, scope: str) -> None:
     if scope not in {"affected", "not_affected"}:
         raise ValueError("resolved visual scope must be exact")
-    flags = os.O_WRONLY | os.O_APPEND
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags)
+    absolute = Path(os.path.abspath(os.fspath(path)))
+    if absolute == Path(absolute.anchor) or absolute.name in {"", ".", ".."}:
+        raise ValueError("GitHub output path is unsafe")
+    directory_flags = (
+        os.O_RDONLY
+        | os.O_DIRECTORY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    parent_descriptor = os.open(absolute.anchor, directory_flags)
+    descriptor: int | None = None
     try:
+        for component in absolute.parent.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise ValueError("GitHub output path is unsafe")
+            child_descriptor = os.open(
+                component,
+                directory_flags,
+                dir_fd=parent_descriptor,
+            )
+            os.close(parent_descriptor)
+            parent_descriptor = child_descriptor
+        descriptor = os.open(
+            absolute.name,
+            os.O_WRONLY
+            | os.O_APPEND
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0),
+            dir_fd=parent_descriptor,
+        )
         info = os.fstat(descriptor)
         if (
             not stat.S_ISREG(info.st_mode)
             or info.st_nlink != 1
-            or info.st_uid != os.getuid()
-            or stat.S_IMODE(info.st_mode) & 0o077
+            or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) & 0o022
             or info.st_size > MAX_GITHUB_OUTPUT_BYTES - 32
         ):
             raise ValueError("GitHub output path is unsafe")
-        os.write(descriptor, f"visual_scope={scope}\n".encode("ascii"))
+        encoded = f"visual_scope={scope}\n".encode("ascii")
+        offset = 0
+        while offset < len(encoded):
+            written = os.write(descriptor, encoded[offset:])
+            if written <= 0:
+                raise ValueError("GitHub output append did not complete")
+            offset += written
         os.fsync(descriptor)
         final_info = os.fstat(descriptor)
         if (
@@ -78,7 +110,9 @@ def append_scope_output(path: Path, scope: str) -> None:
         ):
             raise ValueError("GitHub output path changed during append")
     finally:
-        os.close(descriptor)
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(parent_descriptor)
 
 
 def main() -> int:
