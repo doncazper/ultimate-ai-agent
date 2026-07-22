@@ -31,6 +31,9 @@
     "tool_schema_bundle_ref": {
       "type": "string"
     },
+    "prompt_module_manifest_ref": {
+      "type": "string"
+    },
     "bundle_hash": {
       "type": "string"
     },

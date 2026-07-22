@@ -26,13 +26,16 @@ retrieval refs, volatile runtime state, and operator-turn data so runtime
 delegation can be cached, audited, replayed, and proved without hiding prompt
 composition from the operator.
 
-The full version requires a safe prompt manifest, content hashes, cache policy,
-redacted receipt envelopes, proof links, and clear operator inspection of what
-each tier can and cannot contain.
+The prompt module compiler now supplies the safe manifest, dependency graph,
+source/artifact hashes, redacted deterministic receipt, and CLI inspection
+parts of this direction for explicit repository-owned build inputs. Cache
+policy, live-run binding, and operator-facing runtime material inspection remain
+separate work.
 
 ## Repo-Safe Current Version
 
-The current implementation exposes a backend-owned read model containing:
+The current runtime implementation exposes a backend-owned read model
+containing:
 
 - prompt stability tier refs
 - manifest refs and redacted tier hash refs
@@ -48,6 +51,13 @@ The current implementation exposes a backend-owned read model containing:
 The Control Center only renders this backend-owned state. It cannot mint
 authority and does not claim live model, cache-write, hidden-injection, or
 prompt-materialization capability.
+
+Separately, `PromptModuleCompiler` can materialize an explicitly requested
+local build artifact from repository-contained source modules. Its receipt
+stores hashes and refs but no prompt body or variable values. This compiler is
+not connected to the runtime route or Control Center and grants no live prompt
+injection, model, provider, skill-loading, or execution authority. See
+`docs/runtime/UAA_PROMPT_MODULE_COMPILER.md`.
 
 ## Blocked / Needs Authority
 
@@ -68,9 +78,10 @@ The following remain blocked:
 
 Promotion requires:
 
-1. Safe prompt manifest with stable tier refs and bounded redacted fields.
-2. Hashes over safe refs and redacted manifests, not raw prompt bodies.
-3. Cache policy that distinguishes stable, semi-stable, volatile, and
+1. Bind the implemented safe prompt manifest and compiler to an exact reviewed
+   runtime lane.
+2. Add operator preview and proof links without persisting prompt bodies.
+3. Add cache policy that distinguishes stable, semi-stable, volatile, and
    operator-scoped no-cache tiers.
 4. Redacted receipt envelope with policy decision, verifier version, and proof
    refs.

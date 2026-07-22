@@ -26,9 +26,13 @@ skill-disclosure posture:
 - CLI/API parity through `scripts/dev/uaa_extensions.py inspect-catalog` and
   `GET /extensions/catalog`
 
-This is metadata only. It does not import skills, install packages, execute
-plugin code, fetch marketplace data, inject hidden context, or auto-load full
-skill instructions.
+The extension catalog remains metadata only. The separate repo-owned prompt
+module compiler can now compile an explicitly selected transitive closure that
+contains modules typed as `skill`; this is a local build/inspection operation,
+not catalog-driven loading or runtime activation. It does not import skills,
+install packages, execute plugin code, fetch marketplace data, inject hidden
+context, or auto-load full skill instructions. See
+`docs/runtime/UAA_PROMPT_MODULE_COMPILER.md`.
 
 ## Blocked / Needs Authority
 

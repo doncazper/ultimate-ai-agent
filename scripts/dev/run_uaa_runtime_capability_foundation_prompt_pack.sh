@@ -80,29 +80,45 @@ if [[ "$LIST_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
-
-echo "UAA runtime capability foundation prompt pack:"
-echo "  repo: $ROOT"
-echo "  prompt: $PROMPT"
-echo "  combined prompt: $OUTPUT"
-echo "  sandbox: $SANDBOX"
-echo
-
 if [[ "$DRY_RUN" -eq 1 ]]; then
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
+  echo "UAA runtime capability foundation prompt pack:"
+  echo "  repository binding: verified"
+  echo "  source prompt graph: verified"
+  echo "  combined prompt: golden-verified and emitted"
+  echo "  sandbox: $SANDBOX"
+  echo
   echo "Dry run complete. The prompt pack was validated and emitted without invoking Codex."
   exit 0
 fi
 
 if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT"
   echo "Codex CLI not found. Install Codex or set CODEX_BIN=/path/to/codex." >&2
-  echo "Validated prompt to run manually: $PROMPT" >&2
-  echo "Combined prompt for review: $OUTPUT" >&2
+  echo "The validated combined prompt is available at the configured output path." >&2
   exit 127
 fi
 
+COMPILED_PROMPT_B64="$(
+  "$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined-base64
+)"
+
+echo "UAA runtime capability foundation prompt pack:"
+echo "  repository binding: verified"
+echo "  source prompt graph: verified"
+echo "  combined prompt: golden-verified and bound in memory"
+echo "  sandbox: $SANDBOX"
+echo
 echo "Running the end-to-end orchestrator prompt with Codex."
 echo "Stop now if you do not want Codex to implement, verify, and harden changes."
 echo
 
-"$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" - < "$PROMPT"
+if [[ ${#MODEL_ARG[@]} -gt 0 ]]; then
+  printf '%s' "$COMPILED_PROMPT_B64" | "$PYTHON" -c \
+    'import base64, sys; sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read(), validate=True))' | \
+    "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" -
+else
+  printf '%s' "$COMPILED_PROMPT_B64" | "$PYTHON" -c \
+    'import base64, sys; sys.stdout.buffer.write(base64.b64decode(sys.stdin.buffer.read(), validate=True))' | \
+    "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" -
+fi

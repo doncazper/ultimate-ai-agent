@@ -1,0 +1,102 @@
+{
+  "automatic_pr_creation": false,
+  "automatic_skill_loading": false,
+  "bundle_id": "uaa-runtime-capability-foundation-modules",
+  "bundle_version": "1.0.0",
+  "compiled_artifact_hash": "sha256:73365e3611652f012117484c9356de1065dbb1a52ec3ba96b41dcc2da98bc18f",
+  "compiled_bytes": 54223,
+  "declared_source_contract_hash": "sha256:609e541c152760c4359e371f4cec8cc9c7a293d6ea870d90987fc10b12ef58ef",
+  "dependency_graph_hash": "sha256:23e99318f129990a9b473b067e82fc532f32c1770794154ff704fd58b01f05d7",
+  "entry_module_ids": [
+    "phase-09"
+  ],
+  "execution_authority": "none",
+  "manifest_contract_hash": "sha256:aa6c87a74a608b86e766454ff253b2aa7f0357eae5e2a9c897e1dc241e5cae6e",
+  "ordered_module_ids": [
+    "pack-readme",
+    "orchestrator",
+    "phase-01",
+    "phase-02",
+    "phase-03",
+    "phase-04",
+    "phase-05",
+    "phase-06",
+    "phase-07",
+    "phase-08",
+    "phase-09"
+  ],
+  "raw_prompt_included": false,
+  "receipt_version": "uaa.prompt_compilation_receipt.v1",
+  "runtime_model_calls": false,
+  "source_receipts": [
+    {
+      "module_id": "pack-readme",
+      "source_bytes": 12112,
+      "source_hash": "sha256:4e91edf7ffeebf1c051d0f156c41c4e14c349f291c99641b572889187a3cadb1",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/README.md"
+    },
+    {
+      "module_id": "orchestrator",
+      "source_bytes": 17252,
+      "source_hash": "sha256:c9614104a35d01ee9af0e0121aedc6d5a82aa66749bb080763513eac2777339a",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md"
+    },
+    {
+      "module_id": "phase-01",
+      "source_bytes": 2360,
+      "source_hash": "sha256:864cbe2cad7b4164b92665938931729a6d341b51dd96df54360a53530ceae7f0",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/01_reference_gap_truth_and_age_adjusted_scoreboard.prompt.md"
+    },
+    {
+      "module_id": "phase-02",
+      "source_bytes": 2526,
+      "source_hash": "sha256:3da44229425f2c7bf764c3453199914b76d99d8421b97770c40c88417f7bdcd7",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/02_productized_agent_loop_spine.prompt.md"
+    },
+    {
+      "module_id": "phase-03",
+      "source_bytes": 1960,
+      "source_hash": "sha256:1295900280b1a9551d3e65793f3d85d62c3a590f0312a09eaa9c33268ea8b5a1",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/03_durable_orchestration_progress_and_recovery.prompt.md"
+    },
+    {
+      "module_id": "phase-04",
+      "source_bytes": 3022,
+      "source_hash": "sha256:f65d091bb84189adeac47fa13844cfc90fa87f24576f894c1fcd54c82d190b81",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/04_action_tool_code_lanes_and_approval_receipts.prompt.md"
+    },
+    {
+      "module_id": "phase-05",
+      "source_bytes": 3207,
+      "source_hash": "sha256:9bdf9e598db1e88d8b05636ae5f1d82fec8dffb08a7427fe53b39a1bf2d69c30",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/05_memory_learning_context_and_feedback.prompt.md"
+    },
+    {
+      "module_id": "phase-06",
+      "source_bytes": 2026,
+      "source_hash": "sha256:4667b512d4b0dddfdc29f44c9dc3652d520fb06d31ec77d5d8d5f489adc8bca4",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/06_evidence_audit_receipts_and_observability.prompt.md"
+    },
+    {
+      "module_id": "phase-07",
+      "source_bytes": 2246,
+      "source_hash": "sha256:79c6dd740dea3e7f2e373570fa089a314848810fce43727b064abb93091c75ba",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/07_model_provider_research_and_external_info_posture.prompt.md"
+    },
+    {
+      "module_id": "phase-08",
+      "source_bytes": 2737,
+      "source_hash": "sha256:98fe625f0903eb27d0b362e748cdb35e1a4d5fdfa1b6b6f70806aca41d068d44",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/08_cockpit_cli_api_parity_and_operator_ux.prompt.md"
+    },
+    {
+      "module_id": "phase-09",
+      "source_bytes": 2980,
+      "source_hash": "sha256:0d5ddfb8a8acf49d7739dcfde51790035d83ebccc545990facbe92657f8dbe0d",
+      "source_ref": "docs/prompts/uaa_runtime_capability_foundation/09_extensibility_ecosystem_and_final_hardening.prompt.md"
+    }
+  ],
+  "supplied_variable_names": [],
+  "variable_contract_hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "variable_values_included": false
+}

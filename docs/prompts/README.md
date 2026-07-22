@@ -210,6 +210,15 @@ authority, or broad autonomy. Use
 or `scripts/dev/run_uaa_runtime_capability_foundation_prompt_pack.sh` for the
 end-to-end wrapper.
 
+This pack is also the first bundle compiled through UAA's implemented
+prompt-module dependency graph. Its `prompt_module_manifest.json` defines the
+dependency-first module order and its `prompt_module_golden_receipt.json`
+detects source, graph, ordering, or compiled-artifact drift without storing raw
+prompt text in the receipt. Use `scripts/dev/uaa_prompt_compiler.py` for generic
+graph inspection and compilation. See
+`docs/runtime/UAA_PROMPT_MODULE_COMPILER.md` for the exact implemented and
+blocked boundaries.
+
 ## Messenger Matrix prompts
 
 Stored execution prompts for the macOS-first Messenger Matrix sequence live in

@@ -4,19 +4,45 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError as PydanticValidationError
+
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from ultimate_ai_agent.core.prompt_compiler import (  # noqa: E402
+    PromptCompilationArtifact,
+    PromptCompilationError,
+    PromptCompilationReceipt,
+    PromptModuleCompiler,
+)
+from ultimate_ai_agent.core.prompt_compiler.schema_validation import (  # noqa: E402
+    prompt_module_manifest_schema_errors,
+)
+
+
 PACK_DIR = ROOT / "docs" / "prompts" / "uaa_runtime_capability_foundation"
 MANIFEST_PATH = PACK_DIR / "prompt_bundle_manifest.json"
+MODULE_MANIFEST_PATH = PACK_DIR / "prompt_module_manifest.json"
+MODULE_MANIFEST_SCHEMA_PATH = ROOT / "docs" / "schemas" / "prompt_module_manifest.schema.json"
+MODULE_GOLDEN_RECEIPT_PATH = PACK_DIR / "prompt_module_golden_receipt.json"
 README_PATH = PACK_DIR / "README.md"
 README_REF = "docs/prompts/uaa_runtime_capability_foundation/README.md"
+MODULE_MANIFEST_REF = (
+    "docs/prompts/uaa_runtime_capability_foundation/prompt_module_manifest.json"
+)
 WRAPPER_PROMPT = (
     "docs/prompts/uaa_runtime_capability_foundation/"
     "00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md"
@@ -27,6 +53,8 @@ PROMPT_REF_PATTERN = re.compile(
 )
 HASH_PREFIX = "sha256:"
 EXPECTED_VERSION = "1.2.0"
+EXPECTED_MODULE_BUNDLE_ID = "uaa-runtime-capability-foundation-modules"
+EXPECTED_MODULE_VERSION = "1.0.0"
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
     r"(?:/Users/|/home/|[A-Za-z]:\\Users\\)[^)\s`]+"
 )
@@ -176,15 +204,47 @@ REQUIRED_TERMINAL_REPORT_FRAGMENTS = (
     "Only the Phase 09 final deliverable may name at most one optional unactivated",
 )
 REQUIRED_PHASE_CONTRACTS: dict[int, tuple[str, ...]] = {
-    1: ("safe intent ref and fingerprint", "facts, assumptions, and unknowns", "revision fingerprint"),
-    2: ("Productized Founder Loop And Mission Completion", "mission-wide operation, time, cost, and concurrency budgets", "crash during settlement"),
-    3: ("Memory, Learning, And Governed Context", "included and excluded source refs", "corrections win deterministically"),
-    4: ("Useful Exact Tool And Code Lanes", "bounded repository filesystem metadata", "Sandbox Proof Floor"),
-    5: ("Web Research And Provider Observability", "bounded SearXNG search", "final locked transport-start boundary"),
-    6: ("Portable Evidence And Observability", "tamper, truncation, reorder, replay", "macOS Keychain-backed lifecycle"),
+    1: (
+        "safe intent ref and fingerprint",
+        "facts, assumptions, and unknowns",
+        "revision fingerprint",
+    ),
+    2: (
+        "Productized Founder Loop And Mission Completion",
+        "mission-wide operation, time, cost, and concurrency budgets",
+        "crash during settlement",
+    ),
+    3: (
+        "Memory, Learning, And Governed Context",
+        "included and excluded source refs",
+        "corrections win deterministically",
+    ),
+    4: (
+        "Useful Exact Tool And Code Lanes",
+        "bounded repository filesystem metadata",
+        "Sandbox Proof Floor",
+    ),
+    5: (
+        "Web Research And Provider Observability",
+        "bounded SearXNG search",
+        "final locked transport-start boundary",
+    ),
+    6: (
+        "Portable Evidence And Observability",
+        "tamper, truncation, reorder, replay",
+        "macOS Keychain-backed lifecycle",
+    ),
     7: ("Extensibility Ecosystem", "Inspectable never", "arbitrary runtime import"),
-    8: ("macOS Cockpit And CLI/API Parity", "Linux and Windows remain explicit render placeholders", "bounded deterministic SSE progress-preview replay"),
-    9: ("Benchmark, Gap Closure, And Stop", "at most two focused repair passes", "No recursively generated"),
+    8: (
+        "macOS Cockpit And CLI/API Parity",
+        "Linux and Windows remain explicit render placeholders",
+        "bounded deterministic SSE progress-preview replay",
+    ),
+    9: (
+        "Benchmark, Gap Closure, And Stop",
+        "at most two focused repair passes",
+        "No recursively generated",
+    ),
 }
 REQUIRED_README_PHASE_ROWS = (
     "| 00 Pack/baseline |",
@@ -219,9 +279,13 @@ def _load_manifest() -> dict[str, Any]:
 def _prompt_refs(manifest: dict[str, Any]) -> list[str]:
     refs = manifest.get("developer_prompt_refs")
     if not isinstance(refs, list) or not refs:
-        raise VerificationError("manifest developer_prompt_refs must be a non-empty list")
+        raise VerificationError(
+            "manifest developer_prompt_refs must be a non-empty list"
+        )
     if any(not isinstance(ref, str) for ref in refs):
-        raise VerificationError("manifest developer_prompt_refs must contain strings only")
+        raise VerificationError(
+            "manifest developer_prompt_refs must contain strings only"
+        )
     return list(refs)
 
 
@@ -242,6 +306,55 @@ def compute_bundle_hash(refs: list[str]) -> str:
     return f"{HASH_PREFIX}{digest.hexdigest()}"
 
 
+def _verify_module_compilation(
+    expected_prompt_refs: list[str] | None = None,
+) -> PromptCompilationArtifact:
+    try:
+        schema = json.loads(MODULE_MANIFEST_SCHEMA_PATH.read_text(encoding="utf-8"))
+        manifest_payload = json.loads(
+            MODULE_MANIFEST_PATH.read_text(encoding="utf-8")
+        )
+        if prompt_module_manifest_schema_errors(schema, manifest_payload):
+            raise ValueError("prompt module manifest schema validation failed")
+        compiler = PromptModuleCompiler(ROOT)
+        artifact = compiler.compile_file(MODULE_MANIFEST_PATH)
+        expected = PromptCompilationReceipt.model_validate_json(
+            MODULE_GOLDEN_RECEIPT_PATH.read_bytes(),
+            strict=True,
+        )
+    except (
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValueError,
+        PromptCompilationError,
+        PydanticValidationError,
+    ) as exc:
+        raise VerificationError(
+            "prompt module compilation validation failed safely"
+        ) from exc
+    if artifact.receipt != expected:
+        raise VerificationError(
+            "prompt module compilation differs from its reviewed golden receipt"
+        )
+    if artifact.receipt.bundle_id != EXPECTED_MODULE_BUNDLE_ID:
+        raise VerificationError("unexpected prompt module bundle id")
+    if artifact.receipt.bundle_version != EXPECTED_MODULE_VERSION:
+        raise VerificationError("unexpected prompt module bundle version")
+    expected_refs = [
+        README_REF,
+        *(expected_prompt_refs or _prompt_refs(_load_manifest())),
+    ]
+    compiled_refs = [
+        source_receipt.source_ref for source_receipt in artifact.receipt.source_receipts
+    ]
+    if compiled_refs != expected_refs:
+        raise VerificationError(
+            "prompt module compilation does not match the legacy bundle source order"
+        )
+    return artifact
+
+
 def _validate_text_safety(path: Path, text: str) -> None:
     try:
         repo_relative = path.relative_to(ROOT)
@@ -252,10 +365,14 @@ def _validate_text_safety(path: Path, text: str) -> None:
     lowered = text.lower()
     for phrase in FORBIDDEN_RUNTIME_PHRASES:
         if phrase in lowered:
-            raise VerificationError(f"{repo_relative} contains forbidden authority phrase: {phrase}")
+            raise VerificationError(
+                f"{repo_relative} contains forbidden authority phrase: {phrase}"
+            )
 
 
-def _validate_required_fragments(label: str, corpus: str, fragments: tuple[str, ...]) -> None:
+def _validate_required_fragments(
+    label: str, corpus: str, fragments: tuple[str, ...]
+) -> None:
     missing = [fragment for fragment in fragments if fragment not in corpus]
     if missing:
         raise VerificationError(f"missing {label}: {', '.join(missing)}")
@@ -264,11 +381,17 @@ def _validate_required_fragments(label: str, corpus: str, fragments: tuple[str, 
 def _validate_high_maturity_coverage(texts: list[str]) -> None:
     corpus = "\n".join(texts)
     lowered = corpus.lower()
-    _validate_required_fragments("AI-agent component coverage", lowered, tuple(
-        component.lower() for component in REQUIRED_COMPONENTS
-    ))
-    _validate_required_fragments("W1-W19 weakness coverage", corpus, REQUIRED_WEAKNESSES)
-    _validate_required_fragments("M1-M6 authority milestone coverage", corpus, REQUIRED_MILESTONES)
+    _validate_required_fragments(
+        "AI-agent component coverage",
+        lowered,
+        tuple(component.lower() for component in REQUIRED_COMPONENTS),
+    )
+    _validate_required_fragments(
+        "W1-W19 weakness coverage", corpus, REQUIRED_WEAKNESSES
+    )
+    _validate_required_fragments(
+        "M1-M6 authority milestone coverage", corpus, REQUIRED_MILESTONES
+    )
     _validate_required_fragments(
         "external reference pattern coverage",
         corpus,
@@ -288,25 +411,37 @@ def _validate_finite_contract(readme: str, wrapper: str, corpus: str) -> None:
     _validate_required_fragments(
         "finite endpoint contract", normalized_wrapper, REQUIRED_FINITE_FRAGMENTS
     )
-    _validate_required_fragments("per-phase git loop", normalized_wrapper, REQUIRED_GIT_LOOP_FRAGMENTS)
+    _validate_required_fragments(
+        "per-phase git loop", normalized_wrapper, REQUIRED_GIT_LOOP_FRAGMENTS
+    )
     _validate_required_fragments(
         "preservation contract",
         f"{normalized_readme} {normalized_wrapper}",
         REQUIRED_PRESERVATION_FRAGMENTS,
     )
-    _validate_required_fragments("score targets", normalized_wrapper, REQUIRED_SCORE_FRAGMENTS)
-    _validate_required_fragments("benchmark scenarios", normalized_wrapper, REQUIRED_SCENARIOS)
     _validate_required_fragments(
-        "permanent authority rules", normalized_wrapper, REQUIRED_PERMANENT_AUTHORITY_FRAGMENTS
+        "score targets", normalized_wrapper, REQUIRED_SCORE_FRAGMENTS
     )
     _validate_required_fragments(
-        "terminal report and scope contract", normalized_wrapper, REQUIRED_TERMINAL_REPORT_FRAGMENTS
+        "benchmark scenarios", normalized_wrapper, REQUIRED_SCENARIOS
+    )
+    _validate_required_fragments(
+        "permanent authority rules",
+        normalized_wrapper,
+        REQUIRED_PERMANENT_AUTHORITY_FRAGMENTS,
+    )
+    _validate_required_fragments(
+        "terminal report and scope contract",
+        normalized_wrapper,
+        REQUIRED_TERMINAL_REPORT_FRAGMENTS,
     )
     _validate_required_fragments(
         "README phase map", normalized_readme, REQUIRED_README_PHASE_ROWS
     )
 
-    phase_numbers = re.findall(r"^### Phase (\d{2}) \u2014", wrapper, flags=re.MULTILINE)
+    phase_numbers = re.findall(
+        r"^### Phase (\d{2}) \u2014", wrapper, flags=re.MULTILINE
+    )
     expected = [f"{index:02d}" for index in range(10)]
     if phase_numbers != expected:
         raise VerificationError(
@@ -316,7 +451,9 @@ def _validate_finite_contract(readme: str, wrapper: str, corpus: str) -> None:
     lowered = normalized_corpus.lower()
     stale = [phrase for phrase in FORBIDDEN_STALE_PHRASES if phrase in lowered]
     if stale:
-        raise VerificationError(f"stale or unsafe prompt-pack phrases found: {', '.join(stale)}")
+        raise VerificationError(
+            f"stale or unsafe prompt-pack phrases found: {', '.join(stale)}"
+        )
 
 
 def _validate_web_contract(readme: str, phase_five: str) -> None:
@@ -341,7 +478,9 @@ def _validate_phase_contracts(refs: list[str], prompt_texts: dict[str, str]) -> 
         )
 
 
-def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
+def _verify_manifest_and_artifact(
+    allow_placeholder_hash: bool = False,
+) -> tuple[dict[str, Any], PromptCompilationArtifact]:
     if not README_PATH.is_file():
         raise VerificationError(f"missing README: {README_PATH.relative_to(ROOT)}")
 
@@ -352,10 +491,14 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
         raise VerificationError("unexpected version")
     if manifest.get("stable_within_run") is not True:
         raise VerificationError("stable_within_run must be true")
+    if manifest.get("prompt_module_manifest_ref") != MODULE_MANIFEST_REF:
+        raise VerificationError("unexpected prompt_module_manifest_ref")
 
     refs = _prompt_refs(manifest)
     if refs[0] != WRAPPER_PROMPT:
-        raise VerificationError("first prompt ref must be the end-to-end wrapper prompt")
+        raise VerificationError(
+            "first prompt ref must be the end-to-end wrapper prompt"
+        )
     if len(refs) != 10:
         raise VerificationError(f"expected 10 prompt refs, found {len(refs)}")
     if len(set(refs)) != len(refs):
@@ -370,7 +513,9 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
             expected_prefix = f"0{index}_"
             filename = Path(ref).name
             if not filename.startswith(expected_prefix):
-                raise VerificationError(f"prompt {ref} must start with {expected_prefix}")
+                raise VerificationError(
+                    f"prompt {ref} must start with {expected_prefix}"
+                )
         path = _repo_path(ref)
         if not path.is_file():
             raise VerificationError(f"missing prompt file: {ref}")
@@ -391,70 +536,102 @@ def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
 
     actual_hash = compute_bundle_hash(refs)
     manifest_hash = manifest.get("bundle_hash")
+    artifact = _verify_module_compilation(refs)
     if manifest_hash == f"{HASH_PREFIX}PLACEHOLDER" and allow_placeholder_hash:
         manifest["computed_bundle_hash"] = actual_hash
-        return manifest
+        manifest["compiled_receipt"] = artifact.receipt.model_dump(mode="json")
+        return manifest, artifact
     if manifest_hash != actual_hash:
         raise VerificationError(
             f"bundle_hash mismatch: manifest={manifest_hash!r} computed={actual_hash!r}"
         )
 
     manifest["computed_bundle_hash"] = actual_hash
+    manifest["compiled_receipt"] = artifact.receipt.model_dump(mode="json")
+    return manifest, artifact
+
+
+def verify_manifest(allow_placeholder_hash: bool = False) -> dict[str, Any]:
+    manifest, _artifact = _verify_manifest_and_artifact(allow_placeholder_hash)
     return manifest
 
 
-def emit_combined_prompt(refs: list[str], output: Path) -> None:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    manifest = _load_manifest()
-    header = [
-        "# UAA Runtime Capability Foundation Prompt Pack Combined Run",
-        "",
-        f"Bundle id: `{manifest['bundle_id']}`",
-        f"Bundle version: `{manifest['version']}`",
-        f"Bundle hash: `{manifest['bundle_hash']}`",
-        "",
-        "This file is generated for operator review or Codex CLI input.",
-        "The source prompt files remain the durable repo-owned bundle.",
-        "",
-        "## Prompt Refs",
-        "",
-    ]
-    for ref in refs:
-        header.append(f"- `{ref}`")
-    header.extend(["", "---", ""])
-
-    chunks = ["\n".join(header)]
-    chunks.append(f"<!-- BEGIN {README_REF} -->\n")
-    chunks.append(README_PATH.read_text(encoding="utf-8").rstrip())
-    chunks.append(f"\n<!-- END {README_REF} -->\n\n")
-    for ref in refs:
-        path = _repo_path(ref)
-        chunks.append(f"<!-- BEGIN {ref} -->\n")
-        chunks.append(path.read_text(encoding="utf-8").rstrip())
-        chunks.append(f"\n<!-- END {ref} -->\n\n")
-    output.write_text("".join(chunks), encoding="utf-8")
+def emit_combined_prompt(artifact: PromptCompilationArtifact, output: Path) -> None:
+    temporary_path: Path | None = None
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output.name}.",
+            dir=output.parent,
+            text=True,
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(artifact.content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, output)
+        temporary_path = None
+    except (OSError, PromptCompilationError) as exc:
+        raise VerificationError("combined prompt output failed safely") from exc
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--json", action="store_true", help="print verification metadata as JSON")
+    parser.add_argument(
+        "--json", action="store_true", help="print verification metadata as JSON"
+    )
     parser.add_argument("--list", action="store_true", help="list prompt refs")
-    parser.add_argument("--print-hash", action="store_true", help="print computed bundle hash")
-    parser.add_argument("--allow-placeholder-hash", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--emit-combined", type=Path, help="write a combined prompt file")
+    parser.add_argument(
+        "--print-hash", action="store_true", help="print computed bundle hash"
+    )
+    parser.add_argument(
+        "--allow-placeholder-hash", action="store_true", help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--emit-combined", type=Path, help="write a combined prompt file"
+    )
+    parser.add_argument(
+        "--stream-combined", action="store_true", help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--stream-combined-base64", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args(argv)
 
     try:
-        manifest = verify_manifest(allow_placeholder_hash=args.allow_placeholder_hash)
+        if (args.stream_combined or args.stream_combined_base64) and (
+            args.emit_combined is None
+            or args.json
+            or args.list
+            or args.print_hash
+            or (args.stream_combined and args.stream_combined_base64)
+        ):
+            raise VerificationError(
+                "combined prompt streaming requires one dedicated output handoff"
+            )
+        manifest, artifact = _verify_manifest_and_artifact(
+            allow_placeholder_hash=args.allow_placeholder_hash
+        )
         refs = _prompt_refs(manifest)
         if args.emit_combined:
-            emit_combined_prompt(refs, args.emit_combined)
+            emit_combined_prompt(artifact, args.emit_combined)
+        if args.stream_combined:
+            sys.stdout.write(artifact.content)
+            return 0
+        if args.stream_combined_base64:
+            sys.stdout.write(base64.b64encode(artifact.content.encode()).decode())
+            return 0
         if args.list:
             for ref in refs:
                 print(ref)
         if args.print_hash:
             print(manifest["computed_bundle_hash"])
         if args.json:
+            compiled_receipt = manifest["compiled_receipt"]
             print(
                 json.dumps(
                     {
@@ -469,7 +646,20 @@ def main(argv: list[str] | None = None) -> int:
                         "repair_pass_limit": 2,
                         "benchmark_scenario_count": len(REQUIRED_SCENARIOS),
                         "readme_integrity_protected": True,
-                        "combined_output": str(args.emit_combined) if args.emit_combined else None,
+                        "prompt_module_count": len(
+                            compiled_receipt["ordered_module_ids"]
+                        ),
+                        "dependency_graph_hash": compiled_receipt[
+                            "dependency_graph_hash"
+                        ],
+                        "declared_source_contract_hash": compiled_receipt[
+                            "declared_source_contract_hash"
+                        ],
+                        "compiled_artifact_hash": compiled_receipt[
+                            "compiled_artifact_hash"
+                        ],
+                        "golden_receipt_verified": True,
+                        "combined_output_written": args.emit_combined is not None,
                     },
                     indent=2,
                     sort_keys=True,
@@ -481,7 +671,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"{len(refs)} prompts, {manifest['computed_bundle_hash']}"
             )
             if args.emit_combined:
-                print(f"Combined prompt written: {args.emit_combined}")
+                print("Combined prompt written.")
         return 0
     except VerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
