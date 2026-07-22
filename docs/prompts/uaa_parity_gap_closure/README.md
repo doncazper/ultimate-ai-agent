@@ -24,10 +24,11 @@ bash scripts/dev/run_uaa_parity_gap_closure_prompt_pack.sh --allow-network
 ```
 
 The non-dry-run wrapper fails before invoking Codex unless network access is
-explicitly authorized with `--allow-network`. Under the default
-`workspace-write` sandbox, the wrapper then enables Codex workspace network
-access for the GitHub fetch, push, PR, CI, review, and merge gates required by
-the program. Dry-run and list operations remain offline.
+explicitly authorized with `--allow-network`. The wrapper accepts only the
+`workspace-write` sandbox, disables web search, and constrains spawned-command
+egress through Codex's allowlist-first network proxy to GitHub-owned endpoints
+needed for fetch, push, PR, CI, review, and merge gates. Dry-run and list
+operations remain offline.
 
 Validate and emit the combined pack without invoking Codex:
 

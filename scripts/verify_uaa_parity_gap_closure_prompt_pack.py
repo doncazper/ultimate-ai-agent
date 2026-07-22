@@ -41,11 +41,11 @@ EXPECTED_PROMPT_REFS = tuple(
     f"docs/prompts/uaa_parity_gap_closure/{name}" for name in EXPECTED_PROMPTS
 )
 ABSOLUTE_LOCAL_PATH_PATTERN = re.compile(
-    r"(?:^|[\s(`'\"=:\[\]{},])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
+    r"(?<![A-Za-z0-9_.-])(?:file:(?://)?/|/(?:Users|home|root|private|tmp|var|etc|"
     r"System|Library|Applications|opt|usr|Volumes|srv|mnt|proc|dev|run|bin|sbin|"
     r"workspace|build|runner|github)"
     r"(?:/|\b)|~/|[A-Za-z]:\\Users\\|\\\\)",
-    re.MULTILINE,
+    re.IGNORECASE | re.MULTILINE,
 )
 FORBIDDEN_SELF_AUTHORITY_PHRASES = (
     "this pack authorizes",

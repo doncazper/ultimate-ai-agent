@@ -149,11 +149,27 @@ def test_placeholder_hash_cannot_bypass_verification(
         "C:\\Users\\operator\\repo\\file",
         "output=/tmp/run.log",
         "cwd:C:\\Users\\operator\\repo",
+        "cwd=c:\\users\\operator\\repo",
+        "redirect>/tmp/run.log",
+        "field;/var/tmp/state",
+        "pipe|/home/operator/data",
     ),
 )
 def test_common_local_absolute_paths_are_rejected(path: str) -> None:
     with pytest.raises(pack_verify.VerificationError, match="absolute local path"):
         pack_verify._validate_text(pack_verify.README_PATH, path)
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://example.test/tmp/report",
+        "https://example.test/home/operator",
+        "https://example.test/var/tmp/state",
+    ),
+)
+def test_web_urls_are_not_misclassified_as_local_paths(url: str) -> None:
+    pack_verify._validate_text(pack_verify.README_PATH, url)
 
 
 def test_list_contains_only_ordered_developer_prompt_refs() -> None:
@@ -298,6 +314,21 @@ def test_runner_feeds_codex_the_exact_verified_combined_pack(tmp_path: Path) -> 
     assert "sandbox_workspace_write.network_access=true" in (
         captured_args.read_text(encoding="utf-8").splitlines()
     )
+    args = captured_args.read_text(encoding="utf-8").splitlines()
+    assert "--strict-config" in args
+    assert "features.network_proxy.enabled=true" in args
+    domain_policy = next(
+        value for value in args if value.startswith("features.network_proxy.domains=")
+    )
+    assert '"github.com" = "allow"' in domain_policy
+    assert '"api.github.com" = "allow"' in domain_policy
+    assert '"**.githubusercontent.com" = "allow"' in domain_policy
+    assert '"*" = "allow"' not in domain_policy
+    assert "features.network_proxy.allow_local_binding=false" in args
+    assert "features.network_proxy.allow_upstream_proxy=false" in args
+    assert "features.network_proxy.dangerously_allow_non_loopback_proxy=false" in args
+    assert "features.network_proxy.dangerously_allow_all_unix_sockets=false" in args
+    assert 'web_search="disabled"' in args
     combined = captured.read_text(encoding="utf-8")
     assert (
         "<!-- BEGIN docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json -->"
@@ -339,3 +370,69 @@ def test_runner_fails_fast_without_explicit_network_access(tmp_path: Path) -> No
     assert "--allow-network" in result.stderr
     assert str(ROOT) not in result.stdout + result.stderr
     assert str(tmp_path) not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("sandbox", ("read-only", "danger-full-access", "custom"))
+def test_runner_rejects_non_workspace_write_sandboxes(
+    tmp_path: Path, sandbox: str
+) -> None:
+    marker = tmp_path / "codex-invoked"
+    fake_codex = tmp_path / "codex"
+    fake_codex.write_text(
+        '#!/usr/bin/env bash\ntouch "$MARKER"\n',
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o700)
+    env = os.environ.copy()
+    env.update(
+        {
+            "CODEX_BIN": str(fake_codex),
+            "MARKER": str(marker),
+            "PYTHON": sys.executable,
+            "UAA_PARITY_GAP_CLOSURE_SANDBOX": sandbox,
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(WRAPPER), "--allow-network"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 2
+    assert not marker.exists()
+    assert "exact workspace-write" in result.stderr
+
+
+def test_runner_does_not_start_codex_when_verification_fails(tmp_path: Path) -> None:
+    marker = tmp_path / "codex-invoked"
+    fake_codex = tmp_path / "codex"
+    fake_codex.write_text(
+        '#!/usr/bin/env bash\ntouch "$MARKER"\n',
+        encoding="utf-8",
+    )
+    fake_codex.chmod(0o700)
+    fake_python = tmp_path / "python"
+    fake_python.write_text("#!/usr/bin/env bash\nexit 42\n", encoding="utf-8")
+    fake_python.chmod(0o700)
+    env = os.environ.copy()
+    env.update(
+        {
+            "CODEX_BIN": str(fake_codex),
+            "MARKER": str(marker),
+            "PYTHON": str(fake_python),
+        }
+    )
+
+    result = subprocess.run(
+        ["bash", str(WRAPPER), "--allow-network"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 42
+    assert not marker.exists()

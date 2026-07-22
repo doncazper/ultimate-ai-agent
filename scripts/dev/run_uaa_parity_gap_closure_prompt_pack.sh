@@ -9,7 +9,7 @@ SANDBOX="${UAA_PARITY_GAP_CLOSURE_SANDBOX:-workspace-write}"
 DRY_RUN=0
 LIST_ONLY=0
 NETWORK_ACCESS=0
-CODEX_ARGS=(exec -C "$ROOT" --sandbox "$SANDBOX")
+CODEX_ARGS=(exec --strict-config -C "$ROOT" --sandbox "$SANDBOX")
 
 if [[ -n "${UAA_PARITY_GAP_CLOSURE_MODEL:-}" ]]; then
   CODEX_ARGS+=(--model "$UAA_PARITY_GAP_CLOSURE_MODEL")
@@ -29,7 +29,7 @@ Usage:
 Options:
   --dry-run          Verify and emit the combined pack without invoking Codex.
   --list             List ordered prompt files and exit.
-  --allow-network    Explicitly allow network access for the GitHub-dependent run.
+  --allow-network    Explicitly allow GitHub-only network access for the run.
   --output PATH      Set the combined prompt output path.
   --help             Show this help.
 
@@ -100,9 +100,9 @@ if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   exit 127
 fi
 
-if [[ "$SANDBOX" == "read-only" ]]; then
-  echo "The end-to-end run requires a writable Codex sandbox." >&2
-  echo "Use the default workspace-write sandbox or an explicitly reviewed stronger sandbox." >&2
+if [[ "$SANDBOX" != "workspace-write" ]]; then
+  echo "The end-to-end run requires the exact workspace-write Codex sandbox." >&2
+  echo "Read-only and broader sandbox modes are rejected by this wrapper." >&2
   exit 2
 fi
 
@@ -112,13 +112,31 @@ if [[ "$NETWORK_ACCESS" -ne 1 ]]; then
   exit 2
 fi
 
-if [[ "$SANDBOX" == "workspace-write" ]]; then
-  CODEX_ARGS+=(-c sandbox_workspace_write.network_access=true)
-fi
+CODEX_ARGS+=(-c sandbox_workspace_write.network_access=true)
+CODEX_ARGS+=(-c features.network_proxy.enabled=true)
+CODEX_ARGS+=(-c 'features.network_proxy.domains={ "github.com" = "allow", "api.github.com" = "allow", "uploads.github.com" = "allow", "**.githubusercontent.com" = "allow" }')
+CODEX_ARGS+=(-c features.network_proxy.allow_local_binding=false)
+CODEX_ARGS+=(-c features.network_proxy.allow_upstream_proxy=false)
+CODEX_ARGS+=(-c features.network_proxy.dangerously_allow_non_loopback_proxy=false)
+CODEX_ARGS+=(-c features.network_proxy.dangerously_allow_all_unix_sockets=false)
+CODEX_ARGS+=(-c 'web_search="disabled"')
 
 echo "Running the overlap-aware end-to-end wrapper with Codex."
 echo "The wrapper may create, push, review, and merge scoped phase PRs."
 echo
 
-"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined \
-  | "$CODEX_BIN" "${CODEX_ARGS[@]}" -
+STREAM_FILE="$(mktemp "${TMPDIR:-/tmp}/uaa-parity-gap-closure.XXXXXX")"
+cleanup() {
+  if [[ -n "${STREAM_FILE:-}" ]]; then
+    rm -f "$STREAM_FILE"
+  fi
+}
+trap cleanup EXIT
+chmod 600 "$STREAM_FILE"
+
+"$PYTHON" "$VERIFY" --emit-combined "$OUTPUT" --stream-combined > "$STREAM_FILE"
+exec 3<"$STREAM_FILE"
+rm -f "$STREAM_FILE"
+STREAM_FILE=""
+"$CODEX_BIN" "${CODEX_ARGS[@]}" - <&3
+exec 3<&-
