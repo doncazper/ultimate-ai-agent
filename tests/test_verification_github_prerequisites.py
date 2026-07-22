@@ -1491,6 +1491,75 @@ def test_final_ci_evidence_dag_rejects_required_command_as_optional_nonexecution
 
 
 @pytest.mark.parametrize(
+    ("unit_ref", "optional_command_ref"),
+    (
+        (
+            "release-lane-desktop-packaging",
+            "command:desktop-packaging.proof",
+        ),
+        (
+            "release-lane-visual-regression",
+            "command:frontend.visual-regression",
+        ),
+    ),
+)
+def test_final_ci_evidence_dag_rejects_missing_typed_optional_contract_proof(
+    monkeypatch: pytest.MonkeyPatch,
+    unit_ref: str,
+    optional_command_ref: str,
+) -> None:
+    plan = _plan(
+        schema_version="uaa_ci_command_manifest.v3",
+        frontend_visual_scope="not_affected",
+    )
+    results, envelopes = _final_gate_bindings(plan)
+    receipt = _receipt(
+        plan,
+        unit_ref,
+        status=VerificationTerminalStatus.BLOCKED,
+        nonexecuted_command_refs=(optional_command_ref,),
+    )
+    forged = replace(
+        receipt,
+        receipt_ref=f"receipt:verification:{'0' * 64}",
+        receipt_fingerprint="0" * 64,
+        result_refs=receipt.result_refs[:1],
+        command_refs=(optional_command_ref,),
+        command_result_bindings=(),
+        executed_command_result_bindings=(),
+    )
+    forged_fingerprint = verification_receipt_fingerprint(forged)
+    forged = replace(
+        forged,
+        receipt_ref=f"receipt:verification:{forged_fingerprint}",
+        receipt_fingerprint=forged_fingerprint,
+    )
+    substituted = encode_github_job_output(
+        build_github_job_output_envelope(plan, forged)
+    )
+    monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
+
+    with pytest.raises(evidence_dag.CiEvidenceDagError) as error:
+        evidence_dag.validate_final_gate(
+            Path("."),
+            plan.repository_sha,
+            plan.base_sha,
+            plan.frontend_visual_scope,
+            results,
+            envelopes,
+            _replace_binding(
+                _final_optional_bindings(plan),
+                unit_ref,
+                substituted,
+            ),
+        )
+
+    assert error.value.reason_ref == (
+        "reason-ref:ci-evidence:optional-command-proof-invalid"
+    )
+
+
+@pytest.mark.parametrize(
     ("unit_ref", "command_ref"),
     (
         (

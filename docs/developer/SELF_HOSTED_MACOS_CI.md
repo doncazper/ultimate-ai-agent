@@ -282,7 +282,7 @@ started is `github_code_failure` and never enters private fallback.
 
 An operator can reproduce one exact deterministic failed shard without rerunning
 the complete suite by using `make ci-reproduce-shard CI_SHARD_INDEX=0` (indices
-0 through 8). These fixed reproduction lanes come from the same canonical
+0 through 7). These fixed reproduction lanes come from the same canonical
 manifest and do not satisfy the GitHub merge gate.
 
 Eligible private fallback creates a standalone credential-free local clone at

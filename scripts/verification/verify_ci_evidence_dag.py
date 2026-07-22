@@ -244,6 +244,15 @@ def validate_final_gate(
             if unit.lane_ref is not None
             else ()
         )
+        required_command_refs = tuple(
+            command_ref
+            for command_ref in unit.command_refs
+            if command_ref not in expected_optional_commands
+        )
+        executed_command_refs = tuple(
+            command_ref
+            for command_ref, _result_ref in receipt.executed_command_result_bindings
+        )
         expected_nonexecution_bindings = tuple(
             (
                 command_ref,
@@ -265,7 +274,9 @@ def validate_final_gate(
         )
         if unit.evidence_posture == "typed_optional":
             if (
-                receipt.status not in {
+                receipt.command_refs != unit.command_refs
+                or not set(required_command_refs).issubset(executed_command_refs)
+                or receipt.status not in {
                     VerificationTerminalStatus.PASSED,
                     VerificationTerminalStatus.BLOCKED,
                 }
