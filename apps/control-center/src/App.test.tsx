@@ -8,6 +8,28 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./hooks/useCriticalBackendTruth", () => ({
+  useCriticalBackendTruth: () => ({
+    status: "ready",
+    truth: {},
+    errorRef: null,
+    lastVerified: {
+      verifiedAt: "2026-07-22T18:00:10.000Z",
+      sourceRef: "source-ref:python-core:control-center-backend-truth",
+      backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+    },
+    retry: vi.fn(),
+  }),
+}));
+
+vi.mock("./api/backendTruth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api/backendTruth")>();
+  return {
+    ...actual,
+    isCriticalControlCenterPath: () => false,
+  };
+});
 import { App, NorthStarRoute } from "./App";
 import {
   API_ENDPOINTS,

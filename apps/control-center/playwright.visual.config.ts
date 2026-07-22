@@ -4,6 +4,9 @@ const visualPort = Number(process.env.CONTROL_CENTER_VISUAL_PORT ?? "5177");
 const visualBaseUrl = `http://127.0.0.1:${visualPort}`;
 const reuseExistingVisualServer =
   process.env.CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER === "1";
+const backendTruthPort = Number(
+  process.env.CONTROL_CENTER_BACKEND_TRUTH_PORT ?? "18117",
+);
 
 export default defineConfig({
   testDir: "./tests/visual",
@@ -28,6 +31,9 @@ export default defineConfig({
     url: visualBaseUrl,
     reuseExistingServer: reuseExistingVisualServer,
     timeout: 120_000,
+    env: {
+      VITE_UAA_PROXY_TARGET: `http://127.0.0.1:${backendTruthPort}`,
+    },
   },
   projects: [
     {

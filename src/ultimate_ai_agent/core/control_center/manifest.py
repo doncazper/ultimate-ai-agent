@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.time import utc_now
 CONTROL_CENTER_ROUTES = [
     "/control-center/actions/preview",
     "/control-center/actions/inbox",
+    "/control-center/backend-truth",
     "/control-center/approvals/summary",
     "/control-center/capabilities/surface",
     "/control-center/dashboard",

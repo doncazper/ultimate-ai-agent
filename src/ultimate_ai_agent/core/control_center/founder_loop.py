@@ -6,6 +6,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    build_control_center_backend_truth,
+)
 from ultimate_ai_agent.core.control_center.agent_loop import (
     build_agent_loop_thread_read_model,
 )
@@ -50,6 +53,9 @@ class FounderLoopControlCenterService:
 
     def today_summary(self) -> dict:
         return self.repository.today_summary()
+
+    def backend_truth(self) -> dict[str, Any]:
+        return build_control_center_backend_truth(repo=self.repository)
 
     def start_here_summary(self) -> dict:
         return build_control_center_start_here_summary(

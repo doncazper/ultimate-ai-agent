@@ -197,7 +197,15 @@ class FoundationGateLegacyChecksPart004Mixin:
         if "resolveApiBaseUrl" not in client:
             failures.append("frontend client does not use resolveApiBaseUrl")
         local_proxy_target = 'target: "' + "http" + '://127.0.0.1:8000"'
-        if local_proxy_target not in vite_config:
+        constrained_proxy_fragments = (
+            'process.env.VITE_UAA_PROXY_TARGET ?? ""',
+            r"/^http:\/\/127\.0\.0\.1:\d{2,5}$/",
+            ': "http://127.0.0.1:8000"',
+            "target: localProxyTarget",
+        )
+        if local_proxy_target not in vite_config and not all(
+            fragment in vite_config for fragment in constrained_proxy_fragments
+        ):
             failures.append("Vite dev proxy is not pinned to local backend loopback")
         required_proxy_routes = [
             '"/control-center"',

@@ -1081,6 +1081,13 @@ main {
   color: #334e68;
 }
 
+.route-state-panel dd,
+.route-state-panel code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .route-state-panel.success {
   border-left-color: #2f855a;
   background: #f7fbf9;

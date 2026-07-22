@@ -1140,7 +1140,17 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("local backend API base policy is missing")
     if vite_config.exists():
         text = vite_config.read_text(encoding="utf-8")
-        if 'target: "http://127.0.0.1:8000"' not in text:
+        fixed_loopback_target = 'target: "http://127.0.0.1:8000"' in text
+        constrained_loopback_target = all(
+            fragment in text
+            for fragment in (
+                'process.env.VITE_UAA_PROXY_TARGET ?? ""',
+                r"/^http:\/\/127\.0\.0\.1:\d{2,5}$/",
+                ': "http://127.0.0.1:8000"',
+                "target: localProxyTarget",
+            )
+        )
+        if not fixed_loopback_target and not constrained_loopback_target:
             failures.append("Vite dev proxy must target only http://127.0.0.1:8000")
         required_proxy_routes = [
             '"/control-center"',

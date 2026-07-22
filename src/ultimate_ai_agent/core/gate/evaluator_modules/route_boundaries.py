@@ -2290,6 +2290,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
         {
             "/control-center/actions/inbox",
             "/control-center/actions/{action_id}/receipt",
+            "/control-center/backend-truth",
             "/control-center/chat/turns",
             "/control-center/chat/turns/{turn_ref}/handoff",
             "/control-center/chat/turns/{turn_ref}/receipt",

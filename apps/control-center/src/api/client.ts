@@ -35,6 +35,7 @@ import type {
   ControlCenterLocalModelsStatus,
   ControlCenterManifest,
   ControlCenterCapabilitySurfaceReadModel,
+  ControlCenterBackendTruth,
   ControlCenterProofIndex,
   ControlCenterRouteReadState,
   ControlCenterRouteReadStateKind,
@@ -174,6 +175,7 @@ import {
   strictBackendDataFailureRequired,
   strictBackendModeEnabled,
 } from "./runtimePolicy";
+import { validateControlCenterBackendTruth } from "./backendTruth";
 
 const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
@@ -346,6 +348,16 @@ async function readEnvelope<T>(
   } finally {
     readLimiter.release();
   }
+}
+
+export async function loadControlCenterBackendTruth(): Promise<ControlCenterBackendTruth> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const payload = await readEnvelope<unknown>(
+    API_ENDPOINTS.controlCenterBackendTruth,
+  );
+  return validateControlCenterBackendTruth(payload);
 }
 
 const COMMUNICATIONS_SAFE_REF =
@@ -2382,6 +2394,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       usedFallback: normalizedFounderToday.usedFallback,
     }),
     routeReadStateInput({
+      route: "/plans",
+      surfaceLabel: "Plans",
+      backendRouteRef: "GET /control-center/today/summary",
+      endpointReturned: founderToday !== undefined,
+      usedFallback:
+        normalizedFounderToday.usedFallback ||
+        founderToday?.founder_loop_v1_product_proof_read_model === undefined,
+    }),
+    routeReadStateInput({
       route: "/inbox",
       surfaceLabel: "Source Inbox",
       backendRouteRef: "GET /control-center/sources/readiness",
@@ -2394,6 +2415,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       backendRouteRef: "GET /control-center/actions/inbox",
       endpointReturned: founderActionsInbox !== undefined,
       usedFallback: normalizedFounderActionsInbox.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/approvals",
+      surfaceLabel: "Approvals",
+      backendRouteRef: "GET /control-center/approvals/queue",
+      endpointReturned: approvalQueue !== undefined,
+      usedFallback: approvalQueue === undefined,
     }),
     routeReadStateInput({
       route: "/proof",
@@ -2471,6 +2499,20 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       backendRouteRef: "GET /control-center/evidence/timeline",
       endpointReturned: founderEvidenceTimeline !== undefined,
       usedFallback: normalizedFounderEvidenceTimeline.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/chat",
+      surfaceLabel: "Chat handoff",
+      backendRouteRef: "GET /control-center/agent-loop/thread",
+      endpointReturned: founderAgentLoopThread !== undefined,
+      usedFallback: agentLoopThreadFallbackUsed,
+    }),
+    routeReadStateInput({
+      route: "/runs",
+      surfaceLabel: "Active run",
+      backendRouteRef: "GET /control-center/runs/observability",
+      endpointReturned: safeObservedRunObservability !== undefined,
+      usedFallback: safeObservedRunObservability === undefined,
     }),
     routeReadStateInput({
       route: "/settings",

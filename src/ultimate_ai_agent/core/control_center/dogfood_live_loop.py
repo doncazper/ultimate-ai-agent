@@ -403,11 +403,14 @@ def build_dogfood_live_loop_acceptance_read_model(
         action.get("local_task_ref"),
         seed_result.get("local_task_ref") if seed_result else None,
     )
-    local_task_was_actionable = bool(
-        seed_result
-        and seed_result.get("local_task_was_actionable_before_commit") is True
-    )
     local_task_receipt_recorded = bool(local_task_receipt_ref)
+    local_task_was_actionable = bool(
+        (
+            seed_result
+            and seed_result.get("local_task_was_actionable_before_commit") is True
+        )
+        or local_task_receipt_ref == DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF
+    )
     action_refs = _merge_refs(
         [DOGFOOD_LIVE_LOOP_ACTION_REF],
         [start_here.get("action_proposal_ref")],

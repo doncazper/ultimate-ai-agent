@@ -38,6 +38,9 @@ from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.dogfood_live_loop import (  # noqa: E402
     build_dogfood_live_loop_acceptance_read_model,
 )
+from ultimate_ai_agent.core.control_center.backend_truth import (  # noqa: E402
+    build_control_center_backend_truth,
+)
 from ultimate_ai_agent.core.control_center.proof import (  # noqa: E402
     build_control_center_proof_detail,
     build_control_center_proof_index,
@@ -1140,6 +1143,32 @@ def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
         "raw_paths_omitted": True,
     }
     _print_json(output)
+    return 0
+
+
+def _inspect_backend_truth(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        truth = build_control_center_backend_truth(repo=repo)
+    except FounderLoopStorageError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-inspect-backend-truth",
+                error_ref=str(exc) or "CONTROL_CENTER_BACKEND_TRUTH_BLOCKED",
+            )
+        )
+        return 1
+
+    _print_json(
+        {
+            "schema_version": "founder-loop-cli:v1",
+            "command_ref": "repo-local-command:founder-loop-inspect-backend-truth",
+            "backend_truth": truth,
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "raw_paths_omitted": True,
+        }
+    )
     return 0
 
 
@@ -2452,6 +2481,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     dogfood_live_loop_parser.set_defaults(func=_inspect_dogfood_live_loop)
+
+    backend_truth_parser = subparsers.add_parser(
+        "inspect-backend-truth",
+        help=(
+            "Print the short-lived, revision-bound backend truth envelope for "
+            "critical Control Center surfaces without granting authority."
+        ),
+    )
+    backend_truth_parser.set_defaults(func=_inspect_backend_truth)
 
     promote_parser = subparsers.add_parser(
         "promote-action-envelope",

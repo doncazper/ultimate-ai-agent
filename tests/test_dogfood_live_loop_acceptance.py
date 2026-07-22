@@ -173,6 +173,36 @@ def test_dogfood_live_loop_fixture_is_replay_safe(tmp_path: Path) -> None:
     assert validate_dogfood_live_loop_acceptance(second) == []
 
 
+def test_dogfood_live_loop_proof_remains_complete_after_repository_reload(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    seeded = build_dogfood_live_loop_acceptance_read_model(
+        repo=repo,
+        seed_fixture=True,
+    )
+
+    reloaded = build_dogfood_live_loop_acceptance_read_model(
+        repo=FounderLoopRepository(state_dir),
+        seed_fixture=False,
+    )
+
+    assert seeded["local_task_commit_receipt_ref"] == reloaded[
+        "local_task_commit_receipt_ref"
+    ]
+    assert reloaded["fixture_seeded"] is False
+    assert reloaded["local_task_was_actionable_before_commit"] is True
+    assert reloaded["status"] == "complete_local_dogfood_loop_proven"
+    assert validate_dogfood_live_loop_acceptance(
+        reloaded,
+        require_seeded=False,
+    ) == []
+
+
 def test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt(
     tmp_path: Path,
 ) -> None:

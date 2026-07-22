@@ -9,6 +9,10 @@ import { SafeAlert } from "./components/SafeAlert";
 import { MessengerShell } from "./components/messenger/MessengerShell";
 import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
+import {
+  type CriticalBackendTruthState,
+  useCriticalBackendTruth,
+} from "./hooks/useCriticalBackendTruth";
 import { useSkillMarketplacePosture } from "./hooks/useSkillMarketplacePosture";
 import {
   getRouteStateDescriptor,
@@ -23,6 +27,7 @@ import type {
   RuntimeInterfaceModeReadModel,
 } from "./api/types";
 import { isNorthStarPath } from "./northstar/model";
+import { isCriticalControlCenterPath } from "./api/backendTruth";
 
 const loadNorthStarControlCenter = () =>
   import("./northstar/NorthStarControlCenter");
@@ -82,7 +87,13 @@ export function NorthStarRoute({
     };
   }, [loadModule]);
 
-  const state = useControlCenterData(moduleStatus === "ready");
+  const criticalPath = isCriticalControlCenterPath(activePath);
+  const truthState = useCriticalBackendTruth(
+    moduleStatus === "ready" && criticalPath,
+  );
+  const state = useControlCenterData(
+    moduleStatus === "ready" && (!criticalPath || truthState.status === "ready"),
+  );
   const activeSurfaceLabel = getRouteSurfaceLabel(activePath);
 
   if (moduleStatus === "loading") {
@@ -108,6 +119,16 @@ export function NorthStarRoute({
           }}
         />
       </AppShell>
+    );
+  }
+
+  if (criticalPath && truthState.status !== "ready") {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        state={truthState}
+        surfaceLabel={activeSurfaceLabel}
+      />
     );
   }
 
@@ -152,6 +173,24 @@ export function NorthStarRoute({
     );
   }
 
+  if (
+    criticalPath &&
+    !criticalRouteDataIsBackendOwned(activePath, state.data)
+  ) {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        state={{
+          ...truthState,
+          status: "degraded",
+          truth: null,
+          errorRef: "CRITICAL_ROUTE_READ_MODEL_UNVERIFIED",
+        }}
+        surfaceLabel={activeSurfaceLabel}
+      />
+    );
+  }
+
   return (
     <Suspense
       fallback={
@@ -186,11 +225,27 @@ function StudioRoute() {
 }
 
 function ControlCenterRoute({ activePath }: { activePath: string }) {
-  const state = useControlCenterData();
+  const criticalPath = isCriticalControlCenterPath(activePath);
+  const truthState = useCriticalBackendTruth(
+    criticalPath,
+  );
+  const state = useControlCenterData(
+    !criticalPath || truthState.status === "ready",
+  );
   const activeSurfaceLabel = useMemo(
     () => getRouteSurfaceLabel(activePath),
     [activePath],
   );
+
+  if (criticalPath && truthState.status !== "ready") {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        state={truthState}
+        surfaceLabel={activeSurfaceLabel}
+      />
+    );
+  }
 
   if (state.status === "loading") {
     return (
@@ -237,6 +292,24 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     );
   }
 
+  if (
+    criticalPath &&
+    !criticalRouteDataIsBackendOwned(activePath, state.data)
+  ) {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        state={{
+          ...truthState,
+          status: "degraded",
+          truth: null,
+          errorRef: "CRITICAL_ROUTE_READ_MODEL_UNVERIFIED",
+        }}
+        surfaceLabel={activeSurfaceLabel}
+      />
+    );
+  }
+
   return (
     <AppShell
       activePath={activePath}
@@ -268,6 +341,106 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
         )}
       />
       {renderRoute(activePath, state.data)}
+    </AppShell>
+  );
+}
+
+const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
+  "/": ["/today", "/briefing"],
+  "/start": ["/start"],
+  "/today": ["/today"],
+  "/plans": ["/plans"],
+  "/actions": ["/actions"],
+  "/approvals": ["/approvals"],
+  "/work-board": ["/work-board"],
+  "/briefing": ["/briefing"],
+  "/morning-briefing": ["/briefing"],
+  "/memory": ["/memory"],
+  "/proof": ["/proof"],
+  "/evidence": ["/evidence"],
+  "/setup": ["/setup"],
+  "/chat": ["/chat"],
+  "/runs": ["/runs"],
+  "/workspace": ["/today", "/briefing"],
+  "/workspace/today": ["/today", "/briefing"],
+  "/workspace/decisions": ["/actions", "/approvals"],
+  "/workspace/work-board": ["/work-board"],
+  "/workspace/knowledge": ["/memory"],
+  "/workspace/activity-trust": ["/evidence", "/runs"],
+  "/workspace/onboarding": ["/setup"],
+};
+
+function criticalRouteDataIsBackendOwned(
+  activePath: string,
+  data: ControlCenterData,
+): boolean {
+  const routeKeys = CRITICAL_ROUTE_KEYS[activePath] ?? [];
+  return (
+    routeKeys.length > 0 &&
+    routeKeys.every((route) => data.routeStates[route]?.state === "backend_owned")
+  );
+}
+
+function CriticalBackendTruthUnavailable({
+  activePath,
+  state,
+  surfaceLabel,
+}: {
+  activePath: string;
+  state: CriticalBackendTruthState;
+  surfaceLabel: string;
+}) {
+  const lastVerified = state.lastVerified;
+  const pending = state.status === "loading";
+  return (
+    <AppShell activePath={activePath}>
+      <section
+        aria-labelledby="critical-backend-truth-title"
+        aria-live="polite"
+        className="route-state-panel"
+        data-critical-backend-truth={pending ? "loading" : "unavailable"}
+      >
+        <p className="eyebrow">Backend truth · {pending ? "checking" : "unavailable"}</p>
+        <h1 id="critical-backend-truth-title">
+          {surfaceLabel} is not showing unverified product state
+        </h1>
+        <p>
+          {pending
+            ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
+            : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
+        </p>
+        <dl>
+          <div>
+            <dt>Last verified</dt>
+            <dd>{lastVerified?.verifiedAt ?? "No verified snapshot in this session"}</dd>
+          </div>
+          <div>
+            <dt>Source ref</dt>
+            <dd>{lastVerified?.sourceRef ?? "source-ref:backend-truth:unavailable"}</dd>
+          </div>
+          <div>
+            <dt>Backend revision</dt>
+            <dd>{lastVerified?.backendRevisionRef ?? "revision-ref:unavailable"}</dd>
+          </div>
+          <div>
+            <dt>Authority</dt>
+            <dd>Read-only local inspection; this UI cannot grant authority.</dd>
+          </div>
+          {!pending ? (
+            <div>
+              <dt>Failure ref</dt>
+              <dd>{state.errorRef}</dd>
+            </div>
+          ) : null}
+        </dl>
+        <button disabled={pending} onClick={state.retry} type="button">
+          Retry backend truth
+        </button>
+        <p>
+          Next safe action: restore the local backend or inspect {" "}
+          <code>python scripts/dev/uaa_founder_loop.py inspect-backend-truth</code>.
+        </p>
+      </section>
     </AppShell>
   );
 }
