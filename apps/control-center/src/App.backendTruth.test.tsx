@@ -26,6 +26,12 @@ const lastVerified = {
 
 function backendData(routeState: "backend_owned" | "mock_fallback") {
   const data = structuredClone(mockControlCenterData) as ControlCenterData;
+  data.connection.state = "online";
+  data.connection.usingMockData = false;
+  data.connection.warnings = [];
+  for (const route of ["/today", "/actions", "/evidence", "/settings"]) {
+    data.routeStates[route].state = "backend_owned";
+  }
   data.routeStates["/today"].state = routeState;
   return data;
 }
@@ -118,6 +124,36 @@ describe("critical backend truth boundary", () => {
 
     expect(screen.getByRole("heading", { name: "Morning Briefing" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
+  });
+
+  it("fails closed when a shared Founder Loop read model falls back", () => {
+    window.history.pushState({}, "", "/proof");
+    const data = backendData("backend_owned");
+    data.routeStates["/proof"].state = "backend_owned";
+    data.routeStates["/evidence"].state = "mock_fallback";
+    mocked.controlCenterState = { status: "ready", data, error: null };
+
+    render(<App />);
+
+    expect(
+      screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Proof" })).not.toBeInTheDocument();
+  });
+
+  it("fails closed when any auxiliary read model used by a critical page falls back", () => {
+    const data = backendData("backend_owned");
+    data.connection.state = "degraded";
+    data.connection.usingMockData = true;
+    data.connection.warnings = ["PARTIAL_MOCK_FALLBACK"];
+    mocked.controlCenterState = { status: "ready", data, error: null };
+
+    render(<App />);
+
+    expect(
+      screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Today" })).not.toBeInTheDocument();
   });
 
   it("does not render mock workspace product content while critical data loads", async () => {

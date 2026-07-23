@@ -15,6 +15,7 @@
   "include": [
     "vite.config.ts",
     "playwright.visual.config.ts",
-    "playwright.smoke.config.ts"
+    "playwright.smoke.config.ts",
+    "tests/visual/ports.ts"
   ]
 }

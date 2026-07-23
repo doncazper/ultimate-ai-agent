@@ -42,6 +42,7 @@ export function useCriticalBackendTruth(
   const previousEnabled = useRef(enabled);
   const lastVerified = useRef<LastVerifiedBackendTruth | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, setState] = useState<
     Omit<CriticalBackendTruthState, "retry"> & { activation: number }
   >({
@@ -78,6 +79,7 @@ export function useCriticalBackendTruth(
           backendRevisionRef: truth.backend_revision_ref,
         };
         lastVerified.current = verified;
+        if (expiryTimer.current) clearTimeout(expiryTimer.current);
         setState({
           status: "ready",
           truth,
@@ -85,9 +87,26 @@ export function useCriticalBackendTruth(
           lastVerified: verified,
           activation: requestActivation,
         });
+        const expiryDelayMs = Math.max(
+          0,
+          new Date(truth.valid_until).getTime() - Date.now(),
+        );
+        expiryTimer.current = setTimeout(() => {
+          if (requestActivation !== activation.current) {
+            return;
+          }
+          setState({
+            status: "degraded",
+            truth: null,
+            errorRef: "BACKEND_TRUTH_STALE",
+            lastVerified: lastVerified.current,
+            activation: requestActivation,
+          });
+        }, expiryDelayMs);
       })
       .catch((error: unknown) => {
         if (requestGeneration !== generation.current) return;
+        if (expiryTimer.current) clearTimeout(expiryTimer.current);
         setState({
           status: "degraded",
           truth: null,
@@ -112,6 +131,7 @@ export function useCriticalBackendTruth(
     return () => {
       generation.current += 1;
       if (timer.current) clearTimeout(timer.current);
+      if (expiryTimer.current) clearTimeout(expiryTimer.current);
     };
   }, [enabled, refresh]);
 

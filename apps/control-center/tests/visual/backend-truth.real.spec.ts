@@ -3,15 +3,13 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { backendTruthPort } from "./ports";
 
 const repoRoot = resolve(import.meta.dirname, "../../../..");
 const python =
   process.env.UAA_TEST_PYTHON ?? resolve(repoRoot, ".venv/bin/python");
 const stateDir = mkdtempSync(join(tmpdir(), "uaa-backend-truth-browser-"));
-const backendPort = Number(
-  process.env.CONTROL_CENTER_BACKEND_TRUTH_PORT ?? "18117",
-);
-const backendBaseUrl = `http://127.0.0.1:${backendPort}`;
+const backendBaseUrl = `http://127.0.0.1:${backendTruthPort}`;
 let backend: ChildProcess | null = null;
 
 function startBackend({ corruptReceipt = false } = {}): void {
@@ -24,7 +22,7 @@ function startBackend({ corruptReceipt = false } = {}): void {
         ...process.env,
         PYTHONPATH: resolve(repoRoot, "src"),
         UAA_BACKEND_TRUTH_TEST_STATE_DIR: stateDir,
-        UAA_BACKEND_TRUTH_TEST_PORT: String(backendPort),
+        UAA_BACKEND_TRUTH_TEST_PORT: String(backendTruthPort),
         UAA_BUILD_COMMIT: "1".repeat(40),
         UAA_BACKEND_TRUTH_TEST_CORRUPT_RECEIPT: corruptReceipt ? "1" : "0",
       },
@@ -132,6 +130,11 @@ test("critical founder loop fails closed on backend loss and survives durable re
   await expect(page).toHaveScreenshot("backend-truth-unavailable.png", {
     animations: "disabled",
     fullPage: true,
+    mask: [
+      page.locator(
+        '[data-critical-backend-truth] dt:has-text("Last verified") + dd',
+      ),
+    ],
   });
 
   startBackend();

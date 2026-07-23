@@ -12,7 +12,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board"]],
   ["critical-surface:morning-briefing", "Morning Briefing", ["/briefing", "/morning-briefing", "/workspace", "/workspace/today"], ["GET /control-center/morning-briefing/summary"]],
   ["critical-surface:memory", "Memory", ["/memory", "/workspace/knowledge"], ["GET /control-center/memory/review"]],
-  ["critical-surface:evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index"]],
+  ["critical-surface:evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index", "GET /control-center/evidence/timeline", "GET /control-center/runs/observability"]],
   ["critical-surface:setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
   ["critical-surface:chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
   ["critical-surface:active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
@@ -73,7 +73,7 @@ export async function validateControlCenterBackendTruth(
     fail("BACKEND_TRUTH_REVISION_INVALID");
   }
   if (
-    value.source_revision_bound &&
+    value.source_revision_bound !== true ||
     !/^commit-ref:git:[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.backend_revision_ref)
   ) {
     fail("BACKEND_TRUTH_REVISION_UNBOUND");

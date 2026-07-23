@@ -21,7 +21,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board"]],
     ["morning-briefing", "Morning Briefing", ["/briefing", "/morning-briefing", "/workspace", "/workspace/today"], ["GET /control-center/morning-briefing/summary"]],
     ["memory", "Memory", ["/memory", "/workspace/knowledge"], ["GET /control-center/memory/review"]],
-    ["evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index"]],
+    ["evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index", "GET /control-center/evidence/timeline", "GET /control-center/runs/observability"]],
     ["setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
@@ -106,6 +106,11 @@ describe("backend truth validation", () => {
   const invalidCases: Array<[string, unknown, string, Date?]> = [
     ["malformed", null, "BACKEND_TRUTH_MALFORMED"],
     ["schema", fixture({ schema_version: "backend-truth.v0" }), "BACKEND_TRUTH_SCHEMA_MISMATCH"],
+    [
+      "unbound source revision",
+      fixture({ source_revision_bound: false }),
+      "BACKEND_TRUTH_REVISION_UNBOUND",
+    ],
     ["stale", fixture(), "BACKEND_TRUTH_STALE", new Date("2026-07-22T18:01:00Z")],
     [
       "future",

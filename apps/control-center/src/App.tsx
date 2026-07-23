@@ -365,29 +365,42 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   );
 }
 
+const FOUNDER_LOOP_SPINE_ROUTE_KEYS = [
+  "/today",
+  "/actions",
+  "/evidence",
+  "/settings",
+];
+
 const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
-  "/": ["/today", "/briefing"],
-  "/start": ["/start"],
-  "/today": ["/today"],
-  "/plans": ["/plans"],
-  "/actions": ["/actions"],
-  "/approvals": ["/approvals"],
-  "/work-board": ["/work-board"],
-  "/briefing": ["/briefing"],
-  "/morning-briefing": ["/briefing"],
-  "/memory": ["/memory"],
-  "/proof": ["/proof"],
-  "/evidence": ["/evidence"],
-  "/setup": ["/setup"],
-  "/chat": ["/chat"],
-  "/runs": ["/runs"],
-  "/workspace": ["/today", "/briefing"],
-  "/workspace/today": ["/today", "/briefing"],
-  "/workspace/decisions": ["/actions", "/approvals"],
-  "/workspace/work-board": ["/work-board"],
-  "/workspace/knowledge": ["/memory"],
-  "/workspace/activity-trust": ["/evidence", "/runs"],
-  "/workspace/onboarding": ["/setup"],
+  "/": ["/today", "/briefing", "/settings"],
+  "/start": ["/start", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/today": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/plans": ["/plans", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/actions": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/approvals": ["/approvals", "/settings"],
+  "/work-board": ["/work-board", "/settings"],
+  "/briefing": ["/briefing", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/morning-briefing": ["/briefing", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/memory": ["/memory", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/proof": ["/proof", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
+  "/evidence": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS, "/runs"],
+  "/setup": ["/setup", "/settings"],
+  "/chat": ["/chat", "/settings"],
+  "/runs": ["/runs", "/settings"],
+  "/workspace": ["/today", "/settings"],
+  "/workspace/today": ["/today", "/settings"],
+  "/workspace/decisions": ["/actions", "/approvals", "/settings"],
+  "/workspace/work-board": ["/work-board", "/settings"],
+  "/workspace/knowledge": ["/memory", "/settings"],
+  "/workspace/activity-trust": [
+    "/trust",
+    "/settings",
+    "/actions",
+    "/evidence",
+    "/runs",
+  ],
+  "/workspace/onboarding": ["/setup", "/inbox"],
 };
 
 function criticalRouteDataIsBackendOwned(
@@ -396,6 +409,8 @@ function criticalRouteDataIsBackendOwned(
 ): boolean {
   const routeKeys = CRITICAL_ROUTE_KEYS[activePath] ?? [];
   return (
+    data.connection.state === "online" &&
+    data.connection.usingMockData === false &&
     routeKeys.length > 0 &&
     routeKeys.every((route) => data.routeStates[route]?.state === "backend_owned")
   );

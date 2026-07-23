@@ -7,11 +7,13 @@ function truth(
   revision: string,
   evidenceStatus: ControlCenterBackendTruth["evidence_binding"]["status"] = "verified_complete",
 ): ControlCenterBackendTruth {
+  const generatedAt = new Date();
+  const validUntil = new Date(generatedAt.getTime() + 45_000);
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
     source_ref: "source-ref:python-core:control-center-backend-truth",
-    generated_at: "2026-07-22T18:00:00Z",
-    valid_until: "2026-07-22T18:00:45Z",
+    generated_at: generatedAt.toISOString(),
+    valid_until: validUntil.toISOString(),
     backend_revision_ref: revision,
     source_revision_bound: true,
     critical_surfaces: [],
@@ -153,6 +155,33 @@ describe("useCriticalBackendTruth", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(result.current.lastVerified?.backendRevisionRef).toBe(
       "commit-ref:git:second",
+    );
+  });
+
+  it("fails closed at the exact envelope expiry while a refresh is pending", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T18:00:00Z"));
+    const pending = deferred<ControlCenterBackendTruth>();
+    const loader = vi
+      .fn<() => Promise<ControlCenterBackendTruth>>()
+      .mockResolvedValueOnce(truth("commit-ref:git:current"))
+      .mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(() => useCriticalBackendTruth(true, loader));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe("ready");
+
+    act(() => {
+      result.current.retry();
+      vi.advanceTimersByTime(45_001);
+    });
+
+    expect(result.current.status).toBe("degraded");
+    expect(result.current.errorRef).toBe("BACKEND_TRUTH_STALE");
+    expect(result.current.lastVerified?.backendRevisionRef).toBe(
+      "commit-ref:git:current",
     );
   });
 });

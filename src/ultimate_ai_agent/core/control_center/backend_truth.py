@@ -221,7 +221,11 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         surface_ref="critical-surface:evidence-proof",
         label="Evidence and Proof",
         frontend_paths=["/proof", "/evidence", "/workspace/activity-trust"],
-        backend_route_refs=["GET /control-center/proof/index"],
+        backend_route_refs=[
+            "GET /control-center/proof/index",
+            "GET /control-center/evidence/timeline",
+            "GET /control-center/runs/observability",
+        ],
     ),
     CriticalSurfaceBinding(
         surface_ref="critical-surface:setup",
