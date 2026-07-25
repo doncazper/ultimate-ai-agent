@@ -79,7 +79,9 @@ describe("useCriticalBackendTruth", () => {
       .mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useCriticalBackendTruth(true, loader));
 
-    act(() => result.current.retry());
+    act(() => {
+      void result.current.retry();
+    });
     await act(async () => second.resolve(truth("commit-ref:git:new")));
     await waitFor(() => expect(result.current.status).toBe("ready"));
     await act(async () => first.resolve(truth("commit-ref:git:old")));
@@ -124,14 +126,18 @@ describe("useCriticalBackendTruth", () => {
     );
   });
 
-  it("fails closed when durable evidence is incomplete", async () => {
+  it("exposes valid incomplete evidence as first-run onboarding posture", async () => {
     const loader = vi.fn<() => Promise<ControlCenterBackendTruth>>().mockResolvedValue(
       truth("commit-ref:git:verified", "unverified_incomplete"),
     );
     const { result } = renderHook(() => useCriticalBackendTruth(true, loader));
 
-    await waitFor(() => expect(result.current.status).toBe("degraded"));
+    await waitFor(() => expect(result.current.status).toBe("onboarding"));
     expect(result.current.errorRef).toBe("BACKEND_TRUTH_EVIDENCE_INCOMPLETE");
+    expect(result.current.truth?.backend_revision_ref).toBe(
+      "commit-ref:git:verified",
+    );
+    expect(result.current.lastVerified).toBeNull();
   });
 
   it("requires a fresh validation after the boundary is disabled and re-enabled", async () => {
@@ -174,7 +180,7 @@ describe("useCriticalBackendTruth", () => {
     expect(result.current.status).toBe("ready");
 
     act(() => {
-      result.current.retry();
+      void result.current.retry();
       vi.advanceTimersByTime(45_001);
     });
 

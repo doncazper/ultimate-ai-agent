@@ -10,7 +10,20 @@ const python =
   process.env.UAA_TEST_PYTHON ?? resolve(repoRoot, ".venv/bin/python");
 const stateDir = mkdtempSync(join(tmpdir(), "uaa-backend-truth-browser-"));
 const backendBaseUrl = `http://127.0.0.1:${backendTruthPort}`;
+const backendTruthTestNow = "2026-07-22T18:00:00Z";
 let backend: ChildProcess | null = null;
+
+const backendOwnedVisualSurfaces = [
+  ["overview", "/"],
+  ["start", "/start"],
+  ["today", "/today"],
+  ["actions", "/actions"],
+  ["plans", "/plans"],
+  ["proof", "/proof"],
+  ["memory", "/memory"],
+  ["evidence", "/evidence"],
+  ["setup", "/setup"],
+] as const;
 
 function startBackend({ corruptReceipt = false } = {}): void {
   backend = spawn(
@@ -23,6 +36,7 @@ function startBackend({ corruptReceipt = false } = {}): void {
         PYTHONPATH: resolve(repoRoot, "src"),
         UAA_BACKEND_TRUTH_TEST_STATE_DIR: stateDir,
         UAA_BACKEND_TRUTH_TEST_PORT: String(backendTruthPort),
+        UAA_BACKEND_TRUTH_TEST_NOW: backendTruthTestNow,
         UAA_BUILD_COMMIT: "1".repeat(40),
         UAA_BACKEND_TRUTH_TEST_CORRUPT_RECEIPT: corruptReceipt ? "1" : "0",
       },
@@ -74,16 +88,11 @@ test.afterAll(async () => {
   rmSync(stateDir, { recursive: true, force: true });
 });
 
-test("critical founder loop fails closed on backend loss and survives durable restart", async ({
+test("critical founder-loop baselines stay backend-owned", async ({
   page,
   request,
 }) => {
-  test.setTimeout(120_000);
-  await page.goto("/today");
-  await expect(
-    page.getByRole("region", { name: "Today" }),
-  ).toBeVisible({ timeout: 30_000 });
-
+  test.setTimeout(300_000);
   const initialTruthResponse = await request.get(
     `${backendBaseUrl}/control-center/backend-truth`,
   );
@@ -93,6 +102,84 @@ test("critical founder loop fails closed on backend loss and survives durable re
   expect(initialTruth.data.backend_revision_ref).toBe(
     `commit-ref:git:${"1".repeat(40)}`,
   );
+  const fixedNow = new Date(initialTruth.data.generated_at).getTime() + 1_000;
+  await page.addInitScript((timestamp) => {
+    const RealDate = Date;
+    class FixedDate extends RealDate {
+      constructor(...args: unknown[]) {
+        if (args.length === 0) {
+          super(timestamp);
+          return;
+        }
+        super(...(args as [number]));
+      }
+
+      static now() {
+        return timestamp;
+      }
+    }
+    globalThis.Date = FixedDate as DateConstructor;
+  }, fixedNow);
+
+  for (const [name, route] of backendOwnedVisualSurfaces) {
+    await test.step(`capture backend-owned ${name}`, async () => {
+      await page.goto(route);
+      await expect(
+        page.getByRole("heading", {
+          name: /is not showing unverified product state$/,
+        }),
+      ).toHaveCount(0, { timeout: 30_000 });
+      await expect(page.getByText("Mock fallback active")).toHaveCount(0);
+      await expect(page.locator("main")).toBeVisible();
+      await expect(page).toHaveScreenshot(`${name}.png`, {
+        animations: "disabled",
+        fullPage: true,
+      });
+    });
+  }
+});
+
+test("critical founder loop fails closed on backend loss and survives durable restart", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const initialTruthResponse = await request.get(
+    `${backendBaseUrl}/control-center/backend-truth`,
+  );
+  expect(initialTruthResponse.ok()).toBe(true);
+  const initialTruth = await initialTruthResponse.json();
+  expect(initialTruth.data.evidence_binding.status).toBe("verified_complete");
+  expect(initialTruth.data.backend_revision_ref).toBe(
+    `commit-ref:git:${"1".repeat(40)}`,
+  );
+  const fixedNow = new Date(initialTruth.data.generated_at).getTime() + 1_000;
+  await page.addInitScript((timestamp) => {
+    const RealDate = Date;
+    class FixedDate extends RealDate {
+      constructor(...args: unknown[]) {
+        if (args.length === 0) {
+          super(timestamp);
+          return;
+        }
+        super(...(args as [number]));
+      }
+
+      static now() {
+        return timestamp;
+      }
+    }
+    globalThis.Date = FixedDate as DateConstructor;
+  }, fixedNow);
+  await page.goto("/today");
+  await expect(
+    page.getByRole("region", { name: "Today" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", {
+      name: /is not showing unverified product state$/,
+    }),
+  ).toHaveCount(0, { timeout: 30_000 });
 
   const cli = spawnSync(
     python,
@@ -139,10 +226,21 @@ test("critical founder loop fails closed on backend loss and survives durable re
 
   startBackend();
   await waitForBackend();
-  await page.getByRole("button", { name: "Retry backend truth" }).click();
+  const restartedActions = await request.get(
+    `${backendBaseUrl}/control-center/actions/inbox`,
+  );
+  expect(restartedActions.ok()).toBe(true);
+  await page
+    .getByRole("button", { name: "Retry backend and route data" })
+    .click();
   await expect(
     page.getByRole("region", { name: "Today" }),
   ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("heading", {
+      name: /is not showing unverified product state$/,
+    }),
+  ).toHaveCount(0, { timeout: 30_000 });
   const reloadedTruth = await request.get(
     `${backendBaseUrl}/control-center/backend-truth`,
   );
@@ -156,11 +254,13 @@ test("critical founder loop fails closed on backend loss and survives durable re
   await waitForBackend();
   await page.reload();
   await expect(
+    page.getByText("BACKEND_TRUTH_EVIDENCE_INVALID"),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
     page.getByRole("heading", {
       name: "Today is not showing unverified product state",
     }),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("BACKEND_TRUTH_EVIDENCE_INVALID")).toBeVisible();
   await expect(page.getByText("Backend-owned proof pass")).toHaveCount(0);
   const corruptedTruth = await request.get(
     `${backendBaseUrl}/control-center/backend-truth`,

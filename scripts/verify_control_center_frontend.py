@@ -448,7 +448,7 @@ BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS = [
     'chatShellThroughUaaV1: "gateway_gated"',
     'createTaskDecompositionPlan: "backend_gated"',
     "Preview only action request",
-    "No approval was granted from this UI",
+    "This UI cannot grant, deny, execute, or bypass approvals",
     "Trace detail is redacted summary metadata only",
 ]
 OPERATOR_STATE_REQUIRED_COMPONENT_FRAGMENTS = [
@@ -482,8 +482,10 @@ OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS = [
     "/models",
     "/settings",
     "Blocked: local chat authority withheld",
-    "Denied: no sensitive evidence display",
     "Denied: no authority toggle",
+    "renders backend-owned evidence timeline refs without the M17 mock viewer",
+    "Legacy preview evidence records are excluded from this critical route",
+    'queryByText("mock_evidence_ref_001")',
     "getAllByRole(\"status\")",
     "getAllByRole(\"alert\")",
 ]

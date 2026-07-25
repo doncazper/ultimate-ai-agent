@@ -49,7 +49,7 @@
         "mobile": "visual-baseline-file:mobile:overview"
       },
       "baseline_hashes": {
-        "desktop": "sha256:2b044fd18301a72041f6d53ad4517bb593d16306fc260999cdf99e14688fa1f7",
+        "desktop": "sha256:8d5b82684b6ec009349f51a0ba6701e890c9dcad517aaa6425a9da2d4943f26a",
         "mobile": "sha256:cf7f12c234e51bc682d5a2acda14b06af2d73a67b9ebeb9d6b5ad68ebd044fb5"
       },
       "raw_private_screenshot_included": false
@@ -64,7 +64,7 @@
         "mobile": "visual-baseline-file:mobile:start"
       },
       "baseline_hashes": {
-        "desktop": "sha256:e556bec560768d945e87fb5a8ad82a1e074529acf27333c35419d48cb28d330f",
+        "desktop": "sha256:ece2fbcf8b2a3cb937e31e927da1425d56de258bef0c31c0e81205d7d706e5f8",
         "mobile": "sha256:9151893bfd133070fbd7665875587fb4b8586335c1613f79c7efe149a9bff267"
       },
       "raw_private_screenshot_included": false
@@ -79,7 +79,7 @@
         "mobile": "visual-baseline-file:mobile:today"
       },
       "baseline_hashes": {
-        "desktop": "sha256:a4707bc0b004c7903413c336b6670f127fde42e339816762032d8a95a2656267",
+        "desktop": "sha256:9fd54f7b7e671fc69478e7df7c60eb5205482e2a2f762b6d89edcdac891c4ec8",
         "mobile": "sha256:4084e653d2c6d910b86afd5e3af244cc3488cc39669459f0fab794c9c2f74ab3"
       },
       "raw_private_screenshot_included": false
@@ -109,7 +109,7 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:6f8ee1d2276fe81b52b6f377469dfc6c3ff7e828d192ede03e0f10ea632b51fa",
+        "desktop": "sha256:6ef751e580582954d9557a0e7a30a52dc66b61e9c221e7871944698138fe3ca0",
         "mobile": "sha256:a21ecd2d909a32e783d792df8b9de4713c39a4983ef73b54e1a9cc5e0a3d95c9"
       },
       "raw_private_screenshot_included": false
@@ -124,7 +124,7 @@
         "mobile": "visual-baseline-file:mobile:plans"
       },
       "baseline_hashes": {
-        "desktop": "sha256:4f52c098e3895a499e95be1c128a951b09eca53e84a3fa48fa7fa1712c5ea6cf",
+        "desktop": "sha256:8339a00ce105820a51c5b594a977e06a0fc4353e9c5efb7eff25171b469fd76b",
         "mobile": "sha256:32f0927435c6946556e3d63f10c53b8c24ffb78d8a8f312e1379d71146451fac"
       },
       "raw_private_screenshot_included": false
@@ -139,7 +139,7 @@
         "mobile": "visual-baseline-file:mobile:proof"
       },
       "baseline_hashes": {
-        "desktop": "sha256:1c518d7749f0076319fe760abc2f5aaae74ebf38f77fc3851e72b9f12d5d2f96",
+        "desktop": "sha256:aae369399e30214582093ee115d5d8a4e4a7bb661a7457bbead9d6a0a62abeed",
         "mobile": "sha256:0da637795f5133f3eee71228ad4c6ab1c0d48ec6bd1fa43ca112bb5aae0e4cbe"
       },
       "raw_private_screenshot_included": false
@@ -169,7 +169,7 @@
         "mobile": "visual-baseline-file:mobile:memory"
       },
       "baseline_hashes": {
-        "desktop": "sha256:5295ccd1fe3bf54e66b0219acf364cfb05b66cf7e1fb0d05f3735b2407472800",
+        "desktop": "sha256:682c563a74bf34faf6a8f7a301cab3b68c8e1c16569797812c33bb7e336d81ed",
         "mobile": "sha256:0b9694eea92e3a6cbda1efd01448315f047300781ff43c2129087229ca72b770"
       },
       "raw_private_screenshot_included": false
@@ -184,7 +184,7 @@
         "mobile": "visual-baseline-file:mobile:evidence"
       },
       "baseline_hashes": {
-        "desktop": "sha256:5e30afbfb504a6f3b96c2f50a0b2223423e7225854b5f944ebeb39dd80e154e9",
+        "desktop": "sha256:0e4a25e7581808d4ace0ed3af57d9c84753414a9444b240b37bf10b3bb4a200e",
         "mobile": "sha256:fe35e7dab3ed5bdcd018be5ac24faea79df53fb6012c344215136a408c6db6fa"
       },
       "raw_private_screenshot_included": false
@@ -214,7 +214,7 @@
         "mobile": "visual-baseline-file:mobile:setup"
       },
       "baseline_hashes": {
-        "desktop": "sha256:feeb7f1cd8af6e440b88cde1a3039a2195782783d17dbfd4ee38de0af3eb1625",
+        "desktop": "sha256:316c48833cace558ba3f193d1f87a409aaab31f3f1167fa91bf04c9bdcabefc1",
         "mobile": "sha256:e09e03b56943dbd24c81b6f561f3e3344b22ca0012bf40c0d279f7d9e94c26b7"
       },
       "raw_private_screenshot_included": false

@@ -27,7 +27,10 @@ import type {
   RuntimeInterfaceModeReadModel,
 } from "./api/types";
 import { isNorthStarPath } from "./northstar/model";
-import { isCriticalControlCenterPath } from "./api/backendTruth";
+import {
+  canonicalizeControlCenterPath,
+  isCriticalControlCenterPath,
+} from "./api/backendTruth";
 
 const loadNorthStarControlCenter = () =>
   import("./northstar/NorthStarControlCenter");
@@ -91,9 +94,16 @@ export function NorthStarRoute({
   const truthState = useCriticalBackendTruth(
     moduleStatus === "ready" && criticalPath,
   );
+  const truthAdmitted =
+    !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
   const state = useControlCenterData(
-    moduleStatus === "ready" && (!criticalPath || truthState.status === "ready"),
+    moduleStatus === "ready" && truthAdmitted,
+    truthAdmitted ? truthState.truth?.envelope_integrity_ref ?? null : null,
   );
+  const retryCriticalRoute = async () => {
+    await truthState.retry();
+    state.retry();
+  };
   const activeSurfaceLabel = getRouteSurfaceLabel(activePath);
 
   if (moduleStatus === "loading") {
@@ -122,10 +132,11 @@ export function NorthStarRoute({
     );
   }
 
-  if (criticalPath && truthState.status !== "ready") {
+  if (criticalPath && !truthAdmitted) {
     return (
       <CriticalBackendTruthUnavailable
         activePath={activePath}
+        retry={retryCriticalRoute}
         state={truthState}
         surfaceLabel={activeSurfaceLabel}
       />
@@ -200,6 +211,7 @@ export function NorthStarRoute({
     return (
       <CriticalBackendTruthUnavailable
         activePath={activePath}
+        retry={retryCriticalRoute}
         state={{
           ...truthState,
           status: "degraded",
@@ -249,18 +261,26 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   const truthState = useCriticalBackendTruth(
     criticalPath,
   );
+  const truthAdmitted =
+    !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
   const state = useControlCenterData(
-    !criticalPath || truthState.status === "ready",
+    truthAdmitted,
+    truthAdmitted ? truthState.truth?.envelope_integrity_ref ?? null : null,
   );
+  const retryCriticalRoute = async () => {
+    await truthState.retry();
+    state.retry();
+  };
   const activeSurfaceLabel = useMemo(
     () => getRouteSurfaceLabel(activePath),
     [activePath],
   );
 
-  if (criticalPath && truthState.status !== "ready") {
+  if (criticalPath && !truthAdmitted) {
     return (
       <CriticalBackendTruthUnavailable
         activePath={activePath}
+        retry={retryCriticalRoute}
         state={truthState}
         surfaceLabel={activeSurfaceLabel}
       />
@@ -319,6 +339,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     return (
       <CriticalBackendTruthUnavailable
         activePath={activePath}
+        retry={retryCriticalRoute}
         state={{
           ...truthState,
           status: "degraded",
@@ -372,6 +393,23 @@ const FOUNDER_LOOP_SPINE_ROUTE_KEYS = [
   "/settings",
 ];
 
+const FIRST_RUN_CRITICAL_PATHS = new Set([
+  "/start",
+  "/setup",
+  "/workspace/onboarding",
+]);
+
+function criticalTruthAllowsRoute(
+  activePath: string,
+  state: CriticalBackendTruthState,
+): boolean {
+  return (
+    state.status === "ready" ||
+    (state.status === "onboarding" &&
+      FIRST_RUN_CRITICAL_PATHS.has(canonicalizeControlCenterPath(activePath)))
+  );
+}
+
 const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   "/": ["/today", "/briefing", "/settings"],
   "/start": ["/start", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
@@ -418,15 +456,22 @@ function criticalRouteDataIsBackendOwned(
 
 function CriticalBackendTruthUnavailable({
   activePath,
+  retry,
   state,
   surfaceLabel,
 }: {
   activePath: string;
+  retry: () => Promise<void>;
   state: CriticalBackendTruthState;
   surfaceLabel: string;
 }) {
   const lastVerified = state.lastVerified;
   const pending = state.status === "loading";
+  const firstRun = state.status === "onboarding";
+  const backendRevision =
+    lastVerified?.backendRevisionRef ??
+    state.truth?.backend_revision_ref ??
+    "revision-ref:unavailable";
   return (
     <AppShell activePath={activePath}>
       <section
@@ -435,13 +480,17 @@ function CriticalBackendTruthUnavailable({
         className="route-state-panel"
         data-critical-backend-truth={pending ? "loading" : "unavailable"}
       >
-        <p className="eyebrow">Backend truth · {pending ? "checking" : "unavailable"}</p>
+        <p className="eyebrow">
+          Backend truth · {pending ? "checking" : firstRun ? "setup required" : "unavailable"}
+        </p>
         <h1 id="critical-backend-truth-title">
           {surfaceLabel} is not showing unverified product state
         </h1>
         <p>
           {pending
             ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
+            : firstRun
+              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here and Setup remain available; other critical product claims stay hidden."
             : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
         </p>
         <dl>
@@ -455,7 +504,7 @@ function CriticalBackendTruthUnavailable({
           </div>
           <div>
             <dt>Backend revision</dt>
-            <dd>{lastVerified?.backendRevisionRef ?? "revision-ref:unavailable"}</dd>
+            <dd>{backendRevision}</dd>
           </div>
           <div>
             <dt>Authority</dt>
@@ -468,12 +517,28 @@ function CriticalBackendTruthUnavailable({
             </div>
           ) : null}
         </dl>
-        <button disabled={pending} onClick={state.retry} type="button">
-          Retry backend truth
+        <button
+          disabled={pending}
+          onClick={() => {
+            void retry();
+          }}
+          type="button"
+        >
+          Retry backend and route data
         </button>
         <p>
-          Next safe action: restore the local backend or inspect {" "}
-          <code>python scripts/dev/uaa_founder_loop.py inspect-backend-truth</code>.
+          Next safe action:{" "}
+          {firstRun ? (
+            <>
+              open <a href="/start">Start Here</a> or <a href="/setup">Setup</a>{" "}
+              to establish the first local evidence packet.
+            </>
+          ) : (
+            <>
+              restore the local backend or inspect{" "}
+              <code>python scripts/dev/uaa_founder_loop.py inspect-backend-truth</code>.
+            </>
+          )}
         </p>
       </section>
     </AppShell>
@@ -597,5 +662,5 @@ function ConnectionStatus({
 }
 
 function normalizePath(path: string): string {
-  return path === "" ? "/" : path;
+  return canonicalizeControlCenterPath(path);
 }

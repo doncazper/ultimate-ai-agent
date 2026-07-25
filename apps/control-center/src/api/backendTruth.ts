@@ -50,8 +50,15 @@ export class BackendTruthValidationError extends Error {
   }
 }
 
+export function canonicalizeControlCenterPath(path: string): string {
+  const pathname = path.split(/[?#]/, 1)[0] ?? "";
+  const withLeadingSlash = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const canonical = withLeadingSlash.replace(/\/+$/, "");
+  return canonical === "" ? "/" : canonical;
+}
+
 export function isCriticalControlCenterPath(path: string): boolean {
-  return CRITICAL_FRONTEND_PATHS.has(path);
+  return CRITICAL_FRONTEND_PATHS.has(canonicalizeControlCenterPath(path));
 }
 
 export async function validateControlCenterBackendTruth(

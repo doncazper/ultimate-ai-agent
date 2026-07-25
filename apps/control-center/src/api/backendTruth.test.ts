@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BackendTruthValidationError,
+  canonicalizeControlCenterPath,
   canonicalJson,
   isCriticalControlCenterPath,
   validateControlCenterBackendTruth,
@@ -79,6 +80,15 @@ const options = {
 };
 
 describe("backend truth validation", () => {
+  it("canonicalizes equivalent route spellings before critical classification", () => {
+    expect(canonicalizeControlCenterPath("/today/")).toBe("/today");
+    expect(canonicalizeControlCenterPath("/workspace///?view=compact")).toBe(
+      "/workspace",
+    );
+    expect(isCriticalControlCenterPath("/today/")).toBe(true);
+    expect(isCriticalControlCenterPath("/workspace/?view=compact")).toBe(true);
+  });
+
   it("accepts the exact current backend-owned envelope", async () => {
     const value = fixture();
     const validated = await validateControlCenterBackendTruth(value, options);

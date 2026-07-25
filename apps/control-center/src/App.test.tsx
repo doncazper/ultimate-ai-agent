@@ -9073,7 +9073,7 @@ describe("Web Control Center shell", () => {
       ["/receipts", /Receipt Viewer/i],
       ["/events", /Event Viewer/i],
       ["/events/timeline", /Event Timeline/i],
-      ["/evidence", /Evidence Viewer/i],
+      ["/evidence", /Evidence Timeline/i],
       ["/files", /File Reference Viewer/i],
       ["/files/review", /File Review Surface/i],
       ["/context/proposals", /Context Proposal Surface/i],
@@ -11672,13 +11672,6 @@ describe("Web Control Center shell", () => {
         denied: /Denied: no hidden runtime authority/i,
       },
       {
-        path: "/evidence",
-        heading: /^Evidence Viewer$/,
-        stateHeading: /Evidence states/i,
-        blocked: /Blocked: release evidence index incomplete/i,
-        denied: /Denied: no sensitive evidence display/i,
-      },
-      {
         path: "/settings",
         heading: /^Settings$/,
         stateHeading: /Settings states/i,
@@ -11815,9 +11808,9 @@ describe("Web Control Center shell", () => {
       },
       {
         path: "/evidence",
-        heading: /^Evidence Viewer$/,
-        marker: /Evidence checks/i,
-        route: "/task-decomposition/audit",
+        heading: /^Evidence Timeline$/,
+        marker: /implemented_productized_evidence_timeline_safe_refs_only/i,
+        route: "GET /control-center/evidence/timeline",
       },
       {
         path: "/settings",
@@ -14138,8 +14131,10 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /Approval Queue/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/No approval was granted from this UI/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(
+        /This UI cannot grant, deny, execute, or bypass approvals/i,
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
         /Python Agent Core remains the only approval authority/i,
@@ -14500,7 +14495,7 @@ describe("Web Control Center shell", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("renders M15 approval queue as read-only preview-only summaries", async () => {
+  it("renders the M15 run-attached approval queue without legacy preview cards", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/approvals");
     render(<App />);
@@ -14509,22 +14504,36 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /Approval Queue/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/read-only/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/preview-only/i).length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/Approval Authority handles final decision/i),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("mock_approval_ref_001").length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getByText(/risk: medium/i)).toBeInTheDocument();
-    expect(screen.getByText(/data: internal/i)).toBeInTheDocument();
+      screen.getAllByText(
+        /This UI cannot grant, deny, execute, or bypass approvals/i,
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/CONTROL_CENTER_REVIEW_REQUIRED/i),
+      screen.getByLabelText(
+        /Mock-only non-authoritative approval queue fallback/i,
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/No approval was granted from this UI/i),
-    ).toBeInTheDocument();
+      screen.getAllByText("approval-request:mock-fallback:requested").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(/Legacy preview approval cards/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("mock_approval_ref_001"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/CONTROL_CENTER_REVIEW_REQUIRED/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        /Python Agent Core remains the only approval authority/i,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/inspect_only_no_ui_mutation/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /^approve$/i }),
     ).not.toBeInTheDocument();
@@ -14736,30 +14745,36 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
   });
 
-  it("renders M17 evidence summaries and details as read-only redacted metadata", async () => {
+  it("renders backend-owned evidence timeline refs without the M17 mock viewer", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/evidence");
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /Evidence Viewer/i }),
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/M17 knowledge surface/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Evidence views are read-only/i),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/REDACTED_SUMMARY_ONLY/i).length,
+      screen.getAllByText(
+        "implemented_productized_evidence_timeline_safe_refs_only",
+      ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("mock_evidence_ref_001").length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getByText(/Source type/i)).toBeInTheDocument();
-    expect(screen.getByText(/Provenance summary/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Evidence detail is redacted summary metadata only/i),
+      screen.getAllByText("GET /control-center/evidence/timeline").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        /Legacy preview evidence records are excluded from this critical route/i,
+      ),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/redacted_summary_only/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("mock_evidence_ref_001"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /view metadata/i }),
+    ).not.toBeInTheDocument();
 
     for (const label of [
       /^execute$/i,
@@ -16655,60 +16670,64 @@ describe("Web Control Center shell", () => {
   });
 
   it("keeps alternate M17 metadata selection read-only and redacted", async () => {
-    for (const route of ["/evidence", "/files"]) {
-      cleanup();
-      mockFetchWithFallback();
-      window.history.pushState({}, "", route);
-      render(<App />);
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /view metadata/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("mock_evidence_ref_002")).not.toBeInTheDocument();
 
-      await waitFor(() => {
-        expect(
-          screen.getAllByRole("button", { name: /view metadata/i }).length,
-        ).toBeGreaterThan(1);
-      });
-      const metadataButtons = screen.getAllByRole("button", {
-        name: /view metadata/i,
-      });
-      fireEvent.click(metadataButtons[1]);
+    cleanup();
+    vi.unstubAllGlobals();
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/files");
+    render(<App />);
 
-      const expectedRef =
-        route === "/evidence" ? "mock_evidence_ref_002" : "mock_file_ref_002";
+    await waitFor(() => {
       expect(
-        screen.getAllByRole("heading", { name: expectedRef }).length,
-      ).toBeGreaterThan(0);
-      expect(
-        screen.getByRole("article", { name: new RegExp(expectedRef, "i") }),
-      ).toHaveAttribute("aria-current", "true");
-      expect(
-        screen.getAllByText(/redacted_summary_only/i).length,
-      ).toBeGreaterThan(0);
-      expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+        screen.getAllByRole("button", { name: /view metadata/i }).length,
+      ).toBeGreaterThan(1);
+    });
+    const metadataButtons = screen.getAllByRole("button", {
+      name: /view metadata/i,
+    });
+    fireEvent.click(metadataButtons[1]);
 
-      for (const label of [
-        /^execute$/i,
-        /^run$/i,
-        /write file/i,
-        /delete file/i,
-        /browse filesystem/i,
-        /edit memory/i,
-        /delete memory/i,
-        /reveal raw/i,
-        /show raw/i,
-      ]) {
-        expect(
-          screen.queryByRole("button", { name: label }),
-        ).not.toBeInTheDocument();
-      }
+    expect(
+      screen.getAllByRole("heading", { name: "mock_file_ref_002" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("article", { name: /mock_file_ref_002/i }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(
+      screen.getAllByText(/redacted_summary_only/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/MOCK_DATA_ONLY/i).length).toBeGreaterThan(0);
+
+    for (const label of [
+      /^execute$/i,
+      /^run$/i,
+      /write file/i,
+      /delete file/i,
+      /browse filesystem/i,
+      /edit memory/i,
+      /delete memory/i,
+      /reveal raw/i,
+      /show raw/i,
+    ]) {
       expect(
-        screen.queryByText(/raw evidence payload/i),
+        screen.queryByRole("button", { name: label }),
       ).not.toBeInTheDocument();
-      expect(screen.queryByText(/raw file content/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(new RegExp("/Users/", "i")),
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
     }
+    expect(screen.queryByText(/raw evidence payload/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw file content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw memory content/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp("/Users/", "i"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/home\//i)).not.toBeInTheDocument();
     expect(mockControlCenterData.m17Knowledge.memories[1].memoryRef).toBe(
       "mock_memory_ref_002",
     );

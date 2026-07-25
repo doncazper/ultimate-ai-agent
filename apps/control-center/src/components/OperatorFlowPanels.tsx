@@ -44,7 +44,6 @@ import type {
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { AuthorityMissionInspectionPanel } from "./AuthorityMissionInspectionPanel";
-import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
@@ -1607,7 +1606,11 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
         </article>
       </div>
 
-      <EvidenceViewerPanel knowledge={data.m17Knowledge} />
+      <p className="safe-copy">
+        Legacy preview evidence records are excluded from this critical route.
+        Backend-owned timeline, run, proof, and receipt refs above are the only
+        evidence presented as product state.
+      </p>
     </section>
   );
 }

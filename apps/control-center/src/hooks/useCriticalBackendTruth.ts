@@ -16,21 +16,28 @@ export type CriticalBackendTruthState =
       truth: null;
       errorRef: null;
       lastVerified: LastVerifiedBackendTruth | null;
-      retry: () => void;
+      retry: () => Promise<void>;
+    }
+  | {
+      status: "onboarding";
+      truth: ControlCenterBackendTruth;
+      errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE";
+      lastVerified: LastVerifiedBackendTruth | null;
+      retry: () => Promise<void>;
     }
   | {
       status: "ready";
       truth: ControlCenterBackendTruth;
       errorRef: null;
       lastVerified: LastVerifiedBackendTruth;
-      retry: () => void;
+      retry: () => Promise<void>;
     }
   | {
       status: "degraded";
       truth: null;
       errorRef: string;
       lastVerified: LastVerifiedBackendTruth | null;
-      retry: () => void;
+      retry: () => Promise<void>;
     };
 
 export function useCriticalBackendTruth(
@@ -58,35 +65,48 @@ export function useCriticalBackendTruth(
     activation.current += 1;
   }
 
-  const refresh = useCallback(() => {
-    if (!enabled) return;
+  const refresh = useCallback((): Promise<void> => {
+    if (!enabled) return Promise.resolve();
     const requestGeneration = ++generation.current;
     const requestActivation = activation.current;
     if (timer.current) clearTimeout(timer.current);
-    loader()
+    return loader()
       .then((truth) => {
         if (requestGeneration !== generation.current) return;
-        if (truth.evidence_binding.status !== "verified_complete") {
+        if (truth.evidence_binding.status === "invalid_evidence") {
           throw new Error(
-            truth.evidence_binding.status === "invalid_evidence"
-              ? "BACKEND_TRUTH_EVIDENCE_INVALID"
-              : "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+            "BACKEND_TRUTH_EVIDENCE_INVALID",
           );
         }
-        const verified = {
-          verifiedAt: new Date().toISOString(),
-          sourceRef: truth.source_ref,
-          backendRevisionRef: truth.backend_revision_ref,
-        };
-        lastVerified.current = verified;
+        const verified =
+          truth.evidence_binding.status === "verified_complete"
+            ? {
+                verifiedAt: new Date().toISOString(),
+                sourceRef: truth.source_ref,
+                backendRevisionRef: truth.backend_revision_ref,
+              }
+            : lastVerified.current;
+        if (truth.evidence_binding.status === "verified_complete") {
+          lastVerified.current = verified;
+        }
         if (expiryTimer.current) clearTimeout(expiryTimer.current);
-        setState({
-          status: "ready",
-          truth,
-          errorRef: null,
-          lastVerified: verified,
-          activation: requestActivation,
-        });
+        setState(
+          truth.evidence_binding.status === "verified_complete"
+            ? {
+                status: "ready",
+                truth,
+                errorRef: null,
+                lastVerified: verified as LastVerifiedBackendTruth,
+                activation: requestActivation,
+              }
+            : {
+                status: "onboarding",
+                truth,
+                errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+                lastVerified: lastVerified.current,
+                activation: requestActivation,
+              },
+        );
         const expiryDelayMs = Math.max(
           0,
           new Date(truth.valid_until).getTime() - Date.now(),
@@ -120,14 +140,16 @@ export function useCriticalBackendTruth(
       })
       .finally(() => {
         if (requestGeneration === generation.current) {
-          timer.current = setTimeout(refresh, REFRESH_DELAY_MS);
+          timer.current = setTimeout(() => {
+            void refresh();
+          }, REFRESH_DELAY_MS);
         }
       });
   }, [enabled, loader]);
 
   useEffect(() => {
     if (!enabled) return;
-    refresh();
+    void refresh();
     return () => {
       generation.current += 1;
       if (timer.current) clearTimeout(timer.current);

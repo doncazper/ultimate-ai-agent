@@ -5,10 +5,12 @@ import json
 import os
 import sqlite3
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import uvicorn
 
+from ultimate_ai_agent.core.control_center import backend_truth as backend_truth_module
 from ultimate_ai_agent.core.authority import (
     AuthorityCapability,
     AuthorityDomain,
@@ -28,6 +30,7 @@ from ultimate_ai_agent.core.storage import (
 STATE_DIR_ENV = "UAA_BACKEND_TRUTH_TEST_STATE_DIR"
 PORT_ENV = "UAA_BACKEND_TRUTH_TEST_PORT"
 CORRUPT_RECEIPT_ENV = "UAA_BACKEND_TRUTH_TEST_CORRUPT_RECEIPT"
+NOW_ENV = "UAA_BACKEND_TRUTH_TEST_NOW"
 
 
 def _state_dir() -> Path:
@@ -69,6 +72,17 @@ def _corrupt_durable_receipt(state_dir: Path) -> None:
         )
 
 
+def _fixed_backend_truth_now() -> datetime:
+    raw = os.environ.get(NOW_ENV, "")
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise SystemExit("BACKEND_TRUTH_TEST_NOW_INVALID") from error
+    if parsed.tzinfo is None:
+        raise SystemExit("BACKEND_TRUTH_TEST_NOW_MUST_BE_TIMEZONE_AWARE")
+    return parsed.astimezone(UTC).replace(microsecond=0)
+
+
 def main() -> int:
     state_dir = _state_dir()
     port = int(os.environ.get(PORT_ENV, "18117"))
@@ -90,6 +104,12 @@ def main() -> int:
     )
     if os.environ.get(CORRUPT_RECEIPT_ENV) == "1":
         _corrupt_durable_receipt(state_dir)
+    fixed_backend_truth_now = _fixed_backend_truth_now()
+
+    def fixed_utc_now() -> datetime:
+        return fixed_backend_truth_now
+
+    backend_truth_module.utc_now = fixed_utc_now
     os.environ[FOUNDER_LOOP_STATE_DIR_ENV] = str(state_dir)
     os.environ["UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"] = "1"
     uvicorn.run(

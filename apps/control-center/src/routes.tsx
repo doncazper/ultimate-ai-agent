@@ -582,6 +582,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/approvals":
       return (
         <ApprovalQueuePanel
+          includeLegacyPreview={false}
           review={data.m15Review}
           summary={data.dashboard.approval_summary}
           queue={data.runAttachedApprovalQueue}

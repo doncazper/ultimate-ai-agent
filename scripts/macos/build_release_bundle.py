@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build a self-contained, signed macOS app and verified release archive."""
+
 from __future__ import annotations
 
 import argparse
@@ -384,7 +385,10 @@ def _write_app_files(
         resources / APP_ICON_FILENAME,
     )
     launcher_source = resources / ".uaa-launcher.c"
-    launcher_source.write_text(_launcher_source(), encoding="utf-8")
+    launcher_source.write_text(
+        _launcher_source(source_commit),
+        encoding="utf-8",
+    )
     _run(
         [
             "/usr/bin/clang",
@@ -415,6 +419,7 @@ def _write_app_files(
                 "LSMultipleInstancesProhibited": True,
                 "NSHighResolutionCapable": True,
                 "UAAReleaseTag": tag,
+                "UAASourceCommit": source_commit,
                 "UAAUpdateChannel": channel,
             },
             handle,
@@ -455,7 +460,9 @@ def _write_app_files(
     )
 
 
-def _launcher_source() -> str:
+def _launcher_source(source_commit: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+        raise ValueError("launcher source commit must be an exact lowercase SHA")
     return r"""#include <errno.h>
 #include <limits.h>
 #include <mach-o/dyld.h>
@@ -508,6 +515,7 @@ int main(int argc, char **argv) {
     }
     if (setenv("UAA_APP_BUNDLE", bundle_path, 1) != 0 ||
         setenv("UAA_APP_RESOURCES", resources_path, 1) != 0 ||
+        setenv("UAA_BUILD_COMMIT", "__UAA_BUILD_COMMIT__", 1) != 0 ||
         setenv("PYTHONDONTWRITEBYTECODE", "1", 1) != 0) {
         fputs("Ultimate AI Agent could not configure its packaged runtime.\n", stderr);
         return 1;
@@ -535,7 +543,7 @@ int main(int argc, char **argv) {
     free(new_argv);
     return errno == 0 ? 1 : errno;
 }
-"""
+""".replace("__UAA_BUILD_COMMIT__", source_commit)
 
 
 def _build_bundle_manifest(
@@ -560,11 +568,7 @@ def _build_bundle_manifest(
                 "path": relative,
                 "sha256": sha256_file(path),
                 "size": path.stat().st_size,
-                "mode": (
-                    0o755
-                    if stat.S_IMODE(path.stat().st_mode) & 0o111
-                    else 0o644
-                ),
+                "mode": (0o755 if stat.S_IMODE(path.stat().st_mode) & 0o111 else 0o644),
             }
         )
     return {
@@ -587,11 +591,7 @@ def _build_bundle_manifest(
 def _sign_app(app_bundle: Path, *, signing_identity: str | None) -> None:
     identity = signing_identity or "-"
     macho_files = sorted(
-        (
-            path
-            for path in app_bundle.rglob("*")
-            if path.is_file() and _is_macho(path)
-        ),
+        (path for path in app_bundle.rglob("*") if path.is_file() and _is_macho(path)),
         key=lambda path: len(path.parts),
         reverse=True,
     )

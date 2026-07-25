@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ControlCenterData } from "./api/types";
 import { mockControlCenterData } from "./mocks/controlCenterData";
@@ -42,10 +42,12 @@ beforeEach(() => {
     status: "ready",
     data: backendData("backend_owned"),
     error: null,
+    snapshotRef: "proof-ref:truth:current",
+    retry: vi.fn(),
   };
   mocked.truthState = {
     status: "ready",
-    truth: {},
+    truth: { envelope_integrity_ref: "proof-ref:truth:current" },
     errorRef: null,
     lastVerified,
     retry: vi.fn(),
@@ -74,7 +76,9 @@ describe("critical backend truth boundary", () => {
     expect(screen.getByText("BACKEND_TRUTH_STALE")).toBeInTheDocument();
     expect(screen.getByText(lastVerified.backendRevisionRef)).toBeInTheDocument();
     expect(screen.queryByText("Backend-owned first loop")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry backend truth" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Retry backend and route data" }),
+    ).toBeEnabled();
   });
 
   it("hides critical product content while truth is still loading", () => {
@@ -89,7 +93,9 @@ describe("critical backend truth boundary", () => {
     render(<App />);
 
     expect(screen.getByText(/checking the current Python-owned revision/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry backend truth" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Retry backend and route data" }),
+    ).toBeDisabled();
   });
 
   it("rejects mock-filled critical route data even with a current envelope", () => {
@@ -124,6 +130,100 @@ describe("critical backend truth boundary", () => {
 
     expect(screen.getByRole("heading", { name: "Morning Briefing" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Dashboard" })).not.toBeInTheDocument();
+  });
+
+  it("canonicalizes trailing slashes before critical route admission", () => {
+    window.history.pushState({}, "", "/today/");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
+    expect(
+      screen.queryByText(/not showing unverified product state/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("admits a valid first-run envelope only to onboarding surfaces", () => {
+    window.history.pushState({}, "", "/setup");
+    const data = backendData("backend_owned");
+    data.routeStates["/setup"].state = "backend_owned";
+    data.routeStates["/settings"].state = "backend_owned";
+    mocked.controlCenterState = {
+      status: "ready",
+      data,
+      error: null,
+      snapshotRef: "proof-ref:truth:first-run",
+      retry: vi.fn(),
+    };
+    mocked.truthState = {
+      status: "onboarding",
+      truth: {
+        backend_revision_ref: lastVerified.backendRevisionRef,
+        envelope_integrity_ref: "proof-ref:truth:first-run",
+      },
+      errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+      lastVerified: null,
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: /macOS Setup Assistant/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/not showing unverified product state/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps non-onboarding critical surfaces closed on first run", () => {
+    mocked.truthState = {
+      status: "onboarding",
+      truth: {
+        backend_revision_ref: lastVerified.backendRevisionRef,
+        envelope_integrity_ref: "proof-ref:truth:first-run",
+      },
+      errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+      lastVerified: null,
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(screen.getByText(/fresh local state/i)).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Setup" })
+        .some((link) => link.getAttribute("href") === "/setup"),
+    ).toBe(true);
+    expect(screen.queryByRole("heading", { name: "Today" })).not.toBeInTheDocument();
+  });
+
+  it("retries truth and route data together", async () => {
+    const truthRetry = vi.fn().mockResolvedValue(undefined);
+    const dataRetry = vi.fn();
+    mocked.truthState = {
+      status: "degraded",
+      truth: null,
+      errorRef: "BACKEND_TRUTH_STALE",
+      lastVerified,
+      retry: truthRetry,
+    };
+    mocked.controlCenterState = {
+      status: "loading",
+      data: null,
+      error: null,
+      snapshotRef: null,
+      retry: dataRetry,
+    };
+
+    render(<App />);
+    screen
+      .getByRole("button", { name: "Retry backend and route data" })
+      .click();
+
+    expect(truthRetry).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(dataRetry).toHaveBeenCalledTimes(1));
   });
 
   it("fails closed when a shared Founder Loop read model falls back", () => {
@@ -166,5 +266,52 @@ describe("critical backend truth boundary", () => {
       await screen.findByText(/is loading local route state$/),
     ).toBeInTheDocument();
     expect(screen.queryByText("Preview data")).not.toBeInTheDocument();
+  });
+
+  it("excludes legacy mock approval cards from the critical approvals route", () => {
+    window.history.pushState({}, "", "/approvals");
+    const data = backendData("backend_owned");
+    data.routeStates["/approvals"] = {
+      ...data.routeStates["/actions"],
+      route: "/approvals",
+      surfaceLabel: "Approvals",
+      state: "backend_owned",
+    };
+    data.routeStates["/settings"].state = "backend_owned";
+    mocked.controlCenterState = {
+      status: "ready",
+      data,
+      error: null,
+      snapshotRef: "proof-ref:truth:current",
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(screen.queryByText("Preview-only approval cards")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Legacy approval preview rows")).not.toBeInTheDocument();
+  });
+
+  it("excludes legacy mock evidence records from the critical evidence route", () => {
+    window.history.pushState({}, "", "/evidence");
+    const data = backendData("backend_owned");
+    data.routeStates["/runs"] = {
+      ...data.routeStates["/evidence"],
+      route: "/runs",
+      surfaceLabel: "Runs",
+      state: "backend_owned",
+    };
+    mocked.controlCenterState = {
+      status: "ready",
+      data,
+      error: null,
+      snapshotRef: "proof-ref:truth:current",
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(screen.queryByRole("heading", { name: "Evidence Viewer" })).not.toBeInTheDocument();
+    expect(screen.queryByText("mock_evidence_ref_001")).not.toBeInTheDocument();
   });
 });

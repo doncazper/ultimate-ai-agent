@@ -13,10 +13,12 @@ import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueu
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function ApprovalQueuePanel({
+  includeLegacyPreview = true,
   review,
   summary,
   queue,
 }: {
+  includeLegacyPreview?: boolean;
   review: M15ReviewData;
   summary?: ApprovalSummary;
   queue?: RunAttachedApprovalQueue;
@@ -63,7 +65,9 @@ export function ApprovalQueuePanel({
         queue={queue?.connector_delivery_review_queue}
       />
       <OperatorSurfaceStates surface="Approvals" />
-      <ReviewWarningBar codes={review.warningCodes} />
+      {includeLegacyPreview ? (
+        <ReviewWarningBar codes={review.warningCodes} />
+      ) : null}
       {queueItems.length > 0 && selectedQueueItem ? (
         <div className="review-layout">
           <div
@@ -87,7 +91,9 @@ export function ApprovalQueuePanel({
           message={emptyQueueMessage}
         />
       )}
-      {review.approvalQueue.length > 0 && selectedPreview ? (
+      {includeLegacyPreview &&
+      review.approvalQueue.length > 0 &&
+      selectedPreview ? (
         <section
           className="page-section compact-section"
           aria-label="Legacy approval preview rows"
@@ -117,12 +123,12 @@ export function ApprovalQueuePanel({
             <ApprovalQueueDetail item={selectedPreview} />
           </div>
         </section>
-      ) : (
+      ) : includeLegacyPreview ? (
         <EmptyState
           title="No preview approval cards"
           message="No legacy preview-only approval cards are available."
         />
-      )}
+      ) : null}
     </section>
   );
 }

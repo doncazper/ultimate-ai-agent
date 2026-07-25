@@ -314,7 +314,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const surface of surfaces) {
-  test(`${surface.name} visual baseline`, async ({ page }) => {
+  test(
+    `${surface.name} ${surface.critical ? "fail-closed fixture" : "visual baseline"}`,
+    async ({ page }) => {
     await page.goto(surface.route);
 
     await expect(page).toHaveTitle(/Ultimate AI Agent Control Center/);
@@ -330,11 +332,14 @@ for (const surface of surfaces) {
     }
     await expect(page.locator("main")).toBeVisible();
 
-    await expect(page).toHaveScreenshot(`${surface.name}.png`, {
-      animations: "disabled",
-      fullPage: true,
-    });
-  });
+    if (!surface.critical) {
+      await expect(page).toHaveScreenshot(`${surface.name}.png`, {
+        animations: "disabled",
+        fullPage: true,
+      });
+    }
+    },
+  );
 }
 
 for (const scenario of routeStateScenarios) {
