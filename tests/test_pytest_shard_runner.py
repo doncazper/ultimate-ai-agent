@@ -503,10 +503,17 @@ def test_canonical_plan_binds_eight_shards_and_preserves_local_timeout_margin() 
         "tests/test_msg_mx_005_matrix_session_node_integration.py",
         "tests/test_msg_mx_006_matrix_sync_transport.py",
     )
-    assert all(not plan.serialized_preflight for plan in plans[1:])
+    assert plans[1].serialized_preflight is True
+    assert plans[1].files == (
+        "tests/test_sealed_calculation_cli.py",
+        "tests/test_sealed_calculation_isolation.py",
+        "tests/test_sealed_calculation_mission.py",
+    )
+    assert all(not plan.serialized_preflight for plan in plans[2:])
     assert method.endswith("+exclusive-resource-preflight")
     assert (
-        plans[0].expected_seconds + max(plan.expected_seconds for plan in plans[1:])
+        sum(plan.expected_seconds for plan in plans[:2])
+        + max(plan.expected_seconds for plan in plans[2:])
         < runner.DEFAULT_HARD_TIMEOUT_SECONDS
     )
 

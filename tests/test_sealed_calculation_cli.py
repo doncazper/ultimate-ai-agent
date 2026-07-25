@@ -11,6 +11,9 @@ from ultimate_ai_agent.core.sandbox_calculation.backend import (
 from .test_sealed_calculation_mission import EXPRESSION, _service_with_exact_lease
 
 
+PYTEST_EXCLUSIVE_RESOURCE_SEALED_CALCULATION_DOCKER = True
+
+
 def test_cli_inspect_is_human_readable_and_never_grants_authority(
     monkeypatch,
     capsys,
