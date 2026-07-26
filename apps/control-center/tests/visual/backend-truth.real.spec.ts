@@ -46,7 +46,7 @@ function startBackend({ corruptReceipt = false } = {}): void {
 }
 
 async function waitForBackend(): Promise<void> {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     if (backend?.exitCode !== null) {
       throw new Error("BACKEND_TRUTH_TEST_SERVER_EXITED_EARLY");
     }

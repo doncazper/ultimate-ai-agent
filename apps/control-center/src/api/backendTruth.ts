@@ -85,6 +85,14 @@ export async function validateControlCenterBackendTruth(
   ) {
     fail("BACKEND_TRUTH_REVISION_UNBOUND");
   }
+  if (
+    typeof value.backend_instance_ref !== "string" ||
+    !/^backend-instance-ref:control-center:[0-9a-f]{32}$/.test(
+      value.backend_instance_ref,
+    )
+  ) {
+    fail("BACKEND_TRUTH_INSTANCE_INVALID");
+  }
 
   const generatedAt = parseTimestamp(value.generated_at);
   const validUntil = parseTimestamp(value.valid_until);
@@ -197,6 +205,13 @@ function validateEvidence(value: unknown): void {
       (value.receipt_refs as unknown[]).length === 0
     ) {
       fail("BACKEND_TRUTH_INVALID_EVIDENCE_PROVENANCE_REQUIRED");
+    }
+  } else if (value.status === "storage_unavailable") {
+    if (
+      (value.issue_refs as unknown[]).length === 0 ||
+      (value.receipt_refs as unknown[]).length !== 0
+    ) {
+      fail("BACKEND_TRUTH_STORAGE_UNAVAILABLE_PROVENANCE_INVALID");
     }
   } else {
     fail("BACKEND_TRUTH_EVIDENCE_STATUS_INVALID");

@@ -32,7 +32,13 @@ describe("useControlCenterData", () => {
       .mockResolvedValueOnce(backendData("snapshot one"))
       .mockResolvedValueOnce(backendData("snapshot two"));
     const { result, rerender } = renderHook(
-      ({ snapshotRef }) => useControlCenterData(true, snapshotRef),
+      ({ snapshotRef }) =>
+        useControlCenterData(true, {
+          snapshotRef,
+          backendRevisionRef: "commit-ref:git:revision",
+          backendInstanceRef:
+            "backend-instance-ref:control-center:11111111111111111111111111111111",
+        }),
       { initialProps: { snapshotRef: "proof-ref:truth:one" } },
     );
 
@@ -54,7 +60,12 @@ describe("useControlCenterData", () => {
       .mockResolvedValueOnce(backendData("initial"))
       .mockResolvedValueOnce(backendData("recovered"));
     const { result } = renderHook(() =>
-      useControlCenterData(true, "proof-ref:truth:current"),
+      useControlCenterData(true, {
+        snapshotRef: "proof-ref:truth:current",
+        backendRevisionRef: "commit-ref:git:revision",
+        backendInstanceRef:
+          "backend-instance-ref:control-center:11111111111111111111111111111111",
+      }),
     );
     await waitFor(() => expect(result.current.status).toBe("ready"));
 

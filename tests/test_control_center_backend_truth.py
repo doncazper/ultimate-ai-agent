@@ -29,7 +29,10 @@ from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
     DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF,
     build_dogfood_live_loop_acceptance_read_model,
 )
-from ultimate_ai_agent.core.storage import FounderLoopRepository
+from ultimate_ai_agent.core.storage import (
+    FounderLoopRepository,
+    FounderLoopStorageError,
+)
 
 
 NOW = datetime(2026, 7, 22, 18, 0, tzinfo=UTC)
@@ -156,6 +159,34 @@ def test_backend_truth_marks_a_corrupt_durable_receipt_invalid(tmp_path) -> None
     assert truth["authority_posture"]["control_center_grants_authority"] is False
 
 
+def test_backend_truth_distinguishes_storage_failure_from_first_run(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "storage-failure")
+
+    def fail_storage(**_kwargs):
+        raise FounderLoopStorageError("FOUNDER_LOOP_STORAGE_CORRUPT")
+
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.control_center.backend_truth."
+        "build_dogfood_live_loop_acceptance_read_model",
+        fail_storage,
+    )
+
+    truth = build_control_center_backend_truth(
+        repo=repo,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "storage_unavailable"
+    assert truth["evidence_binding"]["issue_refs"] == [
+        "issue-ref:backend-truth-storage-unavailable"
+    ]
+    assert truth["evidence_binding"]["receipt_refs"] == []
+
+
 @pytest.mark.parametrize(
     ("mutate", "expected"),
     [
@@ -279,3 +310,35 @@ def test_backend_truth_cli_matches_the_core_contract(tmp_path) -> None:
         "control_center_grants_authority"
     ] is False
     assert payload["safe_refs_only"] is True
+
+
+def test_backend_truth_cli_redacts_repository_initialization_failure(
+    tmp_path,
+) -> None:
+    state_dir = tmp_path / "corrupt-cli-state"
+    state_dir.mkdir()
+    (state_dir / "founder_loop.sqlite3").write_bytes(b"not-a-sqlite-database")
+    env = os.environ.copy()
+    env["UAA_FOUNDER_LOOP_STATE_DIR"] = str(state_dir)
+    env["UAA_BUILD_COMMIT"] = SHA
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "dev" / "uaa_founder_loop.py"),
+            "inspect-backend-truth",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    payload = json.loads(completed.stdout)
+    assert payload["status"] == "blocked"
+    assert payload["error_ref"] == "CONTROL_CENTER_BACKEND_TRUTH_STORAGE_BLOCKED"
+    serialized = json.dumps(payload)
+    assert str(state_dir) not in serialized
+    assert completed.stderr == ""

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -27,6 +28,15 @@ BACKEND_TRUTH_CLI_REF = (
     "python scripts/dev/uaa_founder_loop.py inspect-backend-truth"
 )
 BACKEND_TRUTH_TTL_SECONDS = 45
+_BACKEND_INSTANCE_REF = f"backend-instance-ref:control-center:{uuid.uuid4().hex}"
+_EXPECTED_INCOMPLETE_STORAGE_ERRORS = {
+    "DOGFOOD_LIVE_LOOP_ACTION_NOT_FOUND",
+    "DOGFOOD_LIVE_LOOP_LOCAL_TASK_PROOF_NOT_FOUND",
+}
+
+
+def backend_instance_ref() -> str:
+    return _BACKEND_INSTANCE_REF
 
 
 class CriticalSurfaceBinding(BaseModel):
@@ -58,6 +68,7 @@ class BackendTruthEvidenceBinding(BaseModel):
         "verified_complete",
         "unverified_incomplete",
         "invalid_evidence",
+        "storage_unavailable",
     ]
     acceptance_schema_version: str
     acceptance_integrity_ref: str
@@ -93,6 +104,8 @@ class BackendTruthEvidenceBinding(BaseModel):
             raise ValueError("Unverified evidence must expose validation issues")
         if self.status == "invalid_evidence" and not self.receipt_refs:
             raise ValueError("Invalid durable evidence must identify a receipt ref")
+        if self.status == "storage_unavailable" and self.receipt_refs:
+            raise ValueError("Unavailable storage cannot claim durable receipt proof")
         return self
 
 
@@ -122,6 +135,7 @@ class ControlCenterBackendTruth(BaseModel):
     generated_at: datetime
     valid_until: datetime
     backend_revision_ref: str
+    backend_instance_ref: str
     source_revision_bound: bool
     critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=12)
     evidence_binding: BackendTruthEvidenceBinding
@@ -145,6 +159,7 @@ class ControlCenterBackendTruth(BaseModel):
         if lifetime <= timedelta(0) or lifetime > timedelta(seconds=120):
             raise ValueError("Backend truth freshness window is invalid")
         validate_execution_ref(self.backend_revision_ref, "backend_revision_ref")
+        validate_execution_ref(self.backend_instance_ref, "backend_instance_ref")
         validate_execution_ref(self.envelope_integrity_ref, "envelope_integrity_ref")
         validate_safe_execution_text(self.cli_ref, "cli_ref")
         expected_surfaces = [
@@ -275,6 +290,7 @@ def build_control_center_backend_truth(
 ) -> dict[str, Any]:
     generated_at = (now or utc_now()).astimezone(UTC).replace(microsecond=0)
     current_identity = identity or build_identity()
+    storage_unavailable = False
     try:
         acceptance = build_dogfood_live_loop_acceptance_read_model(
             repo=repo,
@@ -285,7 +301,7 @@ def build_control_center_backend_truth(
             acceptance,
             require_seeded=False,
         )
-    except FounderLoopStorageError:
+    except FounderLoopStorageError as exc:
         acceptance = {
             "schema_version": DOGFOOD_LIVE_LOOP_SCHEMA_VERSION,
             "action_refs": [],
@@ -295,14 +311,26 @@ def build_control_center_backend_truth(
             "evidence_refs": [],
             "memory_candidate_refs": [],
         }
-        issues = ["dogfood-live-loop-durable-proof-unavailable"]
+        storage_error_ref = str(exc)
+        storage_unavailable = (
+            storage_error_ref not in _EXPECTED_INCOMPLETE_STORAGE_ERRORS
+        )
+        issues = [
+            (
+                "backend-truth-storage-unavailable"
+                if storage_unavailable
+                else "dogfood-live-loop-durable-proof-unavailable"
+            )
+        ]
     if not current_identity.source_revision_bound:
         issues.append("backend-source-revision-unbound")
     complete = not issues
     durable_receipt_present = bool(
         acceptance.get("local_task_commit_receipt_ref")
     )
-    if complete:
+    if storage_unavailable:
+        evidence_status = "storage_unavailable"
+    elif complete:
         evidence_status = "verified_complete"
     elif durable_receipt_present:
         evidence_status = "invalid_evidence"
@@ -330,6 +358,7 @@ def build_control_center_backend_truth(
             generated_at + timedelta(seconds=BACKEND_TRUTH_TTL_SECONDS)
         ).isoformat().replace("+00:00", "Z"),
         "backend_revision_ref": current_identity.commit_ref,
+        "backend_instance_ref": backend_instance_ref(),
         "source_revision_bound": current_identity.source_revision_bound,
         "critical_surfaces": [
             binding.model_dump(mode="json") for binding in CRITICAL_SURFACES

@@ -33,6 +33,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     generated_at: generatedAt,
     valid_until: validUntil,
     backend_revision_ref: `commit-ref:git:${"1".repeat(40)}`,
+    backend_instance_ref: `backend-instance-ref:control-center:${"2".repeat(32)}`,
     source_revision_bound: true,
     critical_surfaces: refs.map(([ref, label, frontendPaths, backendRouteRefs]) => ({
       surface_ref: `critical-surface:${ref}`,
@@ -111,6 +112,21 @@ describe("backend truth validation", () => {
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.evidence_binding.status).toBe("invalid_evidence");
+  });
+
+  it("accepts storage-unavailable evidence only without receipt claims", async () => {
+    const base = fixture();
+    const value = fixture({
+      evidence_binding: {
+        ...base.evidence_binding,
+        status: "storage_unavailable",
+        issue_refs: ["issue-ref:backend-truth-storage-unavailable"],
+      },
+    });
+
+    const validated = await validateControlCenterBackendTruth(value, options);
+
+    expect(validated.evidence_binding.status).toBe("storage_unavailable");
   });
 
   const invalidCases: Array<[string, unknown, string, Date?]> = [

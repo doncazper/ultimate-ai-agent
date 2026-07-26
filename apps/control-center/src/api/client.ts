@@ -314,6 +314,7 @@ function withLocalApiAuthHeaders(
 async function readEnvelope<T>(
   endpoint: string,
   readLimiter = defaultControlCenterReadLimiter,
+  expectedBinding: BackendTruthReadBinding | null = null,
 ): Promise<T> {
   await readLimiter.acquire();
   try {
@@ -323,6 +324,7 @@ async function readEnvelope<T>(
       }),
       endpoint,
     );
+    validateBackendResponseBinding(response.headers, expectedBinding);
     const data = (await response.json()) as ResultEnvelope<T> | T;
     if (!response.ok) {
       throw new Error(
@@ -347,6 +349,27 @@ async function readEnvelope<T>(
     return data as T;
   } finally {
     readLimiter.release();
+  }
+}
+
+export interface BackendTruthReadBinding {
+  snapshotRef: string;
+  backendRevisionRef: string;
+  backendInstanceRef: string;
+}
+
+export function validateBackendResponseBinding(
+  headers: Headers,
+  expectedBinding: BackendTruthReadBinding | null,
+): void {
+  if (expectedBinding === null) return;
+  const backendRevisionRef = headers.get("X-UAA-Backend-Revision-Ref");
+  const backendInstanceRef = headers.get("X-UAA-Backend-Instance-Ref");
+  if (
+    backendRevisionRef !== expectedBinding.backendRevisionRef ||
+    backendInstanceRef !== expectedBinding.backendInstanceRef
+  ) {
+    throw new Error("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
   }
 }
 
@@ -1520,7 +1543,9 @@ function portableCanonicalNumber(value: number): string {
   return `${negative ? "-" : ""}${plain}`;
 }
 
-export async function loadControlCenterData(): Promise<ControlCenterData> {
+export async function loadControlCenterData(
+  expectedBinding: BackendTruthReadBinding | null = null,
+): Promise<ControlCenterData> {
   if (!API_BASE_POLICY.allowed) {
     if (strictBackendModeEnabled()) {
       throw new StrictBackendDataError();
@@ -1548,9 +1573,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const read = <T>(endpoint: string): Promise<T> =>
     endpoint.startsWith("/api/runtime/")
       ? Promise.resolve().then(() =>
-          readEnvelope<T>(endpoint, loadReadLimiter),
+          readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding),
         )
-      : readEnvelope<T>(endpoint, loadReadLimiter);
+      : readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding);
 
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
@@ -1953,10 +1978,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSkillMarketplacePostureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
-  const setupAssistant = normalizeMacOSSetupAssistant(
+  const normalizedSetupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
     mockControlCenterData.macosSetupAssistant,
   );
+  const setupAssistant = normalizedSetupAssistant.value;
   const providerCatalog = fulfilledValue(results[8]);
   const modelProviderControlPlane = fulfilledValue(results[9]);
   const controlCenterSettingsStatusSource = fulfilledValue(results[10]);
@@ -2764,7 +2790,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       surfaceLabel: "Setup",
       backendRouteRef: "GET /control-center/setup-assistant/summary",
       endpointReturned: setupAssistantSource !== undefined,
-      usedFallback: setupAssistantSource === undefined,
+      usedFallback: normalizedSetupAssistant.usedFallback,
     }),
     routeReadStateInput({
       route: "/storage",

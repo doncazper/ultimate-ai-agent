@@ -15,6 +15,7 @@ function truth(
     generated_at: generatedAt.toISOString(),
     valid_until: validUntil.toISOString(),
     backend_revision_ref: revision,
+    backend_instance_ref: `backend-instance-ref:control-center:${"2".repeat(32)}`,
     source_revision_bound: true,
     critical_surfaces: [],
     evidence_binding: {
@@ -124,6 +125,18 @@ describe("useCriticalBackendTruth", () => {
     expect(result.current.lastVerified?.backendRevisionRef).toBe(
       "commit-ref:git:verified",
     );
+  });
+
+  it("fails closed on unavailable storage instead of treating it as onboarding", async () => {
+    const loader = vi
+      .fn<() => Promise<ControlCenterBackendTruth>>()
+      .mockResolvedValue(
+        truth("commit-ref:git:blocked", "storage_unavailable"),
+      );
+    const { result } = renderHook(() => useCriticalBackendTruth(true, loader));
+
+    await waitFor(() => expect(result.current.status).toBe("degraded"));
+    expect(result.current.errorRef).toBe("BACKEND_TRUTH_STORAGE_UNAVAILABLE");
   });
 
   it("exposes valid incomplete evidence as first-run onboarding posture", async () => {

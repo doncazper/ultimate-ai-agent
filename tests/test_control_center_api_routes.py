@@ -335,6 +335,12 @@ def test_backend_truth_route_is_revision_bound_read_only_and_redacted() -> None:
     assert truth["safe_refs_only"] is True
     assert truth["raw_content_included"] is False
     assert truth["raw_paths_included"] is False
+    assert response.headers["X-UAA-Backend-Revision-Ref"] == truth[
+        "backend_revision_ref"
+    ]
+    assert response.headers["X-UAA-Backend-Instance-Ref"] == truth[
+        "backend_instance_ref"
+    ]
     assert truth["authority_posture"]["control_center_grants_authority"] is False
     assert truth["authority_posture"]["production_authority_enabled"] is False
     assert payload["evidence"] == [

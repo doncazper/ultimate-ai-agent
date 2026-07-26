@@ -1147,14 +1147,14 @@ def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
 
 
 def _inspect_backend_truth(args: argparse.Namespace) -> int:
-    repo = _repository(args)
     try:
+        repo = _repository(args)
         truth = build_control_center_backend_truth(repo=repo)
-    except FounderLoopStorageError as exc:
+    except Exception:
         _print_json(
             _blocked_cli_payload(
                 command_ref="repo-local-command:founder-loop-inspect-backend-truth",
-                error_ref=str(exc) or "CONTROL_CENTER_BACKEND_TRUTH_BLOCKED",
+                error_ref="CONTROL_CENTER_BACKEND_TRUTH_STORAGE_BLOCKED",
             )
         )
         return 1

@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { loadControlCenterData } from "../api/client";
+import {
+  loadControlCenterData,
+  type BackendTruthReadBinding,
+} from "../api/client";
 import type { ControlCenterData } from "../api/types";
 
 export type ControlCenterDataLoadState =
@@ -27,8 +30,11 @@ const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
 
 export function useControlCenterData(
   enabled = true,
-  snapshotRef: string | null = null,
+  binding: BackendTruthReadBinding | null = null,
 ): ControlCenterDataLoadState {
+  const snapshotRef = binding?.snapshotRef ?? null;
+  const backendRevisionRef = binding?.backendRevisionRef ?? null;
+  const backendInstanceRef = binding?.backendInstanceRef ?? null;
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [state, setState] = useState<InternalLoadState>({
     status: "loading",
@@ -45,7 +51,15 @@ export function useControlCenterData(
     setState({ status: "loading", data: null, error: null, snapshotRef: null });
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
-    const load = () => loadControlCenterData();
+    const expectedBinding =
+      snapshotRef && backendRevisionRef && backendInstanceRef
+        ? {
+            snapshotRef,
+            backendRevisionRef,
+            backendInstanceRef,
+          }
+        : null;
+    const load = () => loadControlCenterData(expectedBinding);
     const scheduleMockFallbackRetry = (attemptIndex: number) => {
       if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
         return;
@@ -100,7 +114,13 @@ export function useControlCenterData(
         clearTimeout(retryTimeout);
       }
     };
-  }, [enabled, reloadGeneration, snapshotRef]);
+  }, [
+    backendInstanceRef,
+    backendRevisionRef,
+    enabled,
+    reloadGeneration,
+    snapshotRef,
+  ]);
 
   if (
     enabled &&

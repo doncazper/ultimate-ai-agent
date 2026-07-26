@@ -53,6 +53,8 @@ from ultimate_ai_agent.core.contracts import (
     validate_execution_contract,
     validate_context_pack,
 )
+from ultimate_ai_agent.core.build_identity import build_identity
+from ultimate_ai_agent.core.control_center.backend_truth import backend_instance_ref
 from ultimate_ai_agent.core.ledger import (
     EventLedgerEvent,
     RunState,
@@ -778,6 +780,18 @@ async def local_api_auth_gate_middleware(request: Request, call_next: Any) -> An
             },
         )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def backend_response_binding_middleware(
+    request: Request,
+    call_next: Any,
+) -> Any:
+    response = await call_next(request)
+    identity = build_identity()
+    response.headers["X-UAA-Backend-Revision-Ref"] = identity.commit_ref
+    response.headers["X-UAA-Backend-Instance-Ref"] = backend_instance_ref()
+    return response
 
 
 @app.middleware("http")

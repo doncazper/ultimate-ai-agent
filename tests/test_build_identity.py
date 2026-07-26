@@ -42,3 +42,16 @@ def test_build_identity_rejects_unscoped_safe_shaped_identifier(tmp_path: Path) 
     )
 
     assert identity.build_id.endswith(":source-unbound")
+
+
+def test_build_identity_does_not_trust_mutable_checkout_head(
+    tmp_path: Path,
+) -> None:
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text("a" * 40 + "\n", encoding="utf-8")
+
+    identity = build_identity(env={}, repo_root=tmp_path)
+
+    assert identity.commit_ref == "commit-ref:git:unbound"
+    assert identity.source_revision_bound is False

@@ -73,9 +73,14 @@ export function useCriticalBackendTruth(
     return loader()
       .then((truth) => {
         if (requestGeneration !== generation.current) return;
-        if (truth.evidence_binding.status === "invalid_evidence") {
+        if (
+          truth.evidence_binding.status === "invalid_evidence" ||
+          truth.evidence_binding.status === "storage_unavailable"
+        ) {
           throw new Error(
-            "BACKEND_TRUTH_EVIDENCE_INVALID",
+            truth.evidence_binding.status === "storage_unavailable"
+              ? "BACKEND_TRUTH_STORAGE_UNAVAILABLE"
+              : "BACKEND_TRUTH_EVIDENCE_INVALID",
           );
         }
         const verified =

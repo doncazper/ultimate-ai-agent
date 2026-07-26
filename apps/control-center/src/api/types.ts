@@ -32,7 +32,11 @@ export interface CriticalSurfaceBinding {
 }
 
 export interface BackendTruthEvidenceBinding {
-  status: "verified_complete" | "unverified_incomplete" | "invalid_evidence";
+  status:
+    | "verified_complete"
+    | "unverified_incomplete"
+    | "invalid_evidence"
+    | "storage_unavailable";
   acceptance_schema_version: string;
   acceptance_integrity_ref: string;
   action_refs: string[];
@@ -62,6 +66,7 @@ export interface ControlCenterBackendTruth {
   generated_at: string;
   valid_until: string;
   backend_revision_ref: string;
+  backend_instance_ref: string;
   source_revision_bound: boolean;
   critical_surfaces: CriticalSurfaceBinding[];
   evidence_binding: BackendTruthEvidenceBinding;

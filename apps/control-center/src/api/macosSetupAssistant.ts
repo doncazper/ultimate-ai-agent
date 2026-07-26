@@ -19,6 +19,19 @@ const MACOS_SETUP_STATUSES = new Set<MacOSSetupStepStatus>([
 ]);
 
 export function normalizeMacOSSetupAssistant(
+  source: unknown,
+  fallback: MacOSSetupAssistantData,
+): { value: MacOSSetupAssistantData; usedFallback: boolean } {
+  const value = normalizeMacOSSetupAssistantValue(source, fallback);
+  const probeFallback = alternateFallback(fallback);
+  const probeValue = normalizeMacOSSetupAssistantValue(source, probeFallback);
+  return {
+    value,
+    usedFallback: JSON.stringify(value) !== JSON.stringify(probeValue),
+  };
+}
+
+function normalizeMacOSSetupAssistantValue(
   value: unknown,
   fallback: MacOSSetupAssistantData,
 ): MacOSSetupAssistantData {
@@ -153,6 +166,24 @@ export function normalizeMacOSSetupAssistant(
       fallback.morningReviewChecklist,
     ),
   };
+}
+
+function alternateFallback(
+  fallback: MacOSSetupAssistantData,
+): MacOSSetupAssistantData {
+  const transform = (value: unknown): unknown => {
+    if (typeof value === "string") return `${value}:fallback-probe`;
+    if (typeof value === "boolean") return !value;
+    if (typeof value === "number") return value + 1;
+    if (Array.isArray(value)) return value.map(transform);
+    if (isRecord(value)) {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, transform(item)]),
+      );
+    }
+    return value;
+  };
+  return transform(fallback) as MacOSSetupAssistantData;
 }
 
 function normalizeMacOSSetupApprovalEnvelope(

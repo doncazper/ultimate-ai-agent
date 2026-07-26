@@ -25,6 +25,8 @@ CONTROL_CENTER_LOOPBACK_CORS_HEADERS: tuple[str, ...] = (
 )
 CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS: tuple[str, ...] = (
     "Retry-After",
+    "X-UAA-Backend-Instance-Ref",
+    "X-UAA-Backend-Revision-Ref",
     "X-UAA-Rate-Limit-Policy",
     "X-UAA-Security-Headers-Policy",
 )

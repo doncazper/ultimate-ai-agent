@@ -96,9 +96,17 @@ export function NorthStarRoute({
   );
   const truthAdmitted =
     !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
+  const truthReadBinding =
+    truthAdmitted && truthState.truth
+      ? {
+          snapshotRef: truthState.truth.envelope_integrity_ref,
+          backendRevisionRef: truthState.truth.backend_revision_ref,
+          backendInstanceRef: truthState.truth.backend_instance_ref,
+        }
+      : null;
   const state = useControlCenterData(
     moduleStatus === "ready" && truthAdmitted,
-    truthAdmitted ? truthState.truth?.envelope_integrity_ref ?? null : null,
+    truthReadBinding,
   );
   const retryCriticalRoute = async () => {
     await truthState.retry();
@@ -263,9 +271,17 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   );
   const truthAdmitted =
     !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
+  const truthReadBinding =
+    truthAdmitted && truthState.truth
+      ? {
+          snapshotRef: truthState.truth.envelope_integrity_ref,
+          backendRevisionRef: truthState.truth.backend_revision_ref,
+          backendInstanceRef: truthState.truth.backend_instance_ref,
+        }
+      : null;
   const state = useControlCenterData(
     truthAdmitted,
-    truthAdmitted ? truthState.truth?.envelope_integrity_ref ?? null : null,
+    truthReadBinding,
   );
   const retryCriticalRoute = async () => {
     await truthState.retry();
