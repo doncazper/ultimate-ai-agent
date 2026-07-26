@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import os
@@ -12,6 +13,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from scripts.dev import uaa_runtime
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -19,6 +21,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     HermesProcessResult,
     LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
     RuntimeGateway,
     RuntimeInvocationConflictError,
@@ -3768,6 +3771,8 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     first.join(timeout=15)
     second.join(timeout=15)
 
+    assert first.is_alive() is False
+    assert second.is_alive() is False
     assert errors == []
     assert len(results) == 2
     assert calls == 1
@@ -3788,12 +3793,14 @@ def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
     release_runner = threading.Event()
     duplicate_receipt_attempted = threading.Event()
     calls = 0
+    calls_lock = threading.Lock()
     first_results: list[Any] = []
     errors: list[BaseException] = []
 
     def runner(**kwargs: object) -> RuntimeCommandRunResult:
         nonlocal calls
-        calls += 1
+        with calls_lock:
+            calls += 1
         runner_started.set()
         assert release_runner.wait(timeout=5)
         return RuntimeCommandRunResult(
@@ -3867,6 +3874,7 @@ def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
     finally:
         release_runner.set()
         first.join(timeout=15)
+        assert first.is_alive() is False
 
     assert errors == []
     assert len(first_results) == 1
@@ -3881,6 +3889,68 @@ def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
     assert completed_replay.record.receipt.command_execution_performed is True
     assert duplicate_receipt_attempted.is_set() is False
     assert calls == 1
+
+
+def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    record = RuntimeInvocationStore(tmp_path).create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
+        command_gateway_validated=True,
+    ).record
+    result = RuntimeCommandGatewayResult(
+        record=record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=True,
+    )
+
+    class _InProgressGateway:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def invoke_command(
+            self,
+            request: RuntimeCommandExecutionRequest,
+            *,
+            idempotency_ref: str,
+        ) -> RuntimeCommandGatewayResult:
+            return result
+
+    monkeypatch.setattr(uaa_runtime, "RuntimeGateway", _InProgressGateway)
+    args = argparse.Namespace(
+        intent="git_status",
+        profile="local-runtime",
+        mission_ref=None,
+        target_ref=[],
+        summary="Inspect current repo status with redacted output.",
+        timeout_seconds=5.0,
+        output_byte_limit=4096,
+        metadata_ref=[],
+        idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
+        state_dir=str(tmp_path / "cli-state"),
+        json=True,
+    )
+
+    assert uaa_runtime._command_run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is False
+    assert payload["replayed"] is True
+    assert (
+        payload["error_category"]
+        == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    )
+    assert payload["receipt_ref"] is None
+    assert payload["execution_performed"] is False
+    assert payload["command_execution_performed"] is False
+    assert payload["record"]["receipt"] is None
 
 
 def test_runtime_gateway_command_nonzero_and_timeout_receipts(

@@ -1440,7 +1440,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/command/run":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime command authority route permits only exact RuntimeGateway-derived argv for a Phase 04 read-only status intent; arbitrary command text, shell execution, networked commands, raw output persistence, and unvalidated approval refs remain blocked.",
+            "Governed runtime command authority route permits only exact RuntimeGateway-derived argv for a Phase 04 read-only status intent; concurrent idempotent replays fail closed with no receipt and no duplicate execution side effect while the owner remains active; arbitrary command text, shell execution, networked commands, raw output persistence, and unvalidated approval refs remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/hermes/chat":
         return (
