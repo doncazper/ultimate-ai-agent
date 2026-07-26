@@ -1,10 +1,15 @@
+import argparse
+import errno
 import hashlib
 import json
+import multiprocessing
 import os
 import stat
 import threading
 import subprocess
 import sys
+import time
+import weakref
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -12,6 +17,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from scripts.dev import uaa_runtime
+import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -19,6 +26,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     HermesProcessResult,
     LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
     RuntimeGateway,
     RuntimeInvocationConflictError,
@@ -67,6 +75,102 @@ from tests.authority_helpers import (
 
 ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
+
+
+def _run_cross_process_command_owner(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if not release_path.exists():
+            raise RuntimeError("cross-process runtime command release timed out")
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    result = RuntimeGateway(
+        store=RuntimeInvocationStore(state_dir),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    ).invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect current repo status with redacted output.",
+            timeout_seconds=0.05,
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    if result.record.receipt is None:
+        raise RuntimeError("cross-process runtime command receipt missing")
+
+
+def _hold_cross_process_command_lease_before_reservation(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(state_dir)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-pre-reservation",
+    )
+    lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=1.0,
+    )
+    if lease is None:
+        raise RuntimeError("cross-process pre-reservation lease missing")
+    try:
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if not release_path.exists():
+            raise RuntimeError("cross-process pre-reservation release timed out")
+    finally:
+        lease.release()
+
+
+def _probe_command_execution_byte_range(
+    lock_path: Path,
+    offset: int,
+    result_path: Path,
+) -> None:
+    descriptor = os.open(lock_path, os.O_RDWR)
+    try:
+        try:
+            runtime_command.fcntl.lockf(
+                descriptor,
+                runtime_command.fcntl.LOCK_EX
+                | runtime_command.fcntl.LOCK_NB,
+                1,
+                offset,
+                os.SEEK_SET,
+            )
+        except BlockingIOError:
+            result_path.write_text("blocked", encoding="utf-8")
+        else:
+            result_path.write_text("acquired", encoding="utf-8")
+            runtime_command.fcntl.lockf(
+                descriptor,
+                runtime_command.fcntl.LOCK_UN,
+                1,
+                offset,
+                os.SEEK_SET,
+            )
+    finally:
+        os.close(descriptor)
 
 
 class _BlockingFakeM164GatewayTransport(FakeM164GatewayTransport):
@@ -3688,6 +3792,7 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
 ) -> None:
     runner_started = threading.Event()
     release_runner = threading.Event()
+    duplicate_receipt_attempted = threading.Event()
     calls = 0
     calls_lock = threading.Lock()
     results: list[object] = []
@@ -3710,16 +3815,25 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
         intent="git_status",
         safe_summary="Inspect current repo status with redacted output.",
     )
+    first_store = RuntimeInvocationStore(tmp_path)
+    duplicate_store = RuntimeInvocationStore(tmp_path)
+    original_record_receipt = duplicate_store.record_receipt
+
+    def observe_duplicate_receipt(*args: Any, **kwargs: Any) -> Any:
+        duplicate_receipt_attempted.set()
+        return original_record_receipt(*args, **kwargs)
+
+    duplicate_store.record_receipt = observe_duplicate_receipt  # type: ignore[method-assign]
     gateways = [
         RuntimeGateway(
-            store=RuntimeInvocationStore(tmp_path),
+            store=first_store,
             command_adapter=GovernedCommandRuntimeAdapter(
                 workspace_root=ROOT,
                 runner=runner,
             ),
         ),
         RuntimeGateway(
-            store=RuntimeInvocationStore(tmp_path),
+            store=duplicate_store,
             command_adapter=GovernedCommandRuntimeAdapter(
                 workspace_root=ROOT,
                 runner=runner,
@@ -3743,19 +3857,622 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     assert runner_started.wait(timeout=5)
     second = threading.Thread(target=invoke_command, args=(gateways[1],))
     second.start()
+    assert not duplicate_receipt_attempted.wait(timeout=0.2)
+    assert second.is_alive() is True
     release_runner.set()
     first.join(timeout=15)
     second.join(timeout=15)
 
+    assert first.is_alive() is False
+    assert second.is_alive() is False
     assert errors == []
     assert len(results) == 2
     assert calls == 1
+    assert duplicate_receipt_attempted.is_set() is False
     assert sum(1 for result in results if result.replayed) == 1
     assert any(
         result.record.receipt is not None
         and result.record.receipt.command_execution_performed
         for result in results
     )
+
+
+def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    duplicate_receipt_attempted = threading.Event()
+    calls = 0
+    calls_lock = threading.Lock()
+    first_results: list[Any] = []
+    errors: list[BaseException] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+        timeout_seconds=0.01,
+    )
+    first_store = RuntimeInvocationStore(tmp_path)
+    duplicate_store = RuntimeInvocationStore(tmp_path)
+    original_record_receipt = duplicate_store.record_receipt
+
+    def observe_duplicate_receipt(*args: Any, **kwargs: Any) -> Any:
+        duplicate_receipt_attempted.set()
+        return original_record_receipt(*args, **kwargs)
+
+    duplicate_store.record_receipt = observe_duplicate_receipt  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.runtime_gateway.command."
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    first_gateway = RuntimeGateway(
+        store=first_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    duplicate_gateway = RuntimeGateway(
+        store=duplicate_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    def invoke_first() -> None:
+        try:
+            first_results.append(
+                first_gateway.invoke_command(
+                    request,
+                    idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    first = threading.Thread(target=invoke_first)
+    first.start()
+    assert runner_started.wait(timeout=5)
+    try:
+        duplicate = duplicate_gateway.invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+        )
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert duplicate_receipt_attempted.is_set() is False
+        assert calls == 1
+    finally:
+        release_runner.set()
+        first.join(timeout=15)
+        assert first.is_alive() is False
+
+    assert errors == []
+    assert len(first_results) == 1
+    assert first_results[0].record.receipt is not None
+    assert first_results[0].record.receipt.command_execution_performed is True
+    completed_replay = duplicate_gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+    )
+    assert completed_replay.replayed is True
+    assert completed_replay.record.receipt is not None
+    assert completed_replay.record.receipt.command_execution_performed is True
+    assert duplicate_receipt_attempted.is_set() is False
+    assert calls == 1
+
+
+def test_runtime_gateway_command_coordinates_ownership_across_processes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime-state"
+    started_path = tmp_path / "owner-started"
+    release_path = tmp_path / "owner-release"
+    context = multiprocessing.get_context("spawn")
+    owner = context.Process(
+        target=_run_cross_process_command_owner,
+        args=(state_dir, started_path, release_path),
+    )
+    owner.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not started_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert started_path.exists()
+    except BaseException:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        raise
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.runtime_gateway.command."
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    duplicate_calls: list[object] = []
+
+    def duplicate_runner(**kwargs: object) -> RuntimeCommandRunResult:
+        duplicate_calls.append(kwargs)
+        raise AssertionError("duplicate command runner must not execute")
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+        timeout_seconds=0.05,
+    )
+    duplicate_gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(state_dir),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=duplicate_runner,
+        ),
+    )
+    try:
+        unrelated_calls: list[object] = []
+
+        def unrelated_runner(**kwargs: object) -> RuntimeCommandRunResult:
+            unrelated_calls.append(kwargs)
+            return RuntimeCommandRunResult(
+                exit_code=0,
+                timed_out=False,
+                duration_ms=1,
+                output_bytes=b"SAFE_STATUS",
+            )
+
+        unrelated_started = time.monotonic()
+        unrelated = RuntimeGateway(
+            store=RuntimeInvocationStore(state_dir),
+            command_adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=ROOT,
+                runner=unrelated_runner,
+            ),
+        ).invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-unrelated",
+        )
+        assert time.monotonic() - unrelated_started < 5
+        assert unrelated.record.receipt is not None
+        assert unrelated.record.receipt.command_execution_performed is True
+        assert len(unrelated_calls) == 1
+
+        conflicting_request = request.model_copy(
+            update={
+                "safe_summary": (
+                    "Inspect a different governed status payload with redacted output."
+                )
+            }
+        )
+        conflict_started = time.monotonic()
+        with pytest.raises(RuntimeInvocationConflictError):
+            duplicate_gateway.invoke_command(
+                conflicting_request,
+                idempotency_ref="idempotency-ref:runtime-command-cross-process",
+            )
+        assert time.monotonic() - conflict_started < 5
+
+        duplicate = duplicate_gateway.invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-cross-process",
+        )
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert duplicate.record.replay_count == 1
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert duplicate_calls == []
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+
+    assert owner.is_alive() is False
+    assert owner.exitcode == 0
+    completed_store = RuntimeInvocationStore(state_dir)
+    completed = RuntimeGateway(
+        store=completed_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=duplicate_runner,
+        ),
+    ).invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    assert completed.replayed is True
+    assert completed.record.receipt is not None
+    assert completed.record.replay_count == 1
+    assert completed.record.receipt.command_execution_performed is True
+    assert duplicate_calls == []
+    timeout_race = runtime_command._in_progress_command_replay_result(
+        store=RuntimeInvocationStore(state_dir),
+        invocation_request=runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    assert timeout_race.record.receipt is not None
+    assert timeout_race.error_category is None
+    assert timeout_race.exit_code == 0
+    assert timeout_race.replayed is True
+
+
+def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime-state"
+    started_path = tmp_path / "lease-started"
+    release_path = tmp_path / "lease-release"
+    context = multiprocessing.get_context("spawn")
+    owner = context.Process(
+        target=_hold_cross_process_command_lease_before_reservation,
+        args=(state_dir, started_path, release_path),
+    )
+    owner.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not started_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert started_path.exists()
+    except BaseException:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        raise
+    monkeypatch.setattr(
+        runtime_command,
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    results: list[RuntimeCommandGatewayResult] = []
+    errors: list[BaseException] = []
+
+    def invoke_after_owner() -> None:
+        try:
+            results.append(
+                RuntimeGateway(
+                    store=RuntimeInvocationStore(state_dir),
+                    command_adapter=GovernedCommandRuntimeAdapter(
+                        workspace_root=ROOT,
+                        runner=lambda **kwargs: RuntimeCommandRunResult(
+                            exit_code=0,
+                            timed_out=False,
+                            duration_ms=1,
+                            output_bytes=b"SAFE_STATUS",
+                        ),
+                    ),
+                ).invoke_command(
+                    RuntimeCommandExecutionRequest(
+                        intent="git_status",
+                        safe_summary=(
+                            "Inspect current repo status with redacted output."
+                        ),
+                        timeout_seconds=0.01,
+                    ),
+                    idempotency_ref=(
+                        "idempotency-ref:runtime-command-pre-reservation"
+                    ),
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    duplicate = threading.Thread(target=invoke_after_owner)
+    try:
+        duplicate.start()
+        time.sleep(0.1)
+        assert duplicate.is_alive() is True
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        duplicate.join(timeout=15)
+
+    assert owner.is_alive() is False
+    assert owner.exitcode == 0
+    assert duplicate.is_alive() is False
+    assert errors == []
+    assert len(results) == 1
+    assert results[0].record.receipt is not None
+    assert results[0].record.receipt.command_execution_performed is True
+
+
+def test_runtime_gateway_command_execution_lock_uses_exact_byte_ranges(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    paths = {
+        runtime_command._command_execution_lock_path(store)
+        for _index in range(1024)
+    }
+    offsets = {
+        runtime_command._command_execution_lock_offset(
+            runtime_command._command_execution_claim_ref(
+                store,
+                f"idempotency-ref:runtime-command-range-{index}",
+            )
+        )
+        for index in range(1024)
+    }
+
+    assert paths == {tmp_path / ".runtime-command-execution.lock"}
+    assert len(offsets) == 1024
+    assert all(0 <= offset < (1 << 63) for offset in offsets)
+
+
+def test_runtime_gateway_command_process_lock_is_python_310_weakref_compatible() -> None:
+    process_lock = runtime_command._CommandExecutionProcessLock()
+
+    assert "__slots__" not in type(process_lock).__dict__
+    assert weakref.ref(process_lock)() is process_lock
+
+
+def test_runtime_gateway_releasing_one_range_preserves_other_process_lock(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    first_claim = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-shared-file-first",
+    )
+    second_claim = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-shared-file-second",
+    )
+    second_offset = runtime_command._command_execution_lock_offset(second_claim)
+    assert (
+        runtime_command._command_execution_lock_offset(first_claim)
+        != second_offset
+    )
+
+    first_lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=first_claim,
+        timeout_seconds=0.1,
+    )
+    second_lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=second_claim,
+        timeout_seconds=0.1,
+    )
+    assert first_lease is not None
+    assert second_lease is not None
+    assert first_lease.lock_file is second_lease.lock_file
+
+    first_lease.release()
+    blocked_result_path = tmp_path / "second-range-blocked"
+    context = multiprocessing.get_context("spawn")
+    blocked_probe = context.Process(
+        target=_probe_command_execution_byte_range,
+        args=(
+            runtime_command._command_execution_lock_path(store),
+            second_offset,
+            blocked_result_path,
+        ),
+    )
+    blocked_probe.start()
+    blocked_probe.join(timeout=10)
+    try:
+        assert blocked_probe.is_alive() is False
+        assert blocked_probe.exitcode == 0
+        assert blocked_result_path.read_text(encoding="utf-8") == "blocked"
+    finally:
+        second_lease.release()
+
+    acquired_result_path = tmp_path / "second-range-acquired"
+    acquired_probe = context.Process(
+        target=_probe_command_execution_byte_range,
+        args=(
+            runtime_command._command_execution_lock_path(store),
+            second_offset,
+            acquired_result_path,
+        ),
+    )
+    acquired_probe.start()
+    acquired_probe.join(timeout=10)
+    assert acquired_probe.is_alive() is False
+    assert acquired_probe.exitcode == 0
+    assert acquired_result_path.read_text(encoding="utf-8") == "acquired"
+
+
+def test_runtime_gateway_locked_reservation_refreshes_callers_store(
+    tmp_path: Path,
+) -> None:
+    caller_store = RuntimeInvocationStore(tmp_path)
+    assert caller_store.list_invocations() == []
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    owner_result = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=lambda **kwargs: RuntimeCommandRunResult(
+                exit_code=0,
+                timed_out=False,
+                duration_ms=1,
+                output_bytes=b"SAFE_STATUS",
+            ),
+        ),
+    ).invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-store-refresh",
+    )
+    assert owner_result.record.receipt is not None
+
+    refreshed = runtime_command._locked_command_reservation(
+        store=caller_store,
+        idempotency_ref="idempotency-ref:runtime-command-store-refresh",
+    )
+
+    assert refreshed is not None
+    assert refreshed.receipt is not None
+    assert (
+        caller_store.get_invocation_for_idempotency(
+            "idempotency-ref:runtime-command-store-refresh"
+        )
+        == refreshed
+    )
+
+
+def test_runtime_gateway_command_execution_lock_closes_on_lockf_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-flock-error",
+    )
+    closed_descriptors: list[int] = []
+    original_close = os.close
+
+    def fail_lockf(
+        descriptor: int,
+        operation: int,
+        length: int,
+        offset: int,
+        whence: int,
+    ) -> None:
+        raise OSError(95, "operation not supported")
+
+    def observe_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(runtime_command.fcntl, "lockf", fail_lockf)
+    monkeypatch.setattr(runtime_command.os, "close", observe_close)
+
+    with pytest.raises(OSError, match="operation not supported"):
+        runtime_command._acquire_command_execution_lease(
+            store=store,
+            claim_ref=claim_ref,
+            timeout_seconds=0.01,
+        )
+
+    assert len(closed_descriptors) == 1
+
+
+def test_runtime_gateway_command_execution_lock_retries_eacces_contention(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-eacces-contention",
+    )
+    original_lockf = runtime_command.fcntl.lockf
+    acquisition_attempts = 0
+
+    def contend_once(
+        descriptor: int,
+        operation: int,
+        length: int,
+        offset: int,
+        whence: int,
+    ) -> object:
+        nonlocal acquisition_attempts
+        if operation & runtime_command.fcntl.LOCK_UN:
+            return original_lockf(descriptor, operation, length, offset, whence)
+        acquisition_attempts += 1
+        if acquisition_attempts == 1:
+            raise PermissionError(errno.EACCES, "range lock contention")
+        return original_lockf(descriptor, operation, length, offset, whence)
+
+    monkeypatch.setattr(runtime_command.fcntl, "lockf", contend_once)
+
+    lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=0.1,
+    )
+    assert lease is not None
+    try:
+        assert acquisition_attempts == 2
+    finally:
+        lease.release()
+
+
+def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    record = RuntimeInvocationStore(tmp_path).create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
+        command_gateway_validated=True,
+    ).record
+    result = RuntimeCommandGatewayResult(
+        record=record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=True,
+    )
+
+    class _InProgressGateway:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def invoke_command(
+            self,
+            request: RuntimeCommandExecutionRequest,
+            *,
+            idempotency_ref: str,
+        ) -> RuntimeCommandGatewayResult:
+            return result
+
+    monkeypatch.setattr(uaa_runtime, "RuntimeGateway", _InProgressGateway)
+    args = argparse.Namespace(
+        intent="git_status",
+        profile="local-runtime",
+        mission_ref=None,
+        target_ref=[],
+        summary="Inspect current repo status with redacted output.",
+        timeout_seconds=5.0,
+        output_byte_limit=4096,
+        metadata_ref=[],
+        idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
+        state_dir=str(tmp_path / "cli-state"),
+        json=True,
+    )
+
+    assert uaa_runtime._command_run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is False
+    assert payload["replayed"] is True
+    assert (
+        payload["error_category"]
+        == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    )
+    assert payload["receipt_ref"] is None
+    assert payload["execution_performed"] is False
+    assert payload["command_execution_performed"] is False
+    assert payload["record"]["receipt"] is None
 
 
 def test_runtime_gateway_command_nonzero_and_timeout_receipts(

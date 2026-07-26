@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
     RuntimeGateway,
     RuntimeInvocationStore,
@@ -529,6 +530,10 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
         assert route.idempotency_required is True
         assert route.rate_limit_group == "governed_runtime_pilot"
 
+    command_route = routes[("POST", "/api/runtime/command/run")]
+    assert "no receipt" in command_route.classification_reason
+    assert "no duplicate execution side effect" in command_route.classification_reason
+
 
 def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
     assert route_rate_limit_group("POST", "/api/runtime/invocations") == (
@@ -746,6 +751,68 @@ def test_governed_runtime_command_run_records_redacted_receipt(
     assert "/Users/" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_governed_runtime_command_run_reports_in_progress_replay_without_receipt(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    record = RuntimeInvocationStore(tmp_path).create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:runtime-command-api-in-progress",
+        command_gateway_validated=True,
+    ).record
+    result = RuntimeCommandGatewayResult(
+        record=record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=True,
+    )
+
+    class _InProgressGateway:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def invoke_command(
+            self,
+            request: RuntimeCommandExecutionRequest,
+            *,
+            idempotency_ref: str,
+        ) -> RuntimeCommandGatewayResult:
+            return result
+
+    monkeypatch.setattr(runtime_pilot_service, "RuntimeGateway", _InProgressGateway)
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/command/run",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:runtime-command-api-in-progress"
+            )
+        },
+        json={
+            "intent": "git_status",
+            "safe_summary": "Inspect current repo status with redacted output.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["replayed"] is True
+    assert (
+        body["data"]["error_category"]
+        == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    )
+    assert body["data"]["receipt_ref"] is None
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["command_execution_performed"] is False
+    assert body["data"]["record"]["receipt"] is None
 
 
 def test_governed_runtime_command_run_evaluates_matching_mission_lease(

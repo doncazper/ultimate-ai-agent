@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import errno
+import fcntl
 import hashlib
 import json
+import os
+import stat
 import subprocess
+import threading
 import time
-from dataclasses import dataclass
+import weakref
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -29,7 +35,11 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
 from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
     hardline_block_reason_for_argv,
 )
-from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationConflictError,
+    RuntimeInvocationStorageError,
+    RuntimeInvocationStore,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -49,7 +59,13 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
     "make": (Path("/usr/bin/make"), Path("/bin/make")),
 }
 DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
+COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS = 1.0
 
+_COMMAND_EXECUTION_LOCK_GUARD = threading.Lock()
+_COMMAND_EXECUTION_PROCESS_LOCKS: weakref.WeakValueDictionary[
+    int, _CommandExecutionProcessLock
+] = weakref.WeakValueDictionary()
+_COMMAND_EXECUTION_LOCK_FILES: dict[str, _CommandExecutionLockFile] = {}
 
 class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
@@ -143,6 +159,41 @@ class _CommandAttempt:
     output_summary: str
     redacted_output_ref: str
     error_category: str | None
+
+
+@dataclass
+class _CommandExecutionProcessLock:
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+@dataclass
+class _CommandExecutionLockFile:
+    descriptor: int
+    path: Path
+    users: int = 1
+
+
+@dataclass
+class _CommandExecutionLease:
+    lock_file: _CommandExecutionLockFile
+    offset: int
+    process_lock: _CommandExecutionProcessLock
+
+    def release(self) -> None:
+        try:
+            with _COMMAND_EXECUTION_LOCK_GUARD:
+                try:
+                    fcntl.lockf(
+                        self.lock_file.descriptor,
+                        fcntl.LOCK_UN,
+                        1,
+                        self.offset,
+                        os.SEEK_SET,
+                    )
+                finally:
+                    _release_command_execution_lock_file_locked(self.lock_file)
+        finally:
+            self.process_lock.lock.release()
 
 
 class RuntimeCommandRunner(Protocol):
@@ -299,102 +350,403 @@ def invoke_governed_command(
             "RUNTIME_COMMAND_SAFE_DISABLED",
         },
     )
-    created = store.create_invocation(
-        invocation_request,
+    claim_ref = _command_execution_claim_ref(store, idempotency_ref)
+    preflight_replay = _preflight_command_reservation(
+        store=store,
+        invocation_request=invocation_request,
         idempotency_ref=idempotency_ref,
-        command_gateway_validated=blocked_error is None,
     )
-    record = created.record
-    if blocked_error is None and _record_safe_disabled(record):
-        blocked_error = "RUNTIME_COMMAND_SAFE_DISABLED"
-    if created.replayed:
-        if record.receipt is not None:
-            metadata = record.receipt.command_receipt_metadata
-            return RuntimeCommandGatewayResult(
+    if preflight_replay is not None:
+        return preflight_replay
+    execution_lease = _acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=(
+            request.timeout_seconds + COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS
+        ),
+    )
+    if execution_lease is None:
+        return _in_progress_command_replay_result(
+            store=store,
+            invocation_request=invocation_request,
+            idempotency_ref=idempotency_ref,
+        )
+    try:
+        # Hold the claim-specific inter-process lease from reservation through
+        # terminal receipt so API and CLI callers cannot compete for ownership.
+        created = store.create_invocation(
+            invocation_request,
+            idempotency_ref=idempotency_ref,
+            command_gateway_validated=blocked_error is None,
+        )
+        record = created.record
+        if blocked_error is None and _record_safe_disabled(record):
+            blocked_error = "RUNTIME_COMMAND_SAFE_DISABLED"
+        if created.replayed:
+            if record.receipt is not None:
+                return _completed_command_replay_result(record)
+            return _record_blocked_command_result(
+                store=store,
+                request=request,
+                entry=entry,
                 record=record,
-                output_summary=metadata.output_summary if metadata else None,
-                output_summary_returned=metadata is not None,
-                exit_code=metadata.exit_code if metadata else None,
-                timed_out=metadata.timed_out if metadata else False,
-                error_category=metadata.error_category if metadata else None,
+                idempotency_ref=idempotency_ref,
+                operation="command-replay-without-receipt",
+                error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 replayed=True,
-                command_execution_enabled=record.policy_decision.command_execution_enabled,
             )
-        return _record_blocked_command_result(
-            store=store,
-            request=request,
+
+        if blocked_error is not None or not record.policy_decision.allowed_to_execute:
+            return _record_blocked_command_result(
+                store=store,
+                request=request,
+                entry=entry,
+                record=record,
+                idempotency_ref=idempotency_ref,
+                operation="command-blocked",
+                error_category=blocked_error
+                or "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED",
+                replayed=False,
+            )
+
+        attempt = adapter.invoke(request, entry)
+        status_category = _status_category(
+            RuntimeCommandRunResult(
+                exit_code=attempt.exit_code,
+                timed_out=attempt.timed_out,
+                duration_ms=attempt.duration_ms,
+                output_bytes=b"",
+                error_category=attempt.error_category,
+            )
+        )
+        metadata = _command_metadata(
+            request,
             entry=entry,
             record=record,
-            idempotency_ref=idempotency_ref,
-            operation="command-replay-without-receipt",
-            error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
-            replayed=True,
-        )
-
-    if blocked_error is not None or not record.policy_decision.allowed_to_execute:
-        return _record_blocked_command_result(
-            store=store,
-            request=request,
-            entry=entry,
-            record=record,
-            idempotency_ref=idempotency_ref,
-            operation="command-blocked",
-            error_category=blocked_error or "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED",
-            replayed=False,
-        )
-
-    attempt = adapter.invoke(request, entry)
-    status_category = _status_category(
-        RuntimeCommandRunResult(
             exit_code=attempt.exit_code,
             timed_out=attempt.timed_out,
             duration_ms=attempt.duration_ms,
-            output_bytes=b"",
+            output_byte_count=attempt.output_byte_count,
+            output_truncated=attempt.output_truncated,
+            output_summary=attempt.output_summary,
+            redacted_output_ref=attempt.redacted_output_ref,
+            status_category=status_category,
             error_category=attempt.error_category,
+            command_execution_attempted=True,
         )
-    )
-    metadata = _command_metadata(
-        request,
-        entry=entry,
-        record=record,
-        exit_code=attempt.exit_code,
-        timed_out=attempt.timed_out,
-        duration_ms=attempt.duration_ms,
-        output_byte_count=attempt.output_byte_count,
-        output_truncated=attempt.output_truncated,
-        output_summary=attempt.output_summary,
-        redacted_output_ref=attempt.redacted_output_ref,
-        status_category=status_category,
-        error_category=attempt.error_category,
-        command_execution_attempted=True,
-    )
-    receipt = build_command_receipt(
-        record,
-        metadata=metadata,
-        execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
-        command_execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
-        status=RuntimeInvocationStatus.receipt_recorded,
-    )
-    updated = store.record_receipt(
-        record.invocation_ref,
-        receipt,
-        idempotency_ref=_operation_idempotency_ref(idempotency_ref, "command-receipt"),
-        payload_fingerprint_ref=_operation_fingerprint_ref(
+        receipt = build_command_receipt(
+            record,
+            metadata=metadata,
+            execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
+            command_execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
+            status=RuntimeInvocationStatus.receipt_recorded,
+        )
+        updated = store.record_receipt(
             record.invocation_ref,
-            {
-                "operation": "command_receipt",
-                "metadata": metadata.model_dump(mode="json"),
-            },
+            receipt,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "command-receipt",
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                record.invocation_ref,
+                {
+                    "operation": "command_receipt",
+                    "metadata": metadata.model_dump(mode="json"),
+                },
+            ),
+        )
+        return RuntimeCommandGatewayResult(
+            record=updated,
+            output_summary=metadata.output_summary,
+            output_summary_returned=True,
+            exit_code=attempt.exit_code,
+            timed_out=attempt.timed_out,
+            error_category=attempt.error_category,
+            command_execution_enabled=COMMAND_RUNTIME_EXECUTION_ENABLED,
+        )
+    finally:
+        execution_lease.release()
+
+
+def _command_execution_claim_ref(
+    store: RuntimeInvocationStore,
+    idempotency_ref: str,
+) -> tuple[str, str]:
+    return (str(store.path.resolve(strict=False)), idempotency_ref)
+
+
+def _command_execution_lock_path(
+    store: RuntimeInvocationStore,
+) -> Path:
+    return store.state_dir / ".runtime-command-execution.lock"
+
+
+def _command_execution_lock_offset(claim_ref: tuple[str, str]) -> int:
+    digest = hashlib.sha256(
+        json.dumps(claim_ref, separators=(",", ":")).encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+
+
+def _command_execution_process_lock(
+    offset: int,
+) -> _CommandExecutionProcessLock:
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        process_lock = _COMMAND_EXECUTION_PROCESS_LOCKS.get(offset)
+        if process_lock is None:
+            process_lock = _CommandExecutionProcessLock()
+            _COMMAND_EXECUTION_PROCESS_LOCKS[offset] = process_lock
+        return process_lock
+
+
+def _retain_command_execution_lock_file(
+    store: RuntimeInvocationStore,
+) -> _CommandExecutionLockFile:
+    lock_path = _command_execution_lock_path(store)
+    lock_key = str(lock_path.resolve(strict=False))
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        retained = _COMMAND_EXECUTION_LOCK_FILES.get(lock_key)
+        if retained is not None:
+            metadata = os.fstat(retained.descriptor)
+            path_metadata = os.lstat(lock_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
+                )
+            retained.users += 1
+            return retained
+
+        store.state_dir.mkdir(parents=True, exist_ok=True)
+        directory_metadata = os.lstat(store.state_dir)
+        if not stat.S_ISDIR(directory_metadata.st_mode):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_COMMAND_EXECUTION_LOCK_DIRECTORY_INVALID"
+            )
+        flags = (
+            os.O_RDWR
+            | os.O_CREAT
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        descriptor = os.open(lock_path, flags, 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            path_metadata = os.lstat(lock_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
+                )
+            os.fchmod(descriptor, 0o600)
+        except BaseException:
+            os.close(descriptor)
+            raise
+        retained = _CommandExecutionLockFile(
+            descriptor=descriptor,
+            path=lock_path,
+        )
+        _COMMAND_EXECUTION_LOCK_FILES[lock_key] = retained
+        return retained
+
+
+def _release_command_execution_lock_file_locked(
+    lock_file: _CommandExecutionLockFile,
+) -> None:
+    lock_file.users -= 1
+    if lock_file.users > 0:
+        return
+    lock_key = str(lock_file.path.resolve(strict=False))
+    if _COMMAND_EXECUTION_LOCK_FILES.get(lock_key) is lock_file:
+        del _COMMAND_EXECUTION_LOCK_FILES[lock_key]
+    os.close(lock_file.descriptor)
+
+
+def _release_command_execution_lock_file(
+    lock_file: _CommandExecutionLockFile,
+) -> None:
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        _release_command_execution_lock_file_locked(lock_file)
+
+
+def _locked_command_reservation(
+    *,
+    store: RuntimeInvocationStore,
+    idempotency_ref: str,
+) -> RuntimeInvocationRecord | None:
+    return store.get_invocation_for_idempotency_locked(idempotency_ref)
+
+
+def _acquire_command_execution_lease(
+    *,
+    store: RuntimeInvocationStore,
+    claim_ref: tuple[str, str],
+    timeout_seconds: float,
+) -> _CommandExecutionLease | None:
+    offset = _command_execution_lock_offset(claim_ref)
+    process_lock = _command_execution_process_lock(offset)
+    deadline = time.monotonic() + timeout_seconds
+    while not process_lock.lock.acquire(blocking=False):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            if (
+                _locked_command_reservation(
+                    store=store,
+                    idempotency_ref=claim_ref[1],
+                )
+                is not None
+            ):
+                return None
+            deadline = time.monotonic() + 0.05
+            remaining = 0.05
+        time.sleep(min(0.01, remaining))
+
+    try:
+        lock_file = _retain_command_execution_lock_file(store)
+    except BaseException:
+        process_lock.lock.release()
+        raise
+    try:
+        while True:
+            try:
+                fcntl.lockf(
+                    lock_file.descriptor,
+                    fcntl.LOCK_EX | fcntl.LOCK_NB,
+                    1,
+                    offset,
+                    os.SEEK_SET,
+                )
+                return _CommandExecutionLease(
+                    lock_file=lock_file,
+                    offset=offset,
+                    process_lock=process_lock,
+                )
+            except OSError as exc:
+                if exc.errno not in {
+                    errno.EACCES,
+                    errno.EAGAIN,
+                    errno.EWOULDBLOCK,
+                }:
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    durable_record = _locked_command_reservation(
+                        store=store,
+                        idempotency_ref=claim_ref[1],
+                    )
+                    if durable_record is not None:
+                        try:
+                            _release_command_execution_lock_file(lock_file)
+                        finally:
+                            process_lock.lock.release()
+                        return None
+                    # The owner holds the lease but has not finished its
+                    # reservation. Continue the safe ownership retry until the
+                    # reservation becomes visible or the lease becomes free.
+                    deadline = time.monotonic() + 0.05
+                    remaining = 0.05
+                time.sleep(min(0.01, remaining))
+    except BaseException:
+        try:
+            _release_command_execution_lock_file(lock_file)
+        finally:
+            process_lock.lock.release()
+        raise
+
+
+def _preflight_command_reservation(
+    *,
+    store: RuntimeInvocationStore,
+    invocation_request: RuntimeInvocationRequest,
+    idempotency_ref: str,
+) -> RuntimeCommandGatewayResult | None:
+    durable_record = _locked_command_reservation(
+        store=store,
+        idempotency_ref=idempotency_ref,
+    )
+    if durable_record is None:
+        return None
+    if (
+        durable_record.payload_fingerprint_ref
+        != runtime_payload_fingerprint_ref(invocation_request)
+    ):
+        raise RuntimeInvocationConflictError(
+            "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+        )
+    if durable_record.receipt is None:
+        return None
+    replayed_record = durable_record.model_copy(
+        update={"replay_count": durable_record.replay_count + 1}
+    )
+    return _completed_command_replay_result(replayed_record)
+
+
+def _completed_command_replay_result(
+    record: RuntimeInvocationRecord,
+) -> RuntimeCommandGatewayResult:
+    receipt = record.receipt
+    if receipt is None:
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_COMMAND_COMPLETED_REPLAY_RECEIPT_MISSING"
+        )
+    metadata = receipt.command_receipt_metadata
+    return RuntimeCommandGatewayResult(
+        record=record,
+        output_summary=metadata.output_summary if metadata else None,
+        output_summary_returned=metadata is not None,
+        exit_code=metadata.exit_code if metadata else None,
+        timed_out=metadata.timed_out if metadata else False,
+        error_category=metadata.error_category if metadata else None,
+        replayed=True,
+        command_execution_enabled=(
+            record.policy_decision.command_execution_enabled
         ),
     )
+
+
+def _in_progress_command_replay_result(
+    *,
+    store: RuntimeInvocationStore,
+    invocation_request: RuntimeInvocationRequest,
+    idempotency_ref: str,
+) -> RuntimeCommandGatewayResult:
+    durable_record = _locked_command_reservation(
+        store=store,
+        idempotency_ref=idempotency_ref,
+    )
+    if durable_record is None:
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_COMMAND_ACTIVE_RESERVATION_MISSING"
+        )
+    if (
+        durable_record.payload_fingerprint_ref
+        != runtime_payload_fingerprint_ref(invocation_request)
+    ):
+        raise RuntimeInvocationConflictError(
+            "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+        )
+    replayed_record = durable_record.model_copy(
+        update={"replay_count": durable_record.replay_count + 1}
+    )
+    if replayed_record.receipt is not None:
+        return _completed_command_replay_result(replayed_record)
     return RuntimeCommandGatewayResult(
-        record=updated,
-        output_summary=metadata.output_summary,
-        output_summary_returned=True,
-        exit_code=attempt.exit_code,
-        timed_out=attempt.timed_out,
-        error_category=attempt.error_category,
-        command_execution_enabled=COMMAND_RUNTIME_EXECUTION_ENABLED,
+        record=replayed_record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=(
+            replayed_record.policy_decision.command_execution_enabled
+        ),
     )
 
 

@@ -90,6 +90,13 @@ validate the exact request-scoped authority boundary.
 | GET | `/api/runtime/interface-mode` | `get_api_runtime_interface_mode` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/interrupt-redirect` | `get_api_runtime_interrupt_redirect` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
+
+`POST /api/runtime/command/run` treats the idempotency reference as an exact
+execution claim. Concurrent reuse with the same valid payload fails closed
+while the owner remains active: it returns no receipt and performs no duplicate
+execution side effect. Once the owner records its terminal receipt, valid reuse
+returns that prior receipt. Reusing the reference with a different payload is
+an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations/{id}/approve` | `post_api_runtime_invocations_id_approve` | `local_dev_workspace_only` | no | future | yes |

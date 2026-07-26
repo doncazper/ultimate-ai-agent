@@ -778,6 +778,17 @@ class RuntimeInvocationStore:
             return None
         return self._records[invocation_ref]
 
+    def get_invocation_for_idempotency_locked(
+        self,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord | None:
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        with self._exclusive_mutation():
+            invocation_ref = self._idempotency_index.get(idempotency_ref)
+            if invocation_ref is None:
+                return None
+            return self._records[invocation_ref]
+
     def operator_safe_disable_active(self) -> bool:
         self._load()
         return self._canonical_safe_disable_state.active
