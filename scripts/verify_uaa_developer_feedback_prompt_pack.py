@@ -53,7 +53,7 @@ README_AUTHORITY_FRAGMENTS = (
 WRAPPER_RELEASE_FRAGMENTS = (
     "one dedicated `codex/uaa-developer-feedback-XX-*` branch and one PR per phase",
     "Open the phase PR as draft",
-    "repository-scoped self-hosted macOS CI only",
+    "repository-required GitHub-hosted CI on standard macOS runners only",
     "Merge only when required checks are green",
     "Update local `main` to the exact remote merge",
     "Do not commit or push a repair directly to `main`",

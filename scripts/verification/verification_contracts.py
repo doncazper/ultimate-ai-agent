@@ -642,10 +642,18 @@ class VerificationReceipt:
             )
         ):
             raise ValueError("unresolved TypeScript receipt cannot claim exact bindings")
-        if self.observed_platform_fingerprint is not None:
+        if self.schema_version == "uaa_verification_receipt.v3":
+            if self.observed_platform_fingerprint is None:
+                raise ValueError(
+                    "v3 verification receipt requires observed platform proof"
+                )
             _validate_digest(
                 self.observed_platform_fingerprint,
                 label="receipt observed platform fingerprint",
+            )
+        elif self.observed_platform_fingerprint is not None:
+            raise ValueError(
+                "legacy verification receipt cannot claim observed platform proof"
             )
         if (
             not isinstance(self.duration_ms, int)
@@ -873,8 +881,6 @@ def verification_receipt_payload(
         # is an additive typed-optional extension and is serialized only when
         # it carries proof.
         excluded.add("nonexecuted_command_result_bindings")
-    if receipt.observed_platform_fingerprint is None:
-        excluded.add("observed_platform_fingerprint")
     if not include_content_identity:
         excluded.update({"receipt_ref", "receipt_fingerprint"})
     return {

@@ -41,9 +41,9 @@ Activate the prompts only in the listed order. Every prompt requires the executo
 11. perform local review, adversarial hardening, and all required local checks
     while the PR remains draft;
 12. mark the PR ready only after local evidence is green, then run only the
-    repository-scoped self-hosted macOS CI; never use paid or GitHub-hosted
-    compute for this bundle;
-13. merge only after required self-hosted checks are green;
+    repository-required GitHub-hosted CI on standard macOS runners; never use
+    paid larger runners or self-hosted compute for this bundle;
+13. merge only after required hosted checks are green;
 14. update local `main` to the exact remote merge, run post-merge verification,
     push verified `main`, and confirm the worktree is clean; and
 15. start no later prompt until that predecessor is merged and verified.

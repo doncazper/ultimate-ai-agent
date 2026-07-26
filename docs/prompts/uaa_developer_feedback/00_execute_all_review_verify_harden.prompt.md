@@ -55,8 +55,8 @@ Execution loop for every phase:
 7. Stage only intentional files, commit, and push normally without force.
 8. Open the phase PR as draft, complete local review/hardening, then mark it
    ready only after local checks pass.
-9. Run required repository-scoped self-hosted macOS CI only; never paid or
-   GitHub-hosted compute.
+9. Run only repository-required GitHub-hosted CI on standard macOS runners only;
+   never paid larger runners or self-hosted compute.
 10. Merge only when required checks are green and no actionable review finding
     remains.
 11. Update local `main` to the exact remote merge and run post-merge

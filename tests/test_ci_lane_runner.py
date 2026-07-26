@@ -268,6 +268,8 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
     assert receipt.receipt_ref.endswith(receipt.receipt_fingerprint or "missing")
     with pytest.raises(ValueError, match="fingerprint"):
         replace(receipt, observed_platform_fingerprint="c" * 64).validate()
+    with pytest.raises(ValueError, match="requires observed platform proof"):
+        replace(receipt, observed_platform_fingerprint=None).validate()
     assert run.status is VerificationTerminalStatus.BLOCKED
     assert run.schema_version == "uaa_verification_run.v3"
     assert run.required_unit_refs == plan.selected_unit_refs

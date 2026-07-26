@@ -101,9 +101,10 @@ session duplication, stale capability truth, revocation races, and authority
 bypass, dependency drift, license gaps, unsafe SDK imports, and missing WASM
 assets. Fix all actionable findings. Commit and push normally and open a draft
 PR. While it is draft, complete local review and hardening of both stages. Mark
-it ready only after local checks pass; run only repository-scoped self-hosted
-macOS CI, never paid or GitHub-hosted compute. Merge only when required checks
-are green, update local `main` to the exact remote merge, run post-merge
+it ready only after local checks pass; run only repository-required
+GitHub-hosted CI on standard macOS runners, never paid larger runners or
+self-hosted compute. Merge only when required checks are green, update local
+`main` to the exact remote merge, run post-merge
 verification, push verified `main`, and confirm a clean worktree. Do not begin
 MSG-MX-006 before that proof.
 The post-merge push must be a synchronization no-op: local `main` and

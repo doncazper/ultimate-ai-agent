@@ -102,6 +102,7 @@ def _v3_receipt() -> VerificationReceipt:
         pytest_shard_plan_fingerprint="3" * 64,
         execution_identity_ref=f"execution-identity:{'5' * 64}",
         result_refs=(f"result-ref:verification:{'6' * 64}",),
+        observed_platform_fingerprint="7" * 64,
     )
     fingerprint = verification_receipt_fingerprint(initial)
     receipt = replace(

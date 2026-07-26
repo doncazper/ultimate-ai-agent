@@ -141,8 +141,17 @@ def _benchmark(
     path_warmup: int = 1,
     write_report: bool = True,
 ) -> dict[str, object]:
+    warmup_statuses: list[str] = []
+    warmup_result_counts: list[int] = []
     for _ in range(warmup):
-        _evaluate_once()
+        warmup_report = _evaluate_once()
+        warmup_statuses.append(
+            _status_value(getattr(warmup_report, "overall_status", "unknown"))
+        )
+        warmup_results = getattr(warmup_report, "results", ())
+        warmup_result_counts.append(
+            len(warmup_results) if warmup_results is not None else 0
+        )
 
     runs_ms: list[float] = []
     latest_report = None
@@ -166,6 +175,8 @@ def _benchmark(
         "schema_version": "foundation_gate_benchmark.v2",
         "repeat": repeat,
         "warmup": warmup,
+        "foundation_gate_warmup_statuses": warmup_statuses,
+        "foundation_gate_warmup_result_counts": warmup_result_counts,
         "foundation_gate_runs_ms": [round(value, 2) for value in runs_ms],
         "foundation_gate_best_ms": round(best_ms, 2),
         "foundation_gate_mean_ms": round(mean_ms, 2),

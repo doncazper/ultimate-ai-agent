@@ -8,7 +8,7 @@ from scripts.verification.verify_sbom_artifacts import _validate
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKOUT_REF = "actions/checkout@v4"
+CHECKOUT_REF = "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
 
 
 def test_supply_chain_workflow_is_hosted_locked_and_policy_compliant() -> None:

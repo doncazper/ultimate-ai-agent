@@ -24,6 +24,8 @@ provider, connector, production, billing, or AuthorityLease capability.
 - Python 3.12.10 and Node 22.23.1 are installed through exact
   repository-allowlisted revisions of `actions/setup-python` and
   `actions/setup-node`.
+- Every repository checkout uses the exact allowlisted
+  `actions/checkout@11d5960a326750d5838078e36cf38b85af677262` revision.
 - Frozen `uv` and npm locks remain mandatory. Actions cache and artifact
   upload/download services are not used.
 
@@ -91,11 +93,13 @@ failure behavior live in
 
 A pushed tag verifies the macOS package in a read-only, secret-free job and
 does not automatically publish a GitHub Release. Binary publication requires
-a maintainer-triggered `workflow_dispatch` with an explicit publish input. A
-separate write-scoped job runs only after read-only verification succeeds,
-then rebuilds and verifies the immutable tag before publication. Public source
-visibility and MIT licensing do not imply notarized binaries, public beta,
-production readiness, support guarantees, or runtime authority.
+a separately accepted isolated publisher that consumes commit-bound verified
+artifacts without executing tag code under write authority and provisions an
+ephemeral signing keychain/notary profile. The retained manual publication
+inputs fail closed until that lane exists. The hosted workflow has no write
+token or signing/notarization secrets. Public source visibility and MIT
+licensing do not imply notarized binaries, public beta, production readiness,
+support guarantees, or runtime authority.
 
 ## Verification
 

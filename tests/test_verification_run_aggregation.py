@@ -170,6 +170,7 @@ def _receipt(
             execution_surface_ref=SURFACE,
         ).identity_ref,
         executed_command_result_bindings=((unit.command_refs[0], result_ref),),
+        observed_platform_fingerprint=DIGEST,
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     return replace(

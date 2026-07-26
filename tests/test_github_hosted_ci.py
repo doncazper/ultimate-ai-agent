@@ -84,9 +84,10 @@ def test_hosted_toolchain_is_pinned_and_cacheless() -> None:
 
 def test_exact_head_and_evidence_contexts_are_preserved() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    checkout_count = workflow.count("uses: actions/checkout@v4")
+    checkout_count = workflow.count(verifier.CHECKOUT_ACTION)
 
     assert checkout_count > 0
+    assert workflow.count("uses: actions/checkout@") == checkout_count
     assert workflow.count("persist-credentials: false") == checkout_count
     assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count
     assert {job.job_ref for job in CI_JOB_GRAPH} == set(verifier.job_names(workflow))
@@ -124,18 +125,17 @@ def test_public_source_does_not_auto_publish_binary_releases() -> None:
     assert "permissions: {}\n" in workflow
     assert "  verify-source:\n" in workflow
     assert "    permissions:\n      contents: read\n" in workflow
-    assert "  build-and-publish:\n" in workflow
-    assert "    permissions:\n      contents: write\n" in workflow
+    assert "  build-and-publish:\n" not in workflow
+    assert "contents: write" not in workflow
+    assert "secrets." not in workflow
+    assert "GH_TOKEN" not in workflow
     assert "ref: ${{ github.workflow_sha }}" in workflow
     assert workflow.index("ref: ${{ github.workflow_sha }}") < workflow.index(
         "ref: refs/tags/${{ steps.source.outputs.tag }}"
     )
-    assert "needs: verify-source" in workflow
-    assert "github.event_name == 'workflow_dispatch'" in workflow
-    assert (
-        "if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true"
-        in workflow
-    )
+    assert "Reject unsupported hosted publication" in workflow
+    assert "inputs.publish_release == true" in workflow
+    assert "inputs.publish_installer_bootstrap == true" in workflow
     assert (
         "if: github.event_name == 'push' || inputs.publish_release == true"
         not in workflow

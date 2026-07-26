@@ -319,6 +319,35 @@ def _foundation_gate_latency_failures(
     max_mean_ms: float,
 ) -> list[str]:
     failures: list[str] = []
+    warmup = metrics.get("warmup", 0)
+    if not isinstance(warmup, int) or isinstance(warmup, bool) or warmup < 0:
+        failures.append("Foundation Gate warmup count is missing or malformed")
+        warmup = 0
+    if warmup:
+        warmup_statuses = metrics.get("foundation_gate_warmup_statuses")
+        warmup_result_counts = metrics.get("foundation_gate_warmup_result_counts")
+        if not isinstance(warmup_statuses, list) or len(warmup_statuses) != warmup:
+            failures.append("Foundation Gate warmup statuses are missing or malformed")
+        else:
+            for index, warmup_status in enumerate(warmup_statuses):
+                if warmup_status != "passed":
+                    failures.append(
+                        "Foundation Gate warmup "
+                        f"{index + 1} status is {warmup_status!r}, expected 'passed'"
+                    )
+        if (
+            not isinstance(warmup_result_counts, list)
+            or len(warmup_result_counts) != warmup
+            or any(
+                not isinstance(count, int)
+                or isinstance(count, bool)
+                or count <= 0
+                for count in warmup_result_counts
+            )
+        ):
+            failures.append(
+                "Foundation Gate warmup result counts are missing or malformed"
+            )
     best_ms = _float_or_none(metrics.get("foundation_gate_best_ms"))
     mean_ms = _float_or_none(metrics.get("foundation_gate_mean_ms"))
     status = str(metrics.get("foundation_gate_status", "unknown"))

@@ -343,6 +343,7 @@ def _receipt(
         typescript_version_ref=(
             typescript_version_ref if typescript_execution else None
         ),
+        observed_platform_fingerprint=DIGEST,
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     return replace(

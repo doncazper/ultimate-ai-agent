@@ -66,8 +66,9 @@ Adversarially review the diff for accidental authority, duplicate roadmaps,
 misleading product truth, unsafe durable content, and unrelated changes. Fix all
 actionable findings. Commit and push normally, then open a draft PR. While it is
 draft, complete local review and hardening. Mark it ready only after local checks
-pass; run only repository-scoped self-hosted macOS CI, never paid or GitHub-
-hosted compute. Merge only when required checks are green, update local `main`
+pass; run only repository-required GitHub-hosted CI on standard macOS runners,
+never paid larger runners or self-hosted compute. Merge only when required checks
+are green, update local `main`
 to the exact remote merge, run post-merge verification, push verified `main`,
 and confirm a clean worktree. Do not begin MSG-MX-001 before that proof.
 The post-merge push must be a synchronization no-op: local `main` and

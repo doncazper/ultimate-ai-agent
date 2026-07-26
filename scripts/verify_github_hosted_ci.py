@@ -26,6 +26,9 @@ MACOS_RELEASE_WORKFLOW = ROOT / ".github/workflows/macos-release.yml"
 CI_RUNNER_SELECTOR = "runs-on: macos-15"
 FORK_POLICY_RUNNER_SELECTOR = "runs-on: ubuntu-24.04"
 SETUP_TOOLCHAIN_ACTION = "uses: ./.github/actions/setup-toolchain"
+CHECKOUT_ACTION = (
+    "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+)
 FORBIDDEN_CI_FRAGMENTS = (
     "runs-on: [self-hosted",
     "self-hosted, macOS",
@@ -205,6 +208,11 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
         failures.append("every supply-chain job must use standard hosted macOS")
     if supply_chain.count(SETUP_TOOLCHAIN_ACTION) != 4:
         failures.append("every supply-chain job must use the pinned toolchain")
+    if (
+        supply_chain.count(CHECKOUT_ACTION) != 4
+        or supply_chain.count("uses: actions/checkout@") != 4
+    ):
+        failures.append("every supply-chain checkout must use the immutable revision")
     for fragment in (
         "uv sync --frozen --extra dev",
         "uv export --quiet --frozen --extra dev --no-emit-project",
@@ -231,28 +239,42 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
     for fragment in (
         CI_RUNNER_SELECTOR,
         SETUP_TOOLCHAIN_ACTION,
+        CHECKOUT_ACTION,
         "permissions: {}",
         "  verify-source:",
         "      contents: read",
-        "  build-and-publish:",
-        "      contents: write",
-        "needs: verify-source",
         "persist-credentials: false",
         "ref: ${{ github.workflow_sha }}",
         "refs/tags/${{ steps.source.outputs.tag }}",
-        "github.event_name == 'workflow_dispatch' && inputs.publish_release == true",
+        "Reject unsupported hosted publication",
+        "inputs.publish_release == true",
+        "inputs.publish_installer_bootstrap == true",
     ):
         if fragment not in macos_release:
             failures.append(
-                "macOS release workflow lost a hosted or manual-publish guard"
+                "macOS release workflow lost a hosted verification or publication block"
             )
+    if (
+        macos_release.count(CHECKOUT_ACTION) != 2
+        or macos_release.count("uses: actions/checkout@") != 2
+    ):
+        failures.append("every macOS release checkout must use the immutable revision")
     for forbidden in (
         "self-hosted",
         "taskpolicy",
+        "contents: write",
+        "build-and-publish",
+        "GH_TOKEN",
+        "github.token",
+        "secrets.",
+        "release create",
+        "release upload",
         "if: github.event_name == 'push' || inputs.publish_release == true",
     ):
         if forbidden in macos_release:
-            failures.append("tag verification must not auto-publish public binaries")
+            failures.append(
+                "hosted macOS verification must not receive publication authority"
+            )
 
     actionlint = (root / ACTIONLINT_CONFIG.relative_to(ROOT)).read_text(
         encoding="utf-8"
@@ -345,9 +367,11 @@ def verify(root: Path = ROOT) -> list[str]:
     ):
         failures.append("affected preflight must bind the exact comparison base")
 
-    checkout_count = workflow.count("uses: actions/checkout@v4")
+    checkout_count = workflow.count(CHECKOUT_ACTION)
     if checkout_count == 0:
         failures.append("CI workflow must check out the exact revision")
+    if workflow.count("uses: actions/checkout@") != checkout_count:
+        failures.append("every CI checkout must use the immutable revision")
     if workflow.count("persist-credentials: false") != checkout_count:
         failures.append("every checkout must avoid persisting GitHub credentials")
     if workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") != checkout_count:
