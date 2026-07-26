@@ -23,6 +23,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
+    DECLARED_RUNNER_PROFILE_ENV,
+    DECLARED_RUNNER_PROFILE_PATTERN,
     GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
     CI_JOB_GRAPH,
     VERIFICATION_DAG,
@@ -223,6 +225,11 @@ def _safe_env(
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     if visual_scope is not None:
         env["UAA_VERIFICATION_VISUAL_SCOPE"] = visual_scope
+    declared_runner_profile = os.environ.get(DECLARED_RUNNER_PROFILE_ENV)
+    if declared_runner_profile is not None:
+        if DECLARED_RUNNER_PROFILE_PATTERN.fullmatch(declared_runner_profile) is None:
+            raise ValueError("declared runner profile is invalid")
+        env[DECLARED_RUNNER_PROFILE_ENV] = declared_runner_profile
     if command.command_ref in {
         "command:frontend.check",
         "command:frontend.visual-regression",

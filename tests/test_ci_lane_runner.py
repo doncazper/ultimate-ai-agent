@@ -18,6 +18,7 @@ from scripts.verification import pytest_shard_processes as shard_processes
 from scripts.verification import run_ci_lane as runner
 from scripts.verification.ci_command_manifest import (
     CI_JOB_GRAPH,
+    DECLARED_RUNNER_PROFILE_ENV,
     CommandSpec,
     LaneSpec,
     build_plan,
@@ -116,6 +117,35 @@ def _write_pytest_performance_report(
         ),
         encoding="utf-8",
     )
+
+
+def test_safe_env_preserves_valid_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declared_profile = "github-hosted-macos-15-python-3.12.10-node-22.23.1"
+    monkeypatch.setenv(DECLARED_RUNNER_PROFILE_ENV, declared_profile)
+
+    env = runner._safe_env(
+        CommandSpec("command:test", ("true",), (), "test", 10),
+        tmp_path,
+        base_sha="a" * 40,
+    )
+
+    assert env[DECLARED_RUNNER_PROFILE_ENV] == declared_profile
+
+
+def test_safe_env_rejects_invalid_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DECLARED_RUNNER_PROFILE_ENV, "unsafe profile\nvalue")
+
+    with pytest.raises(ValueError, match="declared runner profile"):
+        runner._safe_env(
+            CommandSpec("command:test", ("true",), (), "test", 10),
+            tmp_path,
+        )
 
 
 def _patch_lane(
