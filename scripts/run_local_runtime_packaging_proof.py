@@ -18,9 +18,8 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from ultimate_ai_agent.core.build_identity import (  # noqa: E402
-    verified_clean_source_commit,
-)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts.dev.source_revision import verified_clean_source_commit  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 COMPOSE_FILE = ROOT / "packaging" / "local-runtime" / "compose.yaml"

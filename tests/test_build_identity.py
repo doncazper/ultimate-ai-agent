@@ -7,8 +7,8 @@ import pytest
 
 from ultimate_ai_agent.core.build_identity import (
     build_identity,
-    verified_clean_source_commit,
 )
+from scripts.dev.source_revision import verified_clean_source_commit
 
 
 def test_build_identity_prefers_explicit_release_binding(tmp_path: Path) -> None:

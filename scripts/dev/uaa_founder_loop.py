@@ -76,8 +76,8 @@ from ultimate_ai_agent.core.time import utc_now  # noqa: E402
 from ultimate_ai_agent.core.build_identity import (  # noqa: E402
     BUILD_COMMIT_ENV,
     build_identity,
-    verified_clean_source_commit,
 )
+from scripts.dev.source_revision import verified_clean_source_commit  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
