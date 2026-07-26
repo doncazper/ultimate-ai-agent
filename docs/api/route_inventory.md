@@ -686,14 +686,21 @@ perform unapproved connector writes.
 
 - `GET /control-center/setup-assistant/summary`
 
-This route returns the existing deterministic macOS Setup Assistant dry-run
-plan and approval-envelope metadata for read-only inspection. Dry-run
-approval-envelope hardening validates proposed setup action metadata only. It
-does not capture approval grants, create receipts or audit records, run
-installer actions, execute shell commands, download models, install/load/start
-LaunchAgents, install/load/start background services, handle credentials, claim
-signed installer readiness, claim public distribution, claim production
-readiness, or execute rollback.
+This route returns the deterministic macOS Setup Assistant dry-run plan,
+approval-envelope metadata, and typed lifecycle contract for read-only
+inspection. The lifecycle contract exposes every setup state plus plan, status,
+install, verify, repair, stop, rollback, and receipts operation posture.
+Plan/status/receipt inspection is available; every live operation is
+`blocked_by_authority`. The same Python Core contract is inspectable through
+`scripts/dev/uaa_setup_lifecycle.py`.
+
+Dry-run approval-envelope and lifecycle hardening validates proposed setup
+metadata only. It does not capture approval grants, create durable receipts or
+audit records, run installer actions, perform live health probes, launch or
+stop processes, execute shell commands, write files or credentials, download
+models, install/load/start LaunchAgents, install/load/start background
+services, handle credentials, claim signed installer readiness, claim public
+distribution, claim production readiness, or execute repair or rollback.
 
 ### Control Center Coding Cockpit
 

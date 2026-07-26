@@ -15607,6 +15607,110 @@ export type MacOSSetupStepStatus =
   | "blocked"
   | "manual_only";
 
+export type MacOSSetupLifecycleState =
+  | "prerequisites"
+  | "ready_to_install"
+  | "approval_required"
+  | "installing"
+  | "installed"
+  | "starting"
+  | "healthy"
+  | "degraded"
+  | "repairable"
+  | "stopping"
+  | "rollback_required"
+  | "rolled_back"
+  | "failed";
+
+export type MacOSSetupLifecycleOperationName =
+  | "plan"
+  | "status"
+  | "install"
+  | "verify"
+  | "repair"
+  | "stop"
+  | "rollback"
+  | "receipts";
+
+export type MacOSSetupLifecycleOperationStatus =
+  | "available_read_only"
+  | "blocked_by_authority";
+
+export interface MacOSSetupLifecycleOperation {
+  operation: MacOSSetupLifecycleOperationName;
+  commandRef: string;
+  status: MacOSSetupLifecycleOperationStatus;
+  currentState: MacOSSetupLifecycleState;
+  targetState: MacOSSetupLifecycleState;
+  safeSummary: string;
+  exactScopeRef: string;
+  approvalRef: string;
+  idempotencyKeyRef: string;
+  receiptRef: string;
+  rollbackRef: string;
+  safeDisableRef: string;
+  evidenceRefs: string[];
+  verifierRefs: string[];
+  reasonCodes: string[];
+  mutationRequired: boolean;
+  liveProbeRequired: boolean;
+  approvalRequired: boolean;
+  authorityGranted: boolean;
+  stateChangePerformed: boolean;
+  subprocessExecuted: boolean;
+  fileMutationPerformed: boolean;
+  processMutationPerformed: boolean;
+  credentialWritePerformed: boolean;
+  networkRequestPerformed: boolean;
+  receiptPersisted: boolean;
+}
+
+export interface MacOSSetupHealthContract {
+  contractRef: string;
+  status: "blocked_by_authority";
+  requiredCheckRefs: string[];
+  safeSummary: string;
+  processIdentityVerified: boolean;
+  apiManifestVersionVerified: boolean;
+  loopbackBindVerified: boolean;
+  controlCenterCompatibilityVerified: boolean;
+  forbiddenAuthorityAbsenceVerified: boolean;
+  liveProbePerformed: boolean;
+}
+
+export interface MacOSSetupLifecycleContract {
+  schemaVersion: string;
+  contractRef: string;
+  status: "blocked_by_authority";
+  currentState: MacOSSetupLifecycleState;
+  stateSequence: MacOSSetupLifecycleState[];
+  operations: MacOSSetupLifecycleOperation[];
+  healthContract: MacOSSetupHealthContract;
+  authorityPrerequisiteRef: string;
+  authorityStateRef: string;
+  pythonCoreServiceRef: string;
+  apiSurfaceRef: string;
+  cliSurfaceRef: string;
+  controlCenterSurfaceRef: string;
+  safeDisableRef: string;
+  rollbackContractRef: string;
+  receiptContractRef: string;
+  blockedReasonRefs: string[];
+  safeSummary: string;
+  activationAuthorized: boolean;
+  installationPerformed: boolean;
+  processLaunched: boolean;
+  healthProbePerformed: boolean;
+  repairPerformed: boolean;
+  stopPerformed: boolean;
+  rollbackPerformed: boolean;
+  fileMutationPerformed: boolean;
+  credentialWritePerformed: boolean;
+  subprocessExecuted: boolean;
+  liveNetworkRequestPerformed: boolean;
+  productionAuthorityEnabled: boolean;
+}
+
 export interface MacOSSetupAssistantStep {
   stepId: string;
   label: string;
@@ -15720,6 +15824,7 @@ export interface MacOSSetupAssistantData {
   localPackageProofStatus: string;
   localPackageProofRefs: string[];
   promotionPathRefs: string[];
+  lifecycle: MacOSSetupLifecycleContract;
   steps: MacOSSetupAssistantStep[];
   modelRecommendations: MacOSSetupModelRecommendation[];
   bridgePreviews: MacOSSetupBridgePreview[];

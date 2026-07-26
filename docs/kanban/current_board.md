@@ -58,6 +58,13 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+The Queue03 Phase03 Setup lifecycle foundation now adds the complete typed
+state sequence and plan/status/install/verify/repair/stop/rollback/receipts
+contracts across Python Core, the existing Setup summary API, repo-local CLI,
+and Control Center. Plan/status/receipt inspection is implemented.
+Installation, live probes, process control, file or credential mutation,
+repair, stop, and rollback remain `blocked_by_authority` until a separate exact
+setup mutation milestone is accepted; this does not call Setup complete.
 The Studio Skill Workbench now has a partial read-only implementation backed by
 a sanitized 31-record ClawHub and Hermes metadata snapshot. Discovery, filters,
 source signals, inspector-level source license detail, and pagination are

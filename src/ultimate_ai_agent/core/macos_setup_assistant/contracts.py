@@ -52,6 +52,38 @@ class MacOSSetupApprovalEnvelopeStatus(str, Enum):
     not_scoped = "not_scoped"
 
 
+class MacOSSetupLifecycleState(str, Enum):
+    prerequisites = "prerequisites"
+    ready_to_install = "ready_to_install"
+    approval_required = "approval_required"
+    installing = "installing"
+    installed = "installed"
+    starting = "starting"
+    healthy = "healthy"
+    degraded = "degraded"
+    repairable = "repairable"
+    stopping = "stopping"
+    rollback_required = "rollback_required"
+    rolled_back = "rolled_back"
+    failed = "failed"
+
+
+class MacOSSetupLifecycleOperationName(str, Enum):
+    plan = "plan"
+    status = "status"
+    install = "install"
+    verify = "verify"
+    repair = "repair"
+    stop = "stop"
+    rollback = "rollback"
+    receipts = "receipts"
+
+
+class MacOSSetupLifecycleOperationStatus(str, Enum):
+    available_read_only = "available_read_only"
+    blocked_by_authority = "blocked_by_authority"
+
+
 class _MacOSSetupModel(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=False)
 
@@ -338,6 +370,211 @@ class MacOSSetupApprovalEnvelope(_MacOSSetupModel):
         return self
 
 
+class MacOSSetupLifecycleOperation(_MacOSSetupModel):
+    operation: MacOSSetupLifecycleOperationName
+    command_ref: str
+    status: MacOSSetupLifecycleOperationStatus
+    current_state: MacOSSetupLifecycleState
+    target_state: MacOSSetupLifecycleState
+    safe_summary: str
+    exact_scope_ref: str
+    approval_ref: str
+    idempotency_key_ref: str
+    receipt_ref: str
+    rollback_ref: str
+    safe_disable_ref: str
+    evidence_refs: list[str]
+    verifier_refs: list[str]
+    reason_codes: list[str]
+    mutation_required: bool = False
+    live_probe_required: bool = False
+    approval_required: bool = False
+    authority_granted: bool = False
+    state_change_performed: bool = False
+    subprocess_executed: bool = False
+    file_mutation_performed: bool = False
+    process_mutation_performed: bool = False
+    credential_write_performed: bool = False
+    network_request_performed: bool = False
+    receipt_persisted: bool = False
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> Any:
+        for value, field_name in [
+            (self.command_ref, "command_ref"),
+            (self.exact_scope_ref, "exact_scope_ref"),
+            (self.approval_ref, "approval_ref"),
+            (self.idempotency_key_ref, "idempotency_key_ref"),
+            (self.receipt_ref, "receipt_ref"),
+            (self.rollback_ref, "rollback_ref"),
+            (self.safe_disable_ref, "safe_disable_ref"),
+        ]:
+            _validate_ref(value, field_name)
+        _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
+        self.evidence_refs = _validate_ref_list(self.evidence_refs, "evidence_ref")
+        self.verifier_refs = _validate_ref_list(self.verifier_refs, "verifier_ref")
+        self.reason_codes = [_validate_ref(value, "reason_code") for value in self.reason_codes]
+        read_only_operations = {
+            MacOSSetupLifecycleOperationName.plan,
+            MacOSSetupLifecycleOperationName.status,
+            MacOSSetupLifecycleOperationName.receipts,
+        }
+        if self.operation in read_only_operations:
+            if self.status != MacOSSetupLifecycleOperationStatus.available_read_only:
+                raise ValueError("MACOS_SETUP_LIFECYCLE_READ_ONLY_STATUS_REQUIRED")
+            if (
+                self.mutation_required
+                or self.live_probe_required
+                or self.approval_required
+            ):
+                raise ValueError("MACOS_SETUP_LIFECYCLE_READ_ONLY_OPERATION_MUST_BE_PASSIVE")
+        else:
+            if self.status != MacOSSetupLifecycleOperationStatus.blocked_by_authority:
+                raise ValueError("MACOS_SETUP_LIFECYCLE_BLOCKED_STATUS_REQUIRED")
+            if not self.approval_required:
+                raise ValueError("MACOS_SETUP_LIFECYCLE_APPROVAL_REQUIRED")
+            if "MACOS_SETUP_LIFECYCLE_AUTHORITY_NOT_GRANTED" not in self.reason_codes:
+                raise ValueError("MACOS_SETUP_LIFECYCLE_AUTHORITY_REASON_REQUIRED")
+        for field_name, reason in [
+            ("authority_granted", "MACOS_SETUP_LIFECYCLE_AUTHORITY_GRANT_DENIED"),
+            ("state_change_performed", "MACOS_SETUP_LIFECYCLE_STATE_CHANGE_DENIED"),
+            ("subprocess_executed", "MACOS_SETUP_LIFECYCLE_SUBPROCESS_DENIED"),
+            ("file_mutation_performed", "MACOS_SETUP_LIFECYCLE_FILE_MUTATION_DENIED"),
+            ("process_mutation_performed", "MACOS_SETUP_LIFECYCLE_PROCESS_MUTATION_DENIED"),
+            ("credential_write_performed", "MACOS_SETUP_LIFECYCLE_CREDENTIAL_WRITE_DENIED"),
+            ("network_request_performed", "MACOS_SETUP_LIFECYCLE_NETWORK_REQUEST_DENIED"),
+            ("receipt_persisted", "MACOS_SETUP_LIFECYCLE_RECEIPT_PERSISTENCE_DENIED"),
+        ]:
+            if getattr(self, field_name):
+                raise ValueError(reason)
+        return self
+
+
+class MacOSSetupHealthContract(_MacOSSetupModel):
+    contract_ref: str = "macos-setup-health-contract:v1"
+    status: str = "blocked_by_authority"
+    required_check_refs: list[str]
+    safe_summary: str
+    process_identity_verified: bool = False
+    api_manifest_version_verified: bool = False
+    loopback_bind_verified: bool = False
+    control_center_compatibility_verified: bool = False
+    forbidden_authority_absence_verified: bool = False
+    live_probe_performed: bool = False
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> Any:
+        _validate_ref(self.contract_ref, "contract_ref")
+        _validate_ref(self.status, "status")
+        self.required_check_refs = _validate_ref_list(
+            self.required_check_refs,
+            "required_check_ref",
+        )
+        _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
+        if self.status != "blocked_by_authority":
+            raise ValueError("MACOS_SETUP_HEALTH_CONTRACT_BLOCKED_STATUS_REQUIRED")
+        for field_name in [
+            "process_identity_verified",
+            "api_manifest_version_verified",
+            "loopback_bind_verified",
+            "control_center_compatibility_verified",
+            "forbidden_authority_absence_verified",
+            "live_probe_performed",
+        ]:
+            if getattr(self, field_name):
+                raise ValueError("MACOS_SETUP_HEALTH_PROOF_DENIED_WITHOUT_LIVE_PROBE")
+        return self
+
+
+class MacOSSetupLifecycleContract(_MacOSSetupModel):
+    schema_version: str = "macos_setup_lifecycle.v1"
+    contract_ref: str = "macos-setup-lifecycle-contract:v1"
+    status: str = "blocked_by_authority"
+    current_state: MacOSSetupLifecycleState = MacOSSetupLifecycleState.prerequisites
+    state_sequence: list[MacOSSetupLifecycleState]
+    operations: list[MacOSSetupLifecycleOperation]
+    health_contract: MacOSSetupHealthContract
+    authority_prerequisite_ref: str
+    authority_state_ref: str
+    python_core_service_ref: str
+    api_surface_ref: str
+    cli_surface_ref: str
+    control_center_surface_ref: str
+    safe_disable_ref: str
+    rollback_contract_ref: str
+    receipt_contract_ref: str
+    blocked_reason_refs: list[str]
+    safe_summary: str
+    activation_authorized: bool = False
+    installation_performed: bool = False
+    process_launched: bool = False
+    health_probe_performed: bool = False
+    repair_performed: bool = False
+    stop_performed: bool = False
+    rollback_performed: bool = False
+    file_mutation_performed: bool = False
+    credential_write_performed: bool = False
+    subprocess_executed: bool = False
+    live_network_request_performed: bool = False
+    production_authority_enabled: bool = False
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> Any:
+        for value, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.contract_ref, "contract_ref"),
+            (self.status, "status"),
+            (self.authority_prerequisite_ref, "authority_prerequisite_ref"),
+            (self.authority_state_ref, "authority_state_ref"),
+            (self.python_core_service_ref, "python_core_service_ref"),
+            (self.api_surface_ref, "api_surface_ref"),
+            (self.cli_surface_ref, "cli_surface_ref"),
+            (self.control_center_surface_ref, "control_center_surface_ref"),
+            (self.safe_disable_ref, "safe_disable_ref"),
+            (self.rollback_contract_ref, "rollback_contract_ref"),
+            (self.receipt_contract_ref, "receipt_contract_ref"),
+        ]:
+            _validate_ref(value, field_name)
+        _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
+        self.blocked_reason_refs = _validate_ref_list(
+            self.blocked_reason_refs,
+            "blocked_reason_ref",
+        )
+        if self.status != "blocked_by_authority":
+            raise ValueError("MACOS_SETUP_LIFECYCLE_BLOCKED_STATUS_REQUIRED")
+        if self.current_state != MacOSSetupLifecycleState.prerequisites:
+            raise ValueError("MACOS_SETUP_LIFECYCLE_PREREQUISITES_STATE_REQUIRED")
+        if self.state_sequence != list(MacOSSetupLifecycleState):
+            raise ValueError("MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE_REQUIRED")
+        if [operation.operation for operation in self.operations] != list(
+            MacOSSetupLifecycleOperationName
+        ):
+            raise ValueError("MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE_REQUIRED")
+        for field_name, reason in [
+            ("activation_authorized", "MACOS_SETUP_LIFECYCLE_ACTIVATION_DENIED"),
+            ("installation_performed", "MACOS_SETUP_LIFECYCLE_INSTALLATION_DENIED"),
+            ("process_launched", "MACOS_SETUP_LIFECYCLE_PROCESS_LAUNCH_DENIED"),
+            ("health_probe_performed", "MACOS_SETUP_LIFECYCLE_HEALTH_PROBE_DENIED"),
+            ("repair_performed", "MACOS_SETUP_LIFECYCLE_REPAIR_DENIED"),
+            ("stop_performed", "MACOS_SETUP_LIFECYCLE_STOP_DENIED"),
+            ("rollback_performed", "MACOS_SETUP_LIFECYCLE_ROLLBACK_DENIED"),
+            ("file_mutation_performed", "MACOS_SETUP_LIFECYCLE_FILE_MUTATION_DENIED"),
+            ("credential_write_performed", "MACOS_SETUP_LIFECYCLE_CREDENTIAL_WRITE_DENIED"),
+            ("subprocess_executed", "MACOS_SETUP_LIFECYCLE_SUBPROCESS_DENIED"),
+            (
+                "live_network_request_performed",
+                "MACOS_SETUP_LIFECYCLE_NETWORK_REQUEST_DENIED",
+            ),
+            (
+                "production_authority_enabled",
+                "MACOS_SETUP_LIFECYCLE_PRODUCTION_AUTHORITY_DENIED",
+            ),
+        ]:
+            if getattr(self, field_name):
+                raise ValueError(reason)
+        return self
+
+
 class MacOSSetupReceiptPlan(_MacOSSetupModel):
     receipt_plan_ref: str = "macos-setup-receipt-plan:foundation"
     audit_ref: str = "macos-setup-audit:foundation"
@@ -455,6 +692,7 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
         ],
         min_length=1,
     )
+    lifecycle: MacOSSetupLifecycleContract
     native_macos_app_ready: bool = False
     control_center_preview_ready: bool = True
     setup_question_assistant_enabled: bool = False

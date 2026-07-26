@@ -4,12 +4,22 @@ from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
     MacOSSetupAssistantPlan,
     MacOSSetupBridgePreview,
     MacOSSetupHardwareProfile,
+    MacOSSetupHealthContract,
+    MacOSSetupLifecycleContract,
+    MacOSSetupLifecycleOperation,
+    MacOSSetupLifecycleOperationName,
+    MacOSSetupLifecycleOperationStatus,
+    MacOSSetupLifecycleState,
     MacOSSetupModelRecommendation,
     MacOSSetupReceiptPlan,
     MacOSSetupRollbackPlan,
     MacOSSetupStep,
     MacOSSetupStepKind,
     MacOSSetupStepStatus,
+)
+from ultimate_ai_agent.core.macos_setup_assistant.lifecycle import (
+    build_macos_setup_lifecycle_contract,
+    inspect_macos_setup_lifecycle_operation,
 )
 from ultimate_ai_agent.core.macos_setup_assistant.planner import (
     build_default_macos_setup_assistant_plan,
@@ -22,6 +32,12 @@ __all__ = [
     "MacOSSetupApprovalEnvelopeStatus",
     "MacOSSetupBridgePreview",
     "MacOSSetupHardwareProfile",
+    "MacOSSetupHealthContract",
+    "MacOSSetupLifecycleContract",
+    "MacOSSetupLifecycleOperation",
+    "MacOSSetupLifecycleOperationName",
+    "MacOSSetupLifecycleOperationStatus",
+    "MacOSSetupLifecycleState",
     "MacOSSetupModelRecommendation",
     "MacOSSetupReceiptPlan",
     "MacOSSetupRollbackPlan",
@@ -29,5 +45,7 @@ __all__ = [
     "MacOSSetupStepKind",
     "MacOSSetupStepStatus",
     "build_default_macos_setup_assistant_plan",
+    "build_macos_setup_lifecycle_contract",
+    "inspect_macos_setup_lifecycle_operation",
     "recommend_local_model_options",
 ]

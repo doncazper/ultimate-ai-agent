@@ -12,6 +12,9 @@ from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
     MacOSSetupStepKind,
     MacOSSetupStepStatus,
 )
+from ultimate_ai_agent.core.macos_setup_assistant.lifecycle import (
+    build_macos_setup_lifecycle_contract,
+)
 
 
 def recommend_local_model_options(
@@ -73,6 +76,7 @@ def build_default_macos_setup_assistant_plan(
 ) -> MacOSSetupAssistantPlan:
     steps = _default_steps()
     return MacOSSetupAssistantPlan(
+        lifecycle=build_macos_setup_lifecycle_contract(),
         steps=steps,
         model_recommendations=recommend_local_model_options(hardware_profile),
         bridge_previews=_bridge_previews(),

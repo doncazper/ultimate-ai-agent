@@ -20,6 +20,8 @@ def test_default_macos_setup_assistant_plan_is_dry_run_only() -> None:
     assert plan.disabled_by_default is True
     assert plan.native_macos_app_ready is False
     assert plan.installer_side_effects_enabled is False
+    assert plan.lifecycle.status == "blocked_by_authority"
+    assert plan.lifecycle.current_state.value == "prerequisites"
     assert plan.setup_question_assistant_enabled is False
     assert plan.model_output_authoritative is False
     assert "daily loop" in plan.full_strength_goal

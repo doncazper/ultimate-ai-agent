@@ -13885,6 +13885,30 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Local package proof")).toBeInTheDocument();
     expect(screen.getByText("Exact promotion path")).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: /Setup lifecycle contract/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked_by_authority").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("available_read_only").length).toBe(3);
+    expect(screen.getByText("ready_to_install")).toBeInTheDocument();
+    expect(screen.getByText("rollback_required")).toBeInTheDocument();
+    expect(
+      screen.getByText("repo-local-command:macos-setup-lifecycle"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python-core-service:macos-setup-lifecycle"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Required live health proof/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("health-check-ref:setup-process-identity"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("health-check-ref:setup-forbidden-authority-absent"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("packaging-proof:local-macos-app-bundle"),
     ).toBeInTheDocument();
     expect(
@@ -14016,6 +14040,12 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^install$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^repair$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^rollback$/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^approve$/i }),

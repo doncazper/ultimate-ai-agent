@@ -1,6 +1,7 @@
 # UAA macOS Setup Assistant Plan
 
-Status: first foundation slice for review.
+Status: Queue03 Phase03 lifecycle foundation implemented; live activation
+blocked by authority.
 
 ## Product Intent
 
@@ -14,16 +15,59 @@ mutation is allowed.
 ## Current Slice
 
 This slice adds dry-run setup contracts, approval-envelope metadata for every
-approval-required setup step, and a read-only Control Center preview. Approval
-envelopes validate exact proposed setup action refs, safe approval scope refs,
-receipt/audit/latency refs, rollback refs, idempotency refs, stale-state
-handling, and denied side-effect flags for review only. They do not authorize or
-perform installer execution, signed or notarized installer readiness, public
-distribution, production readiness, model selection persistence, model
-downloads, LaunchAgent installation/load/start, background-service
-installation/load/start, bridge enablement, provider/model calls, credential
-capture, shell/subprocess execution, receipt persistence, audit persistence,
-rollback execution, or production authority.
+approval-required setup step, a typed lifecycle foundation, and a read-only
+Control Center preview. The lifecycle foundation names every required state
+from `prerequisites` through `failed`, the shared Python Core service, the CLI,
+API, and Control Center surfaces, the complete future health-proof envelope,
+and exact receipt, idempotency, rollback, and safe-disable refs.
+
+`plan`, `status`, and `receipts` are safe-ref-only inspection commands.
+`install`, `verify`, `repair`, `stop`, and `rollback` return
+`blocked_by_authority` and perform no file, process, credential, network, or
+subprocess action. Approval envelopes validate exact proposed setup action
+refs, safe approval scope refs, receipt/audit/latency refs, rollback refs,
+idempotency refs, stale-state handling, and denied side-effect flags for review
+only. They do not authorize or perform installer execution, signed or notarized
+installer readiness, public distribution, production readiness, model
+selection persistence, model downloads, LaunchAgent installation/load/start,
+background-service installation/load/start, bridge enablement, provider/model
+calls, credential capture, shell/subprocess execution, receipt persistence,
+audit persistence, rollback execution, or production authority.
+
+## Queue03 Phase03 Authority-Blocked Lifecycle Foundation
+
+Implemented:
+
+- typed lifecycle states: prerequisites, ready to install, approval required,
+  installing, installed, starting, healthy, degraded, repairable, stopping,
+  rollback required, rolled back, and failed;
+- typed operation contracts for plan, status, install, verify, repair, stop,
+  rollback, and receipts;
+- one Python Core lifecycle builder shared by the Setup API summary and
+  `scripts/dev/uaa_setup_lifecycle.py`;
+- human-readable CLI output plus safe-ref JSON inspection;
+- Control Center lifecycle, health-check, authority, receipt, rollback, and
+  safe-disable visibility without execution buttons; and
+- required future health proof for exact process identity, API
+  manifest/version, loopback bind, Control Center compatibility, and absence of
+  forbidden broad authority.
+
+Blocked by authority:
+
+- installation or mutation of any local artifact;
+- app, service, or LaunchAgent process launch/control;
+- live health or readiness probes;
+- repair, stop, and rollback execution;
+- credential writes; and
+- any claim that the unsigned package proof is installed, healthy,
+  distribution-ready, or production-ready.
+
+The blocking prerequisite is
+`authority-prerequisite:macos-setup-exact-lifecycle`. It must be replaced by a
+separate accepted mutation milestone with current PolicyEngine,
+LocalApprovalAuthority, AuthorityLease, exact artifact/process scope,
+idempotency, interruption recovery, rollback, safe-disable, redaction, and
+durable receipt proof before any blocked operation can be promoted.
 
 ## Beta 02 Setup Assistant And Local Package Hardening
 
@@ -85,7 +129,8 @@ Local package proof labels:
 2. Runtime health
    - Inspect existing `/health`, `/version`, `/runtime/readiness`, and
      `/runtime/capability-matrix` refs.
-   - No lifecycle controls are exposed.
+   - Typed lifecycle and health-proof contracts are visible, but no execution
+     control or live probe is exposed.
 3. Local model readiness
    - Show `/v1/models` and `/v1/chat/completions` as gated local UAA routes.
    - No prompt probe runs by default.
@@ -134,13 +179,17 @@ Local package proof labels:
 
 - Core contracts:
   - `src/ultimate_ai_agent/core/macos_setup_assistant/contracts.py`
+  - `src/ultimate_ai_agent/core/macos_setup_assistant/lifecycle.py`
   - `src/ultimate_ai_agent/core/macos_setup_assistant/planner.py`
+- CLI parity:
+  - `scripts/dev/uaa_setup_lifecycle.py`
 - Visual preview:
   - `apps/control-center/src/components/MacOSSetupAssistantPanel.tsx`
   - `apps/control-center/src/routes.tsx`
   - `apps/control-center/src/mocks/controlCenterData.ts`
 - Tests:
   - `tests/test_macos_setup_assistant.py`
+  - `tests/test_macos_setup_lifecycle.py`
   - `apps/control-center/src/App.test.tsx`
 
 ## Current UI Surface
@@ -150,8 +199,9 @@ yet contain a native macOS SwiftUI app. The Control Center panel is a product
 prototype and review surface for the future native window. It remains
 read-only, mock-backed when the local backend is unavailable, and non-authority.
 It can use `GET /control-center/setup-assistant/summary` when the local backend
-is available; the route returns the existing dry-run setup summary and does not
-execute installer actions.
+is available; the route returns the dry-run setup summary and embedded typed
+lifecycle contract and does not execute installer, probe, process, repair,
+stop, or rollback actions.
 
 ## Native macOS Direction
 
