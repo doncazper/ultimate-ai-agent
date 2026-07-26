@@ -17,24 +17,24 @@ or template for bypassing UAA governance.
 
 Front-door docs may lead with the Founder Command Center product loop when
 they also preserve this packet's implementation truth: implemented, partial,
-blocked, planned, and future-scoped states must remain explicit. The product
-narrative grants no runtime authority, connector authority, action execution,
-public beta, public release, public distribution, or production readiness
-claim.
+blocked, planned, and future-scoped states must remain explicit. The source
+repository is publicly available under the MIT License. That source visibility
+grants no runtime authority, connector authority, action execution, public
+beta, supported binary release, or production-readiness claim.
 
 Current hardening truth: production Control Center builds fail visibly instead
 of substituting mock data; the launcher no longer compiles a bearer through
 Vite; real Founder Loop SQLite/JSONL backup, verification, and offline restore
 are implemented with integrity, low-disk, interruption, and unknown-schema
 checks; the API and Control Center expose a separate build/commit/storage/
-capability identity; repository-scoped self-hosted CI installs the frozen lock
-and adds audit, SBOM, property, mutation, and packaged-app evidence. CodeQL
+capability identity; standard ephemeral GitHub-hosted CI installs the frozen
+lock and adds audit, SBOM, property, mutation, and packaged-app evidence. CodeQL
 analysis remains blocked by the current action allow-policy. The global idempotency boundary
 is explicitly header-shape-only unless an exact route names a durable receipt
 owner. The independent external review record, distribution-grade native
 credential bootstrap, dedicated support-export bundle, and full hotspot
-partitioning remain incomplete, so public distribution and production
-readiness remain blocked. Evidence and exit criteria live in
+partitioning remain incomplete, so supported binary distribution and
+production readiness remain blocked. Evidence and exit criteria live in
 `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`.
 
 Current macOS installer truth: a first-class private/local arm64 distribution
@@ -44,7 +44,7 @@ Release descriptors govern stable/dev selection; the default channel compares
 their tag commit timestamps. Install/update is checksum- and file-inventory
 verified, code-signature checked, atomic, idempotent, rollback-aware, and
 safe-ref receipted. App open checks for updates and continues the verified
-installed version when the private GitHub catalog is unavailable. Local arm64
+installed version when the GitHub catalog is unavailable. Local arm64
 build/install/Finder launch/API/UI/rollback evidence passes. Developer ID
 signing, Apple notarization, Intel end-to-end proof, public distribution, and
 production readiness remain blocked. Evidence:

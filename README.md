@@ -8,11 +8,12 @@ policy, approval, redaction, and verification boundaries.
 
 Current active baseline: **v0.104.0**. Package version: **0.104.0**.
 
-This repository is a public portfolio view of active local-first product
-infrastructure. It demonstrates contract-first AI engineering, product
-judgment, governance boundaries, and evidence-backed iteration. It is not a
-production autonomous agent platform, public beta, public release, public
-distribution, or broad-authority runtime.
+This repository is open-source under the
+[MIT License](LICENSE). It is a public portfolio view of active local-first
+product infrastructure and demonstrates contract-first AI engineering,
+product judgment, governance boundaries, and evidence-backed iteration. Public
+source availability is not a production autonomous agent platform, public
+beta, supported binary release, or broad-authority runtime claim.
 
 ## Portfolio Snapshot
 

@@ -112,7 +112,13 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
         argv[argv.index("--write-timings-json") + 1]
         == "{temp_root}/uaa_pytest_file_timings.json"
     )
-    assert "/usr/sbin/taskpolicy -c utility" in shards
+    assert "runs-on: macos-15" in shards
+    assert (
+        '--verification-execution-fence-root "$RUNNER_TEMP/'
+        'uaa-verification-execution-fence-v2"'
+        in shards
+    )
+    assert "/usr/sbin/taskpolicy" not in shards
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in shards
     assert 'kill -TERM "$shard_runner_pid"' in shards
     assert "for _ in {1..100}" in shards

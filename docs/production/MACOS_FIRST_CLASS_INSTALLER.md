@@ -116,7 +116,7 @@ failure as permission to install an unverified archive.
 - No valid Developer ID Application identity is installed.
 - No Apple notarization profile is configured.
 - Source implementation alone does not prove an app or `uaa-installer-v1`
-  GitHub Release exists; inspect the private repository release catalog and
+  GitHub Release exists; inspect the repository release catalog and
   workflow receipts for current publication state.
 - Intel contracts and pinned runtime exist, but the release workflow and local
   end-to-end proof are arm64-only.

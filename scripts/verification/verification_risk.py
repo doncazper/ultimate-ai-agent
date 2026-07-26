@@ -91,7 +91,7 @@ CRITICAL_EXACT_PATHS = (
     "scripts/run_foundation_gate.py",
     "scripts/verify_all.py",
     "scripts/verify_release_lanes.py",
-    "scripts/verify_self_hosted_macos_ci.py",
+    "scripts/verify_github_hosted_ci.py",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
 )

@@ -116,26 +116,23 @@ self-hosted suite job and a stable aggregate `pytest` check; `make
 verify` runs the same complete pytest posture plus the release-grade local gate
 sequence.
 
-The current private-repository workflow schedules those named jobs only on the
-repo-scoped self-hosted Apple Silicon runner pool described in
-`docs/developer/SELF_HOSTED_MACOS_CI.md`. This preserves the named lane and
-eight-shard evidence contract without consuming GitHub-hosted runner minutes.
-Fork pull requests cannot schedule local jobs, the workflow token is read-only,
-checkout credentials are not persisted, and GitHub Actions caches and uploaded
-artifacts are intentionally absent. Self-hosting changes only CI compute; it
-does not grant runtime authority or imply release readiness.
-Python 3.12 and Node 22 are provisioned as shared read-only Homebrew toolchains;
-the workflow intentionally avoids setup actions whose macOS installation path
-would require host-level privileges unavailable to the non-admin runner.
+The current workflow schedules those named jobs only on standard ephemeral
+GitHub-hosted runners described in
+`docs/developer/GITHUB_HOSTED_CI.md`. This preserves the named lane and
+eight-shard/four-worker evidence contract. Approved fork pull requests run only
+on fresh hosted machines with a read-only token and no repository secrets.
+Checkout credentials are not persisted, and GitHub Actions caches and uploaded
+artifacts are intentionally absent. Hosted execution changes only CI compute;
+it does not grant runtime authority or imply release readiness. Python 3.12 and
+Node 22 come from the repository-allowlisted setup actions.
 
-The bounded fallback described in
-`docs/developer/SELF_HOSTED_MACOS_CI.md` may diagnose an exact pushed SHA in a
-standalone credential-free clone when GitHub infrastructure is explicitly
-blocked. It runs affected/focused checks and exact failed-shard reproduction,
-not the complete pytest or matching TypeScript gate. Its content-free receipt
-is local diagnostic evidence only. A final green GitHub run on the same exact
-SHA and canonical manifest version remains mandatory for merge. Missing or
-partial GitHub job evidence fails closed and cannot classify a code failure as
+The bounded local fallback may diagnose an exact pushed SHA in a standalone
+credential-free clone when GitHub infrastructure is explicitly blocked. It
+runs affected/focused checks and exact failed-shard reproduction, not the
+complete pytest or matching TypeScript gate. Its content-free receipt is local
+diagnostic evidence only. A final green hosted run on the same exact SHA and
+canonical manifest version remains mandatory for merge. Missing or partial
+GitHub job evidence fails closed and cannot classify a code failure as
 infrastructure.
 
 `verify-dev-sharded` and `verify-local` expose the readable local/dev runner. It uses

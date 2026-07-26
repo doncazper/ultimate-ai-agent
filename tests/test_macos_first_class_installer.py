@@ -633,7 +633,8 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     for step in publish_steps:
         assert step["env"]["GH_CLI"] == "${{ steps.github_cli.outputs.path }}"
         assert '"$GH_CLI" release' in step["run"]
-    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
+    assert "runs-on: macos-15" in workflow
+    assert "uses: ./.github/actions/setup-toolchain" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
     )

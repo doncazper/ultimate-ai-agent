@@ -92,9 +92,10 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
     jobs = {job.job_ref: job for job in manifest.CI_JOB_GRAPH}
 
     assert inventory["current_profile_ref"] == (
-        "ci-architecture:exact-head-evidence-dag-v1"
+        "ci-architecture:exact-head-evidence-dag-v2-hosted"
     )
-    assert inventory["runner_service_count"] == 4
+    assert inventory["runner_posture"] == "ephemeral_standard_github_hosted"
+    assert inventory["runner_labels"] == ("macos-15", "ubuntu-24.04")
     assert inventory["pytest_shard_count"] == 8
     assert inventory["pytest_worker_count"] == 4
     assert inventory["required_check_contexts"] == tuple(
@@ -273,13 +274,13 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
         verify_repository_state=False,
     )
     assert plan.schema_version == manifest.SCHEMA_VERSION
-    assert plan.schema_version == "uaa_ci_command_manifest.v3"
+    assert plan.schema_version == "uaa_ci_command_manifest.v4"
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
     assert plan.selected_command_refs[0:4] == (
         "command:ci.manifest-attestation",
         "command:ci.ruff",
-        "command:ci.self-hosted-contract",
+        "command:ci.github-hosted-contract",
         "command:affected.preflight",
     )
     assert "command:pytest.sharded-suite" in plan.selected_command_refs

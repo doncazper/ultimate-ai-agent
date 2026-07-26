@@ -225,7 +225,11 @@ def aggregate_verification_run(
     validate_verification_dag(canonical_units)
     if (
         plan.schema_version
-        not in {"uaa_ci_command_manifest.v3", "uaa_verification_plan.v3"}
+        not in {
+            "uaa_ci_command_manifest.v4",
+            "uaa_ci_command_manifest.v3",
+            "uaa_verification_plan.v3",
+        }
         or plan.verification_dag_fingerprint
         != verification_dag_definition_fingerprint(canonical_units)
     ):

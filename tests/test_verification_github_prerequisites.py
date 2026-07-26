@@ -391,7 +391,15 @@ def test_exact_chain_derives_pytest_but_preserves_full_plan_blocked_truth() -> N
     } & set(json.loads(encoded))
 
 
-def test_canonical_ci_manifest_v3_plan_is_supported() -> None:
+def test_canonical_ci_manifest_v4_plan_is_supported() -> None:
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
+
+    result = collect_foundation_prerequisites(plan, _envelopes(plan))
+
+    assert result.manifest.plan_fingerprint == plan.plan_fingerprint
+
+
+def test_canonical_ci_manifest_v3_plan_remains_supported() -> None:
     plan = _plan(schema_version="uaa_ci_command_manifest.v3")
 
     result = collect_foundation_prerequisites(plan, _envelopes(plan))
@@ -612,7 +620,7 @@ def test_cli_aggregate_writes_one_owner_safe_github_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
@@ -652,7 +660,7 @@ def test_cli_foundation_manifest_and_loader_bind_the_exact_local_plan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = _plan(
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
         base_sha="d" * 40,
     )
     observed_reconstruction: list[tuple[str, str]] = []
@@ -728,7 +736,7 @@ def test_loader_recomputes_receipts_instead_of_trusting_content_refs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
@@ -812,7 +820,7 @@ def test_cli_owner_safe_outputs_reject_symlinks_and_unsafe_modes(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
@@ -866,7 +874,7 @@ def test_github_output_append_is_bounded_and_preserves_existing_entries(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     monkeypatch.setattr(
         prerequisites,
         "_reconstruct_plan",
@@ -984,7 +992,7 @@ def _replace_binding(
 def test_final_ci_evidence_dag_accepts_only_the_complete_exact_ordered_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
 
@@ -1007,7 +1015,7 @@ def test_final_ci_evidence_dag_accepts_only_the_complete_exact_ordered_head(
 def test_final_ci_evidence_dag_validates_present_typed_optional_envelopes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     optional = (
         "release-lane-desktop-packaging="
@@ -1035,7 +1043,7 @@ def test_final_ci_evidence_dag_rejects_every_non_success_terminal_result(
     monkeypatch: pytest.MonkeyPatch,
     result_status: str,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
     tampered = (*results[:-1], f"release-lane-performance={result_status}")
@@ -1068,7 +1076,7 @@ def test_final_ci_evidence_dag_rejects_arity_order_and_substitution(
     mutation: str,
     reason_ref: str,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
     if mutation == "missing":
@@ -1103,10 +1111,10 @@ def test_final_ci_evidence_dag_rejects_arity_order_and_substitution(
 def test_final_ci_evidence_dag_rejects_cross_plan_recomputed_envelopes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     other_plan = _plan(
         repository_sha="c" * 40,
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
     )
     results, envelopes = _final_gate_bindings(plan)
     other_envelope = _encoded(other_plan, "manifest-attestation")
@@ -1130,7 +1138,7 @@ def test_final_ci_evidence_dag_rejects_cross_plan_recomputed_envelopes(
 def test_final_ci_evidence_dag_redacts_plan_reconstruction_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
 
     def fail_plan(*_args: object, **_kwargs: object) -> VerificationPlan:
@@ -1155,7 +1163,7 @@ def test_final_ci_evidence_dag_redacts_plan_reconstruction_failures(
 def test_final_ci_evidence_dag_redacts_typescript_plan_binding_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
 
     def fail_plan(*_args: object, **_kwargs: object) -> VerificationPlan:
@@ -1180,7 +1188,7 @@ def test_final_ci_evidence_dag_redacts_typescript_plan_binding_failures(
 def test_final_ci_evidence_dag_rejects_recomputed_noncanonical_unit_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     receipt = replace(
         _receipt(plan, "manifest-attestation"),
@@ -1217,7 +1225,7 @@ def test_final_ci_evidence_dag_rejects_recomputed_noncanonical_unit_receipt(
 def test_final_ci_evidence_dag_rejects_recomputed_typescript_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     substituted = _encoded(
         plan,
@@ -1254,7 +1262,7 @@ def test_final_ci_evidence_dag_rejects_recomputed_typescript_runtime(
 def test_final_ci_evidence_dag_rejects_same_plan_receipt_substitution_outside_aggregate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     substituted = _encoded(plan, "lint", output_digest="c" * 64)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
@@ -1276,7 +1284,7 @@ def test_final_ci_evidence_dag_rejects_same_plan_receipt_substitution_outside_ag
 def test_final_ci_evidence_dag_rejects_dependency_chronology_substitution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     substituted = _encoded(
         plan,
@@ -1303,7 +1311,7 @@ def test_final_ci_evidence_dag_rejects_dependency_chronology_substitution(
 def test_final_ci_evidence_dag_rejects_shortened_aggregate_dependency_span(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     pytest_binding = next(
         binding for binding in envelopes if binding.startswith("pytest=")
@@ -1375,7 +1383,7 @@ def test_final_ci_evidence_dag_rejects_shortened_aggregate_dependency_span(
 def test_final_ci_evidence_dag_seals_every_post_pytest_receipt_in_terminal_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     optional = _final_optional_bindings(plan)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
@@ -1409,7 +1417,7 @@ def test_final_ci_evidence_dag_seals_every_post_pytest_receipt_in_terminal_run(
 
 
 def test_foundation_receipt_completes_the_exact_terminal_run() -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     _results, envelopes = _final_gate_bindings(plan)
     optional = _final_optional_bindings(plan)
     decoded_by_unit = {
@@ -1455,7 +1463,7 @@ def test_final_ci_evidence_dag_rejects_required_command_as_optional_nonexecution
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = _plan(
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
         frontend_visual_scope="not_affected",
     )
     results, envelopes = _final_gate_bindings(plan)
@@ -1509,7 +1517,7 @@ def test_final_ci_evidence_dag_rejects_missing_typed_optional_contract_proof(
     optional_command_ref: str,
 ) -> None:
     plan = _plan(
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
         frontend_visual_scope="not_affected",
     )
     results, envelopes = _final_gate_bindings(plan)
@@ -1578,7 +1586,7 @@ def test_final_ci_evidence_dag_rejects_recomputed_optional_nonexecution_forgery(
     command_ref: str,
 ) -> None:
     plan = _plan(
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
         frontend_visual_scope="not_affected",
     )
     results, envelopes = _final_gate_bindings(plan)
@@ -1644,7 +1652,7 @@ def test_final_ci_evidence_dag_rejects_recomputed_optional_nonexecution_forgery(
 def test_final_ci_evidence_dag_rejects_fresh_frontend_execution_in_reuse_lane(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     fresh = _encoded(plan, "release-lane-frontend")
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
@@ -1666,7 +1674,7 @@ def test_final_ci_evidence_dag_rejects_fresh_frontend_execution_in_reuse_lane(
 def test_final_ci_evidence_dag_rejects_cross_receipt_frontend_reuse(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     wrong_source = _receipt(plan, "lint").receipt_ref
     substituted = _encoded(
@@ -1693,7 +1701,7 @@ def test_final_ci_evidence_dag_rejects_cross_receipt_frontend_reuse(
 def test_final_ci_evidence_dag_rejects_missing_affected_visual_envelope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan = _plan(schema_version="uaa_ci_command_manifest.v3")
+    plan = _plan(schema_version="uaa_ci_command_manifest.v4")
     results, envelopes = _final_gate_bindings(plan)
     monkeypatch.setattr(evidence_dag, "build_plan", lambda *_args, **_kwargs: plan)
 
@@ -1716,7 +1724,7 @@ def test_final_ci_evidence_dag_rejects_visual_envelope_when_not_affected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = _plan(
-        schema_version="uaa_ci_command_manifest.v3",
+        schema_version="uaa_ci_command_manifest.v4",
         frontend_visual_scope="not_affected",
     )
     results, envelopes = _final_gate_bindings(plan)

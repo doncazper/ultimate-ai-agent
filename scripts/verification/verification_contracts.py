@@ -44,6 +44,7 @@ SUPPORTED_PLAN_SCHEMA_VERSIONS = frozenset(
     {
         "uaa_ci_command_manifest.v2",
         "uaa_ci_command_manifest.v3",
+        "uaa_ci_command_manifest.v4",
         "uaa_verification_plan.v1",
         "uaa_verification_plan.v2",
         "uaa_verification_plan.v3",
@@ -402,6 +403,7 @@ class VerificationPlan:
         )
         _validate_unique_refs(self.selected_unit_refs, label="selected unit refs")
         if self.schema_version in {
+            "uaa_ci_command_manifest.v4",
             "uaa_ci_command_manifest.v3",
             "uaa_verification_plan.v3",
         }:
@@ -482,6 +484,7 @@ def verification_plan_payload(
 ) -> dict[str, Any]:
     excluded = set()
     if plan.schema_version not in {
+        "uaa_ci_command_manifest.v4",
         "uaa_ci_command_manifest.v3",
         "uaa_verification_plan.v3",
     }:

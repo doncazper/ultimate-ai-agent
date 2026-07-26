@@ -11,6 +11,11 @@ Historical release tags are immutable audit records. Do not delete, move,
 retarget, or force-push existing tags without a separate explicit remote-repair
 approval. The historical v2.0.0 label is not the current baseline.
 
+The source repository is public under the MIT License. Public source visibility
+does not grant public beta, supported binary distribution, production
+readiness, runtime, provider, model, browser, connector, shell, billing, or
+standing authority.
+
 ## Current Strategic Priority
 
 Use the accepted `UAA-P1-011` readable-loop baseline as the product spine, then
@@ -50,8 +55,8 @@ Planning references:
 - Do not add web fetching.
 - Do not add provider SDK calls, browser automation, unrestricted
   shell/subprocess execution, plugin runtime import, connector writes, mobile
-  sensor/control runtime, remote execution, public distribution, public beta,
-  or production authority unless a later accepted scoped milestone grants the
+  sensor/control runtime, remote execution, public beta, supported binary
+  distribution, or production authority unless a later accepted scoped milestone grants the
   exact authority with tests and rollback/safe-disable plans.
 - Do not treat model/provider/OpenWebUI/runtime output, memory recall, or
   preview output as production authority.

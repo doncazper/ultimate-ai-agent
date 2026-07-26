@@ -145,8 +145,8 @@ blocked, planned, and future-scoped states distinct.
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
 | Verification architecture, maintainability, and independent hardening | `docs/verification/RISK_BASED_VERIFICATION_ARCHITECTURE.md`, `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
-| Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
-| Release evidence and exact-head CI DAG | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/developer/SELF_HOSTED_MACOS_CI.md`, `docs/developer/CI_EVIDENCE_DAG_ARCHITECTURE.md` |
+| Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md`, `docs/security/PUBLIC_SOURCE_READINESS_AUDIT.md` |
+| Release evidence and exact-head CI DAG | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/developer/GITHUB_HOSTED_CI.md`, `docs/developer/CI_EVIDENCE_DAG_ARCHITECTURE.md` |
 | Governed web evidence and WebAccess runtime authority | `docs/truth/GOVERNED_WEB_EVIDENCE.md`, `docs/network/WEB_ACCESS_GATEWAY.md`, `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`, `docs/network/SEARXNG_FIRECRAWL_HYBRID_IMPLEMENTATION_PLAN.md`, `docs/prompts/web_hybrid/00_execute_searxng_firecrawl_hybrid_end_to_end.prompt.md`, `docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md` |
 | Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
@@ -533,6 +533,7 @@ docs/cua/cua_release_surface_manifest.json
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/kanban/current_board.md
 docs/security/SECURITY_TRIAGE_RUNBOOK.md
+docs/security/PUBLIC_SOURCE_READINESS_AUDIT.md
 docs/archive/README.md
 docs/archive/releases/v0_104_0/README_IMPORT.md
 docs/archive/releases/v0_104_0/master_plan.md
@@ -1451,6 +1452,7 @@ Mobile Companion and Device Capability Broker docs are planning only. No mobile 
 
 ```text
 docs/security/approval_authority.md
+docs/security/PUBLIC_SOURCE_READINESS_AUDIT.md
 docs/canonical/23_security_threat_model.md
 docs/canonical/24_data_lifecycle_and_privacy.md
 docs/canonical/30_agent_constitution.md

@@ -302,6 +302,7 @@ def build_github_plan_binding(plan: VerificationPlan) -> VerificationGithubPlanB
     except ValueError:
         _fail("reason-ref:github-transport:contract-invalid")
     if plan.schema_version not in {
+        "uaa_ci_command_manifest.v4",
         "uaa_ci_command_manifest.v3",
         "uaa_verification_plan.v3",
     }:

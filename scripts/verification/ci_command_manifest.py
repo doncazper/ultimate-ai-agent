@@ -50,17 +50,17 @@ from scripts.verification.verification_selection import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = "uaa_ci_command_manifest.v3"
-PROFILE_REF = "ci-profile:merge-macos-v1"
-MACHINE_PROFILE_REF = "machine-profile:macos-arm64-private"
+SCHEMA_VERSION = "uaa_ci_command_manifest.v4"
+PROFILE_REF = "ci-profile:merge-github-hosted-v1"
+MACHINE_PROFILE_REF = "machine-profile:github-hosted-macos-15-standard"
 PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
 PLAYWRIGHT_BROWSER_DIRNAME = "playwright-browsers"
 GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS = 600
 PYTEST_JOB_SETUP_BUDGET_SECONDS = 900
 CI_MACHINE_CPU_BUDGET_UNITS = 4
 CI_MACHINE_MEMORY_BUDGET_UNITS = 4
-CI_RUNNER_SERVICE_COUNT = 4
-CI_ARCHITECTURE_PROFILE_REF = "ci-architecture:exact-head-evidence-dag-v1"
+CI_ARCHITECTURE_PROFILE_REF = "ci-architecture:exact-head-evidence-dag-v2-hosted"
+CI_HOSTED_RUNNER_LABELS = ("macos-15", "ubuntu-24.04")
 CI_RESOURCE_STAGE_CAPACITIES = {
     "resource-stage:bootstrap": 1,
     "resource-stage:pre-suite-pool": 4,
@@ -154,9 +154,9 @@ def command_registry() -> dict[str, CommandSpec]:
                 "lint",
                 300,
             ),
-            "command:ci.self-hosted-contract": CommandSpec(
-                "command:ci.self-hosted-contract",
-                (".venv/bin/python", "scripts/verify_self_hosted_macos_ci.py"),
+            "command:ci.github-hosted-contract": CommandSpec(
+                "command:ci.github-hosted-contract",
+                (".venv/bin/python", "scripts/verify_github_hosted_ci.py"),
                 (),
                 "lint",
                 120,
@@ -387,7 +387,7 @@ def lane_registry() -> dict[str, LaneSpec]:
             "ci-lint": LaneSpec(
                 "ci-lint",
                 "Lint and CI Contract",
-                ("command:ci.ruff", "command:ci.self-hosted-contract"),
+                ("command:ci.ruff", "command:ci.github-hosted-contract"),
             ),
             "ci-manifest-attestation": LaneSpec(
                 "ci-manifest-attestation",
@@ -445,7 +445,7 @@ def optional_nonexecution_reason_ref(
     ):
         return "reason-ref:visual-regression:not-affected"
     if command_ref == "command:desktop-packaging.proof":
-        return "reason-ref:self-hosted-runner-docker-unavailable"
+        return "reason-ref:github-hosted-macos-docker-unavailable"
     return None
 
 
@@ -876,7 +876,8 @@ def ci_architecture_inventory() -> dict[str, Any]:
         "schema_version": "uaa_ci_architecture_inventory.v1",
         "previous_profile_ref": "ci-architecture:serialized-post-pytest-v1",
         "current_profile_ref": CI_ARCHITECTURE_PROFILE_REF,
-        "runner_service_count": CI_RUNNER_SERVICE_COUNT,
+        "runner_posture": "ephemeral_standard_github_hosted",
+        "runner_labels": CI_HOSTED_RUNNER_LABELS,
         "machine_cpu_budget_units": CI_MACHINE_CPU_BUDGET_UNITS,
         "machine_memory_budget_units": CI_MACHINE_MEMORY_BUDGET_UNITS,
         "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
@@ -912,7 +913,7 @@ VERIFIER_DEFINITION_REFS = (
     "pyproject.toml",
     "scripts/run_foundation_gate.py",
     "scripts/ci/verify_with_fallback.py",
-    "scripts/verify_self_hosted_macos_ci.py",
+    "scripts/verify_github_hosted_ci.py",
     "scripts/verify_release_lanes.py",
     "scripts/verification/changed_path_selector.py",
     "scripts/verification/ci_command_manifest.py",
@@ -1082,8 +1083,6 @@ def validate_definition() -> list[str]:
             or job.memory_units > CI_MACHINE_MEMORY_BUDGET_UNITS
         ):
             failures.append(f"job exceeds machine resource budget: {job.job_ref}")
-    if CI_RUNNER_SERVICE_COUNT != CI_MACHINE_CPU_BUDGET_UNITS:
-        failures.append("runner service count must equal the machine CPU budget")
     jobs_by_ref = {job.job_ref: job for job in CI_JOB_GRAPH}
     for concurrency_set in CI_RESOURCE_CONCURRENCY_SETS:
         units = tuple(jobs_by_ref[unit_ref] for unit_ref in concurrency_set)

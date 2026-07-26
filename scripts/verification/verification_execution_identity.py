@@ -419,6 +419,7 @@ def build_verification_execution_identity(
     plan.validate()
     unit.validate()
     if plan.schema_version not in {
+        "uaa_ci_command_manifest.v4",
         "uaa_ci_command_manifest.v3",
         "uaa_verification_plan.v3",
     }:

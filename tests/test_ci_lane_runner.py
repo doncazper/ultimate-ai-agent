@@ -236,7 +236,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
             ),
         }
         for index, command_ref in enumerate(
-            ("command:ci.ruff", "command:ci.self-hosted-contract"), start=1
+            ("command:ci.ruff", "command:ci.github-hosted-contract"), start=1
         )
     ]
     legacy_receipt = {

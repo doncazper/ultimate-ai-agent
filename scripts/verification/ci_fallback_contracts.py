@@ -161,7 +161,7 @@ def has_valid_command_result_evidence(
             ),
             "command:desktop-packaging.proof": (
                 "skipped",
-                "reason-ref:self-hosted-runner-docker-unavailable",
+                "reason-ref:github-hosted-macos-docker-unavailable",
             ),
         }.get(command_ref)
         expected_ref = (

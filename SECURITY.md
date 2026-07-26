@@ -3,9 +3,10 @@
 Status: active public security posture for v0.104.0
 Program task: UAA-P0-003
 
-Ultimate AI Agent is a local-first alpha foundation, not a production service
-or public distribution. This policy explains how to report vulnerabilities and
-what security invariants maintainers use while triaging reports.
+Ultimate AI Agent is a public MIT-licensed source repository and a local-first
+alpha foundation, not a production service or supported binary distribution.
+This policy explains how to report vulnerabilities and what security
+invariants maintainers use while triaging reports.
 
 ## Supported Versions
 
@@ -14,8 +15,9 @@ what security invariants maintainers use while triaging reports.
 | `main` / v0.104.0 / package `0.104.0` | Supported for security review and fixes | Current active baseline plus accepted checkpoint-m169 and local model checkpoint-m166/checkpoint-m167 context. |
 | Historical release and checkpoint tags | Audit history only | Historical tags are not moved. Fixes land on current `main` unless a scoped maintenance decision says otherwise. |
 
-No public beta, signed release, external audit completion, production
-deployment, managed service, or public distribution is claimed by this policy.
+No supported public distribution is claimed by this policy. This policy does
+not claim public beta, a supported signed release, external audit completion,
+production deployment, a managed service, or production readiness.
 
 ## Reporting A Vulnerability
 
@@ -116,7 +118,7 @@ classification. These controls reduce exposure to an unrelated local webpage,
 but they do not protect against a compromised browser extension, same-user
 process inspection, debugging access, or a compromised local account. Native
 IPC or a short-lived origin-bound session bootstrapped from an appropriate
-Keychain boundary remains required before public distribution.
+Keychain boundary remains required before supported binary distribution.
 
 ## macOS Installer And Update Threat Model
 
@@ -141,9 +143,10 @@ Runtime inspection retains the existing managed Applications location even
 when the inspecting process has less write authority than the installer; it
 does not silently redirect an established install into a second user-local app.
 
-The private-repository token may come from an explicit updater environment
-slot or authenticated `gh`; UAA holds it in memory and excludes it from
-commands, durable state, status, receipts, and logs. This does not protect
+For a private fork, an optional repository token may come from an explicit
+updater environment slot or authenticated `gh`; UAA holds it in memory and
+excludes it from commands, durable state, status, receipts, and logs. The
+public upstream catalog does not require that token. Neither posture protects
 against compromise of the same user account or GitHub credential store.
 
 Ad-hoc signing supports local/private verification only. Public distribution

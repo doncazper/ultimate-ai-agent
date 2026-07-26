@@ -1,0 +1,15 @@
+name: Set up UAA CI toolchain
+description: Install the pinned Python and Node major versions used by UAA verification.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Set up Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"

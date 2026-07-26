@@ -38,7 +38,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
   UAA_MACOS_SIGNING_IDENTITY: ${{ secrets.UAA_MACOS_SIGNING_IDENTITY }}
   UAA_MACOS_NOTARY_PROFILE: ${{ secrets.UAA_MACOS_NOTARY_PROFILE }}
 
@@ -50,7 +50,7 @@ jobs:
   build-and-publish:
     if: github.repository == 'doncazper/ultimate-ai-agent'
     timeout-minutes: 90
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
 
     steps:
       - name: Resolve immutable source tag
@@ -81,6 +81,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: refs/tags/${{ steps.source.outputs.tag }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Bind channel and exact source identity
         id: identity
@@ -156,7 +159,7 @@ jobs:
 
       - name: Fetch pinned GitHub CLI
         id: github_cli
-        if: github.event_name == 'push' || inputs.publish_release == true || inputs.publish_installer_bootstrap == true
+        if: github.event_name == 'workflow_dispatch' && (inputs.publish_release == true || inputs.publish_installer_bootstrap == true)
         env:
           GH_CLI_VERSION: "2.96.0"
           GH_CLI_ARCHIVE_SHA256: "f23a0c37d963aacc3bed703ccbd59b41c5ca22101fab7f00eb2b7cad23aba463"
@@ -191,7 +194,7 @@ jobs:
           echo "path=$github_cli" >> "$GITHUB_OUTPUT"
 
       - name: Publish immutable app release
-        if: github.event_name == 'push' || inputs.publish_release == true
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
           GH_CLI: ${{ steps.github_cli.outputs.path }}
@@ -237,7 +240,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "${{ steps.identity.outputs.commit }}" \
               --title "Ultimate AI Agent macOS Installer v1" \
-              --notes "Long-lived private-repository installer bootstrap. It selects versioned app releases through their exact descriptors."
+              --notes "Long-lived macOS installer bootstrap. It selects versioned app releases through their exact descriptors."
           fi
           "$GH_CLI" release upload uaa-installer-v1 \
             --repo "$GITHUB_REPOSITORY" \
