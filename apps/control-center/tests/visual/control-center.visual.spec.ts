@@ -28,7 +28,7 @@ const surfaces = [
   { name: "trust", route: "/trust", critical: false },
   { name: "memory", route: "/memory", critical: true },
   { name: "evidence", route: "/evidence", critical: true },
-  { name: "settings", route: "/settings", critical: false },
+  { name: "settings", route: "/settings", critical: true },
   { name: "setup", route: "/setup", critical: true },
 ] as const;
 
