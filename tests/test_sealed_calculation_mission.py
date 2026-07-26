@@ -47,6 +47,7 @@ from ultimate_ai_agent.core.time import utc_now
 ROOT = Path(__file__).resolve().parents[1]
 SECCOMP_PROFILE = ROOT / "packaging" / "sealed-calculation" / "seccomp.json"
 EXPRESSION = "31415926 * 27182818 + 7"
+PYTEST_EXCLUSIVE_RESOURCE_SEALED_CALCULATION_DOCKER = True
 
 
 def _backend_or_skip(*, kill_switch=lambda: False, safe_disabled=lambda: False):

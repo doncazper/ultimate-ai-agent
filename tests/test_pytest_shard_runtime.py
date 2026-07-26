@@ -24,6 +24,22 @@ POSIX_CANCELLATION_SIGNALS = tuple(
 )
 
 
+def test_sealed_calculation_docker_tests_share_serialized_preflight() -> None:
+    files = runner.discover_test_files(ROOT)
+    serialized_groups = runner.discover_serialized_preflight_groups(files, ROOT)
+    consumers = {
+        "tests/test_sealed_calculation_cli.py",
+        "tests/test_sealed_calculation_isolation.py",
+        "tests/test_sealed_calculation_mission.py",
+    }
+
+    assert any(consumers.issubset(set(group)) for group in serialized_groups)
+    assert all(
+        "tests/test_sealed_calculation_packaging.py" not in group
+        for group in serialized_groups
+    )
+
+
 @pytest.mark.skipif(os.name != "posix", reason="signal mask proof is POSIX-only")
 def test_signal_handler_install_and_restore_transitions_are_atomic(
     monkeypatch: pytest.MonkeyPatch,

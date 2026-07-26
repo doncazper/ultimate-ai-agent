@@ -84,6 +84,13 @@ MATRIX_EXCLUSIVE_RESOURCE_TOKENS = (
     "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_LOOPBACK = True",
     "PYTEST_EXCLUSIVE_RESOURCE_MATRIX_NODE_RUNTIME = True",
 )
+SEALED_CALCULATION_DOCKER_EXCLUSIVE_RESOURCE_TOKENS = (
+    "PYTEST_EXCLUSIVE_RESOURCE_SEALED_CALCULATION_DOCKER = True",
+)
+SERIALIZED_PREFLIGHT_RESOURCE_TOKEN_GROUPS = (
+    MATRIX_EXCLUSIVE_RESOURCE_TOKENS,
+    SEALED_CALCULATION_DOCKER_EXCLUSIVE_RESOURCE_TOKENS,
+)
 MATRIX_LOOPBACK_TEST_HOST = "127.0.0.1"
 MATRIX_LOOPBACK_TEST_PORT = 18008
 
@@ -148,7 +155,9 @@ def discover_affinity_groups(
     files: list[str], root: Path = ROOT
 ) -> list[tuple[str, ...]]:
     foundation_consumers: list[str] = []
-    matrix_exclusive_resource_consumers: list[str] = []
+    serialized_resource_consumers: list[list[str]] = [
+        [] for _tokens in SERIALIZED_PREFLIGHT_RESOURCE_TOKEN_GROUPS
+    ]
     for file_path in files:
         try:
             source = (root / file_path).read_text(encoding="utf-8")
@@ -156,10 +165,15 @@ def discover_affinity_groups(
             continue
         if any(token in source for token in FOUNDATION_GATE_AFFINITY_TOKENS):
             foundation_consumers.append(file_path)
-        if any(token in source for token in MATRIX_EXCLUSIVE_RESOURCE_TOKENS):
-            matrix_exclusive_resource_consumers.append(file_path)
+        for consumers, tokens in zip(
+            serialized_resource_consumers,
+            SERIALIZED_PREFLIGHT_RESOURCE_TOKEN_GROUPS,
+            strict=True,
+        ):
+            if any(token in source for token in tokens):
+                consumers.append(file_path)
     groups: list[tuple[str, ...]] = []
-    for consumers in (foundation_consumers, matrix_exclusive_resource_consumers):
+    for consumers in (foundation_consumers, *serialized_resource_consumers):
         if len(consumers) > 1:
             groups.append(tuple(sorted(consumers)))
     return groups
@@ -169,7 +183,9 @@ def discover_serialized_preflight_groups(
     files: list[str],
     root: Path = ROOT,
 ) -> list[tuple[str, ...]]:
-    consumers: list[str] = []
+    consumers_by_resource: list[list[str]] = [
+        [] for _tokens in SERIALIZED_PREFLIGHT_RESOURCE_TOKEN_GROUPS
+    ]
     for file_path in files:
         try:
             source = (root / file_path).read_text(encoding="utf-8")
@@ -177,9 +193,18 @@ def discover_serialized_preflight_groups(
             raise ValueError(
                 "serialized preflight resource scan could not read a test file"
             ) from exc
-        if any(token in source for token in MATRIX_EXCLUSIVE_RESOURCE_TOKENS):
-            consumers.append(file_path)
-    return [tuple(sorted(consumers))] if consumers else []
+        for consumers, tokens in zip(
+            consumers_by_resource,
+            SERIALIZED_PREFLIGHT_RESOURCE_TOKEN_GROUPS,
+            strict=True,
+        ):
+            if any(token in source for token in tokens):
+                consumers.append(file_path)
+    return [
+        tuple(sorted(consumers))
+        for consumers in consumers_by_resource
+        if consumers
+    ]
 
 
 def _assignment_items(

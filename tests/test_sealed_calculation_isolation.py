@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.time import utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 SECCOMP_PROFILE = ROOT / "packaging" / "sealed-calculation" / "seccomp.json"
+PYTEST_EXCLUSIVE_RESOURCE_SEALED_CALCULATION_DOCKER = True
 
 
 class _InputPipe:
