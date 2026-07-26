@@ -140,6 +140,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/coding/test-command-readiness",
         "/control-center/evidence/timeline",
         "/control-center/actions/inbox",
+        "/control-center/backend-truth",
         "/control-center/morning-briefing/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
@@ -319,6 +320,32 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         "username",
     ]:
         assert forbidden not in serialized
+
+
+def test_backend_truth_route_is_revision_bound_read_only_and_redacted() -> None:
+    response = client.get("/control-center/backend-truth")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["operation"] == "control_center_backend_truth"
+    truth = payload["data"]
+    assert truth["schema_version"] == "uaa-control-center-backend-truth.v1"
+    assert len(truth["critical_surfaces"]) == 14
+    assert truth["safe_refs_only"] is True
+    assert truth["raw_content_included"] is False
+    assert truth["raw_paths_included"] is False
+    assert response.headers["X-UAA-Backend-Revision-Ref"] == truth[
+        "backend_revision_ref"
+    ]
+    assert response.headers["X-UAA-Backend-Instance-Ref"] == truth[
+        "backend_instance_ref"
+    ]
+    assert truth["authority_posture"]["control_center_grants_authority"] is False
+    assert truth["authority_posture"]["production_authority_enabled"] is False
+    assert payload["evidence"] == [
+        {"evidence_ref": truth["envelope_integrity_ref"]}
+    ]
 
 
 def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> None:
@@ -682,6 +709,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
         "/control-center/actions/preview",
+        "/control-center/backend-truth",
         "/control-center/turn-router/preview",
         "/control-center/today/summary",
         "/control-center/start-here/summary",

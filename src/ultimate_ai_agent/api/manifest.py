@@ -740,6 +740,7 @@ LOCAL_DEV_WORKSPACE_PREFIXES = (
     "/integrations/mattermost",
 )
 CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
+    "/control-center/backend-truth",
     "/control-center/chat",
     "/control-center/coding",
     "/control-center/start-here",

@@ -4,6 +4,12 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDirectory = fileURLToPath(new URL(".", import.meta.url));
+const configuredProxyTarget = process.env.VITE_UAA_PROXY_TARGET ?? "";
+const localProxyTarget = /^http:\/\/127\.0\.0\.1:\d{2,5}$/.test(
+  configuredProxyTarget,
+)
+  ? configuredProxyTarget
+  : "http://127.0.0.1:8000";
 
 export default defineConfig({
   plugins: [react()],
@@ -18,20 +24,24 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     proxy: {
+      "/api": {
+        target: localProxyTarget,
+        changeOrigin: false,
+      },
       "/control-center": {
-        target: "http://127.0.0.1:8000",
+        target: localProxyTarget,
         changeOrigin: false,
       },
       "/runtime/readiness": {
-        target: "http://127.0.0.1:8000",
+        target: localProxyTarget,
         changeOrigin: false,
       },
       "/runtime/capability-matrix": {
-        target: "http://127.0.0.1:8000",
+        target: localProxyTarget,
         changeOrigin: false,
       },
       "/runtime/smoke-reports": {
-        target: "http://127.0.0.1:8000",
+        target: localProxyTarget,
         changeOrigin: false,
       },
     },

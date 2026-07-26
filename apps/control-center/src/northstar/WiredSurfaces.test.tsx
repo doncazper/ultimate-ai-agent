@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import type { FounderLoopActionInboxDecisionLaneReadModel } from "../api/types";
+import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
 const apiMocks = vi.hoisted(() => ({
@@ -13,6 +14,13 @@ const apiMocks = vi.hoisted(() => ({
   revokeAuthorityLease: vi.fn(),
   fetchControlCenterSettingsStatus: vi.fn(),
 }));
+
+const mutationBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"1".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"2".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:33333333333333333333333333333333",
+};
 
 vi.mock("../api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/client")>()),
@@ -270,13 +278,21 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderActionsInbox.mockResolvedValue(data.founderActionsInbox);
 
-    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
 
     await waitFor(() => expect(apiMocks.submitActionDecision).toHaveBeenCalledWith(
       item.item_ref,
       "reject",
       expect.objectContaining({ decision_reason_ref: "decision-reason-ref:northstar-action:reject" }),
+      mutationBinding,
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
@@ -416,7 +432,14 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderMemoryReview.mockResolvedValue(data.founderMemoryReview);
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.change(screen.getByLabelText("Correction"), { target: { value: "Corrected bounded safe summary." } });
     fireEvent.click(screen.getByRole("button", { name: "Record correct receipt" }));
 
@@ -425,8 +448,14 @@ describe("North Star backend wiring", () => {
       corrected_safe_summary: "Corrected bounded safe summary.",
       reviewer_ref: "actor-ref:northstar-memory-review",
     });
+    expect(apiMocks.recordMemoryReviewDecision.mock.calls[0][3]).toEqual(
+      mutationBinding,
+    );
     expect(await screen.findByText(/receipt:memory-review:test/)).toBeVisible();
     expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledTimes(1);
+    expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledWith(
+      mutationBinding,
+    );
   });
 
   it("keeps Memory Review decisions read-only when a candidate claims authority", () => {
@@ -437,7 +466,14 @@ describe("North Star backend wiring", () => {
     candidate.context_injection_authorized = true;
     data.founderMemoryReview.items = [candidate];
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
 
     expect(screen.getByRole("button", { name: "Record correct receipt" })).toBeDisabled();
     expect(apiMocks.recordMemoryReviewDecision).not.toHaveBeenCalled();
@@ -469,18 +505,33 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderMemoryReview.mockResolvedValue(data.founderMemoryReview);
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add local note" }));
     fireEvent.change(screen.getByLabelText("Note title"), { target: { value: "Founder preference" } });
     fireEvent.change(screen.getByLabelText("Bounded safe summary"), { target: { value: "Review this bounded operator note." } });
     fireEvent.click(screen.getByRole("button", { name: "Record review candidate" }));
 
-    await waitFor(() => expect(apiMocks.recordManualMemoryCandidate).toHaveBeenCalledWith(expect.objectContaining({
-      candidate_kind: "operator_note",
-      title: "Founder preference",
-      safe_summary: "Review this bounded operator note.",
-    })));
+    await waitFor(() =>
+      expect(apiMocks.recordManualMemoryCandidate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidate_kind: "operator_note",
+          title: "Founder preference",
+          safe_summary: "Review this bounded operator note.",
+        }),
+        mutationBinding,
+      ),
+    );
     expect(await screen.findByText(/No recall record or memory write was created/)).toBeVisible();
+    expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledWith(
+      mutationBinding,
+    );
   });
 
   it("keeps an Action Inbox receipt visible when queue refresh fails", async () => {
@@ -577,7 +628,14 @@ describe("North Star backend wiring", () => {
       },
     });
 
-    render(<NorthStarControlCenter activePath="/workspace/activity-trust" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/activity-trust"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.change(screen.getByLabelText("Select exact active lease"), { target: { value: selectedLease.lease_ref } });
     fireEvent.click(screen.getByRole("button", { name: "Revoke lease" }));
     expect(apiMocks.revokeAuthorityLease).not.toHaveBeenCalled();
@@ -587,7 +645,7 @@ describe("North Star backend wiring", () => {
       lease_ref: "authority-lease-ref:test-elevated-selected",
       decision_reason_ref: "reason-ref:northstar-authority-revoke",
       safe_summary: "Control Center revoked the exact active authority lease after operator confirmation.",
-    }));
+    }, mutationBinding));
     expect(await screen.findByText(/receipt:authority-revoke:test/)).toBeVisible();
   });
 

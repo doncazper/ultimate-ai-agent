@@ -7,6 +7,7 @@ from datetime import datetime
 import hashlib
 import os
 from pathlib import Path
+import re
 import time
 from ultimate_ai_agent.core.time import utc_now
 from typing import Any, List, Optional
@@ -52,6 +53,11 @@ from ultimate_ai_agent.core.contracts import (
     ContextPack,
     validate_execution_contract,
     validate_context_pack,
+)
+from ultimate_ai_agent.core.build_identity import build_identity
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    backend_instance_ref,
+    backend_truth_envelope_is_current,
 )
 from ultimate_ai_agent.core.ledger import (
     EventLedgerEvent,
@@ -240,6 +246,47 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskPlanValidationRequest,
 )
 from ultimate_ai_agent.core.task_decomposition import api_safety as task_decomposition_api_safety
+
+
+_CONTROL_CENTER_MUTATION_BINDING_HEADER = (
+    "x-uaa-control-center-mutation-binding"
+)
+_EXPECTED_BACKEND_REVISION_HEADER = "x-uaa-expected-backend-revision-ref"
+_EXPECTED_BACKEND_INSTANCE_HEADER = "x-uaa-expected-backend-instance-ref"
+_EXPECTED_BACKEND_TRUTH_HEADER = "x-uaa-expected-backend-truth-ref"
+_CONTROL_CENTER_MUTATION_BINDING_VERSION = "backend-truth.v1"
+_BACKEND_TRUTH_REF_RE = re.compile(
+    r"^proof-ref:backend-truth-envelope:sha256:[0-9a-f]{64}$"
+)
+_CONTROL_CENTER_BOUND_MUTATION_PATHS = {
+    "/control-center/chat/turns",
+    "/control-center/today/action-envelope",
+    "/control-center/web-evidence/attach",
+    "/control-center/memory/feedback",
+    "/control-center/memory/review/manual-candidate",
+    "/control-center/work-board/reorder",
+    "/control-center/work-board/cards",
+    "/control-center/work-board/tasks",
+    "/api/runtime/authority-leases",
+    "/api/runtime/authority-leases/approve-and-issue",
+    "/api/runtime/authority-leases/revoke",
+}
+_CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
+    r"^/control-center/chat/turns/[^/]+/handoff$"
+)
+_CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
+    r"^/control-center/memory/(?:"
+    r"review/[^/]+/(?:"
+    r"accept|correct|reject|defer|merge|supersede|expire|forget-request"
+    r")"
+    r"|context-packs/[^/]+/action-proposal"
+    r")$"
+)
+_CONTROL_CENTER_BOUND_ACTION_MUTATION_RE = re.compile(
+    r"^/control-center/actions/[^/]+/"
+    r"(?:approve|edit|reject|defer|local-task/commit)$"
+)
+
 
 app = FastAPI(
     title="Ultimate AI Agent API Boundary",
@@ -778,6 +825,79 @@ async def local_api_auth_gate_middleware(request: Request, call_next: Any) -> An
             },
         )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def backend_response_binding_middleware(
+    request: Request,
+    call_next: Any,
+) -> Any:
+    if _requires_control_center_mutation_binding(request):
+        identity = build_identity()
+        expected_revision = request.headers.get(
+            _EXPECTED_BACKEND_REVISION_HEADER
+        )
+        expected_instance = request.headers.get(
+            _EXPECTED_BACKEND_INSTANCE_HEADER
+        )
+        expected_truth = request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
+        if (
+            request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+            != _CONTROL_CENTER_MUTATION_BINDING_VERSION
+            or not identity.source_revision_bound
+            or expected_revision != identity.commit_ref
+            or expected_instance != backend_instance_ref()
+            or not isinstance(expected_truth, str)
+            or _BACKEND_TRUTH_REF_RE.fullmatch(expected_truth) is None
+            or not backend_truth_envelope_is_current(
+                envelope_integrity_ref=expected_truth or "",
+                backend_revision_ref=expected_revision or "",
+                expected_backend_instance_ref=expected_instance or "",
+            )
+        ):
+            response = JSONResponse(
+                status_code=409,
+                content={
+                    "detail": (
+                        "Control Center mutation provenance did not match the "
+                        "current backend process."
+                    ),
+                    "code": "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH",
+                    "policy_ref": (
+                        "policy-ref:control-center:"
+                        "mutation-backend-truth-binding-v1"
+                    ),
+                },
+            )
+            return apply_loopback_cors_response_headers(
+                response,
+                request.headers.get("origin"),
+            )
+    response = await call_next(request)
+    identity = build_identity()
+    response.headers["X-UAA-Backend-Revision-Ref"] = identity.commit_ref
+    response.headers["X-UAA-Backend-Instance-Ref"] = backend_instance_ref()
+    return response
+
+
+def _requires_control_center_mutation_binding(request: Request) -> bool:
+    if request.method.upper() != "POST":
+        return False
+    path = request.url.path
+    if (
+        path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
+        and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
+    ):
+        return False
+    return bool(
+        request.headers.get("origin")
+        or request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_REVISION_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
+    )
 
 
 @app.middleware("http")

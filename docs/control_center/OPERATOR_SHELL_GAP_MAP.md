@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 336 OpenAPI paths
+API boundary: current FastAPI manifest has 337 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
@@ -121,6 +121,28 @@ review-only, draft-only, and local-only product behavior; it does not add
 email/calendar access, account auth, background polling, connector runtime,
 external writes, action execution, automatic memory truth, hidden context
 injection, model/provider calls, public beta, distribution, or production
+authority.
+
+Parity gap-closure Phase 02 adds a short-lived, revision-bound Python Core
+truth envelope at `GET /control-center/backend-truth` with CLI parity through
+`scripts/dev/uaa_founder_loop.py inspect-backend-truth`. Start Here, Today,
+Plans, Action Inbox, Approvals, Work Board, Morning Briefing, Memory,
+Evidence/Proof, Setup, Chat handoff, active-run status, and Settings wait for that
+envelope and their exact backend-owned route read models before rendering.
+The standard local launcher injects the exact clean source revision. The
+documented Compose stack requires that same verified clean revision at build
+and runtime, while direct CLI truth inspection derives it only from an exact
+clean repository root. During first run, `/actions` is the sole admitted
+mutation bootstrap surface; every critical browser mutation is bound to the
+admitted backend revision and process before route execution. Durable
+completion proof is derived from coherent local-task receipts and proof
+records rather than a seeded fixture identity, and any corrupt claimed receipt
+invalidates the complete evidence set.
+Missing, malformed, stale, out-of-order, mock-filled, or corrupt durable
+evidence fails closed with bounded provenance and retry guidance. A real local
+Python/backend browser walkthrough proves backend stop, durable restart, CLI/API
+parity, and receipt-corruption handling. This read boundary grants no runtime,
+model/provider, browser/web, connector, shell, background, or production
 authority.
 
 Beta 07 Trust authority map makes `/trust` a backend-owned authority map over

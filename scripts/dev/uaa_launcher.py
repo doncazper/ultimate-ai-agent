@@ -51,6 +51,7 @@ UAA_LLAMA_CPP_GATEWAY_KEY_ENV = "UAA_LLAMA_CPP_GATEWAY_KEY"
 UAA_LLAMA_CPP_MODEL_ID_ENV = "UAA_LLAMA_CPP_MODEL_ID"
 UAA_LLAMA_CPP_BASE_URL_ENV = "UAA_LLAMA_CPP_BASE_URL"
 UAA_LLAMA_CPP_API_KEY_ENV = "UAA_LLAMA_CPP_API_KEY"
+UAA_BUILD_COMMIT_ENV = "UAA_BUILD_COMMIT"
 UAA_LLAMA_CPP_DEFAULT_MODEL_ID = "uaa-llama-cpp-local"
 DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
 SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
@@ -234,6 +235,7 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
     env["PYTHONUNBUFFERED"] = "1"
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
+        env[UAA_BUILD_COMMIT_ENV] = verified_source_commit(root)
         if os.environ.get(UAA_API_LOCAL_BEARER_ENV):
             env[UAA_API_LOCAL_BEARER_ENV] = os.environ[UAA_API_LOCAL_BEARER_ENV]
             sensitive_passthrough_keys.add(UAA_API_LOCAL_BEARER_ENV)
@@ -263,6 +265,60 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
         for key, value in env.items()
         if key in sensitive_passthrough_keys or not _is_secret_env_key(key)
     }
+
+
+def verified_source_commit(root: Path) -> str:
+    """Return the exact clean source revision used by the developer backend."""
+    try:
+        top_level = subprocess.run(
+            [_developer_tool("git"), "rev-parse", "--show-toplevel"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        head = subprocess.run(
+            [_developer_tool("git"), "rev-parse", "--verify", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        status = subprocess.run(
+            [_developer_tool("git"), "status", "--porcelain", "--untracked-files=all"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(
+            "backend source revision could not be verified; commit a clean checkout"
+        ) from exc
+    resolved_root = root.resolve()
+    try:
+        resolved_top_level = Path(top_level.stdout.strip()).resolve()
+    except (OSError, RuntimeError) as exc:
+        raise RuntimeError(
+            "backend source revision could not be verified; commit a clean checkout"
+        ) from exc
+    commit = head.stdout.strip().lower()
+    if (
+        top_level.returncode != 0
+        or head.returncode != 0
+        or status.returncode != 0
+        or resolved_top_level != resolved_root
+        or status.stdout.strip()
+        or len(commit) not in {40, 64}
+        or any(character not in "0123456789abcdef" for character in commit)
+    ):
+        raise RuntimeError(
+            "backend source revision could not be verified; commit a clean checkout"
+        )
+    return commit
 
 
 def _is_secret_env_key(key: str) -> bool:

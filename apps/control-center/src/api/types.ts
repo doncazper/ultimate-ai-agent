@@ -23,6 +23,62 @@ export interface BackendConnectionSummary {
   warnings: string[];
 }
 
+export interface CriticalSurfaceBinding {
+  surface_ref: string;
+  label: string;
+  frontend_paths: string[];
+  backend_route_refs: string[];
+  contract_status: "backend_contract_declared";
+}
+
+export interface BackendTruthEvidenceBinding {
+  status:
+    | "verified_complete"
+    | "unverified_incomplete"
+    | "invalid_evidence"
+    | "storage_unavailable";
+  acceptance_schema_version: string;
+  acceptance_integrity_ref: string;
+  action_refs: string[];
+  run_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  memory_candidate_refs: string[];
+  issue_refs: string[];
+}
+
+export interface BackendTruthAuthorityPosture {
+  mode_ref: "authority-mode-ref:read-only-local";
+  approval_refs_are_identifiers_only: true;
+  control_center_grants_authority: false;
+  runtime_model_call_enabled: false;
+  browser_or_web_execution_enabled: false;
+  connector_write_enabled: false;
+  shell_subprocess_execution_enabled: false;
+  background_autonomy_enabled: false;
+  production_authority_enabled: false;
+}
+
+export interface ControlCenterBackendTruth {
+  schema_version: "uaa-control-center-backend-truth.v1";
+  source_ref: "source-ref:python-core:control-center-backend-truth";
+  generated_at: string;
+  valid_until: string;
+  backend_revision_ref: string;
+  backend_instance_ref: string;
+  source_revision_bound: boolean;
+  critical_surfaces: CriticalSurfaceBinding[];
+  evidence_binding: BackendTruthEvidenceBinding;
+  authority_posture: BackendTruthAuthorityPosture;
+  cli_ref: string;
+  safe_refs_only: true;
+  redacted_summaries_only: true;
+  raw_content_included: false;
+  raw_paths_included: false;
+  envelope_integrity_ref: string;
+}
+
 export type ControlCenterRouteReadStateKind =
   | "backend_owned"
   | "degraded"

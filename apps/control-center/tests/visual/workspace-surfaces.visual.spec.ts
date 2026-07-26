@@ -1,22 +1,22 @@
 import { expect, test, type Route } from "@playwright/test";
 
 const workspaceSurfaces = [
-  ["today", "/workspace/today", "Today"],
-  ["communications", "/workspace/communications", "Communications"],
-  ["messenger", "/workspace/messenger", "UAA Development"],
-  ["work-board", "/workspace/work-board", "Work Board"],
-  ["crm", "/workspace/crm", "CRM"],
-  ["calendar", "/workspace/calendar", "Calendar"],
-  ["news", "/workspace/news", "News"],
-  ["studio", "/workspace/studio", "Skill Workbench"],
-  ["knowledge", "/workspace/knowledge", "Knowledge"],
-  ["activity-trust", "/workspace/activity-trust", "Trust"],
-  ["customize", "/workspace/customize", "Customize"],
-  ["settings", "/workspace/settings", "Settings"],
-  ["developer-tools", "/workspace/developer-tools", "Developer Tools"],
-  ["terminal", "/workspace/developer-tools/terminal", "Developer Tools · Terminal"],
-  ["decisions", "/workspace/decisions", "Review 5 decisions"],
-  ["onboarding", "/workspace/onboarding", "Set up your Control Center"],
+  ["today", "/workspace/today", "Today", true],
+  ["communications", "/workspace/communications", "Communications", false],
+  ["messenger", "/workspace/messenger", "UAA Development", false],
+  ["work-board", "/workspace/work-board", "Work Board", true],
+  ["crm", "/workspace/crm", "CRM", false],
+  ["calendar", "/workspace/calendar", "Calendar", false],
+  ["news", "/workspace/news", "News", false],
+  ["studio", "/workspace/studio", "Skill Workbench", false],
+  ["knowledge", "/workspace/knowledge", "Knowledge", true],
+  ["activity-trust", "/workspace/activity-trust", "Trust", true],
+  ["customize", "/workspace/customize", "Customize", false],
+  ["settings", "/workspace/settings", "Settings", false],
+  ["developer-tools", "/workspace/developer-tools", "Developer Tools", false],
+  ["terminal", "/workspace/developer-tools/terminal", "Developer Tools · Terminal", false],
+  ["decisions", "/workspace/decisions", "Review 5 decisions", true],
+  ["onboarding", "/workspace/onboarding", "Set up your Control Center", true],
 ] as const;
 
 const legacyRenderSurfaces = [
@@ -53,17 +53,29 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/runtime/**", unavailable);
 });
 
-for (const [name, route, visibleText] of workspaceSurfaces) {
-  test(`${name} workspace representation renders`, async ({ page }) => {
+for (const [name, route, visibleText, critical] of workspaceSurfaces) {
+  test(
+    `${name} workspace ${critical ? "fails closed without backend truth" : "representation renders"}`,
+    async ({ page }) => {
     await page.goto(route);
-    await expect(page.getByText(visibleText, { exact: true }).first()).toBeVisible();
+    if (critical) {
+      await expect(
+        page.getByRole("heading", {
+          name: /is not showing unverified product state$/,
+        }),
+      ).toBeVisible();
+      await expect(page.getByText("Mock fallback active")).toHaveCount(0);
+    } else {
+      await expect(page.getByText(visibleText, { exact: true }).first()).toBeVisible();
+    }
     await expect(page.locator("body")).not.toContainText("Unknown Control Center icon");
     await expect(page.locator("body")).not.toContainText("Something went wrong");
     const horizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
     );
     expect(horizontalOverflow).toBe(false);
-  });
+    },
+  );
 }
 
 test("workspace preview renders while every backend read is pending", async ({ page }) => {
@@ -165,7 +177,7 @@ test("icon library contains its desktop catalog inside the viewport", async ({ p
 });
 
 test("UAA sidecar reference state renders", async ({ page }) => {
-  await page.goto("/workspace/today?sidecar=open");
+  await page.goto("/workspace/crm?sidecar=open");
   await expect(page.locator(".ns-sidecar")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "UAA sidecar" })).toBeVisible();
 });
@@ -187,7 +199,7 @@ test("Studio Create, Chat, and Code modes render", async ({ page }) => {
 
 test("compact desktop shell stays within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
-  await page.goto("/workspace/today");
+  await page.goto("/workspace/crm");
   await expect(page.locator(".ns-sidebar")).toBeVisible();
   const horizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

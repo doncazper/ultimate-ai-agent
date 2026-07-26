@@ -1,12 +1,14 @@
 # Local-runtime packaging only. This is not a public distribution image.
 ARG PYTHON_BASE_IMAGE=python:3.11-slim
 FROM ${PYTHON_BASE_IMAGE}
+ARG UAA_BUILD_COMMIT
 
 WORKDIR /app
 
 ENV ENVIRONMENT=local-runtime \
     HOST=127.0.0.1 \
     PORT=8000 \
+    UAA_BUILD_COMMIT=${UAA_BUILD_COMMIT} \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 

@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import scripts.verify_control_center_visual_regression as visual
 import scripts.verify_local_runtime_packaging_proof as packaging
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_control_center_visual_regression_manifest_is_safe() -> None:
@@ -105,6 +110,39 @@ def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 
     assert failures == []
+
+
+def test_local_runtime_binds_exact_selected_control_center_origin() -> None:
+    compose = (ROOT / "packaging/local-runtime/compose.yaml").read_text()
+
+    assert (
+        "UAA_CONTROL_CENTER_CORS_ORIGIN: "
+        "http://127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}"
+    ) in compose
+
+
+def test_standard_control_center_dev_server_proxies_public_api_manifest() -> None:
+    vite_config = (ROOT / "apps/control-center/vite.config.ts").read_text()
+
+    assert '"/api": {' in vite_config
+    assert "target: localProxyTarget" in vite_config
+
+
+def test_local_runtime_operator_entry_binds_clean_source_and_session_bearer() -> None:
+    operator = (ROOT / "scripts/dev/uaa_local_runtime.py").read_text()
+    compose = (ROOT / "packaging/local-runtime/compose.yaml").read_text()
+    auth = (ROOT / "src/ultimate_ai_agent/api/local_auth.py").read_text()
+
+    assert operator.index("verified_clean_source_commit(ROOT)") < operator.index(
+        '_run_compose(["up"'
+    )
+    assert '"UAA_BUILD_COMMIT": commit' in operator
+    assert '"UAA_LOCAL_RUNTIME_VERIFIED_SOURCE": "verified-clean-source:v1"' in operator
+    assert "uaa-session-bearer" in operator
+    assert "webbrowser.open(session_url)" in operator
+    assert "UAA_LOCAL_RUNTIME_VERIFIED_SOURCE: ${UAA_LOCAL_RUNTIME_VERIFIED_SOURCE:?" in compose
+    assert "UAA_LOCAL_RUNTIME_SECRET_FILE: /run/secrets/uaa_local_runtime_secret" in compose
+    assert 'LOCAL_API_BEARER_FILE_ENV = "UAA_LOCAL_RUNTIME_SECRET_FILE"' in auth
 
 
 def test_local_runtime_packaging_proof_summary_shape_is_safe() -> None:

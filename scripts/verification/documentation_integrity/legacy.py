@@ -3381,6 +3381,10 @@ def _verify_local_runtime_packaging(root: Path) -> list[str]:
         ".uaa/local-runtime/uaa_local_runtime_secret",
         "--no-access-log",
         "condition: service_healthy",
+        (
+            "uaa_control_center_cors_origin: "
+            "http://127.0.0.1:${uaa_local_runtime_control_center_port:-5173}"
+        ),
     ]:
         if fragment not in compose:
             failures.append(f"compose.yaml missing safe packaging fragment: {fragment}")

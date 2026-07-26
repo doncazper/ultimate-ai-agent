@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { submitWebEvidenceAttachment } from "./client";
+import type { BackendTruthReadBinding } from "./client";
 import type {
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
@@ -10,6 +11,13 @@ const request: WebEvidenceProductSliceRequest = {
   request_ref: "web-evidence-request:client-test",
   url: "https://example.org/status",
   allowed_host: "example.org",
+};
+
+const binding: BackendTruthReadBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
 
 const receipt: WebEvidenceProductSliceReceipt = {
@@ -126,13 +134,16 @@ describe("submitWebEvidenceAttachment", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await submitWebEvidenceAttachment(request);
+    const result = await submitWebEvidenceAttachment(request, binding);
     const [url, init] = fetchMock.mock.calls[0];
     const headers = init?.headers as Record<string, string>;
 
     expect(result.receipt_ref).toBe(receipt.receipt_ref);
     expect(url).toBe(API_ENDPOINTS.controlCenterWebEvidenceAttach);
     expect(headers["X-UAA-Idempotency-Ref"]).toBe(request.request_ref);
+    expect(headers["X-UAA-Expected-Backend-Truth-Ref"]).toBe(
+      binding.snapshotRef,
+    );
   });
 
   it("rejects unsuccessful envelopes even when data is present", async () => {
@@ -156,7 +167,7 @@ describe("submitWebEvidenceAttachment", () => {
       ),
     );
 
-    await expect(submitWebEvidenceAttachment(request)).rejects.toThrow(
+    await expect(submitWebEvidenceAttachment(request, binding)).rejects.toThrow(
       "Web evidence blocked safely.",
     );
   });
@@ -178,7 +189,7 @@ describe("submitWebEvidenceAttachment", () => {
       ),
     );
 
-    await expect(submitWebEvidenceAttachment(request)).rejects.toThrow(
+    await expect(submitWebEvidenceAttachment(request, binding)).rejects.toThrow(
       "Web evidence receipt was rejected safely.",
     );
   });

@@ -225,6 +225,13 @@
       "backend_routes": [
         {
           "method": "GET",
+          "path": "/control-center/backend-truth",
+          "operation_id": "get_control_center_backend_truth",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
           "side_effect_class": "local_dev_workspace_only",
@@ -247,6 +254,9 @@
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_fcc_v1_002_action_inbox_state_machine.py",
         "apps/control-center/src/App.test.tsx",
+        "apps/control-center/src/App.backendTruth.test.tsx",
+        "apps/control-center/tests/visual/backend-truth.real.spec.ts",
+        "tests/test_control_center_backend_truth.py",
         "scripts/verify_fcc_v1_003_founder_loop_vertical_slice.py",
         "tests/test_fcc_v1_003_founder_loop_vertical_slice.py"
       ],
@@ -264,6 +274,8 @@
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
         "docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md",
         "scripts/dev/uaa_founder_loop.py",
+        "src/ultimate_ai_agent/core/control_center/backend_truth.py",
+        "apps/control-center/src/api/backendTruth.ts",
         "docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md"
       ],
       "owner": "founder-loop",
@@ -278,6 +290,7 @@
         "Keep public beta, public release, production readiness, and production authority claims blocked."
       ],
       "product_language_caveats": [
+        "Critical Founder Loop state is rendered only after a current revision-bound backend truth envelope and backend-owned route read model validate; corrupt durable evidence fails the surface closed.",
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."

@@ -13,7 +13,10 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from scripts.macos.build_release_bundle import build_release_bundle
+from scripts.macos.build_release_bundle import (
+    _launcher_source,
+    build_release_bundle,
+)
 from scripts.macos.release_policy import classify_tag
 from scripts.macos.verify_installer_e2e import (
     InstallerE2EError,
@@ -53,11 +56,112 @@ from ultimate_ai_agent.distribution.macos.installer import (
 )
 from ultimate_ai_agent.distribution.macos.runtime import (
     RuntimePaths,
+    _runtime_environment,
     check_for_update,
+    command_launch,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_packaged_launcher_binds_the_exact_build_revision() -> None:
+    commit = "a" * 40
+
+    launcher = _launcher_source(commit)
+
+    assert f'setenv("UAA_BUILD_COMMIT", "{commit}", 1)' in launcher
+    with pytest.raises(ValueError, match="exact lowercase SHA"):
+        _launcher_source("not-a-commit")
+
+
+def test_packaged_runtime_child_uses_the_manifest_source_revision(
+    monkeypatch,
+) -> None:
+    manifest_commit = "a" * 40
+    monkeypatch.setenv("UAA_BUILD_COMMIT", "b" * 40)
+
+    environment = _runtime_environment(
+        local_bearer="local-session-bearer",
+        source_commit=manifest_commit,
+    )
+
+    assert environment["UAA_BUILD_COMMIT"] == manifest_commit
+    assert environment["UAA_API_LOCAL_BEARER"] == "local-session-bearer"
+    with pytest.raises(RuntimeError, match="source revision"):
+        _runtime_environment(
+            local_bearer="local-session-bearer",
+            source_commit="not-a-commit",
+        )
+
+
+def test_launch_replaces_live_runtime_from_superseded_install(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    paths.runtime_state.write_text("{}", encoding="utf-8")
+    old_state = {
+        "pid": 111,
+        "port": 8765,
+        "nonce": "old-runtime-nonce",
+        "version_ref": "macos-version:old-version",
+    }
+    terminated: list[dict[str, object]] = []
+    written_states: list[dict[str, object]] = []
+    process = SimpleNamespace(pid=222, poll=lambda: None)
+
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._ensure_local_bearer",
+        lambda _paths: "local-session-bearer",
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.current_manifest",
+        lambda _layout: {
+            "source_commit": "a" * 40,
+            "tag": "v0.104.0",
+        },
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.current_version_id",
+        lambda _layout: "new-version",
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._load_runtime_state",
+        lambda _paths: old_state,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._runtime_identity_matches",
+        lambda _state: True,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._terminate_owned_process",
+        lambda state: terminated.append(dict(state)),
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._next_available_port",
+        lambda _host, _port: 8766,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._runtime_environment",
+        lambda **_kwargs: {"PATH": "/usr/bin"},
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.subprocess.Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._write_json",
+        lambda _path, state, **_kwargs: written_states.append(dict(state)),
+    )
+
+    result = command_launch(paths, skip_update=True, no_browser=True)
+
+    assert result == 0
+    assert terminated == [old_state]
+    assert written_states[-1]["status"] == "ready"
+    assert written_states[-1]["version_ref"] == "macos-version:new-version"
 
 
 def test_newest_channel_compares_stable_and_dev_by_tag_commit_time() -> None:
@@ -124,15 +228,9 @@ def test_release_policy_excludes_historical_audit_tags() -> None:
 
 def test_github_catalog_requires_active_descriptor_and_matching_assets() -> None:
     repository = "doncazper/ultimate-ai-agent"
-    releases_url = (
-        f"https://api.github.com/repos/{repository}/releases?per_page=100"
-    )
-    descriptor_url = (
-        f"https://api.github.com/repos/{repository}/releases/assets/101"
-    )
-    artifact_url = (
-        f"https://api.github.com/repos/{repository}/releases/assets/102"
-    )
+    releases_url = f"https://api.github.com/repos/{repository}/releases?per_page=100"
+    descriptor_url = f"https://api.github.com/repos/{repository}/releases/assets/101"
+    artifact_url = f"https://api.github.com/repos/{repository}/releases/assets/102"
     descriptor = _descriptor(
         tag="v0.105.1-web-hybrid",
         channel="dev",
@@ -500,11 +598,14 @@ def test_packaged_bundle_has_native_app_verified_manifest_and_no_checkout_path(
     assert icon.is_file()
     assert icon.stat().st_size > 100_000
     assert installed_plist["CFBundleIconFile"] == "UltimateAI-Agent.icns"
-    assert subprocess.run(
-        ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(installed_app)],
-        capture_output=True,
-        check=False,
-    ).returncode == 0
+    assert (
+        subprocess.run(
+            ["/usr/bin/codesign", "--verify", "--deep", "--strict", str(installed_app)],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
     for path in output.iterdir():
         if path.is_file() and path.stat().st_size < 10 * 1024 * 1024:
             assert str(ROOT).encode() not in path.read_bytes()
@@ -823,9 +924,7 @@ def test_macos_distribution_policy_rejects_unreviewed_network_drift() -> None:
         process_drift,
         "subprocess",
     )
-    dynamic_import_drift = (
-        source + '\n__import__("subprocess").Popen(["/bin/echo"])\n'
-    )
+    dynamic_import_drift = source + '\n__import__("subprocess").Popen(["/bin/echo"])\n'
     assert macos_distribution_adapter_policy_failures(
         rel_path,
         dynamic_import_drift,
@@ -920,9 +1019,7 @@ def test_macos_distribution_policy_ignores_unrelated_fixture_roots_but_fails_par
 ) -> None:
     assert macos_distribution_policy_failures(tmp_path) == []
 
-    lane_root = (
-        tmp_path / "src" / "ultimate_ai_agent" / "distribution" / "macos"
-    )
+    lane_root = tmp_path / "src" / "ultimate_ai_agent" / "distribution" / "macos"
     lane_root.mkdir(parents=True)
 
     failures = macos_distribution_policy_failures(tmp_path)

@@ -128,6 +128,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_payload_fingerprint_ref,
     local_task_commit_payload_for_fingerprint,
     local_task_commit_receipt_ref,
+    local_task_authority_proof_refs,
     local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import founder_loop_exact_action
@@ -191,6 +192,7 @@ from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
 )
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF,
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
     build_founder_loop_runs_integration_read_model,
 )
 from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
@@ -10669,6 +10671,53 @@ class FounderLoopRepository:
             )
         return projected_actions[: self._bounded_limit(limit)]
 
+    def list_durable_local_task_actions(
+        self,
+        *,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Project a bounded newest-first durable local-task candidate window."""
+        bounded_limit = min(self._bounded_limit(limit), 50)
+        rows = self._fetch_all(
+            """
+            SELECT item_ref
+            FROM local_task_commit_receipts
+            ORDER BY created_at DESC, item_ref ASC
+            LIMIT ?
+            """,
+            (bounded_limit,),
+        )
+        actions: list[dict[str, Any]] = []
+        for row in rows:
+            item_ref = str(row["item_ref"])
+            action = self._action_payload_for_item_ref(item_ref)
+            if action is None:
+                continue
+            projected = {**action, **self._local_task_commit_projection(action)}
+            receipt = self._latest_local_task_commit_receipt_for_item_ref(
+                item_ref
+            )
+            if receipt is None:
+                continue
+            projected["receipt_refs"] = list(
+                dict.fromkeys(
+                    [
+                        *list(projected.get("receipt_refs") or []),
+                        str(receipt.get("receipt_ref") or ""),
+                    ]
+                )
+            )
+            projected["audit_refs"] = list(
+                dict.fromkeys(
+                    [
+                        *list(projected.get("audit_refs") or []),
+                        str(receipt.get("audit_ref") or ""),
+                    ]
+                )
+            )
+            actions.append(projected)
+        return actions
+
     def record_chat_turn_receipt(
         self,
         *,
@@ -11959,6 +12008,198 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def validated_local_task_commit_receipt(
+        self,
+        receipt_ref: str,
+    ) -> dict[str, Any]:
+        """Load an exact local-task receipt and verify its durable bindings."""
+        _validate_safe_ref(receipt_ref, "receipt_ref")
+        rows = self._fetch_all(
+            """
+            SELECT receipts.receipt_ref AS stored_receipt_ref,
+                   receipts.item_ref AS stored_item_ref,
+                   receipts.local_task_ref AS stored_local_task_ref,
+                   receipts.receipt_json,
+                   replays.key_ref AS replay_key_ref,
+                   replays.item_ref AS replay_item_ref,
+                   replays.local_task_ref AS replay_local_task_ref,
+                   replays.payload_fingerprint_ref AS replay_payload_fingerprint_ref,
+                   replays.receipt_ref AS replay_receipt_ref,
+                   tasks.status AS task_status,
+                   tasks.item_ref AS task_item_ref,
+                   tasks.action_kind AS task_action_kind,
+                   tasks.evidence_refs_json AS task_evidence_refs_json,
+                   tasks.receipt_ref AS task_receipt_ref
+            FROM local_task_commit_receipts AS receipts
+            LEFT JOIN local_task_commit_replays AS replays
+              ON replays.receipt_ref = receipts.receipt_ref
+            LEFT JOIN local_tasks AS tasks
+              ON tasks.local_task_ref = receipts.local_task_ref
+            WHERE receipts.receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_NOT_FOUND"
+            )
+        row = dict(rows[0])
+        try:
+            receipt = FounderLoopLocalTaskCommitReceipt(
+                **dict(json.loads(str(row["receipt_json"])))
+            )
+            task_evidence_refs = list(
+                json.loads(str(row["task_evidence_refs_json"]))
+            )
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_INVALID"
+            ) from exc
+
+        expected_bindings = {
+            "stored_receipt_ref": receipt.receipt_ref,
+            "stored_item_ref": receipt.item_ref,
+            "stored_local_task_ref": receipt.local_task_ref,
+            "replay_key_ref": receipt.idempotency_key_ref,
+            "replay_item_ref": receipt.item_ref,
+            "replay_local_task_ref": receipt.local_task_ref,
+            "replay_payload_fingerprint_ref": receipt.payload_fingerprint_ref,
+            "replay_receipt_ref": receipt.receipt_ref,
+            "task_status": receipt.status,
+            "task_item_ref": receipt.item_ref,
+            "task_action_kind": FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+            "task_receipt_ref": receipt.receipt_ref,
+        }
+        if any(row.get(field) != expected for field, expected in expected_bindings.items()):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.local_task_ref != local_task_ref_for_action(receipt.item_ref):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.receipt_ref != local_task_commit_receipt_ref(
+            receipt.item_ref,
+            receipt.idempotency_key_ref,
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.audit_ref != local_task_commit_audit_ref(
+            receipt.item_ref,
+            receipt.idempotency_key_ref,
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.evidence_timeline_event_ref != local_task_commit_event_ref(
+            receipt.item_ref
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if task_evidence_refs != receipt.evidence_refs:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        expected_authority_bindings = {
+            "contract_ref": FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+            "approval_status": "approved",
+            "authority_domain_ref": FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+            "authority_capability_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+            ),
+            "authority_required_mode_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+            ),
+            "safe_disable_ref": FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+            "rollback_ref": FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+            "safe_disable_posture_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+            ),
+        }
+        if any(
+            getattr(receipt, field) != expected
+            for field, expected in expected_authority_bindings.items()
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
+        if (
+            not receipt.approval_reason_refs
+            or receipt.authority_decision_ref is None
+            or receipt.authority_decision_outcome
+            not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }
+            or receipt.authority_lease_ref is None
+            or not receipt.safe_disable_enabled
+            or receipt.rollback_execution_enabled
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
+        expected_authority_refs = local_task_authority_proof_refs(
+            authority_lease_ref=str(receipt.authority_lease_ref),
+            authority_decision_outcome=str(
+                receipt.authority_decision_outcome
+            ),
+        )
+        if (
+            receipt.authority_decision_ref
+            != expected_authority_refs["authority_decision_ref"]
+            or receipt.authority_audit_ref
+            != expected_authority_refs["authority_audit_ref"]
+            or receipt.authority_policy_receipt_ref
+            != expected_authority_refs["authority_policy_receipt_ref"]
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
+
+        action = self._action_payload_for_item_ref(receipt.item_ref)
+        if action is None:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_ACTION_NOT_FOUND"
+            )
+        projected = {**action, **self._local_task_commit_projection(action)}
+        approval_receipt = (
+            self._latest_approved_action_decision_receipt_for_item_ref(
+                receipt.item_ref
+            )
+        )
+        if (
+            projected.get("action_kind")
+            != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+            or projected.get("local_task_ref") != receipt.local_task_ref
+            or projected.get("local_task_commit_receipt_ref")
+            != receipt.receipt_ref
+            or projected.get("local_task_commit_approval_ref")
+            != receipt.approval_ref
+            or receipt.receipt_ref not in list(projected.get("receipt_refs") or [])
+            or receipt.audit_ref not in list(projected.get("audit_refs") or [])
+            or not set(receipt.evidence_refs).issubset(
+                set(projected.get("evidence_refs") or [])
+            )
+            or approval_receipt is None
+            or approval_receipt.get("approval_ref") != receipt.approval_ref
+            or approval_receipt.get("approval_status") != "approved"
+            or approval_receipt.get("authority_domain_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF
+            or approval_receipt.get("authority_capability_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+            or approval_receipt.get("authority_required_mode_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+            or approval_receipt.get("authority_lease_ref")
+            != receipt.authority_lease_ref
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        return receipt.model_dump(mode="json")
+
     def local_task_safe_disable_posture(self) -> dict[str, Any]:
         rows = self._fetch_all(
             """
@@ -12250,6 +12491,18 @@ class FounderLoopRepository:
                     "evidence-ref:founder-loop:local-task-commit",
                     "evidence-ref:founder-loop:action-inbox",
                     evidence_event_ref,
+                    authority_decision.decision_ref,
+                    authority_decision.audit_record_ref,
+                    *(
+                        [authority_decision.receipt_ref]
+                        if authority_decision.receipt_ref
+                        else []
+                    ),
+                    *(
+                        [authority_decision.lease_ref]
+                        if authority_decision.lease_ref
+                        else []
+                    ),
                     *list(action.get("evidence_refs") or []),
                     *request.metadata_refs,
                 ]
@@ -12262,6 +12515,7 @@ class FounderLoopRepository:
             audit_ref=audit_ref,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
+            run_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
             evidence_timeline_event_ref=evidence_event_ref,
             approval_ref=request.approval_ref,
             approval_status=approval_status,
@@ -12269,6 +12523,8 @@ class FounderLoopRepository:
             authority_decision_ref=authority_decision.decision_ref,
             authority_decision_outcome=authority_decision.outcome,
             authority_lease_ref=authority_decision.lease_ref,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_policy_receipt_ref=authority_decision.receipt_ref,
             safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
             rollback_ref=str(safe_disable_posture["rollback_ref"]),
             safe_disable_posture_ref=str(
@@ -16978,6 +17234,9 @@ class FounderLoopRepository:
                     receipt_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS
+                    idx_local_task_commit_receipts_created_item
+                ON local_task_commit_receipts(created_at DESC, item_ref ASC);
                 CREATE TABLE IF NOT EXISTS local_task_commit_replays (
                     key_ref TEXT PRIMARY KEY,
                     item_ref TEXT NOT NULL,

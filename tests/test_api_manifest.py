@@ -146,6 +146,11 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         == "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
     )
     assert (
+        manifest["local_auth_policy"]["bearer_file_env"]
+        == "UAA_LOCAL_RUNTIME_SECRET_FILE"
+    )
+    assert manifest["local_auth_policy"]["maximum_bearer_file_bytes"] == 4096
+    assert (
         manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
     )
     assert (

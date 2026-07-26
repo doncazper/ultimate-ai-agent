@@ -18,18 +18,18 @@ const studioSkillMarketplaceFixture: unknown = JSON.parse(
 const FIXED_ISO_NOW = "2026-01-01T00:00:00.000Z";
 
 const surfaces = [
-  { name: "overview", route: "/" },
-  { name: "start", route: "/start" },
-  { name: "today", route: "/today" },
-  { name: "inbox", route: "/inbox" },
-  { name: "actions", route: "/actions" },
-  { name: "plans", route: "/plans" },
-  { name: "proof", route: "/proof" },
-  { name: "trust", route: "/trust" },
-  { name: "memory", route: "/memory" },
-  { name: "evidence", route: "/evidence" },
-  { name: "settings", route: "/settings" },
-  { name: "setup", route: "/setup" },
+  { name: "overview", route: "/", critical: true },
+  { name: "start", route: "/start", critical: true },
+  { name: "today", route: "/today", critical: true },
+  { name: "inbox", route: "/inbox", critical: false },
+  { name: "actions", route: "/actions", critical: true },
+  { name: "plans", route: "/plans", critical: true },
+  { name: "proof", route: "/proof", critical: true },
+  { name: "trust", route: "/trust", critical: false },
+  { name: "memory", route: "/memory", critical: true },
+  { name: "evidence", route: "/evidence", critical: true },
+  { name: "settings", route: "/settings", critical: true },
+  { name: "setup", route: "/setup", critical: true },
 ] as const;
 
 const routeStateScenarios = [
@@ -314,23 +314,37 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const surface of surfaces) {
-  test(`${surface.name} visual baseline`, async ({ page }) => {
+  test(
+    `${surface.name} ${surface.critical ? "fail-closed fixture" : "visual baseline"}`,
+    async ({ page }) => {
     await page.goto(surface.route);
 
     await expect(page).toHaveTitle(/Ultimate AI Agent Control Center/);
-    await expect(page.getByText("Mock fallback active")).toBeVisible();
+    if (surface.critical) {
+      await expect(
+        page.getByRole("heading", {
+          name: /is not showing unverified product state$/,
+        }),
+      ).toBeVisible();
+      await expect(page.getByText("Mock fallback active")).toHaveCount(0);
+    } else {
+      await expect(page.getByText("Mock fallback active")).toBeVisible();
+    }
     await expect(page.locator("main")).toBeVisible();
 
-    await expect(page).toHaveScreenshot(`${surface.name}.png`, {
-      animations: "disabled",
-      fullPage: true,
-    });
-  });
+    if (!surface.critical) {
+      await expect(page).toHaveScreenshot(`${surface.name}.png`, {
+        animations: "disabled",
+        fullPage: true,
+      });
+    }
+    },
+  );
 }
 
 for (const scenario of routeStateScenarios) {
   test(`${scenario.name} route state visual baseline`, async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/dashboard");
     const main = page.locator("main");
     await expect(page.getByText("Mock fallback active")).toBeVisible();
     await expect(main).toBeVisible();

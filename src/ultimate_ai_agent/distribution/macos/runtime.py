@@ -141,21 +141,26 @@ def command_launch(
             print(
                 "Update check was unavailable; launching the verified installed version."
             )
-    state = _load_runtime_state(paths)
-    if state is not None and _runtime_identity_matches(state):
-        url = _runtime_url(int(state["port"]))
-        if not no_browser:
-            webbrowser.open(_session_url(url, local_bearer))
-        print(f"Ultimate AI Agent is ready at {url}")
-        return 0
-    if state is not None:
-        paths.runtime_state.unlink(missing_ok=True)
-    port = _next_available_port(DEFAULT_HOST, DEFAULT_PORT)
-    nonce = secrets.token_hex(16)
     manifest = current_manifest(paths.install)
     if manifest is None:
         print("Ultimate AI Agent is not installed. Run the installer first.")
         return 1
+    installed_version_ref = (
+        f"macos-version:{current_version_id(paths.install)}"
+    )
+    state = _load_runtime_state(paths)
+    if state is not None and _runtime_identity_matches(state):
+        if state.get("version_ref") == installed_version_ref:
+            url = _runtime_url(int(state["port"]))
+            if not no_browser:
+                webbrowser.open(_session_url(url, local_bearer))
+            print(f"Ultimate AI Agent is ready at {url}")
+            return 0
+        _terminate_owned_process(state)
+    if state is not None:
+        paths.runtime_state.unlink(missing_ok=True)
+    port = _next_available_port(DEFAULT_HOST, DEFAULT_PORT)
+    nonce = secrets.token_hex(16)
     paths.state_dir.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable,
@@ -167,7 +172,10 @@ def command_launch(
         "--nonce",
         nonce,
     ]
-    environment = _runtime_environment(local_bearer=local_bearer)
+    environment = _runtime_environment(
+        local_bearer=local_bearer,
+        source_commit=str(manifest.get("source_commit", "")),
+    )
     process = subprocess.Popen(
         command,
         cwd=paths.state_dir,
@@ -183,7 +191,7 @@ def command_launch(
         "pid": process.pid,
         "port": port,
         "nonce": nonce,
-        "version_ref": f"macos-version:{current_version_id(paths.install)}",
+        "version_ref": installed_version_ref,
         "tag_ref": f"git-tag:{manifest['tag']}",
         "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "raw_paths_included": False,
@@ -686,7 +694,17 @@ def _next_available_port(host: str, preferred: int) -> int:
     raise RuntimeError("no bounded loopback port is available")
 
 
-def _runtime_environment(*, local_bearer: str) -> dict[str, str]:
+def _runtime_environment(
+    *,
+    local_bearer: str,
+    source_commit: str,
+) -> dict[str, str]:
+    if (
+        len(source_commit) != 40
+        or source_commit != source_commit.lower()
+        or any(character not in "0123456789abcdef" for character in source_commit)
+    ):
+        raise RuntimeError("installed bundle source revision is invalid")
     allowed = {
         key: value
         for key, value in os.environ.items()
@@ -706,6 +724,7 @@ def _runtime_environment(*, local_bearer: str) -> dict[str, str]:
     allowed["PYTHONUNBUFFERED"] = "1"
     allowed["PYTHONDONTWRITEBYTECODE"] = "1"
     allowed["UAA_API_LOCAL_BEARER"] = local_bearer
+    allowed["UAA_BUILD_COMMIT"] = source_commit
     return allowed
 
 

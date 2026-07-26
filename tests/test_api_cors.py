@@ -1,3 +1,5 @@
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -6,6 +8,8 @@ from ultimate_ai_agent.api.cors import (
     CONTROL_CENTER_LOOPBACK_CORS_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_METHODS,
     CONTROL_CENTER_LOOPBACK_CORS_ORIGINS,
+    configure_loopback_cors,
+    control_center_loopback_cors_origins,
 )
 from ultimate_ai_agent.api.security_headers import FASTAPI_SECURITY_HEADERS
 
@@ -40,13 +44,86 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "Content-Type",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Control-Center-Mutation-Binding",
+        "X-UAA-Expected-Backend-Revision-Ref",
+        "X-UAA-Expected-Backend-Instance-Ref",
+        "X-UAA-Expected-Backend-Truth-Ref",
         "X-Requested-With",
     )
     assert CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS == (
         "Retry-After",
+        "X-UAA-Backend-Instance-Ref",
+        "X-UAA-Backend-Revision-Ref",
         "X-UAA-Rate-Limit-Policy",
         "X-UAA-Security-Headers-Policy",
     )
+
+
+def test_packaging_selected_loopback_origin_is_exact_scoped(
+    monkeypatch,
+) -> None:
+    origin = "http://127.0.0.1:53421"
+    monkeypatch.setenv("UAA_CONTROL_CENTER_CORS_ORIGIN", origin)
+    local_app = configure_loopback_cors(FastAPI())
+
+    @local_app.get("/health")
+    def health() -> dict[str, bool]:
+        return {"ok": True}
+
+    response = TestClient(local_app).get(
+        "/health",
+        headers={"Origin": origin},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == origin
+    assert "*" not in control_center_loopback_cors_origins()
+
+
+@pytest.mark.parametrize(
+    ("configured_origin", "browser_origin"),
+    (
+        ("http://localhost:80", "http://localhost"),
+        ("http://127.0.0.1:80", "http://127.0.0.1"),
+        ("http://[::1]:80", "http://[::1]"),
+    ),
+)
+def test_packaging_default_http_port_origin_is_browser_canonical(
+    monkeypatch,
+    configured_origin: str,
+    browser_origin: str,
+) -> None:
+    monkeypatch.setenv("UAA_CONTROL_CENTER_CORS_ORIGIN", configured_origin)
+    origins = control_center_loopback_cors_origins(
+        {"UAA_CONTROL_CENTER_CORS_ORIGIN": configured_origin}
+    )
+    local_app = configure_loopback_cors(FastAPI())
+
+    @local_app.get("/health")
+    def health() -> dict[str, bool]:
+        return {"ok": True}
+
+    response = TestClient(local_app).get(
+        "/health",
+        headers={"Origin": browser_origin},
+    )
+
+    assert browser_origin in origins
+    assert configured_origin not in origins
+    assert response.headers["Access-Control-Allow-Origin"] == browser_origin
+
+
+def test_packaging_cors_origin_rejects_non_loopback_and_invalid_ports() -> None:
+    for configured in (
+        "https://127.0.0.1:53421",
+        "http://192.168.1.2:53421",
+        "http://127.0.0.1:0",
+        "http://127.0.0.1:65536",
+        "http://127.0.0.1:53421/path",
+    ):
+        assert control_center_loopback_cors_origins(
+            {"UAA_CONTROL_CENTER_CORS_ORIGIN": configured}
+        ) == CONTROL_CENTER_LOOPBACK_CORS_ORIGINS
 
 
 def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:
@@ -57,7 +134,9 @@ def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == origin
     assert response.headers["Access-Control-Expose-Headers"] == (
-        "Retry-After, X-UAA-Rate-Limit-Policy, X-UAA-Security-Headers-Policy"
+        "Retry-After, X-UAA-Backend-Instance-Ref, "
+        "X-UAA-Backend-Revision-Ref, X-UAA-Rate-Limit-Policy, "
+        "X-UAA-Security-Headers-Policy"
     )
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"
@@ -76,6 +155,22 @@ def test_allowed_loopback_preflight_is_scoped_and_security_hardened() -> None:
     assert "Content-Type" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Key" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Ref" in response.headers["Access-Control-Allow-Headers"]
+    assert (
+        "X-UAA-Control-Center-Mutation-Binding"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Revision-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Instance-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Truth-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"
     for name, value in FASTAPI_SECURITY_HEADERS.items():

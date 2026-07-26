@@ -148,7 +148,7 @@ REQUIRED_APP_TEST_WORDING = [
     'approveSafeRegisteredCapability: "backend_authority"',
     'inspectReceiptAuditLatencyRollback: "inspection_ready"',
     "Preview only action request",
-    "No approval was granted from this UI",
+    "This UI cannot grant, deny, execute, or bypass approvals",
     "Trace detail is redacted summary metadata only",
 ]
 

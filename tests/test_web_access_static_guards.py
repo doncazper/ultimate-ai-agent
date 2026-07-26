@@ -60,6 +60,11 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "scope=localhost readiness probes for local dev services only; "
         "authority=not_agent_public_web; migration=keep outside agent web access"
     ),
+    "scripts/dev/uaa_local_runtime.py": (
+        "lane=local_runtime_operator_wrapper; "
+        "scope=clean-source-gated loopback Docker package and local UI handoff only; "
+        "authority=not_agent_public_web; migration=keep outside agent web access"
+    ),
     "scripts/dev/uaa_setup.py": (
         "lane=developer_setup_bootstrap; "
         "scope=approved GitHub release bootstrap plus localhost probes only; "

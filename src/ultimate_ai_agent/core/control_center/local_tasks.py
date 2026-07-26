@@ -23,6 +23,9 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorType,
     AuthoritySource,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+)
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
@@ -129,6 +132,7 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
     audit_ref: str = Field(..., min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
     payload_fingerprint_ref: str = Field(..., min_length=1)
+    run_ref: str = Field(..., min_length=1)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
     approval_ref: str = Field(..., min_length=1, max_length=160)
     approval_status: str = Field(..., min_length=1, max_length=80)
@@ -136,8 +140,13 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
     authority_decision_ref: str | None = None
     authority_decision_outcome: str | None = None
     authority_lease_ref: str | None = None
+    authority_audit_ref: str | None = None
+    authority_policy_receipt_ref: str | None = None
     authority_domain_ref: str = FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF
     authority_capability_ref: str = FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+    authority_required_mode_ref: str = (
+        FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+    )
     local_task_created: bool = True
     safe_disable_ref: str = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
     rollback_ref: str = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
@@ -172,10 +181,12 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
             "audit_ref",
             "idempotency_key_ref",
             "payload_fingerprint_ref",
+            "run_ref",
             "evidence_timeline_event_ref",
             "approval_ref",
             "authority_domain_ref",
             "authority_capability_ref",
+            "authority_required_mode_ref",
             "safe_disable_ref",
             "rollback_ref",
             "safe_disable_posture_ref",
@@ -184,6 +195,8 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
         for field_name in [
             "authority_decision_ref",
             "authority_lease_ref",
+            "authority_audit_ref",
+            "authority_policy_receipt_ref",
         ]:
             ref_value = getattr(self, field_name)
             if ref_value is not None:
@@ -198,6 +211,24 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
                 AuthorityDecisionOutcome.ask.value,
             }:
                 raise ValueError("local task receipt authority decision unsupported")
+        if (
+            self.authority_decision_ref is not None
+            and self.authority_decision_outcome is not None
+            and self.authority_lease_ref is not None
+        ):
+            expected_authority_refs = local_task_authority_proof_refs(
+                authority_lease_ref=self.authority_lease_ref,
+                authority_decision_outcome=self.authority_decision_outcome,
+            )
+            if (
+                self.authority_decision_ref
+                != expected_authority_refs["authority_decision_ref"]
+                or self.authority_audit_ref
+                != expected_authority_refs["authority_audit_ref"]
+                or self.authority_policy_receipt_ref
+                != expected_authority_refs["authority_policy_receipt_ref"]
+            ):
+                raise ValueError("local task receipt authority proof mismatch")
         for field_name in [
             "approval_reason_refs",
             "evidence_refs",
@@ -223,6 +254,12 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
         if not self.safe_disable_enabled:
             raise ValueError(
                 "local task commit receipt requires enabled safe-disable posture"
+            )
+        if self.run_ref != FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF:
+            raise ValueError("local task commit receipt run binding mismatch")
+        if self.evidence_timeline_event_ref not in self.evidence_refs:
+            raise ValueError(
+                "local task commit receipt requires durable run evidence"
             )
         if self.rollback_execution_enabled:
             raise ValueError(
@@ -268,6 +305,46 @@ def local_task_commit_audit_ref(item_ref: str, idempotency_key_ref: str) -> str:
 
 def local_task_commit_event_ref(item_ref: str) -> str:
     return f"evidence-timeline:local-task/{_safe_suffix(item_ref)}"
+
+
+def local_task_authority_proof_refs(
+    *,
+    authority_lease_ref: str,
+    authority_decision_outcome: str,
+) -> dict[str, str]:
+    payload = {
+        "action_ref": FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_ACTION_REF,
+        "domain": "workspace",
+        "capability": "write",
+        "lease_ref": authority_lease_ref,
+        "outcome": authority_decision_outcome,
+    }
+
+    def stable_ref(prefix: str, value: dict[str, str]) -> str:
+        encoded = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+        return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()[:24]}"
+
+    receipt_payload = {
+        "action_ref": FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_ACTION_REF,
+        "lease_ref": authority_lease_ref,
+        "outcome": authority_decision_outcome,
+    }
+    return {
+        "authority_decision_ref": stable_ref(
+            "authority-policy-decision-ref",
+            payload,
+        ),
+        "authority_audit_ref": stable_ref("audit-ref:authority-policy", payload),
+        "authority_policy_receipt_ref": stable_ref(
+            "receipt-ref:authority-policy",
+            receipt_payload,
+        ),
+    }
 
 
 def local_task_commit_payload_fingerprint_ref(payload: dict[str, Any]) -> str:

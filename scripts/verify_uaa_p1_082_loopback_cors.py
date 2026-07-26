@@ -46,6 +46,10 @@ REQUIRED_DOC_SNIPPETS = {
         "Authorization",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Control-Center-Mutation-Binding",
+        "X-UAA-Expected-Backend-Revision-Ref",
+        "X-UAA-Expected-Backend-Instance-Ref",
+        "X-UAA-Expected-Backend-Truth-Ref",
         "wildcard CORS remains denied",
         "CORS is browser hardening, not authentication",
     ],
@@ -104,7 +108,11 @@ def _preflight(client: Any, origin: str, method: str = "POST"):
             "Access-Control-Request-Method": method,
             "Access-Control-Request-Headers": (
                 "content-type, authorization, x-uaa-idempotency-key, "
-                "x-uaa-idempotency-ref"
+                "x-uaa-idempotency-ref, "
+                "x-uaa-control-center-mutation-binding, "
+                "x-uaa-expected-backend-revision-ref, "
+                "x-uaa-expected-backend-instance-ref, "
+                "x-uaa-expected-backend-truth-ref"
             ),
         },
     )
@@ -153,10 +161,29 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         failures.append("allowed preflight missing X-UAA-Idempotency-Key header")
     if "X-UAA-Idempotency-Ref" not in preflight.headers.get("Access-Control-Allow-Headers", ""):
         failures.append("allowed preflight missing X-UAA-Idempotency-Ref header")
+    for header_name in [
+        "X-UAA-Control-Center-Mutation-Binding",
+        "X-UAA-Expected-Backend-Revision-Ref",
+        "X-UAA-Expected-Backend-Instance-Ref",
+        "X-UAA-Expected-Backend-Truth-Ref",
+    ]:
+        if header_name not in preflight.headers.get(
+            "Access-Control-Allow-Headers",
+            "",
+        ):
+            failures.append(
+                f"allowed preflight missing {header_name} header"
+            )
     expose_headers = client.get("/health", headers={"Origin": "http://localhost:5173"}).headers.get(
         "Access-Control-Expose-Headers", ""
     )
-    for header_name in ["Retry-After", "X-UAA-Rate-Limit-Policy", "X-UAA-Security-Headers-Policy"]:
+    for header_name in [
+        "Retry-After",
+        "X-UAA-Backend-Instance-Ref",
+        "X-UAA-Backend-Revision-Ref",
+        "X-UAA-Rate-Limit-Policy",
+        "X-UAA-Security-Headers-Policy",
+    ]:
         if header_name not in expose_headers:
             failures.append(f"allowed response missing exposed header {header_name}")
     if preflight.headers.get("Access-Control-Allow-Credentials") is not None:

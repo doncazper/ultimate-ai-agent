@@ -11,6 +11,7 @@ import {
   requestRedactedLocalChatProbe,
   revokeAuthorityLease,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { API_ENDPOINTS } from "../api/endpoints";
 import type {
   ChatHandoffReceipt,
@@ -44,7 +45,6 @@ import type {
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { AuthorityMissionInspectionPanel } from "./AuthorityMissionInspectionPanel";
-import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
@@ -233,6 +233,7 @@ const TASK_DECOMPOSITION_ROUTE_REFS = [
 ];
 
 export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const today = data.founderToday;
   const [models, setModels] =
     useState<LocalModelsInspectionStatus>(initialModelsStatus);
@@ -294,9 +295,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         try {
           const recordedReceipt = await recordChatTurnReceipt(
             chatTurnReceiptRequestFromProbe(nextProbe),
+            mutationBinding,
           );
           const confirmedReceipt = await fetchChatTurnReceipt(
             recordedReceipt.turn_ref,
+            mutationBinding,
           ).catch(() => recordedReceipt);
           setChatReceipt(confirmedReceipt);
         } catch (error) {
@@ -321,7 +324,13 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     setReceiptError(undefined);
     setHandoffPending(target);
     try {
-      setHandoffReceipt(await recordChatHandoff(chatReceipt.turn_ref, target));
+      setHandoffReceipt(
+        await recordChatHandoff(
+          chatReceipt.turn_ref,
+          target,
+          mutationBinding,
+        ),
+      );
     } catch (error) {
       setReceiptError(
         error instanceof Error
@@ -1607,7 +1616,11 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
         </article>
       </div>
 
-      <EvidenceViewerPanel knowledge={data.m17Knowledge} />
+      <p className="safe-copy">
+        Legacy preview evidence records are excluded from this critical route.
+        Backend-owned timeline, run, proof, and receipt refs above are the only
+        evidence presented as product state.
+      </p>
     </section>
   );
 }
@@ -1619,6 +1632,7 @@ export function SettingsOperatorPanel({
   authoritative: boolean;
   data: ControlCenterData;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const [settingsSnapshot, setSettingsSnapshot] =
@@ -1664,7 +1678,7 @@ export function SettingsOperatorPanel({
     (lease) => lease.status === "active" && lease.mode !== "read_only",
   );
   async function refreshSettingsSnapshot() {
-    const refreshed = await fetchControlCenterSettingsStatus();
+    const refreshed = await fetchControlCenterSettingsStatus(mutationBinding);
     setSettingsSnapshot(refreshed);
   }
   async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {
@@ -1680,16 +1694,19 @@ export function SettingsOperatorPanel({
     setAuthorityPendingMode(option.mode);
     setAuthorityError(undefined);
     try {
-      const result = await approveAndIssueAuthorityLease({
-        lease_issue_request: {
-          mode: option.mode,
-          scope: modeReadiness.scope,
-          requested_domains: modeReadiness.default_requested_domains,
-          decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
-          duration_minutes: 120,
-          safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
+      const result = await approveAndIssueAuthorityLease(
+        {
+          lease_issue_request: {
+            mode: option.mode,
+            scope: modeReadiness.scope,
+            requested_domains: modeReadiness.default_requested_domains,
+            decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
+            duration_minutes: 120,
+            safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
+          },
         },
-      });
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {
@@ -1709,11 +1726,15 @@ export function SettingsOperatorPanel({
     setAuthorityRevoking(true);
     setAuthorityError(undefined);
     try {
-      const result = await revokeAuthorityLease({
-        lease_ref: revokableLease.lease_ref,
-        decision_reason_ref: "reason-ref:control-center-authority-revoke",
-        safe_summary: "Control Center revoked the active session authority lease.",
-      });
+      const result = await revokeAuthorityLease(
+        {
+          lease_ref: revokableLease.lease_ref,
+          decision_reason_ref: "reason-ref:control-center-authority-revoke",
+          safe_summary:
+            "Control Center revoked the active session authority lease.",
+        },
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {
@@ -1769,9 +1790,12 @@ export function SettingsOperatorPanel({
     setAuthorityMissionIssuing(true);
     setAuthorityMissionError(undefined);
     try {
-      const result = await approveAndIssueAuthorityLease({
-        lease_issue_request: authorityMissionPlan.lease_issue_request,
-      });
+      const result = await approveAndIssueAuthorityLease(
+        {
+          lease_issue_request: authorityMissionPlan.lease_issue_request,
+        },
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {

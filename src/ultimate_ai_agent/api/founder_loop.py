@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
@@ -27,6 +29,9 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
 )
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    build_control_center_backend_truth,
+)
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
@@ -43,6 +48,29 @@ from ultimate_ai_agent.core.storage import (
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
+
+
+@router.get("/backend-truth", response_model=ResultEnvelope)
+def get_control_center_backend_truth() -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().backend_truth()
+    except (FounderLoopStorageError, OSError, sqlite3.Error):
+        data = build_control_center_backend_truth(repo=None)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_backend_truth",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:backend-truth",
+        data=data,
+        evidence=[{"evidence_ref": data["envelope_integrity_ref"]}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "raw_paths_omitted",
+            "read_only_control_center_projection",
+        ],
+    )
 
 
 @router.get("/today/summary", response_model=ResultEnvelope)

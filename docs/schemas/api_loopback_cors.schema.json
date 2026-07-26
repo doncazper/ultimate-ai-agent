@@ -67,11 +67,15 @@
           "Content-Type",
           "X-UAA-Idempotency-Key",
           "X-UAA-Idempotency-Ref",
+          "X-UAA-Control-Center-Mutation-Binding",
+          "X-UAA-Expected-Backend-Revision-Ref",
+          "X-UAA-Expected-Backend-Instance-Ref",
+          "X-UAA-Expected-Backend-Truth-Ref",
           "X-Requested-With"
         ]
       },
-      "minItems": 5,
-      "maxItems": 5,
+      "minItems": 9,
+      "maxItems": 9,
       "uniqueItems": true
     },
     "exposed_headers": {
@@ -79,12 +83,14 @@
       "items": {
         "enum": [
           "Retry-After",
+          "X-UAA-Backend-Instance-Ref",
+          "X-UAA-Backend-Revision-Ref",
           "X-UAA-Rate-Limit-Policy",
           "X-UAA-Security-Headers-Policy"
         ]
       },
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 5,
+      "maxItems": 5,
       "uniqueItems": true
     },
     "allow_credentials": {

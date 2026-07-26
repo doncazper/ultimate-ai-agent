@@ -138,6 +138,7 @@ export const supportingNavItems = navItems.filter(
 );
 
 export function getRouteSurfaceLabel(path: string): string {
+  if (path === "/morning-briefing") return "Briefing";
   return navItems.find((item) => item.path === path)?.label ?? "Control Center";
 }
 
@@ -455,6 +456,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         </>
       );
     case "/briefing":
+    case "/morning-briefing":
       return (
         <>
           <FounderLoopSpinePanel
@@ -580,6 +582,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/approvals":
       return (
         <ApprovalQueuePanel
+          includeLegacyPreview={false}
           review={data.m15Review}
           summary={data.dashboard.approval_summary}
           queue={data.runAttachedApprovalQueue}

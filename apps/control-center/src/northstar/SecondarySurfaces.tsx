@@ -8,6 +8,7 @@ import {
   revokeAuthorityLease,
   submitActionDecision,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import type {
   ControlCenterData,
   ControlCenterSettingsStatus,
@@ -89,6 +90,7 @@ const memoryDecisionRequiredRefFields = [
 ];
 
 export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [review, setReview] = useState<FounderLoopMemoryReview>(data.founderMemoryReview);
   const [decision, setDecision] = useState<MemoryReviewDecisionKind>("correct");
   const [selected, setSelected] = useState(0);
@@ -179,19 +181,24 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
     setPending(true);
     try {
       const candidateRef = candidate.business_memory_candidate_ref || candidate.review_ref;
-      const recorded = await recordMemoryReviewDecision(candidateRef, decision, {
-        reviewer_ref: "actor-ref:northstar-memory-review",
-        corrected_summary_ref: decision === "correct" ? `safe-summary-ref:northstar-memory-correction:${candidate.review_ref.replace(/[^a-zA-Z0-9_.@-]+/g, "-")}` : undefined,
-        corrected_safe_summary: decision === "correct" ? correction.trim() : undefined,
-        source_refs: candidate.source_refs,
-        evidence_refs: candidate.evidence_refs,
-        metadata_refs: [`metadata-ref:northstar-memory-review:${decision}`, candidate.review_ref],
-        blocked_state_refs: review.blocked_state_refs,
-      });
+      const recorded = await recordMemoryReviewDecision(
+        candidateRef,
+        decision,
+        {
+          reviewer_ref: "actor-ref:northstar-memory-review",
+          corrected_summary_ref: decision === "correct" ? `safe-summary-ref:northstar-memory-correction:${candidate.review_ref.replace(/[^a-zA-Z0-9_.@-]+/g, "-")}` : undefined,
+          corrected_safe_summary: decision === "correct" ? correction.trim() : undefined,
+          source_refs: candidate.source_refs,
+          evidence_refs: candidate.evidence_refs,
+          metadata_refs: [`metadata-ref:northstar-memory-review:${decision}`, candidate.review_ref],
+          blocked_state_refs: review.blocked_state_refs,
+        },
+        mutationBinding,
+      );
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}.`);
       try {
-        const refreshed = await fetchFounderMemoryReview();
+        const refreshed = await fetchFounderMemoryReview(mutationBinding);
         setReview(refreshed);
         const nextIndex = refreshed.items.findIndex((item) => item.review_ref === candidate.review_ref);
         setSelected(nextIndex >= 0 ? nextIndex : 0);
@@ -210,25 +217,28 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
     if (!reviewAuthoritative || !noteTitle.trim() || !noteSummary.trim()) return;
     setPending(true);
     try {
-      const recorded = await recordManualMemoryCandidate({
-        candidate_kind: "operator_note",
-        title: noteTitle.trim(),
-        safe_summary: noteSummary.trim(),
-        priority: "medium",
-        reviewer_ref: "actor-ref:northstar-memory-review",
-        source_refs: ["source-ref:northstar-manual-note"],
-        provenance_refs: ["provenance-ref:northstar-manual-note"],
-        missing_evidence_refs: ["missing-evidence-ref:northstar-manual-note"],
-        tag_refs: ["tag-ref:manual-memory-candidate"],
-        blocked_state_refs: ["blocked-state-ref:no-automatic-memory-write", "blocked-state-ref:no-context-injection"],
-      });
+      const recorded = await recordManualMemoryCandidate(
+        {
+          candidate_kind: "operator_note",
+          title: noteTitle.trim(),
+          safe_summary: noteSummary.trim(),
+          priority: "medium",
+          reviewer_ref: "actor-ref:northstar-memory-review",
+          source_refs: ["source-ref:northstar-manual-note"],
+          provenance_refs: ["provenance-ref:northstar-manual-note"],
+          missing_evidence_refs: ["missing-evidence-ref:northstar-manual-note"],
+          tag_refs: ["tag-ref:manual-memory-candidate"],
+          blocked_state_refs: ["blocked-state-ref:no-automatic-memory-write", "blocked-state-ref:no-context-injection"],
+        },
+        mutationBinding,
+      );
       setNoteReceipt(recorded);
       setNoteOpen(false);
       setNoteTitle("");
       setNoteSummary("");
       setFeedback(`Manual review candidate recorded · ${recorded.receipt_ref}. No recall record or memory write was created.`);
       try {
-        const refreshed = await fetchFounderMemoryReview();
+        const refreshed = await fetchFounderMemoryReview(mutationBinding);
         setReview(refreshed);
       } catch (refreshError) {
         setFeedback(`Manual review candidate recorded · ${recorded.receipt_ref}. Refresh pending: ${refreshError instanceof Error ? refreshError.message : "backend queue unavailable"}`);
@@ -278,6 +288,7 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
 }
 
 export function ActivityTrustSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const matrix = data.trustAuthorityMatrix;
   const [settings, setSettings] = useState<ControlCenterSettingsStatus>(data.settingsStatus);
   const [selectedLeaseRef, setSelectedLeaseRef] = useState(() => data.settingsStatus.authority_lease_state.active_leases.find((lease) => lease.status === "active" && lease.mode !== "read_only")?.lease_ref ?? "");
@@ -315,15 +326,21 @@ export function ActivityTrustSurface({ data }: { data: ControlCenterData }) {
     }
     setRevoking(true);
     try {
-      const result = await revokeAuthorityLease({
-        lease_ref: exactLease.lease_ref,
-        decision_reason_ref: "reason-ref:northstar-authority-revoke",
-        safe_summary: "Control Center revoked the exact active authority lease after operator confirmation.",
-      });
+      const result = await revokeAuthorityLease(
+        {
+          lease_ref: exactLease.lease_ref,
+          decision_reason_ref: "reason-ref:northstar-authority-revoke",
+          safe_summary:
+            "Control Center revoked the exact active authority lease after operator confirmation.",
+        },
+        mutationBinding,
+      );
       setConfirmationLeaseRef(undefined);
       setFeedback(`Lease revoked · ${result.receipt.receipt_ref}. Refreshing authority state.`);
       try {
-        const refreshed = await fetchControlCenterSettingsStatus();
+        const refreshed = await fetchControlCenterSettingsStatus(
+          mutationBinding,
+        );
         setSettings(refreshed);
         setFeedback(`Lease revoked · ${result.receipt.receipt_ref}. Authority state refreshed.`);
       } catch (refreshError) {
@@ -451,6 +468,7 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
 }
 
 export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
   const [selected, setSelected] = useState(0);
   const [pending, setPending] = useState<FounderLoopActionDecisionKind>();
@@ -544,16 +562,30 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     if (!item || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
     setPending(decision);
     try {
-      const recorded = await submitActionDecision(item.item_ref, decision, {
-        decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
-        edited_envelope_ref: decision === "edit" ? item.action_envelope_ref ?? item.approval_envelope_ref ?? null : undefined,
-        defer_until_ref: decision === "defer" ? "defer-until-ref:operator-selected-later" : undefined,
-        metadata_refs: [`metadata-ref:northstar-action-decision:${decision}`, item.item_ref],
-      });
+      const recorded = await submitActionDecision(
+        item.item_ref,
+        decision,
+        {
+          decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
+          edited_envelope_ref:
+            decision === "edit"
+              ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
+              : undefined,
+          defer_until_ref:
+            decision === "defer"
+              ? "defer-until-ref:operator-selected-later"
+              : undefined,
+          metadata_refs: [
+            `metadata-ref:northstar-action-decision:${decision}`,
+            item.item_ref,
+          ],
+        },
+        mutationBinding,
+      );
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}. Refreshing backend queue.`);
       try {
-        const refreshed = await fetchFounderActionsInbox();
+        const refreshed = await fetchFounderActionsInbox(mutationBinding);
         setInbox(refreshed);
         const nextIndex = refreshed.items.findIndex((candidate) => candidate.item_ref === item.item_ref);
         const refreshedItem = nextIndex >= 0 ? refreshed.items[nextIndex] : undefined;

@@ -17,6 +17,9 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
     FounderLoopLocalTaskCommitReceipt,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +80,7 @@ def test_local_task_create_is_only_rank5_action_authority_capability() -> None:
 
 
 def test_local_task_commit_receipt_denies_broader_authority() -> None:
+    evidence_event_ref = "evidence-timeline:local-task/test-local-task"
     receipt = FounderLoopLocalTaskCommitReceipt(
         item_ref="action-item:test-local-task",
         local_task_ref="local-task:founder-loop:test-local-task",
@@ -84,12 +88,13 @@ def test_local_task_commit_receipt_denies_broader_authority() -> None:
         audit_ref="audit:founder-loop-local-task:test-local-task:test-idem",
         idempotency_key_ref="idempotency:test-local-task",
         payload_fingerprint_ref="payload-fingerprint:founder-loop-local-task:test",
-        evidence_timeline_event_ref="evidence-timeline:local-task/test-local-task",
+        run_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+        evidence_timeline_event_ref=evidence_event_ref,
         approval_ref="approval-ref:test-local-task",
         approval_status="approved",
         approval_reason_refs=["approval-reason-ref:test-local-task"],
         safe_summary="Local task commit receipt uses safe refs only.",
-        evidence_refs=["evidence-ref:test-local-task"],
+        evidence_refs=["evidence-ref:test-local-task", evidence_event_ref],
         blocked_state_refs=list(FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS),
     )
 

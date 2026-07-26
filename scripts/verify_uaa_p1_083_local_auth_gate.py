@@ -18,6 +18,8 @@ from ultimate_ai_agent.api.local_auth import (  # noqa: E402
     LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
+    LOCAL_API_BEARER_FILE_ENV,
+    MAX_LOCAL_API_BEARER_FILE_BYTES,
     local_api_auth_policy_payload,
 )
 from ultimate_ai_agent.core.mattermost.api_safety import (  # noqa: E402
@@ -54,6 +56,8 @@ REQUIRED_DOC_SNIPPETS = {
         "auth:p1-083:local-protected-routes:v1",
         "fails closed by default",
         "UAA_API_LOCAL_BEARER",
+        "UAA_LOCAL_RUNTIME_SECRET_FILE",
+        "4096 bytes",
         "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY",
         "public_metadata",
         "local_readonly",
@@ -229,6 +233,10 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         failures.append("/api/manifest missing fail-closed local auth policy truth")
     if auth_policy.get("dev_only_bypass_env") != LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV:
         failures.append("/api/manifest missing explicit dev-only bypass env")
+    if auth_policy.get("bearer_file_env") != LOCAL_API_BEARER_FILE_ENV:
+        failures.append("/api/manifest missing local-runtime bearer file env")
+    if auth_policy.get("maximum_bearer_file_bytes") != MAX_LOCAL_API_BEARER_FILE_BYTES:
+        failures.append("/api/manifest missing bounded bearer file byte limit")
     if auth_policy.get("dev_only_bypass_production_authority") is not False:
         failures.append("/api/manifest overclaims dev-only bypass production authority")
     for blocked in [

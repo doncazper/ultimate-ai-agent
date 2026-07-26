@@ -448,7 +448,7 @@ BROWSER_SMOKE_REQUIRED_TEST_FRAGMENTS = [
     'chatShellThroughUaaV1: "gateway_gated"',
     'createTaskDecompositionPlan: "backend_gated"',
     "Preview only action request",
-    "No approval was granted from this UI",
+    "This UI cannot grant, deny, execute, or bypass approvals",
     "Trace detail is redacted summary metadata only",
 ]
 OPERATOR_STATE_REQUIRED_COMPONENT_FRAGMENTS = [
@@ -482,8 +482,10 @@ OPERATOR_STATE_REQUIRED_TEST_FRAGMENTS = [
     "/models",
     "/settings",
     "Blocked: local chat authority withheld",
-    "Denied: no sensitive evidence display",
     "Denied: no authority toggle",
+    "renders backend-owned evidence timeline refs without the M17 mock viewer",
+    "Legacy preview evidence records are excluded from this critical route",
+    'queryByText("mock_evidence_ref_001")',
     "getAllByRole(\"status\")",
     "getAllByRole(\"alert\")",
 ]
@@ -1140,7 +1142,17 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("local backend API base policy is missing")
     if vite_config.exists():
         text = vite_config.read_text(encoding="utf-8")
-        if 'target: "http://127.0.0.1:8000"' not in text:
+        fixed_loopback_target = 'target: "http://127.0.0.1:8000"' in text
+        constrained_loopback_target = all(
+            fragment in text
+            for fragment in (
+                'process.env.VITE_UAA_PROXY_TARGET ?? ""',
+                r"/^http:\/\/127\.0\.0\.1:\d{2,5}$/",
+                ': "http://127.0.0.1:8000"',
+                "target: localProxyTarget",
+            )
+        )
+        if not fixed_loopback_target and not constrained_loopback_target:
             failures.append("Vite dev proxy must target only http://127.0.0.1:8000")
         required_proxy_routes = [
             '"/control-center"',

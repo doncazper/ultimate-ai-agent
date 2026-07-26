@@ -1,24 +1,75 @@
-import { useEffect, useState } from "react";
-import { loadControlCenterData } from "../api/client";
+import { useEffect, useRef, useState } from "react";
+import {
+  loadControlCenterData,
+  type BackendTruthReadBinding,
+} from "../api/client";
 import type { ControlCenterData } from "../api/types";
 
-type LoadState =
-  | { status: "loading"; data: null; error: null }
-  | { status: "ready"; data: ControlCenterData; error: null }
-  | { status: "error"; data: null; error: string };
+export type ControlCenterDataLoadState =
+  | { status: "loading"; data: null; error: null; snapshotRef: null; retry: () => void }
+  | {
+      status: "ready";
+      data: ControlCenterData;
+      error: null;
+      snapshotRef: string | null;
+      retry: () => void;
+    }
+  | { status: "error"; data: null; error: string; snapshotRef: null; retry: () => void };
+
+type InternalLoadState =
+  | { status: "loading"; data: null; error: null; snapshotRef: null }
+  | {
+      status: "ready";
+      data: ControlCenterData;
+      error: null;
+      snapshotRef: string | null;
+      backendRevisionRef: string | null;
+      backendInstanceRef: string | null;
+    }
+  | { status: "error"; data: null; error: string; snapshotRef: null };
 
 const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
 
-export function useControlCenterData(enabled = true): LoadState {
-  const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
+export function useControlCenterData(
+  enabled = true,
+  binding: BackendTruthReadBinding | null = null,
+): ControlCenterDataLoadState {
+  const snapshotRef = binding?.snapshotRef ?? null;
+  const backendRevisionRef = binding?.backendRevisionRef ?? null;
+  const backendInstanceRef = binding?.backendInstanceRef ?? null;
+  const latestSnapshotRef = useRef(snapshotRef);
+  latestSnapshotRef.current = snapshotRef;
+  const [reloadGeneration, setReloadGeneration] = useState(0);
+  const [state, setState] = useState<InternalLoadState>({
+    status: "loading",
+    data: null,
+    error: null,
+    snapshotRef: null,
+  });
+  const retry = () => setReloadGeneration((generation) => generation + 1);
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
+    setState((current) =>
+      current.status === "ready" &&
+      current.backendRevisionRef === backendRevisionRef &&
+      current.backendInstanceRef === backendInstanceRef
+        ? current
+        : { status: "loading", data: null, error: null, snapshotRef: null },
+    );
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
-    const load = () => loadControlCenterData();
+    const expectedBinding =
+      latestSnapshotRef.current && backendRevisionRef && backendInstanceRef
+        ? {
+            snapshotRef: latestSnapshotRef.current,
+            backendRevisionRef,
+            backendInstanceRef,
+          }
+        : null;
+    const load = () => loadControlCenterData(expectedBinding);
     const scheduleMockFallbackRetry = (attemptIndex: number) => {
       if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
         return;
@@ -30,7 +81,14 @@ export function useControlCenterData(enabled = true): LoadState {
               return;
             }
             if (!shouldRetryMockFallback(retryData)) {
-              setState({ status: "ready", data: retryData, error: null });
+              setState({
+                status: "ready",
+                data: retryData,
+                error: null,
+                snapshotRef: latestSnapshotRef.current,
+                backendRevisionRef,
+                backendInstanceRef,
+              });
               return;
             }
             scheduleMockFallbackRetry(attemptIndex + 1);
@@ -45,7 +103,14 @@ export function useControlCenterData(enabled = true): LoadState {
     load()
       .then((data) => {
         if (active) {
-          setState({ status: "ready", data, error: null });
+          setState({
+            status: "ready",
+            data,
+            error: null,
+            snapshotRef: latestSnapshotRef.current,
+            backendRevisionRef,
+            backendInstanceRef,
+          });
         }
         if (active && shouldRetryMockFallback(data)) {
           scheduleMockFallbackRetry(0);
@@ -58,6 +123,7 @@ export function useControlCenterData(enabled = true): LoadState {
             data: null,
             error:
               "Control Center data could not be loaded safely. Check local backend status and use redacted summaries only.",
+            snapshotRef: null,
           });
         }
       });
@@ -67,9 +133,36 @@ export function useControlCenterData(enabled = true): LoadState {
         clearTimeout(retryTimeout);
       }
     };
-  }, [enabled]);
+  }, [
+    backendInstanceRef,
+    backendRevisionRef,
+    enabled,
+    reloadGeneration,
+  ]);
 
-  return state;
+  if (
+    enabled &&
+    state.status === "ready" &&
+    (state.backendRevisionRef !== backendRevisionRef ||
+      state.backendInstanceRef !== backendInstanceRef)
+  ) {
+    return {
+      status: "loading",
+      data: null,
+      error: null,
+      snapshotRef: null,
+      retry,
+    };
+  }
+  if (state.status === "ready") {
+    const {
+      backendRevisionRef: _backendRevisionRef,
+      backendInstanceRef: _backendInstanceRef,
+      ...visibleState
+    } = state;
+    return { ...visibleState, retry };
+  }
+  return { ...state, retry } as ControlCenterDataLoadState;
 }
 
 function shouldRetryMockFallback(data: ControlCenterData): boolean {

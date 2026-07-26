@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
+import { backendTruthPort, visualPort } from "./tests/visual/ports";
 
-const visualPort = Number(process.env.CONTROL_CENTER_VISUAL_PORT ?? "5177");
 const visualBaseUrl = `http://127.0.0.1:${visualPort}`;
 const reuseExistingVisualServer =
   process.env.CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER === "1";
@@ -28,6 +28,9 @@ export default defineConfig({
     url: visualBaseUrl,
     reuseExistingServer: reuseExistingVisualServer,
     timeout: 120_000,
+    env: {
+      VITE_UAA_PROXY_TARGET: `http://127.0.0.1:${backendTruthPort}`,
+    },
   },
   projects: [
     {
@@ -40,6 +43,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
+      testIgnore: /backend-truth\.real\.spec\.ts/,
       use: {
         ...devices["Pixel 5"],
         viewport: { width: 390, height: 844 },

@@ -47,7 +47,11 @@ def build_identity(
     repo_root: Path | None = None,
 ) -> BuildIdentity:
     values = os.environ if env is None else env
-    sha = _validated_sha(values.get(BUILD_COMMIT_ENV)) or _git_sha(repo_root)
+    # A mutable source checkout cannot prove that its executing files still
+    # match HEAD without invoking Git or reimplementing the index. Only an
+    # explicit build/launcher binding is therefore authoritative.
+    _ = repo_root
+    sha = _validated_sha(values.get(BUILD_COMMIT_ENV))
     commit_ref = f"commit-ref:git:{sha}" if sha else "commit-ref:git:unbound"
     configured_build_id = (values.get(BUILD_ID_ENV) or "").strip()
     if configured_build_id and _SAFE_BUILD_ID.fullmatch(configured_build_id):
@@ -73,24 +77,3 @@ def build_identity(
 def _validated_sha(value: str | None) -> str | None:
     candidate = (value or "").strip().lower()
     return candidate if _GIT_SHA.fullmatch(candidate) else None
-
-
-def _git_sha(repo_root: Path | None) -> str | None:
-    root = repo_root or Path(__file__).resolve().parents[3]
-    git_marker = root / ".git"
-    try:
-        git_dir = git_marker
-        if git_marker.is_file():
-            marker = git_marker.read_text(encoding="utf-8").strip()
-            if not marker.startswith("gitdir: "):
-                return None
-            git_dir = (root / marker.removeprefix("gitdir: ")).resolve()
-        head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
-        if head.startswith("ref: "):
-            ref = head.removeprefix("ref: ")
-            if not re.fullmatch(r"refs/[a-zA-Z0-9._/-]+", ref) or ".." in ref:
-                return None
-            head = (git_dir / ref).read_text(encoding="utf-8").strip()
-        return _validated_sha(head)
-    except (OSError, UnicodeError):
-        return None

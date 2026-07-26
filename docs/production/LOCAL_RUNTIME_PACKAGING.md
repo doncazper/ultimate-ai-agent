@@ -11,7 +11,8 @@ runtime authority.
 
 | Artifact | Role | Safety boundary |
 |---|---|---|
-| `packaging/local-runtime/compose.yaml` | Starts the local UAA API and Control Center containers for release-candidate testing. | Publishes only `127.0.0.1:8000` and `127.0.0.1:5173`; no remote host binding. |
+| `scripts/dev/uaa_local_runtime.py` | Verifies an exact clean source tree, generates the local bearer, starts/stops the fixed Compose stack, and transfers the bearer to the browser session fragment without logging it. | It is the supported package entrypoint; it accepts no arbitrary command and grants no agent runtime authority. |
+| `packaging/local-runtime/compose.yaml` | Starts the local UAA API and Control Center containers for release-candidate testing after wrapper admission. | Publishes only `127.0.0.1:8000` and `127.0.0.1:5173`; no remote host binding. |
 | `packaging/local-runtime/Dockerfile.api` | Builds the local API image from repo source and project metadata. | Uses the existing FastAPI route contract; no new route or runtime authority. |
 | `packaging/local-runtime/Dockerfile.control-center` | Builds the local Control Center image from `apps/control-center/package-lock.json`. | Uses the existing local Control Center shell; no execute controls. |
 | `.dockerignore` | Keeps local state and private material out of image build context. | Excludes `.uaa`, env files, generated reports, dependency caches, and key-like files. |
@@ -48,23 +49,10 @@ unsafe-pattern tests.
 
 ## Local Secret Generation
 
-Before starting the package manually, create the local secret file:
-
-```bash
-mkdir -p .uaa/local-runtime
-.venv/bin/python - <<'PY'
-from pathlib import Path
-from secrets import token_urlsafe
-
-target = Path(".uaa/local-runtime/uaa_local_runtime_secret")
-target.write_text(token_urlsafe(48) + "\n", encoding="utf-8")
-target.chmod(0o600)
-print("created local runtime secret ref")
-PY
-```
-
-The secret file is a local packaging secret reference only. It is not a
-credential vault, not a production auth mechanism, and not release evidence.
+The supported operator wrapper generates the ignored local secret file with
+mode `0600` immediately before startup. The secret file is a local packaging
+secret reference only. It is not a credential vault, not a production auth
+mechanism, and not release evidence.
 Do not paste the generated value into docs, reports, logs, commits, tickets, or
 chat transcripts.
 
@@ -75,17 +63,24 @@ material and non-safe summary shapes.
 
 ## Local Start
 
-After generating the local secret file:
-
 ```bash
-docker compose -f packaging/local-runtime/compose.yaml up --build
+.venv/bin/python scripts/dev/uaa_local_runtime.py up
 ```
+
+The wrapper calls the repository clean-source verifier before Compose can
+build or start. It passes the verified commit and a required admission marker
+to Compose, rotates the ignored local bearer, waits for healthy containers,
+and opens the Control Center with the bearer in a one-time URL fragment. The
+frontend consumes and removes that fragment immediately. Compose fails closed
+when the wrapper admission marker or exact revision is absent. The API reads
+the mounted bearer file through a bounded regular-file-only path and embeds
+the same verified commit in `UAA_BUILD_COMMIT`; backend truth and response
+provenance therefore remain revision-bound.
 
 Then inspect:
 
 ```bash
 curl http://127.0.0.1:8000/health
-open http://127.0.0.1:5173
 ```
 
 These commands are operator-run local packaging commands. The repository does
@@ -141,7 +136,7 @@ the Docker/local-runtime proof or a separately scoped trial-boot smoke receipt.
 To stop the local package:
 
 ```bash
-docker compose -f packaging/local-runtime/compose.yaml down --remove-orphans
+.venv/bin/python scripts/dev/uaa_local_runtime.py down
 ```
 
 To remove local generated state after confirming no evidence is needed:

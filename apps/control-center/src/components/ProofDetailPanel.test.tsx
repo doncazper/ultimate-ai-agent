@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { submitWebEvidenceAttachment } from "../api/client";
+import type { BackendTruthReadBinding } from "../api/client";
+import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import type {
   ControlCenterProofIndex,
   ControlCenterProofRecord,
@@ -80,6 +82,13 @@ const proofIndex: ControlCenterProofIndex = {
   proof_count: 1,
   proof_refs: [webProofRecord.proof_ref],
   records: [webProofRecord],
+};
+
+const mutationBinding: BackendTruthReadBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
 
 const webEvidenceReceipt: WebEvidenceProductSliceReceipt = {
@@ -181,7 +190,11 @@ describe("ProofDetailPanel web evidence", () => {
     const mockedSubmit = vi.mocked(submitWebEvidenceAttachment);
     mockedSubmit.mockResolvedValueOnce(webEvidenceReceipt);
 
-    render(<ProofDetailPanel authoritative proofIndex={proofIndex} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <ProofDetailPanel authoritative proofIndex={proofIndex} />
+      </BackendTruthMutationBindingProvider>,
+    );
 
     fireEvent.change(screen.getByLabelText("HTTPS URL"), {
       target: { value: "https://example.org/status" },
@@ -197,6 +210,7 @@ describe("ProofDetailPanel web evidence", () => {
         allowed_host: "example.org",
         attach_to_ref: "founder-loop:daily-loop",
       }),
+      mutationBinding,
     );
     expect(
       await screen.findByText("receipt:web-evidence-product-slice:test"),
