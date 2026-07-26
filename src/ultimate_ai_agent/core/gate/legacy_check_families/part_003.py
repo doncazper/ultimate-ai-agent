@@ -1345,6 +1345,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "API_ENDPOINTS.localChatCompletions",
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
             "API_ENDPOINTS.turnRouterPreview",
+            "postRuntimeGoalMutation",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

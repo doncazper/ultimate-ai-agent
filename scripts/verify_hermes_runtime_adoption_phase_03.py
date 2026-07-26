@@ -35,8 +35,8 @@ def main() -> int:
         failures.append("run creation adapter must remain explicitly unsupported")
     if not read_model.uaa_controls_authority:
         failures.append("UAA must remain the authority owner")
-    if not read_model.no_mutation_routes_registered:
-        failures.append("Phase 03 must not register mutation routes")
+    if not read_model.no_runtime_control_routes_registered:
+        failures.append("delegated runtime control routes must remain unregistered")
     if any(
         (
             read_model.create_run_route_enabled,

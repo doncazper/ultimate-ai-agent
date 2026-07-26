@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `337` OpenAPI paths and `338` manifest route operations.
+Current generated contract snapshot: `341` OpenAPI paths and `343` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The counts are generated from the FastAPI application and `/api/manifest`.
@@ -27,6 +27,11 @@ checkpoint-rollback routes,
 Governed Product
 Pilot authority profile, and
 runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
+Parity-gap closure Phase 04 adds persistent goal inspection plus exact,
+idempotent local metadata create/edit/transition routes and upgrades
+`GET /api/runtime/run-events` to bounded durable cursor replay for accepted
+local run types. Goal completion remains split into request and deterministic
+receipt/proof verification; the routes grant no standing or runtime authority.
 AuthorityLease V1 adds `GET /api/runtime/authority-state` and
 `GET /api/runtime/authority-domain-readiness` as protected read-only authority
 mode/domain/lease inspection routes with safe refs only,

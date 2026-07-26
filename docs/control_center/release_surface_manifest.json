@@ -2172,6 +2172,34 @@
         },
         {
           "method": "GET",
+          "path": "/api/runtime/goals",
+          "operation_id": "get_api_runtime_goals",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/goals",
+          "operation_id": "post_api_runtime_goals",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/goals/{goal_ref}/edit",
+          "operation_id": "post_api_runtime_goals_goal_ref_edit",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/goals/{goal_ref}/transition",
+          "operation_id": "post_api_runtime_goals_goal_ref_transition",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
           "path": "/api/runtime/approval-bridge",
           "operation_id": "get_api_runtime_approval_bridge",
           "side_effect_class": "local_dev_workspace_only",

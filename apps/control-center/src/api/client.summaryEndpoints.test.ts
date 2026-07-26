@@ -538,6 +538,11 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.runtimeRunEvents.stop_run_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.approval_resolution_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.completed_run_count).toBe(0);
+    expect(data.runtimeRunEvents.status).toBe("durable_local_replay");
+    expect(data.runtimeRunEvents.durable_event_source).toBe(true);
+    expect(data.runtimeRunEvents.cursor_replay_supported).toBe(true);
+    expect(data.runtimeRunEvents.goal_lifecycle.goals).toEqual([]);
+    expect(data.runtimeRunEvents.event_previews).toEqual([]);
     expect(data.runtimeRunEvents.authority_state_mapping_ref).toBe(
       "lane-ref:runtime-run-events-read-model",
     );

@@ -109,6 +109,36 @@ def test_exact_browser_mutation_binding_reaches_existing_route_checks(
     )
 
 
+def test_exact_browser_goal_binding_reaches_goal_route(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_GOAL_RUNTIME_STATE_DIR", str(tmp_path / "goals"))
+
+    response = TestClient(app).post(
+        "/api/runtime/goals",
+        headers={
+            **_bound_headers(tmp_path),
+            "X-UAA-Idempotency-Key": "idempotency-ref:browser-goal-binding",
+        },
+        json={
+            "objective": "Verify exact browser provenance.",
+            "desired_outcome": "One bounded local goal record.",
+            "success_criteria": ["The exact provenance binding is current."],
+            "constraints": ["No runtime execution."],
+            "in_scope_resource_refs": ["resource-ref:browser-goal-binding"],
+            "stop_condition": "Stop on provenance disagreement.",
+        },
+    )
+
+    assert response.status_code != 409
+    assert response.json().get("code") != (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )
+    assert response.json()["success"] is True
+
+
 def test_repo_local_mutation_without_browser_origin_keeps_cli_parity(
     monkeypatch,
 ) -> None:
@@ -184,9 +214,12 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/memory/review/candidate-ref/accept",
         "/control-center/memory/review/candidate-ref/forget-request",
         "/control-center/memory/context-packs/context-pack-ref/action-proposal",
+        "/api/runtime/goals",
+        "/api/runtime/goals/goal-ref/edit",
+        "/api/runtime/goals/goal-ref/transition",
     ],
 )
-def test_browser_today_and_memory_mutations_require_truth_binding(
+def test_browser_product_and_runtime_mutations_require_truth_binding(
     monkeypatch,
     path: str,
 ) -> None:

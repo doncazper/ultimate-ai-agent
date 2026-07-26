@@ -13880,16 +13880,197 @@ export interface RuntimeRunEventPreview {
     | "approval_wait_entered"
     | "event_stream_preview"
     | "stop_requested_preview"
-    | "proof_bound";
+    | "proof_bound"
+    | "goal_linked"
+    | "plan_linked"
+    | "run_started"
+    | "approval_resumed"
+    | "worker_restart_recovered"
+    | "allowed_local_action_recorded"
+    | "receipt_recorded"
+    | "evidence_linked"
+    | "completion_verified"
+    | "cancellation_requested"
+    | "cancelled"
+    | "failed_retryable"
+    | "failed_terminal"
+    | "dead_lettered";
   runtime_run_ref: string;
   uaa_durable_run_ref: string;
   proof_ref: string;
   redaction_status: string;
   safe_summary: string;
+  sequence?: number | null;
+  recorded_at?: string | null;
+  predecessor_hash_ref?: string | null;
+  event_hash_ref?: string | null;
+  proof_refs: string[];
+  receipt_refs: string[];
+  goal_ref?: string | null;
+  plan_ref?: string | null;
   runtime_payload_persisted: boolean;
   raw_log_persisted: boolean;
   raw_prompt_persisted: boolean;
   raw_response_persisted: boolean;
+}
+
+export interface RuntimePersistentGoal {
+  schema_version: "persistent_goal.v1";
+  contract_ref: string;
+  goal_ref: string;
+  objective: string;
+  desired_outcome: string;
+  success_criteria: string[];
+  constraints: string[];
+  in_scope_resource_refs: string[];
+  stop_condition: string;
+  state:
+    | "active"
+    | "paused"
+    | "blocked"
+    | "waiting"
+    | "complete_requested"
+    | "verified_complete"
+    | "cancelled"
+    | "cleared";
+  budget: {
+    operation_limit: number;
+    cost_budget_microusd: number;
+    deadline_at?: string | null;
+  };
+  links: {
+    plan_refs: string[];
+    run_refs: string[];
+    action_inbox_refs: string[];
+    work_board_refs: string[];
+  };
+  version: number;
+  created_at: string;
+  updated_at: string;
+  evidence_refs: string[];
+  completion_run_ref?: string | null;
+  completion_evidence_ref?: string | null;
+  completion_receipt_ref?: string | null;
+  completion_proof_ref?: string | null;
+  completion_verifier_ref?: string | null;
+  safe_refs_only: boolean;
+  model_output_authoritative: boolean;
+}
+
+export interface RuntimeGoalLifecycleReadModel {
+  schema_version: "goal_lifecycle_read_model.v1";
+  contract_ref: string;
+  status: "durable_local_proof_backed";
+  goals: RuntimePersistentGoal[];
+  goal_count: number;
+  active_count: number;
+  completion_requested_count: number;
+  verified_complete_count: number;
+  mutation_authority: "exact_local_metadata_only";
+  runtime_execution_enabled: boolean;
+  model_output_authoritative: boolean;
+  safe_refs_only: boolean;
+  redactions_applied: string[];
+}
+
+export interface RuntimeGoalCreateRequest {
+  objective: string;
+  desired_outcome: string;
+  success_criteria: string[];
+  constraints: string[];
+  in_scope_resource_refs: string[];
+  stop_condition: string;
+  budget: {
+    operation_limit: number;
+    cost_budget_microusd: number;
+    deadline_at?: string | null;
+  };
+  links: {
+    plan_refs: string[];
+    run_refs: string[];
+    action_inbox_refs: string[];
+    work_board_refs: string[];
+  };
+  evidence_refs: string[];
+}
+
+export interface RuntimeGoalEditRequest {
+  expected_version: number;
+  objective?: string;
+  desired_outcome?: string;
+  success_criteria?: string[];
+  constraints?: string[];
+  in_scope_resource_refs?: string[];
+  stop_condition?: string;
+  evidence_refs?: string[];
+}
+
+export type RuntimeGoalTransitionKind =
+  | "pause"
+  | "resume"
+  | "block"
+  | "wait"
+  | "cancel"
+  | "clear"
+  | "request_completion";
+
+export interface RuntimeGoalTransitionRequest {
+  expected_version: number;
+  transition: RuntimeGoalTransitionKind;
+  reason_ref: string;
+  evidence_refs?: string[];
+}
+
+export interface RuntimeGoalMutationApprovalBinding {
+  schema_version: "goal_mutation_approval_binding.v1";
+  approval_ref: string;
+  approval_request_ref: string;
+  approval_decision_ref: string;
+  exact_scope_ref: string;
+  request_fingerprint_ref: string;
+  operator_actor_ref: string;
+  approval_validated: boolean;
+  standing_authority_granted: boolean;
+}
+
+export interface RuntimeGoalMutationResult {
+  goal: RuntimePersistentGoal;
+  approval_binding: RuntimeGoalMutationApprovalBinding;
+}
+
+export interface RuntimeRunEventStreamSummary {
+  run_ref: string;
+  run_type: "local_read_task" | "local_metadata_action";
+  first_retained_sequence: number;
+  last_sequence: number;
+  retained_event_count: number;
+  retention_anchor_hash_ref?: string | null;
+  terminal_event_kind?: RuntimeRunEventPreview["event_kind"] | null;
+}
+
+export interface RuntimeRunEventReplay {
+  schema_version: "durable_run_event_replay.v1";
+  contract_ref: string;
+  status: "ok" | "unknown_run" | "stale_cursor" | "retention_loss";
+  run_ref: string;
+  after_sequence: number;
+  next_cursor: number;
+  first_retained_sequence?: number | null;
+  last_sequence: number;
+  retention_anchor_hash_ref?: string | null;
+  events: Array<{
+    event_ref: string;
+    run_ref: string;
+    sequence: number;
+    event_kind: RuntimeRunEventPreview["event_kind"];
+  }>;
+  gap_detected: boolean;
+  corruption_detected: boolean;
+  duplicate_events_returned: boolean;
+  live_transport_enabled: boolean;
+  control_messages_accepted: boolean;
+  safe_refs_only: boolean;
+  redactions_applied: string[];
 }
 
 export interface RuntimeRunProposalReadModel {
@@ -13941,6 +14122,14 @@ export interface RuntimeRunEventsReadModel {
   event_ref_grammar: RuntimeRunEventRefGrammar;
   run_proposals: RuntimeRunProposalReadModel[];
   event_previews: RuntimeRunEventPreview[];
+  goal_lifecycle: RuntimeGoalLifecycleReadModel;
+  stream_summaries: RuntimeRunEventStreamSummary[];
+  replay?: RuntimeRunEventReplay | null;
+  stream_count: number;
+  retained_event_count: number;
+  durable_event_source: boolean;
+  cursor_replay_supported: boolean;
+  bounded_retention_enabled: boolean;
   proposal_count: number;
   approval_wait_count: number;
   completed_run_count: number;
@@ -13950,7 +14139,7 @@ export interface RuntimeRunEventsReadModel {
   live_event_stream_enabled: boolean;
   uaa_controls_authority: boolean;
   control_center_talks_directly_to_runtime: boolean;
-  no_mutation_routes_registered: boolean;
+  no_runtime_control_routes_registered: boolean;
   safe_refs_only: boolean;
   raw_prompt_persisted: boolean;
   raw_response_persisted: boolean;

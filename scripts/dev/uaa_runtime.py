@@ -56,6 +56,12 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeCommandExecutionRequest,
     RuntimeCommandIntent,
     RuntimeGateway,
+    GoalCreateRequest,
+    GoalEditRequest,
+    GoalRuntimeError,
+    GoalRuntimeService,
+    GoalTransitionRequest,
+    capture_exact_goal_mutation_approval,
     active_runtime_authority_leases,
     HermesChatRequest,
     HermesCliAdapter,
@@ -3960,6 +3966,10 @@ def _inspect_run_events(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
     read_model = build_runtime_run_events_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
+        service=_goal_runtime_service(args),
+        run_ref=args.run_ref,
+        after_sequence=args.after_sequence,
+        limit=args.limit,
     ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
@@ -3988,6 +3998,197 @@ def _inspect_run_events(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_run_events(read_model)
+    return 0
+
+
+def _goal_runtime_service(args: argparse.Namespace) -> GoalRuntimeService:
+    return (
+        GoalRuntimeService(Path(args.state_dir))
+        if args.state_dir
+        else GoalRuntimeService.from_env()
+    )
+
+
+def _goal_request_payload(raw_value: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise ValueError("GOAL_REQUEST_JSON_INVALID") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("GOAL_REQUEST_JSON_OBJECT_REQUIRED")
+    return payload
+
+
+def _goal_mutation_result(
+    *,
+    command_ref: str,
+    goal: Any,
+    approval: Any,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": command_ref,
+        "goal": goal.model_dump(mode="json"),
+        "approval_binding": approval.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "exact_local_metadata_mutation": True,
+        "standing_authority_granted": False,
+        "runtime_execution_performed": False,
+        "provider_model_call_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+        "shell_execution_performed": False,
+    }
+
+
+def _goals_list(args: argparse.Namespace) -> int:
+    try:
+        read_model = _goal_runtime_service(args).goals.read_model(
+            include_cleared=args.include_cleared
+        )
+    except GoalRuntimeError:
+        print("Goal lifecycle could not be read safely.", file=sys.stderr)
+        return 1
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-goals-list",
+        "goal_lifecycle": read_model.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "runtime_execution_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Goals: {read_model.goal_count}")
+        for goal in read_model.goals:
+            print(f"{goal.goal_ref} {goal.state} v{goal.version}")
+    return 0
+
+
+def _goal_show(args: argparse.Namespace) -> int:
+    try:
+        goal = _goal_runtime_service(args).goals.get(args.goal_ref)
+    except GoalRuntimeError:
+        print("Goal could not be read safely.", file=sys.stderr)
+        return 1
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-goal-show",
+        "goal": goal.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "runtime_execution_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Goal: {goal.goal_ref}")
+        print(f"State: {goal.state}")
+        print(f"Version: {goal.version}")
+        print(f"Objective: {goal.objective}")
+    return 0
+
+
+def _goal_create(args: argparse.Namespace) -> int:
+    try:
+        request = GoalCreateRequest.model_validate(
+            _goal_request_payload(args.request_json)
+        )
+        approval = capture_exact_goal_mutation_approval(
+            operation="create",
+            subject_ref="goal-ref:new",
+            request_payload=request.model_dump(mode="json"),
+            idempotency_ref=args.idempotency_ref,
+        )
+        goal = _goal_runtime_service(args).goals.create(
+            request,
+            idempotency_ref=args.idempotency_ref,
+            approval_ref=approval.approval_ref,
+            approval_decision_ref=approval.approval_decision_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError):
+        print("Goal creation failed safely.", file=sys.stderr)
+        return 1
+    payload = _goal_mutation_result(
+        command_ref="repo-local-command:uaa-runtime-goal-create",
+        goal=goal,
+        approval=approval,
+    )
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Created goal: {goal.goal_ref}")
+        print(f"State: {goal.state}")
+        print(f"Version: {goal.version}")
+    return 0
+
+
+def _goal_edit(args: argparse.Namespace) -> int:
+    try:
+        request = GoalEditRequest.model_validate(
+            _goal_request_payload(args.request_json)
+        )
+        approval = capture_exact_goal_mutation_approval(
+            operation="edit",
+            subject_ref=args.goal_ref,
+            request_payload=request.model_dump(mode="json"),
+            idempotency_ref=args.idempotency_ref,
+        )
+        goal = _goal_runtime_service(args).goals.edit(
+            args.goal_ref,
+            request,
+            idempotency_ref=args.idempotency_ref,
+            approval_ref=approval.approval_ref,
+            approval_decision_ref=approval.approval_decision_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError):
+        print("Goal edit failed safely.", file=sys.stderr)
+        return 1
+    payload = _goal_mutation_result(
+        command_ref="repo-local-command:uaa-runtime-goal-edit",
+        goal=goal,
+        approval=approval,
+    )
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Edited goal: {goal.goal_ref}")
+        print(f"State: {goal.state}")
+        print(f"Version: {goal.version}")
+    return 0
+
+
+def _goal_transition(args: argparse.Namespace) -> int:
+    try:
+        request = GoalTransitionRequest.model_validate(
+            _goal_request_payload(args.request_json)
+        )
+        approval = capture_exact_goal_mutation_approval(
+            operation=f"transition-{request.transition}",
+            subject_ref=args.goal_ref,
+            request_payload=request.model_dump(mode="json"),
+            idempotency_ref=args.idempotency_ref,
+        )
+        goal = _goal_runtime_service(args).transition_goal(
+            args.goal_ref,
+            request,
+            idempotency_ref=args.idempotency_ref,
+            approval_ref=approval.approval_ref,
+            approval_decision_ref=approval.approval_decision_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError):
+        print("Goal transition failed safely.", file=sys.stderr)
+        return 1
+    payload = _goal_mutation_result(
+        command_ref="repo-local-command:uaa-runtime-goal-transition",
+        goal=goal,
+        approval=approval,
+    )
+    if args.json:
+        _print_json(payload)
+    else:
+        print(f"Transitioned goal: {goal.goal_ref}")
+        print(f"State: {goal.state}")
+        print(f"Version: {goal.version}")
     return 0
 
 

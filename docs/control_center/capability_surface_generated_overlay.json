@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 338,
+    "api_manifest_route_count": 343,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,
@@ -1386,7 +1386,7 @@
           "ui_status": "summary",
           "release_status": "partial",
           "owner": "runtime-readiness",
-          "backend_route_count": 10,
+          "backend_route_count": 14,
           "blocked_capability_count": 7,
           "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"

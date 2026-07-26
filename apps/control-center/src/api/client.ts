@@ -93,6 +93,11 @@ import type {
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
   RuntimeRunEventsReadModel,
+  RuntimePersistentGoal,
+  RuntimeGoalCreateRequest,
+  RuntimeGoalEditRequest,
+  RuntimeGoalMutationResult,
+  RuntimeGoalTransitionRequest,
   RuntimeStagedOrchestrationReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -163,6 +168,8 @@ import {
   memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
+  runtimeGoalEditEndpoint,
+  runtimeGoalTransitionEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import {
@@ -2616,6 +2623,9 @@ export async function loadControlCenterData(
         "GET /api/runtime/hermes/context-pack",
         "GET /api/runtime/capability-discovery",
         "GET /api/runtime/run-events",
+        "POST /api/runtime/goals",
+        "POST /api/runtime/goals/{goal_ref}/edit",
+        "POST /api/runtime/goals/{goal_ref}/transition",
         "GET /api/runtime/approval-bridge",
         "GET /api/runtime/streaming-progress",
         "GET /api/runtime/profiles",
@@ -8992,7 +9002,10 @@ function isSafeRuntimeRunEvents(
     value === undefined ||
     !Array.isArray(value.lifecycle_mappings) ||
     !Array.isArray(value.run_proposals) ||
-    !Array.isArray(value.event_previews)
+    !Array.isArray(value.event_previews) ||
+    !Array.isArray(value.stream_summaries) ||
+    value.goal_lifecycle === undefined ||
+    !Array.isArray(value.goal_lifecycle.goals)
   ) {
     return false;
   }
@@ -9012,7 +9025,7 @@ function isSafeRuntimeRunEvents(
   ];
   return (
     value.schema_version === "runtime_run_events.v1" &&
-    value.status === "proposal_read_model_only" &&
+    value.status === "durable_local_replay" &&
     value.route_ref === "GET /api/runtime/run-events" &&
     value.cli_ref === "uaa runtime inspect-run-events" &&
     isSafeTrustAuthorityRef(value.snapshot_ref) &&
@@ -9039,14 +9052,36 @@ function isSafeRuntimeRunEvents(
     ) &&
     value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.uaa_controls_authority === true &&
-    value.no_mutation_routes_registered === true &&
+    value.no_runtime_control_routes_registered === true &&
     value.safe_refs_only === true &&
     value.proposal_count === value.run_proposals.length &&
     value.approval_wait_count ===
-      value.run_proposals.filter(
-        (proposal) => proposal.uaa_durable_run_state === "approval_wait",
+      value.event_previews.filter(
+        (event) => event.event_kind === "approval_wait_entered",
       ).length &&
-    value.completed_run_count === 0 &&
+    value.completed_run_count ===
+      value.stream_summaries.filter(
+        (stream) => stream.terminal_event_kind === "completion_verified",
+      ).length &&
+    value.stream_count === value.stream_summaries.length &&
+    value.retained_event_count ===
+      value.stream_summaries.reduce(
+        (count, stream) => count + stream.retained_event_count,
+        0,
+      ) &&
+    value.durable_event_source === true &&
+    value.cursor_replay_supported === true &&
+    value.bounded_retention_enabled === true &&
+    value.goal_lifecycle.status === "durable_local_proof_backed" &&
+    value.goal_lifecycle.goal_count === value.goal_lifecycle.goals.length &&
+    value.goal_lifecycle.verified_complete_count ===
+      value.goal_lifecycle.goals.filter(
+        (goal) => goal.state === "verified_complete",
+      ).length &&
+    value.goal_lifecycle.runtime_execution_enabled === false &&
+    value.goal_lifecycle.model_output_authoritative === false &&
+    value.goal_lifecycle.safe_refs_only === true &&
+    value.goal_lifecycle.goals.every(isSafeRuntimePersistentGoal) &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.proof_refs) &&
     isNonEmptyStringArray(value.next_safe_action_refs) &&
@@ -9072,9 +9107,186 @@ function isSafeRuntimeRunEvents(
         event.runtime_payload_persisted === false &&
         event.raw_log_persisted === false &&
         event.raw_prompt_persisted === false &&
-        event.raw_response_persisted === false,
+        event.raw_response_persisted === false &&
+        Array.isArray(event.proof_refs) &&
+        Array.isArray(event.receipt_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
+  const completionRefs = [
+    goal.completion_run_ref,
+    goal.completion_evidence_ref,
+    goal.completion_receipt_ref,
+    goal.completion_proof_ref,
+    goal.completion_verifier_ref,
+  ];
+  const noCompletionRefs = completionRefs.every(
+    (ref) => ref === null || ref === undefined,
+  );
+  const exactCompletionRefs = completionRefs.every(
+    (ref) => typeof ref === "string" && isSafeTrustAuthorityRef(ref),
+  );
+  const completionPostureValid =
+    goal.state === "verified_complete"
+      ? exactCompletionRefs
+      : goal.state === "cleared"
+        ? noCompletionRefs || exactCompletionRefs
+        : noCompletionRefs;
+  const safeText = (value: unknown) =>
+    isBoundedDisplayText(value, 1200) && !containsSecretLike(value);
+  const safeRefs = (value: unknown) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(isSafeTrustAuthorityRef);
+  const safeTexts = (value: unknown, required = false) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    (!required || value.length > 0) &&
+    value.every(safeText);
+
+  return (
+    goal.schema_version === "persistent_goal.v1" &&
+    isSafeTrustAuthorityRef(goal.goal_ref) &&
+    safeText(goal.objective) &&
+    safeText(goal.desired_outcome) &&
+    safeText(goal.stop_condition) &&
+    safeTexts(goal.success_criteria, true) &&
+    safeTexts(goal.constraints) &&
+    safeRefs(goal.in_scope_resource_refs) &&
+    safeRefs(goal.evidence_refs) &&
+    safeRefs(goal.links.plan_refs) &&
+    safeRefs(goal.links.run_refs) &&
+    safeRefs(goal.links.action_inbox_refs) &&
+    safeRefs(goal.links.work_board_refs) &&
+    Number.isSafeInteger(goal.version) &&
+    goal.version >= 1 &&
+    Number.isSafeInteger(goal.budget.operation_limit) &&
+    goal.budget.operation_limit >= 1 &&
+    Number.isSafeInteger(goal.budget.cost_budget_microusd) &&
+    goal.budget.cost_budget_microusd >= 0 &&
+    completionPostureValid &&
+    goal.safe_refs_only === true &&
+    goal.model_output_authoritative === false
+  );
+}
+
+function isSafeRuntimeGoalMutationResult(
+  value: RuntimeGoalMutationResult | undefined,
+): value is RuntimeGoalMutationResult {
+  if (value === undefined) return false;
+  const { goal, approval_binding: approval } = value;
+  return (
+    isSafeRuntimePersistentGoal(goal) &&
+    approval.schema_version === "goal_mutation_approval_binding.v1" &&
+    approval.approval_validated === true &&
+    approval.standing_authority_granted === false &&
+    isSafeTrustAuthorityRef(approval.approval_ref) &&
+    isSafeTrustAuthorityRef(approval.approval_request_ref) &&
+    isSafeTrustAuthorityRef(approval.approval_decision_ref) &&
+    isSafeTrustAuthorityRef(approval.exact_scope_ref) &&
+    isSafeTrustAuthorityRef(approval.request_fingerprint_ref)
+  );
+}
+
+export async function fetchRuntimeRunEvents(): Promise<RuntimeRunEventsReadModel> {
+  const payload = await readEnvelope<RuntimeRunEventsReadModel>(
+    API_ENDPOINTS.runtimeRunEvents,
+  );
+  if (!isSafeRuntimeRunEvents(payload)) {
+    throw new Error("Runtime goal/event state failed safe validation.");
+  }
+  return payload;
+}
+
+async function postRuntimeGoalMutation(
+  endpoint: string,
+  request:
+    | RuntimeGoalCreateRequest
+    | RuntimeGoalEditRequest
+    | RuntimeGoalTransitionRequest,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders(
+      withBackendTruthMutationHeaders(
+        {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyRef,
+        },
+        binding,
+      ),
+    ),
+    body: JSON.stringify(request),
+  });
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<RuntimeGoalMutationResult>;
+  const result = data.result ?? data.data;
+  const success = data.ok ?? data.success;
+  if (
+    !response.ok ||
+    success !== true ||
+    !isSafeRuntimeGoalMutationResult(result)
+  ) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "The proof-backed goal mutation failed safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+export async function createRuntimeGoal(
+  request: RuntimeGoalCreateRequest,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    API_ENDPOINTS.runtimeGoals,
+    request,
+    idempotencyRef,
+    binding,
+  );
+}
+
+export async function editRuntimeGoal(
+  goalRef: string,
+  request: RuntimeGoalEditRequest,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    runtimeGoalEditEndpoint(goalRef),
+    request,
+    idempotencyRef,
+    binding,
+  );
+}
+
+export async function transitionRuntimeGoal(
+  goalRef: string,
+  request: RuntimeGoalTransitionRequest,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    runtimeGoalTransitionEndpoint(goalRef),
+    request,
+    idempotencyRef,
+    binding,
   );
 }
 

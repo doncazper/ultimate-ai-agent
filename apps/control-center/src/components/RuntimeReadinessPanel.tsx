@@ -1,3 +1,4 @@
+import { type FormEvent, useEffect, useState } from "react";
 import type {
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
@@ -34,7 +35,15 @@ import type {
   RuntimeVirtualProviderMoaReadModel,
   RuntimeVoiceMediaPostureReadModel,
   RuntimeWorktreePerAgentReadModel,
+  RuntimeGoalTransitionKind,
 } from "../api/types";
+import {
+  createRuntimeGoal,
+  editRuntimeGoal,
+  fetchRuntimeRunEvents,
+  transitionRuntimeGoal,
+} from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
@@ -111,6 +120,186 @@ export function RuntimeReadinessPanel({
   pluginMetadataPosture: RuntimePluginMetadataPostureReadModel;
   skillMarketplacePosture: RuntimeSkillMarketplacePostureReadModel;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
+  const [runtimeGoalEvents, setRuntimeGoalEvents] = useState(runEvents);
+  const [goalObjective, setGoalObjective] = useState("");
+  const [goalOutcome, setGoalOutcome] = useState("");
+  const [goalSuccessCriterion, setGoalSuccessCriterion] = useState("");
+  const [goalStopCondition, setGoalStopCondition] = useState("");
+  const [selectedGoalRef, setSelectedGoalRef] = useState(
+    runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "",
+  );
+  const [editedObjective, setEditedObjective] = useState("");
+  const [goalMutationBusy, setGoalMutationBusy] = useState(false);
+  const [goalNotice, setGoalNotice] = useState(
+    "Goal mutations require the exact local backend and a current truth binding.",
+  );
+  useEffect(() => {
+    setRuntimeGoalEvents(runEvents);
+    const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
+    setSelectedGoalRef((current) =>
+      runEvents.goal_lifecycle.goals.some(
+        (goal) => goal.goal_ref === current,
+      )
+        ? current
+        : firstGoalRef,
+    );
+  }, [runEvents]);
+  const selectedGoal = runtimeGoalEvents.goal_lifecycle.goals.find(
+    (goal) => goal.goal_ref === selectedGoalRef,
+  );
+  const availableGoalTransitions: RuntimeGoalTransitionKind[] =
+    selectedGoal === undefined
+      ? []
+      : selectedGoal.state === "active"
+        ? ["pause", "block", "wait", "request_completion", "cancel", "clear"]
+        : selectedGoal.state === "paused"
+          ? ["resume", "cancel", "clear"]
+          : selectedGoal.state === "blocked"
+            ? ["resume", "wait", "cancel", "clear"]
+            : selectedGoal.state === "waiting"
+              ? ["resume", "block", "cancel", "clear"]
+              : selectedGoal.state === "complete_requested"
+                ? ["resume", "block", "cancel", "clear"]
+                : selectedGoal.state === "verified_complete" ||
+                    selectedGoal.state === "cancelled"
+                  ? ["clear"]
+                  : [];
+
+  async function refreshGoalState() {
+    setRuntimeGoalEvents(await fetchRuntimeRunEvents());
+  }
+
+  async function createGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (mutationBinding === null) {
+      setGoalNotice("Goal creation is blocked until backend truth is current.");
+      return;
+    }
+    const nonce = Date.now();
+    setGoalMutationBusy(true);
+    try {
+      const result = await createRuntimeGoal(
+        {
+          objective: goalObjective,
+          desired_outcome: goalOutcome,
+          success_criteria: [goalSuccessCriterion],
+          constraints: [
+            "No external execution, standing authority, or unverified completion.",
+          ],
+          in_scope_resource_refs: [
+            `resource-ref:control-center-goal:${nonce}`,
+          ],
+          stop_condition: goalStopCondition,
+          budget: {
+            operation_limit: 25,
+            cost_budget_microusd: 0,
+          },
+          links: {
+            plan_refs: [`plan-ref:control-center-goal:${nonce}`],
+            run_refs: [`run-ref:control-center-goal:${nonce}`],
+            action_inbox_refs: [
+              `action-inbox-ref:control-center-goal:${nonce}`,
+            ],
+            work_board_refs: [
+              `work-board-ref:control-center-goal:${nonce}`,
+            ],
+          },
+          evidence_refs: [`evidence-ref:control-center-goal:${nonce}`],
+        },
+        `idempotency-ref:control-center-goal-create:${nonce}`,
+        mutationBinding,
+      );
+      await refreshGoalState();
+      setSelectedGoalRef(result.goal.goal_ref);
+      setGoalObjective("");
+      setGoalOutcome("");
+      setGoalSuccessCriterion("");
+      setGoalStopCondition("");
+      setGoalNotice(
+        `Goal created at version ${result.goal.version}; no runtime work was started.`,
+      );
+    } catch (error) {
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal creation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function saveGoalObjective() {
+    if (mutationBinding === null || selectedGoal === undefined) {
+      setGoalNotice("Goal editing is blocked until backend truth is current.");
+      return;
+    }
+    const nonce = Date.now();
+    setGoalMutationBusy(true);
+    try {
+      const result = await editRuntimeGoal(
+        selectedGoal.goal_ref,
+        {
+          expected_version: selectedGoal.version,
+          objective: editedObjective,
+          evidence_refs: [
+            `evidence-ref:control-center-goal-edit:${nonce}`,
+          ],
+        },
+        `idempotency-ref:control-center-goal-edit:${nonce}`,
+        mutationBinding,
+      );
+      await refreshGoalState();
+      setEditedObjective("");
+      setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
+    } catch (error) {
+      setGoalNotice(
+        error instanceof Error ? error.message : "Goal edit failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function transitionGoal(transition: RuntimeGoalTransitionKind) {
+    if (mutationBinding === null || selectedGoal === undefined) {
+      setGoalNotice(
+        "Goal transition is blocked until backend truth is current.",
+      );
+      return;
+    }
+    const nonce = Date.now();
+    setGoalMutationBusy(true);
+    try {
+      const result = await transitionRuntimeGoal(
+        selectedGoal.goal_ref,
+        {
+          expected_version: selectedGoal.version,
+          transition,
+          reason_ref: `reason-ref:control-center-goal-${transition}:${nonce}`,
+          evidence_refs: [
+            `evidence-ref:control-center-goal-${transition}:${nonce}`,
+          ],
+        },
+        `idempotency-ref:control-center-goal-${transition}:${nonce}`,
+        mutationBinding,
+      );
+      await refreshGoalState();
+      setGoalNotice(
+        `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
+      );
+    } catch (error) {
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal transition failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
   const booleans = [
     ["Production readiness claim", report.production_ready],
     ["Reviewed local model runtime evidence", report.real_model_runtime_ready],
@@ -3737,63 +3926,79 @@ export function RuntimeReadinessPanel({
         <div className="panel-heading compact-heading">
           <div>
             <p className="eyebrow">Runs and events</p>
-            <h3>Approval-wait proposal lane</h3>
+            <h3>Proof-backed goals and durable replay</h3>
           </div>
-          <span className="status-pill compact">{runEvents.status}</span>
+          <span className="status-pill compact">{runtimeGoalEvents.status}</span>
         </div>
-        <p>{runEvents.safe_summary}</p>
+        <p>{runtimeGoalEvents.safe_summary}</p>
         <dl className="detail-grid">
           <div>
             <dt>Route</dt>
-            <dd>{runEvents.route_ref}</dd>
+            <dd>{runtimeGoalEvents.route_ref}</dd>
           </div>
           <div>
             <dt>CLI</dt>
-            <dd>{runEvents.cli_ref}</dd>
+            <dd>{runtimeGoalEvents.cli_ref}</dd>
           </div>
           <div>
             <dt>Authority</dt>
-            <dd>{runEvents.authority_state_route_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_route_ref}</dd>
           </div>
           <div>
             <dt>Capability mapping</dt>
-            <dd>{runEvents.authority_state_mapping_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_mapping_ref}</dd>
           </div>
           <div>
             <dt>Decision</dt>
-            <dd>{runEvents.authority_state_decision_outcome}</dd>
+            <dd>{runtimeGoalEvents.authority_state_decision_outcome}</dd>
           </div>
           <div>
             <dt>Decision ref</dt>
-            <dd>{runEvents.authority_state_decision_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_decision_ref}</dd>
           </div>
           <div>
             <dt>Approval waits</dt>
-            <dd>{runEvents.approval_wait_count}</dd>
+            <dd>{runtimeGoalEvents.approval_wait_count}</dd>
+          </div>
+          <div>
+            <dt>Goals</dt>
+            <dd>{runtimeGoalEvents.goal_lifecycle.goal_count}</dd>
+          </div>
+          <div>
+            <dt>Verified goals</dt>
+            <dd>{runtimeGoalEvents.goal_lifecycle.verified_complete_count}</dd>
+          </div>
+          <div>
+            <dt>Durable streams</dt>
+            <dd>{runtimeGoalEvents.stream_count}</dd>
+          </div>
+          <div>
+            <dt>Retained events</dt>
+            <dd>{runtimeGoalEvents.retained_event_count}</dd>
           </div>
           <div>
             <dt>Completed runs</dt>
-            <dd>{runEvents.completed_run_count}</dd>
+            <dd>{runtimeGoalEvents.completed_run_count}</dd>
           </div>
           <div>
             <dt>Create route</dt>
-            <dd>{runEvents.create_run_route_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.create_run_route_enabled ? "enabled" : "blocked"}</dd>
           </div>
           <div>
             <dt>Stop route</dt>
-            <dd>{runEvents.stop_run_route_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.stop_run_route_enabled ? "enabled" : "blocked"}</dd>
           </div>
           <div>
             <dt>Approval resolution</dt>
             <dd>
-              {runEvents.approval_resolution_route_enabled
+              {runtimeGoalEvents.approval_resolution_route_enabled
                 ? "enabled"
                 : "blocked"}
             </dd>
           </div>
           <div>
             <dt>Live event stream</dt>
-            <dd>{runEvents.live_event_stream_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.live_event_stream_enabled ? "enabled" : "blocked"}</dd>
           </div>
         </dl>
         <div className="table-wrap">
@@ -3807,7 +4012,7 @@ export function RuntimeReadinessPanel({
               </tr>
             </thead>
             <tbody>
-              {runEvents.lifecycle_mappings.slice(0, 6).map((mapping) => (
+              {runtimeGoalEvents.lifecycle_mappings.slice(0, 6).map((mapping) => (
                 <tr key={`${mapping.runtime_state}-${mapping.uaa_durable_run_state}`}>
                   <td>{mapping.runtime_state}</td>
                   <td>{mapping.uaa_durable_run_state}</td>
@@ -3818,33 +4023,151 @@ export function RuntimeReadinessPanel({
             </tbody>
           </table>
         </div>
-        <h4>Run proposals</h4>
+        <h4>Goal lifecycle controls</h4>
+        <p className="section-copy">
+          These controls mutate local goal metadata only. They do not start a
+          run, mint standing authority, or verify completion without an exact
+          durable receipt and proof.
+        </p>
+        <form className="preview-form" onSubmit={createGoal}>
+          <label>
+            Objective
+            <input
+              required
+              maxLength={1200}
+              value={goalObjective}
+              onChange={(event) => setGoalObjective(event.target.value)}
+            />
+          </label>
+          <label>
+            Desired outcome
+            <input
+              required
+              maxLength={1200}
+              value={goalOutcome}
+              onChange={(event) => setGoalOutcome(event.target.value)}
+            />
+          </label>
+          <label>
+            Success criterion
+            <input
+              required
+              maxLength={1200}
+              value={goalSuccessCriterion}
+              onChange={(event) =>
+                setGoalSuccessCriterion(event.target.value)
+              }
+            />
+          </label>
+          <label>
+            Stop condition
+            <input
+              required
+              maxLength={1200}
+              value={goalStopCondition}
+              onChange={(event) => setGoalStopCondition(event.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={goalMutationBusy || mutationBinding === null}
+          >
+            Create local goal
+          </button>
+        </form>
+        <div className="preview-form">
+          <label>
+            Selected durable goal
+            <select
+              value={selectedGoalRef}
+              onChange={(event) => {
+                setSelectedGoalRef(event.target.value);
+                setEditedObjective("");
+              }}
+            >
+              <option value="">No goal selected</option>
+              {runtimeGoalEvents.goal_lifecycle.goals.map((goal) => (
+                <option key={goal.goal_ref} value={goal.goal_ref}>
+                  {goal.state} · v{goal.version} · {goal.objective}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Refined objective
+            <input
+              maxLength={1200}
+              placeholder={selectedGoal?.objective ?? "Select a goal"}
+              value={editedObjective}
+              onChange={(event) => setEditedObjective(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={
+              goalMutationBusy ||
+              mutationBinding === null ||
+              selectedGoal === undefined ||
+              editedObjective.trim().length === 0
+            }
+            onClick={saveGoalObjective}
+          >
+            Save objective
+          </button>
+          {availableGoalTransitions.map((transition) => (
+            <button
+              key={transition}
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={() => transitionGoal(transition)}
+            >
+              {transition.replaceAll("_", " ")}
+            </button>
+          ))}
+        </div>
+        <p className="form-message" role="status">
+          {goalNotice}
+        </p>
+        {selectedGoal?.state === "complete_requested" ? (
+          <p className="section-copy">
+            Verified completion is intentionally unavailable as a generic UI
+            button. Supply the exact linked run, receipt, proof, Evidence, and
+            deterministic verifier refs through the typed API or CLI.
+          </p>
+        ) : null}
+        <h4>Durable goals</h4>
         <ul className="compact-list">
-          {runEvents.run_proposals.map((proposal) => (
-            <li key={proposal.proposal_ref}>
-              {proposal.runtime_run_ref}: {proposal.uaa_durable_run_state}; stop{" "}
-              {proposal.stop_posture}; approval{" "}
-              {proposal.approval_resolution_posture}
+          {runtimeGoalEvents.goal_lifecycle.goals.length === 0 ? (
+            <li>No durable goals recorded.</li>
+          ) : null}
+          {runtimeGoalEvents.goal_lifecycle.goals.map((goal) => (
+            <li key={goal.goal_ref}>
+              {goal.goal_ref}: {goal.state}; version {goal.version}; runs{" "}
+              {goal.links.run_refs.length}
             </li>
           ))}
         </ul>
-        <h4>Event previews</h4>
+        <h4>Durable event replay</h4>
         <ul className="compact-list">
-          {runEvents.event_previews.map((event) => (
+          {runtimeGoalEvents.event_previews.length === 0 ? (
+            <li>No accepted local run events recorded.</li>
+          ) : null}
+          {runtimeGoalEvents.event_previews.map((event) => (
             <li key={event.event_ref}>
-              {event.event_kind}: {event.event_ref} {" -> "} {event.proof_ref}
+              {event.sequence ?? "?"}. {event.event_kind}: {event.event_ref}{" "}
+              {" -> "} {event.proof_ref}
             </li>
           ))}
         </ul>
         <h4>Unsupported adapters</h4>
         <ul className="compact-list">
-          {runEvents.unsupported_adapter_refs.slice(0, 5).map((ref) => (
+          {runtimeGoalEvents.unsupported_adapter_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
         <h4>Authority reason</h4>
         <ul className="compact-list">
-          {runEvents.authority_state_reason_refs.slice(0, 3).map((ref) => (
+          {runtimeGoalEvents.authority_state_reason_refs.slice(0, 3).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

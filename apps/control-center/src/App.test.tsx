@@ -8947,7 +8947,20 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Runs and events")).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();
-    expect(screen.getByText("Approval-wait proposal lane")).toBeInTheDocument();
+    expect(
+      screen.getByText("Proof-backed goals and durable replay"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Goal lifecycle controls")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save objective" }),
+    ).toBeDisabled();
+    expect(screen.getByText("No durable goals recorded.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No accepted local run events recorded."),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("lane-ref:runtime-run-events-read-model"),
     ).toBeInTheDocument();

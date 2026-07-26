@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `337` OpenAPI paths and `338` manifest route operations.
+Current generated contract snapshot: `341` OpenAPI paths and `343` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -438,14 +438,20 @@ Contract rules:
   authority refs only; rollback execution, broad filesystem snapshots, Git
   mutation, raw path/content persistence, and production authority remain
   blocked.
-  `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
-  backend-owned runtime run/event posture for lifecycle mappings, event refs,
-  stop posture, and approval-wait proposals. It now also returns the
+  `GET /api/runtime/run-events` exposes the parity-gap Phase 04 backend-owned
+  durable event source for accepted local run types. It returns bounded
+  hash-chained event refs, monotonic sequences, cursor/retention/gap posture,
+  linked proof and receipt refs, goal lifecycle state, stream summaries, and the
   AuthorityState mapping, catalog, decision, reason, unsupported-adapter, and
   decision-bound snapshot refs for
   `lane-ref:runtime-run-events-read-model` under Read-only `workspace/read`.
-  It is read/proposal only and does not create runs, stop runs, resolve
-  approvals, or stream live events.
+  `GET /api/runtime/goals` and `GET /api/runtime/goals/{goal_ref}` expose the
+  same persistent goal journal. The three goal POST routes provide exact local
+  metadata create, edit, and typed lifecycle transition boundaries with
+  idempotency, optimistic versions, request-scoped approval binding, and
+  receipt/proof-backed completion verification. They grant no standing
+  authority and do not create or control runtime work. Live transport remains
+  blocked; the event read route accepts no control messages.
   `GET /api/runtime/approval-bridge` exposes the Hermes Runtime Adoption Phase
   04 backend-owned runtime approval bridge posture for approval envelopes,
   Action Inbox projection refs, proof refs, denial/timeout/scope-mismatch

@@ -186,7 +186,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-MAX_SCOPED_FRONTEND_POST_HELPERS = 21
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 22
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -948,7 +948,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if not 1 <= post_count <= MAX_SCOPED_FRONTEND_POST_HELPERS:
+        if post_count != EXPECTED_SCOPED_FRONTEND_POST_HELPERS:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -958,6 +958,16 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client missing scoped web evidence attach helper")
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        for fragment in [
+            "postRuntimeGoalMutation",
+            "API_ENDPOINTS.runtimeGoals",
+            "runtimeGoalEditEndpoint(goalRef)",
+            "runtimeGoalTransitionEndpoint(goalRef)",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    f"frontend client missing scoped proof-backed goal mutation: {fragment}"
+                )
         for fragment in [
             "isSafeActionInboxWorkQueueReadModel",
             "isSafeActionInboxWorkQueueWorkItem",
