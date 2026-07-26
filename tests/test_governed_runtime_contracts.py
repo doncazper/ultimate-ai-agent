@@ -3688,6 +3688,8 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
 ) -> None:
     runner_started = threading.Event()
     release_runner = threading.Event()
+    duplicate_reserved = threading.Event()
+    duplicate_receipt_attempted = threading.Event()
     calls = 0
     calls_lock = threading.Lock()
     results: list[object] = []
@@ -3710,16 +3712,33 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
         intent="git_status",
         safe_summary="Inspect current repo status with redacted output.",
     )
+    first_store = RuntimeInvocationStore(tmp_path)
+    duplicate_store = RuntimeInvocationStore(tmp_path)
+    original_create_invocation = duplicate_store.create_invocation
+    original_record_receipt = duplicate_store.record_receipt
+
+    def observe_duplicate_reservation(*args: Any, **kwargs: Any) -> Any:
+        created = original_create_invocation(*args, **kwargs)
+        if created.replayed:
+            duplicate_reserved.set()
+        return created
+
+    def observe_duplicate_receipt(*args: Any, **kwargs: Any) -> Any:
+        duplicate_receipt_attempted.set()
+        return original_record_receipt(*args, **kwargs)
+
+    duplicate_store.create_invocation = observe_duplicate_reservation  # type: ignore[method-assign]
+    duplicate_store.record_receipt = observe_duplicate_receipt  # type: ignore[method-assign]
     gateways = [
         RuntimeGateway(
-            store=RuntimeInvocationStore(tmp_path),
+            store=first_store,
             command_adapter=GovernedCommandRuntimeAdapter(
                 workspace_root=ROOT,
                 runner=runner,
             ),
         ),
         RuntimeGateway(
-            store=RuntimeInvocationStore(tmp_path),
+            store=duplicate_store,
             command_adapter=GovernedCommandRuntimeAdapter(
                 workspace_root=ROOT,
                 runner=runner,
@@ -3743,6 +3762,8 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     assert runner_started.wait(timeout=5)
     second = threading.Thread(target=invoke_command, args=(gateways[1],))
     second.start()
+    assert duplicate_reserved.wait(timeout=5)
+    assert not duplicate_receipt_attempted.wait(timeout=0.2)
     release_runner.set()
     first.join(timeout=15)
     second.join(timeout=15)
@@ -3750,12 +3771,116 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     assert errors == []
     assert len(results) == 2
     assert calls == 1
+    assert duplicate_receipt_attempted.is_set() is False
     assert sum(1 for result in results if result.replayed) == 1
     assert any(
         result.record.receipt is not None
         and result.record.receipt.command_execution_performed
         for result in results
     )
+
+
+def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    duplicate_receipt_attempted = threading.Event()
+    calls = 0
+    first_results: list[Any] = []
+    errors: list[BaseException] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+        timeout_seconds=0.01,
+    )
+    first_store = RuntimeInvocationStore(tmp_path)
+    duplicate_store = RuntimeInvocationStore(tmp_path)
+    original_record_receipt = duplicate_store.record_receipt
+
+    def observe_duplicate_receipt(*args: Any, **kwargs: Any) -> Any:
+        duplicate_receipt_attempted.set()
+        return original_record_receipt(*args, **kwargs)
+
+    duplicate_store.record_receipt = observe_duplicate_receipt  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.runtime_gateway.command."
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    first_gateway = RuntimeGateway(
+        store=first_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    duplicate_gateway = RuntimeGateway(
+        store=duplicate_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    def invoke_first() -> None:
+        try:
+            first_results.append(
+                first_gateway.invoke_command(
+                    request,
+                    idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    first = threading.Thread(target=invoke_first)
+    first.start()
+    assert runner_started.wait(timeout=5)
+    try:
+        duplicate = duplicate_gateway.invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+        )
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert duplicate_receipt_attempted.is_set() is False
+        assert calls == 1
+    finally:
+        release_runner.set()
+        first.join(timeout=15)
+
+    assert errors == []
+    assert len(first_results) == 1
+    assert first_results[0].record.receipt is not None
+    assert first_results[0].record.receipt.command_execution_performed is True
+    completed_replay = duplicate_gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-timeout-race",
+    )
+    assert completed_replay.replayed is True
+    assert completed_replay.record.receipt is not None
+    assert completed_replay.record.receipt.command_execution_performed is True
+    assert duplicate_receipt_attempted.is_set() is False
+    assert calls == 1
 
 
 def test_runtime_gateway_command_nonzero_and_timeout_receipts(
