@@ -57,6 +57,7 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
 }
 DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
 COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS = 1.0
+COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS = 256
 
 class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
@@ -157,8 +158,10 @@ class _CommandExecutionLease:
     descriptor: int
 
     def release(self) -> None:
-        fcntl.flock(self.descriptor, fcntl.LOCK_UN)
-        os.close(self.descriptor)
+        try:
+            fcntl.flock(self.descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(self.descriptor)
 
 
 class RuntimeCommandRunner(Protocol):
@@ -316,6 +319,11 @@ def invoke_governed_command(
         },
     )
     claim_ref = _command_execution_claim_ref(store, idempotency_ref)
+    _reject_conflicting_command_reservation(
+        store=store,
+        invocation_request=invocation_request,
+        idempotency_ref=idempotency_ref,
+    )
     execution_lease = _acquire_command_execution_lease(
         store=store,
         claim_ref=claim_ref,
@@ -342,19 +350,7 @@ def invoke_governed_command(
             blocked_error = "RUNTIME_COMMAND_SAFE_DISABLED"
         if created.replayed:
             if record.receipt is not None:
-                metadata = record.receipt.command_receipt_metadata
-                return RuntimeCommandGatewayResult(
-                    record=record,
-                    output_summary=metadata.output_summary if metadata else None,
-                    output_summary_returned=metadata is not None,
-                    exit_code=metadata.exit_code if metadata else None,
-                    timed_out=metadata.timed_out if metadata else False,
-                    error_category=metadata.error_category if metadata else None,
-                    replayed=True,
-                    command_execution_enabled=(
-                        record.policy_decision.command_execution_enabled
-                    ),
-                )
+                return _completed_command_replay_result(record)
             return _record_blocked_command_result(
                 store=store,
                 request=request,
@@ -453,7 +449,12 @@ def _command_execution_lock_path(
     digest = hashlib.sha256(
         json.dumps(claim_ref, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    return store.state_dir / ".runtime-command-execution-locks" / f"{digest}.lock"
+    shard = int(digest[:8], 16) % COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS
+    return (
+        store.state_dir
+        / ".runtime-command-execution-locks"
+        / f"shard-{shard:03d}.lock"
+    )
 
 
 def _acquire_command_execution_lease(
@@ -495,16 +496,72 @@ def _acquire_command_execution_lease(
         os.close(descriptor)
         raise
     deadline = time.monotonic() + timeout_seconds
-    while True:
-        try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return _CommandExecutionLease(descriptor=descriptor)
-        except BlockingIOError:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                os.close(descriptor)
-                return None
-            time.sleep(min(0.01, remaining))
+    try:
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return _CommandExecutionLease(descriptor=descriptor)
+            except BlockingIOError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    durable_record = RuntimeInvocationStore(
+                        store.state_dir
+                    ).get_invocation_for_idempotency(claim_ref[1])
+                    if durable_record is not None:
+                        os.close(descriptor)
+                        return None
+                    # The owner holds the lease but has not finished its
+                    # reservation. Continue the safe ownership retry until the
+                    # reservation becomes visible or the lease becomes free.
+                    deadline = time.monotonic() + 0.05
+                    remaining = 0.05
+                time.sleep(min(0.01, remaining))
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _reject_conflicting_command_reservation(
+    *,
+    store: RuntimeInvocationStore,
+    invocation_request: RuntimeInvocationRequest,
+    idempotency_ref: str,
+) -> None:
+    durable_record = RuntimeInvocationStore(
+        store.state_dir
+    ).get_invocation_for_idempotency(idempotency_ref)
+    if durable_record is None:
+        return
+    if (
+        durable_record.payload_fingerprint_ref
+        != runtime_payload_fingerprint_ref(invocation_request)
+    ):
+        raise RuntimeInvocationConflictError(
+            "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+        )
+
+
+def _completed_command_replay_result(
+    record: RuntimeInvocationRecord,
+) -> RuntimeCommandGatewayResult:
+    receipt = record.receipt
+    if receipt is None:
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_COMMAND_COMPLETED_REPLAY_RECEIPT_MISSING"
+        )
+    metadata = receipt.command_receipt_metadata
+    return RuntimeCommandGatewayResult(
+        record=record,
+        output_summary=metadata.output_summary if metadata else None,
+        output_summary_returned=metadata is not None,
+        exit_code=metadata.exit_code if metadata else None,
+        timed_out=metadata.timed_out if metadata else False,
+        error_category=metadata.error_category if metadata else None,
+        replayed=True,
+        command_execution_enabled=(
+            record.policy_decision.command_execution_enabled
+        ),
+    )
 
 
 def _in_progress_command_replay_result(
@@ -530,6 +587,8 @@ def _in_progress_command_replay_result(
     replayed_record = durable_record.model_copy(
         update={"replay_count": durable_record.replay_count + 1}
     )
+    if replayed_record.receipt is not None:
+        return _completed_command_replay_result(replayed_record)
     return RuntimeCommandGatewayResult(
         record=replayed_record,
         error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",

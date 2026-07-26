@@ -16,6 +16,7 @@ import pytest
 from pydantic import ValidationError
 
 from scripts.dev import uaa_runtime
+import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -109,6 +110,34 @@ def _run_cross_process_command_owner(
     )
     if result.record.receipt is None:
         raise RuntimeError("cross-process runtime command receipt missing")
+
+
+def _hold_cross_process_command_lease_before_reservation(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(state_dir)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-pre-reservation",
+    )
+    lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=1.0,
+    )
+    if lease is None:
+        raise RuntimeError("cross-process pre-reservation lease missing")
+    try:
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if not release_path.exists():
+            raise RuntimeError("cross-process pre-reservation release timed out")
+    finally:
+        lease.release()
 
 
 class _BlockingFakeM164GatewayTransport(FakeM164GatewayTransport):
@@ -3962,6 +3991,21 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
         ),
     )
     try:
+        conflicting_request = request.model_copy(
+            update={
+                "safe_summary": (
+                    "Inspect a different governed status payload with redacted output."
+                )
+            }
+        )
+        conflict_started = time.monotonic()
+        with pytest.raises(RuntimeInvocationConflictError):
+            duplicate_gateway.invoke_command(
+                conflicting_request,
+                idempotency_ref="idempotency-ref:runtime-command-cross-process",
+            )
+        assert time.monotonic() - conflict_started < 0.5
+
         duplicate = duplicate_gateway.invoke_command(
             request,
             idempotency_ref="idempotency-ref:runtime-command-cross-process",
@@ -3980,8 +4024,9 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
 
     assert owner.is_alive() is False
     assert owner.exitcode == 0
+    completed_store = RuntimeInvocationStore(state_dir)
     completed = RuntimeGateway(
-        store=RuntimeInvocationStore(state_dir),
+        store=completed_store,
         command_adapter=GovernedCommandRuntimeAdapter(
             workspace_root=ROOT,
             runner=duplicate_runner,
@@ -3995,6 +4040,141 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
     assert completed.record.replay_count == 1
     assert completed.record.receipt.command_execution_performed is True
     assert duplicate_calls == []
+    timeout_race = runtime_command._in_progress_command_replay_result(
+        store=RuntimeInvocationStore(state_dir),
+        invocation_request=runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    assert timeout_race.record.receipt is not None
+    assert timeout_race.error_category is None
+    assert timeout_race.exit_code == 0
+    assert timeout_race.replayed is True
+
+
+def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime-state"
+    started_path = tmp_path / "lease-started"
+    release_path = tmp_path / "lease-release"
+    context = multiprocessing.get_context("spawn")
+    owner = context.Process(
+        target=_hold_cross_process_command_lease_before_reservation,
+        args=(state_dir, started_path, release_path),
+    )
+    owner.start()
+    deadline = time.monotonic() + 10
+    while not started_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert started_path.exists()
+    monkeypatch.setattr(
+        runtime_command,
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    results: list[RuntimeCommandGatewayResult] = []
+    errors: list[BaseException] = []
+
+    def invoke_after_owner() -> None:
+        try:
+            results.append(
+                RuntimeGateway(
+                    store=RuntimeInvocationStore(state_dir),
+                    command_adapter=GovernedCommandRuntimeAdapter(
+                        workspace_root=ROOT,
+                        runner=lambda **kwargs: RuntimeCommandRunResult(
+                            exit_code=0,
+                            timed_out=False,
+                            duration_ms=1,
+                            output_bytes=b"SAFE_STATUS",
+                        ),
+                    ),
+                ).invoke_command(
+                    RuntimeCommandExecutionRequest(
+                        intent="git_status",
+                        safe_summary=(
+                            "Inspect current repo status with redacted output."
+                        ),
+                        timeout_seconds=0.01,
+                    ),
+                    idempotency_ref=(
+                        "idempotency-ref:runtime-command-pre-reservation"
+                    ),
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    duplicate = threading.Thread(target=invoke_after_owner)
+    duplicate.start()
+    time.sleep(0.1)
+    assert duplicate.is_alive() is True
+    release_path.write_text("release", encoding="utf-8")
+    owner.join(timeout=15)
+    duplicate.join(timeout=15)
+
+    assert owner.is_alive() is False
+    assert owner.exitcode == 0
+    assert duplicate.is_alive() is False
+    assert errors == []
+    assert len(results) == 1
+    assert results[0].record.receipt is not None
+    assert results[0].record.receipt.command_execution_performed is True
+
+
+def test_runtime_gateway_command_execution_locks_are_bounded_shards(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    paths = {
+        runtime_command._command_execution_lock_path(
+            store,
+            runtime_command._command_execution_claim_ref(
+                store,
+                f"idempotency-ref:runtime-command-shard-{index}",
+            ),
+        )
+        for index in range(
+            runtime_command.COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS * 4
+        )
+    }
+
+    assert len(paths) <= runtime_command.COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS
+    assert all(path.name.startswith("shard-") for path in paths)
+    assert all(path.suffix == ".lock" for path in paths)
+
+
+def test_runtime_gateway_command_execution_lock_closes_on_flock_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-flock-error",
+    )
+    closed_descriptors: list[int] = []
+    original_close = os.close
+
+    def fail_flock(descriptor: int, operation: int) -> None:
+        raise OSError(95, "operation not supported")
+
+    def observe_close(descriptor: int) -> None:
+        closed_descriptors.append(descriptor)
+        original_close(descriptor)
+
+    monkeypatch.setattr(runtime_command.fcntl, "flock", fail_flock)
+    monkeypatch.setattr(runtime_command.os, "close", observe_close)
+
+    with pytest.raises(OSError, match="operation not supported"):
+        runtime_command._acquire_command_execution_lease(
+            store=store,
+            claim_ref=claim_ref,
+            timeout_seconds=0.01,
+        )
+
+    assert len(closed_descriptors) == 1
 
 
 def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_receipt(
