@@ -7,8 +7,9 @@ const ACCEPTANCE_SCHEMA_VERSION = "founder-loop-durable-evidence.v1";
 const ACCEPTANCE_INTEGRITY_PATTERN =
   /^proof-ref:founder-loop-durable-evidence:sha256:[0-9a-f]{64}$/;
 const EXPECTED_SURFACES = [
+  ["critical-surface:overview", "Overview", ["/"], ["GET /control-center/dashboard", "GET /control-center/settings/status"]],
   ["critical-surface:start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
-  ["critical-surface:today", "Today", ["/", "/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
+  ["critical-surface:today", "Today", ["/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
   ["critical-surface:plans", "Plans", ["/plans"], ["GET /control-center/today/summary"]],
   ["critical-surface:action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
   ["critical-surface:approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
@@ -109,7 +110,7 @@ export async function validateControlCenterBackendTruth(
   if (generatedAt > now + 5_000) fail("BACKEND_TRUTH_FROM_FUTURE");
   if (validUntil <= now) fail("BACKEND_TRUTH_STALE");
 
-  if (!Array.isArray(value.critical_surfaces) || value.critical_surfaces.length !== 13) {
+  if (!Array.isArray(value.critical_surfaces) || value.critical_surfaces.length !== 14) {
     fail("BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE");
   }
   value.critical_surfaces.forEach((surface, index) => {

@@ -50,6 +50,11 @@ def test_browser_critical_mutation_requires_backend_truth_binding(
     assert response.json()["code"] == (
         "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
     )
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert (
+        "X-UAA-Backend-Revision-Ref"
+        in response.headers["access-control-expose-headers"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -83,6 +88,7 @@ def test_browser_critical_mutation_rejects_provenance_substitution(
     assert response.json()["code"] == (
         "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
     )
+    assert response.headers["access-control-allow-origin"] == ORIGIN
 
 
 def test_exact_browser_mutation_binding_reaches_existing_route_checks(
@@ -170,6 +176,7 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/memory/feedback",
         "/control-center/memory/review/manual-candidate",
         "/control-center/memory/review/candidate-ref/accept",
+        "/control-center/memory/review/candidate-ref/forget-request",
         "/control-center/memory/context-packs/context-pack-ref/action-proposal",
     ],
 )

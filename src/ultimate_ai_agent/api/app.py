@@ -276,7 +276,9 @@ _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
 )
 _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
     r"^/control-center/memory/(?:"
-    r"review/[^/]+/(?:accept|correct|reject|defer|merge|supersede|expire)"
+    r"review/[^/]+/(?:"
+    r"accept|correct|reject|defer|merge|supersede|expire|forget-request"
+    r")"
     r"|context-packs/[^/]+/action-proposal"
     r")$"
 )
@@ -853,7 +855,7 @@ async def backend_response_binding_middleware(
                 expected_backend_instance_ref=expected_instance or "",
             )
         ):
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=409,
                 content={
                     "detail": (
@@ -866,6 +868,10 @@ async def backend_response_binding_middleware(
                         "mutation-backend-truth-binding-v1"
                     ),
                 },
+            )
+            return apply_loopback_cors_response_headers(
+                response,
+                request.headers.get("origin"),
             )
     response = await call_next(request)
     identity = build_identity()

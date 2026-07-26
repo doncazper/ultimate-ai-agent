@@ -198,7 +198,7 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}.`);
       try {
-        const refreshed = await fetchFounderMemoryReview();
+        const refreshed = await fetchFounderMemoryReview(mutationBinding);
         setReview(refreshed);
         const nextIndex = refreshed.items.findIndex((item) => item.review_ref === candidate.review_ref);
         setSelected(nextIndex >= 0 ? nextIndex : 0);
@@ -238,7 +238,7 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
       setNoteSummary("");
       setFeedback(`Manual review candidate recorded · ${recorded.receipt_ref}. No recall record or memory write was created.`);
       try {
-        const refreshed = await fetchFounderMemoryReview();
+        const refreshed = await fetchFounderMemoryReview(mutationBinding);
         setReview(refreshed);
       } catch (refreshError) {
         setFeedback(`Manual review candidate recorded · ${recorded.receipt_ref}. Refresh pending: ${refreshError instanceof Error ? refreshError.message : "backend queue unavailable"}`);

@@ -27,6 +27,9 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
 )
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    build_control_center_backend_truth,
+)
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
@@ -47,7 +50,10 @@ _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
 
 @router.get("/backend-truth", response_model=ResultEnvelope)
 def get_control_center_backend_truth() -> ResultEnvelope:
-    data = get_founder_loop_service().backend_truth()
+    try:
+        data = get_founder_loop_service().backend_truth()
+    except FounderLoopStorageError:
+        data = build_control_center_backend_truth(repo=None)
     return ResultEnvelope(
         success=True,
         operation="control_center_backend_truth",

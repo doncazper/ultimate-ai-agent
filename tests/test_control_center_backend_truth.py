@@ -9,8 +9,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.authority import (
     AuthorityCapability,
     AuthorityDomain,
@@ -87,6 +89,17 @@ def test_backend_truth_is_short_lived_revision_bound_and_fail_closed(
     assert truth["authority_posture"]["control_center_grants_authority"] is False
     assert truth["authority_posture"]["production_authority_enabled"] is False
     assert ControlCenterBackendTruth(**truth).model_dump(mode="json") == truth
+
+
+def test_backend_truth_declares_root_as_overview_not_today() -> None:
+    by_ref = {item.surface_ref: item for item in CRITICAL_SURFACES}
+
+    assert by_ref["critical-surface:overview"].frontend_paths == ["/"]
+    assert by_ref["critical-surface:overview"].backend_route_refs == [
+        "GET /control-center/dashboard",
+        "GET /control-center/settings/status",
+    ]
+    assert "/" not in by_ref["critical-surface:today"].frontend_paths
 
 
 def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
@@ -575,6 +588,30 @@ def test_backend_truth_distinguishes_storage_failure_from_first_run(
         "issue-ref:backend-truth-storage-unavailable"
     ]
     assert truth["evidence_binding"]["receipt_refs"] == []
+
+
+def test_backend_truth_api_redacts_repository_construction_failure(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    def fail_service():
+        raise FounderLoopStorageError("raw-local-storage-detail")
+
+    monkeypatch.setattr(
+        "ultimate_ai_agent.api.founder_loop.get_founder_loop_service",
+        fail_service,
+    )
+
+    response = TestClient(app).get("/control-center/backend-truth")
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["evidence_binding"]["status"] == "storage_unavailable"
+    assert payload["evidence_binding"]["issue_refs"] == [
+        "issue-ref:backend-truth-storage-unavailable"
+    ]
+    assert "raw-local-storage-detail" not in response.text
 
 
 @pytest.mark.parametrize(

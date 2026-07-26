@@ -58,6 +58,7 @@ from ultimate_ai_agent.distribution.macos.runtime import (
     RuntimePaths,
     _runtime_environment,
     check_for_update,
+    command_launch,
 )
 
 
@@ -92,6 +93,75 @@ def test_packaged_runtime_child_uses_the_manifest_source_revision(
             local_bearer="local-session-bearer",
             source_commit="not-a-commit",
         )
+
+
+def test_launch_replaces_live_runtime_from_superseded_install(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    paths.runtime_state.write_text("{}", encoding="utf-8")
+    old_state = {
+        "pid": 111,
+        "port": 8765,
+        "nonce": "old-runtime-nonce",
+        "version_ref": "macos-version:old-version",
+    }
+    terminated: list[dict[str, object]] = []
+    written_states: list[dict[str, object]] = []
+    process = SimpleNamespace(pid=222, poll=lambda: None)
+
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._ensure_local_bearer",
+        lambda _paths: "local-session-bearer",
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.current_manifest",
+        lambda _layout: {
+            "source_commit": "a" * 40,
+            "tag": "v0.104.0",
+        },
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.current_version_id",
+        lambda _layout: "new-version",
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._load_runtime_state",
+        lambda _paths: old_state,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._runtime_identity_matches",
+        lambda _state: True,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._terminate_owned_process",
+        lambda state: terminated.append(dict(state)),
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._next_available_port",
+        lambda _host, _port: 8766,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._runtime_environment",
+        lambda **_kwargs: {"PATH": "/usr/bin"},
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime.subprocess.Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(
+        "ultimate_ai_agent.distribution.macos.runtime._write_json",
+        lambda _path, state, **_kwargs: written_states.append(dict(state)),
+    )
+
+    result = command_launch(paths, skip_update=True, no_browser=True)
+
+    assert result == 0
+    assert terminated == [old_state]
+    assert written_states[-1]["status"] == "ready"
+    assert written_states[-1]["version_ref"] == "macos-version:new-version"
 
 
 def test_newest_channel_compares_stable_and_dev_by_tag_commit_time() -> None:

@@ -453,6 +453,9 @@ describe("North Star backend wiring", () => {
     );
     expect(await screen.findByText(/receipt:memory-review:test/)).toBeVisible();
     expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledTimes(1);
+    expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledWith(
+      mutationBinding,
+    );
   });
 
   it("keeps Memory Review decisions read-only when a candidate claims authority", () => {
@@ -526,6 +529,9 @@ describe("North Star backend wiring", () => {
       ),
     );
     expect(await screen.findByText(/No recall record or memory write was created/)).toBeVisible();
+    expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledWith(
+      mutationBinding,
+    );
   });
 
   it("keeps an Action Inbox receipt visible when queue refresh fails", async () => {

@@ -244,6 +244,15 @@ class ControlCenterBackendTruth(BaseModel):
 
 CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
     CriticalSurfaceBinding(
+        surface_ref="critical-surface:overview",
+        label="Overview",
+        frontend_paths=["/"],
+        backend_route_refs=[
+            "GET /control-center/dashboard",
+            "GET /control-center/settings/status",
+        ],
+    ),
+    CriticalSurfaceBinding(
         surface_ref="critical-surface:start-here",
         label="Start Here",
         frontend_paths=["/start"],
@@ -252,7 +261,7 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
     CriticalSurfaceBinding(
         surface_ref="critical-surface:today",
         label="Today",
-        frontend_paths=["/", "/today", "/workspace", "/workspace/today"],
+        frontend_paths=["/today", "/workspace", "/workspace/today"],
         backend_route_refs=["GET /control-center/today/summary"],
     ),
     CriticalSurfaceBinding(
@@ -546,19 +555,14 @@ def _build_founder_loop_durable_evidence(
 
 def build_control_center_backend_truth(
     *,
-    repo: FounderLoopRepository,
+    repo: FounderLoopRepository | None,
     now: datetime | None = None,
     identity: BuildIdentity | None = None,
 ) -> dict[str, Any]:
     generated_at = (now or utc_now()).astimezone(UTC).replace(microsecond=0)
     current_identity = identity or build_identity()
-    storage_unavailable = False
-    try:
-        acceptance, issues = _build_founder_loop_durable_evidence(
-            repo=repo,
-            limit=50,
-        )
-    except FounderLoopStorageError:
+    storage_unavailable = repo is None
+    if repo is None:
         acceptance = {
             "schema_version": FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION,
             "action_refs": [],
@@ -568,8 +572,25 @@ def build_control_center_backend_truth(
             "evidence_refs": [],
             "memory_candidate_refs": [],
         }
-        storage_unavailable = True
         issues = ["backend-truth-storage-unavailable"]
+    else:
+        try:
+            acceptance, issues = _build_founder_loop_durable_evidence(
+                repo=repo,
+                limit=50,
+            )
+        except FounderLoopStorageError:
+            acceptance = {
+                "schema_version": FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION,
+                "action_refs": [],
+                "run_refs": [],
+                "proof_refs": [],
+                "receipt_refs": [],
+                "evidence_refs": [],
+                "memory_candidate_refs": [],
+            }
+            storage_unavailable = True
+            issues = ["backend-truth-storage-unavailable"]
     if not current_identity.source_revision_bound:
         issues.append("backend-source-revision-unbound")
     complete = not issues

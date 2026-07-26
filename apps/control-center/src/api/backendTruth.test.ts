@@ -14,8 +14,9 @@ function fixture(overrides: Record<string, unknown> = {}) {
   const generatedAt = "2026-07-22T18:00:00Z";
   const validUntil = "2026-07-22T18:00:45Z";
   const refs = [
+    ["overview", "Overview", ["/"], ["GET /control-center/dashboard", "GET /control-center/settings/status"]],
     ["start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
-    ["today", "Today", ["/", "/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
+    ["today", "Today", ["/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
     ["plans", "Plans", ["/plans"], ["GET /control-center/today/summary"]],
     ["action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
     ["approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
@@ -97,7 +98,7 @@ describe("backend truth validation", () => {
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(13);
+    expect(validated.critical_surfaces).toHaveLength(14);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
@@ -147,7 +148,7 @@ describe("backend truth validation", () => {
     ],
     [
       "partial surface set",
-      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 12) }),
+      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 13) }),
       "BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE",
     ],
     [

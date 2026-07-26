@@ -5092,9 +5092,13 @@ export async function fetchFounderMemoryContextManifest(): Promise<FounderLoopMe
   );
 }
 
-export async function fetchFounderMemoryReview(): Promise<FounderLoopMemoryReview> {
+export async function fetchFounderMemoryReview(
+  binding: BackendTruthReadBinding | null,
+): Promise<FounderLoopMemoryReview> {
   return readEnvelope<FounderLoopMemoryReview>(
     API_ENDPOINTS.founderMemoryReview,
+    defaultControlCenterReadLimiter,
+    binding,
   );
 }
 
