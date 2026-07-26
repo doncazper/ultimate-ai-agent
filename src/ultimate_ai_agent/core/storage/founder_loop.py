@@ -10671,15 +10671,21 @@ class FounderLoopRepository:
             )
         return projected_actions[: self._bounded_limit(limit)]
 
-    def list_durable_local_task_actions(self) -> list[dict[str, Any]]:
-        """Project every durable local-task commit without a Today page limit."""
+    def list_durable_local_task_actions(
+        self,
+        *,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Project a bounded newest-first durable local-task candidate window."""
+        bounded_limit = min(self._bounded_limit(limit), 50)
         rows = self._fetch_all(
             """
             SELECT item_ref
             FROM local_task_commit_receipts
             ORDER BY created_at DESC, item_ref ASC
+            LIMIT ?
             """,
-            (),
+            (bounded_limit,),
         )
         actions: list[dict[str, Any]] = []
         for row in rows:
@@ -17228,6 +17234,9 @@ class FounderLoopRepository:
                     receipt_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS
+                    idx_local_task_commit_receipts_created_item
+                ON local_task_commit_receipts(created_at DESC, item_ref ASC);
                 CREATE TABLE IF NOT EXISTS local_task_commit_replays (
                     key_ref TEXT PRIMARY KEY,
                     item_ref TEXT NOT NULL,

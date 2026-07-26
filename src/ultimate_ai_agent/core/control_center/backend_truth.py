@@ -484,7 +484,7 @@ def _build_founder_loop_durable_evidence(
     today_actions = [
         item for item in today.get("actions", []) if isinstance(item, dict)
     ]
-    durable_actions = repo.list_durable_local_task_actions()
+    durable_actions = repo.list_durable_local_task_actions(limit=bounded_limit)
     actions_by_ref: dict[str, dict[str, Any]] = {}
     for action in [*today_actions, *durable_actions]:
         item_ref = action.get("item_ref")

@@ -60,3 +60,30 @@ def test_verified_operator_up_orders_source_proof_before_secret_handoff(
     assert "#uaa-session-bearer=" in opened_url
     assert LOCAL_BEARER in opened_url
     assert LOCAL_BEARER not in capsys.readouterr().out
+
+
+def test_verified_operator_up_keeps_healthy_stack_successful_without_browser(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        operator,
+        "verified_clean_source_commit",
+        lambda _root: SHA,
+    )
+    monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
+    monkeypatch.setattr(operator, "_write_private_text", lambda _path, _value: None)
+    monkeypatch.setattr(
+        operator,
+        "_run_compose",
+        lambda _arguments, *, commit: None,
+    )
+    monkeypatch.setattr(operator.webbrowser, "open", lambda _url: False)
+
+    operator._verified_up()
+
+    captured = capsys.readouterr()
+    assert "OK: local runtime started" in captured.out
+    assert "browser handoff was unavailable" in captured.err
+    assert LOCAL_BEARER not in captured.out
+    assert LOCAL_BEARER not in captured.err

@@ -24,6 +24,10 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     proxy: {
+      "/api": {
+        target: localProxyTarget,
+        changeOrigin: false,
+      },
       "/control-center": {
         target: localProxyTarget,
         changeOrigin: false,

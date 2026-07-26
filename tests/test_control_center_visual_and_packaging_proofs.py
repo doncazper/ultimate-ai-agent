@@ -121,6 +121,13 @@ def test_local_runtime_binds_exact_selected_control_center_origin() -> None:
     ) in compose
 
 
+def test_standard_control_center_dev_server_proxies_public_api_manifest() -> None:
+    vite_config = (ROOT / "apps/control-center/vite.config.ts").read_text()
+
+    assert '"/api": {' in vite_config
+    assert "target: localProxyTarget" in vite_config
+
+
 def test_local_runtime_operator_entry_binds_clean_source_and_session_bearer() -> None:
     operator = (ROOT / "scripts/dev/uaa_local_runtime.py").read_text()
     compose = (ROOT / "packaging/local-runtime/compose.yaml").read_text()

@@ -102,6 +102,54 @@ def test_backend_truth_declares_root_as_overview_not_today() -> None:
     assert "/" not in by_ref["critical-surface:today"].frontend_paths
 
 
+def test_backend_truth_uses_bounded_durable_receipt_candidate_window(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "bounded-receipts")
+    limits: list[int] = []
+    original = repo.list_durable_local_task_actions
+
+    def bounded_actions(*, limit: int = 50):
+        limits.append(limit)
+        return original(limit=limit)
+
+    monkeypatch.setattr(repo, "list_durable_local_task_actions", bounded_actions)
+
+    build_control_center_backend_truth(
+        repo=repo,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert limits == [50]
+    with sqlite3.connect(repo.db_path) as connection:
+        indexes = {
+            str(row[1])
+            for row in connection.execute(
+                "PRAGMA index_list('local_task_commit_receipts')"
+            )
+        }
+        query_plan = [
+            str(row[3])
+            for row in connection.execute(
+                """
+                EXPLAIN QUERY PLAN
+                SELECT item_ref
+                FROM local_task_commit_receipts
+                ORDER BY created_at DESC, item_ref ASC
+                LIMIT ?
+                """,
+                (50,),
+            )
+        ]
+    assert "idx_local_task_commit_receipts_created_item" in indexes
+    assert any(
+        "idx_local_task_commit_receipts_created_item" in step
+        for step in query_plan
+    )
+
+
 def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
     tmp_path,
 ) -> None:

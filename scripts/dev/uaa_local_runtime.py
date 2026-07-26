@@ -71,9 +71,13 @@ def _verified_up() -> None:
         f"http://127.0.0.1:{port}/today"
         f"#uaa-session-bearer={urllib.parse.quote(local_bearer, safe='')}"
     )
-    if not webbrowser.open(session_url):
-        raise RuntimeError("local Control Center could not be opened")
+    browser_opened = webbrowser.open(session_url)
     print("OK: local runtime started from a verified clean source revision")
+    if not browser_opened:
+        print(
+            "WARNING: local runtime is healthy but the browser handoff was unavailable",
+            file=sys.stderr,
+        )
 
 
 def _down() -> None:
