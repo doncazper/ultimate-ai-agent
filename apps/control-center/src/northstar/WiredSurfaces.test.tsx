@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import type { FounderLoopActionInboxDecisionLaneReadModel } from "../api/types";
+import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
 const apiMocks = vi.hoisted(() => ({
@@ -13,6 +14,13 @@ const apiMocks = vi.hoisted(() => ({
   revokeAuthorityLease: vi.fn(),
   fetchControlCenterSettingsStatus: vi.fn(),
 }));
+
+const mutationBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"1".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"2".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:33333333333333333333333333333333",
+};
 
 vi.mock("../api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/client")>()),
@@ -270,13 +278,21 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderActionsInbox.mockResolvedValue(data.founderActionsInbox);
 
-    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
 
     await waitFor(() => expect(apiMocks.submitActionDecision).toHaveBeenCalledWith(
       item.item_ref,
       "reject",
       expect.objectContaining({ decision_reason_ref: "decision-reason-ref:northstar-action:reject" }),
+      mutationBinding,
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
@@ -577,7 +593,14 @@ describe("North Star backend wiring", () => {
       },
     });
 
-    render(<NorthStarControlCenter activePath="/workspace/activity-trust" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/activity-trust"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.change(screen.getByLabelText("Select exact active lease"), { target: { value: selectedLease.lease_ref } });
     fireEvent.click(screen.getByRole("button", { name: "Revoke lease" }));
     expect(apiMocks.revokeAuthorityLease).not.toHaveBeenCalled();
@@ -587,7 +610,7 @@ describe("North Star backend wiring", () => {
       lease_ref: "authority-lease-ref:test-elevated-selected",
       decision_reason_ref: "reason-ref:northstar-authority-revoke",
       safe_summary: "Control Center revoked the exact active authority lease after operator confirmation.",
-    }));
+    }, mutationBinding));
     expect(await screen.findByText(/receipt:authority-revoke:test/)).toBeVisible();
   });
 

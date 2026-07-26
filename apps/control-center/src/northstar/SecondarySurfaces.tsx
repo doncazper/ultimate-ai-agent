@@ -8,6 +8,7 @@ import {
   revokeAuthorityLease,
   submitActionDecision,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import type {
   ControlCenterData,
   ControlCenterSettingsStatus,
@@ -278,6 +279,7 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
 }
 
 export function ActivityTrustSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const matrix = data.trustAuthorityMatrix;
   const [settings, setSettings] = useState<ControlCenterSettingsStatus>(data.settingsStatus);
   const [selectedLeaseRef, setSelectedLeaseRef] = useState(() => data.settingsStatus.authority_lease_state.active_leases.find((lease) => lease.status === "active" && lease.mode !== "read_only")?.lease_ref ?? "");
@@ -315,11 +317,15 @@ export function ActivityTrustSurface({ data }: { data: ControlCenterData }) {
     }
     setRevoking(true);
     try {
-      const result = await revokeAuthorityLease({
-        lease_ref: exactLease.lease_ref,
-        decision_reason_ref: "reason-ref:northstar-authority-revoke",
-        safe_summary: "Control Center revoked the exact active authority lease after operator confirmation.",
-      });
+      const result = await revokeAuthorityLease(
+        {
+          lease_ref: exactLease.lease_ref,
+          decision_reason_ref: "reason-ref:northstar-authority-revoke",
+          safe_summary:
+            "Control Center revoked the exact active authority lease after operator confirmation.",
+        },
+        mutationBinding,
+      );
       setConfirmationLeaseRef(undefined);
       setFeedback(`Lease revoked · ${result.receipt.receipt_ref}. Refreshing authority state.`);
       try {
@@ -451,6 +457,7 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
 }
 
 export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
   const [selected, setSelected] = useState(0);
   const [pending, setPending] = useState<FounderLoopActionDecisionKind>();
@@ -544,12 +551,26 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     if (!item || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
     setPending(decision);
     try {
-      const recorded = await submitActionDecision(item.item_ref, decision, {
-        decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
-        edited_envelope_ref: decision === "edit" ? item.action_envelope_ref ?? item.approval_envelope_ref ?? null : undefined,
-        defer_until_ref: decision === "defer" ? "defer-until-ref:operator-selected-later" : undefined,
-        metadata_refs: [`metadata-ref:northstar-action-decision:${decision}`, item.item_ref],
-      });
+      const recorded = await submitActionDecision(
+        item.item_ref,
+        decision,
+        {
+          decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
+          edited_envelope_ref:
+            decision === "edit"
+              ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
+              : undefined,
+          defer_until_ref:
+            decision === "defer"
+              ? "defer-until-ref:operator-selected-later"
+              : undefined,
+          metadata_refs: [
+            `metadata-ref:northstar-action-decision:${decision}`,
+            item.item_ref,
+          ],
+        },
+        mutationBinding,
+      );
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}. Refreshing backend queue.`);
       try {

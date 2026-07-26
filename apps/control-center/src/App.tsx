@@ -31,6 +31,7 @@ import {
   canonicalizeControlCenterPath,
   isCriticalControlCenterPath,
 } from "./api/backendTruth";
+import { BackendTruthMutationBindingProvider } from "./backendTruthMutationBinding";
 
 const loadNorthStarControlCenter = () =>
   import("./northstar/NorthStarControlCenter");
@@ -239,7 +240,9 @@ export function NorthStarRoute({
         </div>
       }
     >
-      <NorthStarControlCenter activePath={activePath} data={state.data} />
+      <BackendTruthMutationBindingProvider binding={truthReadBinding}>
+        <NorthStarControlCenter activePath={activePath} data={state.data} />
+      </BackendTruthMutationBindingProvider>
     </Suspense>
   );
 }
@@ -397,7 +400,9 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           state.data.routeStates[activePath],
         )}
       />
-      {renderRoute(activePath, state.data)}
+      <BackendTruthMutationBindingProvider binding={truthReadBinding}>
+        {renderRoute(activePath, state.data)}
+      </BackendTruthMutationBindingProvider>
     </AppShell>
   );
 }
@@ -416,6 +421,7 @@ const NORTH_STAR_SHELL_ROUTE_KEYS = [
 ];
 
 const FIRST_RUN_CRITICAL_PATHS = new Set([
+  "/actions",
   "/start",
   "/setup",
   "/workspace/onboarding",
@@ -473,6 +479,12 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   "/settings": [
     "/settings",
     "/critical/dashboard-read-model",
+    "/critical/manifest-read-model",
+    "/critical/provider-catalog-read-model",
+  ],
+  "/workspace/settings": [
+    "/settings",
+    ...NORTH_STAR_SHELL_ROUTE_KEYS,
     "/critical/manifest-read-model",
     "/critical/provider-catalog-read-model",
   ],

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loadControlCenterData,
   type BackendTruthReadBinding,
@@ -37,6 +37,8 @@ export function useControlCenterData(
   const snapshotRef = binding?.snapshotRef ?? null;
   const backendRevisionRef = binding?.backendRevisionRef ?? null;
   const backendInstanceRef = binding?.backendInstanceRef ?? null;
+  const latestSnapshotRef = useRef(snapshotRef);
+  latestSnapshotRef.current = snapshotRef;
   const [reloadGeneration, setReloadGeneration] = useState(0);
   const [state, setState] = useState<InternalLoadState>({
     status: "loading",
@@ -60,9 +62,9 @@ export function useControlCenterData(
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     const expectedBinding =
-      snapshotRef && backendRevisionRef && backendInstanceRef
+      latestSnapshotRef.current && backendRevisionRef && backendInstanceRef
         ? {
-            snapshotRef,
+            snapshotRef: latestSnapshotRef.current,
             backendRevisionRef,
             backendInstanceRef,
           }
@@ -83,7 +85,7 @@ export function useControlCenterData(
                 status: "ready",
                 data: retryData,
                 error: null,
-                snapshotRef,
+                snapshotRef: latestSnapshotRef.current,
                 backendRevisionRef,
                 backendInstanceRef,
               });
@@ -105,7 +107,7 @@ export function useControlCenterData(
             status: "ready",
             data,
             error: null,
-            snapshotRef,
+            snapshotRef: latestSnapshotRef.current,
             backendRevisionRef,
             backendInstanceRef,
           });
@@ -136,7 +138,6 @@ export function useControlCenterData(
     backendRevisionRef,
     enabled,
     reloadGeneration,
-    snapshotRef,
   ]);
 
   if (

@@ -138,6 +138,10 @@ def _validate_proof_script() -> list[str]:
         "screenshot capture": ["\"npx\"", "\"playwright\"", "\"screenshot\""],
         "safe summary": ["raw_logs_omitted", "raw_paths_omitted", "safe_refs_only"],
         "generated local secret": ["secrets.token_urlsafe", ".chmod(0o600)"],
+        "exact source binding": [
+            "verified_clean_source_commit",
+            "\"UAA_BUILD_COMMIT\"",
+        ],
     }
     for label, fragments in required_fragments.items():
         if not all(fragment in script for fragment in fragments):

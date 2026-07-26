@@ -73,6 +73,11 @@ from ultimate_ai_agent.core.control_center.founder_loop_attention_workflow impor
     build_attention_workflow_request,
 )
 from ultimate_ai_agent.core.time import utc_now  # noqa: E402
+from ultimate_ai_agent.core.build_identity import (  # noqa: E402
+    BUILD_COMMIT_ENV,
+    build_identity,
+    verified_clean_source_commit,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -1149,7 +1154,14 @@ def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
 def _inspect_backend_truth(args: argparse.Namespace) -> int:
     try:
         repo = _repository(args)
-        truth = build_control_center_backend_truth(repo=repo)
+        identity = build_identity()
+        if not identity.source_revision_bound:
+            identity = build_identity(
+                env={
+                    BUILD_COMMIT_ENV: verified_clean_source_commit(ROOT),
+                }
+            )
+        truth = build_control_center_backend_truth(repo=repo, identity=identity)
     except Exception:
         _print_json(
             _blocked_cli_payload(

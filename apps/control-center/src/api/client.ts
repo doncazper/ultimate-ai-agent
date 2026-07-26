@@ -358,6 +358,22 @@ export interface BackendTruthReadBinding {
   backendInstanceRef: string;
 }
 
+export function withBackendTruthMutationHeaders(
+  headers: Record<string, string>,
+  binding: BackendTruthReadBinding | null,
+): Record<string, string> {
+  if (binding === null) {
+    throw new Error("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
+  }
+  return {
+    ...headers,
+    "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+    "X-UAA-Expected-Backend-Revision-Ref": binding.backendRevisionRef,
+    "X-UAA-Expected-Backend-Instance-Ref": binding.backendInstanceRef,
+    "X-UAA-Expected-Backend-Truth-Ref": binding.snapshotRef,
+  };
+}
+
 export function validateBackendResponseBinding(
   headers: Headers,
   expectedBinding: BackendTruthReadBinding | null,
@@ -4153,6 +4169,7 @@ export async function submitActionDecision(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
   request: FounderLoopActionDecisionRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<FounderLoopActionDecisionReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4161,15 +4178,20 @@ export async function submitActionDecision(
     `${API_BASE_POLICY.baseUrl}${actionDecisionEndpoint(actionId, decision)}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": actionDecisionIdempotencyRef(
-          actionId,
-          decision,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": actionDecisionIdempotencyRef(
+              actionId,
+              decision,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4217,6 +4239,7 @@ export async function fetchActionReceipt(
 export async function commitLocalTask(
   actionId: string,
   request: FounderLoopLocalTaskCommitRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<FounderLoopLocalTaskCommitReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4225,14 +4248,19 @@ export async function commitLocalTask(
     `${API_BASE_POLICY.baseUrl}${actionLocalTaskCommitEndpoint(actionId)}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": localTaskCommitIdempotencyRef(
-          actionId,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": localTaskCommitIdempotencyRef(
+              actionId,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4256,6 +4284,7 @@ export async function commitLocalTask(
 export async function persistWorkBoardOrder(
   request: WorkBoardReorderRequest,
   idempotencyRef: string,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<WorkBoardReorderReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4264,11 +4293,16 @@ export async function persistWorkBoardOrder(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardReorder}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": idempotencyRef,
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": idempotencyRef,
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4292,6 +4326,7 @@ export async function persistWorkBoardOrder(
 export async function createWorkBoardCard(
   request: WorkBoardCardCreateRequest,
   idempotencyRef: string,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<WorkBoardCardCreateReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4300,11 +4335,16 @@ export async function createWorkBoardCard(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardCards}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": idempotencyRef,
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": idempotencyRef,
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4328,6 +4368,7 @@ export async function createWorkBoardCard(
 export async function createWorkBoardTask(
   request: WorkBoardTaskCreateRequest,
   idempotencyRef: string,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<WorkBoardTaskCreateReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4336,11 +4377,16 @@ export async function createWorkBoardTask(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardTasks}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": idempotencyRef,
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": idempotencyRef,
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4461,6 +4507,7 @@ export async function planAuthorityMission(
 
 export async function issueAuthorityLease(
   request: AuthorityLeaseIssueRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<AuthorityLeaseMutationResult> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4469,11 +4516,17 @@ export async function issueAuthorityLease(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeases}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": authorityLeaseIssueIdempotencyRef(request),
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key":
+              authorityLeaseIssueIdempotencyRef(request),
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4496,6 +4549,7 @@ export async function issueAuthorityLease(
 
 export async function approveAndIssueAuthorityLease(
   request: AuthorityLeaseApproveAndIssueRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<AuthorityLeaseMutationResult> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4504,13 +4558,18 @@ export async function approveAndIssueAuthorityLease(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": authorityLeaseIssueIdempotencyRef(
-          request.lease_issue_request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": authorityLeaseIssueIdempotencyRef(
+              request.lease_issue_request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4533,6 +4592,7 @@ export async function approveAndIssueAuthorityLease(
 
 export async function revokeAuthorityLease(
   request: AuthorityLeaseRevokeRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<AuthorityLeaseMutationResult> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4541,11 +4601,17 @@ export async function revokeAuthorityLease(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeaseRevoke}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": authorityLeaseRevokeIdempotencyRef(request),
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key":
+              authorityLeaseRevokeIdempotencyRef(request),
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );

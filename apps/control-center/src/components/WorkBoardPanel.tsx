@@ -11,6 +11,7 @@ import {
   createWorkBoardTask,
   persistWorkBoardOrder,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { SafeAlert } from "./SafeAlert";
 import { NorthStarIcon } from "./NorthStarIcon";
 
@@ -25,6 +26,7 @@ interface WorkBoardPanelProps {
 }
 
 export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const backendOwned =
     authoritative &&
     board.backend_owned &&
@@ -311,6 +313,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           tags: ["local-card", "work-board"],
         },
         idempotencyRef,
+        mutationBinding,
       );
       setLastCardCreateReceiptRef(receipt.receipt_ref);
       setNotice(
@@ -342,6 +345,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           metadata_refs: ["metadata-ref:work-board-ui-task-create"],
         },
         idempotencyRef,
+        mutationBinding,
       );
       setLastTaskCreateReceiptRef(receipt.receipt_ref);
       setNotice(
@@ -393,6 +397,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           })),
         },
         idempotencyRef,
+        mutationBinding,
       );
       const receiptRef = receipt.receipt_ref;
       setBackendLayout(cloneLayout(layout));

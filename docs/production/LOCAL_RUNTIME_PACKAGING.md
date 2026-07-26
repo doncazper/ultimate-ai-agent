@@ -78,8 +78,15 @@ material and non-safe summary shapes.
 After generating the local secret file:
 
 ```bash
+test -z "$(git status --porcelain --untracked-files=all)"
+export UAA_BUILD_COMMIT="$(git rev-parse --verify HEAD)"
 docker compose -f packaging/local-runtime/compose.yaml up --build
 ```
+
+Compose fails closed when the exact clean source revision is not supplied. The
+API image embeds the same verified commit in `UAA_BUILD_COMMIT`; the backend
+truth envelope and response provenance headers therefore remain revision-bound
+without copying mutable Git metadata into the image.
 
 Then inspect:
 

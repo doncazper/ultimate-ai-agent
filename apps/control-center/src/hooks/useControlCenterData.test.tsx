@@ -27,10 +27,8 @@ beforeEach(() => {
 });
 
 describe("useControlCenterData", () => {
-  it("reloads a new truth snapshot without hiding same-provenance data", async () => {
-    mocked.load
-      .mockResolvedValueOnce(backendData("snapshot one"))
-      .mockResolvedValueOnce(backendData("snapshot two"));
+  it("does not reload every route read model when only the truth snapshot rotates", async () => {
+    mocked.load.mockResolvedValueOnce(backendData("snapshot one"));
     const { result, rerender } = renderHook(
       ({ snapshotRef }) =>
         useControlCenterData(true, {
@@ -48,13 +46,8 @@ describe("useControlCenterData", () => {
     rerender({ snapshotRef: "proof-ref:truth:two" });
     expect(result.current.status).toBe("ready");
     expect(result.current.data?.connection.safeMessage).toBe("snapshot one");
-
-    await waitFor(() =>
-      expect(result.current.snapshotRef).toBe("proof-ref:truth:two"),
-    );
-    expect(result.current.snapshotRef).toBe("proof-ref:truth:two");
-    expect(result.current.data?.connection.safeMessage).toBe("snapshot two");
-    expect(mocked.load).toHaveBeenCalledTimes(2);
+    expect(result.current.snapshotRef).toBe("proof-ref:truth:one");
+    expect(mocked.load).toHaveBeenCalledTimes(1);
   });
 
   it("hides prior data when backend provenance changes", async () => {

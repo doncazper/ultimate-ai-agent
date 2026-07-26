@@ -17,6 +17,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from ultimate_ai_agent.core.build_identity import (  # noqa: E402
+    verified_clean_source_commit,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 COMPOSE_FILE = ROOT / "packaging" / "local-runtime" / "compose.yaml"
@@ -62,6 +66,7 @@ def run_packaging_proof(*, timeout_seconds: int) -> int:
     compose_env = {
         "UAA_LOCAL_RUNTIME_API_PORT": str(api_port),
         "UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT": str(control_center_port),
+        "UAA_BUILD_COMMIT": verified_clean_source_commit(ROOT),
     }
     api_health_url = f"http://127.0.0.1:{api_port}/health"
     api_manifest_url = f"http://127.0.0.1:{api_port}/api/manifest"

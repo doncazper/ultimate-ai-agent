@@ -191,6 +191,37 @@ describe("critical backend truth boundary", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("admits the exact Action Inbox bootstrap lane during first run", () => {
+    window.history.pushState({}, "", "/actions");
+    const data = backendData("backend_owned");
+    mocked.controlCenterState = {
+      status: "ready",
+      data,
+      error: null,
+      snapshotRef: "proof-ref:truth:first-run",
+      retry: vi.fn(),
+    };
+    mocked.truthState = {
+      status: "onboarding",
+      truth: {
+        backend_revision_ref: lastVerified.backendRevisionRef,
+        envelope_integrity_ref: "proof-ref:truth:first-run",
+      },
+      errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+      lastVerified: null,
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(
+      screen.queryByText(/not showing unverified product state/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Action Inbox" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps non-onboarding critical surfaces closed on first run", () => {
     mocked.truthState = {
       status: "onboarding",

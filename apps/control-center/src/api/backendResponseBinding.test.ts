@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   validateBackendResponseBinding,
+  withBackendTruthMutationHeaders,
   type BackendTruthReadBinding,
 } from "./client";
 
@@ -56,5 +57,26 @@ describe("backend response provenance binding", () => {
     expect(() =>
       validateBackendResponseBinding(new Headers(), null),
     ).not.toThrow();
+  });
+
+  it("binds a critical mutation to the exact admitted truth envelope", () => {
+    expect(
+      withBackendTruthMutationHeaders(
+        { Accept: "application/json" },
+        binding,
+      ),
+    ).toEqual({
+      Accept: "application/json",
+      "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+      "X-UAA-Expected-Backend-Revision-Ref": binding.backendRevisionRef,
+      "X-UAA-Expected-Backend-Instance-Ref": binding.backendInstanceRef,
+      "X-UAA-Expected-Backend-Truth-Ref": binding.snapshotRef,
+    });
+  });
+
+  it("fails closed before a critical mutation when no truth binding exists", () => {
+    expect(() =>
+      withBackendTruthMutationHeaders({ Accept: "application/json" }, null),
+    ).toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
   });
 });

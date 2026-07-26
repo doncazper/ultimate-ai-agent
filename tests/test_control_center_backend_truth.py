@@ -231,6 +231,61 @@ def test_backend_truth_matches_proof_to_each_committed_action(
     assert truth["evidence_binding"]["issue_refs"] == []
 
 
+def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    state_dir = tmp_path / "valid-and-corrupt-local-task-actions"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+    reloaded = FounderLoopRepository(state_dir)
+    today = reloaded.today_summary()
+    corrupt_item_ref = "founder-action:corrupt-second"
+    corrupt_receipt_ref = (
+        "receipt:founder-loop-local-task:corrupt-second:"
+        "idempotency-ref-corrupt-second"
+    )
+    corrupt_action = {
+        **today["actions"][0],
+        "item_ref": corrupt_item_ref,
+        "action_kind": "local_task_create",
+        "local_task_ref": local_task_ref_for_action(corrupt_item_ref),
+        "local_task_commit_receipt_ref": corrupt_receipt_ref,
+        "receipt_refs": [corrupt_receipt_ref],
+    }
+    today["actions"] = [corrupt_action, *today["actions"]]
+    monkeypatch.setattr(reloaded, "today_summary", lambda **_kwargs: today)
+
+    truth = build_control_center_backend_truth(
+        repo=reloaded,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "invalid_evidence"
+    assert corrupt_receipt_ref in truth["evidence_binding"]["receipt_refs"]
+    assert truth["evidence_binding"]["issue_refs"] == [
+        "issue-ref:founder-loop-durable-proof-invalid"
+    ]
+
+
 @pytest.mark.parametrize(
     ("field_name", "replacement"),
     [

@@ -19,7 +19,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
   ["critical-surface:chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
   ["critical-surface:active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
-  ["critical-surface:settings", "Settings", ["/settings"], ["GET /control-center/settings/status"]],
+  ["critical-surface:settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
 ] as const;
 
 const CRITICAL_FRONTEND_PATHS = new Set([
@@ -39,6 +39,7 @@ const CRITICAL_FRONTEND_PATHS = new Set([
   "/chat",
   "/runs",
   "/settings",
+  "/workspace/settings",
   "/workspace",
   "/workspace/today",
   "/workspace/decisions",

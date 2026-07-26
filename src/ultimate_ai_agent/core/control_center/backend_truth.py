@@ -274,7 +274,7 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
     CriticalSurfaceBinding(
         surface_ref="critical-surface:settings",
         label="Settings",
-        frontend_paths=["/settings"],
+        frontend_paths=["/settings", "/workspace/settings"],
         backend_route_refs=["GET /control-center/settings/status"],
     ),
 )
@@ -395,7 +395,15 @@ def _build_founder_loop_durable_evidence(
         item for item in today.get("actions", []) if isinstance(item, dict)
     ]
     candidates: list[dict[str, Any]] = []
+    invalid_claimed_receipt_refs: list[str] = []
     for action in actions:
+        claimed_receipt_ref = action.get("local_task_commit_receipt_ref")
+        has_claimed_receipt = (
+            action.get("action_kind")
+            == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+            and isinstance(claimed_receipt_ref, str)
+            and bool(claimed_receipt_ref)
+        )
         try:
             candidate = _durable_local_task_candidate(
                 action=action,
@@ -403,6 +411,8 @@ def _build_founder_loop_durable_evidence(
             )
         except FounderLoopStorageError:
             candidate = None
+        if has_claimed_receipt and candidate is None:
+            invalid_claimed_receipt_refs.append(claimed_receipt_ref)
         if candidate is not None:
             candidates.append(candidate)
     claimed_receipt_refs = list(
@@ -430,7 +440,14 @@ def _build_founder_loop_durable_evidence(
         "run_refs": candidate["run_refs"] if candidate else [],
         "proof_refs": [candidate["proof_ref"]] if candidate else [],
         "receipt_refs": (
-            [candidate["receipt_ref"]]
+            list(
+                dict.fromkeys(
+                    [
+                        candidate["receipt_ref"],
+                        *invalid_claimed_receipt_refs,
+                    ]
+                )
+            )[:12]
             if candidate
             else claimed_receipt_refs[:12]
         ),
@@ -441,7 +458,9 @@ def _build_founder_loop_durable_evidence(
         "raw_paths_included": False,
     }
     issues: list[str] = []
-    if candidate is None:
+    if invalid_claimed_receipt_refs:
+        issues.append("founder-loop-durable-proof-invalid")
+    elif candidate is None:
         issues.append(
             "founder-loop-durable-proof-invalid"
             if claimed_receipt_refs

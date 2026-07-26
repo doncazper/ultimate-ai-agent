@@ -11,6 +11,7 @@ import {
   requestRedactedLocalChatProbe,
   revokeAuthorityLease,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { API_ENDPOINTS } from "../api/endpoints";
 import type {
   ChatHandoffReceipt,
@@ -1622,6 +1623,7 @@ export function SettingsOperatorPanel({
   authoritative: boolean;
   data: ControlCenterData;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const [settingsSnapshot, setSettingsSnapshot] =
@@ -1683,16 +1685,19 @@ export function SettingsOperatorPanel({
     setAuthorityPendingMode(option.mode);
     setAuthorityError(undefined);
     try {
-      const result = await approveAndIssueAuthorityLease({
-        lease_issue_request: {
-          mode: option.mode,
-          scope: modeReadiness.scope,
-          requested_domains: modeReadiness.default_requested_domains,
-          decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
-          duration_minutes: 120,
-          safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
+      const result = await approveAndIssueAuthorityLease(
+        {
+          lease_issue_request: {
+            mode: option.mode,
+            scope: modeReadiness.scope,
+            requested_domains: modeReadiness.default_requested_domains,
+            decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
+            duration_minutes: 120,
+            safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
+          },
         },
-      });
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {
@@ -1712,11 +1717,15 @@ export function SettingsOperatorPanel({
     setAuthorityRevoking(true);
     setAuthorityError(undefined);
     try {
-      const result = await revokeAuthorityLease({
-        lease_ref: revokableLease.lease_ref,
-        decision_reason_ref: "reason-ref:control-center-authority-revoke",
-        safe_summary: "Control Center revoked the active session authority lease.",
-      });
+      const result = await revokeAuthorityLease(
+        {
+          lease_ref: revokableLease.lease_ref,
+          decision_reason_ref: "reason-ref:control-center-authority-revoke",
+          safe_summary:
+            "Control Center revoked the active session authority lease.",
+        },
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {
@@ -1772,9 +1781,12 @@ export function SettingsOperatorPanel({
     setAuthorityMissionIssuing(true);
     setAuthorityMissionError(undefined);
     try {
-      const result = await approveAndIssueAuthorityLease({
-        lease_issue_request: authorityMissionPlan.lease_issue_request,
-      });
+      const result = await approveAndIssueAuthorityLease(
+        {
+          lease_issue_request: authorityMissionPlan.lease_issue_request,
+        },
+        mutationBinding,
+      );
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {

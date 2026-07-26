@@ -26,7 +26,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
-    ["settings", "Settings", ["/settings"], ["GET /control-center/settings/status"]],
+    ["settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
   ] as const;
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
@@ -89,6 +89,7 @@ describe("backend truth validation", () => {
     );
     expect(isCriticalControlCenterPath("/today/")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/?view=compact")).toBe(true);
+    expect(isCriticalControlCenterPath("/workspace/settings/")).toBe(true);
   });
 
   it("accepts the exact current backend-owned envelope", async () => {

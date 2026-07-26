@@ -31,3 +31,5 @@ Canonical operator guidance lives in
   background execution.
 - A generated local secret file is mounted from ignored `.uaa/` state. It is
   not a checked-in credential and not a production auth claim.
+- Compose requires `UAA_BUILD_COMMIT` from a verified clean checkout and binds
+  that exact revision into the API image and runtime environment.

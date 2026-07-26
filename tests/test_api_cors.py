@@ -40,6 +40,10 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "Content-Type",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Control-Center-Mutation-Binding",
+        "X-UAA-Expected-Backend-Revision-Ref",
+        "X-UAA-Expected-Backend-Instance-Ref",
+        "X-UAA-Expected-Backend-Truth-Ref",
         "X-Requested-With",
     )
     assert CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS == (
@@ -80,6 +84,22 @@ def test_allowed_loopback_preflight_is_scoped_and_security_hardened() -> None:
     assert "Content-Type" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Key" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Ref" in response.headers["Access-Control-Allow-Headers"]
+    assert (
+        "X-UAA-Control-Center-Mutation-Binding"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Revision-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Instance-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
+    assert (
+        "X-UAA-Expected-Backend-Truth-Ref"
+        in response.headers["Access-Control-Allow-Headers"]
+    )
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"
     for name, value in FASTAPI_SECURITY_HEADERS.items():

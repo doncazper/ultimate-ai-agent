@@ -129,9 +129,15 @@ truth envelope at `GET /control-center/backend-truth` with CLI parity through
 Plans, Action Inbox, Approvals, Work Board, Morning Briefing, Memory,
 Evidence/Proof, Setup, Chat handoff, active-run status, and Settings wait for that
 envelope and their exact backend-owned route read models before rendering.
-The standard local launcher injects the exact clean source revision, while
-durable completion proof is derived from any coherent local-task receipt and
-proof record rather than a seeded fixture identity.
+The standard local launcher injects the exact clean source revision. The
+documented Compose stack requires that same verified clean revision at build
+and runtime, while direct CLI truth inspection derives it only from an exact
+clean repository root. During first run, `/actions` is the sole admitted
+mutation bootstrap surface; every critical browser mutation is bound to the
+admitted backend revision and process before route execution. Durable
+completion proof is derived from coherent local-task receipts and proof
+records rather than a seeded fixture identity, and any corrupt claimed receipt
+invalidates the complete evidence set.
 Missing, malformed, stale, out-of-order, mock-filled, or corrupt durable
 evidence fails closed with bounded provenance and retry guidance. A real local
 Python/backend browser walkthrough proves backend stop, durable restart, CLI/API

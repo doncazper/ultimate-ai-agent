@@ -11,6 +11,7 @@ import {
   submitActionDecision,
   submitTodayActionEnvelope,
 } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import type {
   ActionToolCodeLaneCatalogReadModel,
@@ -12361,6 +12362,7 @@ function ActionDecisionControls({
   onRecordedReceipt?: (receipt: FounderLoopActionDecisionReceipt) => void;
   onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
     refreshStatus:
@@ -12450,21 +12452,26 @@ function ActionDecisionControls({
   async function recordDecision(decision: FounderLoopActionDecisionKind) {
     setState({ status: "pending", refreshStatus: "idle", decision });
     try {
-      const receipt = await submitActionDecision(item.item_ref, decision, {
-        decision_reason_ref: `decision-reason-ref:control-center:${decision}`,
-        edited_envelope_ref:
-          decision === "edit"
-            ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
-            : undefined,
-        defer_until_ref:
-          decision === "defer"
-            ? "defer-until-ref:operator-selected-later"
-            : undefined,
-        metadata_refs: [
-          `metadata-ref:control-center-action-decision:${decision}`,
-          item.item_ref,
-        ],
-      });
+      const receipt = await submitActionDecision(
+        item.item_ref,
+        decision,
+        {
+          decision_reason_ref: `decision-reason-ref:control-center:${decision}`,
+          edited_envelope_ref:
+            decision === "edit"
+              ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
+              : undefined,
+          defer_until_ref:
+            decision === "defer"
+              ? "defer-until-ref:operator-selected-later"
+              : undefined,
+          metadata_refs: [
+            `metadata-ref:control-center-action-decision:${decision}`,
+            item.item_ref,
+          ],
+        },
+        mutationBinding,
+      );
       onRecordedReceipt?.(receipt);
       await refreshDecisionActionItem(receipt, decision);
     } catch (error) {
@@ -12581,6 +12588,7 @@ function LocalTaskCommitControls({
   item: FounderLoopActionItem;
   onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
     refreshStatus:
@@ -12668,15 +12676,19 @@ function LocalTaskCommitControls({
   async function recordLocalTaskCommit() {
     setState({ status: "pending", refreshStatus: "idle" });
     try {
-      const receipt = await commitLocalTask(item.item_ref, {
-        approval_ref: commitApprovalRef,
-        decision_reason_ref:
-          "decision-reason-ref:control-center:local-task-commit",
-        metadata_refs: [
-          "metadata-ref:control-center-local-task-commit",
-          item.item_ref,
-        ],
-      });
+      const receipt = await commitLocalTask(
+        item.item_ref,
+        {
+          approval_ref: commitApprovalRef,
+          decision_reason_ref:
+            "decision-reason-ref:control-center:local-task-commit",
+          metadata_refs: [
+            "metadata-ref:control-center-local-task-commit",
+            item.item_ref,
+          ],
+        },
+        mutationBinding,
+      );
       await refreshCommittedActionItem(receipt);
     } catch (error) {
       setState({
