@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 LOOPBACK_CORS_POLICY_REF = "cors:p1-082:loopback:v1"
 CONTROL_CENTER_CORS_ORIGIN_ENV = "UAA_CONTROL_CENTER_CORS_ORIGIN"
 _EXACT_LOOPBACK_ORIGIN_RE = re.compile(
-    r"^http://(?:localhost|127\.0\.0\.1|\[::1\]):([1-9][0-9]{0,4})$"
+    r"^http" r"://(?:localhost|127\.0\.0\.1|\[::1\]):([1-9][0-9]{0,4})$"
 )
 
 CONTROL_CENTER_LOOPBACK_CORS_ORIGINS: tuple[str, ...] = (
