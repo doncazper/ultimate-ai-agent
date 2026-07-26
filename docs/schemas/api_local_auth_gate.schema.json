@@ -9,6 +9,8 @@
     "fail_closed_by_default",
     "enabled_env",
     "bearer_env",
+    "bearer_file_env",
+    "maximum_bearer_file_bytes",
     "dev_only_bypass_env",
     "dev_only_bypass_enabled",
     "public_metadata_paths",
@@ -35,6 +37,14 @@
     },
     "bearer_env": {
       "const": "UAA_API_LOCAL_BEARER"
+    },
+    "bearer_file_env": {
+      "const": "UAA_LOCAL_RUNTIME_SECRET_FILE"
+    },
+    "maximum_bearer_file_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
     },
     "dev_only_bypass_env": {
       "const": "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"

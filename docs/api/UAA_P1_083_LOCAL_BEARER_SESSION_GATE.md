@@ -16,13 +16,18 @@ local environment refs only:
 
 - `UAA_API_LOCAL_AUTH_ENABLED=1` enables the local protected-route gate.
 - `UAA_API_LOCAL_BEARER` supplies the local bearer value.
+- `UAA_LOCAL_RUNTIME_SECRET_FILE` supplies the same bearer from an absolute,
+  bounded regular file for the clean-source-gated Docker package. Symlinks,
+  missing files, non-files, invalid UTF-8, and files larger than 4096 bytes
+  fail closed. The inline bearer takes precedence when both refs are present.
 - `UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY=1` is an explicit local-dev
   harness bypass for protected routes when no bearer is configured.
 
-If `UAA_API_LOCAL_BEARER` is set, the gate accepts only that local bearer even
-without `UAA_API_LOCAL_AUTH_ENABLED=1`. If no valid local bearer is configured
-and the explicit dev-only bypass is not set, protected routes fail closed with
-a redacted `503` response.
+If `UAA_API_LOCAL_BEARER` or the bounded local-runtime bearer file is set, the
+gate accepts only that local bearer even without
+`UAA_API_LOCAL_AUTH_ENABLED=1`. If no valid local bearer is configured and the
+explicit dev-only bypass is not set, protected routes fail closed with a
+redacted `503` response.
 
 Allowed public metadata routes:
 
