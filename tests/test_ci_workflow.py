@@ -48,7 +48,7 @@ def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
     assert "github.event.pull_request.base.sha" in workflow
     assert "github.event.before" in workflow
     checkout_count = workflow.count(
-        "uses: actions/checkout@v4"
+        "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
     )
     assert checkout_count > 0
     assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count
@@ -112,7 +112,13 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
         argv[argv.index("--write-timings-json") + 1]
         == "{temp_root}/uaa_pytest_file_timings.json"
     )
-    assert "/usr/sbin/taskpolicy -c utility" in shards
+    assert "runs-on: macos-15" in shards
+    assert (
+        '--verification-execution-fence-root "$RUNNER_TEMP/'
+        'uaa-verification-execution-fence-v2"'
+        in shards
+    )
+    assert "/usr/sbin/taskpolicy" not in shards
     assert "trap terminate_shard_runner EXIT INT TERM HUP" in shards
     assert 'kill -TERM "$shard_runner_pid"' in shards
     assert "for _ in {1..100}" in shards

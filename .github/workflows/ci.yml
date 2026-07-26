@@ -16,35 +16,39 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  UAA_CI_DECLARED_RUNNER_PROFILE: github-hosted-macos-15-python-3.12.10-node-22.23.1
   UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   UAA_CI_COMPARISON_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before || github.sha) }}
 
 defaults:
   run:
-    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+    shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 
-# Self-hosted jobs are limited to branches in this private repository. Fork pull
-# requests must never schedule code on the local Mac.
+# Every job uses a fresh standard GitHub-hosted VM with a read-only token.
+# External pull requests remain subject to the repository's contributor-approval
+# setting and never receive repository secrets.
 
 jobs:
   manifest-attestation:
     name: manifest-attestation
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
       visual-scope: ${{ steps.visual-scope.outputs.visual_scope }}
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -74,9 +78,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   lint:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -84,12 +87,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -111,9 +117,8 @@ jobs:
 
   affected-preflight:
     name: affected-preflight
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -121,7 +126,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 0
@@ -136,6 +141,9 @@ jobs:
           fi
           git cat-file -e "${UAA_CI_COMPARISON_BASE_SHA}^{commit}"
           git update-ref refs/uaa-ci/base-main "$UAA_CI_COMPARISON_BASE_SHA"
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -157,9 +165,8 @@ jobs:
 
   pytest-shards:
     name: pytest / sharded suite
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 60
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - lint
@@ -175,12 +182,15 @@ jobs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -212,13 +222,13 @@ jobs:
             fi
           }
           trap terminate_shard_runner EXIT INT TERM HUP
-          /usr/sbin/taskpolicy -c utility .venv/bin/python scripts/verification/run_ci_lane.py \
+          .venv/bin/python scripts/verification/run_ci_lane.py \
             --lane ci-pytest-shards \
             --sha "$UAA_CI_EXACT_SHA" \
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
-            --verification-execution-fence-root /private/tmp/uaa-verification-execution-fence-v2 \
+            --verification-execution-fence-root "$RUNNER_TEMP/uaa-verification-execution-fence-v2" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY" &
           shard_runner_pid=$!
@@ -244,20 +254,23 @@ jobs:
       - release-lane-local-model-e2e
       - release-lane-durability
       - pytest-shards
-    if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: always()
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Confirm and aggregate complete pytest sharded suite
         id: canonical
@@ -319,9 +332,8 @@ jobs:
             --github-output-file "$GITHUB_OUTPUT"
 
   static-verification:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - pytest
@@ -330,12 +342,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -358,9 +373,8 @@ jobs:
 
   release-lane-docs:
     name: Release Lane / Documentation Integrity
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -368,12 +382,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -395,9 +412,8 @@ jobs:
 
   release-lane-openapi:
     name: Release Lane / OpenAPI Contract
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -405,12 +421,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -432,9 +451,8 @@ jobs:
 
   release-lane-api-safety:
     name: Release Lane / API Safety
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -442,12 +460,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -469,9 +490,8 @@ jobs:
 
   release-lane-security-redaction:
     name: Release Lane / Security and Redaction
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -479,12 +499,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -506,9 +529,8 @@ jobs:
 
   release-lane-product-truth:
     name: Release Lane / Product Truth Regression
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -516,12 +538,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -543,9 +568,8 @@ jobs:
 
   release-lane-local-model-e2e:
     name: Release Lane / Local Model E2E
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -553,12 +577,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -580,9 +607,8 @@ jobs:
 
   release-lane-durability:
     name: Release Lane / Durability
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
     outputs:
@@ -590,12 +616,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -617,9 +646,8 @@ jobs:
 
   release-lane-frontend:
     name: Release Lane / Control Center Frontend
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - control-center-frontend
@@ -628,12 +656,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -658,9 +689,8 @@ jobs:
 
   release-lane-performance:
     name: Release Lane / Performance
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - static-verification
@@ -672,12 +702,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -699,9 +732,8 @@ jobs:
 
   release-lane-visual-regression:
     name: Release Lane / Control Center Visual Regression
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - control-center-frontend
@@ -710,12 +742,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -751,9 +786,8 @@ jobs:
 
   release-lane-desktop-packaging:
     name: Release Lane / Desktop and Local Packaging Proof
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - static-verification
@@ -762,12 +796,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -817,9 +854,9 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   foundation-gate-report:
-    if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: always()
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - lint
@@ -844,12 +881,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install package
         run: |
@@ -1028,9 +1068,8 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   control-center-frontend:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 45
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     needs:
       - manifest-attestation
       - pytest
@@ -1039,12 +1078,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install frontend dependencies
         working-directory: apps/control-center
@@ -1065,6 +1107,6 @@ jobs:
             --base-sha "$UAA_CI_COMPARISON_BASE_SHA" \
             --visual-scope "${{ needs.manifest-attestation.outputs.visual-scope }}" \
             --temp-root "$RUNNER_TEMP" \
-            --verification-execution-fence-root /private/tmp/uaa-verification-execution-fence-v2 \
+            --verification-execution-fence-root "$RUNNER_TEMP/uaa-verification-execution-fence-v2" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"

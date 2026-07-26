@@ -26,10 +26,11 @@ from scripts.verification.verification_contracts import (
 from scripts.verification.verification_execution_identity import (
     build_verification_execution_identity,
 )
+from scripts.verification.ci_command_manifest import observed_platform_fingerprint
 
 
 RUN_SCHEMA_VERSION = "uaa_verification_run.v3"
-RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v3"
+RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v4"
 
 
 @dataclass(frozen=True)
@@ -175,6 +176,7 @@ def _derive_aggregate_receipt(
             unit,
             execution_surface_ref=execution_surface_ref,
         ).identity_ref,
+        observed_platform_fingerprint=observed_platform_fingerprint(),
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     receipt = replace(
@@ -225,7 +227,11 @@ def aggregate_verification_run(
     validate_verification_dag(canonical_units)
     if (
         plan.schema_version
-        not in {"uaa_ci_command_manifest.v3", "uaa_verification_plan.v3"}
+        not in {
+            "uaa_ci_command_manifest.v4",
+            "uaa_ci_command_manifest.v3",
+            "uaa_verification_plan.v3",
+        }
         or plan.verification_dag_fingerprint
         != verification_dag_definition_fingerprint(canonical_units)
     ):

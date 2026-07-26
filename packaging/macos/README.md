@@ -1,6 +1,6 @@
 # First-Class macOS Distribution
 
-Status: implemented and locally verified for private arm64 use
+Status: implemented and locally verified for arm64 use
 
 This directory contains the long-lived installer entry point for a
 self-contained Ultimate AI Agent macOS app. The installed app does not depend
@@ -25,10 +25,9 @@ packaging/macos/install.sh \
   --local-descriptor BUILD_DIR/uaa-macos-arm64.release.json
 ```
 
-For a published private GitHub Release:
+For a future published public upstream GitHub Release:
 
 ```bash
-gh auth login
 packaging/macos/install.sh --channel newest --launch
 ```
 
@@ -38,10 +37,11 @@ Remote install requires two published release surfaces:
 2. at least one app GitHub Release with a valid
    `uaa-macos-arm64.release.json` descriptor and matching artifact.
 
-The repository currently has no GitHub Releases. The remote command becomes
-active after this implementation is accepted, a new eligible tag is created,
-and `.github/workflows/macos-release.yml` publishes both surfaces. Arbitrary
-tags are never downloaded directly.
+The repository currently has no GitHub Releases. The hosted workflow verifies
+eligible immutable tags but cannot publish either surface. The remote command
+remains inactive until a separate isolated publisher provisions signing and
+notarization credentials without executing tag code under write authority.
+Arbitrary tags are never downloaded directly.
 
 ## Installed Layout
 
@@ -76,8 +76,8 @@ uaa uninstall
 ```
 
 Opening the app is equivalent to `uaa launch`. It checks the selected channel
-before boot. If GitHub is unavailable or private-repository authentication is
-missing, it keeps the verified installed version and does not replace it.
+before boot. If GitHub is unavailable, it keeps the verified installed version
+and does not replace it.
 
 ## Release Selection
 
@@ -90,13 +90,13 @@ tie-breaker only, so backfilling an older release cannot make it appear newer.
 line. A release without the active product-line descriptor, matching
 architecture, exact size, and SHA-256 is ignored.
 
-## Private GitHub Authentication
+## GitHub Authentication
 
-The updater first checks `UAA_UPDATER_GITHUB_TOKEN`, then the authenticated
-GitHub CLI. Tokens are held in memory only and are excluded from commands,
-receipts, status, and logs. The environment variable is intended for
-non-interactive build/repair use; `gh auth login` is the normal private
-operator path.
+The public upstream release catalog and bootstrap assets are read
+anonymously. No `gh auth login` is required. For a private fork, the updater
+first checks `UAA_UPDATER_GITHUB_TOKEN`, then the authenticated GitHub CLI.
+Tokens are held in memory only and are excluded from commands, receipts,
+status, and logs.
 
 ## Build
 
@@ -150,10 +150,12 @@ No entitlements are added by default.
 
 ## Release Automation
 
-`.github/workflows/macos-release.yml` runs only on the private self-hosted
-arm64 macOS runner. It checks out the exact immutable tag, validates active
-tag/channel policy, builds and verifies the artifact, performs a staged
-install/launch/stop smoke, and may publish the GitHub Release.
+`.github/workflows/macos-release.yml` runs on a standard GitHub-hosted
+`macos-15` runner. Tag pushes use a read-only, secret-free verification job.
+Manual dispatch can request the same verification for an existing immutable
+tag. Both publication inputs are retained for explicit compatibility, but any
+true publication input fails closed. The workflow has no write token, release
+upload step, signing secret, or notarization secret.
 
 The reusable fail-closed lifecycle verifier is:
 
@@ -171,16 +173,18 @@ headers, stop/cleanup, default uninstall plus repair reinstall, bytecode
 immutability, redacted receipts, and optional two-way rollback. It emits safe
 summary refs only.
 
-The bootstrap is published separately and rarely:
+Hosted publication is intentionally blocked:
 
 ```bash
 gh workflow run macos-release.yml \
   -f release_tag=NEW_ELIGIBLE_TAG \
   -f channel=auto \
-  -f publish_release=true \
-  -f publish_installer_bootstrap=true
+  -f publish_release=false \
+  -f publish_installer_bootstrap=false
 ```
 
-Do not move or reuse a historical tag. The first publishable tag must contain
-this installer implementation; pre-installer tags cannot truthfully produce a
-self-contained app from their source alone.
+Do not move or reuse a historical tag. A future publisher must consume
+commit-bound verified artifacts without executing historical tag code under
+write authority, and must provision credentials in an isolated ephemeral
+keychain/profile. Pre-installer tags cannot truthfully produce a self-contained
+app from their source alone.

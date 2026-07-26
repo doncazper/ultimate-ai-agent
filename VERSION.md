@@ -6,7 +6,7 @@ Current hardening candidate keeps that marketing/package baseline unchanged
 while adding a separate immutable build/commit identity, Founder Loop storage
 schema and upgrade range, strict no-mock production Control Center mode, real
 SQLite/JSONL backup and restore proof, independent property/mutation/fault and
-packaged-app evidence, frozen dependency installation, self-hosted SBOM/audit CI,
+packaged-app evidence, frozen dependency installation, hosted SBOM/audit CI,
 and explicit header-only versus route-owned durable idempotency truth. External
 CodeQL analysis, security/product review, and native IPC or Keychain-backed
 session bootstrap remain required before any distribution or

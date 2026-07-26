@@ -17,26 +17,29 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
   UAA_CI_EXACT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 defaults:
   run:
-    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+    shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 
 jobs:
   dependency-review:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    if: github.event_name == 'pull_request'
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install from frozen dependency locks
         run: |
@@ -54,17 +57,19 @@ jobs:
           npm --prefix integrations/matrix-client-adapter audit --audit-level=high
 
   audit-and-sbom:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install from the frozen Python lock
         run: |
@@ -101,8 +106,7 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   dependency-compatibility:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -110,12 +114,15 @@ jobs:
         resolution: [lowest-direct, highest]
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install bounded compatibility environment
         run: |
@@ -136,16 +143,19 @@ jobs:
 
   mutation:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - name: Check out exact revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 1
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
+
+      - name: Set up pinned toolchain
+        uses: ./.github/actions/setup-toolchain
 
       - name: Install from the frozen Python lock
         run: |

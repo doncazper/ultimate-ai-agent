@@ -140,7 +140,7 @@ def _receipt(
     )
     result_ref = f"result-ref:verification:{hashlib.sha256(unit.unit_ref.encode()).hexdigest()}"
     receipt = VerificationReceipt(
-        schema_version="uaa_verification_receipt.v3",
+        schema_version="uaa_verification_receipt.v4",
         receipt_ref=f"receipt:verification:{'0' * 64}",
         plan_fingerprint=plan.plan_fingerprint,
         unit_ref=unit.unit_ref,
@@ -170,6 +170,7 @@ def _receipt(
             execution_surface_ref=SURFACE,
         ).identity_ref,
         executed_command_result_bindings=((unit.command_refs[0], result_ref),),
+        observed_platform_fingerprint=DIGEST,
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     return replace(
@@ -404,7 +405,7 @@ def test_extra_plan_membership_or_gate_posture_is_rejected(
         {"equivalent_receipt_ref": "lowercase-secret"},
     ),
 )
-def test_v3_receipt_rejects_plain_dynamic_refs(change: dict[str, object]) -> None:
+def test_v4_receipt_rejects_plain_dynamic_refs(change: dict[str, object]) -> None:
     units = _units()
     plan = _plan(units)
     receipt = _refingerprint(replace(_receipt(plan, units[0]), **change))
@@ -430,7 +431,7 @@ def test_executed_command_binding_cannot_use_a_receipt_ref() -> None:
         receipt.validate()
 
 
-def test_non_typescript_v3_receipt_rejects_extraneous_runtime_binding() -> None:
+def test_non_typescript_v4_receipt_rejects_extraneous_runtime_binding() -> None:
     units = _units()
     plan = _plan(units)
     receipt = _refingerprint(

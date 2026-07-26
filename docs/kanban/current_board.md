@@ -10,7 +10,7 @@ Founder Command Center product-loop planning board:
 Product hardening implementation is ready for review: strict no-mock
 production Control Center mode, memory-only launcher bearer handoff, real
 Founder Loop SQLite/JSONL recovery, unknown-schema protection, build identity,
-frozen dependency installation, self-hosted audit/SBOM CI, a blocked CodeQL
+frozen dependency installation, hosted audit/SBOM CI, a blocked CodeQL
 analysis posture, and independent
 property/mutation/fault/packaged-app evidence are implemented. The API now
 distinguishes header-shape idempotency from an exact route-owned durable replay

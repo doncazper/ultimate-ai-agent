@@ -16,8 +16,8 @@ usage() {
 Usage: install.sh [options]
 
 Installs the newest valid stable or dev GitHub Release, whichever tagged commit
-is newer. The repository is private, so `gh auth login` must already be ready
-unless a local release artifact is supplied.
+is newer. Public upstream bootstrap assets are downloaded anonymously over
+HTTPS unless a local release artifact is supplied.
 
 Options:
   --channel newest|stable|dev
@@ -126,14 +126,8 @@ case "$(uname -m)" in
     ;;
 esac
 
-if ! command -v gh >/dev/null 2>&1; then
-  echo "GitHub CLI is required for this private repository." >&2
-  echo "Install it once, run 'gh auth login', then rerun this installer." >&2
-  exit 1
-fi
-if ! gh auth status --hostname github.com >/dev/null 2>&1; then
-  echo "GitHub CLI is not authenticated for the private UAA repository." >&2
-  echo "Run 'gh auth login', then rerun this installer." >&2
+if [ ! -x /usr/bin/curl ]; then
+  echo "The system HTTPS client is required for public bootstrap downloads." >&2
   exit 1
 fi
 
@@ -145,11 +139,25 @@ trap cleanup EXIT INT TERM HUP
 
 BOOTSTRAP_ASSET="uaa-installer-macos-$ARCHITECTURE.tar.gz"
 CHECKSUM_ASSET="$BOOTSTRAP_ASSET.sha256"
-gh release download "$BOOTSTRAP_TAG" \
-  --repo "$REPOSITORY" \
-  --pattern "$BOOTSTRAP_ASSET" \
-  --pattern "$CHECKSUM_ASSET" \
-  --dir "$TEMP_ROOT"
+download_public_asset() {
+  asset="$1"
+  destination="$TEMP_ROOT/$asset"
+  /usr/bin/curl -q \
+    --fail \
+    --location \
+    --proto '=https' \
+    --proto-redir '=https' \
+    --tlsv1.2 \
+    --retry 3 \
+    --connect-timeout 15 \
+    --max-time 300 \
+    --output "$destination.partial" \
+    "https://github.com/$REPOSITORY/releases/download/$BOOTSTRAP_TAG/$asset"
+  /bin/mv "$destination.partial" "$destination"
+}
+
+download_public_asset "$BOOTSTRAP_ASSET"
+download_public_asset "$CHECKSUM_ASSET"
 
 (
   cd "$TEMP_ROOT"

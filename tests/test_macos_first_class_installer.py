@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import plistlib
 import stat
 import subprocess
@@ -555,7 +556,7 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
         encoding="utf-8"
     )
     workflow_contract = yaml.safe_load(workflow)
-    release_steps = workflow_contract["jobs"]["build-and-publish"]["steps"]
+    release_steps = workflow_contract["jobs"]["verify-source"]["steps"]
     checkout_steps = [
         step
         for step in release_steps
@@ -570,24 +571,14 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     bundle_build_step = next(
         step
         for step in release_steps
-        if step.get("name") == "Build app, CLI runtime, and release assets"
+        if step.get("name") == "Build and verify release assets"
     )
     bundle_build_run = bundle_build_step["run"]
-    github_cli_step = next(
+    publication_block = next(
         step
         for step in release_steps
-        if step.get("name") == "Fetch pinned GitHub CLI"
+        if step.get("name") == "Reject unsupported hosted publication"
     )
-    github_cli_run = github_cli_step["run"]
-    publish_steps = [
-        step
-        for step in release_steps
-        if step.get("name")
-        in {
-            "Publish immutable app release",
-            "Build and publish long-lived installer bootstrap",
-        }
-    ]
 
     assert "refs/tags/${{ steps.source.outputs.tag }}" in workflow
     assert 'git rev-parse "refs/tags/$RELEASE_TAG^{commit}"' in workflow
@@ -595,13 +586,36 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "scripts/macos/prepare_python_runtime.sh" in workflow
     assert "build_release_bundle.py" in workflow
     assert "uaa-macos-arm64.release.json" in workflow
-    assert '"$GH_CLI" release upload' in workflow
+    assert '"$GH_CLI" release upload' not in workflow
+    assert "GH_TOKEN" not in workflow
+    assert "secrets." not in workflow
+    assert "contents: write" not in workflow
     assert "scripts/macos/verify_installer_e2e.py" in workflow
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
-    assert [step["uses"] for step in checkout_steps] == ["actions/checkout@v4"]
-    assert checkout_steps[0]["with"]["persist-credentials"] is False
+    assert [step["uses"] for step in checkout_steps] == [
+        "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+        "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+    ]
+    assert checkout_steps[0]["with"]["ref"] == "${{ github.workflow_sha }}"
+    assert checkout_steps[1]["with"]["ref"] == (
+        "refs/tags/${{ steps.source.outputs.tag }}"
+    )
+    assert all(
+        step["with"]["persist-credentials"] is False for step in checkout_steps
+    )
+    assert workflow_contract["permissions"] == {}
+    assert workflow_contract["jobs"]["verify-source"]["permissions"] == {
+        "contents": "read"
+    }
+    assert set(workflow_contract["jobs"]) == {"verify-source"}
+    assert publication_block["if"] == (
+        "github.event_name == 'workflow_dispatch' && "
+        "(inputs.publish_release == true || "
+        "inputs.publish_installer_bootstrap == true)"
+    )
+    assert "exit 1" in publication_block["run"]
     pinned_uv = (
         ".macos-build-venv/bin/python -m pip install "
         '--disable-pip-version-check "uv==0.11.21"'
@@ -613,33 +627,80 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
         'PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH"'
         in bundle_build_run
     )
-    assert github_cli_step["id"] == "github_cli"
-    assert github_cli_step["env"] == {
-        "GH_CLI_VERSION": "2.96.0",
-        "GH_CLI_ARCHIVE_SHA256": (
-            "f23a0c37d963aacc3bed703ccbd59b41c5ca22101fab7f00eb2b7cad23aba463"
-        ),
-    }
-    assert "github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/" in github_cli_run
-    assert "--proto '=https'" in github_cli_run
-    assert "--tlsv1.2" in github_cli_run
-    assert "actual_sha256=" in github_cli_run
-    assert "GH_CLI_ARCHIVE_SHA256" in github_cli_run
-    assert github_cli_run.index("actual_sha256=") < github_cli_run.index(
-        "/usr/bin/unzip"
-    )
     assert "command -v gh" not in workflow
     assert "\n          gh release " not in workflow
-    for step in publish_steps:
-        assert step["env"]["GH_CLI"] == "${{ steps.github_cli.outputs.path }}"
-        assert '"$GH_CLI" release' in step["run"]
-    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
+    assert "runs-on: macos-15" in workflow
+    assert "uses: ./.github/actions/setup-toolchain" in workflow
     builder = (ROOT / "scripts" / "macos" / "build_release_bundle.py").read_text(
         encoding="utf-8"
     )
     assert "--no-build-isolation" in builder
     assert "setuptools==79.0.1" in builder
     assert "--require-hashes" in builder
+
+
+def test_public_bootstrap_download_is_anonymous_bounded_and_checksum_bound() -> None:
+    installer = (ROOT / "packaging" / "macos" / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "gh auth status" not in installer
+    assert "gh auth login" not in installer
+    assert "gh release download" not in installer
+    assert "https://github.com/$REPOSITORY/releases/download/" in installer
+    for fragment in (
+        "/usr/bin/curl -q",
+        "--fail",
+        "--location",
+        "--proto '=https'",
+        "--proto-redir '=https'",
+        "--tlsv1.2",
+        "--retry 3",
+        "--connect-timeout 15",
+        "--max-time 300",
+        '--output "$destination.partial"',
+        '/bin/mv "$destination.partial" "$destination"',
+        'download_public_asset "$BOOTSTRAP_ASSET"',
+        'download_public_asset "$CHECKSUM_ASSET"',
+        '/usr/bin/shasum -a 256 -c "$CHECKSUM_ASSET"',
+    ):
+        assert fragment in installer
+
+
+def test_public_bootstrap_curl_disables_hostile_user_configuration(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.write_bytes(b"safe")
+    (tmp_path / ".curlrc").write_text(
+        "max-filesize = 1\ninsecure\nlocation-trusted\n",
+        encoding="utf-8",
+    )
+    env = {**os.environ, "HOME": str(tmp_path)}
+
+    unsafe = subprocess.run(
+        ["/usr/bin/curl", "--fail", "--output", str(tmp_path / "unsafe"), source.as_uri()],
+        check=False,
+        capture_output=True,
+        env=env,
+    )
+    safe = subprocess.run(
+        [
+            "/usr/bin/curl",
+            "-q",
+            "--fail",
+            "--output",
+            str(tmp_path / "safe"),
+            source.as_uri(),
+        ],
+        check=False,
+        capture_output=True,
+        env=env,
+    )
+
+    assert unsafe.returncode != 0
+    assert safe.returncode == 0
+    assert (tmp_path / "safe").read_bytes() == b"safe"
 
 
 def test_installer_e2e_validators_fail_closed_on_status_and_receipt_drift(

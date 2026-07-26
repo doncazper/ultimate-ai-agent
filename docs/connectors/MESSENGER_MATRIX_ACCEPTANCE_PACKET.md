@@ -124,7 +124,7 @@ reviewed baseline:
 - TypeScript typecheck and the production frontend build passed.
 
 Repository-wide documentation, OpenAPI, route/API, frontend, Foundation Gate,
-and self-hosted CI closeout results belong to the exact MSG-MX-012 commit and PR
+and hosted CI closeout results belong to the exact MSG-MX-012 commit and PR
 evidence. This document does not embed raw logs, machine identity, local paths,
 credentials, messages, attachments, provider payloads, or recovery material.
 

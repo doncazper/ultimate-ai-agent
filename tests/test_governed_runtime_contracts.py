@@ -3571,7 +3571,7 @@ def test_runtime_gateway_late_safe_disable_remains_active_after_receipt(
 
     def runner(**kwargs: object) -> RuntimeCommandRunResult:
         runner_started.set()
-        release_runner.wait(timeout=5)
+        release_runner.wait(timeout=15)
         return RuntimeCommandRunResult(
             exit_code=0,
             timed_out=False,
@@ -3604,7 +3604,7 @@ def test_runtime_gateway_late_safe_disable_remains_active_after_receipt(
 
     worker = threading.Thread(target=invoke_command)
     worker.start()
-    assert runner_started.wait(timeout=5)
+    assert runner_started.wait(timeout=15)
     store.safe_disable(
         RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-late-disable"),
         idempotency_ref="idempotency-ref:runtime-command-late-disable-safe-disable",
@@ -3744,8 +3744,8 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     second = threading.Thread(target=invoke_command, args=(gateways[1],))
     second.start()
     release_runner.set()
-    first.join(timeout=5)
-    second.join(timeout=5)
+    first.join(timeout=15)
+    second.join(timeout=15)
 
     assert errors == []
     assert len(results) == 2

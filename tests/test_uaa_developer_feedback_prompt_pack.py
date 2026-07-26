@@ -124,7 +124,7 @@ def test_missing_release_gate_is_rejected() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     wrapper = (ROOT / manifest["developer_prompt_refs"][0]).read_text(encoding="utf-8")
     broken = wrapper.replace(
-        "repository-scoped self-hosted macOS CI only",
+        "repository-required GitHub-hosted CI on standard macOS runners only",
         "available CI",
     )
 

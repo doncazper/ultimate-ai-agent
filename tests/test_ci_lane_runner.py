@@ -18,6 +18,7 @@ from scripts.verification import pytest_shard_processes as shard_processes
 from scripts.verification import run_ci_lane as runner
 from scripts.verification.ci_command_manifest import (
     CI_JOB_GRAPH,
+    DECLARED_RUNNER_PROFILE_ENV,
     CommandSpec,
     LaneSpec,
     build_plan,
@@ -116,6 +117,55 @@ def _write_pytest_performance_report(
         ),
         encoding="utf-8",
     )
+
+
+def test_safe_env_preserves_valid_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declared_profile = "github-hosted-macos-15-python-3.12.10-node-22.23.1"
+    monkeypatch.setenv(DECLARED_RUNNER_PROFILE_ENV, declared_profile)
+
+    env = runner._safe_env(
+        CommandSpec("command:test", ("true",), (), "test", 10),
+        tmp_path,
+        base_sha="a" * 40,
+    )
+
+    assert env[DECLARED_RUNNER_PROFILE_ENV] == declared_profile
+
+
+def test_safe_env_rejects_invalid_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DECLARED_RUNNER_PROFILE_ENV, "unsafe profile\nvalue")
+
+    with pytest.raises(ValueError, match="declared runner profile"):
+        runner._safe_env(
+            CommandSpec("command:test", ("true",), (), "test", 10),
+            tmp_path,
+        )
+
+
+def test_safe_env_rejects_command_override_of_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        DECLARED_RUNNER_PROFILE_ENV,
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1",
+    )
+    command = CommandSpec(
+        "command:test",
+        ("true",),
+        ((DECLARED_RUNNER_PROFILE_ENV, "github-hosted-macos-15-overridden"),),
+        "test",
+        10,
+    )
+
+    with pytest.raises(ValueError, match="cannot override declared runner profile"):
+        runner._safe_env(command, tmp_path)
 
 
 def _patch_lane(
@@ -236,7 +286,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
             ),
         }
         for index, command_ref in enumerate(
-            ("command:ci.ruff", "command:ci.self-hosted-contract"), start=1
+            ("command:ci.ruff", "command:ci.github-hosted-contract"), start=1
         )
     ]
     legacy_receipt = {
@@ -262,9 +312,14 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
     )
 
     assert receipt.status is VerificationTerminalStatus.PASSED
-    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.schema_version == "uaa_verification_receipt.v4"
     assert receipt.execution_identity_ref is not None
+    assert receipt.observed_platform_fingerprint is not None
     assert receipt.receipt_ref.endswith(receipt.receipt_fingerprint or "missing")
+    with pytest.raises(ValueError, match="fingerprint"):
+        replace(receipt, observed_platform_fingerprint="c" * 64).validate()
+    with pytest.raises(ValueError, match="requires observed platform proof"):
+        replace(receipt, observed_platform_fingerprint=None).validate()
     assert run.status is VerificationTerminalStatus.BLOCKED
     assert run.schema_version == "uaa_verification_run.v3"
     assert run.required_unit_refs == plan.selected_unit_refs
@@ -277,7 +332,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
     assert "raw_output" not in serialized
 
 
-def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
+def test_lane_runner_publishes_typed_v4_proof_to_immutable_store(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -330,9 +385,9 @@ def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
     run_digests = tuple(path.stem for path in (store_root / "runs").glob("*.json"))
     assert receipt["status"] == "pass"
     assert len(receipt_digests) == len(run_digests) == 1
-    assert store.get_receipt(receipt_digests[0]).schema_version == (
-        "uaa_verification_receipt.v3"
-    )
+    stored_receipt = store.get_receipt(receipt_digests[0])
+    assert stored_receipt.schema_version == "uaa_verification_receipt.v4"
+    assert stored_receipt.observed_platform_fingerprint is not None
     assert store.get_run_manifest(run_digests[0]).schema_version == (
         "uaa_verification_run.v3"
     )
@@ -745,7 +800,7 @@ def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
         pre_execution_identity_ref=pre_identity_ref,
     )
 
-    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.schema_version == "uaa_verification_receipt.v4"
     assert receipt.status is VerificationTerminalStatus.FAILED
     assert receipt.command_refs == ("command:ci.ruff",)
     assert receipt.executed_command_result_bindings == (
@@ -806,7 +861,7 @@ def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     receipt_digest = next((store_root / "receipts").glob("*.json")).stem
     typed = store.get_receipt(receipt_digest)
     assert observed_scopes == ["not_affected", "not_affected", "not_affected"]
-    assert typed.schema_version == "uaa_verification_receipt.v3"
+    assert typed.schema_version == "uaa_verification_receipt.v4"
     assert typed.status is VerificationTerminalStatus.BLOCKED
     assert tuple(
         command_ref for command_ref, _result_ref in typed.executed_command_result_bindings
@@ -1577,7 +1632,7 @@ def test_run_command_preserves_spawn_cleanup_failure_over_pending_signal(
         )
 
 
-def test_github_output_is_exact_v3_non_authoritative_envelope(
+def test_github_output_is_exact_v4_non_authoritative_envelope(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

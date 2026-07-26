@@ -23,6 +23,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.verification.ci_command_manifest import (  # noqa: E402
+    DECLARED_RUNNER_PROFILE_ENV,
+    DECLARED_RUNNER_PROFILE_PATTERN,
     GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,
     CI_JOB_GRAPH,
     VERIFICATION_DAG,
@@ -32,6 +34,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     build_plan,
     command_registry,
     lane_registry,
+    observed_platform_fingerprint,
     optional_nonexecution_reason_ref,
     optional_nonexecution_result_ref,
 )
@@ -222,6 +225,13 @@ def _safe_env(
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     if visual_scope is not None:
         env["UAA_VERIFICATION_VISUAL_SCOPE"] = visual_scope
+    if any(key == DECLARED_RUNNER_PROFILE_ENV for key, _value in command.env):
+        raise ValueError("command environment cannot override declared runner profile")
+    declared_runner_profile = os.environ.get(DECLARED_RUNNER_PROFILE_ENV)
+    if declared_runner_profile is not None:
+        if DECLARED_RUNNER_PROFILE_PATTERN.fullmatch(declared_runner_profile) is None:
+            raise ValueError("declared runner profile is invalid")
+        env[DECLARED_RUNNER_PROFILE_ENV] = declared_runner_profile
     if command.command_ref in {
         "command:frontend.check",
         "command:frontend.visual-regression",
@@ -937,7 +947,7 @@ def _build_typed_lane_evidence(
     if nonexecution_unbound and not declared_optional_nonexecution:
         receipt_schema_version = "uaa_verification_receipt.v2"
     else:
-        receipt_schema_version = "uaa_verification_receipt.v3"
+        receipt_schema_version = "uaa_verification_receipt.v4"
     executed_command_result_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"]))
         for result in results
@@ -973,9 +983,9 @@ def _build_typed_lane_evidence(
     ):
         terminal_status = VerificationTerminalStatus.BLOCKED
     execution_identity_ref = None
-    if receipt_schema_version == "uaa_verification_receipt.v3":
+    if receipt_schema_version == "uaa_verification_receipt.v4":
         if pre_execution_identity_ref is None:
-            raise ValueError("v3 verification evidence requires a pre-start identity")
+            raise ValueError("v4 verification evidence requires a pre-start identity")
         execution_identity_ref = build_verification_execution_identity(
             full_plan,
             unit,
@@ -1021,29 +1031,34 @@ def _build_typed_lane_evidence(
         receipt_fingerprint="0" * 64,
         dependency_lock_set_fingerprint=(
             dependency_lock_set_fingerprint(full_plan)
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else None
         ),
         pytest_shard_plan_fingerprint=(
             full_plan.pytest_shard_plan_fingerprint
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else None
         ),
         execution_identity_ref=execution_identity_ref,
         executed_command_result_bindings=(
             executed_command_result_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
         ),
         nonexecuted_command_result_bindings=(
             nonexecuted_command_result_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
         ),
         reused_command_receipt_bindings=(
             reused_command_receipt_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
+        ),
+        observed_platform_fingerprint=(
+            observed_platform_fingerprint()
+            if receipt_schema_version == "uaa_verification_receipt.v4"
+            else None
         ),
     )
     receipt_fingerprint = verification_receipt_fingerprint(receipt)

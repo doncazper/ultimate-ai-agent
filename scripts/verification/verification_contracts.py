@@ -44,6 +44,7 @@ SUPPORTED_PLAN_SCHEMA_VERSIONS = frozenset(
     {
         "uaa_ci_command_manifest.v2",
         "uaa_ci_command_manifest.v3",
+        "uaa_ci_command_manifest.v4",
         "uaa_verification_plan.v1",
         "uaa_verification_plan.v2",
         "uaa_verification_plan.v3",
@@ -59,6 +60,7 @@ V3_RECEIPT_ONLY_FIELDS = frozenset(
         "reused_command_receipt_bindings",
     }
 )
+V4_RECEIPT_ONLY_FIELDS = frozenset({"observed_platform_fingerprint"})
 V3_RUN_ONLY_FIELDS = frozenset(
     {
         "dependency_lock_set_fingerprint",
@@ -402,6 +404,7 @@ class VerificationPlan:
         )
         _validate_unique_refs(self.selected_unit_refs, label="selected unit refs")
         if self.schema_version in {
+            "uaa_ci_command_manifest.v4",
             "uaa_ci_command_manifest.v3",
             "uaa_verification_plan.v3",
         }:
@@ -482,6 +485,7 @@ def verification_plan_payload(
 ) -> dict[str, Any]:
     excluded = set()
     if plan.schema_version not in {
+        "uaa_ci_command_manifest.v4",
         "uaa_ci_command_manifest.v3",
         "uaa_verification_plan.v3",
     }:
@@ -541,6 +545,7 @@ class VerificationReceipt:
     executed_command_result_bindings: tuple[tuple[str, str], ...] = ()
     nonexecuted_command_result_bindings: tuple[tuple[str, str, str], ...] = ()
     reused_command_receipt_bindings: tuple[tuple[str, str], ...] = ()
+    observed_platform_fingerprint: str | None = None
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification receipt schema version")
@@ -550,6 +555,7 @@ class VerificationReceipt:
             "uaa_verification_receipt.v1",
             "uaa_verification_receipt.v2",
             "uaa_verification_receipt.v3",
+            "uaa_verification_receipt.v4",
         }:
             raise ValueError("unsupported verification receipt schema version")
         if not SHA_PATTERN.fullmatch(self.repository_sha):
@@ -637,6 +643,19 @@ class VerificationReceipt:
             )
         ):
             raise ValueError("unresolved TypeScript receipt cannot claim exact bindings")
+        if self.schema_version == "uaa_verification_receipt.v4":
+            if self.observed_platform_fingerprint is None:
+                raise ValueError(
+                    "v4 verification receipt requires observed platform proof"
+                )
+            _validate_digest(
+                self.observed_platform_fingerprint,
+                label="receipt observed platform fingerprint",
+            )
+        elif self.observed_platform_fingerprint is not None:
+            raise ValueError(
+                "legacy verification receipt cannot claim observed platform proof"
+            )
         if (
             not isinstance(self.duration_ms, int)
             or isinstance(self.duration_ms, bool)
@@ -670,6 +689,7 @@ class VerificationReceipt:
         if self.schema_version in {
             "uaa_verification_receipt.v2",
             "uaa_verification_receipt.v3",
+            "uaa_verification_receipt.v4",
         }:
             binding_commands: list[str] = []
             binding_results: list[str] = []
@@ -698,7 +718,9 @@ class VerificationReceipt:
                     or self.pytest_shard_plan_fingerprint is None
                     or self.execution_identity_ref is None
                 ):
-                    raise ValueError("v3 verification receipt requires exact execution bindings")
+                    raise ValueError(
+                        "modern verification receipt requires exact execution bindings"
+                    )
                 _validate_digest(
                     self.dependency_lock_set_fingerprint,
                     label="receipt dependency lock set fingerprint",
@@ -796,13 +818,13 @@ class VerificationReceipt:
                     )
                 ):
                     raise ValueError(
-                        "v3 verification receipt command evidence is not exactly bound"
+                        "modern verification receipt command evidence is not exactly bound"
                     )
                 if self.nonexecuted_command_result_bindings and (
                     self.status is not VerificationTerminalStatus.BLOCKED
                 ):
                     raise ValueError(
-                        "v3 nonexecution evidence requires blocked terminal posture"
+                        "modern nonexecution evidence requires blocked terminal posture"
                     )
             if self.status is VerificationTerminalStatus.PASSED and any(
                 command_ref.startswith("command:pytest.")
@@ -810,7 +832,10 @@ class VerificationReceipt:
                 for command_ref in self.command_refs
             ) and self.test_collection_posture != "collected":
                 raise ValueError("passed test receipt requires observed collection proof")
-            if self.schema_version == "uaa_verification_receipt.v3":
+            if self.schema_version in {
+                "uaa_verification_receipt.v3",
+                "uaa_verification_receipt.v4",
+            }:
                 typescript_execution = any(
                     command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
                     for command_ref in (
@@ -829,14 +854,14 @@ class VerificationReceipt:
                     and self.typescript_binding_posture != "resolved"
                 ):
                     raise ValueError(
-                        "v3 TypeScript receipt requires a pre-start runtime binding"
+                        "modern TypeScript receipt requires a pre-start runtime binding"
                     )
                 if (
                     not typescript_execution
                     and self.typescript_binding_posture != "not_applicable"
                 ):
                     raise ValueError(
-                        "v3 non-TypeScript receipt cannot claim a runtime binding"
+                        "modern non-TypeScript receipt cannot claim a runtime binding"
                     )
             if self.status is VerificationTerminalStatus.PASSED and any(
                 command_ref in TYPESCRIPT_EXECUTION_COMMAND_REFS
@@ -856,9 +881,17 @@ def verification_receipt_payload(
     include_content_identity: bool = True,
 ) -> dict[str, Any]:
     excluded = set()
-    if receipt.schema_version != "uaa_verification_receipt.v3":
+    if receipt.schema_version not in {
+        "uaa_verification_receipt.v3",
+        "uaa_verification_receipt.v4",
+    }:
         excluded.update(V3_RECEIPT_ONLY_FIELDS)
-    elif not receipt.nonexecuted_command_result_bindings:
+    if receipt.schema_version != "uaa_verification_receipt.v4":
+        excluded.update(V4_RECEIPT_ONLY_FIELDS)
+    if (
+        receipt.schema_version == "uaa_verification_receipt.v3"
+        and not receipt.nonexecuted_command_result_bindings
+    ):
         # Preserve the content identity of existing v3 receipts. The new field
         # is an additive typed-optional extension and is serialized only when
         # it carries proof.

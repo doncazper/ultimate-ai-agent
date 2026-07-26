@@ -237,10 +237,13 @@ def test_store_round_trips_v3_exact_execution_contracts(tmp_path: Path) -> None:
     store = VerificationReceiptStore(tmp_path / "proof-store")
     receipt = _v3_receipt()
     run = _v3_run(receipt)
+    payload = verification_receipt_payload(receipt)
 
     receipt_artifact = store.write_receipt(receipt)
     run_artifact = store.write_run_manifest(run)
 
+    assert receipt.observed_platform_fingerprint is None
+    assert "observed_platform_fingerprint" not in payload
     assert store.read_receipt(receipt_artifact.artifact_digest) == receipt
     assert store.read_run_manifest(run_artifact.artifact_digest) == run
 

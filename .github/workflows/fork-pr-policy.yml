@@ -14,20 +14,24 @@ env:
 
 defaults:
   run:
-    shell: /usr/sbin/taskpolicy -c utility /bin/bash --noprofile --norc -e -o pipefail {0}
+    shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 
 jobs:
   fork-policy:
     name: fork-policy
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: ubuntu-24.04
     env:
-      EXPECTED_REPOSITORY: ${{ github.repository }}
+      BASE_REPOSITORY: ${{ github.repository }}
       PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
     steps:
-      - name: Enforce same-repository pull request boundary
+      - name: Confirm metadata-only public fork boundary
         run: |
-          if [ "$PR_HEAD_REPOSITORY" != "$EXPECTED_REPOSITORY" ]; then
-            echo "Fork pull requests cannot run on the private UAA runners."
+          if [ -z "$BASE_REPOSITORY" ] || [ -z "$PR_HEAD_REPOSITORY" ]; then
+            echo "Pull request repository metadata is incomplete."
             exit 1
           fi
-          echo "Same-repository pull request confirmed."
+          if [ "$PR_HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+            echo "Same-repository pull request confirmed."
+          else
+            echo "External pull request confirmed for approved GitHub-hosted read-only CI."
+          fi

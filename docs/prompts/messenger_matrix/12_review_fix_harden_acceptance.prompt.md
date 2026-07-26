@@ -80,8 +80,8 @@ Adversarially audit authority, privacy, crypto, replay, failure truth, recovery,
 operator UX, product claims, and the entire final diff. Fix every actionable in-
 scope finding within the two repair-pass limit. Commit and push normally, open a
 draft PR. While it is draft, complete local review and hardening. Mark it ready
-only after local checks pass; run only repository-scoped self-hosted macOS CI,
-never paid or GitHub-hosted compute. Merge only when required checks are green,
+only after local checks pass; run only repository-required GitHub-hosted CI on standard macOS runners,
+never paid larger runners or self-hosted compute. Merge only when required checks are green,
 update local `main` to the exact remote merge, run post-merge verification, push
 verified `main`, confirm a clean worktree, and stop at the finite acceptance
 endpoint. Do not generate a follow-on prompt pack or continue recursively.

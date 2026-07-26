@@ -721,6 +721,129 @@ def test_foundation_gate_latency_guard_fails_failed_release_overall(
     )
 
 
+def test_foundation_gate_latency_guard_fails_failed_untimed_warmup(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_benchmark(
+        *,
+        repeat: int,
+        warmup: int,
+        path_repeat: int,
+        path_warmup: int,
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": "foundation_gate_benchmark.v2",
+            "repeat": repeat,
+            "warmup": warmup,
+            "foundation_gate_warmup_statuses": ["failed"],
+            "foundation_gate_warmup_result_counts": [2],
+            "foundation_gate_runs_ms": [10.0],
+            "foundation_gate_best_ms": 10.0,
+            "foundation_gate_mean_ms": 10.0,
+            "foundation_gate_status": "passed",
+            "foundation_gate_result_count": 2,
+            **_release_latency_success_payload(),
+            "release_latency_path_repeat": path_repeat,
+            "release_latency_path_warmup": path_warmup,
+        }
+
+    monkeypatch.setattr(benchmark_foundation_gate, "_benchmark", fake_benchmark)
+
+    exit_code = check_foundation_gate_latency.main(
+        [
+            "--repeat",
+            "1",
+            "--warmup",
+            "1",
+            "--max-best-ms",
+            "1000",
+            "--max-mean-ms",
+            "1000",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert (
+        "Foundation Gate warmup 1 status is 'failed', expected 'passed'"
+        in payload["failures"]
+    )
+
+
+def test_foundation_gate_latency_guard_accepts_valid_untimed_warmup() -> None:
+    metrics = {
+        "warmup": 1,
+        "foundation_gate_warmup_statuses": ["passed"],
+        "foundation_gate_warmup_result_counts": [2],
+        "foundation_gate_best_ms": 10.0,
+        "foundation_gate_mean_ms": 10.0,
+        "foundation_gate_status": "passed",
+        "foundation_gate_result_count": 2,
+        **_release_latency_success_payload(),
+    }
+
+    assert (
+        check_foundation_gate_latency._foundation_gate_latency_failures(
+            metrics,
+            max_best_ms=1_000,
+            max_mean_ms=1_000,
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("change", "expected_failure"),
+    (
+        (
+            {"foundation_gate_warmup_statuses": []},
+            "Foundation Gate warmup statuses are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_statuses": None},
+            "Foundation Gate warmup statuses are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": []},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": [0]},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": [True]},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+    ),
+)
+def test_foundation_gate_latency_guard_rejects_malformed_untimed_warmup(
+    change: dict[str, object],
+    expected_failure: str,
+) -> None:
+    metrics = {
+        "warmup": 1,
+        "foundation_gate_warmup_statuses": ["passed"],
+        "foundation_gate_warmup_result_counts": [2],
+        "foundation_gate_best_ms": 10.0,
+        "foundation_gate_mean_ms": 10.0,
+        "foundation_gate_status": "passed",
+        "foundation_gate_result_count": 2,
+        **_release_latency_success_payload(),
+        **change,
+    }
+
+    failures = check_foundation_gate_latency._foundation_gate_latency_failures(
+        metrics,
+        max_best_ms=1_000,
+        max_mean_ms=1_000,
+    )
+
+    assert expected_failure in failures
+
+
 def test_foundation_gate_latency_guard_rejects_invalid_env_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FOUNDATION_GATE_MAX_MEAN_MS", "not-a-number")
 

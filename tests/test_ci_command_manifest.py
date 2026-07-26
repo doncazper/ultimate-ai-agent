@@ -85,6 +85,41 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
             )
         )
     ]
+    latency_gate = manifest.command_registry()["command:performance.latency-gate"]
+    assert latency_gate.argv[-2:] == ("--warmup", "1")
+    assert dict(latency_gate.env) == {
+        "FOUNDATION_GATE_MAX_BEST_MS": "45000",
+        "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
+    }
+
+
+def test_declared_runner_profile_is_stable_across_hosted_image_patch_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        manifest.DECLARED_RUNNER_PROFILE_ENV,
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1",
+    )
+    declared = manifest.platform_fingerprint()
+    monkeypatch.setattr(manifest.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(manifest.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.1", ("", "", ""), ""))
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.10")
+    first_observed = manifest.observed_platform_fingerprint()
+    monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.2", ("", "", ""), ""))
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.11")
+
+    assert manifest.platform_fingerprint() == declared
+    assert manifest.observed_platform_fingerprint() != first_observed
+
+
+def test_declared_runner_profile_rejects_unbounded_environment_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(manifest.DECLARED_RUNNER_PROFILE_ENV, "unsafe profile\nvalue")
+
+    with pytest.raises(ValueError, match="declared runner profile"):
+        manifest.platform_fingerprint()
 
 
 def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -> None:
@@ -92,9 +127,10 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
     jobs = {job.job_ref: job for job in manifest.CI_JOB_GRAPH}
 
     assert inventory["current_profile_ref"] == (
-        "ci-architecture:exact-head-evidence-dag-v1"
+        "ci-architecture:exact-head-evidence-dag-v2-hosted"
     )
-    assert inventory["runner_service_count"] == 4
+    assert inventory["runner_posture"] == "ephemeral_standard_github_hosted"
+    assert inventory["runner_labels"] == ("macos-15", "ubuntu-24.04")
     assert inventory["pytest_shard_count"] == 8
     assert inventory["pytest_worker_count"] == 4
     assert inventory["required_check_contexts"] == tuple(
@@ -273,13 +309,13 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
         verify_repository_state=False,
     )
     assert plan.schema_version == manifest.SCHEMA_VERSION
-    assert plan.schema_version == "uaa_ci_command_manifest.v3"
+    assert plan.schema_version == "uaa_ci_command_manifest.v4"
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
     assert plan.selected_command_refs[0:4] == (
         "command:ci.manifest-attestation",
         "command:ci.ruff",
-        "command:ci.self-hosted-contract",
+        "command:ci.github-hosted-contract",
         "command:affected.preflight",
     )
     assert "command:pytest.sharded-suite" in plan.selected_command_refs

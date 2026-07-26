@@ -32,8 +32,8 @@ It creates an isolated home/install root and verifies the native Applications
 executable, icon/plist, signature, CLI parity, idempotent reinstall, production
 HTML, protected API manifest, security headers, stop/cleanup, no-bytecode
 mutation, default uninstall plus repair reinstall, receipt redaction, and
-optional two-version rollback. The macOS release workflow runs this verifier
-before publishing assets.
+optional two-version rollback. The hosted macOS workflow runs this verifier
+with a read-only token and no secrets. It does not publish assets.
 
 This is a product distribution transport, not agent-facing web authority.
 Network access is exact-scoped to GitHub Release metadata and release-asset
@@ -90,11 +90,13 @@ entry is refused.
 
 ## Authentication
 
-The repository is private. Release reads use an explicit updater token or the
-authenticated `gh` credential helper. The token is held in memory and is not
-persisted by UAA. App API access uses a separate random local bearer stored
-mode `0600`; the browser receives it through the existing fragment handoff and
-removes it from browser history.
+Public upstream release and bootstrap reads are anonymous and require no GitHub
+credential. The bootstrap uses bounded HTTPS GETs for the two fixed
+checksum-bound assets. A private fork may use an explicit updater token or the
+authenticated `gh` credential helper after installing from a local artifact.
+The token is held in memory and is not persisted by UAA. App API access uses a
+separate random local bearer stored mode `0600`; the browser receives it
+through the existing fragment handoff and removes it from browser history.
 
 The app continues running the verified installed release if an automatic
 update check cannot authenticate or reach GitHub. It never treats update
@@ -115,14 +117,18 @@ failure as permission to install an unverified archive.
 
 - No valid Developer ID Application identity is installed.
 - No Apple notarization profile is configured.
+- Hosted publication is fail-closed until an isolated publisher can consume
+  commit-bound verified artifacts without executing tag code under write
+  authority and can provision an ephemeral signing keychain/notary profile.
 - Source implementation alone does not prove an app or `uaa-installer-v1`
-  GitHub Release exists; inspect the private repository release catalog and
+  GitHub Release exists; inspect the repository release catalog and
   workflow receipts for current publication state.
 - Intel contracts and pinned runtime exist, but the release workflow and local
   end-to-end proof are arm64-only.
 - Public distribution, public beta, production readiness, and Mac App Store
   distribution remain unclaimed.
 
-Each publication must use a new eligible immutable tag containing the installer
-code and pass the macOS release workflow. Do not retarget an older tag or claim
-that a pre-installer tag contains this app.
+Any future publication must use a new eligible immutable tag containing the
+installer code and pass the macOS verification workflow plus the separately
+accepted publisher gate. Do not retarget an older tag or claim that a
+pre-installer tag contains this app.

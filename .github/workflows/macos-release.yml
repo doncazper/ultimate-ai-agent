@@ -1,4 +1,4 @@
-name: macOS first-class distribution
+name: macOS first-class verification
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing immutable tag to package
+        description: Existing immutable tag to verify
         required: true
         type: string
       channel:
@@ -20,39 +20,47 @@ on:
           - stable
           - dev
       publish_release:
-        description: Create/upload the GitHub Release after verification
+        description: Blocked until an isolated credential-provisioned publisher exists
         required: true
         default: false
         type: boolean
       publish_installer_bootstrap:
-        description: Publish the one-time uaa-installer-v1 bootstrap release
+        description: Blocked until an isolated credential-provisioned publisher exists
         required: true
         default: false
         type: boolean
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: uaa-macos-release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  PATH: /opt/homebrew/opt/python@3.12/libexec/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-  UAA_MACOS_SIGNING_IDENTITY: ${{ secrets.UAA_MACOS_SIGNING_IDENTITY }}
-  UAA_MACOS_NOTARY_PROFILE: ${{ secrets.UAA_MACOS_NOTARY_PROFILE }}
+  PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 defaults:
   run:
     shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 
 jobs:
-  build-and-publish:
+  verify-source:
     if: github.repository == 'doncazper/ultimate-ai-agent'
     timeout-minutes: 90
-    runs-on: [self-hosted, macOS, ARM64, uaa-ci]
+    runs-on: macos-15
+    permissions:
+      contents: read
 
     steps:
+      - name: Reject unsupported hosted publication
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          (inputs.publish_release == true ||
+          inputs.publish_installer_bootstrap == true)
+        run: |
+          echo "Hosted release publication is blocked until an isolated credential-provisioned publisher is implemented and verified." >&2
+          exit 1
+
       - name: Resolve immutable source tag
         id: source
         env:
@@ -74,8 +82,19 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "requested_channel=$channel" >> "$GITHUB_OUTPUT"
 
+      - name: Check out trusted workflow toolchain
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
+      - name: Set up immutable toolchain
+        uses: ./.github/actions/setup-toolchain
+
       - name: Check out exact tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
           fetch-depth: 0
@@ -122,7 +141,7 @@ jobs:
             "$RUNNER_TEMP/uaa-python-runtime")"
           echo "runtime_path=$runtime_path" >> "$GITHUB_OUTPUT"
 
-      - name: Build app, CLI runtime, and release assets
+      - name: Build and verify release assets
         env:
           RELEASE_TAG: ${{ steps.source.outputs.tag }}
           RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
@@ -130,116 +149,15 @@ jobs:
           SOURCE_TIMESTAMP: ${{ steps.identity.outputs.source_timestamp }}
           PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
         run: |
-          args=(
-            --python-runtime "$PYTHON_RUNTIME"
-            --output-dir "$RUNNER_TEMP/uaa-macos-release"
-            --tag "$RELEASE_TAG"
-            --channel "$RELEASE_CHANNEL"
-            --source-commit "$SOURCE_COMMIT"
-            --source-timestamp "$SOURCE_TIMESTAMP"
-            --architecture arm64
-          )
-          if [ -n "$UAA_MACOS_SIGNING_IDENTITY" ]; then
-            args+=(--signing-identity "$UAA_MACOS_SIGNING_IDENTITY")
-          fi
-          if [ -n "$UAA_MACOS_NOTARY_PROFILE" ]; then
-            args+=(--notary-profile "$UAA_MACOS_NOTARY_PROFILE")
-          fi
           PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH" \
-            PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py "${args[@]}"
-
-      - name: Verify staged installer lifecycle
-        run: |
+            PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py \
+              --python-runtime "$PYTHON_RUNTIME" \
+              --output-dir "$RUNNER_TEMP/uaa-macos-release" \
+              --tag "$RELEASE_TAG" \
+              --channel "$RELEASE_CHANNEL" \
+              --source-commit "$SOURCE_COMMIT" \
+              --source-timestamp "$SOURCE_TIMESTAMP" \
+              --architecture arm64
           PYTHONPATH=src .venv/bin/python scripts/macos/verify_installer_e2e.py \
             --archive "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
             --descriptor "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
-
-      - name: Fetch pinned GitHub CLI
-        id: github_cli
-        if: github.event_name == 'push' || inputs.publish_release == true || inputs.publish_installer_bootstrap == true
-        env:
-          GH_CLI_VERSION: "2.96.0"
-          GH_CLI_ARCHIVE_SHA256: "f23a0c37d963aacc3bed703ccbd59b41c5ca22101fab7f00eb2b7cad23aba463"
-        run: |
-          archive="$RUNNER_TEMP/gh_${GH_CLI_VERSION}_macOS_arm64.zip"
-          destination="$RUNNER_TEMP/uaa-github-cli-${GH_CLI_VERSION}"
-          /usr/bin/curl --fail --location --proto '=https' --tlsv1.2 \
-            --retry 3 --connect-timeout 15 --max-time 300 \
-            --output "$archive.partial" \
-            "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_macOS_arm64.zip"
-          /bin/mv "$archive.partial" "$archive"
-          actual_sha256="$(/usr/bin/shasum -a 256 "$archive" | /usr/bin/awk '{print $1}')"
-          if [ "$actual_sha256" != "$GH_CLI_ARCHIVE_SHA256" ]; then
-            echo "Pinned GitHub CLI SHA-256 verification failed." >&2
-            exit 1
-          fi
-          /bin/mkdir -p "$destination"
-          /usr/bin/unzip -q "$archive" -d "$destination"
-          github_cli="$destination/gh_${GH_CLI_VERSION}_macOS_arm64/bin/gh"
-          if [ ! -x "$github_cli" ]; then
-            echo "Pinned GitHub CLI archive did not contain the expected executable." >&2
-            exit 1
-          fi
-          version_output="$("$github_cli" version)"
-          case "$version_output" in
-            "gh version $GH_CLI_VERSION "*) ;;
-            *)
-              echo "Pinned GitHub CLI version verification failed." >&2
-              exit 1
-              ;;
-          esac
-          echo "path=$github_cli" >> "$GITHUB_OUTPUT"
-
-      - name: Publish immutable app release
-        if: github.event_name == 'push' || inputs.publish_release == true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_CLI: ${{ steps.github_cli.outputs.path }}
-          RELEASE_TAG: ${{ steps.source.outputs.tag }}
-          RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
-        run: |
-          prerelease=()
-          if [ "$RELEASE_CHANNEL" = "dev" ]; then
-            prerelease=(--prerelease)
-          fi
-          if ! "$GH_CLI" release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            "$GH_CLI" release create "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
-              --title "Ultimate AI Agent $RELEASE_TAG" \
-              --notes "First-class macOS release. Channel: $RELEASE_CHANNEL. Release assets are checksum-bound and the updater remains governed by the active product-line descriptor." \
-              "${prerelease[@]}"
-          fi
-          "$GH_CLI" release upload "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
-            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz.sha256" \
-            "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
-
-      - name: Build and publish long-lived installer bootstrap
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_installer_bootstrap == true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_CLI: ${{ steps.github_cli.outputs.path }}
-          PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
-        run: |
-          args=(
-            --python-runtime "$PYTHON_RUNTIME"
-            --output-dir "$RUNNER_TEMP/uaa-installer-bootstrap"
-            --architecture arm64
-          )
-          if [ -n "$UAA_MACOS_SIGNING_IDENTITY" ]; then
-            args+=(--signing-identity "$UAA_MACOS_SIGNING_IDENTITY")
-          fi
-          PYTHONPATH=src .venv/bin/python scripts/macos/build_installer_bootstrap.py "${args[@]}"
-          if ! "$GH_CLI" release view uaa-installer-v1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            "$GH_CLI" release create uaa-installer-v1 \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "${{ steps.identity.outputs.commit }}" \
-              --title "Ultimate AI Agent macOS Installer v1" \
-              --notes "Long-lived private-repository installer bootstrap. It selects versioned app releases through their exact descriptors."
-          fi
-          "$GH_CLI" release upload uaa-installer-v1 \
-            --repo "$GITHUB_REPOSITORY" \
-            "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz" \
-            "$RUNNER_TEMP/uaa-installer-bootstrap/uaa-installer-macos-arm64.tar.gz.sha256"

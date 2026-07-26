@@ -174,8 +174,8 @@ def test_release_loop_rejects_github_hosted_ci() -> None:
     refs = json.loads(MANIFEST.read_text())["developer_prompt_refs"]
     ref = refs[2]
     text = (ROOT / ref).read_text().replace(
-        "repository-scoped self-hosted macOS CI",
-        "GitHub-hosted CI",
+        "repository-required GitHub-hosted CI on standard macOS runners",
+        "available CI",
     )
     with pytest.raises(pack_verify.VerificationError, match="release loop"):
         pack_verify._validate_prompt(2, ref, text)

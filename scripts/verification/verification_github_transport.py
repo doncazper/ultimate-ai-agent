@@ -182,7 +182,7 @@ class VerificationGithubJobOutputEnvelope:
                 self.final_run_manifest.validate()
         except ValueError:
             _fail("reason-ref:github-transport:contract-invalid")
-        if self.receipt.schema_version != "uaa_verification_receipt.v3":
+        if self.receipt.schema_version != "uaa_verification_receipt.v4":
             _fail("reason-ref:github-transport:receipt-version-invalid")
         if (
             self.repository_sha != self.plan_binding.repository_sha
@@ -302,6 +302,7 @@ def build_github_plan_binding(plan: VerificationPlan) -> VerificationGithubPlanB
     except ValueError:
         _fail("reason-ref:github-transport:contract-invalid")
     if plan.schema_version not in {
+        "uaa_ci_command_manifest.v4",
         "uaa_ci_command_manifest.v3",
         "uaa_verification_plan.v3",
     }:

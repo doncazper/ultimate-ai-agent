@@ -49,8 +49,8 @@ RELEASE_FRAGMENTS = (
     "open a draft PR",
     "local review and hardening",
     "Mark it ready only after local checks pass",
-    "repository-scoped self-hosted macOS CI",
-    "never paid or GitHub-hosted compute",
+    "repository-required GitHub-hosted CI on standard macOS runners",
+    "never paid larger runners or self-hosted compute",
     "Merge only when required checks are green",
     "update local `main` to the exact remote merge",
     "post-merge verification",
@@ -103,7 +103,8 @@ REQUIRED_README_FRAGMENTS = (
     "planning artifacts only; no runtime authority granted",
     "Prompts 04–10 use a two-stage contract on one branch and PR",
     "Acceptance makes a lane eligible for fresh request-scoped evaluation",
-    "repository-scoped self-hosted macOS CI",
+    "repository-required GitHub-hosted CI on standard macOS runners",
+    "never use\n    paid larger runners or self-hosted compute",
     "Every phase is desktop-only and macOS-first",
 )
 PHASE_FRAGMENTS: dict[int, tuple[str, ...]] = {

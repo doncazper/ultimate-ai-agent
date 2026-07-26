@@ -107,7 +107,7 @@ def _receipt(plan: VerificationPlan | None = None) -> VerificationReceipt:
         f"result-ref:verification:{hashlib.sha256(unit.unit_ref.encode()).hexdigest()}"
     )
     receipt = VerificationReceipt(
-        schema_version="uaa_verification_receipt.v3",
+        schema_version="uaa_verification_receipt.v4",
         receipt_ref=f"receipt:verification:{'0' * 64}",
         plan_fingerprint=plan.plan_fingerprint,
         unit_ref=unit.unit_ref,
@@ -137,6 +137,7 @@ def _receipt(plan: VerificationPlan | None = None) -> VerificationReceipt:
             execution_surface_ref=SURFACE,
         ).identity_ref,
         executed_command_result_bindings=((unit.command_refs[0], result_ref),),
+        observed_platform_fingerprint=DIGEST,
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     return replace(

@@ -19,7 +19,7 @@ The target architecture is one versioned verification directed acyclic graph
 
 - local and affected-path checks;
 - private CI diagnosis;
-- repository-scoped self-hosted GitHub CI;
+- standard ephemeral GitHub-hosted CI;
 - release verification; and
 - Foundation Gate receipt validation.
 
@@ -35,7 +35,7 @@ These rules are permanent:
   escalate fail-closed;
 - test failures cannot be reclassified as infrastructure failures;
 - branch protection and required checks cannot be weakened;
-- paid runners, billing changes, and CI-policy bypasses are out of scope;
+- larger/paid runners, billing changes, and CI-policy bypasses are out of scope;
 - no verifier or test may be removed solely because another command appears
   similar;
 - no file is split, frozen, moved, renamed, or reorganized solely because of

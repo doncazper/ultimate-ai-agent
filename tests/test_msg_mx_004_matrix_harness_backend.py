@@ -509,11 +509,8 @@ def test_failed_start_with_unconfirmed_cleanup_requires_recovery(
 def test_combined_output_limit_terminates_without_returning_raw_output(
     harness_backend: DockerMatrixHarnessBackend,
 ) -> None:
-    process = subprocess.Popen(
-        [sys.executable, "-c", "import sys; sys.stdout.write('x' * 70000)"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
+    process = harness_backend._spawn(
+        [sys.executable, "-c", "import sys; sys.stdout.write('x' * 70000)"]
     )
     with pytest.raises(MatrixHarnessBackendError, match="OUTPUT_LIMIT_EXCEEDED"):
         harness_backend._communicate_bounded(process, timeout=5)

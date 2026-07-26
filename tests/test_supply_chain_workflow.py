@@ -8,14 +8,15 @@ from scripts.verification.verify_sbom_artifacts import _validate
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKOUT_REF = "actions/checkout@v4"
+CHECKOUT_REF = "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
 
 
-def test_supply_chain_workflow_is_self_hosted_locked_and_policy_compliant() -> None:
+def test_supply_chain_workflow_is_hosted_locked_and_policy_compliant() -> None:
     workflow = (ROOT / ".github/workflows/supply-chain.yml").read_text(encoding="utf-8")
 
-    assert "runs-on: [self-hosted, macOS, ARM64, uaa-ci]" in workflow
-    assert "runs-on: ubuntu" not in workflow
+    assert workflow.count("runs-on: macos-15") == 4
+    assert "self-hosted" not in workflow
+    assert workflow.count("uses: ./.github/actions/setup-toolchain") == 4
     assert "uv sync --frozen --extra dev" in workflow
     assert "uv export --quiet --frozen --extra dev --no-emit-project" in workflow
     assert (
@@ -43,9 +44,7 @@ def test_supply_chain_workflow_is_self_hosted_locked_and_policy_compliant() -> N
     assert "resolution: [lowest-direct, highest]" in workflow
     assert 'uv venv ".venv-${{ matrix.resolution }}" --python 3.12' in workflow
     assert "persist-credentials: false" in workflow
-    assert (
-        "github.event.pull_request.head.repo.full_name == github.repository" in workflow
-    )
+    assert "github.event.pull_request.head.repo.full_name == github.repository" not in workflow
     assert ".venv/bin/mutmut run --max-children 4" in workflow
     assert "scripts/verification/verify_mutation_score.py" in workflow
 

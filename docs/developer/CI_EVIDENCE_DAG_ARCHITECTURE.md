@@ -11,9 +11,10 @@ pytest and serialized Control Center behind static plus all backend lanes. That
 made the post-pytest critical path contain work with no proof dependency on
 pytest. Only five source receipts reached the Foundation prerequisite builder.
 
-The current `ci-architecture:exact-head-evidence-dag-v1` topology preserves all
-visible check contexts and commands while changing only scheduling and proof
-transport:
+The current
+`ci-architecture:exact-head-evidence-dag-v2-hosted` topology preserves all
+visible check contexts and commands while moving execution to fresh standard
+GitHub-hosted machines:
 
 | Stage | Declared budget | Work |
 | --- | ---: | --- |
@@ -27,7 +28,8 @@ transport:
 The canonical inventory contains every job identity, display/check name,
 command lane, real prerequisite, resource class, resource stage, CPU and memory
 units, timeout, evidence posture, eight-shard count, four-worker count, four
-runner services, and required check context. Static validation rejects an
+logical resource-budget units, hosted runner labels, and required check
+context. Static validation rejects an
 unknown stage, an over-budget job, an under-declared exclusive job, or any
 declared concurrency set above the fixed machine budget.
 
@@ -44,8 +46,9 @@ The envelope binds:
 
 - repository SHA and exact selected-unit definition;
 - canonical command manifest and verifier definition fingerprints;
-- dependency lock-set, platform, test collection, shard plan, and TypeScript
-  project/runtime fingerprints where applicable;
+- dependency lock-set, stable declared runner profile, test collection, shard
+  plan, and TypeScript project/runtime fingerprints where applicable, plus a
+  separate observed platform fingerprint on each receipt;
 - terminal receipt, command/result membership, redaction posture, and proof
   equivalence;
 - the derived pytest run manifest for the commandless `pytest` context; that
@@ -112,11 +115,10 @@ failures above. The hosted run is not duplicated for benchmarking or diagnosis.
 
 ## Timing acceptance
 
-The goal is a post-pytest critical path below five minutes on the private Mac.
-Use the first ordinary pull request after this architecture lands as the first
-natural sample and the next ordinary queue pull request as the second. Record
-job start/completion timestamps from their existing Actions run only; do not
-dispatch benchmark-only or duplicate workflows. Compare:
+Use the migration pull request as the first hosted sample and the next ordinary
+queue pull request as the second. Record job start/completion timestamps from
+their existing Actions run only; do not dispatch benchmark-only or duplicate
+workflows. Compare:
 
 1. completion of `pytest / sharded suite`;
 2. completion of `foundation-gate-report`;
@@ -124,7 +126,6 @@ dispatch benchmark-only or duplicate workflows. Compare:
 4. isolation of performance and Foundation;
 5. total queue delay separately from execution time.
 
-A sample above five minutes is an optimization finding, not permission to skip,
-weaken, or rename a gate. Test-corpus modernization begins only after the CI PR
-is green and this architecture has been exercised naturally by one or two
-subsequent ordinary queue PRs.
+A slow sample is an optimization finding, not permission to skip, weaken, or
+rename a gate. Queue work adopts the hosted profile only after the migration PR
+is green and the exact `main` result is accepted.
