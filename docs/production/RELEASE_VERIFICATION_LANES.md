@@ -124,7 +124,7 @@ on fresh hosted machines with a read-only token and no repository secrets.
 Checkout credentials are not persisted, and GitHub Actions caches and uploaded
 artifacts are intentionally absent. Hosted execution changes only CI compute;
 it does not grant runtime authority or imply release readiness. Exact Python
-3.12.13 and Node 22.23.1 runtimes come from immutable revisions of the
+3.12.10 and Node 22.23.1 runtimes come from immutable revisions of the
 repository-allowlisted setup actions.
 
 The bounded local fallback may diagnose an exact pushed SHA in a standalone

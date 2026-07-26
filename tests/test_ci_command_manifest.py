@@ -98,16 +98,16 @@ def test_declared_runner_profile_is_stable_across_hosted_image_patch_drift(
 ) -> None:
     monkeypatch.setenv(
         manifest.DECLARED_RUNNER_PROFILE_ENV,
-        "github-hosted-macos-15-python-3.12.13-node-22.23.1",
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1",
     )
     declared = manifest.platform_fingerprint()
     monkeypatch.setattr(manifest.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(manifest.platform, "machine", lambda: "arm64")
     monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.1", ("", "", ""), ""))
-    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.13")
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.10")
     first_observed = manifest.observed_platform_fingerprint()
     monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.2", ("", "", ""), ""))
-    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.14")
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.11")
 
     assert manifest.platform_fingerprint() == declared
     assert manifest.observed_platform_fingerprint() != first_observed

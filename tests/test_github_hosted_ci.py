@@ -68,13 +68,13 @@ def test_hosted_toolchain_is_pinned_and_cacheless() -> None:
         "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
         in action
     )
-    assert 'python-version: "3.12.13"' in action
+    assert 'python-version: "3.12.10"' in action
     assert "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020" in action
     assert 'node-version: "22.23.1"' in action
     assert "cache:" not in action
     assert (
         "UAA_CI_DECLARED_RUNNER_PROFILE: "
-        "github-hosted-macos-15-python-3.12.13-node-22.23.1"
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1"
         in workflow
     )
     assert workflow.count("uses: ./.github/actions/setup-toolchain") == len(

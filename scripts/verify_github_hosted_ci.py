@@ -158,7 +158,7 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
     for fragment in (
         "using: composite",
         "uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
-        'python-version: "3.12.13"',
+        'python-version: "3.12.10"',
         "uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
         'node-version: "22.23.1"',
     ):
@@ -292,7 +292,7 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("CI token permissions must remain contents-read only")
     if (
         "UAA_CI_DECLARED_RUNNER_PROFILE: "
-        "github-hosted-macos-15-python-3.12.13-node-22.23.1"
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1"
         not in workflow
     ):
         failures.append("CI must declare one stable hosted runner profile")
