@@ -352,11 +352,16 @@ elif mode == "timeout":
         basetemp=root / "timeout",
         timeout_seconds=3,
     )
-    time.sleep(2.2)
+    child_ready = ready.exists()
+    if child_ready:
+        # The child starts its five-second marker horizon immediately after
+        # readiness. Wait the full horizon after timeout so late readiness
+        # cannot make a surviving descendant look safely terminated.
+        time.sleep(5.2)
     payload = {
         "failure": result.failure_code,
         "return_code": result.return_code,
-        "child_ready": ready.exists(),
+        "child_ready": child_ready,
         "child_survived": marker.exists(),
     }
 else:
