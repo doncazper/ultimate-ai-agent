@@ -26,6 +26,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
+    ["settings", "Settings", ["/settings"], ["GET /control-center/settings/status"]],
   ] as const;
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
@@ -44,15 +45,15 @@ function fixture(overrides: Record<string, unknown> = {}) {
     })),
     evidence_binding: {
       status: "unverified_incomplete",
-      acceptance_schema_version: "dogfood-live-loop-acceptance.v1",
-      acceptance_integrity_ref: `proof-ref:dogfood-live-loop:sha256:${"2".repeat(64)}`,
+      acceptance_schema_version: "founder-loop-durable-evidence.v1",
+      acceptance_integrity_ref: `proof-ref:founder-loop-durable-evidence:sha256:${"2".repeat(64)}`,
       action_refs: [],
       run_refs: [],
       proof_refs: [],
       receipt_refs: [],
       evidence_refs: [],
       memory_candidate_refs: [],
-      issue_refs: ["issue-ref:dogfood-live-loop-durable-proof-unavailable"],
+      issue_refs: ["issue-ref:founder-loop-durable-local-task-proof-unavailable"],
     },
     authority_posture: {
       mode_ref: "authority-mode-ref:read-only-local",
@@ -95,7 +96,7 @@ describe("backend truth validation", () => {
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(12);
+    expect(validated.critical_surfaces).toHaveLength(13);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
@@ -145,8 +146,28 @@ describe("backend truth validation", () => {
     ],
     [
       "partial surface set",
-      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 11) }),
+      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 12) }),
       "BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE",
+    ],
+    [
+      "acceptance schema substitution",
+      fixture({
+        evidence_binding: {
+          ...fixture().evidence_binding,
+          acceptance_schema_version: "dogfood-live-loop-acceptance.v1",
+        },
+      }),
+      "BACKEND_TRUTH_EVIDENCE_PROVENANCE_INVALID",
+    ],
+    [
+      "acceptance integrity substitution",
+      fixture({
+        evidence_binding: {
+          ...fixture().evidence_binding,
+          acceptance_integrity_ref: "proof-ref:founder-loop-durable-evidence:sha256:not-a-digest",
+        },
+      }),
+      "BACKEND_TRUTH_EVIDENCE_PROVENANCE_INVALID",
     ],
     [
       "out-of-order surfaces",
@@ -208,6 +229,7 @@ describe("backend truth validation", () => {
   it("identifies only the critical product truth routes", () => {
     expect(isCriticalControlCenterPath("/today")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/activity-trust")).toBe(true);
+    expect(isCriticalControlCenterPath("/settings")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/crm")).toBe(false);
     expect(isCriticalControlCenterPath("/news")).toBe(false);
   });

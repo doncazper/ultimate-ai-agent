@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 describe("useControlCenterData", () => {
-  it("reloads and hides the prior snapshot when the truth envelope changes", async () => {
+  it("reloads a new truth snapshot without hiding same-provenance data", async () => {
     mocked.load
       .mockResolvedValueOnce(backendData("snapshot one"))
       .mockResolvedValueOnce(backendData("snapshot two"));
@@ -46,13 +46,55 @@ describe("useControlCenterData", () => {
     expect(result.current.data?.connection.safeMessage).toBe("snapshot one");
 
     rerender({ snapshotRef: "proof-ref:truth:two" });
-    expect(result.current.status).toBe("loading");
-    expect(result.current.data).toBeNull();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.data?.connection.safeMessage).toBe("snapshot one");
 
-    await waitFor(() => expect(result.current.status).toBe("ready"));
+    await waitFor(() =>
+      expect(result.current.snapshotRef).toBe("proof-ref:truth:two"),
+    );
     expect(result.current.snapshotRef).toBe("proof-ref:truth:two");
     expect(result.current.data?.connection.safeMessage).toBe("snapshot two");
     expect(mocked.load).toHaveBeenCalledTimes(2);
+  });
+
+  it("hides prior data when backend provenance changes", async () => {
+    let resolveSecond: ((value: ControlCenterData) => void) | undefined;
+    mocked.load
+      .mockResolvedValueOnce(backendData("instance one"))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+    const { result, rerender } = renderHook(
+      ({ backendInstanceRef }) =>
+        useControlCenterData(true, {
+          snapshotRef: "proof-ref:truth:current",
+          backendRevisionRef: "commit-ref:git:revision",
+          backendInstanceRef,
+        }),
+      {
+        initialProps: {
+          backendInstanceRef:
+            "backend-instance-ref:control-center:11111111111111111111111111111111",
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    rerender({
+      backendInstanceRef:
+        "backend-instance-ref:control-center:22222222222222222222222222222222",
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("loading"));
+    expect(result.current.data).toBeNull();
+
+    act(() => resolveSecond?.(backendData("instance two")));
+    await waitFor(() =>
+      expect(result.current.data?.connection.safeMessage).toBe("instance two"),
+    );
   });
 
   it("retries the route read models on explicit operator request", async () => {

@@ -127,8 +127,11 @@ Parity gap-closure Phase 02 adds a short-lived, revision-bound Python Core
 truth envelope at `GET /control-center/backend-truth` with CLI parity through
 `scripts/dev/uaa_founder_loop.py inspect-backend-truth`. Start Here, Today,
 Plans, Action Inbox, Approvals, Work Board, Morning Briefing, Memory,
-Evidence/Proof, Setup, Chat handoff, and active-run status wait for that
+Evidence/Proof, Setup, Chat handoff, active-run status, and Settings wait for that
 envelope and their exact backend-owned route read models before rendering.
+The standard local launcher injects the exact clean source revision, while
+durable completion proof is derived from any coherent local-task receipt and
+proof record rather than a seeded fixture identity.
 Missing, malformed, stale, out-of-order, mock-filled, or corrupt durable
 evidence fails closed with bounded provenance and retry guidance. A real local
 Python/backend browser walkthrough proves backend stop, durable restart, CLI/API

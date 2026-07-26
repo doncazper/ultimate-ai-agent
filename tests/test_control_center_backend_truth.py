@@ -21,13 +21,20 @@ from ultimate_ai_agent.core.build_identity import build_identity
 from ultimate_ai_agent.core.control_center.backend_truth import (
     BACKEND_TRUTH_SOURCE_REF,
     CRITICAL_SURFACES,
+    FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION,
     ControlCenterBackendTruth,
     backend_truth_integrity_ref,
     build_control_center_backend_truth,
 )
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+)
 from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
     DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF,
     build_dogfood_live_loop_acceptance_read_model,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
@@ -70,8 +77,12 @@ def test_backend_truth_is_short_lived_revision_bound_and_fail_closed(
     ]
     assert truth["evidence_binding"]["status"] == "unverified_incomplete"
     assert truth["evidence_binding"]["issue_refs"] == [
-        "issue-ref:dogfood-live-loop-durable-proof-unavailable"
+        "issue-ref:founder-loop-durable-local-task-proof-unavailable"
     ]
+    assert (
+        truth["evidence_binding"]["acceptance_schema_version"]
+        == FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION
+    )
     assert truth["authority_posture"]["control_center_grants_authority"] is False
     assert truth["authority_posture"]["production_authority_enabled"] is False
     assert ControlCenterBackendTruth(**truth).model_dump(mode="json") == truth
@@ -124,6 +135,48 @@ def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
     assert truth["evidence_binding"]["evidence_refs"]
 
 
+def test_backend_truth_accepts_normal_durable_local_task_evidence(
+    tmp_path,
+) -> None:
+    state_dir = tmp_path / "normal-durable"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+            metadata_refs=["metadata-ref:operator:daily-loop"],
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+            decision_reason_ref="decision-reason-ref:operator:commit-local-task",
+            metadata_refs=["metadata-ref:operator:daily-loop"],
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(state_dir),
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "verified_complete"
+    assert truth["evidence_binding"]["issue_refs"] == []
+    assert (
+        "receipt:founder-loop-local-task:founder-action-local-task-create-scorecard:"
+        "idempotency-ref-operator-commit-local-task"
+        in truth["evidence_binding"]["receipt_refs"]
+    )
+
+
 def test_backend_truth_marks_a_corrupt_durable_receipt_invalid(tmp_path) -> None:
     state_dir = tmp_path / "corrupt-durable"
     repo = FounderLoopRepository(
@@ -170,7 +223,7 @@ def test_backend_truth_distinguishes_storage_failure_from_first_run(
 
     monkeypatch.setattr(
         "ultimate_ai_agent.core.control_center.backend_truth."
-        "build_dogfood_live_loop_acceptance_read_model",
+        "_build_founder_loop_durable_evidence",
         fail_storage,
     )
 
@@ -222,6 +275,20 @@ def test_backend_truth_distinguishes_storage_failure_from_first_run(
                 issue_refs=["issue-ref:proof-corrupt"],
             ),
             "Verified evidence cannot retain validation issues",
+        ),
+        (
+            lambda value: value["evidence_binding"].update(
+                acceptance_schema_version="dogfood-live-loop-acceptance.v1",
+            ),
+            "literal_error",
+        ),
+        (
+            lambda value: value["evidence_binding"].update(
+                acceptance_integrity_ref=(
+                    "proof-ref:founder-loop-durable-evidence:sha256:not-a-digest"
+                ),
+            ),
+            "Durable evidence integrity ref is invalid",
         ),
         (
             lambda value: value.update(

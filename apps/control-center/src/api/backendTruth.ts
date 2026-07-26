@@ -3,6 +3,9 @@ import type { ControlCenterBackendTruth } from "./types";
 const SCHEMA_VERSION = "uaa-control-center-backend-truth.v1";
 const SOURCE_REF = "source-ref:python-core:control-center-backend-truth";
 const INTEGRITY_PREFIX = "proof-ref:backend-truth-envelope:sha256:";
+const ACCEPTANCE_SCHEMA_VERSION = "founder-loop-durable-evidence.v1";
+const ACCEPTANCE_INTEGRITY_PATTERN =
+  /^proof-ref:founder-loop-durable-evidence:sha256:[0-9a-f]{64}$/;
 const EXPECTED_SURFACES = [
   ["critical-surface:start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
   ["critical-surface:today", "Today", ["/", "/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
@@ -16,6 +19,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:setup", "Setup", ["/setup", "/workspace/onboarding"], ["GET /control-center/setup-assistant/summary"]],
   ["critical-surface:chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
   ["critical-surface:active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
+  ["critical-surface:settings", "Settings", ["/settings"], ["GET /control-center/settings/status"]],
 ] as const;
 
 const CRITICAL_FRONTEND_PATHS = new Set([
@@ -34,6 +38,7 @@ const CRITICAL_FRONTEND_PATHS = new Set([
   "/setup",
   "/chat",
   "/runs",
+  "/settings",
   "/workspace",
   "/workspace/today",
   "/workspace/decisions",
@@ -103,7 +108,7 @@ export async function validateControlCenterBackendTruth(
   if (generatedAt > now + 5_000) fail("BACKEND_TRUTH_FROM_FUTURE");
   if (validUntil <= now) fail("BACKEND_TRUTH_STALE");
 
-  if (!Array.isArray(value.critical_surfaces) || value.critical_surfaces.length !== 12) {
+  if (!Array.isArray(value.critical_surfaces) || value.critical_surfaces.length !== 13) {
     fail("BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE");
   }
   value.critical_surfaces.forEach((surface, index) => {
@@ -172,7 +177,11 @@ async function sha256Hex(value: string): Promise<string> {
 
 function validateEvidence(value: unknown): void {
   if (!isRecord(value)) fail("BACKEND_TRUTH_EVIDENCE_MALFORMED");
-  if (!safeString(value.acceptance_schema_version) || !safeString(value.acceptance_integrity_ref)) {
+  if (
+    value.acceptance_schema_version !== ACCEPTANCE_SCHEMA_VERSION ||
+    typeof value.acceptance_integrity_ref !== "string" ||
+    !ACCEPTANCE_INTEGRITY_PATTERN.test(value.acceptance_integrity_ref)
+  ) {
     fail("BACKEND_TRUTH_EVIDENCE_PROVENANCE_INVALID");
   }
   for (const field of [

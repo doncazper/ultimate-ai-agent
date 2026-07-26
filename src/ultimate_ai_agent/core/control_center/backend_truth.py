@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -9,10 +10,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.build_identity import BuildIdentity, build_identity
-from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
-    DOGFOOD_LIVE_LOOP_SCHEMA_VERSION,
-    build_dogfood_live_loop_acceptance_read_model,
-    validate_dogfood_live_loop_acceptance,
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+    local_task_ref_for_action,
+)
+from ultimate_ai_agent.core.control_center.proof import (
+    build_control_center_proof_index,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -28,11 +31,13 @@ BACKEND_TRUTH_CLI_REF = (
     "python scripts/dev/uaa_founder_loop.py inspect-backend-truth"
 )
 BACKEND_TRUTH_TTL_SECONDS = 45
+FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION = (
+    "founder-loop-durable-evidence.v1"
+)
+FOUNDER_LOOP_DURABLE_EVIDENCE_INTEGRITY_PREFIX = (
+    "proof-ref:founder-loop-durable-evidence:sha256:"
+)
 _BACKEND_INSTANCE_REF = f"backend-instance-ref:control-center:{uuid.uuid4().hex}"
-_EXPECTED_INCOMPLETE_STORAGE_ERRORS = {
-    "DOGFOOD_LIVE_LOOP_ACTION_NOT_FOUND",
-    "DOGFOOD_LIVE_LOOP_LOCAL_TASK_PROOF_NOT_FOUND",
-}
 
 
 def backend_instance_ref() -> str:
@@ -70,7 +75,7 @@ class BackendTruthEvidenceBinding(BaseModel):
         "invalid_evidence",
         "storage_unavailable",
     ]
-    acceptance_schema_version: str
+    acceptance_schema_version: Literal["founder-loop-durable-evidence.v1"]
     acceptance_integrity_ref: str
     action_refs: list[str] = Field(default_factory=list)
     run_refs: list[str] = Field(default_factory=list)
@@ -84,6 +89,12 @@ class BackendTruthEvidenceBinding(BaseModel):
 
     @model_validator(mode="after")
     def validate_evidence(self) -> "BackendTruthEvidenceBinding":
+        if re.fullmatch(
+            rf"{re.escape(FOUNDER_LOOP_DURABLE_EVIDENCE_INTEGRITY_PREFIX)}"
+            r"[0-9a-f]{64}",
+            self.acceptance_integrity_ref,
+        ) is None:
+            raise ValueError("Durable evidence integrity ref is invalid")
         validate_execution_ref(
             self.acceptance_integrity_ref, "acceptance_integrity_ref"
         )
@@ -137,7 +148,7 @@ class ControlCenterBackendTruth(BaseModel):
     backend_revision_ref: str
     backend_instance_ref: str
     source_revision_bound: bool
-    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=12)
+    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=13)
     evidence_binding: BackendTruthEvidenceBinding
     authority_posture: BackendTruthAuthorityPosture = Field(
         default_factory=BackendTruthAuthorityPosture
@@ -260,6 +271,12 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         frontend_paths=["/runs", "/workspace/activity-trust"],
         backend_route_refs=["GET /control-center/runs/observability"],
     ),
+    CriticalSurfaceBinding(
+        surface_ref="critical-surface:settings",
+        label="Settings",
+        frontend_paths=["/settings"],
+        backend_route_refs=["GET /control-center/settings/status"],
+    ),
 )
 
 
@@ -279,7 +296,151 @@ def backend_truth_integrity_ref(payload: dict[str, Any]) -> str:
 
 def _acceptance_integrity_ref(acceptance: dict[str, Any]) -> str:
     digest = hashlib.sha256(_canonical_json(acceptance).encode("utf-8")).hexdigest()
-    return f"proof-ref:dogfood-live-loop:sha256:{digest}"
+    return f"{FOUNDER_LOOP_DURABLE_EVIDENCE_INTEGRITY_PREFIX}{digest}"
+
+
+def _safe_refs(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    refs: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            continue
+        try:
+            validate_execution_ref(item, "durable_evidence_ref")
+        except ValueError:
+            continue
+        if item not in refs:
+            refs.append(item)
+    return refs
+
+
+def _durable_local_task_candidate(
+    *,
+    action: dict[str, Any],
+    proof_records: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if action.get("action_kind") != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
+        return None
+    item_ref = action.get("item_ref")
+    receipt_ref = action.get("local_task_commit_receipt_ref")
+    local_task_ref = action.get("local_task_ref")
+    if not all(isinstance(value, str) and value for value in (
+        item_ref,
+        receipt_ref,
+        local_task_ref,
+    )):
+        return None
+    expected_local_task_ref = local_task_ref_for_action(item_ref)
+    item_suffix = expected_local_task_ref.removeprefix("local-task:founder-loop:")
+    if (
+        local_task_ref != expected_local_task_ref
+        or not receipt_ref.startswith(
+            f"receipt:founder-loop-local-task:{item_suffix}:"
+        )
+        or receipt_ref not in _safe_refs(action.get("receipt_refs"))
+    ):
+        return None
+    expected_proof_ref = f"proof-ref:local-task-commit:{item_suffix}"
+    proof = next(
+        (
+            record
+            for record in proof_records
+            if record.get("proof_kind") == "local_task_commit"
+            and record.get("proof_ref") == expected_proof_ref
+            and receipt_ref in _safe_refs(record.get("receipt_refs"))
+        ),
+        None,
+    )
+    if proof is None:
+        return None
+    evidence_refs = _safe_refs(action.get("evidence_refs"))
+    proof_evidence_refs = _safe_refs(proof.get("evidence_refs"))
+    if not evidence_refs or not proof_evidence_refs:
+        return None
+    return {
+        "action_ref": item_ref,
+        "run_refs": _safe_refs(proof.get("run_refs")),
+        "proof_ref": expected_proof_ref,
+        "receipt_ref": receipt_ref,
+        "evidence_refs": list(
+            dict.fromkeys([*evidence_refs, *proof_evidence_refs])
+        ),
+    }
+
+
+def _build_founder_loop_durable_evidence(
+    *,
+    repo: FounderLoopRepository,
+    limit: int = 50,
+) -> tuple[dict[str, Any], list[str]]:
+    bounded_limit = min(max(int(limit), 12), 50)
+    today = repo.today_summary(limit=bounded_limit)
+    actions = [
+        item for item in today.get("actions", []) if isinstance(item, dict)
+    ]
+    proof_index = build_control_center_proof_index(today_summary=today)
+    proof_records = [
+        item
+        for item in proof_index.get("records", [])
+        if isinstance(item, dict)
+    ]
+    candidates = [
+        candidate
+        for action in actions
+        if (
+            candidate := _durable_local_task_candidate(
+                action=action,
+                proof_records=proof_records,
+            )
+        )
+        is not None
+    ]
+    claimed_receipt_refs = list(
+        dict.fromkeys(
+            receipt_ref
+            for action in actions
+            if action.get("action_kind")
+            == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+            and isinstance(
+                receipt_ref := action.get("local_task_commit_receipt_ref"),
+                str,
+            )
+            and receipt_ref
+        )
+    )
+    evidence_memory = today.get("evidence_memory_loop_binding_read_model")
+    evidence_memory = evidence_memory if isinstance(evidence_memory, dict) else {}
+    memory_candidate_refs = _safe_refs(
+        evidence_memory.get("memory_candidate_refs")
+    )
+    candidate = candidates[0] if candidates else None
+    envelope = {
+        "schema_version": FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION,
+        "action_refs": [candidate["action_ref"]] if candidate else [],
+        "run_refs": candidate["run_refs"] if candidate else [],
+        "proof_refs": [candidate["proof_ref"]] if candidate else [],
+        "receipt_refs": (
+            [candidate["receipt_ref"]]
+            if candidate
+            else claimed_receipt_refs[:12]
+        ),
+        "evidence_refs": candidate["evidence_refs"] if candidate else [],
+        "memory_candidate_refs": memory_candidate_refs[:12],
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "raw_paths_included": False,
+    }
+    issues: list[str] = []
+    if candidate is None:
+        issues.append(
+            "founder-loop-durable-proof-invalid"
+            if claimed_receipt_refs
+            else "founder-loop-durable-local-task-proof-unavailable"
+        )
+    elif not candidate["run_refs"]:
+        issues.append("founder-loop-durable-run-proof-unavailable")
+    return envelope, issues
 
 
 def build_control_center_backend_truth(
@@ -292,18 +453,13 @@ def build_control_center_backend_truth(
     current_identity = identity or build_identity()
     storage_unavailable = False
     try:
-        acceptance = build_dogfood_live_loop_acceptance_read_model(
+        acceptance, issues = _build_founder_loop_durable_evidence(
             repo=repo,
-            seed_fixture=False,
             limit=50,
         )
-        issues = validate_dogfood_live_loop_acceptance(
-            acceptance,
-            require_seeded=False,
-        )
-    except FounderLoopStorageError as exc:
+    except FounderLoopStorageError:
         acceptance = {
-            "schema_version": DOGFOOD_LIVE_LOOP_SCHEMA_VERSION,
+            "schema_version": FOUNDER_LOOP_DURABLE_EVIDENCE_SCHEMA_VERSION,
             "action_refs": [],
             "run_refs": [],
             "proof_refs": [],
@@ -311,23 +467,12 @@ def build_control_center_backend_truth(
             "evidence_refs": [],
             "memory_candidate_refs": [],
         }
-        storage_error_ref = str(exc)
-        storage_unavailable = (
-            storage_error_ref not in _EXPECTED_INCOMPLETE_STORAGE_ERRORS
-        )
-        issues = [
-            (
-                "backend-truth-storage-unavailable"
-                if storage_unavailable
-                else "dogfood-live-loop-durable-proof-unavailable"
-            )
-        ]
+        storage_unavailable = True
+        issues = ["backend-truth-storage-unavailable"]
     if not current_identity.source_revision_bound:
         issues.append("backend-source-revision-unbound")
     complete = not issues
-    durable_receipt_present = bool(
-        acceptance.get("local_task_commit_receipt_ref")
-    )
+    durable_receipt_present = bool(acceptance.get("receipt_refs"))
     if storage_unavailable:
         evidence_status = "storage_unavailable"
     elif complete:

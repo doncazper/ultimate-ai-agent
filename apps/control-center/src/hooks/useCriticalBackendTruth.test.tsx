@@ -20,8 +20,9 @@ function truth(
     critical_surfaces: [],
     evidence_binding: {
       status: evidenceStatus,
-      acceptance_schema_version: "dogfood-live-loop-acceptance.v1",
-      acceptance_integrity_ref: "proof-ref:test",
+      acceptance_schema_version: "founder-loop-durable-evidence.v1",
+      acceptance_integrity_ref:
+        `proof-ref:founder-loop-durable-evidence:sha256:${"2".repeat(64)}`,
       action_refs: [],
       run_refs: [],
       proof_refs:

@@ -23,6 +23,8 @@ type InternalLoadState =
       data: ControlCenterData;
       error: null;
       snapshotRef: string | null;
+      backendRevisionRef: string | null;
+      backendInstanceRef: string | null;
     }
   | { status: "error"; data: null; error: string; snapshotRef: null };
 
@@ -48,7 +50,13 @@ export function useControlCenterData(
     if (!enabled) {
       return;
     }
-    setState({ status: "loading", data: null, error: null, snapshotRef: null });
+    setState((current) =>
+      current.status === "ready" &&
+      current.backendRevisionRef === backendRevisionRef &&
+      current.backendInstanceRef === backendInstanceRef
+        ? current
+        : { status: "loading", data: null, error: null, snapshotRef: null },
+    );
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     const expectedBinding =
@@ -76,6 +84,8 @@ export function useControlCenterData(
                 data: retryData,
                 error: null,
                 snapshotRef,
+                backendRevisionRef,
+                backendInstanceRef,
               });
               return;
             }
@@ -91,7 +101,14 @@ export function useControlCenterData(
     load()
       .then((data) => {
         if (active) {
-          setState({ status: "ready", data, error: null, snapshotRef });
+          setState({
+            status: "ready",
+            data,
+            error: null,
+            snapshotRef,
+            backendRevisionRef,
+            backendInstanceRef,
+          });
         }
         if (active && shouldRetryMockFallback(data)) {
           scheduleMockFallbackRetry(0);
@@ -125,7 +142,8 @@ export function useControlCenterData(
   if (
     enabled &&
     state.status === "ready" &&
-    state.snapshotRef !== snapshotRef
+    (state.backendRevisionRef !== backendRevisionRef ||
+      state.backendInstanceRef !== backendInstanceRef)
   ) {
     return {
       status: "loading",
@@ -134,6 +152,14 @@ export function useControlCenterData(
       snapshotRef: null,
       retry,
     };
+  }
+  if (state.status === "ready") {
+    const {
+      backendRevisionRef: _backendRevisionRef,
+      backendInstanceRef: _backendInstanceRef,
+      ...visibleState
+    } = state;
+    return { ...visibleState, retry };
   }
   return { ...state, retry } as ControlCenterDataLoadState;
 }

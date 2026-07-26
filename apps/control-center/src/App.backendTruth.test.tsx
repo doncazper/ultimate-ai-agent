@@ -241,7 +241,7 @@ describe("critical backend truth boundary", () => {
     expect(screen.queryByRole("heading", { name: "Proof" })).not.toBeInTheDocument();
   });
 
-  it("fails closed when any auxiliary read model used by a critical page falls back", () => {
+  it("keeps a critical route available when only unrelated auxiliary reads fall back", () => {
     const data = backendData("backend_owned");
     data.connection.state = "degraded";
     data.connection.usingMockData = true;
@@ -251,9 +251,31 @@ describe("critical backend truth boundary", () => {
     render(<App />);
 
     expect(
-      screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+      screen.queryByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
+  });
+
+  it("gates Settings and authority controls on the backend truth envelope", () => {
+    window.history.pushState({}, "", "/settings");
+    mocked.truthState = {
+      status: "degraded",
+      truth: null,
+      errorRef: "BACKEND_TRUTH_STALE",
+      lastVerified,
+      retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Settings is not showing unverified product state",
+      }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Today" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Full workspace" }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render mock workspace product content while critical data loads", async () => {

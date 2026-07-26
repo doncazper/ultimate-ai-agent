@@ -442,6 +442,7 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   "/setup": ["/setup", "/settings"],
   "/chat": ["/chat", "/settings"],
   "/runs": ["/runs", "/settings"],
+  "/settings": ["/settings"],
   "/workspace": ["/today", "/settings"],
   "/workspace/today": ["/today", "/settings"],
   "/workspace/decisions": ["/actions", "/approvals", "/settings"],
@@ -461,10 +462,9 @@ function criticalRouteDataIsBackendOwned(
   activePath: string,
   data: ControlCenterData,
 ): boolean {
-  const routeKeys = CRITICAL_ROUTE_KEYS[activePath] ?? [];
+  const routeKeys =
+    CRITICAL_ROUTE_KEYS[canonicalizeControlCenterPath(activePath)] ?? [];
   return (
-    data.connection.state === "online" &&
-    data.connection.usingMockData === false &&
     routeKeys.length > 0 &&
     routeKeys.every((route) => data.routeStates[route]?.state === "backend_owned")
   );

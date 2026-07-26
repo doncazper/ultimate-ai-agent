@@ -487,6 +487,7 @@ def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch: pytest.Mo
 
 def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
+    monkeypatch.setattr(launcher, "verified_source_commit", lambda _root: "1" * 40)
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "1")
     monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_KEY", "should-not-pass-through")
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
@@ -504,12 +505,14 @@ def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch: py
     assert env["UAA_LLAMA_CPP_MODEL_ID"] == "uaa-llama-cpp-local"
     assert env["UAA_LLAMA_CPP_BASE_URL"] == "http://127.0.0.1:8080"
     assert env["UAA_LLAMA_CPP_API_KEY"] == "local-backend-secret"
+    assert env["UAA_BUILD_COMMIT"] == "1" * 40
 
 
 def test_launcher_env_passes_configured_local_control_center_bearers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     launcher = load_launcher()
+    monkeypatch.setattr(launcher, "verified_source_commit", lambda _root: "2" * 40)
     monkeypatch.setenv("UAA_API_LOCAL_BEARER", "local-control-center-bearer")
     monkeypatch.setenv("UNRELATED_TOKEN", "should-not-pass-through")
 
@@ -522,6 +525,44 @@ def test_launcher_env_passes_configured_local_control_center_bearers(
     assert "UAA_API_LOCAL_BEARER" not in frontend_env
     assert "UNRELATED_TOKEN" not in backend_env
     assert "UNRELATED_TOKEN" not in frontend_env
+    assert backend_env["UAA_BUILD_COMMIT"] == "2" * 40
+
+
+def test_launcher_binds_backend_to_exact_clean_source_commit(
+    tmp_path: Path,
+) -> None:
+    launcher = load_launcher()
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    source = tmp_path / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "source.py"], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=UAA Test",
+            "-c",
+            "user.email=uaa-test@example.invalid",
+            "commit",
+            "-qm",
+            "test source",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    expected = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    assert launcher.verified_source_commit(tmp_path) == expected
+
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="clean checkout"):
+        launcher.verified_source_commit(tmp_path)
 
 
 def test_shell_wrapper_exists_and_is_executable() -> None:
