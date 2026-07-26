@@ -356,6 +356,7 @@ elif mode == "timeout":
     payload = {
         "failure": result.failure_code,
         "return_code": result.return_code,
+        "child_ready": ready.exists(),
         "child_survived": marker.exists(),
     }
 else:
@@ -432,6 +433,7 @@ print(json.dumps(payload))
         assert timeout_observation == {
             "failure": "assertion_failed",
             "return_code": 71,
+            "child_ready": False,
             "child_survived": False,
         }
         network_observation = observed["network"]
@@ -448,6 +450,7 @@ print(json.dumps(payload))
         assert timeout_observation == {
             "failure": "timeout",
             "return_code": 124,
+            "child_ready": True,
             "child_survived": False,
         }
         network_observation = observed["network"]
