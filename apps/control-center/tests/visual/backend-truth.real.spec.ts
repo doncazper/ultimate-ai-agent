@@ -11,6 +11,7 @@ const python =
 const stateDir = mkdtempSync(join(tmpdir(), "uaa-backend-truth-browser-"));
 const backendBaseUrl = `http://127.0.0.1:${backendTruthPort}`;
 const backendTruthTestNow = "2026-07-22T18:00:00Z";
+const backendSourceCommit = resolveBackendSourceCommit();
 let backend: ChildProcess | null = null;
 
 const backendOwnedVisualSurfaces = [
@@ -25,6 +26,22 @@ const backendOwnedVisualSurfaces = [
   ["setup", "/setup"],
 ] as const;
 
+function resolveBackendSourceCommit(): string {
+  const result = spawnSync(
+    "/usr/bin/git",
+    ["rev-parse", "--verify", "HEAD"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+  const commit = result.stdout.trim();
+  if (result.status !== 0 || !/^[0-9a-f]{40}$/.test(commit)) {
+    throw new Error("BACKEND_TRUTH_TEST_SOURCE_COMMIT_UNAVAILABLE");
+  }
+  return commit;
+}
+
 function startBackend({ corruptReceipt = false } = {}): void {
   backend = spawn(
     python,
@@ -37,7 +54,7 @@ function startBackend({ corruptReceipt = false } = {}): void {
         UAA_BACKEND_TRUTH_TEST_STATE_DIR: stateDir,
         UAA_BACKEND_TRUTH_TEST_PORT: String(backendTruthPort),
         UAA_BACKEND_TRUTH_TEST_NOW: backendTruthTestNow,
-        UAA_BUILD_COMMIT: "1".repeat(40),
+        UAA_BUILD_COMMIT: backendSourceCommit,
         UAA_BACKEND_TRUTH_TEST_CORRUPT_RECEIPT: corruptReceipt ? "1" : "0",
       },
       stdio: "ignore",
@@ -100,7 +117,7 @@ test("critical founder-loop baselines stay backend-owned", async ({
   const initialTruth = await initialTruthResponse.json();
   expect(initialTruth.data.evidence_binding.status).toBe("verified_complete");
   expect(initialTruth.data.backend_revision_ref).toBe(
-    `commit-ref:git:${"1".repeat(40)}`,
+    `commit-ref:git:${backendSourceCommit}`,
   );
   const fixedNow = new Date(initialTruth.data.generated_at).getTime() + 1_000;
   await page.addInitScript((timestamp) => {
@@ -151,7 +168,7 @@ test("critical founder loop fails closed on backend loss and survives durable re
   const initialTruth = await initialTruthResponse.json();
   expect(initialTruth.data.evidence_binding.status).toBe("verified_complete");
   expect(initialTruth.data.backend_revision_ref).toBe(
-    `commit-ref:git:${"1".repeat(40)}`,
+    `commit-ref:git:${backendSourceCommit}`,
   );
   const fixedNow = new Date(initialTruth.data.generated_at).getTime() + 1_000;
   await page.addInitScript((timestamp) => {
@@ -194,7 +211,7 @@ test("critical founder loop fails closed on backend loss and survives durable re
       env: {
         ...process.env,
         PYTHONPATH: resolve(repoRoot, "src"),
-        UAA_BUILD_COMMIT: "1".repeat(40),
+        UAA_BUILD_COMMIT: backendSourceCommit,
       },
       encoding: "utf8",
     },

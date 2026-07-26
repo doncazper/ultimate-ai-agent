@@ -4407,9 +4407,13 @@ export async function createWorkBoardTask(
   return receipt;
 }
 
-export async function fetchControlCenterSettingsStatus(): Promise<ControlCenterSettingsStatus> {
+export async function fetchControlCenterSettingsStatus(
+  binding: BackendTruthReadBinding | null,
+): Promise<ControlCenterSettingsStatus> {
   return readEnvelope<ControlCenterSettingsStatus>(
     API_ENDPOINTS.controlCenterSettingsStatus,
+    defaultControlCenterReadLimiter,
+    binding,
   );
 }
 
@@ -4632,12 +4636,16 @@ export async function revokeAuthorityLease(
   return result;
 }
 
-export async function fetchFounderActionsInbox(): Promise<FounderLoopActionsInbox> {
+export async function fetchFounderActionsInbox(
+  binding: BackendTruthReadBinding | null,
+): Promise<FounderLoopActionsInbox> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
   return readEnvelope<FounderLoopActionsInbox>(
     API_ENDPOINTS.founderActionsInbox,
+    defaultControlCenterReadLimiter,
+    binding,
   );
 }
 
@@ -4684,6 +4692,7 @@ export async function submitTodayActionEnvelope(
 
 export async function submitWebEvidenceAttachment(
   request: WebEvidenceProductSliceRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<WebEvidenceProductSliceReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4692,11 +4701,16 @@ export async function submitWebEvidenceAttachment(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWebEvidenceAttach}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Ref": request.request_ref,
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Ref": request.request_ref,
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4890,6 +4904,7 @@ function containsUnsafeWebEvidencePreview(value: string): boolean {
 
 export async function recordChatTurnReceipt(
   request: ChatTurnReceiptRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<ChatTurnReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4898,14 +4913,19 @@ export async function recordChatTurnReceipt(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterChatTurns}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": chatTurnReceiptIdempotencyRef(
-          request.turn_ref ?? request.model_ref,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": chatTurnReceiptIdempotencyRef(
+              request.turn_ref ?? request.model_ref,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4925,13 +4945,19 @@ export async function recordChatTurnReceipt(
 
 export async function fetchChatTurnReceipt(
   turnRef: string,
+  binding: BackendTruthReadBinding | null,
 ): Promise<ChatTurnReceipt> {
-  return readEnvelope<ChatTurnReceipt>(chatTurnReceiptEndpoint(turnRef));
+  return readEnvelope<ChatTurnReceipt>(
+    chatTurnReceiptEndpoint(turnRef),
+    defaultControlCenterReadLimiter,
+    binding,
+  );
 }
 
 export async function recordChatHandoff(
   turnRef: string,
   target: ChatHandoffTarget,
+  binding: BackendTruthReadBinding | null,
 ): Promise<ChatHandoffReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4945,15 +4971,20 @@ export async function recordChatHandoff(
     `${API_BASE_POLICY.baseUrl}${chatTurnHandoffEndpoint(turnRef)}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": chatHandoffIdempotencyRef(
-          turnRef,
-          target,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": chatHandoffIdempotencyRef(
+              turnRef,
+              target,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -5021,9 +5052,13 @@ export async function recordMemoryReviewDecision(
   return receipt;
 }
 
-export async function fetchFounderMemoryContextPacks(): Promise<FounderLoopMemoryContextPacks> {
+export async function fetchFounderMemoryContextPacks(
+  binding: BackendTruthReadBinding | null,
+): Promise<FounderLoopMemoryContextPacks> {
   return readEnvelope<FounderLoopMemoryContextPacks>(
     API_ENDPOINTS.founderMemoryContextPacks,
+    defaultControlCenterReadLimiter,
+    binding,
   );
 }
 

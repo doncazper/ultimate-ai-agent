@@ -233,6 +233,7 @@ const TASK_DECOMPOSITION_ROUTE_REFS = [
 ];
 
 export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const today = data.founderToday;
   const [models, setModels] =
     useState<LocalModelsInspectionStatus>(initialModelsStatus);
@@ -294,9 +295,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         try {
           const recordedReceipt = await recordChatTurnReceipt(
             chatTurnReceiptRequestFromProbe(nextProbe),
+            mutationBinding,
           );
           const confirmedReceipt = await fetchChatTurnReceipt(
             recordedReceipt.turn_ref,
+            mutationBinding,
           ).catch(() => recordedReceipt);
           setChatReceipt(confirmedReceipt);
         } catch (error) {
@@ -321,7 +324,13 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     setReceiptError(undefined);
     setHandoffPending(target);
     try {
-      setHandoffReceipt(await recordChatHandoff(chatReceipt.turn_ref, target));
+      setHandoffReceipt(
+        await recordChatHandoff(
+          chatReceipt.turn_ref,
+          target,
+          mutationBinding,
+        ),
+      );
     } catch (error) {
       setReceiptError(
         error instanceof Error
@@ -1669,7 +1678,7 @@ export function SettingsOperatorPanel({
     (lease) => lease.status === "active" && lease.mode !== "read_only",
   );
   async function refreshSettingsSnapshot() {
-    const refreshed = await fetchControlCenterSettingsStatus();
+    const refreshed = await fetchControlCenterSettingsStatus(mutationBinding);
     setSettingsSnapshot(refreshed);
   }
   async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {

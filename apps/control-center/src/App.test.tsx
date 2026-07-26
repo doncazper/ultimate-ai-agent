@@ -7,12 +7,17 @@ import {
   within,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
   useCriticalBackendTruth: () => ({
     status: "ready",
-    truth: {},
+    truth: {
+      envelope_integrity_ref: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+      backend_revision_ref: `commit-ref:git:${"1".repeat(40)}`,
+      backend_instance_ref:
+        "backend-instance-ref:control-center:22222222222222222222222222222222",
+    },
     errorRef: null,
     lastVerified: {
       verifiedAt: "2026-07-22T18:00:10.000Z",
@@ -78,6 +83,28 @@ const TEST_MUTATION_BINDING: BackendTruthReadBinding = {
   backendInstanceRef:
     "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
+
+const NativeResponse = Response;
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "Response",
+    class BackendBoundTestResponse extends NativeResponse {
+      constructor(body?: BodyInit | null, init: ResponseInit = {}) {
+        const headers = new Headers(init.headers);
+        headers.set(
+          "X-UAA-Backend-Revision-Ref",
+          TEST_MUTATION_BINDING.backendRevisionRef,
+        );
+        headers.set(
+          "X-UAA-Backend-Instance-Ref",
+          TEST_MUTATION_BINDING.backendInstanceRef,
+        );
+        super(body, { ...init, headers });
+      }
+    },
+  );
+});
 
 afterEach(() => {
   cleanup();
@@ -8121,6 +8148,9 @@ describe("Web Control Center shell", () => {
       "X-UAA-Idempotency-Key": expect.stringMatching(
         /^idempotency-ref:control-center-chat-turn:/,
       ),
+      "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+      "X-UAA-Expected-Backend-Truth-Ref":
+        TEST_MUTATION_BINDING.snapshotRef,
     });
     const receiptBody = JSON.stringify(
       JSON.parse(String(receiptOptions?.body)),
@@ -8168,6 +8198,9 @@ describe("Web Control Center shell", () => {
       "X-UAA-Idempotency-Key": expect.stringMatching(
         /^idempotency-ref:control-center-chat-handoff:actions:/,
       ),
+      "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+      "X-UAA-Expected-Backend-Truth-Ref":
+        TEST_MUTATION_BINDING.snapshotRef,
     });
     expect(JSON.parse(String(handoffOptions?.body))).toMatchObject({
       handoff_target: "actions",
@@ -8251,7 +8284,7 @@ describe("Web Control Center shell", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await recordChatTurnReceipt(request);
+    await recordChatTurnReceipt(request, TEST_MUTATION_BINDING);
     await recordChatTurnReceipt({
       ...request,
       turn_harness_binding: {
@@ -8259,7 +8292,7 @@ describe("Web Control Center shell", () => {
         safe_summary:
           "Turn harness binding read model compiled safe capability refs without execution.",
       },
-    });
+    }, TEST_MUTATION_BINDING);
 
     const keys = fetchMock.mock.calls.map(
       ([, options]) =>

@@ -38,6 +38,8 @@ function backendData(routeState: "backend_owned" | "mock_fallback") {
     "/evidence",
     "/critical/manifest-read-model",
     "/critical/provider-catalog-read-model",
+    "/runs",
+    "/runtime",
     "/settings",
   ]) {
     data.routeStates[route] = {
@@ -314,6 +316,47 @@ describe("critical backend truth boundary", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Today" })).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["/critical/dashboard-read-model", "dashboard"],
+    ["/runtime", "runtime readiness"],
+  ])(
+    "fails the Evidence route closed when %s falls back",
+    (route, _label) => {
+      window.history.pushState({}, "", "/evidence");
+      const data = backendData("backend_owned");
+      data.routeStates[route].state = "mock_fallback";
+      mocked.controlCenterState = { status: "ready", data, error: null };
+
+      render(<App />);
+
+      expect(
+        screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Evidence" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["/today", "/actions", "/evidence"])(
+    "fails the Settings route closed when %s falls back",
+    (route) => {
+      window.history.pushState({}, "", "/settings");
+      const data = backendData("backend_owned");
+      data.routeStates[route].state = "mock_fallback";
+      mocked.controlCenterState = { status: "ready", data, error: null };
+
+      render(<App />);
+
+      expect(
+        screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Settings" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("gates Settings and authority controls on the backend truth envelope", () => {
     window.history.pushState({}, "", "/settings");

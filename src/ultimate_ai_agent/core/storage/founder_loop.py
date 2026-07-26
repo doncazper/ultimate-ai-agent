@@ -12019,6 +12019,8 @@ class FounderLoopRepository:
                    replays.payload_fingerprint_ref AS replay_payload_fingerprint_ref,
                    replays.receipt_ref AS replay_receipt_ref,
                    tasks.status AS task_status,
+                   tasks.item_ref AS task_item_ref,
+                   tasks.action_kind AS task_action_kind,
                    tasks.evidence_refs_json AS task_evidence_refs_json,
                    tasks.receipt_ref AS task_receipt_ref
             FROM local_task_commit_receipts AS receipts
@@ -12058,6 +12060,8 @@ class FounderLoopRepository:
             "replay_payload_fingerprint_ref": receipt.payload_fingerprint_ref,
             "replay_receipt_ref": receipt.receipt_ref,
             "task_status": receipt.status,
+            "task_item_ref": receipt.item_ref,
+            "task_action_kind": FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
             "task_receipt_ref": receipt.receipt_ref,
         }
         if any(row.get(field) != expected for field, expected in expected_bindings.items()):

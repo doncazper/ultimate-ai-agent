@@ -29,7 +29,7 @@ _EXPECTED_SOURCE_SHA256 = {
         "80b9327640c46e4d8b0622126cdca711596397d1a2f6d22da773526feadaf1ed"
     ),
     "src/ultimate_ai_agent/distribution/macos/runtime.py": (
-        "bfe72ea8e510defbb99dd97d691beebb8a02e6145b41fb6d7577d613ef94f033"
+        "cdf91f507b674185e07e481bf48c452fd491067784a7ee62b72cb018b35e7004"
     ),
 }
 

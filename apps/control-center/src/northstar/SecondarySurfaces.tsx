@@ -338,7 +338,9 @@ export function ActivityTrustSurface({ data }: { data: ControlCenterData }) {
       setConfirmationLeaseRef(undefined);
       setFeedback(`Lease revoked · ${result.receipt.receipt_ref}. Refreshing authority state.`);
       try {
-        const refreshed = await fetchControlCenterSettingsStatus();
+        const refreshed = await fetchControlCenterSettingsStatus(
+          mutationBinding,
+        );
         setSettings(refreshed);
         setFeedback(`Lease revoked · ${result.receipt.receipt_ref}. Authority state refreshed.`);
       } catch (refreshError) {
@@ -583,7 +585,7 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}. Refreshing backend queue.`);
       try {
-        const refreshed = await fetchFounderActionsInbox();
+        const refreshed = await fetchFounderActionsInbox(mutationBinding);
         setInbox(refreshed);
         const nextIndex = refreshed.items.findIndex((candidate) => candidate.item_ref === item.item_ref);
         const refreshedItem = nextIndex >= 0 ? refreshed.items[nextIndex] : undefined;

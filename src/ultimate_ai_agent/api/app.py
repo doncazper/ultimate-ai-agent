@@ -259,7 +259,9 @@ _BACKEND_TRUTH_REF_RE = re.compile(
     r"^proof-ref:backend-truth-envelope:sha256:[0-9a-f]{64}$"
 )
 _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
+    "/control-center/chat/turns",
     "/control-center/today/action-envelope",
+    "/control-center/web-evidence/attach",
     "/control-center/memory/feedback",
     "/control-center/memory/review/manual-candidate",
     "/control-center/work-board/reorder",
@@ -269,6 +271,9 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
 }
+_CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
+    r"^/control-center/chat/turns/[^/]+/handoff$"
+)
 _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
     r"^/control-center/memory/(?:"
     r"review/[^/]+/(?:accept|correct|reject|defer|merge|supersede|expire)"
@@ -876,6 +881,7 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
     if (
         path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
     ):
         return False

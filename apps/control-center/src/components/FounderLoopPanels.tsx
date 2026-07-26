@@ -10376,7 +10376,9 @@ function MemoryContextPackProposalCard({
         refreshMessage: "Refreshing Memory context-pack read model.",
       });
       try {
-        const refreshed = await fetchFounderMemoryContextPacks();
+        const refreshed = await fetchFounderMemoryContextPacks(
+          mutationBinding,
+        );
         const refreshedProposal = refreshed.proposals.find(
           (candidate) =>
             candidate.context_pack_ref === displayedProposal.context_pack_ref,
@@ -12402,7 +12404,7 @@ function ActionDecisionControls({
       refreshMessage: "Refreshing Action Inbox read model from the backend.",
     });
     try {
-      const refreshedInbox = await fetchFounderActionsInbox();
+      const refreshedInbox = await fetchFounderActionsInbox(mutationBinding);
       const refreshedItem = refreshedInbox.items.find(
         (candidate) => candidate.item_ref === item.item_ref,
       );
@@ -12630,7 +12632,7 @@ function LocalTaskCommitControls({
       refreshMessage: "Refreshing Action Inbox read model from the backend.",
     });
     try {
-      const refreshedInbox = await fetchFounderActionsInbox();
+      const refreshedInbox = await fetchFounderActionsInbox(mutationBinding);
       const refreshedItem = refreshedInbox.items.find(
         (candidate) => candidate.item_ref === item.item_ref,
       );

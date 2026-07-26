@@ -460,6 +460,60 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
     ]
 
 
+@pytest.mark.parametrize(
+    ("column_name", "replacement"),
+    [
+        ("item_ref", "founder-action:substituted-local-task"),
+        ("action_kind", "review_only"),
+    ],
+)
+def test_backend_truth_rejects_tampered_durable_task_bindings(
+    tmp_path,
+    column_name: str,
+    replacement: str,
+) -> None:
+    state_dir = tmp_path / f"tampered-task-{column_name}"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    committed = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+    receipt_ref = str(committed["receipt_ref"])
+    update_sql = (
+        "UPDATE local_tasks SET item_ref = ? WHERE receipt_ref = ?"
+        if column_name == "item_ref"
+        else "UPDATE local_tasks SET action_kind = ? WHERE receipt_ref = ?"
+    )
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
+        connection.execute(update_sql, (replacement, receipt_ref))
+
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(state_dir),
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "invalid_evidence"
+    assert truth["evidence_binding"]["receipt_refs"] == [receipt_ref]
+    assert truth["evidence_binding"]["issue_refs"] == [
+        "issue-ref:founder-loop-durable-proof-invalid"
+    ]
+
+
 def test_backend_truth_marks_a_corrupt_durable_receipt_invalid(tmp_path) -> None:
     state_dir = tmp_path / "corrupt-durable"
     repo = FounderLoopRepository(

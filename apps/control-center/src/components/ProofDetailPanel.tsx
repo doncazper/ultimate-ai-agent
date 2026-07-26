@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import { submitWebEvidenceAttachment } from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import type {
   ControlCenterProofIndex,
   ControlCenterProofRecord,
@@ -105,6 +106,7 @@ function WebEvidenceAttachPanel({
   authoritative: boolean;
   record: ControlCenterProofRecord;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [url, setUrl] = useState("");
   const [allowedHost, setAllowedHost] = useState("");
   const [receipt, setReceipt] =
@@ -140,7 +142,7 @@ function WebEvidenceAttachPanel({
             "Attach one allowlisted read-only web evidence preview to the local loop.",
           evidence_refs: ["evidence-ref:control-center:web-evidence-form"],
           metadata_refs: ["metadata-ref:control-center:web-evidence-form"],
-        }),
+        }, mutationBinding),
       );
     } catch (caught) {
       setError(

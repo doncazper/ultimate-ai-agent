@@ -462,7 +462,12 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   "/morning-briefing": ["/briefing", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/memory": ["/memory", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/proof": ["/proof", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
-  "/evidence": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS, "/runs"],
+  "/evidence": [
+    ...FOUNDER_LOOP_SPINE_ROUTE_KEYS,
+    "/runs",
+    "/critical/dashboard-read-model",
+    "/runtime",
+  ],
   "/setup": [
     "/setup",
     "/critical/dashboard-read-model",
@@ -477,7 +482,7 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   ],
   "/runs": ["/runs", "/settings"],
   "/settings": [
-    "/settings",
+    ...FOUNDER_LOOP_SPINE_ROUTE_KEYS,
     "/critical/dashboard-read-model",
     "/critical/manifest-read-model",
     "/critical/provider-catalog-read-model",

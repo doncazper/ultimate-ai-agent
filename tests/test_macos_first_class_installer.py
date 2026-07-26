@@ -56,6 +56,7 @@ from ultimate_ai_agent.distribution.macos.installer import (
 )
 from ultimate_ai_agent.distribution.macos.runtime import (
     RuntimePaths,
+    _runtime_environment,
     check_for_update,
 )
 
@@ -71,6 +72,26 @@ def test_packaged_launcher_binds_the_exact_build_revision() -> None:
     assert f'setenv("UAA_BUILD_COMMIT", "{commit}", 1)' in launcher
     with pytest.raises(ValueError, match="exact lowercase SHA"):
         _launcher_source("not-a-commit")
+
+
+def test_packaged_runtime_child_uses_the_manifest_source_revision(
+    monkeypatch,
+) -> None:
+    manifest_commit = "a" * 40
+    monkeypatch.setenv("UAA_BUILD_COMMIT", "b" * 40)
+
+    environment = _runtime_environment(
+        local_bearer="local-session-bearer",
+        source_commit=manifest_commit,
+    )
+
+    assert environment["UAA_BUILD_COMMIT"] == manifest_commit
+    assert environment["UAA_API_LOCAL_BEARER"] == "local-session-bearer"
+    with pytest.raises(RuntimeError, match="source revision"):
+        _runtime_environment(
+            local_bearer="local-session-bearer",
+            source_commit="not-a-commit",
+        )
 
 
 def test_newest_channel_compares_stable_and_dev_by_tag_commit_time() -> None:

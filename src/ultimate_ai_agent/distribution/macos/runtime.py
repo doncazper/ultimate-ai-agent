@@ -167,7 +167,10 @@ def command_launch(
         "--nonce",
         nonce,
     ]
-    environment = _runtime_environment(local_bearer=local_bearer)
+    environment = _runtime_environment(
+        local_bearer=local_bearer,
+        source_commit=str(manifest.get("source_commit", "")),
+    )
     process = subprocess.Popen(
         command,
         cwd=paths.state_dir,
@@ -686,7 +689,17 @@ def _next_available_port(host: str, preferred: int) -> int:
     raise RuntimeError("no bounded loopback port is available")
 
 
-def _runtime_environment(*, local_bearer: str) -> dict[str, str]:
+def _runtime_environment(
+    *,
+    local_bearer: str,
+    source_commit: str,
+) -> dict[str, str]:
+    if (
+        len(source_commit) != 40
+        or source_commit != source_commit.lower()
+        or any(character not in "0123456789abcdef" for character in source_commit)
+    ):
+        raise RuntimeError("installed bundle source revision is invalid")
     allowed = {
         key: value
         for key, value in os.environ.items()
@@ -706,6 +719,7 @@ def _runtime_environment(*, local_bearer: str) -> dict[str, str]:
     allowed["PYTHONUNBUFFERED"] = "1"
     allowed["PYTHONDONTWRITEBYTECODE"] = "1"
     allowed["UAA_API_LOCAL_BEARER"] = local_bearer
+    allowed["UAA_BUILD_COMMIT"] = source_commit
     return allowed
 
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  fetchFounderActionsInbox,
   validateBackendResponseBinding,
   withBackendTruthMutationHeaders,
   type BackendTruthReadBinding,
@@ -21,6 +22,9 @@ function headers(overrides: Record<string, string> = {}): Headers {
 }
 
 describe("backend response provenance binding", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
   it("accepts route data from the exact admitted backend process", () => {
     expect(() =>
       validateBackendResponseBinding(headers(), binding),
@@ -78,5 +82,29 @@ describe("backend response provenance binding", () => {
     expect(() =>
       withBackendTruthMutationHeaders({ Accept: "application/json" }, null),
     ).toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
+  });
+
+  it("rejects a post-mutation refresh from a replacement backend", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ ok: true, result: { items: [] } }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+              "X-UAA-Backend-Instance-Ref":
+                "backend-instance-ref:control-center:44444444444444444444444444444444",
+            },
+          },
+        ),
+      ),
+    );
+
+    await expect(fetchFounderActionsInbox(binding)).rejects.toThrow(
+      "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
+    );
   });
 });
