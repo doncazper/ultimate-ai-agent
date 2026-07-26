@@ -22,7 +22,7 @@ const MACOS_SETUP_STATUSES = new Set<MacOSSetupStepStatus>([
   "blocked",
   "manual_only",
 ]);
-const MACOS_SETUP_LIFECYCLE_STATES = new Set<MacOSSetupLifecycleState>([
+const MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE: MacOSSetupLifecycleState[] = [
   "prerequisites",
   "ready_to_install",
   "approval_required",
@@ -36,9 +36,12 @@ const MACOS_SETUP_LIFECYCLE_STATES = new Set<MacOSSetupLifecycleState>([
   "rollback_required",
   "rolled_back",
   "failed",
-]);
-const MACOS_SETUP_LIFECYCLE_OPERATIONS =
-  new Set<MacOSSetupLifecycleOperationName>([
+];
+const MACOS_SETUP_LIFECYCLE_STATES = new Set<MacOSSetupLifecycleState>(
+  MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE,
+);
+const MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE: MacOSSetupLifecycleOperationName[] =
+  [
     "plan",
     "status",
     "install",
@@ -47,7 +50,11 @@ const MACOS_SETUP_LIFECYCLE_OPERATIONS =
     "stop",
     "rollback",
     "receipts",
-  ]);
+  ];
+const MACOS_SETUP_LIFECYCLE_OPERATIONS =
+  new Set<MacOSSetupLifecycleOperationName>(
+    MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE,
+  );
 export function normalizeMacOSSetupAssistant(
   source: unknown,
   fallback: MacOSSetupAssistantData,
@@ -57,7 +64,9 @@ export function normalizeMacOSSetupAssistant(
   const probeValue = normalizeMacOSSetupAssistantValue(source, probeFallback);
   return {
     value,
-    usedFallback: JSON.stringify(value) !== JSON.stringify(probeValue),
+    usedFallback:
+      lifecycleSourceRequiresFallback(source) ||
+      JSON.stringify(value) !== JSON.stringify(probeValue),
   };
 }
 
@@ -210,6 +219,9 @@ function normalizeMacOSSetupLifecycle(
     return fallback;
   }
   const operations = recordsValue(value, "operations");
+  const operationSequenceIsExact = hasExactLifecycleOperationSequence(
+    value.operations,
+  );
   return {
     schemaVersion: stringValue(
       value,
@@ -225,7 +237,7 @@ function normalizeMacOSSetupLifecycle(
       fallback.stateSequence,
     ),
     operations:
-      operations.length > 0
+      operationSequenceIsExact
         ? operations.map((operation, index) =>
             normalizeMacOSSetupLifecycleOperation(
               operation,
@@ -356,16 +368,12 @@ function normalizeMacOSSetupLifecycleOperation(
       fallback.verifierRefs,
     ),
     reasonCodes: stringArrayValue(value, "reason_codes", fallback.reasonCodes),
-    mutationRequired: booleanValue(
-      value,
-      "mutation_required",
-      fallback.mutationRequired,
-    ),
-    liveProbeRequired: booleanValue(
-      value,
-      "live_probe_required",
-      fallback.liveProbeRequired,
-    ),
+    mutationRequired:
+      !readOnly &&
+      booleanValue(value, "mutation_required", fallback.mutationRequired),
+    liveProbeRequired:
+      !readOnly &&
+      booleanValue(value, "live_probe_required", fallback.liveProbeRequired),
     approvalRequired: !readOnly,
     authorityGranted: false,
     stateChangePerformed: false,
@@ -376,6 +384,126 @@ function normalizeMacOSSetupLifecycleOperation(
     networkRequestPerformed: false,
     receiptPersisted: false,
   };
+}
+
+function lifecycleSourceRequiresFallback(source: unknown): boolean {
+  if (!isRecord(source)) {
+    return true;
+  }
+  const lifecycle = recordValue(source, "lifecycle");
+  if (
+    !lifecycle ||
+    lifecycle.status !== "blocked_by_authority" ||
+    lifecycle.current_state !== "prerequisites" ||
+    !hasExactStringSequence(
+      lifecycle.state_sequence,
+      MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE,
+    ) ||
+    !hasExactLifecycleOperationSequence(lifecycle.operations) ||
+    !allBooleanFieldsEqual(
+      lifecycle,
+      [
+        "activation_authorized",
+        "installation_performed",
+        "process_launched",
+        "health_probe_performed",
+        "repair_performed",
+        "stop_performed",
+        "rollback_performed",
+        "file_mutation_performed",
+        "credential_write_performed",
+        "subprocess_executed",
+        "live_network_request_performed",
+        "production_authority_enabled",
+      ],
+      false,
+    )
+  ) {
+    return true;
+  }
+
+  const operations = lifecycle.operations as Record<string, unknown>[];
+  const operationProofFields = [
+    "authority_granted",
+    "state_change_performed",
+    "subprocess_executed",
+    "file_mutation_performed",
+    "process_mutation_performed",
+    "credential_write_performed",
+    "network_request_performed",
+    "receipt_persisted",
+  ];
+  if (
+    operations.some((operation, index) => {
+      const operationName = MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE[index];
+      const readOnly =
+        operationName === "plan" ||
+        operationName === "status" ||
+        operationName === "receipts";
+      return (
+        operation.status !==
+          (readOnly ? "available_read_only" : "blocked_by_authority") ||
+        operation.current_state !== "prerequisites" ||
+        operation.approval_required !== !readOnly ||
+        !allBooleanFieldsEqual(operation, operationProofFields, false) ||
+        (readOnly &&
+          (operation.mutation_required !== false ||
+            operation.live_probe_required !== false))
+      );
+    })
+  ) {
+    return true;
+  }
+
+  const healthContract = recordValue(lifecycle, "health_contract");
+  return (
+    !healthContract ||
+    healthContract.status !== "blocked_by_authority" ||
+    !allBooleanFieldsEqual(
+      healthContract,
+      [
+        "process_identity_verified",
+        "api_manifest_version_verified",
+        "loopback_bind_verified",
+        "control_center_compatibility_verified",
+        "forbidden_authority_absence_verified",
+        "live_probe_performed",
+      ],
+      false,
+    )
+  );
+}
+
+function hasExactLifecycleOperationSequence(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE.length &&
+    value.every(
+      (operation, index) =>
+        isRecord(operation) &&
+        operation.operation ===
+          MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE[index],
+    )
+  );
+}
+
+function hasExactStringSequence(
+  value: unknown,
+  expected: readonly string[],
+): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === expected.length &&
+    value.every((item, index) => item === expected[index])
+  );
+}
+
+function allBooleanFieldsEqual(
+  value: Record<string, unknown>,
+  fields: readonly string[],
+  expected: boolean,
+): boolean {
+  return fields.every((field) => value[field] === expected);
 }
 
 function normalizeMacOSSetupHealthContract(
