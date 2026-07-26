@@ -58,7 +58,7 @@ def control_center_loopback_cors_origins(
         return CONTROL_CENTER_LOOPBACK_CORS_ORIGINS
     canonical_origin = configured
     if match.group("port") == "80":
-        canonical_origin = f"http://{match.group('host')}"
+        canonical_origin = configured.removesuffix(":80")
     return tuple(
         dict.fromkeys([*CONTROL_CENTER_LOOPBACK_CORS_ORIGINS, canonical_origin])
     )
