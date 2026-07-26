@@ -1,4 +1,5 @@
 import argparse
+import errno
 import hashlib
 import json
 import multiprocessing
@@ -3995,10 +3996,15 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
         args=(state_dir, started_path, release_path),
     )
     owner.start()
-    deadline = time.monotonic() + 10
-    while not started_path.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
-    assert started_path.exists()
+    try:
+        deadline = time.monotonic() + 10
+        while not started_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert started_path.exists()
+    except BaseException:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        raise
     monkeypatch.setattr(
         "ultimate_ai_agent.core.runtime_gateway.command."
         "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
@@ -4123,10 +4129,15 @@ def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
         args=(state_dir, started_path, release_path),
     )
     owner.start()
-    deadline = time.monotonic() + 10
-    while not started_path.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
-    assert started_path.exists()
+    try:
+        deadline = time.monotonic() + 10
+        while not started_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert started_path.exists()
+    except BaseException:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        raise
     monkeypatch.setattr(
         runtime_command,
         "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
@@ -4166,12 +4177,14 @@ def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
             errors.append(exc)
 
     duplicate = threading.Thread(target=invoke_after_owner)
-    duplicate.start()
-    time.sleep(0.1)
-    assert duplicate.is_alive() is True
-    release_path.write_text("release", encoding="utf-8")
-    owner.join(timeout=15)
-    duplicate.join(timeout=15)
+    try:
+        duplicate.start()
+        time.sleep(0.1)
+        assert duplicate.is_alive() is True
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+        duplicate.join(timeout=15)
 
     assert owner.is_alive() is False
     assert owner.exitcode == 0
@@ -4357,6 +4370,47 @@ def test_runtime_gateway_command_execution_lock_closes_on_lockf_error(
         )
 
     assert len(closed_descriptors) == 1
+
+
+def test_runtime_gateway_command_execution_lock_retries_eacces_contention(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    claim_ref = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-eacces-contention",
+    )
+    original_lockf = runtime_command.fcntl.lockf
+    acquisition_attempts = 0
+
+    def contend_once(
+        descriptor: int,
+        operation: int,
+        length: int,
+        offset: int,
+        whence: int,
+    ) -> object:
+        nonlocal acquisition_attempts
+        if operation & runtime_command.fcntl.LOCK_UN:
+            return original_lockf(descriptor, operation, length, offset, whence)
+        acquisition_attempts += 1
+        if acquisition_attempts == 1:
+            raise PermissionError(errno.EACCES, "range lock contention")
+        return original_lockf(descriptor, operation, length, offset, whence)
+
+    monkeypatch.setattr(runtime_command.fcntl, "lockf", contend_once)
+
+    lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=0.1,
+    )
+    assert lease is not None
+    try:
+        assert acquisition_attempts == 2
+    finally:
+        lease.release()
 
 
 def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_receipt(

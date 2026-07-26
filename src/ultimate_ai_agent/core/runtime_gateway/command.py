@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import fcntl
 import hashlib
 import json
@@ -630,7 +631,13 @@ def _acquire_command_execution_lease(
                     offset=offset,
                     process_lock=process_lock,
                 )
-            except BlockingIOError:
+            except OSError as exc:
+                if exc.errno not in {
+                    errno.EACCES,
+                    errno.EAGAIN,
+                    errno.EWOULDBLOCK,
+                }:
+                    raise
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     durable_record = _locked_command_reservation(
