@@ -638,6 +638,34 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "--require-hashes" in builder
 
 
+def test_public_bootstrap_download_is_anonymous_bounded_and_checksum_bound() -> None:
+    installer = (ROOT / "packaging" / "macos" / "install.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "gh auth status" not in installer
+    assert "gh auth login" not in installer
+    assert "gh release download" not in installer
+    assert "https://github.com/$REPOSITORY/releases/download/" in installer
+    for fragment in (
+        "/usr/bin/curl",
+        "--fail",
+        "--location",
+        "--proto '=https'",
+        "--proto-redir '=https'",
+        "--tlsv1.2",
+        "--retry 3",
+        "--connect-timeout 15",
+        "--max-time 300",
+        '--output "$destination.partial"',
+        '/bin/mv "$destination.partial" "$destination"',
+        'download_public_asset "$BOOTSTRAP_ASSET"',
+        'download_public_asset "$CHECKSUM_ASSET"',
+        '/usr/bin/shasum -a 256 -c "$CHECKSUM_ASSET"',
+    ):
+        assert fragment in installer
+
+
 def test_installer_e2e_validators_fail_closed_on_status_and_receipt_drift(
     tmp_path: Path,
 ) -> None:

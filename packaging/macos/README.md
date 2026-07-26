@@ -1,6 +1,6 @@
 # First-Class macOS Distribution
 
-Status: implemented and locally verified for private arm64 use
+Status: implemented and locally verified for arm64 use
 
 This directory contains the long-lived installer entry point for a
 self-contained Ultimate AI Agent macOS app. The installed app does not depend
@@ -25,10 +25,9 @@ packaging/macos/install.sh \
   --local-descriptor BUILD_DIR/uaa-macos-arm64.release.json
 ```
 
-For a published private GitHub Release:
+For a future published public upstream GitHub Release:
 
 ```bash
-gh auth login
 packaging/macos/install.sh --channel newest --launch
 ```
 
@@ -77,8 +76,8 @@ uaa uninstall
 ```
 
 Opening the app is equivalent to `uaa launch`. It checks the selected channel
-before boot. If GitHub is unavailable or private-repository authentication is
-missing, it keeps the verified installed version and does not replace it.
+before boot. If GitHub is unavailable, it keeps the verified installed version
+and does not replace it.
 
 ## Release Selection
 
@@ -91,13 +90,13 @@ tie-breaker only, so backfilling an older release cannot make it appear newer.
 line. A release without the active product-line descriptor, matching
 architecture, exact size, and SHA-256 is ignored.
 
-## Private GitHub Authentication
+## GitHub Authentication
 
-The updater first checks `UAA_UPDATER_GITHUB_TOKEN`, then the authenticated
-GitHub CLI. Tokens are held in memory only and are excluded from commands,
-receipts, status, and logs. The environment variable is intended for
-non-interactive build/repair use; `gh auth login` is the normal private
-operator path.
+The public upstream release catalog and bootstrap assets are read
+anonymously. No `gh auth login` is required. For a private fork, the updater
+first checks `UAA_UPDATER_GITHUB_TOKEN`, then the authenticated GitHub CLI.
+Tokens are held in memory only and are excluded from commands, receipts,
+status, and logs.
 
 ## Build
 

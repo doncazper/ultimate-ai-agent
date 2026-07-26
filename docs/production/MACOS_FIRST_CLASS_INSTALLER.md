@@ -90,11 +90,13 @@ entry is refused.
 
 ## Authentication
 
-The repository is private. Release reads use an explicit updater token or the
-authenticated `gh` credential helper. The token is held in memory and is not
-persisted by UAA. App API access uses a separate random local bearer stored
-mode `0600`; the browser receives it through the existing fragment handoff and
-removes it from browser history.
+Public upstream release and bootstrap reads are anonymous and require no GitHub
+credential. The bootstrap uses bounded HTTPS GETs for the two fixed
+checksum-bound assets. A private fork may use an explicit updater token or the
+authenticated `gh` credential helper after installing from a local artifact.
+The token is held in memory and is not persisted by UAA. App API access uses a
+separate random local bearer stored mode `0600`; the browser receives it
+through the existing fragment handoff and removes it from browser history.
 
 The app continues running the verified installed release if an automatic
 update check cannot authenticate or reach GitHub. It never treats update
