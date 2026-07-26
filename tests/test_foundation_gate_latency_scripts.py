@@ -772,6 +772,78 @@ def test_foundation_gate_latency_guard_fails_failed_untimed_warmup(
     )
 
 
+def test_foundation_gate_latency_guard_accepts_valid_untimed_warmup() -> None:
+    metrics = {
+        "warmup": 1,
+        "foundation_gate_warmup_statuses": ["passed"],
+        "foundation_gate_warmup_result_counts": [2],
+        "foundation_gate_best_ms": 10.0,
+        "foundation_gate_mean_ms": 10.0,
+        "foundation_gate_status": "passed",
+        "foundation_gate_result_count": 2,
+        **_release_latency_success_payload(),
+    }
+
+    assert (
+        check_foundation_gate_latency._foundation_gate_latency_failures(
+            metrics,
+            max_best_ms=1_000,
+            max_mean_ms=1_000,
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("change", "expected_failure"),
+    (
+        (
+            {"foundation_gate_warmup_statuses": []},
+            "Foundation Gate warmup statuses are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_statuses": None},
+            "Foundation Gate warmup statuses are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": []},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": [0]},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+        (
+            {"foundation_gate_warmup_result_counts": [True]},
+            "Foundation Gate warmup result counts are missing or malformed",
+        ),
+    ),
+)
+def test_foundation_gate_latency_guard_rejects_malformed_untimed_warmup(
+    change: dict[str, object],
+    expected_failure: str,
+) -> None:
+    metrics = {
+        "warmup": 1,
+        "foundation_gate_warmup_statuses": ["passed"],
+        "foundation_gate_warmup_result_counts": [2],
+        "foundation_gate_best_ms": 10.0,
+        "foundation_gate_mean_ms": 10.0,
+        "foundation_gate_status": "passed",
+        "foundation_gate_result_count": 2,
+        **_release_latency_success_payload(),
+        **change,
+    }
+
+    failures = check_foundation_gate_latency._foundation_gate_latency_failures(
+        metrics,
+        max_best_ms=1_000,
+        max_mean_ms=1_000,
+    )
+
+    assert expected_failure in failures
+
+
 def test_foundation_gate_latency_guard_rejects_invalid_env_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FOUNDATION_GATE_MAX_MEAN_MS", "not-a-number")
 

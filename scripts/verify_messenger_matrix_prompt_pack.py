@@ -104,6 +104,7 @@ REQUIRED_README_FRAGMENTS = (
     "Prompts 04–10 use a two-stage contract on one branch and PR",
     "Acceptance makes a lane eligible for fresh request-scoped evaluation",
     "repository-required GitHub-hosted CI on standard macOS runners",
+    "never use\n    paid larger runners or self-hosted compute",
     "Every phase is desktop-only and macOS-first",
 )
 PHASE_FRAGMENTS: dict[int, tuple[str, ...]] = {

@@ -225,6 +225,8 @@ def _safe_env(
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     if visual_scope is not None:
         env["UAA_VERIFICATION_VISUAL_SCOPE"] = visual_scope
+    if any(key == DECLARED_RUNNER_PROFILE_ENV for key, _value in command.env):
+        raise ValueError("command environment cannot override declared runner profile")
     declared_runner_profile = os.environ.get(DECLARED_RUNNER_PROFILE_ENV)
     if declared_runner_profile is not None:
         if DECLARED_RUNNER_PROFILE_PATTERN.fullmatch(declared_runner_profile) is None:

@@ -148,6 +148,26 @@ def test_safe_env_rejects_invalid_declared_runner_profile(
         )
 
 
+def test_safe_env_rejects_command_override_of_declared_runner_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        DECLARED_RUNNER_PROFILE_ENV,
+        "github-hosted-macos-15-python-3.12.10-node-22.23.1",
+    )
+    command = CommandSpec(
+        "command:test",
+        ("true",),
+        ((DECLARED_RUNNER_PROFILE_ENV, "github-hosted-macos-15-overridden"),),
+        "test",
+        10,
+    )
+
+    with pytest.raises(ValueError, match="cannot override declared runner profile"):
+        runner._safe_env(command, tmp_path)
+
+
 def _patch_lane(
     monkeypatch: pytest.MonkeyPatch,
     commands: tuple[CommandSpec, ...],
@@ -365,9 +385,9 @@ def test_lane_runner_publishes_typed_v4_proof_to_immutable_store(
     run_digests = tuple(path.stem for path in (store_root / "runs").glob("*.json"))
     assert receipt["status"] == "pass"
     assert len(receipt_digests) == len(run_digests) == 1
-    assert store.get_receipt(receipt_digests[0]).schema_version == (
-        "uaa_verification_receipt.v4"
-    )
+    stored_receipt = store.get_receipt(receipt_digests[0])
+    assert stored_receipt.schema_version == "uaa_verification_receipt.v4"
+    assert stored_receipt.observed_platform_fingerprint is not None
     assert store.get_run_manifest(run_digests[0]).schema_version == (
         "uaa_verification_run.v3"
     )
