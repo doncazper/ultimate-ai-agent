@@ -121,6 +121,23 @@ def test_local_runtime_binds_exact_selected_control_center_origin() -> None:
     ) in compose
 
 
+def test_local_runtime_operator_entry_binds_clean_source_and_session_bearer() -> None:
+    operator = (ROOT / "scripts/dev/uaa_local_runtime.py").read_text()
+    compose = (ROOT / "packaging/local-runtime/compose.yaml").read_text()
+    auth = (ROOT / "src/ultimate_ai_agent/api/local_auth.py").read_text()
+
+    assert operator.index("verified_clean_source_commit(ROOT)") < operator.index(
+        '_run_compose(["up"'
+    )
+    assert '"UAA_BUILD_COMMIT": commit' in operator
+    assert '"UAA_LOCAL_RUNTIME_VERIFIED_SOURCE": "verified-clean-source:v1"' in operator
+    assert "uaa-session-bearer" in operator
+    assert "webbrowser.open(session_url)" in operator
+    assert "UAA_LOCAL_RUNTIME_VERIFIED_SOURCE: ${UAA_LOCAL_RUNTIME_VERIFIED_SOURCE:?" in compose
+    assert "UAA_LOCAL_RUNTIME_SECRET_FILE: /run/secrets/uaa_local_runtime_secret" in compose
+    assert 'LOCAL_API_BEARER_FILE_ENV = "UAA_LOCAL_RUNTIME_SECRET_FILE"' in auth
+
+
 def test_local_runtime_packaging_proof_summary_shape_is_safe() -> None:
     summary = {
         "schema_version": "uaa-local-runtime-packaging-proof-summary.v1",

@@ -1,3 +1,6 @@
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -5,6 +8,9 @@ from ultimate_ai_agent.api.local_auth import (
     LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
     LOCAL_API_AUTH_ENABLED_ENV,
     LOCAL_API_BEARER_ENV,
+    LOCAL_API_BEARER_FILE_ENV,
+    MAX_LOCAL_API_BEARER_FILE_BYTES,
+    local_api_bearer_value,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.mattermost.api_safety import (
@@ -52,6 +58,63 @@ def test_protected_routes_require_configured_local_bearer(monkeypatch) -> None:
     assert "wrong-local-bearer" not in wrong.text
     assert allowed.status_code == 200
     assert allowed.json()["success"] is True
+
+
+def test_local_runtime_bearer_file_configures_protected_routes(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    secret_file = tmp_path / "local-runtime-secret"
+    secret_file.write_text(LOCAL_TEST_BEARER + "\n", encoding="utf-8")
+    secret_file.chmod(0o600)
+    monkeypatch.delenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, raising=False)
+    monkeypatch.delenv(LOCAL_API_BEARER_ENV, raising=False)
+    monkeypatch.setenv(LOCAL_API_BEARER_FILE_ENV, str(secret_file))
+
+    response = _client().get("/control-center/routes", headers=_headers())
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+
+
+def test_inline_local_bearer_takes_precedence_over_bearer_file(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    secret_file = tmp_path / "local-runtime-secret"
+    secret_file.write_text("different-local-bearer\n", encoding="utf-8")
+    monkeypatch.setenv(LOCAL_API_BEARER_ENV, LOCAL_TEST_BEARER)
+    monkeypatch.setenv(LOCAL_API_BEARER_FILE_ENV, str(secret_file))
+
+    assert local_api_bearer_value() == LOCAL_TEST_BEARER
+
+
+@pytest.mark.parametrize("file_shape", ["relative", "symlink", "oversized", "missing"])
+def test_local_runtime_bearer_file_fails_closed_for_unsafe_shapes(
+    monkeypatch,
+    tmp_path: Path,
+    file_shape: str,
+) -> None:
+    secret_file = tmp_path / "local-runtime-secret"
+    if file_shape == "relative":
+        configured = Path("relative-secret")
+    elif file_shape == "symlink":
+        target = tmp_path / "secret-target"
+        target.write_text(LOCAL_TEST_BEARER, encoding="utf-8")
+        secret_file.symlink_to(target)
+        configured = secret_file
+    elif file_shape == "oversized":
+        secret_file.write_text(
+            "a" * (MAX_LOCAL_API_BEARER_FILE_BYTES + 1),
+            encoding="utf-8",
+        )
+        configured = secret_file
+    else:
+        configured = secret_file
+    monkeypatch.delenv(LOCAL_API_BEARER_ENV, raising=False)
+    monkeypatch.setenv(LOCAL_API_BEARER_FILE_ENV, str(configured))
+
+    assert local_api_bearer_value() is None
 
 
 def test_local_gate_denies_sensitive_post_before_validation(monkeypatch) -> None:
@@ -151,6 +214,12 @@ def test_manifest_declares_local_gate_without_broad_auth_claims() -> None:
     assert manifest["local_auth_policy"]["fail_closed_by_default"] is True
     assert manifest["local_auth_policy"]["dev_only_bypass_env"] == (
         LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV
+    )
+    assert manifest["local_auth_policy"]["bearer_file_env"] == (
+        LOCAL_API_BEARER_FILE_ENV
+    )
+    assert manifest["local_auth_policy"]["maximum_bearer_file_bytes"] == (
+        MAX_LOCAL_API_BEARER_FILE_BYTES
     )
     assert manifest["local_auth_policy"]["dev_only_bypass_production_authority"] is False
     for blocked in [

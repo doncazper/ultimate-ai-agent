@@ -414,6 +414,7 @@ def test_backend_truth_redacts_unsafe_claimed_receipt_ref(
         ("safe_disable_ref", "safe-disable-ref:tampered"),
         ("rollback_ref", "rollback-ref:tampered"),
         ("safe_disable_posture_ref", "safe-disable-posture-ref:tampered"),
+        ("run_ref", "run-ref:founder-loop:substituted"),
     ],
 )
 def test_backend_truth_rejects_tampered_durable_receipt_bindings(
@@ -590,13 +591,21 @@ def test_backend_truth_distinguishes_storage_failure_from_first_run(
     assert truth["evidence_binding"]["receipt_refs"] == []
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        FounderLoopStorageError("raw-local-storage-detail"),
+        PermissionError("raw-local-storage-detail"),
+    ],
+)
 def test_backend_truth_api_redacts_repository_construction_failure(
     monkeypatch,
+    failure: Exception,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
 
     def fail_service():
-        raise FounderLoopStorageError("raw-local-storage-detail")
+        raise failure
 
     monkeypatch.setattr(
         "ultimate_ai_agent.api.founder_loop.get_founder_loop_service",
@@ -612,6 +621,28 @@ def test_backend_truth_api_redacts_repository_construction_failure(
         "issue-ref:backend-truth-storage-unavailable"
     ]
     assert "raw-local-storage-detail" not in response.text
+
+
+def test_backend_truth_api_redacts_real_sqlite_storage_failure(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    state_dir = tmp_path / "corrupt-state"
+    state_dir.mkdir()
+    (state_dir / "founder_loop.sqlite3").write_bytes(b"not-a-sqlite-database")
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).get("/control-center/backend-truth")
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["evidence_binding"]["status"] == "storage_unavailable"
+    assert payload["evidence_binding"]["issue_refs"] == [
+        "issue-ref:backend-truth-storage-unavailable"
+    ]
+    assert str(state_dir) not in response.text
+    assert "not-a-sqlite-database" not in response.text
 
 
 @pytest.mark.parametrize(

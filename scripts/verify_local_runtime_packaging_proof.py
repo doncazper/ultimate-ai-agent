@@ -138,9 +138,11 @@ def _validate_proof_script() -> list[str]:
         "screenshot capture": ["\"npx\"", "\"playwright\"", "\"screenshot\""],
         "safe summary": ["raw_logs_omitted", "raw_paths_omitted", "safe_refs_only"],
         "generated local secret": ["secrets.token_urlsafe", ".chmod(0o600)"],
+        "session bearer handoff": ["uaa-session-bearer", "urllib.parse.quote"],
         "exact source binding": [
             "verified_clean_source_commit",
             "\"UAA_BUILD_COMMIT\"",
+            "\"UAA_LOCAL_RUNTIME_VERIFIED_SOURCE\"",
         ],
     }
     for label, fragments in required_fragments.items():

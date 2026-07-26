@@ -13,6 +13,7 @@ Canonical operator guidance lives in
 
 | File | Purpose |
 |---|---|
+| `../../scripts/dev/uaa_local_runtime.py` | Supported clean-source-gated start/stop entry with local bearer handoff. |
 | `packaging/local-runtime/compose.yaml` | Local Docker Compose stack for the UAA API and Control Center only. |
 | `packaging/local-runtime/Dockerfile.api` | Local API image build recipe. |
 | `packaging/local-runtime/Dockerfile.control-center` | Local Control Center image build recipe. |
@@ -34,5 +35,7 @@ Canonical operator guidance lives in
   background execution.
 - A generated local secret file is mounted from ignored `.uaa/` state. It is
   not a checked-in credential and not a production auth claim.
-- Compose requires `UAA_BUILD_COMMIT` from a verified clean checkout and binds
-  that exact revision into the API image and runtime environment.
+- Compose requires `UAA_BUILD_COMMIT` and the wrapper admission marker from
+  `scripts/dev/uaa_local_runtime.py`; the wrapper verifies a clean exact
+  checkout before starting and binds that revision into the API image and
+  runtime environment.

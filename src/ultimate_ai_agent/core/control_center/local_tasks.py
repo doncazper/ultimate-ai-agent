@@ -23,6 +23,9 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorType,
     AuthoritySource,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+)
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
@@ -129,6 +132,7 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
     audit_ref: str = Field(..., min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
     payload_fingerprint_ref: str = Field(..., min_length=1)
+    run_ref: str = Field(..., min_length=1)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
     approval_ref: str = Field(..., min_length=1, max_length=160)
     approval_status: str = Field(..., min_length=1, max_length=80)
@@ -177,6 +181,7 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
             "audit_ref",
             "idempotency_key_ref",
             "payload_fingerprint_ref",
+            "run_ref",
             "evidence_timeline_event_ref",
             "approval_ref",
             "authority_domain_ref",
@@ -249,6 +254,12 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
         if not self.safe_disable_enabled:
             raise ValueError(
                 "local task commit receipt requires enabled safe-disable posture"
+            )
+        if self.run_ref != FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF:
+            raise ValueError("local task commit receipt run binding mismatch")
+        if self.evidence_timeline_event_ref not in self.evidence_refs:
+            raise ValueError(
+                "local task commit receipt requires durable run evidence"
             )
         if self.rollback_execution_enabled:
             raise ValueError(

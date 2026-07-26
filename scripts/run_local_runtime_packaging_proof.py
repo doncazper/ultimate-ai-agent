@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -56,7 +57,7 @@ def run_packaging_proof(*, timeout_seconds: int) -> int:
     route_count: int | None = None
     screenshot_hash: str | None = None
     status = "failed"
-    _prepare_local_state()
+    local_bearer = _prepare_local_state()
     api_port = _select_available_port(DEFAULT_API_PORT)
     control_center_port = _select_available_port(
         DEFAULT_CONTROL_CENTER_PORT,
@@ -66,10 +67,14 @@ def run_packaging_proof(*, timeout_seconds: int) -> int:
         "UAA_LOCAL_RUNTIME_API_PORT": str(api_port),
         "UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT": str(control_center_port),
         "UAA_BUILD_COMMIT": verified_clean_source_commit(ROOT),
+        "UAA_LOCAL_RUNTIME_VERIFIED_SOURCE": "verified-clean-source:v1",
     }
     api_health_url = f"http://127.0.0.1:{api_port}/health"
     api_manifest_url = f"http://127.0.0.1:{api_port}/api/manifest"
-    control_center_url = f"http://127.0.0.1:{control_center_port}/today"
+    control_center_url = (
+        f"http://127.0.0.1:{control_center_port}/today"
+        f"#uaa-session-bearer={urllib.parse.quote(local_bearer, safe='')}"
+    )
 
     try:
         _run_checked(
@@ -138,12 +143,13 @@ def run_packaging_proof(*, timeout_seconds: int) -> int:
     return 0 if status == "passed" and steps[-1].status == "passed" else 1
 
 
-def _prepare_local_state() -> None:
+def _prepare_local_state() -> str:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     PROOF_DIR.mkdir(parents=True, exist_ok=True)
     if not LOCAL_SECRET_FILE.exists():
         LOCAL_SECRET_FILE.write_text(secrets.token_urlsafe(48) + "\n", encoding="utf-8")
     LOCAL_SECRET_FILE.chmod(0o600)
+    return LOCAL_SECRET_FILE.read_text(encoding="utf-8").strip()
 
 
 def _run_checked(

@@ -137,21 +137,27 @@ def test_well_shaped_but_unissued_truth_ref_is_rejected(
     )
 
 
-def test_superseded_truth_envelope_is_rejected(
+def test_concurrent_reader_truth_envelopes_remain_admitted_until_expiry(
     monkeypatch,
     tmp_path,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
-    first_headers = _bound_headers(tmp_path, now=utc_now() - timedelta(seconds=1))
-    _bound_headers(tmp_path, now=utc_now())
+    first_headers = _bound_headers(tmp_path, now=utc_now() - timedelta(seconds=2))
+    second_headers = _bound_headers(tmp_path, now=utc_now() - timedelta(seconds=1))
 
-    response = TestClient(app).post(
+    first_response = TestClient(app).post(
         ACTION_PATH,
         headers=first_headers,
         json={},
     )
+    second_response = TestClient(app).post(
+        ACTION_PATH,
+        headers=second_headers,
+        json={},
+    )
 
-    assert response.status_code == 409
+    assert first_response.status_code != 409
+    assert second_response.status_code != 409
 
 
 def test_expired_truth_envelope_is_rejected(

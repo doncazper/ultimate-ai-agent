@@ -192,6 +192,7 @@ from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
 )
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF,
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
     build_founder_loop_runs_integration_read_model,
 )
 from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
@@ -12508,6 +12509,7 @@ class FounderLoopRepository:
             audit_ref=audit_ref,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
+            run_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
             evidence_timeline_event_ref=evidence_event_ref,
             approval_ref=request.approval_ref,
             approval_status=approval_status,

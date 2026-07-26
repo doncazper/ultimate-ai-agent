@@ -1,5 +1,8 @@
 name: uaa-local-runtime
 
+# Supported operator entry: .venv/bin/python scripts/dev/uaa_local_runtime.py up
+# The required admission ref is emitted only after the wrapper verifies a clean
+# exact source checkout.
 services:
   api:
     build:
@@ -19,6 +22,7 @@ services:
       PORT: "8000"
       UAA_FILE_API_SAFE_ROOT: /app
       UAA_BUILD_COMMIT: ${UAA_BUILD_COMMIT:?set UAA_BUILD_COMMIT to the verified clean source SHA}
+      UAA_LOCAL_RUNTIME_VERIFIED_SOURCE: ${UAA_LOCAL_RUNTIME_VERIFIED_SOURCE:?run scripts/dev/uaa_local_runtime.py}
       UAA_CONTROL_CENTER_CORS_ORIGIN: http://127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}
       UAA_LOCAL_RUNTIME_SECRET_FILE: /run/secrets/uaa_local_runtime_secret
       UAA_OPENWEBUI_TEST_GATEWAY_ENABLED: ""
@@ -55,6 +59,7 @@ services:
     init: true
     environment:
       VITE_UAA_API_BASE_URL: http://127.0.0.1:${UAA_LOCAL_RUNTIME_API_PORT:-8000}
+      UAA_LOCAL_RUNTIME_VERIFIED_SOURCE: ${UAA_LOCAL_RUNTIME_VERIFIED_SOURCE:?run scripts/dev/uaa_local_runtime.py}
     ports:
       - "127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}:5173"
     depends_on:

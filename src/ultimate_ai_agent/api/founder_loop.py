@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
@@ -52,7 +54,7 @@ _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
 def get_control_center_backend_truth() -> ResultEnvelope:
     try:
         data = get_founder_loop_service().backend_truth()
-    except FounderLoopStorageError:
+    except (FounderLoopStorageError, OSError, sqlite3.Error):
         data = build_control_center_backend_truth(repo=None)
     return ResultEnvelope(
         success=True,

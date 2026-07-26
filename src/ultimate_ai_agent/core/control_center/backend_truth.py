@@ -43,7 +43,8 @@ _INVALID_CLAIMED_RECEIPT_REF = (
     "receipt-ref:founder-loop-durable-proof-invalid-claim"
 )
 _ISSUED_ENVELOPE_LOCK = threading.Lock()
-_LATEST_ISSUED_ENVELOPE: dict[str, Any] | None = None
+_MAX_ADMITTED_ENVELOPES = 128
+_ISSUED_ENVELOPES: dict[str, dict[str, Any]] = {}
 
 
 def backend_instance_ref() -> str:
@@ -51,7 +52,6 @@ def backend_instance_ref() -> str:
 
 
 def _register_issued_backend_truth(payload: dict[str, Any]) -> None:
-    global _LATEST_ISSUED_ENVELOPE
     issued = {
         "envelope_integrity_ref": payload["envelope_integrity_ref"],
         "backend_revision_ref": payload["backend_revision_ref"],
@@ -60,7 +60,20 @@ def _register_issued_backend_truth(payload: dict[str, Any]) -> None:
         "valid_until": payload["valid_until"],
     }
     with _ISSUED_ENVELOPE_LOCK:
-        _LATEST_ISSUED_ENVELOPE = issued
+        current = utc_now().astimezone(UTC)
+        for ref, existing in list(_ISSUED_ENVELOPES.items()):
+            try:
+                valid_until = datetime.fromisoformat(
+                    str(existing["valid_until"]).replace("Z", "+00:00")
+                )
+            except (KeyError, TypeError, ValueError):
+                valid_until = current - timedelta(seconds=1)
+            if valid_until < current:
+                _ISSUED_ENVELOPES.pop(ref, None)
+        _ISSUED_ENVELOPES[str(issued["envelope_integrity_ref"])] = issued
+        while len(_ISSUED_ENVELOPES) > _MAX_ADMITTED_ENVELOPES:
+            oldest_ref = next(iter(_ISSUED_ENVELOPES))
+            _ISSUED_ENVELOPES.pop(oldest_ref, None)
 
 
 def backend_truth_envelope_is_current(
@@ -70,13 +83,10 @@ def backend_truth_envelope_is_current(
     expected_backend_instance_ref: str,
     now: datetime | None = None,
 ) -> bool:
-    """Verify an exact, latest-issued, unexpired backend truth envelope."""
+    """Verify an exact admitted, unexpired backend truth envelope."""
     with _ISSUED_ENVELOPE_LOCK:
-        issued = (
-            dict(_LATEST_ISSUED_ENVELOPE)
-            if _LATEST_ISSUED_ENVELOPE is not None
-            else None
-        )
+        existing = _ISSUED_ENVELOPES.get(envelope_integrity_ref)
+        issued = dict(existing) if existing is not None else None
     if issued is None:
         return False
     current = (now or utc_now()).astimezone(UTC)
@@ -443,9 +453,17 @@ def _durable_local_task_candidate(
         or not set(receipt_evidence_refs).issubset(set(evidence_refs))
     ):
         return None
+    run_ref = receipt.get("run_ref")
+    if (
+        run_ref not in _safe_refs([run_ref])
+        or run_ref not in _safe_refs(proof.get("run_refs"))
+        or receipt.get("evidence_timeline_event_ref")
+        not in receipt_evidence_refs
+    ):
+        return None
     return {
         "action_ref": item_ref,
-        "run_refs": _safe_refs(proof.get("run_refs")),
+        "run_refs": [run_ref],
         "proof_ref": expected_proof_ref,
         "receipt_ref": receipt_ref,
         "evidence_refs": list(

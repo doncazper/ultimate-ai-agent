@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hmac
 import os
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from ultimate_ai_agent.api.contracts import ApiRouteClassification
 from ultimate_ai_agent.api.manifest import (
@@ -19,9 +21,11 @@ from ultimate_ai_agent.core.task_decomposition.api_safety import task_decomposit
 
 LOCAL_API_AUTH_ENABLED_ENV = "UAA_API_LOCAL_AUTH_ENABLED"
 LOCAL_API_BEARER_ENV = "UAA_API_LOCAL_BEARER"
+LOCAL_API_BEARER_FILE_ENV = "UAA_LOCAL_RUNTIME_SECRET_FILE"
 LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV = "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY"
 LOCAL_API_AUTH_POLICY_REF = "auth:p1-083:local-protected-routes:v1"
 MIN_LOCAL_API_BEARER_LENGTH = 12
+MAX_LOCAL_API_BEARER_FILE_BYTES = 4096
 
 LOCAL_AUTH_PUBLIC_METADATA_PATHS = frozenset({*PUBLIC_METADATA_PATHS, "/openapi.json"})
 LOCAL_AUTH_PROTECTED_CLASSIFICATIONS = frozenset(
@@ -49,8 +53,46 @@ def _truthy(value: str | None) -> bool:
 
 
 def local_api_bearer_value(env: Mapping[str, str] | None = None) -> str | None:
-    value = _env_values(env).get(LOCAL_API_BEARER_ENV, "").strip()
-    return value or None
+    values = _env_values(env)
+    value = values.get(LOCAL_API_BEARER_ENV, "").strip()
+    if value:
+        return value
+    path_value = values.get(LOCAL_API_BEARER_FILE_ENV, "").strip()
+    if not path_value:
+        return None
+    path = Path(path_value)
+    if not path.is_absolute():
+        return None
+    try:
+        metadata = path.lstat()
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_size <= 0
+            or metadata.st_size > MAX_LOCAL_API_BEARER_FILE_BYTES
+        ):
+            return None
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if (
+                opened.st_dev != metadata.st_dev
+                or opened.st_ino != metadata.st_ino
+                or not stat.S_ISREG(opened.st_mode)
+                or opened.st_size <= 0
+                or opened.st_size > MAX_LOCAL_API_BEARER_FILE_BYTES
+            ):
+                return None
+            raw_value = stream.read(MAX_LOCAL_API_BEARER_FILE_BYTES + 1)
+        if len(raw_value) > MAX_LOCAL_API_BEARER_FILE_BYTES:
+            return None
+        file_value = raw_value.decode("utf-8").strip()
+    except (OSError, UnicodeError):
+        return None
+    return file_value or None
 
 
 def local_api_auth_configured(env: Mapping[str, str] | None = None) -> bool:
@@ -140,6 +182,8 @@ def local_api_auth_policy_payload() -> dict[str, object]:
         "fail_closed_by_default": True,
         "enabled_env": LOCAL_API_AUTH_ENABLED_ENV,
         "bearer_env": LOCAL_API_BEARER_ENV,
+        "bearer_file_env": LOCAL_API_BEARER_FILE_ENV,
+        "maximum_bearer_file_bytes": MAX_LOCAL_API_BEARER_FILE_BYTES,
         "dev_only_bypass_env": LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV,
         "dev_only_bypass_enabled": local_api_auth_dev_bypass_enabled(),
         "public_metadata_paths": sorted(LOCAL_AUTH_PUBLIC_METADATA_PATHS),
