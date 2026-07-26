@@ -11959,6 +11959,123 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def validated_local_task_commit_receipt(
+        self,
+        receipt_ref: str,
+    ) -> dict[str, Any]:
+        """Load an exact local-task receipt and verify its durable bindings."""
+        _validate_safe_ref(receipt_ref, "receipt_ref")
+        rows = self._fetch_all(
+            """
+            SELECT receipts.receipt_ref AS stored_receipt_ref,
+                   receipts.item_ref AS stored_item_ref,
+                   receipts.local_task_ref AS stored_local_task_ref,
+                   receipts.receipt_json,
+                   replays.key_ref AS replay_key_ref,
+                   replays.item_ref AS replay_item_ref,
+                   replays.local_task_ref AS replay_local_task_ref,
+                   replays.payload_fingerprint_ref AS replay_payload_fingerprint_ref,
+                   replays.receipt_ref AS replay_receipt_ref,
+                   tasks.status AS task_status,
+                   tasks.evidence_refs_json AS task_evidence_refs_json,
+                   tasks.receipt_ref AS task_receipt_ref
+            FROM local_task_commit_receipts AS receipts
+            LEFT JOIN local_task_commit_replays AS replays
+              ON replays.receipt_ref = receipts.receipt_ref
+            LEFT JOIN local_tasks AS tasks
+              ON tasks.local_task_ref = receipts.local_task_ref
+            WHERE receipts.receipt_ref = ?
+            LIMIT 1
+            """,
+            (receipt_ref,),
+        )
+        if not rows:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_NOT_FOUND"
+            )
+        row = dict(rows[0])
+        try:
+            receipt = FounderLoopLocalTaskCommitReceipt(
+                **dict(json.loads(str(row["receipt_json"])))
+            )
+            task_evidence_refs = list(
+                json.loads(str(row["task_evidence_refs_json"]))
+            )
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_INVALID"
+            ) from exc
+
+        expected_bindings = {
+            "stored_receipt_ref": receipt.receipt_ref,
+            "stored_item_ref": receipt.item_ref,
+            "stored_local_task_ref": receipt.local_task_ref,
+            "replay_key_ref": receipt.idempotency_key_ref,
+            "replay_item_ref": receipt.item_ref,
+            "replay_local_task_ref": receipt.local_task_ref,
+            "replay_payload_fingerprint_ref": receipt.payload_fingerprint_ref,
+            "replay_receipt_ref": receipt.receipt_ref,
+            "task_status": receipt.status,
+            "task_receipt_ref": receipt.receipt_ref,
+        }
+        if any(row.get(field) != expected for field, expected in expected_bindings.items()):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.local_task_ref != local_task_ref_for_action(receipt.item_ref):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.receipt_ref != local_task_commit_receipt_ref(
+            receipt.item_ref,
+            receipt.idempotency_key_ref,
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.audit_ref != local_task_commit_audit_ref(
+            receipt.item_ref,
+            receipt.idempotency_key_ref,
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if receipt.evidence_timeline_event_ref != local_task_commit_event_ref(
+            receipt.item_ref
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        if task_evidence_refs != receipt.evidence_refs:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+
+        action = self._action_payload_for_item_ref(receipt.item_ref)
+        if action is None:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_ACTION_NOT_FOUND"
+            )
+        projected = {**action, **self._local_task_commit_projection(action)}
+        if (
+            projected.get("action_kind")
+            != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
+            or projected.get("local_task_ref") != receipt.local_task_ref
+            or projected.get("local_task_commit_receipt_ref")
+            != receipt.receipt_ref
+            or projected.get("local_task_commit_approval_ref")
+            != receipt.approval_ref
+            or receipt.receipt_ref not in list(projected.get("receipt_refs") or [])
+            or receipt.audit_ref not in list(projected.get("audit_refs") or [])
+            or not set(receipt.evidence_refs).issubset(
+                set(projected.get("evidence_refs") or [])
+            )
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
+            )
+        return receipt.model_dump(mode="json")
+
     def local_task_safe_disable_posture(self) -> dict[str, Any]:
         rows = self._fetch_all(
             """

@@ -404,6 +404,16 @@ def build_control_center_proof_index(*, today_summary: dict[str, Any]) -> dict[s
     return model.model_dump(mode="json")
 
 
+def build_local_task_commit_proof_record(
+    *,
+    action: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the exact local-task proof record for one action projection."""
+    return _with_run_detail(
+        _local_task_commit_record({"actions": [action]})
+    ).model_dump(mode="json")
+
+
 def build_control_center_proof_detail(
     *,
     today_summary: dict[str, Any],

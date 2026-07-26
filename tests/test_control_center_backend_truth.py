@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
+    local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
@@ -175,6 +176,134 @@ def test_backend_truth_accepts_normal_durable_local_task_evidence(
         "idempotency-ref-operator-commit-local-task"
         in truth["evidence_binding"]["receipt_refs"]
     )
+
+
+def test_backend_truth_matches_proof_to_each_committed_action(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    state_dir = tmp_path / "multiple-local-task-actions"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+    reloaded = FounderLoopRepository(state_dir)
+    today = reloaded.today_summary()
+    older_item_ref = "founder-action:older-uncommitted-local-task"
+    today["actions"] = [
+        {
+            "item_ref": older_item_ref,
+            "action_kind": "local_task_create",
+            "local_task_ref": local_task_ref_for_action(older_item_ref),
+            "receipt_refs": [],
+            "evidence_refs": ["evidence-ref:older-uncommitted-local-task"],
+        },
+        *today["actions"],
+    ]
+    monkeypatch.setattr(
+        reloaded,
+        "today_summary",
+        lambda **_kwargs: today,
+    )
+
+    truth = build_control_center_backend_truth(
+        repo=reloaded,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "verified_complete"
+    assert truth["evidence_binding"]["issue_refs"] == []
+
+
+@pytest.mark.parametrize(
+    ("field_name", "replacement"),
+    [
+        ("approval_ref", "approval-ref:tampered"),
+        ("local_task_ref", "local-task:founder-loop:tampered"),
+        ("idempotency_key_ref", "idempotency-ref:tampered"),
+        (
+            "payload_fingerprint_ref",
+            "payload-fingerprint:founder-loop-local-task:" + "0" * 64,
+        ),
+        ("audit_ref", "audit:founder-loop-local-task:tampered"),
+        (
+            "evidence_timeline_event_ref",
+            "evidence-timeline:local-task/tampered",
+        ),
+        ("evidence_refs", ["evidence-ref:tampered"]),
+    ],
+)
+def test_backend_truth_rejects_tampered_durable_receipt_bindings(
+    tmp_path,
+    field_name: str,
+    replacement,
+) -> None:
+    state_dir = tmp_path / f"tampered-{field_name}"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    committed = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+    receipt_ref = str(committed["receipt_ref"])
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
+        row = connection.execute(
+            "SELECT receipt_json FROM local_task_commit_receipts "
+            "WHERE receipt_ref = ?",
+            (receipt_ref,),
+        ).fetchone()
+        assert row is not None
+        receipt = json.loads(str(row[0]))
+        receipt[field_name] = replacement
+        connection.execute(
+            "UPDATE local_task_commit_receipts SET receipt_json = ? "
+            "WHERE receipt_ref = ?",
+            (
+                json.dumps(receipt, sort_keys=True, separators=(",", ":")),
+                receipt_ref,
+            ),
+        )
+
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(state_dir),
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "invalid_evidence"
+    assert truth["evidence_binding"]["receipt_refs"] == [receipt_ref]
+    assert truth["evidence_binding"]["issue_refs"] == [
+        "issue-ref:founder-loop-durable-proof-invalid"
+    ]
 
 
 def test_backend_truth_marks_a_corrupt_durable_receipt_invalid(tmp_path) -> None:

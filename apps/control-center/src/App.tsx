@@ -409,6 +409,12 @@ const FOUNDER_LOOP_SPINE_ROUTE_KEYS = [
   "/settings",
 ];
 
+const NORTH_STAR_SHELL_ROUTE_KEYS = [
+  "/critical/dashboard-read-model",
+  "/chat",
+  "/settings",
+];
+
 const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/start",
   "/setup",
@@ -427,33 +433,71 @@ function criticalTruthAllowsRoute(
 }
 
 const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
-  "/": ["/today", "/briefing", "/settings"],
+  "/": ["/critical/dashboard-read-model", "/settings"],
   "/start": ["/start", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
-  "/today": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
-  "/plans": ["/plans", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
-  "/actions": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
-  "/approvals": ["/approvals", "/settings"],
+  "/today": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS, "/chat"],
+  "/plans": [
+    "/plans",
+    ...FOUNDER_LOOP_SPINE_ROUTE_KEYS,
+    "/critical/dashboard-read-model",
+  ],
+  "/actions": [
+    ...FOUNDER_LOOP_SPINE_ROUTE_KEYS,
+    "/approvals",
+    "/critical/dashboard-read-model",
+  ],
+  "/approvals": [
+    "/approvals",
+    "/critical/dashboard-read-model",
+    "/settings",
+  ],
   "/work-board": ["/work-board", "/settings"],
   "/briefing": ["/briefing", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/morning-briefing": ["/briefing", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/memory": ["/memory", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/proof": ["/proof", ...FOUNDER_LOOP_SPINE_ROUTE_KEYS],
   "/evidence": [...FOUNDER_LOOP_SPINE_ROUTE_KEYS, "/runs"],
-  "/setup": ["/setup", "/settings"],
-  "/chat": ["/chat", "/settings"],
+  "/setup": [
+    "/setup",
+    "/critical/dashboard-read-model",
+    "/critical/provider-catalog-read-model",
+    "/settings",
+  ],
+  "/chat": [
+    "/chat",
+    "/today",
+    "/critical/dashboard-read-model",
+    "/settings",
+  ],
   "/runs": ["/runs", "/settings"],
-  "/settings": ["/settings"],
-  "/workspace": ["/today", "/settings"],
-  "/workspace/today": ["/today", "/settings"],
-  "/workspace/decisions": ["/actions", "/approvals", "/settings"],
-  "/workspace/work-board": ["/work-board", "/settings"],
-  "/workspace/knowledge": ["/memory", "/settings"],
+  "/settings": [
+    "/settings",
+    "/critical/dashboard-read-model",
+    "/critical/manifest-read-model",
+    "/critical/provider-catalog-read-model",
+  ],
+  "/workspace": ["/today", ...NORTH_STAR_SHELL_ROUTE_KEYS],
+  "/workspace/today": ["/today", ...NORTH_STAR_SHELL_ROUTE_KEYS],
+  "/workspace/decisions": [
+    "/actions",
+    "/approvals",
+    ...NORTH_STAR_SHELL_ROUTE_KEYS,
+  ],
+  "/workspace/work-board": [
+    "/work-board",
+    "/actions",
+    ...NORTH_STAR_SHELL_ROUTE_KEYS,
+  ],
+  "/workspace/knowledge": [
+    "/memory",
+    ...NORTH_STAR_SHELL_ROUTE_KEYS,
+  ],
   "/workspace/activity-trust": [
     "/trust",
-    "/settings",
     "/actions",
     "/evidence",
     "/runs",
+    ...NORTH_STAR_SHELL_ROUTE_KEYS,
   ],
   "/workspace/onboarding": ["/setup", "/inbox"],
 };

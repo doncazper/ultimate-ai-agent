@@ -29,8 +29,23 @@ function backendData(routeState: "backend_owned" | "mock_fallback") {
   data.connection.state = "online";
   data.connection.usingMockData = false;
   data.connection.warnings = [];
-  for (const route of ["/today", "/actions", "/evidence", "/settings"]) {
-    data.routeStates[route].state = "backend_owned";
+  for (const route of [
+    "/today",
+    "/actions",
+    "/approvals",
+    "/chat",
+    "/critical/dashboard-read-model",
+    "/evidence",
+    "/critical/manifest-read-model",
+    "/critical/provider-catalog-read-model",
+    "/settings",
+  ]) {
+    data.routeStates[route] = {
+      ...data.routeStates["/today"],
+      route,
+      surfaceLabel: route,
+      state: "backend_owned",
+    };
   }
   data.routeStates["/today"].state = routeState;
   return data;
@@ -254,6 +269,19 @@ describe("critical backend truth boundary", () => {
       screen.queryByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
+  });
+
+  it("fails closed when a directly rendered auxiliary read model falls back", () => {
+    const data = backendData("backend_owned");
+    data.routeStates["/chat"].state = "mock_fallback";
+    mocked.controlCenterState = { status: "ready", data, error: null };
+
+    render(<App />);
+
+    expect(
+      screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Today" })).not.toBeInTheDocument();
   });
 
   it("gates Settings and authority controls on the backend truth envelope", () => {

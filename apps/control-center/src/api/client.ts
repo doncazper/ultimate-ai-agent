@@ -2515,9 +2515,34 @@ export async function loadControlCenterData(
     routeReadStateInput({
       route: "/memory",
       surfaceLabel: "Memory",
-      backendRouteRef: "GET /control-center/memory/review",
-      endpointReturned: founderMemoryReview !== undefined,
-      usedFallback: normalizedFounderMemoryReview.usedFallback,
+      backendRouteRefs: [
+        "GET /control-center/memory/review",
+        "GET /control-center/memory/workbench",
+        "GET /control-center/memory/context-packs",
+        "GET /control-center/memory/retrieval-diagnostics",
+        "GET /control-center/memory/citation-integrity",
+        "GET /control-center/memory/quality-issues",
+        "GET /control-center/memory/maintenance-runs",
+        "GET /control-center/memory/context-manifest",
+      ],
+      endpointReturned:
+        founderMemoryReview !== undefined &&
+        founderMemoryWorkbench !== undefined &&
+        founderMemoryContextPacks !== undefined &&
+        founderMemoryRetrievalDiagnostics !== undefined &&
+        founderMemoryCitationIntegrity !== undefined &&
+        founderMemoryQualityIssues !== undefined &&
+        founderMemoryMaintenanceRuns !== undefined &&
+        founderMemoryContextManifest !== undefined,
+      usedFallback:
+        normalizedFounderMemoryReview.usedFallback ||
+        normalizedFounderMemoryWorkbench.usedFallback ||
+        normalizedFounderMemoryContextPacks.usedFallback ||
+        normalizedFounderMemoryRetrievalDiagnostics.usedFallback ||
+        normalizedFounderMemoryCitationIntegrity.usedFallback ||
+        normalizedFounderMemoryQualityIssues.usedFallback ||
+        normalizedFounderMemoryMaintenanceRuns.usedFallback ||
+        normalizedFounderMemoryContextManifest.usedFallback,
     }),
     routeReadStateInput({
       route: "/evidence",
@@ -2791,6 +2816,40 @@ export async function loadControlCenterData(
       backendRouteRef: "GET /control-center/setup-assistant/summary",
       endpointReturned: setupAssistantSource !== undefined,
       usedFallback: normalizedSetupAssistant.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/critical/dashboard-read-model",
+      surfaceLabel: "Dashboard",
+      backendRouteRefs: [
+        "GET /dashboard",
+        "GET /approvals/summary",
+        "GET /runtime/readiness/summary",
+        "GET /foundation-gate/summary",
+      ],
+      endpointReturned:
+        dashboard !== undefined &&
+        approvalSummary !== undefined &&
+        runtimeReadinessSummary !== undefined &&
+        foundationGateSummary !== undefined,
+      usedFallback:
+        normalizedDashboard.usedFallback ||
+        approvalSummary === undefined ||
+        runtimeReadinessSummary === undefined ||
+        foundationGateSummary === undefined,
+    }),
+    routeReadStateInput({
+      route: "/critical/manifest-read-model",
+      surfaceLabel: "Manifest",
+      backendRouteRef: "GET /api/manifest",
+      endpointReturned: manifest !== undefined,
+      usedFallback: manifest === undefined,
+    }),
+    routeReadStateInput({
+      route: "/critical/provider-catalog-read-model",
+      surfaceLabel: "Provider catalog",
+      backendRouteRef: "GET /control-center/providers/catalog",
+      endpointReturned: providerCatalog !== undefined,
+      usedFallback: providerCatalog === undefined,
     }),
     routeReadStateInput({
       route: "/storage",

@@ -15,7 +15,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.control_center.proof import (
-    build_control_center_proof_index,
+    build_local_task_commit_proof_record,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -318,7 +318,7 @@ def _safe_refs(value: Any) -> list[str]:
 def _durable_local_task_candidate(
     *,
     action: dict[str, Any],
-    proof_records: list[dict[str, Any]],
+    repo: FounderLoopRepository,
 ) -> dict[str, Any] | None:
     if action.get("action_kind") != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND:
         return None
@@ -342,21 +342,34 @@ def _durable_local_task_candidate(
     ):
         return None
     expected_proof_ref = f"proof-ref:local-task-commit:{item_suffix}"
-    proof = next(
-        (
-            record
-            for record in proof_records
-            if record.get("proof_kind") == "local_task_commit"
-            and record.get("proof_ref") == expected_proof_ref
-            and receipt_ref in _safe_refs(record.get("receipt_refs"))
-        ),
-        None,
-    )
-    if proof is None:
+    proof = build_local_task_commit_proof_record(action=action)
+    if (
+        proof.get("proof_kind") != "local_task_commit"
+        or proof.get("proof_ref") != expected_proof_ref
+        or receipt_ref not in _safe_refs(proof.get("receipt_refs"))
+    ):
+        return None
+    receipt = repo.validated_local_task_commit_receipt(receipt_ref)
+    if (
+        receipt.get("item_ref") != item_ref
+        or receipt.get("local_task_ref") != local_task_ref
+        or receipt.get("receipt_ref") != receipt_ref
+        or receipt.get("approval_ref")
+        != action.get("local_task_commit_approval_ref")
+        or receipt.get("idempotency_key_ref")
+        != action.get("idempotency_key_ref")
+        or receipt.get("audit_ref") not in _safe_refs(action.get("audit_refs"))
+    ):
         return None
     evidence_refs = _safe_refs(action.get("evidence_refs"))
     proof_evidence_refs = _safe_refs(proof.get("evidence_refs"))
-    if not evidence_refs or not proof_evidence_refs:
+    receipt_evidence_refs = _safe_refs(receipt.get("evidence_refs"))
+    if (
+        not evidence_refs
+        or not proof_evidence_refs
+        or not receipt_evidence_refs
+        or not set(receipt_evidence_refs).issubset(set(evidence_refs))
+    ):
         return None
     return {
         "action_ref": item_ref,
@@ -364,7 +377,9 @@ def _durable_local_task_candidate(
         "proof_ref": expected_proof_ref,
         "receipt_ref": receipt_ref,
         "evidence_refs": list(
-            dict.fromkeys([*evidence_refs, *proof_evidence_refs])
+            dict.fromkeys(
+                [*evidence_refs, *receipt_evidence_refs, *proof_evidence_refs]
+            )
         ),
     }
 
@@ -379,23 +394,17 @@ def _build_founder_loop_durable_evidence(
     actions = [
         item for item in today.get("actions", []) if isinstance(item, dict)
     ]
-    proof_index = build_control_center_proof_index(today_summary=today)
-    proof_records = [
-        item
-        for item in proof_index.get("records", [])
-        if isinstance(item, dict)
-    ]
-    candidates = [
-        candidate
-        for action in actions
-        if (
-            candidate := _durable_local_task_candidate(
+    candidates: list[dict[str, Any]] = []
+    for action in actions:
+        try:
+            candidate = _durable_local_task_candidate(
                 action=action,
-                proof_records=proof_records,
+                repo=repo,
             )
-        )
-        is not None
-    ]
+        except FounderLoopStorageError:
+            candidate = None
+        if candidate is not None:
+            candidates.append(candidate)
     claimed_receipt_refs = list(
         dict.fromkeys(
             receipt_ref
