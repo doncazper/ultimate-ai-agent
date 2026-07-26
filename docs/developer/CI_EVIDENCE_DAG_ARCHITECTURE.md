@@ -46,8 +46,9 @@ The envelope binds:
 
 - repository SHA and exact selected-unit definition;
 - canonical command manifest and verifier definition fingerprints;
-- dependency lock-set, platform, test collection, shard plan, and TypeScript
-  project/runtime fingerprints where applicable;
+- dependency lock-set, stable declared runner profile, test collection, shard
+  plan, and TypeScript project/runtime fingerprints where applicable, plus a
+  separate observed platform fingerprint on each receipt;
 - terminal receipt, command/result membership, redaction posture, and proof
   equivalence;
 - the derived pytest run manifest for the commandless `pytest` context; that

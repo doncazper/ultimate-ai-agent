@@ -32,6 +32,7 @@ from scripts.verification.ci_command_manifest import (  # noqa: E402
     build_plan,
     command_registry,
     lane_registry,
+    observed_platform_fingerprint,
     optional_nonexecution_reason_ref,
     optional_nonexecution_result_ref,
 )
@@ -1044,6 +1045,11 @@ def _build_typed_lane_evidence(
             reused_command_receipt_bindings
             if receipt_schema_version == "uaa_verification_receipt.v3"
             else ()
+        ),
+        observed_platform_fingerprint=(
+            observed_platform_fingerprint()
+            if receipt_schema_version == "uaa_verification_receipt.v3"
+            else None
         ),
     )
     receipt_fingerprint = verification_receipt_fingerprint(receipt)

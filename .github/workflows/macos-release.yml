@@ -30,8 +30,7 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: uaa-macos-release-${{ github.ref }}
@@ -39,18 +38,18 @@ concurrency:
 
 env:
   PATH: /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-  UAA_MACOS_SIGNING_IDENTITY: ${{ secrets.UAA_MACOS_SIGNING_IDENTITY }}
-  UAA_MACOS_NOTARY_PROFILE: ${{ secrets.UAA_MACOS_NOTARY_PROFILE }}
 
 defaults:
   run:
     shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 
 jobs:
-  build-and-publish:
+  verify-source:
     if: github.repository == 'doncazper/ultimate-ai-agent'
     timeout-minutes: 90
     runs-on: macos-15
+    permissions:
+      contents: read
 
     steps:
       - name: Resolve immutable source tag
@@ -74,6 +73,17 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "requested_channel=$channel" >> "$GITHUB_OUTPUT"
 
+      - name: Check out trusted workflow toolchain
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
+      - name: Set up immutable toolchain
+        uses: ./.github/actions/setup-toolchain
+
       - name: Check out exact tag
         uses: actions/checkout@v4
         with:
@@ -82,8 +92,122 @@ jobs:
           persist-credentials: false
           ref: refs/tags/${{ steps.source.outputs.tag }}
 
-      - name: Set up pinned toolchain
+      - name: Bind channel and exact source identity
+        id: identity
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          REQUESTED_CHANNEL: ${{ steps.source.outputs.requested_channel }}
+        run: |
+          tag_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "Checked-out SHA does not match immutable tag." >&2
+            exit 1
+          fi
+          channel="$(PYTHONPATH=src python3.12 scripts/macos/release_policy.py \
+            --tag "$RELEASE_TAG" --channel "$REQUESTED_CHANNEL")"
+          source_timestamp="$(git log -1 --format=%cI "$head_commit")"
+          echo "commit=$head_commit" >> "$GITHUB_OUTPUT"
+          echo "source_timestamp=$source_timestamp" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Verify focused installer contracts
+        run: |
+          python3.12 -m venv .macos-build-venv
+          .macos-build-venv/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+          .macos-build-venv/bin/uv sync --frozen --extra dev --python python3.12
+          PYTHONPATH=src .venv/bin/python -m pytest \
+            tests/test_macos_first_class_installer.py
+
+      - name: Build production Control Center
+        working-directory: apps/control-center
+        run: |
+          npm ci
+          npm run build
+
+      - name: Fetch pinned relocatable Python
+        id: python
+        run: |
+          runtime_path="$(scripts/macos/prepare_python_runtime.sh arm64 \
+            "$RUNNER_TEMP/uaa-python-runtime")"
+          echo "runtime_path=$runtime_path" >> "$GITHUB_OUTPUT"
+
+      - name: Build and verify release assets
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          RELEASE_CHANNEL: ${{ steps.identity.outputs.channel }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.commit }}
+          SOURCE_TIMESTAMP: ${{ steps.identity.outputs.source_timestamp }}
+          PYTHON_RUNTIME: ${{ steps.python.outputs.runtime_path }}
+        run: |
+          PATH="$GITHUB_WORKSPACE/.macos-build-venv/bin:$PATH" \
+            PYTHONPATH=src .venv/bin/python scripts/macos/build_release_bundle.py \
+              --python-runtime "$PYTHON_RUNTIME" \
+              --output-dir "$RUNNER_TEMP/uaa-macos-release" \
+              --tag "$RELEASE_TAG" \
+              --channel "$RELEASE_CHANNEL" \
+              --source-commit "$SOURCE_COMMIT" \
+              --source-timestamp "$SOURCE_TIMESTAMP" \
+              --architecture arm64
+          PYTHONPATH=src .venv/bin/python scripts/macos/verify_installer_e2e.py \
+            --archive "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.tar.gz" \
+            --descriptor "$RUNNER_TEMP/uaa-macos-release/uaa-macos-arm64.release.json"
+
+  build-and-publish:
+    needs: verify-source
+    if: >-
+      github.repository == 'doncazper/ultimate-ai-agent' &&
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.publish_release == true ||
+      inputs.publish_installer_bootstrap == true)
+    timeout-minutes: 90
+    runs-on: macos-15
+    permissions:
+      contents: write
+    env:
+      UAA_MACOS_SIGNING_IDENTITY: ${{ secrets.UAA_MACOS_SIGNING_IDENTITY }}
+      UAA_MACOS_NOTARY_PROFILE: ${{ secrets.UAA_MACOS_NOTARY_PROFILE }}
+
+    steps:
+      - name: Resolve immutable source tag
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_TAG: ${{ github.ref_name }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+          REQUESTED_CHANNEL: ${{ inputs.channel }}
+        run: |
+          tag="$PUSH_TAG"
+          channel="auto"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$REQUESTED_TAG"
+            channel="$REQUESTED_CHANNEL"
+          fi
+          if ! [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$ ]]; then
+            echo "Unsafe release tag." >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "requested_channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Check out trusted workflow toolchain
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
+
+      - name: Set up immutable toolchain
         uses: ./.github/actions/setup-toolchain
+
+      - name: Check out exact tag
+        uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
+          persist-credentials: false
+          ref: refs/tags/${{ steps.source.outputs.tag }}
 
       - name: Bind channel and exact source identity
         id: identity

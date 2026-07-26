@@ -64,11 +64,19 @@ def test_hosted_toolchain_is_pinned_and_cacheless() -> None:
     )
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    assert "actions/setup-python@v5" in action
-    assert 'python-version: "3.12"' in action
-    assert "actions/setup-node@v4" in action
-    assert 'node-version: "22"' in action
+    assert (
+        "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
+        in action
+    )
+    assert 'python-version: "3.12.13"' in action
+    assert "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020" in action
+    assert 'node-version: "22.23.1"' in action
     assert "cache:" not in action
+    assert (
+        "UAA_CI_DECLARED_RUNNER_PROFILE: "
+        "github-hosted-macos-15-python-3.12.13-node-22.23.1"
+        in workflow
+    )
     assert workflow.count("uses: ./.github/actions/setup-toolchain") == len(
         CI_JOB_GRAPH
     )
@@ -113,6 +121,17 @@ def test_public_source_does_not_auto_publish_binary_releases() -> None:
     )
 
     assert "runs-on: macos-15" in workflow
+    assert "permissions: {}\n" in workflow
+    assert "  verify-source:\n" in workflow
+    assert "    permissions:\n      contents: read\n" in workflow
+    assert "  build-and-publish:\n" in workflow
+    assert "    permissions:\n      contents: write\n" in workflow
+    assert "ref: ${{ github.workflow_sha }}" in workflow
+    assert workflow.index("ref: ${{ github.workflow_sha }}") < workflow.index(
+        "ref: refs/tags/${{ steps.source.outputs.tag }}"
+    )
+    assert "needs: verify-source" in workflow
+    assert "github.event_name == 'workflow_dispatch'" in workflow
     assert (
         "if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true"
         in workflow

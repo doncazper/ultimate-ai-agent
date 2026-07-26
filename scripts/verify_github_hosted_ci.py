@@ -157,13 +157,13 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
     toolchain = (root / TOOLCHAIN_ACTION.relative_to(ROOT)).read_text(encoding="utf-8")
     for fragment in (
         "using: composite",
-        "uses: actions/setup-python@v5",
-        'python-version: "3.12"',
-        "uses: actions/setup-node@v4",
-        'node-version: "22"',
+        "uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+        'python-version: "3.12.13"',
+        "uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+        'node-version: "22.23.1"',
     ):
         if fragment not in toolchain:
-            failures.append("hosted toolchain action must pin Python 3.12 and Node 22")
+            failures.append("hosted toolchain action must use immutable tool revisions")
     for forbidden in ("cache:", "curl ", "wget ", "secrets."):
         if forbidden in toolchain:
             failures.append(
@@ -231,7 +231,14 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
     for fragment in (
         CI_RUNNER_SELECTOR,
         SETUP_TOOLCHAIN_ACTION,
+        "permissions: {}",
+        "  verify-source:",
+        "      contents: read",
+        "  build-and-publish:",
+        "      contents: write",
+        "needs: verify-source",
         "persist-credentials: false",
+        "ref: ${{ github.workflow_sha }}",
         "refs/tags/${{ steps.source.outputs.tag }}",
         "github.event_name == 'workflow_dispatch' && inputs.publish_release == true",
     ):
@@ -283,6 +290,12 @@ def verify(root: Path = ROOT) -> list[str]:
         failures.append("every CI job must use the pinned hosted toolchain")
     if "permissions:\n  contents: read" not in workflow:
         failures.append("CI token permissions must remain contents-read only")
+    if (
+        "UAA_CI_DECLARED_RUNNER_PROFILE: "
+        "github-hosted-macos-15-python-3.12.13-node-22.23.1"
+        not in workflow
+    ):
+        failures.append("CI must declare one stable hosted runner profile")
     if "cancel-in-progress: true" not in workflow:
         failures.append("CI must cancel superseded runs")
     if validate_definition():

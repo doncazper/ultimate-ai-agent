@@ -21,8 +21,9 @@ provider, connector, production, billing, or AuthorityLease capability.
   `macos-15`.
 - `macos-15-xlarge`, `macos-latest-xlarge`, and every self-hosted selector are
   rejected by the static CI contract.
-- Python 3.12 and Node 22 are installed through the repository-allowlisted
-  `actions/setup-python@v5` and `actions/setup-node@v4` actions.
+- Python 3.12.13 and Node 22.23.1 are installed through exact
+  repository-allowlisted revisions of `actions/setup-python` and
+  `actions/setup-node`.
 - Frozen `uv` and npm locks remain mandatory. Actions cache and artifact
   upload/download services are not used.
 
@@ -58,6 +59,18 @@ dependency edge, exact-head binding, eight-shard/four-worker pytest budget,
 typed receipt, and Foundation Gate assertion. It changes the runner profile,
 not the verification standard.
 
+Cross-job plan identity binds to the declared
+`github-hosted-macos-15-python-3.12.13-node-22.23.1` profile rather than an
+individual VM image patch. Every generated receipt separately records a
+content-free fingerprint of its observed OS, architecture, and Python patch,
+so image drift remains auditable without making independent hosted VMs reject
+one another's otherwise equivalent evidence.
+
+The hosted performance lane keeps the existing 45-second Foundation Gate
+best/mean budgets. It performs one untimed cold-start warmup before the timed
+sample so ephemeral image import/cache initialization is not mislabeled as
+steady-state evaluator latency.
+
 Every command-bearing job emits a bounded job-output envelope containing safe
 refs, hashes, counts, timestamps, statuses, and exact plan bindings only. The
 terminal `foundation-gate-report` job uses `if: always()` and rejects failed,
@@ -76,11 +89,13 @@ failure behavior live in
 
 ## Binary release boundary
 
-A pushed tag verifies the macOS package but does not automatically publish a
-GitHub Release. Binary publication requires a maintainer-triggered
-`workflow_dispatch` with `publish_release=true`. Public source visibility and
-MIT licensing do not imply notarized binaries, public beta, production
-readiness, support guarantees, or runtime authority.
+A pushed tag verifies the macOS package in a read-only, secret-free job and
+does not automatically publish a GitHub Release. Binary publication requires
+a maintainer-triggered `workflow_dispatch` with an explicit publish input. A
+separate write-scoped job runs only after read-only verification succeeds,
+then rebuilds and verifies the immutable tag before publication. Public source
+visibility and MIT licensing do not imply notarized binaries, public beta,
+production readiness, support guarantees, or runtime authority.
 
 ## Verification
 

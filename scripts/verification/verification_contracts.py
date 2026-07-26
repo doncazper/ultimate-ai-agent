@@ -58,6 +58,7 @@ V3_RECEIPT_ONLY_FIELDS = frozenset(
         "executed_command_result_bindings",
         "nonexecuted_command_result_bindings",
         "reused_command_receipt_bindings",
+        "observed_platform_fingerprint",
     }
 )
 V3_RUN_ONLY_FIELDS = frozenset(
@@ -544,6 +545,7 @@ class VerificationReceipt:
     executed_command_result_bindings: tuple[tuple[str, str], ...] = ()
     nonexecuted_command_result_bindings: tuple[tuple[str, str, str], ...] = ()
     reused_command_receipt_bindings: tuple[tuple[str, str], ...] = ()
+    observed_platform_fingerprint: str | None = None
 
     def validate(self) -> None:
         _validate_ref(self.schema_version, label="verification receipt schema version")
@@ -640,6 +642,11 @@ class VerificationReceipt:
             )
         ):
             raise ValueError("unresolved TypeScript receipt cannot claim exact bindings")
+        if self.observed_platform_fingerprint is not None:
+            _validate_digest(
+                self.observed_platform_fingerprint,
+                label="receipt observed platform fingerprint",
+            )
         if (
             not isinstance(self.duration_ms, int)
             or isinstance(self.duration_ms, bool)
@@ -866,6 +873,8 @@ def verification_receipt_payload(
         # is an additive typed-optional extension and is serialized only when
         # it carries proof.
         excluded.add("nonexecuted_command_result_bindings")
+    if receipt.observed_platform_fingerprint is None:
+        excluded.add("observed_platform_fingerprint")
     if not include_content_identity:
         excluded.update({"receipt_ref", "receipt_fingerprint"})
     return {

@@ -53,6 +53,8 @@ from scripts.verification.verification_selection import (  # noqa: E402
 SCHEMA_VERSION = "uaa_ci_command_manifest.v4"
 PROFILE_REF = "ci-profile:merge-github-hosted-v1"
 MACHINE_PROFILE_REF = "machine-profile:github-hosted-macos-15-standard"
+DECLARED_RUNNER_PROFILE_ENV = "UAA_CI_DECLARED_RUNNER_PROFILE"
+DECLARED_RUNNER_PROFILE_PATTERN = re.compile(r"[a-z0-9][a-z0-9._:-]{0,127}")
 PRIVATE_BASE_REF = "refs/uaa-ci/base-main"
 PLAYWRIGHT_BROWSER_DIRNAME = "playwright-browsers"
 GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS = 600
@@ -117,11 +119,13 @@ JobSpec = VerificationUnit
 
 def _command_from_release(command: LaneCommand) -> CommandSpec:
     env = tuple(sorted(command.env.items()))
+    argv = tuple(command.argv)
     if command.command_ref == "command:performance.latency-gate":
         env = (
             ("FOUNDATION_GATE_MAX_BEST_MS", "45000"),
             ("FOUNDATION_GATE_MAX_MEAN_MS", "45000"),
         )
+        argv = (*argv, "--warmup", "1")
     category = (
         "frontend"
         if command.command_ref.startswith("command:frontend.")
@@ -132,7 +136,7 @@ def _command_from_release(command: LaneCommand) -> CommandSpec:
         timeout = 300
     return CommandSpec(
         command_ref=command.command_ref,
-        argv=tuple(command.argv),
+        argv=argv,
         env=env,
         category=category,
         timeout_seconds=timeout,
@@ -996,8 +1000,8 @@ def command_manifest_fingerprint() -> str:
     )
 
 
-def platform_fingerprint() -> str:
-    """Bind plans without persisting hostnames, usernames, paths, or environment."""
+def observed_platform_fingerprint() -> str:
+    """Fingerprint the executing image without persisting local identity."""
 
     return _canonical_digest(
         {
@@ -1010,6 +1014,17 @@ def platform_fingerprint() -> str:
             "python_version": platform.python_version(),
         }
     )
+
+
+def platform_fingerprint() -> str:
+    """Bind cross-job plans to a stable declared runner profile when provided."""
+
+    declared_profile = os.environ.get(DECLARED_RUNNER_PROFILE_ENV)
+    if declared_profile is None:
+        return observed_platform_fingerprint()
+    if not DECLARED_RUNNER_PROFILE_PATTERN.fullmatch(declared_profile):
+        raise ValueError("declared runner profile is invalid")
+    return _canonical_digest({"declared_runner_profile": declared_profile})
 
 
 def verification_plan_fingerprint(payload: dict[str, Any]) -> str:

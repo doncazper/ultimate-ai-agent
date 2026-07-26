@@ -85,6 +85,41 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
             )
         )
     ]
+    latency_gate = manifest.command_registry()["command:performance.latency-gate"]
+    assert latency_gate.argv[-2:] == ("--warmup", "1")
+    assert dict(latency_gate.env) == {
+        "FOUNDATION_GATE_MAX_BEST_MS": "45000",
+        "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
+    }
+
+
+def test_declared_runner_profile_is_stable_across_hosted_image_patch_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        manifest.DECLARED_RUNNER_PROFILE_ENV,
+        "github-hosted-macos-15-python-3.12.13-node-22.23.1",
+    )
+    declared = manifest.platform_fingerprint()
+    monkeypatch.setattr(manifest.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(manifest.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.1", ("", "", ""), ""))
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.13")
+    first_observed = manifest.observed_platform_fingerprint()
+    monkeypatch.setattr(manifest.platform, "mac_ver", lambda: ("15.7.2", ("", "", ""), ""))
+    monkeypatch.setattr(manifest.platform, "python_version", lambda: "3.12.14")
+
+    assert manifest.platform_fingerprint() == declared
+    assert manifest.observed_platform_fingerprint() != first_observed
+
+
+def test_declared_runner_profile_rejects_unbounded_environment_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(manifest.DECLARED_RUNNER_PROFILE_ENV, "unsafe profile\nvalue")
+
+    with pytest.raises(ValueError, match="declared runner profile"):
+        manifest.platform_fingerprint()
 
 
 def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -> None:

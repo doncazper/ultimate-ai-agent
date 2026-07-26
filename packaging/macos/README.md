@@ -150,10 +150,10 @@ No entitlements are added by default.
 
 ## Release Automation
 
-`.github/workflows/macos-release.yml` runs only on the private self-hosted
-arm64 macOS runner. It checks out the exact immutable tag, validates active
-tag/channel policy, builds and verifies the artifact, performs a staged
-install/launch/stop smoke, and may publish the GitHub Release.
+`.github/workflows/macos-release.yml` runs on a standard GitHub-hosted
+`macos-15` runner. Tag pushes use a read-only, secret-free verification job.
+An explicit manual dispatch must request publication before a separate
+write-scoped job can rebuild, verify, and publish the GitHub Release.
 
 The reusable fail-closed lifecycle verifier is:
 

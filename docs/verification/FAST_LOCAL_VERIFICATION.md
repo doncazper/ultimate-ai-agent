@@ -49,7 +49,7 @@ attempt. `test-sharded-profile` is an alternative first and only complete run
 for the state, not a second refresh after `test-sharded`.
 
 Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
-branch, and reserve complete resources for the final self-hosted GitHub merge
+branch, and reserve complete resources for the final GitHub-hosted merge
 gate. For a dirty worktree, a selected frontend typecheck is advisory feedback
 for content that is not yet an exact SHA. On a clean committed tree the affected
 executor defers that exclusive command to the canonical installed frontend

@@ -1,7 +1,7 @@
 # Public Source Readiness Audit
 
-Status: pre-visibility audit complete; hosted CI and repository settings proof
-remain required.
+Status: repository public under MIT; exact hosted CI migration and local-runner
+retirement remain in progress.
 
 Audit baseline:
 `76891d8f9e8c0de238e3c3e262aca79d2ee9bcf9` (`origin/main` at lane start).
@@ -55,26 +55,30 @@ immutable historical tags and requires its own scoped review.
 - No active workflow selects a self-hosted or larger runner.
 - Pull request workflows use read-only tokens, do not persist checkout
   credentials, and receive no repository secrets.
-- External contributors require approval before their first workflow runs.
-- Pushed tags verify macOS packaging but do not automatically publish a binary
-  release.
+- Every external contributor requires approval before a fork workflow runs.
+- Pushed tags verify macOS packaging in a read-only, secret-free job and do not
+  automatically publish a binary release.
 
-## Remaining visibility gate
+## Applied public repository settings
 
-Before changing repository visibility:
+- GitHub reports `visibility: public` and recognizes the root MIT license.
+- Vulnerability alerts, automated security updates, private vulnerability
+  reporting, secret scanning, and secret-scanning push protection are enabled.
+- Actions keeps a read-only default token and a selected-action allowlist.
+- Fork workflow approval is set to every external contributor.
+- An unauthenticated clone and unauthenticated repository API lookup succeeded
+  against exact public `main` after PR #350.
 
-1. land the MIT/hosted-runner migration through exact-head review and CI;
-2. confirm the merge on exact `main`;
-3. change visibility to public;
-4. require approval for workflows from every external contributor;
-5. enable private vulnerability reporting and public-repository secret
-   scanning where available;
-6. apply branch/ruleset protection to `main` with the existing required check
-   contexts;
-7. verify one ordinary public pull request and one `main` push on standard
-   hosted runners; and
-8. only then stop and unregister the four local runner services.
+## Remaining retirement gate
+
+1. land the hosted-runner migration through exact-head public CI and review;
+2. confirm its exact merge on `main` using standard hosted runners; and
+3. only then stop and unregister the four local runner services.
+
+Branch/ruleset protection is a separate repository-policy decision. It is not
+changed during this migration while an existing parent queue pull request is
+active.
 
 Any secret alert, unexpected workflow permission, unapproved runner class,
-missing required context, or hosted exact-head disagreement blocks visibility
-or runner retirement until repaired.
+missing required context, or hosted exact-head disagreement blocks runner
+retirement until repaired.

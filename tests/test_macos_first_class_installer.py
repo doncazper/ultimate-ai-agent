@@ -600,8 +600,24 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "git tag -f" not in workflow
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
-    assert [step["uses"] for step in checkout_steps] == ["actions/checkout@v4"]
-    assert checkout_steps[0]["with"]["persist-credentials"] is False
+    assert [step["uses"] for step in checkout_steps] == [
+        "actions/checkout@v4",
+        "actions/checkout@v4",
+    ]
+    assert checkout_steps[0]["with"]["ref"] == "${{ github.workflow_sha }}"
+    assert checkout_steps[1]["with"]["ref"] == (
+        "refs/tags/${{ steps.source.outputs.tag }}"
+    )
+    assert all(
+        step["with"]["persist-credentials"] is False for step in checkout_steps
+    )
+    assert workflow_contract["permissions"] == {}
+    assert workflow_contract["jobs"]["verify-source"]["permissions"] == {
+        "contents": "read"
+    }
+    assert workflow_contract["jobs"]["build-and-publish"]["permissions"] == {
+        "contents": "write"
+    }
     pinned_uv = (
         ".macos-build-venv/bin/python -m pip install "
         '--disable-pip-version-check "uv==0.11.21"'
