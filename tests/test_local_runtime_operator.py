@@ -144,8 +144,12 @@ def test_verified_operator_up_restores_existing_runtime_state_on_startup_failure
     )
     monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
 
-    def fail_startup(_arguments, *, commit):
-        raise RuntimeError("compose failed")
+    compose_calls: list[list[str]] = []
+
+    def fail_startup(arguments, *, commit):
+        compose_calls.append(arguments)
+        if arguments[0] == "up":
+            raise RuntimeError("compose failed")
 
     monkeypatch.setattr(operator, "_run_compose", fail_startup)
 
@@ -156,6 +160,10 @@ def test_verified_operator_up_restores_existing_runtime_state_on_startup_failure
     assert source_file.read_bytes() == b"b" * 40 + b"\n"
     assert secret_file.stat().st_mode & 0o777 == 0o640
     assert source_file.stat().st_mode & 0o777 == 0o600
+    assert compose_calls == [
+        ["up", "--build", "--detach", "--wait"],
+        ["down", "--remove-orphans"],
+    ]
 
 
 def test_verified_operator_up_restores_partial_state_write_failure(
@@ -176,6 +184,7 @@ def test_verified_operator_up_restores_partial_state_write_failure(
     )
     monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
     real_write = operator._write_private_text
+    compose_called = False
 
     def fail_second_write(path, value):
         if path == source_file:
@@ -184,11 +193,18 @@ def test_verified_operator_up_restores_partial_state_write_failure(
 
     monkeypatch.setattr(operator, "_write_private_text", fail_second_write)
 
+    def record_compose(_arguments, *, commit):
+        nonlocal compose_called
+        compose_called = True
+
+    monkeypatch.setattr(operator, "_run_compose", record_compose)
+
     with pytest.raises(OSError, match="source state write failed"):
         operator._verified_up()
 
     assert secret_file.read_bytes() == b"prior-secret\n"
     assert source_file.read_bytes() == b"b" * 40 + b"\n"
+    assert not compose_called
 
 
 def test_verified_operator_up_removes_new_runtime_state_on_startup_failure(
@@ -206,8 +222,12 @@ def test_verified_operator_up_removes_new_runtime_state_on_startup_failure(
     )
     monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
 
-    def fail_startup(_arguments, *, commit):
-        raise RuntimeError("compose failed")
+    compose_calls: list[list[str]] = []
+
+    def fail_startup(arguments, *, commit):
+        compose_calls.append(arguments)
+        if arguments[0] == "up":
+            raise RuntimeError("compose failed")
 
     monkeypatch.setattr(operator, "_run_compose", fail_startup)
 
@@ -216,3 +236,76 @@ def test_verified_operator_up_removes_new_runtime_state_on_startup_failure(
 
     assert not secret_file.exists()
     assert not source_file.exists()
+    assert compose_calls == [
+        ["up", "--build", "--detach", "--wait"],
+        ["down", "--remove-orphans"],
+    ]
+
+
+def test_verified_operator_up_refuses_symlink_runtime_state(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    target = tmp_path / "outside-target"
+    target.write_bytes(b"outside-content\n")
+    secret_file = state_dir / "secret"
+    secret_file.symlink_to(target)
+    source_file = state_dir / "source"
+    compose_called = False
+    monkeypatch.setattr(operator, "SECRET_FILE", secret_file)
+    monkeypatch.setattr(operator, "SOURCE_COMMIT_FILE", source_file)
+    monkeypatch.setattr(
+        operator,
+        "verified_clean_source_commit",
+        lambda _root: SHA,
+    )
+    monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
+
+    def record_compose(_arguments, *, commit):
+        nonlocal compose_called
+        compose_called = True
+
+    monkeypatch.setattr(operator, "_run_compose", record_compose)
+
+    with pytest.raises(OSError, match="not a regular file"):
+        operator._verified_up()
+
+    assert target.read_bytes() == b"outside-content\n"
+    assert secret_file.is_symlink()
+    assert not source_file.exists()
+    assert not compose_called
+
+
+def test_verified_operator_up_restores_state_when_partial_cleanup_fails(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    secret_file = tmp_path / "state" / "secret"
+    source_file = tmp_path / "state" / "source"
+    secret_file.parent.mkdir()
+    secret_file.write_bytes(b"prior-secret\n")
+    source_file.write_bytes(b"b" * 40 + b"\n")
+    monkeypatch.setattr(operator, "SECRET_FILE", secret_file)
+    monkeypatch.setattr(operator, "SOURCE_COMMIT_FILE", source_file)
+    monkeypatch.setattr(
+        operator,
+        "verified_clean_source_commit",
+        lambda _root: SHA,
+    )
+    monkeypatch.setattr(operator.secrets, "token_urlsafe", lambda _length: LOCAL_BEARER)
+
+    def fail_compose(_arguments, *, commit):
+        raise RuntimeError("compose failed")
+
+    monkeypatch.setattr(operator, "_run_compose", fail_compose)
+
+    with pytest.raises(
+        RuntimeError,
+        match="local runtime partial startup cleanup failed",
+    ):
+        operator._verified_up()
+
+    assert secret_file.read_bytes() == b"prior-secret\n"
+    assert source_file.read_bytes() == b"b" * 40 + b"\n"

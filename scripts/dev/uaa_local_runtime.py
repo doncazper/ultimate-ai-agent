@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import secrets
+import stat
 import subprocess
 import sys
 import urllib.parse
@@ -33,23 +34,115 @@ class _PrivateFileSnapshot:
     mode: int = 0o600
 
 
-def _write_private_text(path: Path, value: str) -> None:
+def _open_private_parent(path: Path, *, create: bool) -> int:
+    if create:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        parent_stat = path.parent.lstat()
+    except FileNotFoundError:
+        raise
+    if not stat.S_ISDIR(parent_stat.st_mode):
+        raise OSError("local runtime state parent is not a directory")
+    flags = os.O_RDONLY
+    flags |= getattr(os, "O_DIRECTORY", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    return os.open(path.parent, flags)
+
+
+def _write_private_bytes(path: Path, content: bytes, *, mode: int = 0o600) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(value + "\n", encoding="utf-8")
-    path.chmod(0o600)
+    try:
+        existing_stat = path.lstat()
+    except FileNotFoundError:
+        existing_stat = None
+    if existing_stat is not None and not stat.S_ISREG(existing_stat.st_mode):
+        raise OSError("local runtime state path is not a regular file")
+
+    parent_fd = _open_private_parent(path, create=False)
+    file_fd = -1
+    try:
+        flags = os.O_WRONLY | os.O_CREAT
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        flags |= getattr(os, "O_NONBLOCK", 0)
+        file_fd = os.open(path.name, flags, mode, dir_fd=parent_fd)
+        opened_stat = os.fstat(file_fd)
+        if not stat.S_ISREG(opened_stat.st_mode):
+            raise OSError("local runtime state path is not a regular file")
+        if existing_stat is not None and (
+            opened_stat.st_dev,
+            opened_stat.st_ino,
+        ) != (
+            existing_stat.st_dev,
+            existing_stat.st_ino,
+        ):
+            raise OSError("local runtime state path changed during access")
+        os.ftruncate(file_fd, 0)
+        os.fchmod(file_fd, mode)
+        view = memoryview(content)
+        while view:
+            written = os.write(file_fd, view)
+            if written <= 0:
+                raise OSError("local runtime state write failed")
+            view = view[written:]
+    finally:
+        if file_fd >= 0:
+            os.close(file_fd)
+        os.close(parent_fd)
+
+
+def _write_private_text(path: Path, value: str) -> None:
+    _write_private_bytes(path, (value + "\n").encode(), mode=0o600)
 
 
 def _snapshot_private_file(path: Path) -> _PrivateFileSnapshot:
     try:
-        file_stat = path.stat()
-        content = path.read_bytes()
+        file_stat = path.lstat()
     except FileNotFoundError:
         return _PrivateFileSnapshot(existed=False)
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise OSError("local runtime state path is not a regular file")
+
+    parent_fd = _open_private_parent(path, create=False)
+    file_fd = -1
+    try:
+        flags = os.O_RDONLY
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        flags |= getattr(os, "O_NONBLOCK", 0)
+        file_fd = os.open(path.name, flags, dir_fd=parent_fd)
+        opened_stat = os.fstat(file_fd)
+        if not stat.S_ISREG(opened_stat.st_mode) or (
+            opened_stat.st_dev,
+            opened_stat.st_ino,
+        ) != (
+            file_stat.st_dev,
+            file_stat.st_ino,
+        ):
+            raise OSError("local runtime state path changed during access")
+        with os.fdopen(file_fd, "rb", closefd=False) as handle:
+            content = handle.read()
+    finally:
+        if file_fd >= 0:
+            os.close(file_fd)
+        os.close(parent_fd)
     return _PrivateFileSnapshot(
         existed=True,
         content=content,
         mode=file_stat.st_mode & 0o777,
     )
+
+
+def _unlink_private_path(path: Path) -> None:
+    try:
+        parent_fd = _open_private_parent(path, create=False)
+    except FileNotFoundError:
+        return
+    try:
+        try:
+            os.unlink(path.name, dir_fd=parent_fd)
+        except FileNotFoundError:
+            pass
+    finally:
+        os.close(parent_fd)
 
 
 def _restore_private_files(
@@ -59,11 +152,9 @@ def _restore_private_files(
     for path, snapshot in snapshots:
         try:
             if not snapshot.existed:
-                path.unlink(missing_ok=True)
+                _unlink_private_path(path)
                 continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(snapshot.content)
-            path.chmod(snapshot.mode)
+            _write_private_bytes(path, snapshot.content, mode=snapshot.mode)
         except OSError:
             restore_failed = True
     if restore_failed:
@@ -106,15 +197,27 @@ def _verified_up() -> None:
         (path, _snapshot_private_file(path))
         for path in (SECRET_FILE, SOURCE_COMMIT_FILE)
     )
+    compose_attempted = False
     try:
         _write_private_text(SECRET_FILE, local_bearer)
         _write_private_text(SOURCE_COMMIT_FILE, commit)
+        compose_attempted = True
         _run_compose(["up", "--build", "--detach", "--wait"], commit=commit)
     except BaseException as startup_error:
+        cleanup_failed = False
+        if compose_attempted:
+            try:
+                _run_compose(["down", "--remove-orphans"], commit=commit)
+            except BaseException:
+                cleanup_failed = True
         try:
             _restore_private_files(snapshots)
         except RuntimeError as restore_error:
             raise restore_error from startup_error
+        if cleanup_failed:
+            raise RuntimeError("local runtime partial startup cleanup failed") from (
+                startup_error
+            )
         raise
     port = _compose_env(commit)["UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT"]
     session_url = (
