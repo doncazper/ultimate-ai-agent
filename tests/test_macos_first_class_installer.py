@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import plistlib
 import stat
 import subprocess
@@ -648,7 +649,7 @@ def test_public_bootstrap_download_is_anonymous_bounded_and_checksum_bound() -> 
     assert "gh release download" not in installer
     assert "https://github.com/$REPOSITORY/releases/download/" in installer
     for fragment in (
-        "/usr/bin/curl",
+        "/usr/bin/curl -q",
         "--fail",
         "--location",
         "--proto '=https'",
@@ -664,6 +665,42 @@ def test_public_bootstrap_download_is_anonymous_bounded_and_checksum_bound() -> 
         '/usr/bin/shasum -a 256 -c "$CHECKSUM_ASSET"',
     ):
         assert fragment in installer
+
+
+def test_public_bootstrap_curl_disables_hostile_user_configuration(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.write_bytes(b"safe")
+    (tmp_path / ".curlrc").write_text(
+        "max-filesize = 1\ninsecure\nlocation-trusted\n",
+        encoding="utf-8",
+    )
+    env = {**os.environ, "HOME": str(tmp_path)}
+
+    unsafe = subprocess.run(
+        ["/usr/bin/curl", "--fail", "--output", str(tmp_path / "unsafe"), source.as_uri()],
+        check=False,
+        capture_output=True,
+        env=env,
+    )
+    safe = subprocess.run(
+        [
+            "/usr/bin/curl",
+            "-q",
+            "--fail",
+            "--output",
+            str(tmp_path / "safe"),
+            source.as_uri(),
+        ],
+        check=False,
+        capture_output=True,
+        env=env,
+    )
+
+    assert unsafe.returncode != 0
+    assert safe.returncode == 0
+    assert (tmp_path / "safe").read_bytes() == b"safe"
 
 
 def test_installer_e2e_validators_fail_closed_on_status_and_receipt_drift(

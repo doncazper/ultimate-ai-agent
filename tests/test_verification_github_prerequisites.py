@@ -290,7 +290,7 @@ def _receipt(
         for command_ref in evidenced_command_refs
     )
     receipt = VerificationReceipt(
-        schema_version="uaa_verification_receipt.v3",
+        schema_version="uaa_verification_receipt.v4",
         receipt_ref=f"receipt:verification:{'0' * 64}",
         plan_fingerprint=plan.plan_fingerprint,
         unit_ref=unit_ref,

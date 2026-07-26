@@ -945,7 +945,7 @@ def _build_typed_lane_evidence(
     if nonexecution_unbound and not declared_optional_nonexecution:
         receipt_schema_version = "uaa_verification_receipt.v2"
     else:
-        receipt_schema_version = "uaa_verification_receipt.v3"
+        receipt_schema_version = "uaa_verification_receipt.v4"
     executed_command_result_bindings = tuple(
         (str(result["command_ref"]), str(result["result_ref"]))
         for result in results
@@ -981,9 +981,9 @@ def _build_typed_lane_evidence(
     ):
         terminal_status = VerificationTerminalStatus.BLOCKED
     execution_identity_ref = None
-    if receipt_schema_version == "uaa_verification_receipt.v3":
+    if receipt_schema_version == "uaa_verification_receipt.v4":
         if pre_execution_identity_ref is None:
-            raise ValueError("v3 verification evidence requires a pre-start identity")
+            raise ValueError("v4 verification evidence requires a pre-start identity")
         execution_identity_ref = build_verification_execution_identity(
             full_plan,
             unit,
@@ -1029,33 +1029,33 @@ def _build_typed_lane_evidence(
         receipt_fingerprint="0" * 64,
         dependency_lock_set_fingerprint=(
             dependency_lock_set_fingerprint(full_plan)
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else None
         ),
         pytest_shard_plan_fingerprint=(
             full_plan.pytest_shard_plan_fingerprint
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else None
         ),
         execution_identity_ref=execution_identity_ref,
         executed_command_result_bindings=(
             executed_command_result_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
         ),
         nonexecuted_command_result_bindings=(
             nonexecuted_command_result_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
         ),
         reused_command_receipt_bindings=(
             reused_command_receipt_bindings
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else ()
         ),
         observed_platform_fingerprint=(
             observed_platform_fingerprint()
-            if receipt_schema_version == "uaa_verification_receipt.v3"
+            if receipt_schema_version == "uaa_verification_receipt.v4"
             else None
         ),
     )

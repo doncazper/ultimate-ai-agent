@@ -292,7 +292,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
     )
 
     assert receipt.status is VerificationTerminalStatus.PASSED
-    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.schema_version == "uaa_verification_receipt.v4"
     assert receipt.execution_identity_ref is not None
     assert receipt.observed_platform_fingerprint is not None
     assert receipt.receipt_ref.endswith(receipt.receipt_fingerprint or "missing")
@@ -312,7 +312,7 @@ def test_typed_lane_evidence_is_content_bound_and_partial_run_is_blocked() -> No
     assert "raw_output" not in serialized
 
 
-def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
+def test_lane_runner_publishes_typed_v4_proof_to_immutable_store(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -366,7 +366,7 @@ def test_lane_runner_publishes_typed_v3_proof_to_immutable_store(
     assert receipt["status"] == "pass"
     assert len(receipt_digests) == len(run_digests) == 1
     assert store.get_receipt(receipt_digests[0]).schema_version == (
-        "uaa_verification_receipt.v3"
+        "uaa_verification_receipt.v4"
     )
     assert store.get_run_manifest(run_digests[0]).schema_version == (
         "uaa_verification_run.v3"
@@ -780,7 +780,7 @@ def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
         pre_execution_identity_ref=pre_identity_ref,
     )
 
-    assert receipt.schema_version == "uaa_verification_receipt.v3"
+    assert receipt.schema_version == "uaa_verification_receipt.v4"
     assert receipt.status is VerificationTerminalStatus.FAILED
     assert receipt.command_refs == ("command:ci.ruff",)
     assert receipt.executed_command_result_bindings == (
@@ -841,7 +841,7 @@ def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     receipt_digest = next((store_root / "receipts").glob("*.json")).stem
     typed = store.get_receipt(receipt_digest)
     assert observed_scopes == ["not_affected", "not_affected", "not_affected"]
-    assert typed.schema_version == "uaa_verification_receipt.v3"
+    assert typed.schema_version == "uaa_verification_receipt.v4"
     assert typed.status is VerificationTerminalStatus.BLOCKED
     assert tuple(
         command_ref for command_ref, _result_ref in typed.executed_command_result_bindings
@@ -1612,7 +1612,7 @@ def test_run_command_preserves_spawn_cleanup_failure_over_pending_signal(
         )
 
 
-def test_github_output_is_exact_v3_non_authoritative_envelope(
+def test_github_output_is_exact_v4_non_authoritative_envelope(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

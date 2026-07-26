@@ -30,7 +30,7 @@ from scripts.verification.ci_command_manifest import observed_platform_fingerpri
 
 
 RUN_SCHEMA_VERSION = "uaa_verification_run.v3"
-RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v3"
+RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v4"
 
 
 @dataclass(frozen=True)

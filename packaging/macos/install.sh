@@ -142,7 +142,7 @@ CHECKSUM_ASSET="$BOOTSTRAP_ASSET.sha256"
 download_public_asset() {
   asset="$1"
   destination="$TEMP_ROOT/$asset"
-  /usr/bin/curl \
+  /usr/bin/curl -q \
     --fail \
     --location \
     --proto '=https' \
