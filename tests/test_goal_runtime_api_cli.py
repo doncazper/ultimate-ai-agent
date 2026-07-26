@@ -61,6 +61,32 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     assert missing_idempotency.status_code == 428
     assert missing_idempotency.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
+    malformed_idempotency = client.post(
+        "/api/runtime/goals",
+        json=_create_payload(),
+        headers={"x-uaa-idempotency-key": "abcdefgh"},
+    )
+    assert malformed_idempotency.status_code == 200
+    assert malformed_idempotency.json()["success"] is False
+    assert (
+        malformed_idempotency.json()["error"]["code"]
+        == "GOAL_REQUEST_REF_INVALID"
+    )
+    malformed_preferred_ref = client.post(
+        "/api/runtime/goals",
+        json=_create_payload(),
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:valid-key",
+            "x-uaa-idempotency-ref": "abcdefgh",
+        },
+    )
+    assert malformed_preferred_ref.status_code == 200
+    assert malformed_preferred_ref.json()["success"] is False
+    assert (
+        malformed_preferred_ref.json()["error"]["code"]
+        == "GOAL_REQUEST_REF_INVALID"
+    )
+
     headers = {"x-uaa-idempotency-key": "idempotency-ref:api-goal-create"}
     created_response = client.post(
         "/api/runtime/goals",
@@ -434,6 +460,16 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 run_type=AcceptedLocalRunType.local_read_task,
                 event_kind=kind,
                 safe_summary=f"Cancellation lifecycle stage {index} was recorded.",
+                proof_refs=(
+                    ["proof-ref:e2e:operator-cancel"]
+                    if kind == DurableRunEventKind.cancelled
+                    else []
+                ),
+                receipt_refs=(
+                    ["receipt-ref:e2e:operator-cancel"]
+                    if kind == DurableRunEventKind.cancelled
+                    else []
+                ),
                 goal_ref=cancelled_goal["goal_ref"],
                 idempotency_ref=f"idempotency-ref:e2e:cancel-event:{index}",
                 authority_decision_ref=(

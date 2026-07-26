@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import uuid
 from collections.abc import Iterable
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
@@ -34,6 +36,9 @@ from ultimate_ai_agent.core.hygiene.policies import (
 )
 from ultimate_ai_agent.core.time import utc_now
 
+if TYPE_CHECKING:
+    from ultimate_ai_agent.core.runtime_gateway.contracts import RuntimeInvocationRecord
+
 
 GOAL_RUNTIME_STATE_DIR_ENV = "UAA_GOAL_RUNTIME_STATE_DIR"
 DEFAULT_GOAL_RUNTIME_STATE_DIR = Path(".uaa") / "goal_runtime"
@@ -55,6 +60,7 @@ MAX_GOAL_LIST_ITEMS = 32
 MAX_RUN_EVENT_RETENTION = 512
 DEFAULT_RUN_EVENT_RETENTION = 256
 MAX_REPLAY_EVENTS = 100
+MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
 
 
 class GoalRuntimeError(ValueError):
@@ -134,6 +140,16 @@ class DurableRunEventKind(str, Enum):
     failed_retryable = "failed_retryable"
     failed_terminal = "failed_terminal"
     dead_lettered = "dead_lettered"
+
+
+TERMINAL_RUN_EVENT_KINDS = frozenset(
+    {
+        DurableRunEventKind.completion_verified.value,
+        DurableRunEventKind.cancelled.value,
+        DurableRunEventKind.failed_terminal.value,
+        DurableRunEventKind.dead_lettered.value,
+    }
+)
 
 
 class RunEventReplayStatus(str, Enum):
@@ -496,12 +512,12 @@ class DurableRunEventAppendRequest(BaseModel):
         self.safe_summary = _bounded_safe_text(self.safe_summary, "safe_summary")
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
-        if self.event_kind == DurableRunEventKind.receipt_recorded.value:
+        if self.event_kind in {
+            DurableRunEventKind.receipt_recorded.value,
+            *TERMINAL_RUN_EVENT_KINDS,
+        }:
             if not self.proof_refs or not self.receipt_refs:
-                raise ValueError("RUN_EVENT_RECEIPT_PROOF_REQUIRED")
-        if self.event_kind == DurableRunEventKind.completion_verified.value:
-            if not self.proof_refs or not self.receipt_refs:
-                raise ValueError("RUN_EVENT_COMPLETION_PROOF_REQUIRED")
+                raise ValueError("RUN_EVENT_TERMINAL_RECEIPT_PROOF_REQUIRED")
         return self
 
 
@@ -544,9 +560,41 @@ class DurableRunEvent(BaseModel):
         self.safe_summary = _bounded_safe_text(self.safe_summary, "safe_summary")
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        if self.event_kind in {
+            DurableRunEventKind.receipt_recorded.value,
+            *TERMINAL_RUN_EVENT_KINDS,
+        } and (not self.proof_refs or not self.receipt_refs):
+            raise ValueError("RUN_EVENT_TERMINAL_RECEIPT_PROOF_REQUIRED")
         validate_safe_execution_text(self.redaction_status, "redaction_status")
         if self.raw_payload_persisted:
             raise ValueError("RUN_EVENT_RAW_PAYLOAD_PERSISTENCE_DENIED")
+        return self
+
+
+class RunEventIdempotencyTombstone(BaseModel):
+    schema_version: str = "run_event_idempotency_tombstone.v1"
+    run_ref: str
+    idempotency_ref: str
+    request_fingerprint_ref: str
+    event: DurableRunEvent
+    tombstone_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_tombstone(self) -> "RunEventIdempotencyTombstone":
+        for value, field_name in (
+            (self.run_ref, "run_ref"),
+            (self.idempotency_ref, "idempotency_ref"),
+            (self.request_fingerprint_ref, "request_fingerprint_ref"),
+            (self.tombstone_hash_ref, "tombstone_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        if (
+            self.event.run_ref != self.run_ref
+            or self.event.idempotency_ref != self.idempotency_ref
+        ):
+            raise ValueError("RUN_EVENT_IDEMPOTENCY_TOMBSTONE_BINDING_MISMATCH")
         return self
 
 
@@ -606,7 +654,7 @@ class RunEventReplayReadModel(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
-class GoalJournalStore:
+class _GoalJournalStore:
     def __init__(self, state_dir: str | Path) -> None:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goals.jsonl"
@@ -617,13 +665,17 @@ class GoalJournalStore:
         request: GoalCreateRequest,
         *,
         idempotency_ref: str,
-        approval_ref: str,
-        approval_decision_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
         validated = GoalCreateRequest.model_validate(request.model_dump())
         validate_execution_ref(idempotency_ref, "idempotency_ref")
-        validate_execution_ref(approval_ref, "approval_ref")
-        validate_execution_ref(approval_decision_ref, "approval_decision_ref")
+        _validate_goal_mutation_approval_binding(
+            approval_binding,
+            operation="create",
+            subject_ref="goal-ref:new",
+            request_payload=validated.model_dump(mode="json"),
+            idempotency_ref=idempotency_ref,
+        )
         fingerprint = _sha256_ref(
             "request-fingerprint-ref:goal-create",
             validated.model_dump(mode="json"),
@@ -668,8 +720,8 @@ class GoalJournalStore:
                 goal=goal,
                 idempotency_ref=idempotency_ref,
                 request_fingerprint_ref=fingerprint,
-                approval_ref=approval_ref,
-                approval_decision_ref=approval_decision_ref,
+                approval_ref=approval_binding.approval_ref,
+                approval_decision_ref=approval_binding.approval_decision_ref,
             )
             return goal.model_copy(deep=True)
 
@@ -679,18 +731,23 @@ class GoalJournalStore:
         request: GoalEditRequest,
         *,
         idempotency_ref: str,
-        approval_ref: str,
-        approval_decision_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
         validated = GoalEditRequest.model_validate(request.model_dump())
+        _validate_goal_mutation_approval_binding(
+            approval_binding,
+            operation="edit",
+            subject_ref=goal_ref,
+            request_payload=validated.model_dump(mode="json"),
+            idempotency_ref=idempotency_ref,
+        )
         return self._mutate(
             goal_ref,
             operation=GoalJournalOperation.edit,
             request_payload=validated.model_dump(mode="json"),
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
-            approval_ref=approval_ref,
-            approval_decision_ref=approval_decision_ref,
+            approval_binding=approval_binding,
             mutate=lambda current: self._edited_goal(current, validated),
         )
 
@@ -700,19 +757,24 @@ class GoalJournalStore:
         request: GoalTransitionRequest,
         *,
         idempotency_ref: str,
-        approval_ref: str,
-        approval_decision_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
         completion_verified: bool = False,
     ) -> PersistentGoal:
         validated = GoalTransitionRequest.model_validate(request.model_dump())
+        _validate_goal_mutation_approval_binding(
+            approval_binding,
+            operation=f"transition-{validated.transition}",
+            subject_ref=goal_ref,
+            request_payload=validated.model_dump(mode="json"),
+            idempotency_ref=idempotency_ref,
+        )
         return self._mutate(
             goal_ref,
             operation=GoalJournalOperation.transition,
             request_payload=validated.model_dump(mode="json"),
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
-            approval_ref=approval_ref,
-            approval_decision_ref=approval_decision_ref,
+            approval_binding=approval_binding,
             mutate=lambda current: self._transitioned_goal(
                 current,
                 validated,
@@ -792,14 +854,11 @@ class GoalJournalStore:
         request_payload: dict[str, Any],
         expected_version: int,
         idempotency_ref: str,
-        approval_ref: str,
-        approval_decision_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
         mutate: Any,
     ) -> PersistentGoal:
         validate_execution_ref(goal_ref, "goal_ref")
         validate_execution_ref(idempotency_ref, "idempotency_ref")
-        validate_execution_ref(approval_ref, "approval_ref")
-        validate_execution_ref(approval_decision_ref, "approval_decision_ref")
         fingerprint = _sha256_ref(
             f"request-fingerprint-ref:goal-{operation.value}",
             {"goal_ref": goal_ref, "request": request_payload},
@@ -822,8 +881,8 @@ class GoalJournalStore:
                 goal=updated,
                 idempotency_ref=idempotency_ref,
                 request_fingerprint_ref=fingerprint,
-                approval_ref=approval_ref,
-                approval_decision_ref=approval_decision_ref,
+                approval_ref=approval_binding.approval_ref,
+                approval_decision_ref=approval_binding.approval_decision_ref,
             )
             return updated.model_copy(deep=True)
 
@@ -1072,83 +1131,93 @@ class DurableRunEventStore:
             raise ValueError("RUN_EVENT_RETENTION_LIMIT_INVALID")
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "run_events.jsonl"
+        self.idempotency_path = self.state_dir / "run_event_idempotency.jsonl"
         self.retention_limit = retention_limit
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
+    @contextmanager
+    def exclusive(self) -> Iterator[None]:
+        with self._locks.acquire("run-events"):
+            yield
+
     def append(self, request: DurableRunEventAppendRequest) -> DurableRunEvent:
         validated = DurableRunEventAppendRequest.model_validate(request.model_dump())
-        with self._locks.acquire("run-events"):
-            events = self._load_events()
-            same_run = [
-                event for event in events if event.run_ref == validated.run_ref
-            ]
-            for event in same_run:
-                if event.idempotency_ref != validated.idempotency_ref:
-                    continue
-                expected = self._request_fingerprint(validated)
-                actual = _sha256_ref(
-                    "request-fingerprint-ref:run-event",
-                    self._event_request_payload(event),
+        with self.exclusive():
+            return self._append_locked(validated)
+
+    def _append_locked(
+        self, validated: DurableRunEventAppendRequest
+    ) -> DurableRunEvent:
+        events = self._load_events()
+        tombstones = self._load_idempotency_tombstones(events)
+        key = (validated.run_ref, validated.idempotency_ref)
+        expected_fingerprint = self._request_fingerprint(validated)
+        prior = tombstones.get(key)
+        if prior is not None:
+            if prior.request_fingerprint_ref != expected_fingerprint:
+                raise GoalIdempotencyConflictError(
+                    "RUN_EVENT_IDEMPOTENCY_CONFLICT"
                 )
-                if actual != expected:
-                    raise GoalIdempotencyConflictError(
-                        "RUN_EVENT_IDEMPOTENCY_CONFLICT"
-                    )
-                return event.model_copy(deep=True)
-            if same_run and same_run[-1].event_kind in {
-                DurableRunEventKind.cancelled.value,
-                DurableRunEventKind.completion_verified.value,
-                DurableRunEventKind.failed_terminal.value,
-                DurableRunEventKind.dead_lettered.value,
-            }:
-                raise GoalTransitionDeniedError("RUN_EVENT_TERMINAL_STREAM_FENCE")
-            if same_run and same_run[-1].run_type != validated.run_type:
-                raise GoalRuntimeCorruptionError("RUN_EVENT_TYPE_SUBSTITUTION")
-            if validated.event_kind == DurableRunEventKind.completion_verified.value:
-                if not any(
-                    event.event_kind
-                    == DurableRunEventKind.receipt_recorded.value
-                    and event.goal_ref == validated.goal_ref
-                    and set(validated.receipt_refs).issubset(event.receipt_refs)
-                    and set(validated.proof_refs).issubset(event.proof_refs)
-                    for event in same_run
-                ):
-                    raise GoalTransitionDeniedError(
-                        "RUN_EVENT_COMPLETION_RECEIPT_NOT_FOUND"
-                    )
-            sequence = same_run[-1].sequence + 1 if same_run else 1
-            predecessor = same_run[-1].event_hash_ref if same_run else None
-            draft = DurableRunEvent(
-                event_ref=_sha256_ref(
-                    "runtime-run-event-ref",
-                    {
-                        "run_ref": validated.run_ref,
-                        "sequence": sequence,
-                        "event_kind": validated.event_kind,
-                    },
-                ),
-                run_ref=validated.run_ref,
-                run_type=validated.run_type,
-                sequence=sequence,
-                recorded_at=utc_now(),
-                event_kind=validated.event_kind,
-                safe_summary=validated.safe_summary,
-                proof_refs=validated.proof_refs,
-                receipt_refs=validated.receipt_refs,
-                goal_ref=validated.goal_ref,
-                plan_ref=validated.plan_ref,
-                idempotency_ref=validated.idempotency_ref,
-                authority_decision_ref=validated.authority_decision_ref,
-                predecessor_hash_ref=predecessor,
-                event_hash_ref="event-hash-ref:pending",
-            )
-            event = draft.model_copy(
-                update={"event_hash_ref": self._event_hash(draft)}
-            )
-            next_events = [*events, event]
-            next_events = self._apply_retention(next_events, validated.run_ref)
-            self._write_events(next_events)
-            return event.model_copy(deep=True)
+            self._write_idempotency_tombstones(tombstones.values())
+            return prior.event.model_copy(deep=True)
+        if len(tombstones) >= MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+        same_run = [event for event in events if event.run_ref == validated.run_ref]
+        if same_run and same_run[-1].event_kind in TERMINAL_RUN_EVENT_KINDS:
+            raise GoalTransitionDeniedError("RUN_EVENT_TERMINAL_STREAM_FENCE")
+        if same_run and same_run[-1].run_type != validated.run_type:
+            raise GoalRuntimeCorruptionError("RUN_EVENT_TYPE_SUBSTITUTION")
+        if validated.event_kind == DurableRunEventKind.completion_verified.value:
+            if not any(
+                event.event_kind == DurableRunEventKind.receipt_recorded.value
+                and event.goal_ref == validated.goal_ref
+                and set(validated.receipt_refs).issubset(event.receipt_refs)
+                and set(validated.proof_refs).issubset(event.proof_refs)
+                for event in same_run
+            ):
+                raise GoalTransitionDeniedError(
+                    "RUN_EVENT_COMPLETION_RECEIPT_NOT_FOUND"
+                )
+        sequence = same_run[-1].sequence + 1 if same_run else 1
+        predecessor = same_run[-1].event_hash_ref if same_run else None
+        draft = DurableRunEvent(
+            event_ref=_sha256_ref(
+                "runtime-run-event-ref",
+                {
+                    "run_ref": validated.run_ref,
+                    "sequence": sequence,
+                    "event_kind": validated.event_kind,
+                },
+            ),
+            run_ref=validated.run_ref,
+            run_type=validated.run_type,
+            sequence=sequence,
+            recorded_at=utc_now(),
+            event_kind=validated.event_kind,
+            safe_summary=validated.safe_summary,
+            proof_refs=validated.proof_refs,
+            receipt_refs=validated.receipt_refs,
+            goal_ref=validated.goal_ref,
+            plan_ref=validated.plan_ref,
+            idempotency_ref=validated.idempotency_ref,
+            authority_decision_ref=validated.authority_decision_ref,
+            predecessor_hash_ref=predecessor,
+            event_hash_ref="event-hash-ref:pending",
+        )
+        event = draft.model_copy(
+            update={"event_hash_ref": self._event_hash(draft)}
+        )
+        next_events = self._apply_retention(
+            [*events, event], validated.run_ref
+        )
+        self._write_events(next_events)
+        tombstone = self._build_idempotency_tombstone(
+            event, expected_fingerprint
+        )
+        tombstones[key] = tombstone
+        self._write_idempotency_tombstones(tombstones.values())
+        return event.model_copy(deep=True)
 
     def replay(
         self,
@@ -1266,16 +1335,56 @@ class DurableRunEventStore:
         goal_ref: str,
     ) -> bool:
         validate_execution_ref(run_ref, "run_ref")
-        for event in self._load_events():
-            if (
-                event.run_ref == run_ref
-                and event.goal_ref == goal_ref
-                and event.event_kind == DurableRunEventKind.receipt_recorded.value
-                and receipt_ref in event.receipt_refs
-                and proof_ref in event.proof_refs
-            ):
-                return True
-        return False
+        return self._completion_evidence_available(
+            self._load_events(),
+            run_ref=run_ref,
+            receipt_ref=receipt_ref,
+            proof_ref=proof_ref,
+            goal_ref=goal_ref,
+        )
+
+    def assert_completion_appendable(
+        self,
+        *,
+        run_ref: str,
+        receipt_ref: str,
+        proof_ref: str,
+        goal_ref: str,
+    ) -> None:
+        events = self._load_events()
+        same_run = [event for event in events if event.run_ref == run_ref]
+        if not self._completion_evidence_available(
+            events,
+            run_ref=run_ref,
+            receipt_ref=receipt_ref,
+            proof_ref=proof_ref,
+            goal_ref=goal_ref,
+        ):
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_DURABLE_RECEIPT_NOT_FOUND"
+            )
+        if same_run[-1].event_kind in TERMINAL_RUN_EVENT_KINDS:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_TERMINAL_STREAM_FENCE"
+            )
+
+    @staticmethod
+    def _completion_evidence_available(
+        events: list[DurableRunEvent],
+        *,
+        run_ref: str,
+        receipt_ref: str,
+        proof_ref: str,
+        goal_ref: str,
+    ) -> bool:
+        return any(
+            event.run_ref == run_ref
+            and event.goal_ref == goal_ref
+            and event.event_kind == DurableRunEventKind.receipt_recorded.value
+            and receipt_ref in event.receipt_refs
+            and proof_ref in event.proof_refs
+            for event in events
+        )
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
         validate_execution_ref(run_ref, "run_ref")
@@ -1311,6 +1420,86 @@ class DurableRunEventStore:
         payload = event.model_dump(mode="json")
         payload.pop("event_hash_ref", None)
         return _sha256_ref("event-hash-ref:durable-run", payload)
+
+    @staticmethod
+    def _tombstone_hash(tombstone: RunEventIdempotencyTombstone) -> str:
+        payload = tombstone.model_dump(mode="json")
+        payload.pop("tombstone_hash_ref", None)
+        return _sha256_ref("tombstone-hash-ref:run-event-idempotency", payload)
+
+    def _build_idempotency_tombstone(
+        self,
+        event: DurableRunEvent,
+        request_fingerprint_ref: str,
+    ) -> RunEventIdempotencyTombstone:
+        draft = RunEventIdempotencyTombstone(
+            run_ref=event.run_ref,
+            idempotency_ref=event.idempotency_ref,
+            request_fingerprint_ref=request_fingerprint_ref,
+            event=event,
+            tombstone_hash_ref="tombstone-hash-ref:pending",
+        )
+        return draft.model_copy(
+            update={"tombstone_hash_ref": self._tombstone_hash(draft)}
+        )
+
+    def _load_idempotency_tombstones(
+        self,
+        events: list[DurableRunEvent],
+    ) -> dict[tuple[str, str], RunEventIdempotencyTombstone]:
+        tombstones: dict[tuple[str, str], RunEventIdempotencyTombstone] = {}
+        try:
+            if self.idempotency_path.exists():
+                for raw_line in self.idempotency_path.read_text(
+                    encoding="utf-8"
+                ).splitlines():
+                    if not raw_line.strip():
+                        continue
+                    tombstone = RunEventIdempotencyTombstone.model_validate_json(
+                        raw_line
+                    )
+                    if tombstone.tombstone_hash_ref != self._tombstone_hash(
+                        tombstone
+                    ):
+                        raise GoalRuntimeCorruptionError(
+                            "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_HASH_MISMATCH"
+                        )
+                    key = (tombstone.run_ref, tombstone.idempotency_ref)
+                    if key in tombstones:
+                        raise GoalRuntimeCorruptionError(
+                            "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_DUPLICATE"
+                        )
+                    tombstones[key] = tombstone
+            for event in events:
+                key = (event.run_ref, event.idempotency_ref)
+                fingerprint = _sha256_ref(
+                    "request-fingerprint-ref:run-event",
+                    self._event_request_payload(event),
+                )
+                known = tombstones.get(key)
+                if known is not None:
+                    if (
+                        known.request_fingerprint_ref != fingerprint
+                        or known.event != event
+                    ):
+                        raise GoalRuntimeCorruptionError(
+                            "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_EVENT_MISMATCH"
+                        )
+                    continue
+                tombstones[key] = self._build_idempotency_tombstone(
+                    event, fingerprint
+                )
+            if len(tombstones) > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
+                )
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT"
+            ) from exc
+        return tombstones
 
     def _load_events(self) -> list[DurableRunEvent]:
         if not self.path.exists():
@@ -1391,6 +1580,15 @@ class DurableRunEventStore:
         content = "".join(event.model_dump_json() + "\n" for event in events)
         _atomic_write(self.path, content)
 
+    def _write_idempotency_tombstones(
+        self,
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+    ) -> None:
+        content = "".join(
+            tombstone.model_dump_json() + "\n" for tombstone in tombstones
+        )
+        _atomic_write(self.idempotency_path, content)
+
 
 class GoalRuntimeService:
     def __init__(
@@ -1400,7 +1598,7 @@ class GoalRuntimeService:
         retention_limit: int = DEFAULT_RUN_EVENT_RETENTION,
     ) -> None:
         self.state_dir = Path(state_dir)
-        self.goals = GoalJournalStore(self.state_dir)
+        self.goals = _GoalJournalStore(self.state_dir)
         self.events = DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
         )
@@ -1415,14 +1613,51 @@ class GoalRuntimeService:
             else DEFAULT_GOAL_RUNTIME_STATE_DIR
         )
 
+    @classmethod
+    def for_runtime_store(cls, state_dir: str | Path) -> "GoalRuntimeService":
+        configured = os.environ.get(GOAL_RUNTIME_STATE_DIR_ENV, "").strip()
+        if configured:
+            return cls(Path(configured).expanduser())
+        candidate = Path(state_dir)
+        if candidate == Path(".uaa") / "runtime-gateway":
+            return cls(DEFAULT_GOAL_RUNTIME_STATE_DIR)
+        return cls(candidate / "goal_runtime")
+
+    def create_goal(
+        self,
+        request: GoalCreateRequest,
+        *,
+        idempotency_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
+    ) -> PersistentGoal:
+        return self.goals.create(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_binding=approval_binding,
+        )
+
+    def edit_goal(
+        self,
+        goal_ref: str,
+        request: GoalEditRequest,
+        *,
+        idempotency_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
+    ) -> PersistentGoal:
+        return self.goals.edit(
+            goal_ref,
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_binding=approval_binding,
+        )
+
     def transition_goal(
         self,
         goal_ref: str,
         request: GoalTransitionRequest,
         *,
         idempotency_ref: str,
-        approval_ref: str,
-        approval_decision_ref: str,
+        approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
         validated = GoalTransitionRequest.model_validate(request.model_dump())
         replayed = self.goals.replay_transition(
@@ -1433,61 +1668,65 @@ class GoalRuntimeService:
         if replayed is not None:
             if replayed.state == GoalState.verified_complete.value:
                 entry = self.goals.latest_entry(goal_ref)
-                self._append_verified_completion_event(
-                    replayed,
-                    approval_decision_ref=entry.approval_decision_ref,
-                )
+                with self.events.exclusive():
+                    self._append_verified_completion_event(
+                        replayed,
+                        approval_decision_ref=entry.approval_decision_ref,
+                    )
             return replayed
         completion_verified = False
         evidence = validated.completion_evidence
-        if evidence is not None:
-            current = self.goals.get(goal_ref)
-            if evidence.goal_ref != goal_ref:
-                raise GoalTransitionDeniedError(
-                    "GOAL_COMPLETION_GOAL_REF_MISMATCH"
-                )
-            if evidence.goal_version != current.version:
-                raise GoalVersionConflictError(
-                    "GOAL_COMPLETION_VERSION_CONFLICT"
-                )
-            if evidence.run_ref not in current.links.run_refs:
-                raise GoalTransitionDeniedError(
-                    "GOAL_COMPLETION_RUN_NOT_LINKED"
-                )
-            completion_verified = self.events.has_completion_evidence(
-                run_ref=evidence.run_ref,
-                receipt_ref=evidence.receipt_ref,
-                proof_ref=evidence.proof_ref,
-                goal_ref=goal_ref,
-            )
-            if not completion_verified:
-                raise GoalTransitionDeniedError(
-                    "GOAL_COMPLETION_DURABLE_RECEIPT_NOT_FOUND"
-                )
-        goal = self.goals.transition(
-            goal_ref,
-            validated,
-            idempotency_ref=idempotency_ref,
-            approval_ref=approval_ref,
-            approval_decision_ref=approval_decision_ref,
-            completion_verified=completion_verified,
+        event_lock = (
+            self.events.exclusive()
+            if evidence is not None
+            else nullcontext()
         )
-        if goal.state == GoalState.verified_complete.value:
-            self._append_verified_completion_event(
-                goal,
-                approval_decision_ref=approval_decision_ref,
+        with event_lock:
+            if evidence is not None:
+                current = self.goals.get(goal_ref)
+                if evidence.goal_ref != goal_ref:
+                    raise GoalTransitionDeniedError(
+                        "GOAL_COMPLETION_GOAL_REF_MISMATCH"
+                    )
+                if evidence.goal_version != current.version:
+                    raise GoalVersionConflictError(
+                        "GOAL_COMPLETION_VERSION_CONFLICT"
+                    )
+                if evidence.run_ref not in current.links.run_refs:
+                    raise GoalTransitionDeniedError(
+                        "GOAL_COMPLETION_RUN_NOT_LINKED"
+                    )
+                self.events.assert_completion_appendable(
+                    run_ref=evidence.run_ref,
+                    receipt_ref=evidence.receipt_ref,
+                    proof_ref=evidence.proof_ref,
+                    goal_ref=goal_ref,
+                )
+                completion_verified = True
+            goal = self.goals.transition(
+                goal_ref,
+                validated,
+                idempotency_ref=idempotency_ref,
+                approval_binding=approval_binding,
+                completion_verified=completion_verified,
             )
+            if goal.state == GoalState.verified_complete.value:
+                self._append_verified_completion_event(
+                    goal,
+                    approval_decision_ref=approval_binding.approval_decision_ref,
+                )
         return goal
 
     def _reconcile_verified_completion_events(self) -> None:
-        for goal in self.goals.list(include_cleared=True):
-            if goal.state != GoalState.verified_complete.value:
-                continue
-            entry = self.goals.latest_entry(goal.goal_ref)
-            self._append_verified_completion_event(
-                goal,
-                approval_decision_ref=entry.approval_decision_ref,
-            )
+        with self.events.exclusive():
+            for goal in self.goals.list(include_cleared=True):
+                if goal.state != GoalState.verified_complete.value:
+                    continue
+                entry = self.goals.latest_entry(goal.goal_ref)
+                self._append_verified_completion_event(
+                    goal,
+                    approval_decision_ref=entry.approval_decision_ref,
+                )
 
     def _append_verified_completion_event(
         self,
@@ -1529,6 +1768,103 @@ class GoalRuntimeService:
                 authority_decision_ref=approval_decision_ref,
             )
         )
+
+    def record_accepted_runtime_invocation(
+        self,
+        record: RuntimeInvocationRecord,
+    ) -> list[DurableRunEvent]:
+        """Project one accepted RuntimeGateway receipt into durable run events."""
+
+        from ultimate_ai_agent.core.runtime_gateway.contracts import (
+            RuntimeAuthority,
+            RuntimeInvocationRecord,
+            RuntimeInvocationStatus,
+        )
+
+        validated = RuntimeInvocationRecord.model_validate(record.model_dump())
+        receipt = validated.receipt
+        if (
+            receipt is None
+            or validated.status != RuntimeInvocationStatus.receipt_recorded.value
+        ):
+            return []
+        run_type = (
+            AcceptedLocalRunType.local_read_task
+            if validated.request.requested_authority
+            == RuntimeAuthority.local_model.value
+            else AcceptedLocalRunType.local_metadata_action
+        )
+        authority_decision_ref = receipt.policy_decision_ref
+        goal_ref = (
+            validated.request.mission_ref
+            if (validated.request.mission_ref or "").startswith("goal-ref:")
+            else None
+        )
+        plan_ref = (
+            validated.request.action_ref
+            if (validated.request.action_ref or "").startswith("plan-ref:")
+            else None
+        )
+        proof_refs = list(
+            dict.fromkeys(
+                [
+                    receipt.policy_decision_ref,
+                    *receipt.evidence_refs,
+                ]
+            )
+        )
+        started = self.events.append(
+            DurableRunEventAppendRequest(
+                run_ref=validated.invocation_ref,
+                run_type=run_type,
+                event_kind=DurableRunEventKind.run_started,
+                safe_summary=(
+                    "RuntimeGateway accepted the exact local invocation under "
+                    "the recorded policy decision."
+                ),
+                proof_refs=[receipt.policy_decision_ref],
+                goal_ref=goal_ref,
+                plan_ref=plan_ref,
+                idempotency_ref=_sha256_ref(
+                    "idempotency-ref:runtime-run-started",
+                    {"invocation_ref": validated.invocation_ref},
+                ),
+                authority_decision_ref=authority_decision_ref,
+            )
+        )
+        recorded = self.events.append(
+            DurableRunEventAppendRequest(
+                run_ref=validated.invocation_ref,
+                run_type=run_type,
+                event_kind=DurableRunEventKind.receipt_recorded,
+                safe_summary=(
+                    "RuntimeGateway recorded the accepted local invocation "
+                    "receipt with redacted evidence refs."
+                ),
+                proof_refs=proof_refs,
+                receipt_refs=[receipt.receipt_ref],
+                goal_ref=goal_ref,
+                plan_ref=plan_ref,
+                idempotency_ref=_sha256_ref(
+                    "idempotency-ref:runtime-receipt-recorded",
+                    {
+                        "invocation_ref": validated.invocation_ref,
+                        "receipt_ref": receipt.receipt_ref,
+                    },
+                ),
+                authority_decision_ref=authority_decision_ref,
+            )
+        )
+        return [started, recorded]
+
+    def sync_runtime_invocations(
+        self,
+        records: Iterable[RuntimeInvocationRecord],
+    ) -> list[DurableRunEvent]:
+        projected: list[DurableRunEvent] = []
+        for record in records:
+            projected.extend(self.record_accepted_runtime_invocation(record))
+        return projected
 
 
 class GoalMutationApprovalBinding(BaseModel):
@@ -1668,15 +2004,49 @@ def capture_exact_goal_mutation_approval(
     )
 
 
+def _validate_goal_mutation_approval_binding(
+    binding: GoalMutationApprovalBinding,
+    *,
+    operation: str,
+    subject_ref: str,
+    request_payload: dict[str, Any],
+    idempotency_ref: str,
+) -> None:
+    validated = GoalMutationApprovalBinding.model_validate(binding.model_dump())
+    expected = capture_exact_goal_mutation_approval(
+        operation=operation,
+        subject_ref=subject_ref,
+        request_payload=request_payload,
+        idempotency_ref=idempotency_ref,
+    )
+    if validated != expected:
+        raise GoalTransitionDeniedError(
+            "GOAL_MUTATION_APPROVAL_BINDING_MISMATCH"
+        )
+
+
 def _atomic_write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    parent_metadata = os.lstat(path.parent)
+    if not stat.S_ISDIR(parent_metadata.st_mode):
+        raise OSError("goal runtime state directory must be a real directory")
+    os.chmod(path.parent, 0o700)
     temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
-        with temp_path.open("w", encoding="utf-8") as handle:
+        flags = (
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        descriptor = os.open(temp_path, flags, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_path, path)
+        os.chmod(path, 0o600)
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)
         except OSError:

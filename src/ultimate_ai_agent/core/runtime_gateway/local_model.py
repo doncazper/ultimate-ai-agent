@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.runtime_gateway.command import (
     invoke_governed_command,
     invoke_approved_governed_command,
 )
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import GoalRuntimeService
 from ultimate_ai_agent.core.runtime_gateway.storage import (
     RuntimeInvocationStorageError,
     RuntimeInvocationStore,
@@ -325,6 +326,7 @@ class RuntimeGateway:
         local_model_adapter: LocalModelRuntimeAdapter | None = None,
         command_adapter: GovernedCommandRuntimeAdapter | None = None,
         local_model_runtime_enabled: bool | None = None,
+        goal_runtime_service: GoalRuntimeService | None = None,
     ) -> None:
         self.store = store or RuntimeInvocationStore(
             active_authority_leases=active_runtime_authority_leases()
@@ -332,6 +334,10 @@ class RuntimeGateway:
         self.local_model_adapter = local_model_adapter or LocalModelRuntimeAdapter()
         self.command_adapter = command_adapter or GovernedCommandRuntimeAdapter()
         self._local_model_runtime_enabled = local_model_runtime_enabled
+        self.goal_runtime_service = (
+            goal_runtime_service
+            or GoalRuntimeService.for_runtime_store(self.store.state_dir)
+        )
 
     def invoke_command(
         self,
@@ -339,12 +345,14 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        return invoke_governed_command(
+        result = invoke_governed_command(
             store=self.store,
             adapter=self.command_adapter,
             request=request,
             idempotency_ref=idempotency_ref,
         )
+        self.goal_runtime_service.record_accepted_runtime_invocation(result.record)
+        return result
 
     def execute_approved_command(
         self,
@@ -364,6 +372,9 @@ class RuntimeGateway:
             idempotency_ref=idempotency_ref,
         )
         if result.record.action_inbox_envelope is None:
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record
+            )
             return result
         updated = self.store.mark_action_inbox_execution_receipt(
             result.record.invocation_ref,
@@ -384,9 +395,28 @@ class RuntimeGateway:
                 },
             ),
         )
-        return result.model_copy(update={"record": updated})
+        final_result = result.model_copy(update={"record": updated})
+        self.goal_runtime_service.record_accepted_runtime_invocation(
+            final_result.record
+        )
+        return final_result
 
     def invoke_local_model(
+        self,
+        request: RuntimeLocalModelCallRequest,
+        *,
+        idempotency_ref: str,
+    ) -> RuntimeLocalModelGatewayResult:
+        result = self._invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+        self.goal_runtime_service.record_accepted_runtime_invocation(
+            result.record
+        )
+        return result
+
+    def _invoke_local_model(
         self,
         request: RuntimeLocalModelCallRequest,
         *,
@@ -593,7 +623,7 @@ class RuntimeGateway:
                 ),
             )
             if recovery.replayed:
-                return self.invoke_local_model(
+                return self._invoke_local_model(
                     request,
                     idempotency_ref=idempotency_ref,
                 )

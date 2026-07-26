@@ -187,25 +187,19 @@ export function RuntimeReadinessPanel({
           constraints: [
             "No external execution, standing authority, or unverified completion.",
           ],
-          in_scope_resource_refs: [
-            `resource-ref:control-center-goal:${nonce}`,
-          ],
+          in_scope_resource_refs: [],
           stop_condition: goalStopCondition,
           budget: {
             operation_limit: 25,
             cost_budget_microusd: 0,
           },
           links: {
-            plan_refs: [`plan-ref:control-center-goal:${nonce}`],
-            run_refs: [`run-ref:control-center-goal:${nonce}`],
-            action_inbox_refs: [
-              `action-inbox-ref:control-center-goal:${nonce}`,
-            ],
-            work_board_refs: [
-              `work-board-ref:control-center-goal:${nonce}`,
-            ],
+            plan_refs: [],
+            run_refs: [],
+            action_inbox_refs: [],
+            work_board_refs: [],
           },
-          evidence_refs: [`evidence-ref:control-center-goal:${nonce}`],
+          evidence_refs: [],
         },
         `idempotency-ref:control-center-goal-create:${nonce}`,
         mutationBinding,

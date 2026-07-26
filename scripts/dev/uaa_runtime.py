@@ -2016,7 +2016,10 @@ def _command_run(args: argparse.Namespace) -> int:
             output_byte_limit=args.output_byte_limit,
             metadata_refs=args.metadata_ref or [],
         )
-        result = RuntimeGateway(store=_runtime_store(args)).invoke_command(
+        result = RuntimeGateway(
+            store=_runtime_store(args),
+            goal_runtime_service=_goal_runtime_service(args),
+        ).invoke_command(
             request,
             idempotency_ref=args.idempotency_ref,
         )
@@ -3964,9 +3967,13 @@ def _inspect_checkpoint_rollback(args: argparse.Namespace) -> int:
 
 def _inspect_run_events(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
+    goal_service = _goal_runtime_service(args)
+    goal_service.sync_runtime_invocations(
+        _runtime_store(args).list_invocations()
+    )
     read_model = build_runtime_run_events_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
-        service=_goal_runtime_service(args),
+        service=goal_service,
         run_ref=args.run_ref,
         after_sequence=args.after_sequence,
         limit=args.limit,
@@ -4099,11 +4106,10 @@ def _goal_create(args: argparse.Namespace) -> int:
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=args.idempotency_ref,
         )
-        goal = _goal_runtime_service(args).goals.create(
+        goal = _goal_runtime_service(args).create_goal(
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError):
         print("Goal creation failed safely.", file=sys.stderr)
@@ -4133,12 +4139,11 @@ def _goal_edit(args: argparse.Namespace) -> int:
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=args.idempotency_ref,
         )
-        goal = _goal_runtime_service(args).goals.edit(
+        goal = _goal_runtime_service(args).edit_goal(
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError):
         print("Goal edit failed safely.", file=sys.stderr)
@@ -4172,8 +4177,7 @@ def _goal_transition(args: argparse.Namespace) -> int:
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError):
         print("Goal transition failed safely.", file=sys.stderr)

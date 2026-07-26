@@ -187,8 +187,19 @@ def _mission_failure_service() -> AuthorityMissionFailureManagementService:
 
 def _goal_runtime_service() -> GoalRuntimeService:
     if _goal_runtime_service_getter is None:
-        return GoalRuntimeService.from_env()
+        return GoalRuntimeService.for_runtime_store(_runtime_store().state_dir)
     return _goal_runtime_service_getter()
+
+
+def _runtime_gateway() -> RuntimeGateway:
+    runtime_store = _runtime_store()
+    gateway = RuntimeGateway(store=runtime_store)
+    gateway.goal_runtime_service = (
+        _goal_runtime_service_getter()
+        if _goal_runtime_service_getter is not None
+        else GoalRuntimeService.for_runtime_store(runtime_store.state_dir)
+    )
+    return gateway
 
 
 def _idempotency_ref(
@@ -1041,24 +1052,32 @@ def post_api_runtime_goal(
         default=None, alias="x-uaa-idempotency-ref"
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _idempotency_ref(
-        x_uaa_idempotency_key, x_uaa_idempotency_ref
-    )
     try:
+        idempotency_ref = _idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        )
         approval = capture_exact_goal_mutation_approval(
             operation="create",
             subject_ref="goal-ref:new",
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=idempotency_ref,
         )
-        goal = _goal_runtime_service().goals.create(
+        goal = _goal_runtime_service().create_goal(
             request,
             idempotency_ref=idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
-    except GoalRuntimeError as exc:
-        return _goal_runtime_failure("api_runtime_goal_create", idempotency_ref, exc)
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_create",
+            "idempotency-ref:goal-create-invalid",
+            failure,
+        )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_goal_create",
@@ -1087,25 +1106,29 @@ def post_api_runtime_goal_edit(
         default=None, alias="x-uaa-idempotency-ref"
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _idempotency_ref(
-        x_uaa_idempotency_key, x_uaa_idempotency_ref
-    )
     try:
+        idempotency_ref = _idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        )
         approval = capture_exact_goal_mutation_approval(
             operation="edit",
             subject_ref=goal_ref,
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=idempotency_ref,
         )
-        goal = _goal_runtime_service().goals.edit(
+        goal = _goal_runtime_service().edit_goal(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
-    except GoalRuntimeError as exc:
-        return _goal_runtime_failure("api_runtime_goal_edit", goal_ref, exc)
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure("api_runtime_goal_edit", goal_ref, failure)
     return ResultEnvelope(
         success=True,
         operation="api_runtime_goal_edit",
@@ -1134,10 +1157,10 @@ def post_api_runtime_goal_transition(
         default=None, alias="x-uaa-idempotency-ref"
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _idempotency_ref(
-        x_uaa_idempotency_key, x_uaa_idempotency_ref
-    )
     try:
+        idempotency_ref = _idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        )
         approval = capture_exact_goal_mutation_approval(
             operation=f"transition-{request.transition}",
             subject_ref=goal_ref,
@@ -1148,11 +1171,17 @@ def post_api_runtime_goal_transition(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
-            approval_ref=approval.approval_ref,
-            approval_decision_ref=approval.approval_decision_ref,
+            approval_binding=approval,
         )
-    except GoalRuntimeError as exc:
-        return _goal_runtime_failure("api_runtime_goal_transition", goal_ref, exc)
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_transition", goal_ref, failure
+        )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_goal_transition",
@@ -1178,9 +1207,13 @@ def get_api_runtime_run_events(
 ) -> ResultEnvelope:
     authority_state = _authority_store().build_state_read_model()
     try:
+        goal_service = _goal_runtime_service()
+        goal_service.sync_runtime_invocations(
+            _runtime_store().list_invocations()
+        )
         read_model = build_runtime_run_events_read_model_from_authority_catalog(
             authority_decision_catalog=authority_state.decision_catalog,
-            service=_goal_runtime_service(),
+            service=goal_service,
             run_ref=run_ref,
             after_sequence=after_sequence,
             limit=limit,
@@ -2125,7 +2158,7 @@ def post_api_runtime_local_model_call(
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
-        result = RuntimeGateway(store=_runtime_store()).invoke_local_model(
+        result = _runtime_gateway().invoke_local_model(
             request,
             idempotency_ref=idempotency_ref,
         )
@@ -2208,7 +2241,7 @@ def post_api_runtime_command_run(
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
-        result = RuntimeGateway(store=_runtime_store()).invoke_command(
+        result = _runtime_gateway().invoke_command(
             request,
             idempotency_ref=idempotency_ref,
         )
@@ -2478,7 +2511,7 @@ def post_api_runtime_invocations_id_execute(
     if request.command_request is not None:
         try:
             command_request = RuntimeCommandExecutionRequest(**request.command_request)
-            result = RuntimeGateway(store=_runtime_store()).execute_approved_command(
+            result = _runtime_gateway().execute_approved_command(
                 id,
                 command_request,
                 request,
