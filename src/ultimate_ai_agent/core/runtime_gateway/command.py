@@ -6,8 +6,10 @@ import json
 import os
 import stat
 import subprocess
+import threading
 import time
-from dataclasses import dataclass
+import weakref
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -57,7 +59,11 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
 }
 DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
 COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS = 1.0
-COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS = 256
+
+_COMMAND_EXECUTION_LOCK_GUARD = threading.Lock()
+_COMMAND_EXECUTION_PROCESS_LOCKS: weakref.WeakValueDictionary[
+    int, _CommandExecutionProcessLock
+] = weakref.WeakValueDictionary()
 
 class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
@@ -153,15 +159,31 @@ class _CommandAttempt:
     error_category: str | None
 
 
+@dataclass(slots=True, weakref_slot=True)
+class _CommandExecutionProcessLock:
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
 @dataclass
 class _CommandExecutionLease:
     descriptor: int
+    offset: int
+    process_lock: _CommandExecutionProcessLock
 
     def release(self) -> None:
         try:
-            fcntl.flock(self.descriptor, fcntl.LOCK_UN)
+            fcntl.lockf(
+                self.descriptor,
+                fcntl.LOCK_UN,
+                1,
+                self.offset,
+                os.SEEK_SET,
+            )
         finally:
-            os.close(self.descriptor)
+            try:
+                os.close(self.descriptor)
+            finally:
+                self.process_lock.lock.release()
 
 
 class RuntimeCommandRunner(Protocol):
@@ -319,11 +341,13 @@ def invoke_governed_command(
         },
     )
     claim_ref = _command_execution_claim_ref(store, idempotency_ref)
-    _reject_conflicting_command_reservation(
+    preflight_replay = _preflight_command_reservation(
         store=store,
         invocation_request=invocation_request,
         idempotency_ref=idempotency_ref,
     )
+    if preflight_replay is not None:
+        return preflight_replay
     execution_lease = _acquire_command_execution_lease(
         store=store,
         claim_ref=claim_ref,
@@ -444,17 +468,36 @@ def _command_execution_claim_ref(
 
 def _command_execution_lock_path(
     store: RuntimeInvocationStore,
-    claim_ref: tuple[str, str],
 ) -> Path:
+    return store.state_dir / ".runtime-command-execution.lock"
+
+
+def _command_execution_lock_offset(claim_ref: tuple[str, str]) -> int:
     digest = hashlib.sha256(
         json.dumps(claim_ref, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    shard = int(digest[:8], 16) % COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS
-    return (
+    ).digest()
+    return int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+
+
+def _command_execution_process_lock(
+    offset: int,
+) -> _CommandExecutionProcessLock:
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        process_lock = _COMMAND_EXECUTION_PROCESS_LOCKS.get(offset)
+        if process_lock is None:
+            process_lock = _CommandExecutionProcessLock()
+            _COMMAND_EXECUTION_PROCESS_LOCKS[offset] = process_lock
+        return process_lock
+
+
+def _locked_command_reservation(
+    *,
+    store: RuntimeInvocationStore,
+    idempotency_ref: str,
+) -> RuntimeInvocationRecord | None:
+    return RuntimeInvocationStore(
         store.state_dir
-        / ".runtime-command-execution-locks"
-        / f"shard-{shard:03d}.lock"
-    )
+    ).get_invocation_for_idempotency_locked(idempotency_ref)
 
 
 def _acquire_command_execution_lease(
@@ -463,22 +506,44 @@ def _acquire_command_execution_lease(
     claim_ref: tuple[str, str],
     timeout_seconds: float,
 ) -> _CommandExecutionLease | None:
-    lock_path = _command_execution_lock_path(store, claim_ref)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    directory_metadata = os.lstat(lock_path.parent)
+    offset = _command_execution_lock_offset(claim_ref)
+    process_lock = _command_execution_process_lock(offset)
+    deadline = time.monotonic() + timeout_seconds
+    while not process_lock.lock.acquire(blocking=False):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            if (
+                _locked_command_reservation(
+                    store=store,
+                    idempotency_ref=claim_ref[1],
+                )
+                is not None
+            ):
+                return None
+            deadline = time.monotonic() + 0.05
+            remaining = 0.05
+        time.sleep(min(0.01, remaining))
+
+    lock_path = _command_execution_lock_path(store)
+    store.state_dir.mkdir(parents=True, exist_ok=True)
+    directory_metadata = os.lstat(store.state_dir)
     if not stat.S_ISDIR(directory_metadata.st_mode):
+        process_lock.lock.release()
         raise RuntimeInvocationStorageError(
             "RUNTIME_COMMAND_EXECUTION_LOCK_DIRECTORY_INVALID"
         )
     flags = (
         os.O_RDWR
-        | os.O_APPEND
         | os.O_CREAT
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
-    descriptor = os.open(lock_path, flags, 0o600)
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except BaseException:
+        process_lock.lock.release()
+        raise
     try:
         metadata = os.fstat(descriptor)
         path_metadata = os.lstat(lock_path)
@@ -494,21 +559,33 @@ def _acquire_command_execution_lease(
         os.fchmod(descriptor, 0o600)
     except BaseException:
         os.close(descriptor)
+        process_lock.lock.release()
         raise
-    deadline = time.monotonic() + timeout_seconds
     try:
         while True:
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return _CommandExecutionLease(descriptor=descriptor)
+                fcntl.lockf(
+                    descriptor,
+                    fcntl.LOCK_EX | fcntl.LOCK_NB,
+                    1,
+                    offset,
+                    os.SEEK_SET,
+                )
+                return _CommandExecutionLease(
+                    descriptor=descriptor,
+                    offset=offset,
+                    process_lock=process_lock,
+                )
             except BlockingIOError:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    durable_record = RuntimeInvocationStore(
-                        store.state_dir
-                    ).get_invocation_for_idempotency(claim_ref[1])
+                    durable_record = _locked_command_reservation(
+                        store=store,
+                        idempotency_ref=claim_ref[1],
+                    )
                     if durable_record is not None:
                         os.close(descriptor)
+                        process_lock.lock.release()
                         return None
                     # The owner holds the lease but has not finished its
                     # reservation. Continue the safe ownership retry until the
@@ -518,20 +595,22 @@ def _acquire_command_execution_lease(
                 time.sleep(min(0.01, remaining))
     except BaseException:
         os.close(descriptor)
+        process_lock.lock.release()
         raise
 
 
-def _reject_conflicting_command_reservation(
+def _preflight_command_reservation(
     *,
     store: RuntimeInvocationStore,
     invocation_request: RuntimeInvocationRequest,
     idempotency_ref: str,
-) -> None:
-    durable_record = RuntimeInvocationStore(
-        store.state_dir
-    ).get_invocation_for_idempotency(idempotency_ref)
+) -> RuntimeCommandGatewayResult | None:
+    durable_record = _locked_command_reservation(
+        store=store,
+        idempotency_ref=idempotency_ref,
+    )
     if durable_record is None:
-        return
+        return None
     if (
         durable_record.payload_fingerprint_ref
         != runtime_payload_fingerprint_ref(invocation_request)
@@ -539,6 +618,12 @@ def _reject_conflicting_command_reservation(
         raise RuntimeInvocationConflictError(
             "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
         )
+    if durable_record.receipt is None:
+        return None
+    replayed_record = durable_record.model_copy(
+        update={"replay_count": durable_record.replay_count + 1}
+    )
+    return _completed_command_replay_result(replayed_record)
 
 
 def _completed_command_replay_result(
@@ -570,9 +655,10 @@ def _in_progress_command_replay_result(
     invocation_request: RuntimeInvocationRequest,
     idempotency_ref: str,
 ) -> RuntimeCommandGatewayResult:
-    durable_record = RuntimeInvocationStore(
-        store.state_dir
-    ).get_invocation_for_idempotency(idempotency_ref)
+    durable_record = _locked_command_reservation(
+        store=store,
+        idempotency_ref=idempotency_ref,
+    )
     if durable_record is None:
         raise RuntimeInvocationStorageError(
             "RUNTIME_COMMAND_ACTIVE_RESERVATION_MISSING"

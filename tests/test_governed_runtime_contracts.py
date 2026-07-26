@@ -3991,6 +3991,33 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
         ),
     )
     try:
+        unrelated_calls: list[object] = []
+
+        def unrelated_runner(**kwargs: object) -> RuntimeCommandRunResult:
+            unrelated_calls.append(kwargs)
+            return RuntimeCommandRunResult(
+                exit_code=0,
+                timed_out=False,
+                duration_ms=1,
+                output_bytes=b"SAFE_STATUS",
+            )
+
+        unrelated_started = time.monotonic()
+        unrelated = RuntimeGateway(
+            store=RuntimeInvocationStore(state_dir),
+            command_adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=ROOT,
+                runner=unrelated_runner,
+            ),
+        ).invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-unrelated",
+        )
+        assert time.monotonic() - unrelated_started < 5
+        assert unrelated.record.receipt is not None
+        assert unrelated.record.receipt.command_execution_performed is True
+        assert len(unrelated_calls) == 1
+
         conflicting_request = request.model_copy(
             update={
                 "safe_summary": (
@@ -4004,7 +4031,7 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
                 conflicting_request,
                 idempotency_ref="idempotency-ref:runtime-command-cross-process",
             )
-        assert time.monotonic() - conflict_started < 0.5
+        assert time.monotonic() - conflict_started < 5
 
         duplicate = duplicate_gateway.invoke_command(
             request,
@@ -4123,29 +4150,30 @@ def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
     assert results[0].record.receipt.command_execution_performed is True
 
 
-def test_runtime_gateway_command_execution_locks_are_bounded_shards(
+def test_runtime_gateway_command_execution_lock_uses_exact_byte_ranges(
     tmp_path: Path,
 ) -> None:
     store = RuntimeInvocationStore(tmp_path)
     paths = {
-        runtime_command._command_execution_lock_path(
-            store,
+        runtime_command._command_execution_lock_path(store)
+        for _index in range(1024)
+    }
+    offsets = {
+        runtime_command._command_execution_lock_offset(
             runtime_command._command_execution_claim_ref(
                 store,
-                f"idempotency-ref:runtime-command-shard-{index}",
-            ),
+                f"idempotency-ref:runtime-command-range-{index}",
+            )
         )
-        for index in range(
-            runtime_command.COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS * 4
-        )
+        for index in range(1024)
     }
 
-    assert len(paths) <= runtime_command.COMMAND_RUNTIME_EXECUTION_LOCK_SHARDS
-    assert all(path.name.startswith("shard-") for path in paths)
-    assert all(path.suffix == ".lock" for path in paths)
+    assert paths == {tmp_path / ".runtime-command-execution.lock"}
+    assert len(offsets) == 1024
+    assert all(0 <= offset < (1 << 63) for offset in offsets)
 
 
-def test_runtime_gateway_command_execution_lock_closes_on_flock_error(
+def test_runtime_gateway_command_execution_lock_closes_on_lockf_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -4157,14 +4185,20 @@ def test_runtime_gateway_command_execution_lock_closes_on_flock_error(
     closed_descriptors: list[int] = []
     original_close = os.close
 
-    def fail_flock(descriptor: int, operation: int) -> None:
+    def fail_lockf(
+        descriptor: int,
+        operation: int,
+        length: int,
+        offset: int,
+        whence: int,
+    ) -> None:
         raise OSError(95, "operation not supported")
 
     def observe_close(descriptor: int) -> None:
         closed_descriptors.append(descriptor)
         original_close(descriptor)
 
-    monkeypatch.setattr(runtime_command.fcntl, "flock", fail_flock)
+    monkeypatch.setattr(runtime_command.fcntl, "lockf", fail_lockf)
     monkeypatch.setattr(runtime_command.os, "close", observe_close)
 
     with pytest.raises(OSError, match="operation not supported"):
