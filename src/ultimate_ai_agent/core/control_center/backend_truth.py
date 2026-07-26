@@ -201,7 +201,7 @@ class ControlCenterBackendTruth(BaseModel):
     backend_revision_ref: str
     backend_instance_ref: str
     source_revision_bound: bool
-    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=13)
+    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=14)
     evidence_binding: BackendTruthEvidenceBinding
     authority_posture: BackendTruthAuthorityPosture = Field(
         default_factory=BackendTruthAuthorityPosture

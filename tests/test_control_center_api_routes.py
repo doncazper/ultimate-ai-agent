@@ -331,7 +331,7 @@ def test_backend_truth_route_is_revision_bound_read_only_and_redacted() -> None:
     assert payload["operation"] == "control_center_backend_truth"
     truth = payload["data"]
     assert truth["schema_version"] == "uaa-control-center-backend-truth.v1"
-    assert len(truth["critical_surfaces"]) == 13
+    assert len(truth["critical_surfaces"]) == 14
     assert truth["safe_refs_only"] is True
     assert truth["raw_content_included"] is False
     assert truth["raw_paths_included"] is False
