@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 LOOPBACK_CORS_POLICY_REF = "cors:p1-082:loopback:v1"
 CONTROL_CENTER_CORS_ORIGIN_ENV = "UAA_CONTROL_CENTER_CORS_ORIGIN"
 _EXACT_LOOPBACK_ORIGIN_RE = re.compile(
-    r"^http" r"://(?:localhost|127\.0\.0\.1|\[::1\]):([1-9][0-9]{0,4})$"
+    r"^http"
+    r"://(?P<host>localhost|127\.0\.0\.1|\[::1\])"
+    r":(?P<port>[1-9][0-9]{0,4})$"
 )
 
 CONTROL_CENTER_LOOPBACK_CORS_ORIGINS: tuple[str, ...] = (
@@ -52,10 +54,13 @@ def control_center_loopback_cors_origins(
         "",
     ).strip()
     match = _EXACT_LOOPBACK_ORIGIN_RE.fullmatch(configured)
-    if match is None or int(match.group(1)) > 65535:
+    if match is None or int(match.group("port")) > 65535:
         return CONTROL_CENTER_LOOPBACK_CORS_ORIGINS
+    canonical_origin = configured
+    if match.group("port") == "80":
+        canonical_origin = f"http://{match.group('host')}"
     return tuple(
-        dict.fromkeys([*CONTROL_CENTER_LOOPBACK_CORS_ORIGINS, configured])
+        dict.fromkeys([*CONTROL_CENTER_LOOPBACK_CORS_ORIGINS, canonical_origin])
     )
 
 

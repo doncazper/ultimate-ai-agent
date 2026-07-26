@@ -1,3 +1,4 @@
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -77,6 +78,39 @@ def test_packaging_selected_loopback_origin_is_exact_scoped(
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == origin
     assert "*" not in control_center_loopback_cors_origins()
+
+
+@pytest.mark.parametrize(
+    ("configured_origin", "browser_origin"),
+    (
+        ("http://localhost:80", "http://localhost"),
+        ("http://127.0.0.1:80", "http://127.0.0.1"),
+        ("http://[::1]:80", "http://[::1]"),
+    ),
+)
+def test_packaging_default_http_port_origin_is_browser_canonical(
+    monkeypatch,
+    configured_origin: str,
+    browser_origin: str,
+) -> None:
+    monkeypatch.setenv("UAA_CONTROL_CENTER_CORS_ORIGIN", configured_origin)
+    origins = control_center_loopback_cors_origins(
+        {"UAA_CONTROL_CENTER_CORS_ORIGIN": configured_origin}
+    )
+    local_app = configure_loopback_cors(FastAPI())
+
+    @local_app.get("/health")
+    def health() -> dict[str, bool]:
+        return {"ok": True}
+
+    response = TestClient(local_app).get(
+        "/health",
+        headers={"Origin": browser_origin},
+    )
+
+    assert browser_origin in origins
+    assert configured_origin not in origins
+    assert response.headers["Access-Control-Allow-Origin"] == browser_origin
 
 
 def test_packaging_cors_origin_rejects_non_loopback_and_invalid_ports() -> None:

@@ -422,6 +422,7 @@ const NORTH_STAR_SHELL_ROUTE_KEYS = [
 
 const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/actions",
+  "/settings",
   "/start",
   "/setup",
   "/workspace/onboarding",
@@ -567,7 +568,7 @@ function CriticalBackendTruthUnavailable({
           {pending
             ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
             : firstRun
-              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here and Setup remain available; other critical product claims stay hidden."
+              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here, Setup, Action Inbox, and the exact Settings authority lane remain available; other critical product claims stay hidden."
             : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
         </p>
         <dl>
@@ -607,8 +608,9 @@ function CriticalBackendTruthUnavailable({
           Next safe action:{" "}
           {firstRun ? (
             <>
-              open <a href="/start">Start Here</a> or <a href="/setup">Setup</a>{" "}
-              to establish the first local evidence packet.
+              open <a href="/start">Start Here</a>, <a href="/setup">Setup</a>,
+              or the exact <a href="/settings">Settings authority lane</a> to
+              establish the first local evidence packet.
             </>
           ) : (
             <>

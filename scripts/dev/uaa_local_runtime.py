@@ -9,6 +9,7 @@ import subprocess
 import sys
 import urllib.parse
 import webbrowser
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -25,10 +26,48 @@ DEFAULT_API_PORT = "8000"
 DEFAULT_CONTROL_CENTER_PORT = "5173"
 
 
+@dataclass(frozen=True)
+class _PrivateFileSnapshot:
+    existed: bool
+    content: bytes = b""
+    mode: int = 0o600
+
+
 def _write_private_text(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(value + "\n", encoding="utf-8")
     path.chmod(0o600)
+
+
+def _snapshot_private_file(path: Path) -> _PrivateFileSnapshot:
+    try:
+        file_stat = path.stat()
+        content = path.read_bytes()
+    except FileNotFoundError:
+        return _PrivateFileSnapshot(existed=False)
+    return _PrivateFileSnapshot(
+        existed=True,
+        content=content,
+        mode=file_stat.st_mode & 0o777,
+    )
+
+
+def _restore_private_files(
+    snapshots: tuple[tuple[Path, _PrivateFileSnapshot], ...],
+) -> None:
+    restore_failed = False
+    for path, snapshot in snapshots:
+        try:
+            if not snapshot.existed:
+                path.unlink(missing_ok=True)
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(snapshot.content)
+            path.chmod(snapshot.mode)
+        except OSError:
+            restore_failed = True
+    if restore_failed:
+        raise RuntimeError("local runtime state restoration failed")
 
 
 def _compose_env(commit: str) -> dict[str, str]:
@@ -63,15 +102,29 @@ def _run_compose(arguments: list[str], *, commit: str) -> None:
 def _verified_up() -> None:
     commit = verified_clean_source_commit(ROOT)
     local_bearer = secrets.token_urlsafe(48)
-    _write_private_text(SECRET_FILE, local_bearer)
-    _write_private_text(SOURCE_COMMIT_FILE, commit)
-    _run_compose(["up", "--build", "--detach", "--wait"], commit=commit)
+    snapshots = tuple(
+        (path, _snapshot_private_file(path))
+        for path in (SECRET_FILE, SOURCE_COMMIT_FILE)
+    )
+    try:
+        _write_private_text(SECRET_FILE, local_bearer)
+        _write_private_text(SOURCE_COMMIT_FILE, commit)
+        _run_compose(["up", "--build", "--detach", "--wait"], commit=commit)
+    except BaseException as startup_error:
+        try:
+            _restore_private_files(snapshots)
+        except RuntimeError as restore_error:
+            raise restore_error from startup_error
+        raise
     port = _compose_env(commit)["UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT"]
     session_url = (
         f"http://127.0.0.1:{port}/today"
         f"#uaa-session-bearer={urllib.parse.quote(local_bearer, safe='')}"
     )
-    browser_opened = webbrowser.open(session_url)
+    try:
+        browser_opened = webbrowser.open(session_url)
+    except (OSError, webbrowser.Error):
+        browser_opened = False
     print("OK: local runtime started from a verified clean source revision")
     if not browser_opened:
         print(
