@@ -612,5 +612,4 @@ Keep changes scoped.
 
 ## License
 
-License placeholder. Add the final project license file before any public
-distribution claim.
+Ultimate AI Agent is licensed under the [MIT License](LICENSE).
