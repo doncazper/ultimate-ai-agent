@@ -64,6 +64,7 @@ _COMMAND_EXECUTION_LOCK_GUARD = threading.Lock()
 _COMMAND_EXECUTION_PROCESS_LOCKS: weakref.WeakValueDictionary[
     int, _CommandExecutionProcessLock
 ] = weakref.WeakValueDictionary()
+_COMMAND_EXECUTION_LOCK_FILES: dict[str, _CommandExecutionLockFile] = {}
 
 class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
@@ -159,31 +160,39 @@ class _CommandAttempt:
     error_category: str | None
 
 
-@dataclass(slots=True, weakref_slot=True)
+@dataclass
 class _CommandExecutionProcessLock:
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 @dataclass
-class _CommandExecutionLease:
+class _CommandExecutionLockFile:
     descriptor: int
+    path: Path
+    users: int = 1
+
+
+@dataclass
+class _CommandExecutionLease:
+    lock_file: _CommandExecutionLockFile
     offset: int
     process_lock: _CommandExecutionProcessLock
 
     def release(self) -> None:
         try:
-            fcntl.lockf(
-                self.descriptor,
-                fcntl.LOCK_UN,
-                1,
-                self.offset,
-                os.SEEK_SET,
-            )
+            with _COMMAND_EXECUTION_LOCK_GUARD:
+                try:
+                    fcntl.lockf(
+                        self.lock_file.descriptor,
+                        fcntl.LOCK_UN,
+                        1,
+                        self.offset,
+                        os.SEEK_SET,
+                    )
+                finally:
+                    _release_command_execution_lock_file_locked(self.lock_file)
         finally:
-            try:
-                os.close(self.descriptor)
-            finally:
-                self.process_lock.lock.release()
+            self.process_lock.lock.release()
 
 
 class RuntimeCommandRunner(Protocol):
@@ -490,14 +499,91 @@ def _command_execution_process_lock(
         return process_lock
 
 
+def _retain_command_execution_lock_file(
+    store: RuntimeInvocationStore,
+) -> _CommandExecutionLockFile:
+    lock_path = _command_execution_lock_path(store)
+    lock_key = str(lock_path.resolve(strict=False))
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        retained = _COMMAND_EXECUTION_LOCK_FILES.get(lock_key)
+        if retained is not None:
+            metadata = os.fstat(retained.descriptor)
+            path_metadata = os.lstat(lock_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
+                )
+            retained.users += 1
+            return retained
+
+        store.state_dir.mkdir(parents=True, exist_ok=True)
+        directory_metadata = os.lstat(store.state_dir)
+        if not stat.S_ISDIR(directory_metadata.st_mode):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_COMMAND_EXECUTION_LOCK_DIRECTORY_INVALID"
+            )
+        flags = (
+            os.O_RDWR
+            | os.O_CREAT
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        descriptor = os.open(lock_path, flags, 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            path_metadata = os.lstat(lock_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
+                )
+            os.fchmod(descriptor, 0o600)
+        except BaseException:
+            os.close(descriptor)
+            raise
+        retained = _CommandExecutionLockFile(
+            descriptor=descriptor,
+            path=lock_path,
+        )
+        _COMMAND_EXECUTION_LOCK_FILES[lock_key] = retained
+        return retained
+
+
+def _release_command_execution_lock_file_locked(
+    lock_file: _CommandExecutionLockFile,
+) -> None:
+    lock_file.users -= 1
+    if lock_file.users > 0:
+        return
+    lock_key = str(lock_file.path.resolve(strict=False))
+    if _COMMAND_EXECUTION_LOCK_FILES.get(lock_key) is lock_file:
+        del _COMMAND_EXECUTION_LOCK_FILES[lock_key]
+    os.close(lock_file.descriptor)
+
+
+def _release_command_execution_lock_file(
+    lock_file: _CommandExecutionLockFile,
+) -> None:
+    with _COMMAND_EXECUTION_LOCK_GUARD:
+        _release_command_execution_lock_file_locked(lock_file)
+
+
 def _locked_command_reservation(
     *,
     store: RuntimeInvocationStore,
     idempotency_ref: str,
 ) -> RuntimeInvocationRecord | None:
-    return RuntimeInvocationStore(
-        store.state_dir
-    ).get_invocation_for_idempotency_locked(idempotency_ref)
+    return store.get_invocation_for_idempotency_locked(idempotency_ref)
 
 
 def _acquire_command_execution_lease(
@@ -524,55 +610,23 @@ def _acquire_command_execution_lease(
             remaining = 0.05
         time.sleep(min(0.01, remaining))
 
-    lock_path = _command_execution_lock_path(store)
-    store.state_dir.mkdir(parents=True, exist_ok=True)
-    directory_metadata = os.lstat(store.state_dir)
-    if not stat.S_ISDIR(directory_metadata.st_mode):
-        process_lock.lock.release()
-        raise RuntimeInvocationStorageError(
-            "RUNTIME_COMMAND_EXECUTION_LOCK_DIRECTORY_INVALID"
-        )
-    flags = (
-        os.O_RDWR
-        | os.O_CREAT
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_NONBLOCK", 0)
-    )
     try:
-        descriptor = os.open(lock_path, flags, 0o600)
+        lock_file = _retain_command_execution_lock_file(store)
     except BaseException:
-        process_lock.lock.release()
-        raise
-    try:
-        metadata = os.fstat(descriptor)
-        path_metadata = os.lstat(lock_path)
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink != 1
-            or (metadata.st_dev, metadata.st_ino)
-            != (path_metadata.st_dev, path_metadata.st_ino)
-        ):
-            raise RuntimeInvocationStorageError(
-                "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
-            )
-        os.fchmod(descriptor, 0o600)
-    except BaseException:
-        os.close(descriptor)
         process_lock.lock.release()
         raise
     try:
         while True:
             try:
                 fcntl.lockf(
-                    descriptor,
+                    lock_file.descriptor,
                     fcntl.LOCK_EX | fcntl.LOCK_NB,
                     1,
                     offset,
                     os.SEEK_SET,
                 )
                 return _CommandExecutionLease(
-                    descriptor=descriptor,
+                    lock_file=lock_file,
                     offset=offset,
                     process_lock=process_lock,
                 )
@@ -584,8 +638,10 @@ def _acquire_command_execution_lease(
                         idempotency_ref=claim_ref[1],
                     )
                     if durable_record is not None:
-                        os.close(descriptor)
-                        process_lock.lock.release()
+                        try:
+                            _release_command_execution_lock_file(lock_file)
+                        finally:
+                            process_lock.lock.release()
                         return None
                     # The owner holds the lease but has not finished its
                     # reservation. Continue the safe ownership retry until the
@@ -594,8 +650,10 @@ def _acquire_command_execution_lease(
                     remaining = 0.05
                 time.sleep(min(0.01, remaining))
     except BaseException:
-        os.close(descriptor)
-        process_lock.lock.release()
+        try:
+            _release_command_execution_lock_file(lock_file)
+        finally:
+            process_lock.lock.release()
         raise
 
 

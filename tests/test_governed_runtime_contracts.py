@@ -8,6 +8,7 @@ import threading
 import subprocess
 import sys
 import time
+import weakref
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -138,6 +139,37 @@ def _hold_cross_process_command_lease_before_reservation(
             raise RuntimeError("cross-process pre-reservation release timed out")
     finally:
         lease.release()
+
+
+def _probe_command_execution_byte_range(
+    lock_path: Path,
+    offset: int,
+    result_path: Path,
+) -> None:
+    descriptor = os.open(lock_path, os.O_RDWR)
+    try:
+        try:
+            runtime_command.fcntl.lockf(
+                descriptor,
+                runtime_command.fcntl.LOCK_EX
+                | runtime_command.fcntl.LOCK_NB,
+                1,
+                offset,
+                os.SEEK_SET,
+            )
+        except BlockingIOError:
+            result_path.write_text("blocked", encoding="utf-8")
+        else:
+            result_path.write_text("acquired", encoding="utf-8")
+            runtime_command.fcntl.lockf(
+                descriptor,
+                runtime_command.fcntl.LOCK_UN,
+                1,
+                offset,
+                os.SEEK_SET,
+            )
+    finally:
+        os.close(descriptor)
 
 
 class _BlockingFakeM164GatewayTransport(FakeM164GatewayTransport):
@@ -4171,6 +4203,122 @@ def test_runtime_gateway_command_execution_lock_uses_exact_byte_ranges(
     assert paths == {tmp_path / ".runtime-command-execution.lock"}
     assert len(offsets) == 1024
     assert all(0 <= offset < (1 << 63) for offset in offsets)
+
+
+def test_runtime_gateway_command_process_lock_is_python_310_weakref_compatible() -> None:
+    process_lock = runtime_command._CommandExecutionProcessLock()
+
+    assert "__slots__" not in type(process_lock).__dict__
+    assert weakref.ref(process_lock)() is process_lock
+
+
+def test_runtime_gateway_releasing_one_range_preserves_other_process_lock(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    first_claim = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-shared-file-first",
+    )
+    second_claim = runtime_command._command_execution_claim_ref(
+        store,
+        "idempotency-ref:runtime-command-shared-file-second",
+    )
+    second_offset = runtime_command._command_execution_lock_offset(second_claim)
+    assert (
+        runtime_command._command_execution_lock_offset(first_claim)
+        != second_offset
+    )
+
+    first_lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=first_claim,
+        timeout_seconds=0.1,
+    )
+    second_lease = runtime_command._acquire_command_execution_lease(
+        store=store,
+        claim_ref=second_claim,
+        timeout_seconds=0.1,
+    )
+    assert first_lease is not None
+    assert second_lease is not None
+    assert first_lease.lock_file is second_lease.lock_file
+
+    first_lease.release()
+    blocked_result_path = tmp_path / "second-range-blocked"
+    context = multiprocessing.get_context("spawn")
+    blocked_probe = context.Process(
+        target=_probe_command_execution_byte_range,
+        args=(
+            runtime_command._command_execution_lock_path(store),
+            second_offset,
+            blocked_result_path,
+        ),
+    )
+    blocked_probe.start()
+    blocked_probe.join(timeout=10)
+    try:
+        assert blocked_probe.is_alive() is False
+        assert blocked_probe.exitcode == 0
+        assert blocked_result_path.read_text(encoding="utf-8") == "blocked"
+    finally:
+        second_lease.release()
+
+    acquired_result_path = tmp_path / "second-range-acquired"
+    acquired_probe = context.Process(
+        target=_probe_command_execution_byte_range,
+        args=(
+            runtime_command._command_execution_lock_path(store),
+            second_offset,
+            acquired_result_path,
+        ),
+    )
+    acquired_probe.start()
+    acquired_probe.join(timeout=10)
+    assert acquired_probe.is_alive() is False
+    assert acquired_probe.exitcode == 0
+    assert acquired_result_path.read_text(encoding="utf-8") == "acquired"
+
+
+def test_runtime_gateway_locked_reservation_refreshes_callers_store(
+    tmp_path: Path,
+) -> None:
+    caller_store = RuntimeInvocationStore(tmp_path)
+    assert caller_store.list_invocations() == []
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    owner_result = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=lambda **kwargs: RuntimeCommandRunResult(
+                exit_code=0,
+                timed_out=False,
+                duration_ms=1,
+                output_bytes=b"SAFE_STATUS",
+            ),
+        ),
+    ).invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-store-refresh",
+    )
+    assert owner_result.record.receipt is not None
+
+    refreshed = runtime_command._locked_command_reservation(
+        store=caller_store,
+        idempotency_ref="idempotency-ref:runtime-command-store-refresh",
+    )
+
+    assert refreshed is not None
+    assert refreshed.receipt is not None
+    assert (
+        caller_store.get_invocation_for_idempotency(
+            "idempotency-ref:runtime-command-store-refresh"
+        )
+        == refreshed
+    )
 
 
 def test_runtime_gateway_command_execution_lock_closes_on_lockf_error(
