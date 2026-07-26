@@ -1,11 +1,13 @@
 import argparse
 import hashlib
 import json
+import multiprocessing
 import os
 import stat
 import threading
 import subprocess
 import sys
+import time
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -70,6 +72,43 @@ from tests.authority_helpers import (
 
 ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
+
+
+def _run_cross_process_command_owner(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if not release_path.exists():
+            raise RuntimeError("cross-process runtime command release timed out")
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    result = RuntimeGateway(
+        store=RuntimeInvocationStore(state_dir),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    ).invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect current repo status with redacted output.",
+            timeout_seconds=0.05,
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    if result.record.receipt is None:
+        raise RuntimeError("cross-process runtime command receipt missing")
 
 
 class _BlockingFakeM164GatewayTransport(FakeM164GatewayTransport):
@@ -3691,7 +3730,6 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
 ) -> None:
     runner_started = threading.Event()
     release_runner = threading.Event()
-    duplicate_reserved = threading.Event()
     duplicate_receipt_attempted = threading.Event()
     calls = 0
     calls_lock = threading.Lock()
@@ -3717,20 +3755,12 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     )
     first_store = RuntimeInvocationStore(tmp_path)
     duplicate_store = RuntimeInvocationStore(tmp_path)
-    original_create_invocation = duplicate_store.create_invocation
     original_record_receipt = duplicate_store.record_receipt
-
-    def observe_duplicate_reservation(*args: Any, **kwargs: Any) -> Any:
-        created = original_create_invocation(*args, **kwargs)
-        if created.replayed:
-            duplicate_reserved.set()
-        return created
 
     def observe_duplicate_receipt(*args: Any, **kwargs: Any) -> Any:
         duplicate_receipt_attempted.set()
         return original_record_receipt(*args, **kwargs)
 
-    duplicate_store.create_invocation = observe_duplicate_reservation  # type: ignore[method-assign]
     duplicate_store.record_receipt = observe_duplicate_receipt  # type: ignore[method-assign]
     gateways = [
         RuntimeGateway(
@@ -3765,8 +3795,8 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
     assert runner_started.wait(timeout=5)
     second = threading.Thread(target=invoke_command, args=(gateways[1],))
     second.start()
-    assert duplicate_reserved.wait(timeout=5)
     assert not duplicate_receipt_attempted.wait(timeout=0.2)
+    assert second.is_alive() is True
     release_runner.set()
     first.join(timeout=15)
     second.join(timeout=15)
@@ -3889,6 +3919,82 @@ def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
     assert completed_replay.record.receipt.command_execution_performed is True
     assert duplicate_receipt_attempted.is_set() is False
     assert calls == 1
+
+
+def test_runtime_gateway_command_coordinates_ownership_across_processes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime-state"
+    started_path = tmp_path / "owner-started"
+    release_path = tmp_path / "owner-release"
+    context = multiprocessing.get_context("spawn")
+    owner = context.Process(
+        target=_run_cross_process_command_owner,
+        args=(state_dir, started_path, release_path),
+    )
+    owner.start()
+    deadline = time.monotonic() + 10
+    while not started_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert started_path.exists()
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.runtime_gateway.command."
+        "COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS",
+        0.0,
+    )
+    duplicate_calls: list[object] = []
+
+    def duplicate_runner(**kwargs: object) -> RuntimeCommandRunResult:
+        duplicate_calls.append(kwargs)
+        raise AssertionError("duplicate command runner must not execute")
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+        timeout_seconds=0.05,
+    )
+    duplicate_gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(state_dir),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=duplicate_runner,
+        ),
+    )
+    try:
+        duplicate = duplicate_gateway.invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-cross-process",
+        )
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert duplicate.record.replay_count == 1
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert duplicate_calls == []
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        owner.join(timeout=15)
+
+    assert owner.is_alive() is False
+    assert owner.exitcode == 0
+    completed = RuntimeGateway(
+        store=RuntimeInvocationStore(state_dir),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=duplicate_runner,
+        ),
+    ).invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-cross-process",
+    )
+    assert completed.replayed is True
+    assert completed.record.receipt is not None
+    assert completed.record.replay_count == 1
+    assert completed.record.receipt.command_execution_performed is True
+    assert duplicate_calls == []
 
 
 def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_receipt(

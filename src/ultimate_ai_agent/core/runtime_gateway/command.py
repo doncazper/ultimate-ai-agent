@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
+import os
+import stat
 import subprocess
-import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,7 +32,11 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
 from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
     hardline_block_reason_for_argv,
 )
-from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationConflictError,
+    RuntimeInvocationStorageError,
+    RuntimeInvocationStore,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -51,10 +57,6 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
 }
 DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
 COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS = 1.0
-
-_COMMAND_EXECUTION_CONDITION = threading.Condition(threading.RLock())
-_ACTIVE_COMMAND_EXECUTIONS: set[tuple[str, str]] = set()
-
 
 class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
@@ -148,6 +150,15 @@ class _CommandAttempt:
     output_summary: str
     redacted_output_ref: str
     error_category: str | None
+
+
+@dataclass
+class _CommandExecutionLease:
+    descriptor: int
+
+    def release(self) -> None:
+        fcntl.flock(self.descriptor, fcntl.LOCK_UN)
+        os.close(self.descriptor)
 
 
 class RuntimeCommandRunner(Protocol):
@@ -305,29 +316,31 @@ def invoke_governed_command(
         },
     )
     claim_ref = _command_execution_claim_ref(store, idempotency_ref)
-    with _COMMAND_EXECUTION_CONDITION:
-        # Bind the durable reservation and its in-process execution owner under
-        # one condition so a duplicate cannot observe an unclaimed live attempt.
+    execution_lease = _acquire_command_execution_lease(
+        store=store,
+        claim_ref=claim_ref,
+        timeout_seconds=(
+            request.timeout_seconds + COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS
+        ),
+    )
+    if execution_lease is None:
+        return _in_progress_command_replay_result(
+            store=store,
+            invocation_request=invocation_request,
+            idempotency_ref=idempotency_ref,
+        )
+    try:
+        # Hold the claim-specific inter-process lease from reservation through
+        # terminal receipt so API and CLI callers cannot compete for ownership.
         created = store.create_invocation(
             invocation_request,
             idempotency_ref=idempotency_ref,
             command_gateway_validated=blocked_error is None,
         )
-        owns_execution_claim = not created.replayed
-        if owns_execution_claim:
-            _ACTIVE_COMMAND_EXECUTIONS.add(claim_ref)
-    try:
         record = created.record
         if blocked_error is None and _record_safe_disabled(record):
             blocked_error = "RUNTIME_COMMAND_SAFE_DISABLED"
         if created.replayed:
-            record, execution_active = _await_active_command_receipt(
-                store=store,
-                record=record,
-                claim_ref=claim_ref,
-                timeout_seconds=request.timeout_seconds
-                + COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS,
-            )
             if record.receipt is not None:
                 metadata = record.receipt.command_receipt_metadata
                 return RuntimeCommandGatewayResult(
@@ -337,15 +350,6 @@ def invoke_governed_command(
                     exit_code=metadata.exit_code if metadata else None,
                     timed_out=metadata.timed_out if metadata else False,
                     error_category=metadata.error_category if metadata else None,
-                    replayed=True,
-                    command_execution_enabled=(
-                        record.policy_decision.command_execution_enabled
-                    ),
-                )
-            if execution_active:
-                return RuntimeCommandGatewayResult(
-                    record=record,
-                    error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
                     replayed=True,
                     command_execution_enabled=(
                         record.policy_decision.command_execution_enabled
@@ -432,8 +436,7 @@ def invoke_governed_command(
             command_execution_enabled=COMMAND_RUNTIME_EXECUTION_ENABLED,
         )
     finally:
-        if owns_execution_claim:
-            _release_command_execution_claim(claim_ref)
+        execution_lease.release()
 
 
 def _command_execution_claim_ref(
@@ -443,32 +446,98 @@ def _command_execution_claim_ref(
     return (str(store.path.resolve(strict=False)), idempotency_ref)
 
 
-def _await_active_command_receipt(
+def _command_execution_lock_path(
+    store: RuntimeInvocationStore,
+    claim_ref: tuple[str, str],
+) -> Path:
+    digest = hashlib.sha256(
+        json.dumps(claim_ref, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return store.state_dir / ".runtime-command-execution-locks" / f"{digest}.lock"
+
+
+def _acquire_command_execution_lease(
     *,
     store: RuntimeInvocationStore,
-    record: RuntimeInvocationRecord,
     claim_ref: tuple[str, str],
     timeout_seconds: float,
-) -> tuple[RuntimeInvocationRecord, bool]:
+) -> _CommandExecutionLease | None:
+    lock_path = _command_execution_lock_path(store, claim_ref)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    directory_metadata = os.lstat(lock_path.parent)
+    if not stat.S_ISDIR(directory_metadata.st_mode):
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_COMMAND_EXECUTION_LOCK_DIRECTORY_INVALID"
+        )
+    flags = (
+        os.O_RDWR
+        | os.O_APPEND
+        | os.O_CREAT
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    descriptor = os.open(lock_path, flags, 0o600)
+    try:
+        metadata = os.fstat(descriptor)
+        path_metadata = os.lstat(lock_path)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+        ):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_COMMAND_EXECUTION_LOCK_INVALID"
+            )
+        os.fchmod(descriptor, 0o600)
+    except BaseException:
+        os.close(descriptor)
+        raise
     deadline = time.monotonic() + timeout_seconds
-    with _COMMAND_EXECUTION_CONDITION:
-        while claim_ref in _ACTIVE_COMMAND_EXECUTIONS:
+    while True:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return _CommandExecutionLease(descriptor=descriptor)
+        except BlockingIOError:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                return record, True
-            _COMMAND_EXECUTION_CONDITION.wait(timeout=remaining)
-    # The duplicate store loaded the reservation before the owner wrote its
-    # receipt, so read a fresh durable snapshot after the owner releases.
-    durable_record = RuntimeInvocationStore(store.state_dir).get_invocation(
-        record.invocation_ref
+                os.close(descriptor)
+                return None
+            time.sleep(min(0.01, remaining))
+
+
+def _in_progress_command_replay_result(
+    *,
+    store: RuntimeInvocationStore,
+    invocation_request: RuntimeInvocationRequest,
+    idempotency_ref: str,
+) -> RuntimeCommandGatewayResult:
+    durable_record = RuntimeInvocationStore(
+        store.state_dir
+    ).get_invocation_for_idempotency(idempotency_ref)
+    if durable_record is None:
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_COMMAND_ACTIVE_RESERVATION_MISSING"
+        )
+    if (
+        durable_record.payload_fingerprint_ref
+        != runtime_payload_fingerprint_ref(invocation_request)
+    ):
+        raise RuntimeInvocationConflictError(
+            "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+        )
+    replayed_record = durable_record.model_copy(
+        update={"replay_count": durable_record.replay_count + 1}
     )
-    return durable_record, False
-
-
-def _release_command_execution_claim(claim_ref: tuple[str, str]) -> None:
-    with _COMMAND_EXECUTION_CONDITION:
-        _ACTIVE_COMMAND_EXECUTIONS.discard(claim_ref)
-        _COMMAND_EXECUTION_CONDITION.notify_all()
+    return RuntimeCommandGatewayResult(
+        record=replayed_record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=(
+            replayed_record.policy_decision.command_execution_enabled
+        ),
+    )
 
 
 def _run_subprocess(
