@@ -24,6 +24,9 @@ Canonical operator guidance lives in
 - Host ports default to `8000` for the API and `5173` for Control Center, and
   can be overridden with `UAA_LOCAL_RUNTIME_API_PORT` and
   `UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT` for local proof runs.
+- The API receives the exact selected loopback Control Center origin through
+  `UAA_CONTROL_CENTER_CORS_ORIGIN`; fallback ports remain exact-scoped and do
+  not broaden the CORS policy.
 - Docker containers bind internally so host-loopback publishing can reach them.
 - API runtime scratch state uses container-local tmpfs, including `/app/.uaa`.
 - The package does not include OpenWebUI, `llama-server`, connector writes,

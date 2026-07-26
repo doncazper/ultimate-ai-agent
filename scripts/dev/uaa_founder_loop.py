@@ -1154,13 +1154,15 @@ def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
 def _inspect_backend_truth(args: argparse.Namespace) -> int:
     try:
         repo = _repository(args)
-        identity = build_identity()
-        if not identity.source_revision_bound:
-            identity = build_identity(
-                env={
-                    BUILD_COMMIT_ENV: verified_clean_source_commit(ROOT),
-                }
-            )
+        verified_commit = verified_clean_source_commit(ROOT)
+        supplied_identity = build_identity()
+        verified_commit_ref = f"commit-ref:git:{verified_commit}"
+        if (
+            supplied_identity.source_revision_bound
+            and supplied_identity.commit_ref != verified_commit_ref
+        ):
+            raise RuntimeError("BACKEND_TRUTH_SOURCE_REVISION_MISMATCH")
+        identity = build_identity(env={BUILD_COMMIT_ENV: verified_commit})
         truth = build_control_center_backend_truth(repo=repo, identity=identity)
     except Exception:
         _print_json(

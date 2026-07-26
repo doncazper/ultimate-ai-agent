@@ -55,7 +55,10 @@ from ultimate_ai_agent.core.contracts import (
     validate_context_pack,
 )
 from ultimate_ai_agent.core.build_identity import build_identity
-from ultimate_ai_agent.core.control_center.backend_truth import backend_instance_ref
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    backend_instance_ref,
+    backend_truth_envelope_is_current,
+)
 from ultimate_ai_agent.core.ledger import (
     EventLedgerEvent,
     RunState,
@@ -256,6 +259,9 @@ _BACKEND_TRUTH_REF_RE = re.compile(
     r"^proof-ref:backend-truth-envelope:sha256:[0-9a-f]{64}$"
 )
 _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
+    "/control-center/today/action-envelope",
+    "/control-center/memory/feedback",
+    "/control-center/memory/review/manual-candidate",
     "/control-center/work-board/reorder",
     "/control-center/work-board/cards",
     "/control-center/work-board/tasks",
@@ -263,6 +269,12 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
 }
+_CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
+    r"^/control-center/memory/(?:"
+    r"review/[^/]+/(?:accept|correct|reject|defer|merge|supersede|expire)"
+    r"|context-packs/[^/]+/action-proposal"
+    r")$"
+)
 _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE = re.compile(
     r"^/control-center/actions/[^/]+/"
     r"(?:approve|edit|reject|defer|local-task/commit)$"
@@ -830,6 +842,11 @@ async def backend_response_binding_middleware(
             or expected_instance != backend_instance_ref()
             or not isinstance(expected_truth, str)
             or _BACKEND_TRUTH_REF_RE.fullmatch(expected_truth) is None
+            or not backend_truth_envelope_is_current(
+                envelope_integrity_ref=expected_truth or "",
+                backend_revision_ref=expected_revision or "",
+                expected_backend_instance_ref=expected_instance or "",
+            )
         ):
             return JSONResponse(
                 status_code=409,
@@ -859,6 +876,7 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
     if (
         path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
     ):
         return False
     return bool(

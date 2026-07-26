@@ -9051,6 +9051,7 @@ function MemoryFeedbackControls({
   authoritative: boolean;
   issue: FounderLoopMemoryQualityIssue;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
     feedbackKind?: MemoryFeedbackKind;
@@ -9080,18 +9081,21 @@ function MemoryFeedbackControls({
     }
     setState({ status: "pending", feedbackKind });
     try {
-      const receipt = await recordMemoryFeedback({
-        target_ref: issue.target_ref,
-        target_kind:
-          issue.target_kind === "impact_graph_node"
-            ? "impact_graph_node"
-            : "memory_candidate",
-        feedback_kind: feedbackKind,
-        reviewer_ref: "actor-ref:control-center-memory-review",
-        reason_refs: [`reason-ref:control-center-memory-feedback:${feedbackKind}`],
-        metadata_refs: [issue.issue_ref],
-        blocked_state_refs: memoryFeedbackBlockedRefs,
-      });
+      const receipt = await recordMemoryFeedback(
+        {
+          target_ref: issue.target_ref,
+          target_kind:
+            issue.target_kind === "impact_graph_node"
+              ? "impact_graph_node"
+              : "memory_candidate",
+          feedback_kind: feedbackKind,
+          reviewer_ref: "actor-ref:control-center-memory-review",
+          reason_refs: [`reason-ref:control-center-memory-feedback:${feedbackKind}`],
+          metadata_refs: [issue.issue_ref],
+          blocked_state_refs: memoryFeedbackBlockedRefs,
+        },
+        mutationBinding,
+      );
       setState({
         status: "recorded",
         feedbackKind,
@@ -10006,6 +10010,7 @@ function ManualMemoryCandidatePanel({
 }: {
   authoritative: boolean;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [title, setTitle] = useState("Manual memory candidate");
   const [safeSummary, setSafeSummary] = useState(
     "Bounded safe summary for operator review only.",
@@ -10030,18 +10035,21 @@ function ManualMemoryCandidatePanel({
     setState({ status: "pending" });
     try {
       const safeSuffix = safeRefSuffix(`${candidateKind}:${title}`);
-      const receipt = await recordManualMemoryCandidate({
-        candidate_kind: candidateKind.trim(),
-        title: title.trim(),
-        safe_summary: safeSummary.trim(),
-        priority: "medium",
-        reviewer_ref: "actor-ref:control-center-memory-review",
-        source_refs: [`source-ref:manual-note:${safeSuffix}`],
-        provenance_refs: [`provenance-ref:manual-note:${safeSuffix}`],
-        missing_evidence_refs: [`missing-evidence-ref:manual-note:${safeSuffix}`],
-        tag_refs: ["tag-ref:manual-memory-candidate"],
-        blocked_state_refs: manualMemoryCandidateBlockedRefs,
-      });
+      const receipt = await recordManualMemoryCandidate(
+        {
+          candidate_kind: candidateKind.trim(),
+          title: title.trim(),
+          safe_summary: safeSummary.trim(),
+          priority: "medium",
+          reviewer_ref: "actor-ref:control-center-memory-review",
+          source_refs: [`source-ref:manual-note:${safeSuffix}`],
+          provenance_refs: [`provenance-ref:manual-note:${safeSuffix}`],
+          missing_evidence_refs: [`missing-evidence-ref:manual-note:${safeSuffix}`],
+          tag_refs: ["tag-ref:manual-memory-candidate"],
+          blocked_state_refs: manualMemoryCandidateBlockedRefs,
+        },
+        mutationBinding,
+      );
       setState({
         status: "recorded",
         receipt,
@@ -10304,6 +10312,7 @@ function MemoryContextPackProposalCard({
   authoritative: boolean;
   proposal: FounderLoopMemoryContextPackProposal;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [displayedProposal, setDisplayedProposal] = useState(proposal);
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
@@ -10357,6 +10366,7 @@ function MemoryContextPackProposalCard({
             displayedProposal.context_pack_ref,
           ],
         },
+        mutationBinding,
       );
       setState({
         status: "recorded",
@@ -13445,6 +13455,7 @@ function MemoryReviewDecisionControls({
   authoritative: boolean;
   subject: MemoryReviewDecisionSubject;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [state, setState] = useState<MemoryDecisionControlState>({
     status: "idle",
   });
@@ -13497,26 +13508,31 @@ function MemoryReviewDecisionControls({
 
     setState({ status: "pending", decision });
     try {
-      const receipt = await recordMemoryReviewDecision(subject.candidateRef, decision, {
-        reviewer_ref: "actor-ref:control-center-memory-review",
-        corrected_summary_ref:
-          decision === "correct" ? correctedSummaryRef.trim() : undefined,
-        corrected_safe_summary:
-          decision === "correct" ? correctedSafeSummary.trim() : undefined,
-        merge_refs:
-          decision === "merge"
-            ? subject.duplicateRefs
-            : undefined,
-        supersedes_refs:
-          decision === "supersede" ? subject.conflictRefs : undefined,
-        source_refs: subject.sourceRefs,
-        evidence_refs: stableMemoryDecisionEvidenceRefs(subject.evidenceRefs),
-        metadata_refs: [
-          `metadata-ref:control-center-memory-review:${decision}`,
-          subject.reviewRef,
-        ],
-        blocked_state_refs: memoryReviewDecisionBlockedRefs,
-      });
+      const receipt = await recordMemoryReviewDecision(
+        subject.candidateRef,
+        decision,
+        {
+          reviewer_ref: "actor-ref:control-center-memory-review",
+          corrected_summary_ref:
+            decision === "correct" ? correctedSummaryRef.trim() : undefined,
+          corrected_safe_summary:
+            decision === "correct" ? correctedSafeSummary.trim() : undefined,
+          merge_refs:
+            decision === "merge"
+              ? subject.duplicateRefs
+              : undefined,
+          supersedes_refs:
+            decision === "supersede" ? subject.conflictRefs : undefined,
+          source_refs: subject.sourceRefs,
+          evidence_refs: stableMemoryDecisionEvidenceRefs(subject.evidenceRefs),
+          metadata_refs: [
+            `metadata-ref:control-center-memory-review:${decision}`,
+            subject.reviewRef,
+          ],
+          blocked_state_refs: memoryReviewDecisionBlockedRefs,
+        },
+        mutationBinding,
+      );
       const status = receipt.replayed ? "replayed" : "recorded";
       setState({
         status,
@@ -13672,6 +13688,7 @@ function TodayActionEnvelopeControls({
   authoritative: boolean;
   item: FounderLoopBriefingItem;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [state, setState] = useState<{
     status: "idle" | "pending" | "recorded" | "failed";
     receipt?: FounderLoopActionEnvelopePromotionReceipt;
@@ -13690,17 +13707,20 @@ function TodayActionEnvelopeControls({
     }
     setState({ status: "pending" });
     try {
-      const receipt = await submitTodayActionEnvelope({
-        today_item_ref: item.briefing_ref,
-        actor_context: "control_center_today_surface",
-        decision_reason_ref: "decision-reason-ref:today-action-envelope",
-        risk_class: "medium",
-        priority: item.priority === "high" ? "high" : "medium",
-        metadata_refs: [
-          "metadata-ref:control-center-today-action-envelope",
-          item.briefing_ref,
-        ],
-      });
+      const receipt = await submitTodayActionEnvelope(
+        {
+          today_item_ref: item.briefing_ref,
+          actor_context: "control_center_today_surface",
+          decision_reason_ref: "decision-reason-ref:today-action-envelope",
+          risk_class: "medium",
+          priority: item.priority === "high" ? "high" : "medium",
+          metadata_refs: [
+            "metadata-ref:control-center-today-action-envelope",
+            item.briefing_ref,
+          ],
+        },
+        mutationBinding,
+      );
       setState({
         status: "recorded",
         receipt,

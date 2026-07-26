@@ -4643,6 +4643,7 @@ export async function fetchFounderActionsInbox(): Promise<FounderLoopActionsInbo
 
 export async function submitTodayActionEnvelope(
   request: FounderLoopActionEnvelopePromotionRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<FounderLoopActionEnvelopePromotionReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4651,14 +4652,19 @@ export async function submitTodayActionEnvelope(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderTodayActionEnvelope}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": todayActionEnvelopeIdempotencyRef(
-          request.today_item_ref,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": todayActionEnvelopeIdempotencyRef(
+              request.today_item_ref,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -4972,6 +4978,7 @@ export async function recordMemoryReviewDecision(
   candidateRef: string,
   decision: MemoryReviewDecisionKind,
   request: MemoryReviewDecisionRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<MemoryReviewDecisionReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -4980,15 +4987,20 @@ export async function recordMemoryReviewDecision(
     `${API_BASE_POLICY.baseUrl}${memoryReviewDecisionEndpoint(candidateRef, decision)}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": memoryReviewDecisionIdempotencyRef(
-          candidateRef,
-          decision,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": memoryReviewDecisionIdempotencyRef(
+              candidateRef,
+              decision,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -5059,6 +5071,7 @@ export async function fetchFounderMemoryWorkbench(): Promise<FounderLoopMemoryWo
 
 export async function recordManualMemoryCandidate(
   request: ManualMemoryCandidateRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<ManualMemoryCandidateReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -5067,11 +5080,16 @@ export async function recordManualMemoryCandidate(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderMemoryManualCandidate}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": manualMemoryCandidateIdempotencyRef(request),
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": manualMemoryCandidateIdempotencyRef(request),
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -5094,6 +5112,7 @@ export async function recordManualMemoryCandidate(
 
 export async function recordMemoryFeedback(
   request: MemoryFeedbackRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<MemoryFeedbackReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -5102,11 +5121,16 @@ export async function recordMemoryFeedback(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.founderMemoryFeedback}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": memoryFeedbackIdempotencyRef(request),
-      }),
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": memoryFeedbackIdempotencyRef(request),
+          },
+          binding,
+        ),
+      ),
       body: JSON.stringify(request),
     },
   );
@@ -5129,6 +5153,7 @@ export async function recordMemoryFeedback(
 export async function recordMemoryContextPackActionProposal(
   contextPackRef: string,
   request: FounderLoopMemoryContextPackActionProposalRequest,
+  binding: BackendTruthReadBinding | null,
 ): Promise<FounderLoopMemoryContextPackActionProposalReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -5137,14 +5162,19 @@ export async function recordMemoryContextPackActionProposal(
     `${API_BASE_POLICY.baseUrl}${memoryContextPackActionProposalEndpoint(contextPackRef)}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-UAA-Idempotency-Key": memoryContextPackActionIdempotencyRef(
-          contextPackRef,
-          request,
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": memoryContextPackActionIdempotencyRef(
+              contextPackRef,
+              request,
+            ),
+          },
+          binding,
         ),
-      }),
+      ),
       body: JSON.stringify(request),
     },
   );

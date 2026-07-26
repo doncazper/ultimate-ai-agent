@@ -1,3 +1,4 @@
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
@@ -6,6 +7,8 @@ from ultimate_ai_agent.api.cors import (
     CONTROL_CENTER_LOOPBACK_CORS_HEADERS,
     CONTROL_CENTER_LOOPBACK_CORS_METHODS,
     CONTROL_CENTER_LOOPBACK_CORS_ORIGINS,
+    configure_loopback_cors,
+    control_center_loopback_cors_origins,
 )
 from ultimate_ai_agent.api.security_headers import FASTAPI_SECURITY_HEADERS
 
@@ -53,6 +56,40 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "X-UAA-Rate-Limit-Policy",
         "X-UAA-Security-Headers-Policy",
     )
+
+
+def test_packaging_selected_loopback_origin_is_exact_scoped(
+    monkeypatch,
+) -> None:
+    origin = "http://127.0.0.1:53421"
+    monkeypatch.setenv("UAA_CONTROL_CENTER_CORS_ORIGIN", origin)
+    local_app = configure_loopback_cors(FastAPI())
+
+    @local_app.get("/health")
+    def health() -> dict[str, bool]:
+        return {"ok": True}
+
+    response = TestClient(local_app).get(
+        "/health",
+        headers={"Origin": origin},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == origin
+    assert "*" not in control_center_loopback_cors_origins()
+
+
+def test_packaging_cors_origin_rejects_non_loopback_and_invalid_ports() -> None:
+    for configured in (
+        "https://127.0.0.1:53421",
+        "http://192.168.1.2:53421",
+        "http://127.0.0.1:0",
+        "http://127.0.0.1:65536",
+        "http://127.0.0.1:53421/path",
+    ):
+        assert control_center_loopback_cors_origins(
+            {"UAA_CONTROL_CENTER_CORS_ORIGIN": configured}
+        ) == CONTROL_CENTER_LOOPBACK_CORS_ORIGINS
 
 
 def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:

@@ -231,6 +231,51 @@ def test_backend_truth_matches_proof_to_each_committed_action(
     assert truth["evidence_binding"]["issue_refs"] == []
 
 
+def test_backend_truth_discovers_durable_commit_beyond_today_page(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    state_dir = tmp_path / "durable-beyond-today-page"
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:operator:approve-local-task",
+        ),
+        idempotency_key_ref="idempotency-ref:operator:approve-local-task",
+    )
+    repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+        ),
+        idempotency_key_ref="idempotency-ref:operator:commit-local-task",
+    )
+    reloaded = FounderLoopRepository(state_dir)
+    today = reloaded.today_summary(limit=50)
+    today["actions"] = [
+        {
+            "item_ref": f"founder-action:uncommitted-{index}",
+            "action_kind": "review_only",
+        }
+        for index in range(50)
+    ]
+    monkeypatch.setattr(reloaded, "today_summary", lambda **_kwargs: today)
+
+    truth = build_control_center_backend_truth(
+        repo=reloaded,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "verified_complete"
+    assert truth["evidence_binding"]["receipt_refs"]
+
+
 def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
     tmp_path,
     monkeypatch,
@@ -286,6 +331,36 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
     ]
 
 
+def test_backend_truth_redacts_unsafe_claimed_receipt_ref(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "unsafe-claim")
+    today = repo.today_summary()
+    today["actions"] = [
+        {
+            "item_ref": "founder-action:unsafe-claim",
+            "action_kind": "local_task_create",
+            "local_task_ref": "local-task:founder-loop:unsafe-claim",
+            "local_task_commit_receipt_ref": "/Users/private/raw-receipt",
+            "receipt_refs": ["/Users/private/raw-receipt"],
+        },
+    ]
+    monkeypatch.setattr(repo, "today_summary", lambda **_kwargs: today)
+
+    truth = build_control_center_backend_truth(
+        repo=repo,
+        now=NOW,
+        identity=_identity(),
+    )
+
+    assert truth["evidence_binding"]["status"] == "invalid_evidence"
+    assert truth["evidence_binding"]["receipt_refs"] == [
+        "receipt-ref:founder-loop-durable-proof-invalid-claim"
+    ]
+    assert "/Users/" not in json.dumps(truth)
+
+
 @pytest.mark.parametrize(
     ("field_name", "replacement"),
     [
@@ -302,6 +377,30 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
             "evidence-timeline:local-task/tampered",
         ),
         ("evidence_refs", ["evidence-ref:tampered"]),
+        ("approval_status", "pending"),
+        ("approval_reason_refs", []),
+        ("authority_decision_ref", None),
+        (
+            "authority_decision_ref",
+            "authority-policy-decision-ref:sha256:" + "0" * 24,
+        ),
+        ("authority_decision_outcome", "deny"),
+        ("authority_lease_ref", None),
+        ("authority_lease_ref", "authority-lease-ref:substituted"),
+        (
+            "authority_audit_ref",
+            "audit-ref:authority-policy:sha256:" + "0" * 24,
+        ),
+        (
+            "authority_policy_receipt_ref",
+            "receipt-ref:authority-policy:sha256:" + "0" * 24,
+        ),
+        ("authority_domain_ref", "authority-domain-ref:memory"),
+        ("authority_capability_ref", "authority-capability-ref:read"),
+        ("authority_required_mode_ref", "authority-mode-ref:read-only"),
+        ("safe_disable_ref", "safe-disable-ref:tampered"),
+        ("rollback_ref", "rollback-ref:tampered"),
+        ("safe_disable_posture_ref", "safe-disable-posture-ref:tampered"),
     ],
 )
 def test_backend_truth_rejects_tampered_durable_receipt_bindings(
@@ -533,9 +632,16 @@ def test_backend_truth_contains_only_redacted_safe_refs(tmp_path) -> None:
 
 
 def test_backend_truth_cli_matches_the_core_contract(tmp_path) -> None:
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     env = os.environ.copy()
     env["UAA_FOUNDER_LOOP_STATE_DIR"] = str(tmp_path / "cli-state")
-    env["UAA_BUILD_COMMIT"] = SHA
+    env["UAA_BUILD_COMMIT"] = head
     completed = subprocess.run(
         [
             sys.executable,
@@ -555,12 +661,37 @@ def test_backend_truth_cli_matches_the_core_contract(tmp_path) -> None:
         "repo-local-command:founder-loop-inspect-backend-truth"
     )
     assert payload["backend_truth"]["backend_revision_ref"] == (
-        f"commit-ref:git:{SHA}"
+        f"commit-ref:git:{head}"
     )
     assert payload["backend_truth"]["authority_posture"][
         "control_center_grants_authority"
     ] is False
     assert payload["safe_refs_only"] is True
+
+
+def test_backend_truth_cli_rejects_stale_prebound_revision(tmp_path) -> None:
+    env = os.environ.copy()
+    env["UAA_FOUNDER_LOOP_STATE_DIR"] = str(tmp_path / "stale-cli-state")
+    env["UAA_BUILD_COMMIT"] = "f" * 40
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "dev" / "uaa_founder_loop.py"),
+            "inspect-backend-truth",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    payload = json.loads(completed.stdout)
+    assert payload["status"] == "blocked"
+    assert payload["error_ref"] == "CONTROL_CENTER_BACKEND_TRUTH_STORAGE_BLOCKED"
+    assert completed.stderr == ""
 
 
 def test_backend_truth_cli_redacts_repository_initialization_failure(

@@ -55,6 +55,7 @@ import {
   recordMemoryReviewDecision,
   resetControlCenterReadLimiterForTests,
   setLocalApiBearerForSession,
+  type BackendTruthReadBinding,
 } from "./api/client";
 import type {
   AuthorityDecisionPreview,
@@ -70,6 +71,13 @@ import {
   mockControlCenterData,
 } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
+
+const TEST_MUTATION_BINDING: BackendTruthReadBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:22222222222222222222222222222222",
+};
 
 afterEach(() => {
   cleanup();
@@ -16001,6 +16009,11 @@ describe("Web Control Center shell", () => {
       expect(
         String((options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"]),
       ).toContain("idempotency-ref:control-center-memory-feedback");
+      expect(options?.headers).toMatchObject({
+        "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+        "X-UAA-Expected-Backend-Truth-Ref":
+          TEST_MUTATION_BINDING.snapshotRef,
+      });
       return new Response(
         JSON.stringify({ ok: true, result: feedbackReceipt }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -16008,20 +16021,23 @@ describe("Web Control Center shell", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const receipt = await recordMemoryFeedback({
-      target_ref:
-        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
-      target_kind: "memory_candidate",
-      feedback_kind: "stale",
-      reviewer_ref: "actor-ref:control-center-memory-review",
-      evidence_refs: ["evidence-ref:fcc-mem-021:feedback-test"],
-      reason_refs: ["reason-ref:control-center-memory-feedback:stale"],
-      metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
-      blocked_state_refs: [
-        "blocked-state:memory-feedback-no-automatic-memory-write",
-        "blocked-state:memory-feedback-no-context-injection",
-      ],
-    });
+    const receipt = await recordMemoryFeedback(
+      {
+        target_ref:
+          "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+        target_kind: "memory_candidate",
+        feedback_kind: "stale",
+        reviewer_ref: "actor-ref:control-center-memory-review",
+        evidence_refs: ["evidence-ref:fcc-mem-021:feedback-test"],
+        reason_refs: ["reason-ref:control-center-memory-feedback:stale"],
+        metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
+        blocked_state_refs: [
+          "blocked-state:memory-feedback-no-automatic-memory-write",
+          "blocked-state:memory-feedback-no-context-injection",
+        ],
+      },
+      TEST_MUTATION_BINDING,
+    );
 
     expect(receipt.receipt_ref).toBe(feedbackReceipt.receipt_ref);
     expect(receipt.memory_write_performed).toBe(false);
@@ -16639,11 +16655,16 @@ describe("Web Control Center shell", () => {
     setLocalApiBearerForSession(localBearer);
 
     await fetchMemoryReviewDecisionReceipt(candidateRef);
-    await recordMemoryReviewDecision(candidateRef, "accept", {
-      reviewer_ref: "actor-ref:control-center-memory-review",
-      source_refs: ["source-ref:auth-header-test"],
-      evidence_refs: ["evidence-ref:auth-header-test"],
-    });
+    await recordMemoryReviewDecision(
+      candidateRef,
+      "accept",
+      {
+        reviewer_ref: "actor-ref:control-center-memory-review",
+        source_refs: ["source-ref:auth-header-test"],
+        evidence_refs: ["evidence-ref:auth-header-test"],
+      },
+      TEST_MUTATION_BINDING,
+    );
 
     const getCall = fetchMock.mock.calls.find(
       ([url, options]) =>

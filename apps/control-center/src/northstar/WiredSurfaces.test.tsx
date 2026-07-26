@@ -432,7 +432,14 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderMemoryReview.mockResolvedValue(data.founderMemoryReview);
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.change(screen.getByLabelText("Correction"), { target: { value: "Corrected bounded safe summary." } });
     fireEvent.click(screen.getByRole("button", { name: "Record correct receipt" }));
 
@@ -441,6 +448,9 @@ describe("North Star backend wiring", () => {
       corrected_safe_summary: "Corrected bounded safe summary.",
       reviewer_ref: "actor-ref:northstar-memory-review",
     });
+    expect(apiMocks.recordMemoryReviewDecision.mock.calls[0][3]).toEqual(
+      mutationBinding,
+    );
     expect(await screen.findByText(/receipt:memory-review:test/)).toBeVisible();
     expect(apiMocks.fetchFounderMemoryReview).toHaveBeenCalledTimes(1);
   });
@@ -453,7 +463,14 @@ describe("North Star backend wiring", () => {
     candidate.context_injection_authorized = true;
     data.founderMemoryReview.items = [candidate];
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
 
     expect(screen.getByRole("button", { name: "Record correct receipt" })).toBeDisabled();
     expect(apiMocks.recordMemoryReviewDecision).not.toHaveBeenCalled();
@@ -485,17 +502,29 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchFounderMemoryReview.mockResolvedValue(data.founderMemoryReview);
 
-    render(<NorthStarControlCenter activePath="/workspace/knowledge" data={data} />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/knowledge"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add local note" }));
     fireEvent.change(screen.getByLabelText("Note title"), { target: { value: "Founder preference" } });
     fireEvent.change(screen.getByLabelText("Bounded safe summary"), { target: { value: "Review this bounded operator note." } });
     fireEvent.click(screen.getByRole("button", { name: "Record review candidate" }));
 
-    await waitFor(() => expect(apiMocks.recordManualMemoryCandidate).toHaveBeenCalledWith(expect.objectContaining({
-      candidate_kind: "operator_note",
-      title: "Founder preference",
-      safe_summary: "Review this bounded operator note.",
-    })));
+    await waitFor(() =>
+      expect(apiMocks.recordManualMemoryCandidate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidate_kind: "operator_note",
+          title: "Founder preference",
+          safe_summary: "Review this bounded operator note.",
+        }),
+        mutationBinding,
+      ),
+    );
     expect(await screen.findByText(/No recall record or memory write was created/)).toBeVisible();
   });
 

@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import scripts.verify_control_center_visual_regression as visual
 import scripts.verify_local_runtime_packaging_proof as packaging
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_control_center_visual_regression_manifest_is_safe() -> None:
@@ -105,6 +110,15 @@ def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 
     assert failures == []
+
+
+def test_local_runtime_binds_exact_selected_control_center_origin() -> None:
+    compose = (ROOT / "packaging/local-runtime/compose.yaml").read_text()
+
+    assert (
+        "UAA_CONTROL_CENTER_CORS_ORIGIN: "
+        "http://127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}"
+    ) in compose
 
 
 def test_local_runtime_packaging_proof_summary_shape_is_safe() -> None:

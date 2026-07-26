@@ -90,6 +90,7 @@ const memoryDecisionRequiredRefFields = [
 ];
 
 export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [review, setReview] = useState<FounderLoopMemoryReview>(data.founderMemoryReview);
   const [decision, setDecision] = useState<MemoryReviewDecisionKind>("correct");
   const [selected, setSelected] = useState(0);
@@ -180,15 +181,20 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
     setPending(true);
     try {
       const candidateRef = candidate.business_memory_candidate_ref || candidate.review_ref;
-      const recorded = await recordMemoryReviewDecision(candidateRef, decision, {
-        reviewer_ref: "actor-ref:northstar-memory-review",
-        corrected_summary_ref: decision === "correct" ? `safe-summary-ref:northstar-memory-correction:${candidate.review_ref.replace(/[^a-zA-Z0-9_.@-]+/g, "-")}` : undefined,
-        corrected_safe_summary: decision === "correct" ? correction.trim() : undefined,
-        source_refs: candidate.source_refs,
-        evidence_refs: candidate.evidence_refs,
-        metadata_refs: [`metadata-ref:northstar-memory-review:${decision}`, candidate.review_ref],
-        blocked_state_refs: review.blocked_state_refs,
-      });
+      const recorded = await recordMemoryReviewDecision(
+        candidateRef,
+        decision,
+        {
+          reviewer_ref: "actor-ref:northstar-memory-review",
+          corrected_summary_ref: decision === "correct" ? `safe-summary-ref:northstar-memory-correction:${candidate.review_ref.replace(/[^a-zA-Z0-9_.@-]+/g, "-")}` : undefined,
+          corrected_safe_summary: decision === "correct" ? correction.trim() : undefined,
+          source_refs: candidate.source_refs,
+          evidence_refs: candidate.evidence_refs,
+          metadata_refs: [`metadata-ref:northstar-memory-review:${decision}`, candidate.review_ref],
+          blocked_state_refs: review.blocked_state_refs,
+        },
+        mutationBinding,
+      );
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}.`);
       try {
@@ -211,18 +217,21 @@ export function KnowledgeSurface({ data }: { data: ControlCenterData }) {
     if (!reviewAuthoritative || !noteTitle.trim() || !noteSummary.trim()) return;
     setPending(true);
     try {
-      const recorded = await recordManualMemoryCandidate({
-        candidate_kind: "operator_note",
-        title: noteTitle.trim(),
-        safe_summary: noteSummary.trim(),
-        priority: "medium",
-        reviewer_ref: "actor-ref:northstar-memory-review",
-        source_refs: ["source-ref:northstar-manual-note"],
-        provenance_refs: ["provenance-ref:northstar-manual-note"],
-        missing_evidence_refs: ["missing-evidence-ref:northstar-manual-note"],
-        tag_refs: ["tag-ref:manual-memory-candidate"],
-        blocked_state_refs: ["blocked-state-ref:no-automatic-memory-write", "blocked-state-ref:no-context-injection"],
-      });
+      const recorded = await recordManualMemoryCandidate(
+        {
+          candidate_kind: "operator_note",
+          title: noteTitle.trim(),
+          safe_summary: noteSummary.trim(),
+          priority: "medium",
+          reviewer_ref: "actor-ref:northstar-memory-review",
+          source_refs: ["source-ref:northstar-manual-note"],
+          provenance_refs: ["provenance-ref:northstar-manual-note"],
+          missing_evidence_refs: ["missing-evidence-ref:northstar-manual-note"],
+          tag_refs: ["tag-ref:manual-memory-candidate"],
+          blocked_state_refs: ["blocked-state-ref:no-automatic-memory-write", "blocked-state-ref:no-context-injection"],
+        },
+        mutationBinding,
+      );
       setNoteReceipt(recorded);
       setNoteOpen(false);
       setNoteTitle("");

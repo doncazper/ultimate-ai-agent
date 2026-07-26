@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -38,10 +39,62 @@ FOUNDER_LOOP_DURABLE_EVIDENCE_INTEGRITY_PREFIX = (
     "proof-ref:founder-loop-durable-evidence:sha256:"
 )
 _BACKEND_INSTANCE_REF = f"backend-instance-ref:control-center:{uuid.uuid4().hex}"
+_INVALID_CLAIMED_RECEIPT_REF = (
+    "receipt-ref:founder-loop-durable-proof-invalid-claim"
+)
+_ISSUED_ENVELOPE_LOCK = threading.Lock()
+_LATEST_ISSUED_ENVELOPE: dict[str, Any] | None = None
 
 
 def backend_instance_ref() -> str:
     return _BACKEND_INSTANCE_REF
+
+
+def _register_issued_backend_truth(payload: dict[str, Any]) -> None:
+    global _LATEST_ISSUED_ENVELOPE
+    issued = {
+        "envelope_integrity_ref": payload["envelope_integrity_ref"],
+        "backend_revision_ref": payload["backend_revision_ref"],
+        "backend_instance_ref": payload["backend_instance_ref"],
+        "generated_at": payload["generated_at"],
+        "valid_until": payload["valid_until"],
+    }
+    with _ISSUED_ENVELOPE_LOCK:
+        _LATEST_ISSUED_ENVELOPE = issued
+
+
+def backend_truth_envelope_is_current(
+    *,
+    envelope_integrity_ref: str,
+    backend_revision_ref: str,
+    expected_backend_instance_ref: str,
+    now: datetime | None = None,
+) -> bool:
+    """Verify an exact, latest-issued, unexpired backend truth envelope."""
+    with _ISSUED_ENVELOPE_LOCK:
+        issued = (
+            dict(_LATEST_ISSUED_ENVELOPE)
+            if _LATEST_ISSUED_ENVELOPE is not None
+            else None
+        )
+    if issued is None:
+        return False
+    current = (now or utc_now()).astimezone(UTC)
+    try:
+        generated_at = datetime.fromisoformat(
+            str(issued["generated_at"]).replace("Z", "+00:00")
+        )
+        valid_until = datetime.fromisoformat(
+            str(issued["valid_until"]).replace("Z", "+00:00")
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+    return bool(
+        issued["envelope_integrity_ref"] == envelope_integrity_ref
+        and issued["backend_revision_ref"] == backend_revision_ref
+        and issued["backend_instance_ref"] == expected_backend_instance_ref
+        and generated_at <= current <= valid_until
+    )
 
 
 class CriticalSurfaceBinding(BaseModel):
@@ -315,6 +368,16 @@ def _safe_refs(value: Any) -> list[str]:
     return refs
 
 
+def _safe_claimed_receipt_ref(value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return (
+        value
+        if value in _safe_refs([value])
+        else _INVALID_CLAIMED_RECEIPT_REF
+    )
+
+
 def _durable_local_task_candidate(
     *,
     action: dict[str, Any],
@@ -391,9 +454,16 @@ def _build_founder_loop_durable_evidence(
 ) -> tuple[dict[str, Any], list[str]]:
     bounded_limit = min(max(int(limit), 12), 50)
     today = repo.today_summary(limit=bounded_limit)
-    actions = [
+    today_actions = [
         item for item in today.get("actions", []) if isinstance(item, dict)
     ]
+    durable_actions = repo.list_durable_local_task_actions()
+    actions_by_ref: dict[str, dict[str, Any]] = {}
+    for action in [*today_actions, *durable_actions]:
+        item_ref = action.get("item_ref")
+        if isinstance(item_ref, str) and item_ref:
+            actions_by_ref[item_ref] = action
+    actions = list(actions_by_ref.values())
     candidates: list[dict[str, Any]] = []
     invalid_claimed_receipt_refs: list[str] = []
     for action in actions:
@@ -412,20 +482,23 @@ def _build_founder_loop_durable_evidence(
         except FounderLoopStorageError:
             candidate = None
         if has_claimed_receipt and candidate is None:
-            invalid_claimed_receipt_refs.append(claimed_receipt_ref)
+            invalid_claimed_receipt_refs.append(
+                _safe_claimed_receipt_ref(claimed_receipt_ref)
+                or _INVALID_CLAIMED_RECEIPT_REF
+            )
         if candidate is not None:
             candidates.append(candidate)
     claimed_receipt_refs = list(
         dict.fromkeys(
-            receipt_ref
+            safe_receipt_ref
             for action in actions
             if action.get("action_kind")
             == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
-            and isinstance(
-                receipt_ref := action.get("local_task_commit_receipt_ref"),
-                str,
+            and (
+                safe_receipt_ref := _safe_claimed_receipt_ref(
+                    action.get("local_task_commit_receipt_ref")
+                )
             )
-            and receipt_ref
         )
     )
     evidence_memory = today.get("evidence_memory_loop_binding_read_model")
@@ -545,4 +618,6 @@ def build_control_center_backend_truth(
         "raw_paths_included": False,
     }
     payload["envelope_integrity_ref"] = backend_truth_integrity_ref(payload)
-    return ControlCenterBackendTruth(**payload).model_dump(mode="json")
+    validated = ControlCenterBackendTruth(**payload).model_dump(mode="json")
+    _register_issued_backend_truth(validated)
+    return validated

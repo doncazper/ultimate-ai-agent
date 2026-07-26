@@ -19,6 +19,7 @@ services:
       PORT: "8000"
       UAA_FILE_API_SAFE_ROOT: /app
       UAA_BUILD_COMMIT: ${UAA_BUILD_COMMIT:?set UAA_BUILD_COMMIT to the verified clean source SHA}
+      UAA_CONTROL_CENTER_CORS_ORIGIN: http://127.0.0.1:${UAA_LOCAL_RUNTIME_CONTROL_CENTER_PORT:-5173}
       UAA_LOCAL_RUNTIME_SECRET_FILE: /run/secrets/uaa_local_runtime_secret
       UAA_OPENWEBUI_TEST_GATEWAY_ENABLED: ""
     secrets:

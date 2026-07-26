@@ -128,6 +128,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_payload_fingerprint_ref,
     local_task_commit_payload_for_fingerprint,
     local_task_commit_receipt_ref,
+    local_task_authority_proof_refs,
     local_task_ref_for_action,
 )
 from ultimate_ai_agent.core.storage import founder_loop_exact_action
@@ -10669,6 +10670,47 @@ class FounderLoopRepository:
             )
         return projected_actions[: self._bounded_limit(limit)]
 
+    def list_durable_local_task_actions(self) -> list[dict[str, Any]]:
+        """Project every durable local-task commit without a Today page limit."""
+        rows = self._fetch_all(
+            """
+            SELECT item_ref
+            FROM local_task_commit_receipts
+            ORDER BY created_at DESC, item_ref ASC
+            """,
+            (),
+        )
+        actions: list[dict[str, Any]] = []
+        for row in rows:
+            item_ref = str(row["item_ref"])
+            action = self._action_payload_for_item_ref(item_ref)
+            if action is None:
+                continue
+            projected = {**action, **self._local_task_commit_projection(action)}
+            receipt = self._latest_local_task_commit_receipt_for_item_ref(
+                item_ref
+            )
+            if receipt is None:
+                continue
+            projected["receipt_refs"] = list(
+                dict.fromkeys(
+                    [
+                        *list(projected.get("receipt_refs") or []),
+                        str(receipt.get("receipt_ref") or ""),
+                    ]
+                )
+            )
+            projected["audit_refs"] = list(
+                dict.fromkeys(
+                    [
+                        *list(projected.get("audit_refs") or []),
+                        str(receipt.get("audit_ref") or ""),
+                    ]
+                )
+            )
+            actions.append(projected)
+        return actions
+
     def record_chat_turn_receipt(
         self,
         *,
@@ -12050,6 +12092,61 @@ class FounderLoopRepository:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
             )
+        expected_authority_bindings = {
+            "contract_ref": FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+            "approval_status": "approved",
+            "authority_domain_ref": FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+            "authority_capability_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+            ),
+            "authority_required_mode_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+            ),
+            "safe_disable_ref": FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+            "rollback_ref": FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+            "safe_disable_posture_ref": (
+                FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF
+            ),
+        }
+        if any(
+            getattr(receipt, field) != expected
+            for field, expected in expected_authority_bindings.items()
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
+        if (
+            not receipt.approval_reason_refs
+            or receipt.authority_decision_ref is None
+            or receipt.authority_decision_outcome
+            not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }
+            or receipt.authority_lease_ref is None
+            or not receipt.safe_disable_enabled
+            or receipt.rollback_execution_enabled
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
+        expected_authority_refs = local_task_authority_proof_refs(
+            authority_lease_ref=str(receipt.authority_lease_ref),
+            authority_decision_outcome=str(
+                receipt.authority_decision_outcome
+            ),
+        )
+        if (
+            receipt.authority_decision_ref
+            != expected_authority_refs["authority_decision_ref"]
+            or receipt.authority_audit_ref
+            != expected_authority_refs["authority_audit_ref"]
+            or receipt.authority_policy_receipt_ref
+            != expected_authority_refs["authority_policy_receipt_ref"]
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_AUTHORITY_MISMATCH"
+            )
 
         action = self._action_payload_for_item_ref(receipt.item_ref)
         if action is None:
@@ -12057,6 +12154,11 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_ACTION_NOT_FOUND"
             )
         projected = {**action, **self._local_task_commit_projection(action)}
+        approval_receipt = (
+            self._latest_approved_action_decision_receipt_for_item_ref(
+                receipt.item_ref
+            )
+        )
         if (
             projected.get("action_kind")
             != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
@@ -12070,6 +12172,17 @@ class FounderLoopRepository:
             or not set(receipt.evidence_refs).issubset(
                 set(projected.get("evidence_refs") or [])
             )
+            or approval_receipt is None
+            or approval_receipt.get("approval_ref") != receipt.approval_ref
+            or approval_receipt.get("approval_status") != "approved"
+            or approval_receipt.get("authority_domain_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF
+            or approval_receipt.get("authority_capability_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+            or approval_receipt.get("authority_required_mode_ref")
+            != FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+            or approval_receipt.get("authority_lease_ref")
+            != receipt.authority_lease_ref
         ):
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_BINDING_MISMATCH"
@@ -12367,6 +12480,18 @@ class FounderLoopRepository:
                     "evidence-ref:founder-loop:local-task-commit",
                     "evidence-ref:founder-loop:action-inbox",
                     evidence_event_ref,
+                    authority_decision.decision_ref,
+                    authority_decision.audit_record_ref,
+                    *(
+                        [authority_decision.receipt_ref]
+                        if authority_decision.receipt_ref
+                        else []
+                    ),
+                    *(
+                        [authority_decision.lease_ref]
+                        if authority_decision.lease_ref
+                        else []
+                    ),
                     *list(action.get("evidence_refs") or []),
                     *request.metadata_refs,
                 ]
@@ -12386,6 +12511,8 @@ class FounderLoopRepository:
             authority_decision_ref=authority_decision.decision_ref,
             authority_decision_outcome=authority_decision.outcome,
             authority_lease_ref=authority_decision.lease_ref,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_policy_receipt_ref=authority_decision.receipt_ref,
             safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
             rollback_ref=str(safe_disable_posture["rollback_ref"]),
             safe_disable_posture_ref=str(
