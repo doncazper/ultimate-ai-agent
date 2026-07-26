@@ -156,7 +156,13 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     expose_headers = client.get("/health", headers={"Origin": "http://localhost:5173"}).headers.get(
         "Access-Control-Expose-Headers", ""
     )
-    for header_name in ["Retry-After", "X-UAA-Rate-Limit-Policy", "X-UAA-Security-Headers-Policy"]:
+    for header_name in [
+        "Retry-After",
+        "X-UAA-Backend-Instance-Ref",
+        "X-UAA-Backend-Revision-Ref",
+        "X-UAA-Rate-Limit-Policy",
+        "X-UAA-Security-Headers-Policy",
+    ]:
         if header_name not in expose_headers:
             failures.append(f"allowed response missing exposed header {header_name}")
     if preflight.headers.get("Access-Control-Allow-Credentials") is not None:

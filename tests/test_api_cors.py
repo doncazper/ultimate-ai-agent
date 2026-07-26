@@ -44,6 +44,8 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
     )
     assert CONTROL_CENTER_LOOPBACK_CORS_EXPOSE_HEADERS == (
         "Retry-After",
+        "X-UAA-Backend-Instance-Ref",
+        "X-UAA-Backend-Revision-Ref",
         "X-UAA-Rate-Limit-Policy",
         "X-UAA-Security-Headers-Policy",
     )
@@ -57,7 +59,9 @@ def test_allowed_loopback_origin_get_receives_specific_origin_only() -> None:
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == origin
     assert response.headers["Access-Control-Expose-Headers"] == (
-        "Retry-After, X-UAA-Rate-Limit-Policy, X-UAA-Security-Headers-Policy"
+        "Retry-After, X-UAA-Backend-Instance-Ref, "
+        "X-UAA-Backend-Revision-Ref, X-UAA-Rate-Limit-Policy, "
+        "X-UAA-Security-Headers-Policy"
     )
     assert response.headers.get("Access-Control-Allow-Credentials") is None
     assert response.headers["Access-Control-Allow-Origin"] != "*"

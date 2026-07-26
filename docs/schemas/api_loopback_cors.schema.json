@@ -79,12 +79,14 @@
       "items": {
         "enum": [
           "Retry-After",
+          "X-UAA-Backend-Instance-Ref",
+          "X-UAA-Backend-Revision-Ref",
           "X-UAA-Rate-Limit-Policy",
           "X-UAA-Security-Headers-Policy"
         ]
       },
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 5,
+      "maxItems": 5,
       "uniqueItems": true
     },
     "allow_credentials": {
