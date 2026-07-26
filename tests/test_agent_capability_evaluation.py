@@ -336,11 +336,13 @@ elif mode == "timeout":
         f"open({str(ready)!r}, 'w').close(); "
         f"time.sleep(5); open({str(marker)!r}, 'w').close()"
     )
+    # The inner three-second execution timeout remains the safety assertion;
+    # this readiness allowance only absorbs loaded-runner scheduling delay.
     parent_code = (
         "import pathlib,subprocess,sys,time; "
         f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); "
         f"ready=pathlib.Path({str(ready)!r}); "
-        "deadline=time.monotonic()+2; "
+        "deadline=time.monotonic()+5; "
         "\\nwhile not ready.exists() and time.monotonic() < deadline: time.sleep(0.01)"
         "\\nif not ready.exists(): raise SystemExit(2)"
         "\\ntime.sleep(10)"
@@ -350,10 +352,16 @@ elif mode == "timeout":
         basetemp=root / "timeout",
         timeout_seconds=3,
     )
-    time.sleep(2.2)
+    child_ready = ready.exists()
+    if child_ready:
+        # The child starts its five-second marker horizon immediately after
+        # readiness. Wait the full horizon after timeout so late readiness
+        # cannot make a surviving descendant look safely terminated.
+        time.sleep(5.2)
     payload = {
         "failure": result.failure_code,
         "return_code": result.return_code,
+        "child_ready": child_ready,
         "child_survived": marker.exists(),
     }
 else:
@@ -376,6 +384,9 @@ print(json.dumps(payload))
         listener = None
 
     observed: dict[str, object] = {}
+    # Bound the outer test harness separately from the unchanged inner safety
+    # timeout so process startup contention cannot mask the asserted outcome.
+    probe_timeout_seconds = 30
     try:
         for mode in ("output", "timeout"):
             result = subprocess.run(
@@ -384,7 +395,7 @@ print(json.dumps(payload))
                 env=environment,
                 capture_output=True,
                 check=False,
-                timeout=15,
+                timeout=probe_timeout_seconds,
             )
             assert result.returncode == 0, result.stderr.decode(errors="replace")
             observed[mode] = json.loads(result.stdout)
@@ -403,7 +414,7 @@ print(json.dumps(payload))
                 env=environment,
                 capture_output=True,
                 check=False,
-                timeout=15,
+                timeout=probe_timeout_seconds,
             )
             assert result.returncode == 0, result.stderr.decode(errors="replace")
             observed["network"] = json.loads(result.stdout)
@@ -427,6 +438,7 @@ print(json.dumps(payload))
         assert timeout_observation == {
             "failure": "assertion_failed",
             "return_code": 71,
+            "child_ready": False,
             "child_survived": False,
         }
         network_observation = observed["network"]
@@ -443,6 +455,7 @@ print(json.dumps(payload))
         assert timeout_observation == {
             "failure": "timeout",
             "return_code": 124,
+            "child_ready": True,
             "child_survived": False,
         }
         network_observation = observed["network"]
