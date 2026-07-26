@@ -13,9 +13,11 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
+    DurableRunEvent,
     DurableRunEventAppendRequest,
     DurableRunEventKind,
     GoalRuntimeService,
+    capture_exact_goal_mutation_approval,
 )
 
 
@@ -50,6 +52,44 @@ def _create_payload() -> dict[str, object]:
         },
         "evidence_refs": ["evidence-ref:api-cli:create"],
     }
+
+
+def _append_event(
+    service: GoalRuntimeService,
+    request: DurableRunEventAppendRequest,
+) -> DurableRunEvent:
+    approval = capture_exact_goal_mutation_approval(
+        operation="append-run-event",
+        subject_ref=request.run_ref,
+        request_payload=request.model_dump(mode="json"),
+        idempotency_ref=request.idempotency_ref,
+    )
+    return service.append_run_event(request, approval_binding=approval)
+
+
+def test_run_events_get_is_strictly_read_only(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, service = goal_runtime_client
+    sync_calls = 0
+
+    def reject_sync(_records: object) -> list[DurableRunEvent]:
+        nonlocal sync_calls
+        sync_calls += 1
+        raise AssertionError("GET must not reconcile durable runtime events")
+
+    monkeypatch.setattr(service, "sync_runtime_invocations", reject_sync)
+    response = client.get("/api/runtime/run-events")
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    assert sync_calls == 0
+    assert not (service.state_dir / "run_events.jsonl").exists()
+    assert not (service.state_dir / "run_event_idempotency.jsonl").exists()
+    assert not (
+        service.state_dir / "run_event_projection_reservations.jsonl"
+    ).exists()
 
 
 def test_goal_api_is_idempotent_versioned_and_receipt_verified(
@@ -134,7 +174,8 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     ).json()["data"]["goal"]
     assert requested["state"] == "complete_requested"
 
-    service.events.append(
+    _append_event(
+        service,
         DurableRunEventAppendRequest(
             run_ref="run-ref:api-cli:one",
             run_type=AcceptedLocalRunType.local_read_task,
@@ -298,7 +339,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         ),
     ]
     for index, (kind, summary) in enumerate(event_specs, start=1):
-        service.events.append(
+        _append_event(
+            service,
             DurableRunEventAppendRequest(
                 run_ref=run_ref,
                 run_type=AcceptedLocalRunType.local_read_task,
@@ -336,7 +378,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         ),
     ]
     for offset, (kind, summary) in enumerate(resumed_specs, start=5):
-        restored.events.append(
+        _append_event(
+            restored,
             DurableRunEventAppendRequest(
                 run_ref=run_ref,
                 run_type=AcceptedLocalRunType.local_read_task,
@@ -351,7 +394,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 ),
             )
         )
-    restored.events.append(
+    _append_event(
+        restored,
         DurableRunEventAppendRequest(
             run_ref=run_ref,
             run_type=AcceptedLocalRunType.local_read_task,
@@ -365,7 +409,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             authority_decision_ref="authority-decision-ref:e2e:accepted-local",
         )
     )
-    restored.events.append(
+    _append_event(
+        restored,
         DurableRunEventAppendRequest(
             run_ref=run_ref,
             run_type=AcceptedLocalRunType.local_read_task,
@@ -454,7 +499,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         ),
         start=1,
     ):
-        restored.events.append(
+        _append_event(
+            restored,
             DurableRunEventAppendRequest(
                 run_ref="run-ref:e2e:cancelled",
                 run_type=AcceptedLocalRunType.local_read_task,

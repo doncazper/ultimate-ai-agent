@@ -193,12 +193,14 @@ def _goal_runtime_service() -> GoalRuntimeService:
 
 def _runtime_gateway() -> RuntimeGateway:
     runtime_store = _runtime_store()
-    gateway = RuntimeGateway(store=runtime_store)
-    gateway.goal_runtime_service = (
+    goal_service = (
         _goal_runtime_service_getter()
         if _goal_runtime_service_getter is not None
         else GoalRuntimeService.for_runtime_store(runtime_store.state_dir)
     )
+    goal_service.sync_runtime_invocations(runtime_store.list_invocations())
+    gateway = RuntimeGateway(store=runtime_store)
+    gateway.goal_runtime_service = goal_service
     return gateway
 
 
@@ -1208,9 +1210,6 @@ def get_api_runtime_run_events(
     authority_state = _authority_store().build_state_read_model()
     try:
         goal_service = _goal_runtime_service()
-        goal_service.sync_runtime_invocations(
-            _runtime_store().list_invocations()
-        )
         read_model = build_runtime_run_events_read_model_from_authority_catalog(
             authority_decision_catalog=authority_state.decision_catalog,
             service=goal_service,

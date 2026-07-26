@@ -32,12 +32,13 @@ closed unless the current goal version links the exact run and the durable event
 store already contains a matching goal-bound receipt and proof. Successful
 verification records a terminal `completion_verified` event. Model output is
 never authoritative. The verified goal snapshot retains the exact run,
-evidence, receipt, proof, and verifier refs. On restart, the Core reconciles
-any verified goal whose terminal event commit was interrupted, appends the
-same deterministic idempotent event, and then accepts an exact retry of the
-original transition without advancing the goal version. Completion preflight
-and commit hold the run-event writer lock, so an already-terminal run is
-rejected before the goal journal changes.
+receipt-derived plan, evidence, receipt, proof, and verifier refs. On the next
+mutating path after restart, the Core reconciles any verified or subsequently
+cleared goal whose terminal event commit was interrupted, appends the same
+deterministic idempotent event with the original transition approval decision,
+and then accepts an exact retry without advancing the goal version. Completion
+preflight and commit hold the run-event writer lock, so an already-terminal run
+is rejected before the goal journal changes.
 
 ## Durable events
 
@@ -63,17 +64,25 @@ streams are terminal and late success events are rejected.
 
 Accepted `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
-`receipt_recorded`. API and CLI read paths also reconcile already-durable
-RuntimeGateway receipts idempotently after a process interruption. Blocked or
-approval-pending invocations are not projected as accepted runs.
+`receipt_recorded`. Before runtime execution, a private durable reservation
+secures the exact two-event projection capacity without holding the event lock
+across the bounded runtime call. The reservation is then bound to the exact
+receipt-derived event keys and consumed atomically under the writer lock.
+Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
+idempotently after a process interruption. `GET /api/runtime/run-events` and
+CLI inspection remain strictly read-only. Blocked or approval-pending
+invocations are not projected as accepted runs.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained
 anchor, next cursor, and gap posture. Replay never returns duplicates. Atomic
 receipt persistence is independent of consumers, so a slow or disconnected
 reader cannot block the writer or create an unbounded in-memory queue.
-The goal journal, run events, and idempotency index use a private `0700` state
-directory and `0600` files.
+The goal journal, run events, idempotency index, and projection reservations
+use a private `0700` state directory and `0600` files. The public service
+exposes a read-only event facade; metadata event writes require one exact
+request-scoped local approval, while receipt and completion events remain
+trusted Core producer paths.
 
 ## Operator surfaces
 
@@ -104,13 +113,14 @@ unknown and stale cursors, Unicode summaries, reordered/gapped sequences,
 field and wrapper tampering, type substitution, receipt-bound completion,
 terminal proof requirements, pre-commit terminal fences, interrupted
 terminal-event commit recovery, exact transition retry, retained idempotency
-tombstones, private filesystem modes, malformed idempotency refs, accepted
-RuntimeGateway producer wiring, approval wait/resume, controlled worker-restart
-evidence, and a second cancelled run. API and CLI are compared after process-state
-reconstruction, while the Control Center tests consume the same typed read
-model and reject mock completion. A newly created Control Center goal starts
-with empty relationship lists; the UI never fabricates plan, run, Action
-Inbox, Work Board, or evidence records.
+tombstones, pre-execution projection-capacity fencing, read-only inspection,
+private writer authority, private filesystem modes, malformed idempotency
+refs, accepted RuntimeGateway producer wiring, approval wait/resume,
+controlled worker-restart evidence, and a second cancelled run. API and CLI
+are compared after process-state reconstruction, while the Control Center
+tests consume the same typed read model and reject mock completion. A newly
+created Control Center goal starts with empty relationship lists; the UI never
+fabricates plan, run, Action Inbox, Work Board, or evidence records.
 
 The broader AuthorityLease mission worker remains the owner of cancellation
 stages, approval expiry/reject/edit/resume, stale claims, orphan recovery,

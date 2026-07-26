@@ -2016,9 +2016,12 @@ def _command_run(args: argparse.Namespace) -> int:
             output_byte_limit=args.output_byte_limit,
             metadata_refs=args.metadata_ref or [],
         )
+        runtime_store = _runtime_store(args)
+        goal_service = _goal_runtime_service(args)
+        goal_service.sync_runtime_invocations(runtime_store.list_invocations())
         result = RuntimeGateway(
-            store=_runtime_store(args),
-            goal_runtime_service=_goal_runtime_service(args),
+            store=runtime_store,
+            goal_runtime_service=goal_service,
         ).invoke_command(
             request,
             idempotency_ref=args.idempotency_ref,
@@ -3968,9 +3971,6 @@ def _inspect_checkpoint_rollback(args: argparse.Namespace) -> int:
 def _inspect_run_events(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
     goal_service = _goal_runtime_service(args)
-    goal_service.sync_runtime_invocations(
-        _runtime_store(args).list_invocations()
-    )
     read_model = build_runtime_run_events_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
         service=goal_service,

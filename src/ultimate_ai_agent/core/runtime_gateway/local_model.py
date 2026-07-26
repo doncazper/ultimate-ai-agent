@@ -345,13 +345,21 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        result = invoke_governed_command(
-            store=self.store,
-            adapter=self.command_adapter,
-            request=request,
-            idempotency_ref=idempotency_ref,
-        )
-        self.goal_runtime_service.record_accepted_runtime_invocation(result.record)
+        existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        with self.goal_runtime_service.runtime_projection_guard(
+            existing,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            result = invoke_governed_command(
+                store=self.store,
+                adapter=self.command_adapter,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                reservation_ref=reservation_ref,
+            )
         return result
 
     def execute_approved_command(
@@ -363,43 +371,44 @@ class RuntimeGateway:
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
         record = self.store.get_invocation(invocation_ref)
-        result = invoke_approved_governed_command(
-            store=self.store,
-            adapter=self.command_adapter,
-            record=record,
-            request=request,
-            execute_request=execute_request,
-            idempotency_ref=idempotency_ref,
-        )
-        if result.record.action_inbox_envelope is None:
-            self.goal_runtime_service.record_accepted_runtime_invocation(
-                result.record
+        with self.goal_runtime_service.runtime_projection_guard(
+            record,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            result = invoke_approved_governed_command(
+                store=self.store,
+                adapter=self.command_adapter,
+                record=record,
+                request=request,
+                execute_request=execute_request,
+                idempotency_ref=idempotency_ref,
             )
-            return result
-        updated = self.store.mark_action_inbox_execution_receipt(
-            result.record.invocation_ref,
-            idempotency_ref=_operation_idempotency_ref(
-                idempotency_ref,
-                "action-inbox-execution-receipt",
-            ),
-            payload_fingerprint_ref=_operation_fingerprint_ref(
-                result.record.invocation_ref,
-                {
-                    "operation": "action_inbox_execution_receipt",
-                    "receipt_ref": (
-                        result.record.receipt.receipt_ref
-                        if result.record.receipt
-                        else "runtime-receipt-ref:missing"
+            if result.record.action_inbox_envelope is not None:
+                updated = self.store.mark_action_inbox_execution_receipt(
+                    result.record.invocation_ref,
+                    idempotency_ref=_operation_idempotency_ref(
+                        idempotency_ref,
+                        "action-inbox-execution-receipt",
                     ),
-                    "status": result.record.status,
-                },
-            ),
-        )
-        final_result = result.model_copy(update={"record": updated})
-        self.goal_runtime_service.record_accepted_runtime_invocation(
-            final_result.record
-        )
-        return final_result
+                    payload_fingerprint_ref=_operation_fingerprint_ref(
+                        result.record.invocation_ref,
+                        {
+                            "operation": "action_inbox_execution_receipt",
+                            "receipt_ref": (
+                                result.record.receipt.receipt_ref
+                                if result.record.receipt
+                                else "runtime-receipt-ref:missing"
+                            ),
+                            "status": result.record.status,
+                        },
+                    ),
+                )
+                result = result.model_copy(update={"record": updated})
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                reservation_ref=reservation_ref,
+            )
+        return result
 
     def invoke_local_model(
         self,
@@ -407,13 +416,19 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeLocalModelGatewayResult:
-        result = self._invoke_local_model(
-            request,
-            idempotency_ref=idempotency_ref,
-        )
-        self.goal_runtime_service.record_accepted_runtime_invocation(
-            result.record
-        )
+        existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        with self.goal_runtime_service.runtime_projection_guard(
+            existing,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            result = self._invoke_local_model(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                reservation_ref=reservation_ref,
+            )
         return result
 
     def _invoke_local_model(
