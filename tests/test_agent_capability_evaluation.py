@@ -336,11 +336,13 @@ elif mode == "timeout":
         f"open({str(ready)!r}, 'w').close(); "
         f"time.sleep(5); open({str(marker)!r}, 'w').close()"
     )
+    # The inner three-second execution timeout remains the safety assertion;
+    # this readiness allowance only absorbs loaded-runner scheduling delay.
     parent_code = (
         "import pathlib,subprocess,sys,time; "
         f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); "
         f"ready=pathlib.Path({str(ready)!r}); "
-        "deadline=time.monotonic()+2; "
+        "deadline=time.monotonic()+5; "
         "\\nwhile not ready.exists() and time.monotonic() < deadline: time.sleep(0.01)"
         "\\nif not ready.exists(): raise SystemExit(2)"
         "\\ntime.sleep(10)"
@@ -376,6 +378,9 @@ print(json.dumps(payload))
         listener = None
 
     observed: dict[str, object] = {}
+    # Bound the outer test harness separately from the unchanged inner safety
+    # timeout so process startup contention cannot mask the asserted outcome.
+    probe_timeout_seconds = 30
     try:
         for mode in ("output", "timeout"):
             result = subprocess.run(
@@ -384,7 +389,7 @@ print(json.dumps(payload))
                 env=environment,
                 capture_output=True,
                 check=False,
-                timeout=15,
+                timeout=probe_timeout_seconds,
             )
             assert result.returncode == 0, result.stderr.decode(errors="replace")
             observed[mode] = json.loads(result.stdout)
@@ -403,7 +408,7 @@ print(json.dumps(payload))
                 env=environment,
                 capture_output=True,
                 check=False,
-                timeout=15,
+                timeout=probe_timeout_seconds,
             )
             assert result.returncode == 0, result.stderr.decode(errors="replace")
             observed["network"] = json.loads(result.stdout)

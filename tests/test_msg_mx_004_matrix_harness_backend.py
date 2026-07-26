@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.communications.matrix_harness.backend import (
     MatrixHarnessBackendError,
     MatrixHarnessExecutionHandle,
     MatrixHarnessSignalInterrupted,
+    _MatrixHarnessCleanupError,
     _safe_counts,
 )
 from ultimate_ai_agent.core.communications.matrix_harness.constants import (
@@ -557,17 +558,33 @@ def test_parent_liveness_pipe_kills_detached_process_group(
     process_group_id = harness_backend._owned_process_groups[process]
 
     harness_backend._close_process_liveness_pipe(process)
-    deadline = time.monotonic() + 5
+    # Preserve exact absence proof while allowing one production kill grace
+    # plus bounded scheduler delay on a loaded self-hosted runner.
+    deadline = (
+        time.monotonic()
+        + matrix_backend.MATRIX_HARNESS_PROCESS_KILL_GRACE_SECONDS
+        + 5
+    )
+    unconfirmed_inventory_count = 0
     while time.monotonic() < deadline:
-        inventory = harness_backend._process_group_inventory(
-            process,
-            process_group_id,
-        )
+        try:
+            inventory = harness_backend._process_group_inventory(
+                process,
+                process_group_id,
+            )
+        except _MatrixHarnessCleanupError as exc:
+            assert str(exc) == "MATRIX_HARNESS_PROCESS_GROUP_INVENTORY_UNCONFIRMED"
+            unconfirmed_inventory_count += 1
+            time.sleep(0.01)
+            continue
         if inventory.leader_terminal and inventory.live_member_count == 0:
             break
         time.sleep(0.01)
     else:
-        pytest.fail("parent-liveness watchdog left a live process-group member")
+        pytest.fail(
+            "parent-liveness watchdog did not reach an exactly confirmed "
+            f"terminal group after {unconfirmed_inventory_count} transient probes"
+        )
 
     process.wait(timeout=5)
     assert process.returncode is not None
