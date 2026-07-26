@@ -59,6 +59,90 @@ export function MacOSSetupAssistantPanel({
         />
       </div>
 
+      <article className="panel">
+        <div className="panel-heading">
+          <h3>Setup lifecycle contract</h3>
+          <span>{setup.lifecycle.status}</span>
+        </div>
+        <p>{setup.lifecycle.safeSummary}</p>
+        <dl className="metadata-list">
+          <div>
+            <dt>Current state</dt>
+            <dd>{setup.lifecycle.currentState}</dd>
+          </div>
+          <div>
+            <dt>Python Core service</dt>
+            <dd>{setup.lifecycle.pythonCoreServiceRef}</dd>
+          </div>
+          <div>
+            <dt>CLI parity</dt>
+            <dd>{setup.lifecycle.cliSurfaceRef}</dd>
+          </div>
+          <div>
+            <dt>Authority prerequisite</dt>
+            <dd>{setup.lifecycle.authorityPrerequisiteRef}</dd>
+          </div>
+          <div>
+            <dt>Safe disable</dt>
+            <dd>{setup.lifecycle.safeDisableRef}</dd>
+          </div>
+        </dl>
+        <div className="note-list" aria-label="Setup lifecycle states">
+          {setup.lifecycle.stateSequence.map((state) => (
+            <span key={state}>{state}</span>
+          ))}
+        </div>
+        <div className="stacked-list">
+          {setup.lifecycle.operations.map((operation) => (
+            <article className="trace-row" key={operation.operation}>
+              <div className="review-card-heading">
+                <h3>{operation.operation}</h3>
+                <span>{operation.status}</span>
+              </div>
+              <p>{operation.safeSummary}</p>
+              <dl className="metadata-list">
+                <div>
+                  <dt>State projection</dt>
+                  <dd>
+                    {operation.currentState} → {operation.targetState}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Command ref</dt>
+                  <dd>{operation.commandRef}</dd>
+                </div>
+                <div>
+                  <dt>Approval ref</dt>
+                  <dd>
+                    {operation.approvalRequired
+                      ? operation.approvalRef
+                      : "not required for read-only inspection"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Receipt ref</dt>
+                  <dd>{operation.receiptRef}</dd>
+                </div>
+                <div>
+                  <dt>Rollback ref</dt>
+                  <dd>{operation.rollbackRef}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+        <div className="panel-heading">
+          <h3>Required live health proof</h3>
+          <span>{setup.lifecycle.healthContract.status}</span>
+        </div>
+        <p>{setup.lifecycle.healthContract.safeSummary}</p>
+        <div className="note-list" aria-label="Required setup health checks">
+          {setup.lifecycle.healthContract.requiredCheckRefs.map((ref) => (
+            <span key={ref}>{ref}</span>
+          ))}
+        </div>
+      </article>
+
       <div className="panel-grid">
         <article className="panel">
           <div className="panel-heading">
@@ -114,7 +198,8 @@ export function MacOSSetupAssistantPanel({
           </div>
           <p>
             Setup visibility comes from existing local status routes only. No
-            lifecycle, model download, bridge, or installer control is exposed.
+            lifecycle execution, model download, bridge, or installer control
+            is exposed.
           </p>
           <div className="note-list" aria-label="Local prerequisite route refs">
             {prerequisiteRefs.map((route) => (

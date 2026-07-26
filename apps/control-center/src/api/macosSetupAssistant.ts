@@ -3,6 +3,11 @@ import type {
   MacOSSetupAssistantStep,
   MacOSSetupApprovalEnvelope,
   MacOSSetupBridgePreview,
+  MacOSSetupHealthContract,
+  MacOSSetupLifecycleContract,
+  MacOSSetupLifecycleOperation,
+  MacOSSetupLifecycleOperationName,
+  MacOSSetupLifecycleState,
   MacOSSetupModelRecommendation,
   MacOSSetupReceiptPlan,
   MacOSSetupRollbackPlan,
@@ -17,7 +22,32 @@ const MACOS_SETUP_STATUSES = new Set<MacOSSetupStepStatus>([
   "blocked",
   "manual_only",
 ]);
-
+const MACOS_SETUP_LIFECYCLE_STATES = new Set<MacOSSetupLifecycleState>([
+  "prerequisites",
+  "ready_to_install",
+  "approval_required",
+  "installing",
+  "installed",
+  "starting",
+  "healthy",
+  "degraded",
+  "repairable",
+  "stopping",
+  "rollback_required",
+  "rolled_back",
+  "failed",
+]);
+const MACOS_SETUP_LIFECYCLE_OPERATIONS =
+  new Set<MacOSSetupLifecycleOperationName>([
+    "plan",
+    "status",
+    "install",
+    "verify",
+    "repair",
+    "stop",
+    "rollback",
+    "receipts",
+  ]);
 export function normalizeMacOSSetupAssistant(
   source: unknown,
   fallback: MacOSSetupAssistantData,
@@ -113,6 +143,10 @@ function normalizeMacOSSetupAssistantValue(
       "promotion_path_refs",
       fallback.promotionPathRefs,
     ),
+    lifecycle: normalizeMacOSSetupLifecycle(
+      recordValue(value, "lifecycle"),
+      fallback.lifecycle,
+    ),
     steps:
       steps.length > 0
         ? steps.map((step, index) =>
@@ -165,6 +199,207 @@ function normalizeMacOSSetupAssistantValue(
       "morning_review_checklist",
       fallback.morningReviewChecklist,
     ),
+  };
+}
+
+function normalizeMacOSSetupLifecycle(
+  value: Record<string, unknown> | undefined,
+  fallback: MacOSSetupLifecycleContract,
+): MacOSSetupLifecycleContract {
+  if (!value) {
+    return fallback;
+  }
+  const operations = recordsValue(value, "operations");
+  return {
+    schemaVersion: stringValue(
+      value,
+      "schema_version",
+      fallback.schemaVersion,
+    ),
+    contractRef: stringValue(value, "contract_ref", fallback.contractRef),
+    status: "blocked_by_authority",
+    currentState: "prerequisites",
+    stateSequence: lifecycleStateArrayValue(
+      value,
+      "state_sequence",
+      fallback.stateSequence,
+    ),
+    operations:
+      operations.length > 0
+        ? operations.map((operation, index) =>
+            normalizeMacOSSetupLifecycleOperation(
+              operation,
+              fallbackItem(fallback.operations, index),
+            ),
+          )
+        : fallback.operations,
+    healthContract: normalizeMacOSSetupHealthContract(
+      recordValue(value, "health_contract"),
+      fallback.healthContract,
+    ),
+    authorityPrerequisiteRef: stringValue(
+      value,
+      "authority_prerequisite_ref",
+      fallback.authorityPrerequisiteRef,
+    ),
+    authorityStateRef: stringValue(
+      value,
+      "authority_state_ref",
+      fallback.authorityStateRef,
+    ),
+    pythonCoreServiceRef: stringValue(
+      value,
+      "python_core_service_ref",
+      fallback.pythonCoreServiceRef,
+    ),
+    apiSurfaceRef: stringValue(
+      value,
+      "api_surface_ref",
+      fallback.apiSurfaceRef,
+    ),
+    cliSurfaceRef: stringValue(
+      value,
+      "cli_surface_ref",
+      fallback.cliSurfaceRef,
+    ),
+    controlCenterSurfaceRef: stringValue(
+      value,
+      "control_center_surface_ref",
+      fallback.controlCenterSurfaceRef,
+    ),
+    safeDisableRef: stringValue(
+      value,
+      "safe_disable_ref",
+      fallback.safeDisableRef,
+    ),
+    rollbackContractRef: stringValue(
+      value,
+      "rollback_contract_ref",
+      fallback.rollbackContractRef,
+    ),
+    receiptContractRef: stringValue(
+      value,
+      "receipt_contract_ref",
+      fallback.receiptContractRef,
+    ),
+    blockedReasonRefs: stringArrayValue(
+      value,
+      "blocked_reason_refs",
+      fallback.blockedReasonRefs,
+    ),
+    safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
+    activationAuthorized: false,
+    installationPerformed: false,
+    processLaunched: false,
+    healthProbePerformed: false,
+    repairPerformed: false,
+    stopPerformed: false,
+    rollbackPerformed: false,
+    fileMutationPerformed: false,
+    credentialWritePerformed: false,
+    subprocessExecuted: false,
+    liveNetworkRequestPerformed: false,
+    productionAuthorityEnabled: false,
+  };
+}
+
+function normalizeMacOSSetupLifecycleOperation(
+  value: Record<string, unknown>,
+  fallback: MacOSSetupLifecycleOperation,
+): MacOSSetupLifecycleOperation {
+  const operation = lifecycleOperationValue(
+    value,
+    "operation",
+    fallback.operation,
+  );
+  const readOnly =
+    operation === "plan" ||
+    operation === "status" ||
+    operation === "receipts";
+  return {
+    operation,
+    commandRef: stringValue(value, "command_ref", fallback.commandRef),
+    status: readOnly ? "available_read_only" : "blocked_by_authority",
+    currentState: "prerequisites",
+    targetState: lifecycleStateValue(
+      value,
+      "target_state",
+      fallback.targetState,
+    ),
+    safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
+    exactScopeRef: stringValue(
+      value,
+      "exact_scope_ref",
+      fallback.exactScopeRef,
+    ),
+    approvalRef: stringValue(value, "approval_ref", fallback.approvalRef),
+    idempotencyKeyRef: stringValue(
+      value,
+      "idempotency_key_ref",
+      fallback.idempotencyKeyRef,
+    ),
+    receiptRef: stringValue(value, "receipt_ref", fallback.receiptRef),
+    rollbackRef: stringValue(value, "rollback_ref", fallback.rollbackRef),
+    safeDisableRef: stringValue(
+      value,
+      "safe_disable_ref",
+      fallback.safeDisableRef,
+    ),
+    evidenceRefs: stringArrayValue(
+      value,
+      "evidence_refs",
+      fallback.evidenceRefs,
+    ),
+    verifierRefs: stringArrayValue(
+      value,
+      "verifier_refs",
+      fallback.verifierRefs,
+    ),
+    reasonCodes: stringArrayValue(value, "reason_codes", fallback.reasonCodes),
+    mutationRequired: booleanValue(
+      value,
+      "mutation_required",
+      fallback.mutationRequired,
+    ),
+    liveProbeRequired: booleanValue(
+      value,
+      "live_probe_required",
+      fallback.liveProbeRequired,
+    ),
+    approvalRequired: !readOnly,
+    authorityGranted: false,
+    stateChangePerformed: false,
+    subprocessExecuted: false,
+    fileMutationPerformed: false,
+    processMutationPerformed: false,
+    credentialWritePerformed: false,
+    networkRequestPerformed: false,
+    receiptPersisted: false,
+  };
+}
+
+function normalizeMacOSSetupHealthContract(
+  value: Record<string, unknown> | undefined,
+  fallback: MacOSSetupHealthContract,
+): MacOSSetupHealthContract {
+  if (!value) {
+    return fallback;
+  }
+  return {
+    contractRef: stringValue(value, "contract_ref", fallback.contractRef),
+    status: "blocked_by_authority",
+    requiredCheckRefs: stringArrayValue(
+      value,
+      "required_check_refs",
+      fallback.requiredCheckRefs,
+    ),
+    safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
+    processIdentityVerified: false,
+    apiManifestVersionVerified: false,
+    loopbackBindVerified: false,
+    controlCenterCompatibilityVerified: false,
+    forbiddenAuthorityAbsenceVerified: false,
+    liveProbePerformed: false,
   };
 }
 
@@ -488,6 +723,55 @@ function setupStatusValue(
     MACOS_SETUP_STATUSES.has(candidate as MacOSSetupStepStatus)
   ) {
     return candidate as MacOSSetupStepStatus;
+  }
+  return fallback;
+}
+
+function lifecycleStateValue(
+  value: Record<string, unknown>,
+  key: string,
+  fallback: MacOSSetupLifecycleState,
+): MacOSSetupLifecycleState {
+  const candidate = value[key];
+  if (
+    typeof candidate === "string" &&
+    MACOS_SETUP_LIFECYCLE_STATES.has(candidate as MacOSSetupLifecycleState)
+  ) {
+    return candidate as MacOSSetupLifecycleState;
+  }
+  return fallback;
+}
+
+function lifecycleStateArrayValue(
+  value: Record<string, unknown>,
+  key: string,
+  fallback: MacOSSetupLifecycleState[],
+): MacOSSetupLifecycleState[] {
+  const candidate = value[key];
+  if (!Array.isArray(candidate)) {
+    return fallback;
+  }
+  const states = candidate.filter(
+    (item): item is MacOSSetupLifecycleState =>
+      typeof item === "string" &&
+      MACOS_SETUP_LIFECYCLE_STATES.has(item as MacOSSetupLifecycleState),
+  );
+  return states.length > 0 ? states : fallback;
+}
+
+function lifecycleOperationValue(
+  value: Record<string, unknown>,
+  key: string,
+  fallback: MacOSSetupLifecycleOperationName,
+): MacOSSetupLifecycleOperationName {
+  const candidate = value[key];
+  if (
+    typeof candidate === "string" &&
+    MACOS_SETUP_LIFECYCLE_OPERATIONS.has(
+      candidate as MacOSSetupLifecycleOperationName,
+    )
+  ) {
+    return candidate as MacOSSetupLifecycleOperationName;
   }
   return fallback;
 }

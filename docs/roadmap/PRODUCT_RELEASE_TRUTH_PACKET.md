@@ -435,6 +435,19 @@ provider/model authority, no connector writes, no hidden authority, no public
 beta, no public distribution, no production readiness, and no production
 authority.
 
+Queue03 Phase03 setup lifecycle current truth: the Python Agent Core now owns a
+typed macOS-first lifecycle foundation with every state from prerequisites
+through failed, operation contracts for plan/status/install/verify/repair/stop/
+rollback/receipts, complete future health-proof requirements, exact scope,
+approval, idempotency, receipt, rollback, and safe-disable refs, a
+human-readable repo-local CLI, the existing read-only Setup summary API, and
+Control Center parity. Plan/status/receipt inspection is implemented.
+Installation, live process/readiness probes, app or service control, file or
+credential mutation, repair, stop, and rollback are `blocked_by_authority` and
+perform no side effect. The unsigned package proof is not claimed as installed,
+healthy, signed, notarized, distributable, production-ready, or production
+authority.
+
 Do not claim production readiness, public release, public beta distribution,
 broad autonomy, unrestricted runtime authority, or peer-product parity until the
 blocking gates below have evidence and the required verifiers pass.

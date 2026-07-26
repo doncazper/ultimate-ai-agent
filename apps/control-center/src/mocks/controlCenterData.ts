@@ -30,6 +30,7 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopTodayLoopReadModel,
   FounderLoopWeeklyCeoReviewV1ReadModel,
+  MacOSSetupLifecycleContract,
   ModelProviderControlPlaneReadModel,
   OperatorWorkspaceSpineReadModel,
   ProviderCatalog,
@@ -12366,6 +12367,177 @@ function mockWorkBoardCard(
     drag_persistence_enabled: false,
   };
 }
+
+function mockSetupLifecycleOperation(
+  operation: MacOSSetupLifecycleContract["operations"][number]["operation"],
+  targetState: MacOSSetupLifecycleContract["operations"][number]["targetState"],
+  status: MacOSSetupLifecycleContract["operations"][number]["status"],
+  mutationRequired = false,
+  liveProbeRequired = false,
+): MacOSSetupLifecycleContract["operations"][number] {
+  return {
+    operation,
+    commandRef: `repo-local-command:macos-setup-lifecycle:${operation}`,
+    status,
+    currentState: "prerequisites",
+    targetState,
+    safeSummary:
+      status === "available_read_only"
+        ? `Inspect ${operation} lifecycle posture without a setup side effect.`
+        : `${operation} remains blocked until exact setup authority is accepted.`,
+    exactScopeRef: `scope-ref:macos-setup-lifecycle:${operation}`,
+    approvalRef: `approval-ref:macos-setup-lifecycle:${operation}`,
+    idempotencyKeyRef: `idempotency-ref:macos-setup-lifecycle:${operation}`,
+    receiptRef: `receipt-plan:macos-setup-lifecycle:${operation}`,
+    rollbackRef: `rollback-plan:macos-setup-lifecycle:${operation}`,
+    safeDisableRef: `safe-disable-ref:macos-setup-lifecycle:${operation}`,
+    evidenceRefs: [
+      "docs-ref:uaa-setup-assistant-plan",
+      "packaging-proof:local-macos-app-bundle",
+    ],
+    verifierRefs: [
+      "pytest:test-macos-setup-lifecycle",
+      "verifier:control-center-frontend",
+    ],
+    reasonCodes:
+      status === "available_read_only"
+        ? ["MACOS_SETUP_LIFECYCLE_READ_ONLY_INSPECTION"]
+        : [
+            "MACOS_SETUP_LIFECYCLE_AUTHORITY_NOT_GRANTED",
+            "MACOS_SETUP_LIFECYCLE_NO_SIDE_EFFECTS",
+          ],
+    mutationRequired,
+    liveProbeRequired,
+    approvalRequired: status === "blocked_by_authority",
+    authorityGranted: false,
+    stateChangePerformed: false,
+    subprocessExecuted: false,
+    fileMutationPerformed: false,
+    processMutationPerformed: false,
+    credentialWritePerformed: false,
+    networkRequestPerformed: false,
+    receiptPersisted: false,
+  };
+}
+
+const mockMacOSSetupLifecycle: MacOSSetupLifecycleContract = {
+  schemaVersion: "macos_setup_lifecycle.v1",
+  contractRef: "macos-setup-lifecycle-contract:v1",
+  status: "blocked_by_authority",
+  currentState: "prerequisites",
+  stateSequence: [
+    "prerequisites",
+    "ready_to_install",
+    "approval_required",
+    "installing",
+    "installed",
+    "starting",
+    "healthy",
+    "degraded",
+    "repairable",
+    "stopping",
+    "rollback_required",
+    "rolled_back",
+    "failed",
+  ],
+  operations: [
+    mockSetupLifecycleOperation(
+      "plan",
+      "prerequisites",
+      "available_read_only",
+    ),
+    mockSetupLifecycleOperation(
+      "status",
+      "prerequisites",
+      "available_read_only",
+    ),
+    mockSetupLifecycleOperation(
+      "install",
+      "installed",
+      "blocked_by_authority",
+      true,
+    ),
+    mockSetupLifecycleOperation(
+      "verify",
+      "healthy",
+      "blocked_by_authority",
+      false,
+      true,
+    ),
+    mockSetupLifecycleOperation(
+      "repair",
+      "healthy",
+      "blocked_by_authority",
+      true,
+    ),
+    mockSetupLifecycleOperation(
+      "stop",
+      "stopping",
+      "blocked_by_authority",
+      true,
+    ),
+    mockSetupLifecycleOperation(
+      "rollback",
+      "rolled_back",
+      "blocked_by_authority",
+      true,
+    ),
+    mockSetupLifecycleOperation(
+      "receipts",
+      "prerequisites",
+      "available_read_only",
+    ),
+  ],
+  healthContract: {
+    contractRef: "macos-setup-health-contract:v1",
+    status: "blocked_by_authority",
+    requiredCheckRefs: [
+      "health-check-ref:setup-process-identity",
+      "health-check-ref:setup-api-manifest-version",
+      "health-check-ref:setup-loopback-bind",
+      "health-check-ref:setup-control-center-compatibility",
+      "health-check-ref:setup-forbidden-authority-absent",
+    ],
+    safeSummary:
+      "The complete readiness proof is typed but no live setup probe has run.",
+    processIdentityVerified: false,
+    apiManifestVersionVerified: false,
+    loopbackBindVerified: false,
+    controlCenterCompatibilityVerified: false,
+    forbiddenAuthorityAbsenceVerified: false,
+    liveProbePerformed: false,
+  },
+  authorityPrerequisiteRef:
+    "authority-prerequisite:macos-setup-exact-lifecycle",
+  authorityStateRef: "authority-state:macos-setup-lifecycle:not-granted",
+  pythonCoreServiceRef: "python-core-service:macos-setup-lifecycle",
+  apiSurfaceRef: "api-surface:control-center-setup-summary",
+  cliSurfaceRef: "repo-local-command:macos-setup-lifecycle",
+  controlCenterSurfaceRef: "control-center-surface:macos-setup-lifecycle",
+  safeDisableRef: "safe-disable-ref:macos-setup-lifecycle:disabled",
+  rollbackContractRef: "rollback-contract-ref:macos-setup-lifecycle",
+  receiptContractRef: "receipt-contract-ref:macos-setup-lifecycle",
+  blockedReasonRefs: [
+    "blocked-reason-ref:setup-install-authority-missing",
+    "blocked-reason-ref:setup-process-authority-missing",
+    "blocked-reason-ref:setup-file-mutation-authority-missing",
+    "blocked-reason-ref:setup-credential-write-authority-missing",
+  ],
+  safeSummary:
+    "Lifecycle contracts are available for inspection; live activation remains blocked by authority.",
+  activationAuthorized: false,
+  installationPerformed: false,
+  processLaunched: false,
+  healthProbePerformed: false,
+  repairPerformed: false,
+  stopPerformed: false,
+  rollbackPerformed: false,
+  fileMutationPerformed: false,
+  credentialWritePerformed: false,
+  subprocessExecuted: false,
+  liveNetworkRequestPerformed: false,
+  productionAuthorityEnabled: false,
+};
 
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
@@ -25376,6 +25548,7 @@ export const mockControlCenterData: ControlCenterData = {
       "promotion-path-ref:setup:package-proof-hygiene",
       "promotion-path-ref:setup:exact-approved-mutation-pr",
     ],
+    lifecycle: mockMacOSSetupLifecycle,
     steps: [
       {
         stepId: "macos-setup-step:first-launch",

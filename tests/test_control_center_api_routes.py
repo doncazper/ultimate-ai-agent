@@ -492,6 +492,18 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
 
     data = body["data"]
     assert data["status"] == "dry_run_only"
+    assert data["lifecycle"]["status"] == "blocked_by_authority"
+    assert data["lifecycle"]["current_state"] == "prerequisites"
+    assert [item["operation"] for item in data["lifecycle"]["operations"]] == [
+        "plan",
+        "status",
+        "install",
+        "verify",
+        "repair",
+        "stop",
+        "rollback",
+        "receipts",
+    ]
     assert data["macos_first"] is True
     assert data["local_first"] is True
     assert data["disabled_by_default"] is True
