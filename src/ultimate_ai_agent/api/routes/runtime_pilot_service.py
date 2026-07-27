@@ -1002,6 +1002,31 @@ def _goal_runtime_failure(
     )
 
 
+def _runtime_projection_failure(
+    operation: str,
+    trace_id: str,
+    exc: GoalRuntimeError,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GovernedRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code=str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED",
+            category=ErrorCategory.internal_error,
+            safe_message=(
+                "The governed runtime durable-event projection failed closed."
+            ),
+            severity=Severity.high,
+            retryable=False,
+            details_redacted=True,
+            source="GovernedRuntimeAPI",
+        ),
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
 @router.get("/goals", response_model=ResultEnvelope)
 def get_api_runtime_goals(
     include_cleared: bool = Query(default=False),
@@ -2178,6 +2203,12 @@ def post_api_runtime_local_model_call(
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
         )
+    except GoalRuntimeError as exc:
+        return _runtime_projection_failure(
+            "api_runtime_local_model_call",
+            idempotency_ref,
+            exc,
+        )
     receipt = result.record.receipt
     metadata = receipt.model_receipt_metadata if receipt else None
     return ResultEnvelope(
@@ -2260,6 +2291,12 @@ def post_api_runtime_command_run(
                 source="GovernedRuntimeAPI",
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    except GoalRuntimeError as exc:
+        return _runtime_projection_failure(
+            "api_runtime_command_run",
+            idempotency_ref,
+            exc,
         )
     receipt = result.record.receipt
     metadata = receipt.command_receipt_metadata if receipt else None
@@ -2534,6 +2571,12 @@ def post_api_runtime_invocations_id_execute(
                     source="GovernedRuntimeAPI",
                 ),
                 redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+            )
+        except GoalRuntimeError as exc:
+            return _runtime_projection_failure(
+                "api_runtime_invocation_execute",
+                idempotency_ref,
+                exc,
             )
         except ValidationError:
             return ResultEnvelope(

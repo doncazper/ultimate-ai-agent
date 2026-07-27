@@ -7,7 +7,7 @@ import stat
 import uuid
 from collections.abc import Iterable
 from contextlib import contextmanager, nullcontext
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator
@@ -61,6 +61,9 @@ MAX_RUN_EVENT_RETENTION = 512
 DEFAULT_RUN_EVENT_RETENTION = 256
 MAX_REPLAY_EVENTS = 100
 MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
+MAX_GOAL_JOURNAL_ENTRIES = 4096
+MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
+RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 
 
 class GoalRuntimeError(ValueError):
@@ -606,8 +609,12 @@ class RunEventIdempotencyTombstone(BaseModel):
 class RunEventProjectionReservation(BaseModel):
     schema_version: str = "run_event_projection_reservation.v1"
     reservation_ref: str
+    operation_idempotency_ref: str
+    holder_count: StrictInt = Field(default=1, ge=1, le=1024)
     slot_count: StrictInt = Field(ge=0, le=2)
     allowed_event_key_refs: list[str] = Field(default_factory=list)
+    reserved_at: datetime
+    expires_at: datetime
     reservation_hash_ref: str
 
     model_config = ConfigDict(extra="forbid")
@@ -615,6 +622,10 @@ class RunEventProjectionReservation(BaseModel):
     @model_validator(mode="after")
     def validate_reservation(self) -> "RunEventProjectionReservation":
         validate_execution_ref(self.reservation_ref, "reservation_ref")
+        validate_execution_ref(
+            self.operation_idempotency_ref,
+            "operation_idempotency_ref",
+        )
         validate_execution_ref(
             self.reservation_hash_ref,
             "reservation_hash_ref",
@@ -626,6 +637,8 @@ class RunEventProjectionReservation(BaseModel):
         if len(self.allowed_event_key_refs) != self.slot_count:
             if self.allowed_event_key_refs:
                 raise ValueError("RUN_EVENT_RESERVATION_ARITY_MISMATCH")
+        if self.expires_at <= self.reserved_at:
+            raise ValueError("RUN_EVENT_RESERVATION_EXPIRY_INVALID")
         return self
 
 
@@ -1124,6 +1137,8 @@ class _GoalJournalStore:
         approval_ref: str,
         approval_decision_ref: str,
     ) -> None:
+        if len(entries) >= MAX_GOAL_JOURNAL_ENTRIES:
+            raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
         previous = entries[-1].entry_hash_ref if entries else None
         draft = GoalJournalEntry(
             entry_ref=_sha256_ref(
@@ -1160,6 +1175,13 @@ class _GoalJournalStore:
     def _load_entries(self) -> list[GoalJournalEntry]:
         if not self.path.exists():
             return []
+        try:
+            if self.path.stat().st_size > MAX_GOAL_JOURNAL_BYTES:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_BYTE_CAPACITY_EXCEEDED"
+                )
+        except OSError as exc:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT") from exc
         entries: list[GoalJournalEntry] = []
         previous: str | None = None
         versions: dict[str, int] = {}
@@ -1197,6 +1219,10 @@ class _GoalJournalStore:
                 versions[entry.goal_ref] = entry.goal_version
                 idempotency[entry.idempotency_ref] = entry.request_fingerprint_ref
                 entries.append(entry)
+                if len(entries) > MAX_GOAL_JOURNAL_ENTRIES:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_ENTRY_CAPACITY_EXCEEDED"
+                    )
                 previous = entry.entry_hash_ref
         except GoalRuntimeCorruptionError:
             raise
@@ -1206,6 +1232,11 @@ class _GoalJournalStore:
 
     def _write_entries(self, entries: list[GoalJournalEntry]) -> None:
         content = "".join(entry.model_dump_json() + "\n" for entry in entries)
+        if (
+            len(entries) > MAX_GOAL_JOURNAL_ENTRIES
+            or len(content.encode("utf-8")) > MAX_GOAL_JOURNAL_BYTES
+        ):
+            raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
         _atomic_write(self.path, content)
 
 
@@ -1253,18 +1284,19 @@ class _DurableRunEventStore:
             "run-event-reservation-ref",
             {
                 "operation_idempotency_ref": operation_idempotency_ref,
-                "existing_run_ref": (
-                    existing_record.invocation_ref
-                    if existing_record is not None
-                    else None
-                ),
-                "nonce": uuid.uuid4().hex,
             },
         )
         with self.exclusive():
             events = self._load_events()
             tombstones = self._load_idempotency_tombstones(events)
-            reservations = self._load_projection_reservations()
+            now = utc_now()
+            reservations = {
+                ref: reservation
+                for ref, reservation in (
+                    self._load_projection_reservations().items()
+                )
+                if reservation.expires_at > now
+            }
             missing_key_refs = self._missing_runtime_projection_key_refs(
                 existing_record,
                 tombstones,
@@ -1272,9 +1304,11 @@ class _DurableRunEventStore:
             required_slots = (
                 len(missing_key_refs) if missing_key_refs is not None else 2
             )
+            existing_reservation = reservations.get(reservation_ref)
             reserved_slots = sum(
                 reservation.slot_count
-                for reservation in reservations.values()
+                for ref, reservation in reservations.items()
+                if ref != reservation_ref
             )
             if (
                 len(tombstones) + reserved_slots + required_slots
@@ -1285,8 +1319,15 @@ class _DurableRunEventStore:
                 )
             reservation = self._build_projection_reservation(
                 reservation_ref,
+                operation_idempotency_ref=operation_idempotency_ref,
+                holder_count=(
+                    existing_reservation.holder_count + 1
+                    if existing_reservation is not None
+                    else 1
+                ),
                 slot_count=required_slots,
                 allowed_event_key_refs=missing_key_refs or [],
+                reserved_at=now,
             )
             reservations[reservation_ref] = reservation
             self._write_projection_reservations(reservations.values())
@@ -1298,12 +1339,16 @@ class _DurableRunEventStore:
         record: RuntimeInvocationRecord,
     ) -> None:
         validate_execution_ref(reservation_ref, "reservation_ref")
-        reservations = self._load_projection_reservations()
+        loaded_reservations = self._load_projection_reservations()
+        now = utc_now()
+        reservations = {
+            ref: reservation
+            for ref, reservation in loaded_reservations.items()
+            if reservation.expires_at > now
+        }
+        if len(reservations) != len(loaded_reservations):
+            self._write_projection_reservations(reservations.values())
         reservation = reservations.get(reservation_ref)
-        if reservation is None:
-            raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_PROJECTION_RESERVATION_MISSING"
-            )
         tombstones = self._load_idempotency_tombstones(
             self._load_events()
         )
@@ -1315,14 +1360,23 @@ class _DurableRunEventStore:
             raise GoalRuntimeCorruptionError(
                 "RUN_EVENT_PROJECTION_RECEIPT_REQUIRED"
             )
+        if reservation is None:
+            if not missing_key_refs:
+                return
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_PROJECTION_RESERVATION_MISSING"
+            )
         if len(missing_key_refs) > reservation.slot_count:
             raise GoalRuntimeCorruptionError(
                 "RUN_EVENT_PROJECTION_RESERVATION_TOO_SMALL"
             )
         reservations[reservation_ref] = self._build_projection_reservation(
             reservation_ref,
+            operation_idempotency_ref=reservation.operation_idempotency_ref,
+            holder_count=reservation.holder_count,
             slot_count=len(missing_key_refs),
             allowed_event_key_refs=missing_key_refs,
+            reserved_at=reservation.reserved_at,
         )
         self._write_projection_reservations(reservations.values())
 
@@ -1333,7 +1387,25 @@ class _DurableRunEventStore:
         validate_execution_ref(reservation_ref, "reservation_ref")
         with self.exclusive():
             reservations = self._load_projection_reservations()
-            if reservations.pop(reservation_ref, None) is not None:
+            reservation = reservations.get(reservation_ref)
+            if reservation is not None:
+                if reservation.holder_count > 1:
+                    reservations[reservation_ref] = (
+                        self._build_projection_reservation(
+                            reservation_ref,
+                            operation_idempotency_ref=(
+                                reservation.operation_idempotency_ref
+                            ),
+                            holder_count=reservation.holder_count - 1,
+                            slot_count=reservation.slot_count,
+                            allowed_event_key_refs=(
+                                reservation.allowed_event_key_refs
+                            ),
+                            reserved_at=reservation.reserved_at,
+                        )
+                    )
+                else:
+                    reservations.pop(reservation_ref)
                 self._write_projection_reservations(
                     reservations.values()
                 )
@@ -1346,7 +1418,14 @@ class _DurableRunEventStore:
     ) -> DurableRunEvent:
         events = self._load_events()
         tombstones = self._load_idempotency_tombstones(events)
-        reservations = self._load_projection_reservations()
+        loaded_reservations = self._load_projection_reservations()
+        reservations = {
+            ref: reservation
+            for ref, reservation in loaded_reservations.items()
+            if reservation.expires_at > utc_now()
+        }
+        if len(reservations) != len(loaded_reservations):
+            self._write_projection_reservations(reservations.values())
         key = (validated.run_ref, validated.idempotency_ref)
         event_key_ref = self._event_key_ref(*key)
         reservation = (
@@ -1386,12 +1465,21 @@ class _DurableRunEventStore:
         if same_run and same_run[-1].run_type != validated.run_type:
             raise GoalRuntimeCorruptionError("RUN_EVENT_TYPE_SUBSTITUTION")
         if validated.event_kind == DurableRunEventKind.completion_verified.value:
+            receipt_candidates = [
+                *same_run,
+                *(
+                    tombstone.event
+                    for tombstone in tombstones.values()
+                    if tombstone.event.run_ref == validated.run_ref
+                    and tombstone.event not in same_run
+                ),
+            ]
             if not any(
                 event.event_kind == DurableRunEventKind.receipt_recorded.value
                 and event.goal_ref == validated.goal_ref
                 and set(validated.receipt_refs).issubset(event.receipt_refs)
                 and set(validated.proof_refs).issubset(event.proof_refs)
-                for event in same_run
+                for event in receipt_candidates
             ):
                 raise GoalTransitionDeniedError(
                     "RUN_EVENT_COMPLETION_RECEIPT_NOT_FOUND"
@@ -1444,8 +1532,13 @@ class _DurableRunEventStore:
                 reservations[reservation_ref] = (
                     self._build_projection_reservation(
                         reservation_ref,
+                        operation_idempotency_ref=(
+                            reservation.operation_idempotency_ref
+                        ),
+                        holder_count=reservation.holder_count,
                         slot_count=len(remaining),
                         allowed_event_key_refs=remaining,
+                        reserved_at=reservation.reserved_at,
                     )
                 )
             else:
@@ -1571,13 +1664,16 @@ class _DurableRunEventStore:
         goal_ref: str,
     ) -> bool:
         validate_execution_ref(run_ref, "run_ref")
-        return self._completion_evidence_available(
-            self._load_events(),
+        events = self._load_events()
+        tombstones = self._load_idempotency_tombstones(events)
+        return self._completion_receipt_event(
+            events,
+            tombstones,
             run_ref=run_ref,
             receipt_ref=receipt_ref,
             proof_ref=proof_ref,
             goal_ref=goal_ref,
-        )
+        ) is not None
 
     def assert_completion_appendable(
         self,
@@ -1588,19 +1684,15 @@ class _DurableRunEventStore:
         goal_ref: str,
     ) -> DurableRunEvent:
         events = self._load_events()
+        tombstones = self._load_idempotency_tombstones(events)
         same_run = [event for event in events if event.run_ref == run_ref]
-        matched = next(
-            (
-                event
-                for event in events
-                if event.run_ref == run_ref
-                and event.goal_ref == goal_ref
-                and event.event_kind
-                == DurableRunEventKind.receipt_recorded.value
-                and receipt_ref in event.receipt_refs
-                and proof_ref in event.proof_refs
-            ),
-            None,
+        matched = self._completion_receipt_event(
+            events,
+            tombstones,
+            run_ref=run_ref,
+            receipt_ref=receipt_ref,
+            proof_ref=proof_ref,
+            goal_ref=goal_ref,
         )
         if matched is None:
             raise GoalTransitionDeniedError(
@@ -1613,21 +1705,38 @@ class _DurableRunEventStore:
         return matched.model_copy(deep=True)
 
     @staticmethod
-    def _completion_evidence_available(
+    def _completion_receipt_event(
         events: list[DurableRunEvent],
+        tombstones: dict[
+            tuple[str, str],
+            RunEventIdempotencyTombstone,
+        ],
         *,
         run_ref: str,
         receipt_ref: str,
         proof_ref: str,
         goal_ref: str,
-    ) -> bool:
-        return any(
-            event.run_ref == run_ref
-            and event.goal_ref == goal_ref
-            and event.event_kind == DurableRunEventKind.receipt_recorded.value
-            and receipt_ref in event.receipt_refs
-            and proof_ref in event.proof_refs
-            for event in events
+    ) -> DurableRunEvent | None:
+        candidates = [
+            *events,
+            *(
+                tombstone.event
+                for tombstone in tombstones.values()
+                if tombstone.event not in events
+            ),
+        ]
+        return next(
+            (
+                event
+                for event in candidates
+                if event.run_ref == run_ref
+                and event.goal_ref == goal_ref
+                and event.event_kind
+                == DurableRunEventKind.receipt_recorded.value
+                and receipt_ref in event.receipt_refs
+                and proof_ref in event.proof_refs
+            ),
+            None,
         )
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
@@ -1732,13 +1841,24 @@ class _DurableRunEventStore:
         self,
         reservation_ref: str,
         *,
+        operation_idempotency_ref: str,
+        holder_count: int = 1,
         slot_count: int,
         allowed_event_key_refs: list[str],
+        reserved_at: datetime | None = None,
     ) -> RunEventProjectionReservation:
+        effective_reserved_at = reserved_at or utc_now()
         draft = RunEventProjectionReservation(
             reservation_ref=reservation_ref,
+            operation_idempotency_ref=operation_idempotency_ref,
+            holder_count=holder_count,
             slot_count=slot_count,
             allowed_event_key_refs=allowed_event_key_refs,
+            reserved_at=effective_reserved_at,
+            expires_at=effective_reserved_at
+            + timedelta(
+                seconds=RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS
+            ),
             reservation_hash_ref="reservation-hash-ref:pending",
         )
         return draft.model_copy(
@@ -1769,6 +1889,18 @@ class _DurableRunEventStore:
                 ):
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_PROJECTION_RESERVATION_HASH_MISMATCH"
+                    )
+                expected_reservation_ref = _sha256_ref(
+                    "run-event-reservation-ref",
+                    {
+                        "operation_idempotency_ref": (
+                            reservation.operation_idempotency_ref
+                        )
+                    },
+                )
+                if reservation.reservation_ref != expected_reservation_ref:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_PROJECTION_RESERVATION_REF_MISMATCH"
                     )
                 if reservation.reservation_ref in reservations:
                     raise GoalRuntimeCorruptionError(
@@ -1859,6 +1991,7 @@ class _DurableRunEventStore:
                 raise GoalRuntimeCorruptionError(
                     "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
                 )
+            self._validate_tombstone_event_history(tombstones.values())
         except GoalRuntimeCorruptionError:
             raise
         except (OSError, UnicodeError, ValueError) as exc:
@@ -1866,6 +1999,61 @@ class _DurableRunEventStore:
                 "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT"
             ) from exc
         return tombstones
+
+    def _validate_tombstone_event_history(
+        self,
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+    ) -> None:
+        grouped: dict[str, list[DurableRunEvent]] = {}
+        for tombstone in tombstones:
+            event = tombstone.event
+            if event.event_hash_ref != self._event_hash(event):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_EVENT_HASH_MISMATCH"
+                )
+            expected_event_ref = _sha256_ref(
+                "runtime-run-event-ref",
+                {
+                    "run_ref": event.run_ref,
+                    "sequence": event.sequence,
+                    "event_kind": event.event_kind,
+                },
+            )
+            if event.event_ref != expected_event_ref:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_EVENT_REF_MISMATCH"
+                )
+            grouped.setdefault(event.run_ref, []).append(event)
+        for same_run in grouped.values():
+            same_run.sort(key=lambda event: event.sequence)
+            if same_run[0].sequence != 1:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_HISTORY_ORIGIN_MISSING"
+                )
+            for index, event in enumerate(same_run):
+                if event.sequence != index + 1:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_HISTORY_SEQUENCE_GAP"
+                    )
+                if index == 0:
+                    if event.predecessor_hash_ref is not None:
+                        raise GoalRuntimeCorruptionError(
+                            "RUN_EVENT_IDEMPOTENCY_HISTORY_PREDECESSOR_INVALID"
+                        )
+                    continue
+                previous = same_run[index - 1]
+                if event.predecessor_hash_ref != previous.event_hash_ref:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_HISTORY_HASH_GAP"
+                    )
+                if event.run_type != previous.run_type:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_HISTORY_TYPE_SUBSTITUTION"
+                    )
+                if previous.event_kind in TERMINAL_RUN_EVENT_KINDS:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_HISTORY_TERMINAL_FENCE"
+                    )
 
     def _load_events(self) -> list[DurableRunEvent]:
         if not self.path.exists():

@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     DurableRunEvent,
     DurableRunEventAppendRequest,
     DurableRunEventKind,
+    GoalRuntimeError,
     GoalRuntimeService,
     capture_exact_goal_mutation_approval,
 )
@@ -90,6 +91,97 @@ def test_run_events_get_is_strictly_read_only(
     assert not (
         service.state_dir / "run_event_projection_reservations.jsonl"
     ).exists()
+
+
+@pytest.mark.parametrize(
+    ("path", "payload", "operation"),
+    [
+        (
+            "/api/runtime/local-model/call",
+            {
+                "base_url": "http://127.0.0.1:9",
+                "model_ref": "uaa-local-runtime",
+                "messages": [
+                    {"role": "user", "content": "projection failure test"}
+                ],
+                "requested_profile": "local-runtime",
+                "safe_summary": "Exercise the redacted projection failure envelope.",
+                "timeout_seconds": 0.1,
+                "max_response_bytes": 1024,
+            },
+            "api_runtime_local_model_call",
+        ),
+        (
+            "/api/runtime/command/run",
+            {
+                "intent": "git_status",
+                "safe_summary": "Exercise the redacted command projection failure.",
+            },
+            "api_runtime_command_run",
+        ),
+        (
+            "/api/runtime/invocations/invocation-ref:test/execute",
+            {
+                "command_request": {
+                    "intent": "git_status",
+                    "safe_summary": (
+                        "Exercise the redacted approved projection failure."
+                    ),
+                },
+            },
+            "api_runtime_invocation_execute",
+        ),
+    ],
+)
+def test_runtime_projection_failures_keep_the_public_result_envelope(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    payload: dict[str, object],
+    operation: str,
+) -> None:
+    client, _service = goal_runtime_client
+
+    class FailingProjectionGateway:
+        @staticmethod
+        def invoke_local_model(*_args: object, **_kwargs: object) -> None:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+        @staticmethod
+        def invoke_command(*_args: object, **_kwargs: object) -> None:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+        @staticmethod
+        def execute_approved_command(
+            *_args: object,
+            **_kwargs: object,
+        ) -> None:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+    monkeypatch.setattr(
+        runtime_pilot_service,
+        "_runtime_gateway",
+        lambda: FailingProjectionGateway(),
+    )
+    response = client.post(
+        path,
+        json=payload,
+        headers={
+            "x-uaa-idempotency-key": (
+                f"idempotency-ref:projection-envelope:{operation}"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["operation"] == operation
+    assert (
+        body["error"]["code"]
+        == "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
+    )
+    assert body["error"]["details_redacted"] is True
 
 
 def test_goal_api_is_idempotent_versioned_and_receipt_verified(

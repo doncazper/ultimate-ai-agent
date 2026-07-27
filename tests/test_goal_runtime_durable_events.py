@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import stat
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -790,6 +791,253 @@ def test_run_event_idempotency_survives_payload_retention(
                 update={"safe_summary": "A conflicting delayed retry."}
             )
         )
+
+
+def test_completion_receipt_remains_verifiable_after_payload_retention(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path, retention_limit=3)
+    created = _create_goal(
+        service,
+        _create_request(run_ref="run-ref:retained-completion"),
+        idempotency_ref="idempotency-ref:retained-completion:create",
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:retained-completion",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="The retained completion receipt was recorded.",
+            proof_refs=["proof-ref:retained-completion"],
+            receipt_refs=["receipt-ref:retained-completion"],
+            goal_ref=created.goal_ref,
+            plan_ref="plan-ref:accepted-local:one",
+            idempotency_ref="idempotency-ref:retained-completion:receipt",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    for index in range(4):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref="run-ref:retained-completion",
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.evidence_linked,
+                safe_summary=f"Later retained evidence event {index}.",
+                proof_refs=[f"proof-ref:retained-completion:later:{index}"],
+                goal_ref=created.goal_ref,
+                idempotency_ref=(
+                    f"idempotency-ref:retained-completion:later:{index}"
+                ),
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+    assert [
+        event.event_kind
+        for event in service.events.retained_events(
+            run_ref="run-ref:retained-completion"
+        )
+    ] == [DurableRunEventKind.evidence_linked.value] * 3
+    assert service.events.has_completion_evidence(
+        run_ref="run-ref:retained-completion",
+        receipt_ref="receipt-ref:retained-completion",
+        proof_ref="proof-ref:retained-completion",
+        goal_ref=created.goal_ref,
+    )
+
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=1,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:retained-completion:request",
+        ),
+        idempotency_ref="idempotency-ref:retained-completion:request",
+    )
+    verified = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=requested.version,
+            transition=GoalTransitionKind.verify_completion,
+            reason_ref="reason-ref:retained-completion:verify",
+            completion_evidence=GoalCompletionEvidence(
+                goal_ref=created.goal_ref,
+                goal_version=requested.version,
+                run_ref="run-ref:retained-completion",
+                receipt_ref="receipt-ref:retained-completion",
+                proof_ref="proof-ref:retained-completion",
+                evidence_ref="evidence-ref:retained-completion",
+                verifier_ref="verifier-ref:retained-completion",
+            ),
+        ),
+        idempotency_ref="idempotency-ref:retained-completion:verify",
+    )
+    assert verified.state == GoalState.verified_complete.value
+
+
+def test_retained_completion_receipt_rejects_recomputed_tombstone_wrapper(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path, retention_limit=2)
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:retained-tombstone-tamper",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="The retained receipt was recorded.",
+            proof_refs=["proof-ref:retained-tombstone-tamper"],
+            receipt_refs=["receipt-ref:retained-tombstone-tamper"],
+            goal_ref="goal-ref:retained-tombstone-tamper",
+            idempotency_ref="idempotency-ref:retained-tombstone-tamper:receipt",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:retained-tombstone-tamper",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.evidence_linked,
+            safe_summary="Another later event completed receipt eviction.",
+            proof_refs=["proof-ref:retained-tombstone-tamper:last"],
+            goal_ref="goal-ref:retained-tombstone-tamper",
+            idempotency_ref="idempotency-ref:retained-tombstone-tamper:last",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:retained-tombstone-tamper",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.evidence_linked,
+            safe_summary="A later event evicted the receipt payload.",
+            proof_refs=["proof-ref:retained-tombstone-tamper:later"],
+            goal_ref="goal-ref:retained-tombstone-tamper",
+            idempotency_ref="idempotency-ref:retained-tombstone-tamper:later",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+
+    path = tmp_path / "run_event_idempotency.jsonl"
+    rows = [
+        goal_runtime_module.RunEventIdempotencyTombstone.model_validate_json(
+            line
+        )
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+    receipt = rows[0]
+    tampered_event = receipt.event.model_copy(
+        update={"proof_refs": ["proof-ref:substituted"]}
+    )
+    recomputed_wrapper = receipt.model_copy(
+        update={"event": tampered_event}
+    )
+    recomputed_wrapper = recomputed_wrapper.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                recomputed_wrapper
+            )
+        }
+    )
+    path.write_text(
+        "".join(
+            row.model_dump_json() + "\n"
+            for row in [recomputed_wrapper, *rows[1:]]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_IDEMPOTENCY_EVENT_HASH_MISMATCH",
+    ):
+        service.events.has_completion_evidence(
+            run_ref="run-ref:retained-tombstone-tamper",
+            receipt_ref="receipt-ref:retained-tombstone-tamper",
+            proof_ref="proof-ref:retained-tombstone-tamper",
+            goal_ref="goal-ref:retained-tombstone-tamper",
+        )
+
+
+def test_projection_reservations_are_reused_and_expired_crash_leases_reclaimed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2026, 7, 26, 20, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(goal_runtime_module, "utc_now", lambda: now)
+    service = GoalRuntimeService(tmp_path)
+
+    first_ref = service._events.reserve_runtime_projection(  # noqa: SLF001
+        None,
+        operation_idempotency_ref="idempotency-ref:reservation:reused",
+    )
+    replayed_ref = service._events.reserve_runtime_projection(  # noqa: SLF001
+        None,
+        operation_idempotency_ref="idempotency-ref:reservation:reused",
+    )
+    assert replayed_ref == first_ref
+    reservation_path = tmp_path / "run_event_projection_reservations.jsonl"
+    assert len(reservation_path.read_text(encoding="utf-8").splitlines()) == 1
+
+    now += timedelta(
+        seconds=(
+            goal_runtime_module.RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS
+            + 1
+        )
+    )
+    second_ref = service._events.reserve_runtime_projection(  # noqa: SLF001
+        None,
+        operation_idempotency_ref="idempotency-ref:reservation:after-crash",
+    )
+    rows = [
+        json.loads(line)
+        for line in reservation_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert second_ref != first_ref
+    assert [row["reservation_ref"] for row in rows] == [second_ref]
+
+
+def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(goal_runtime_module, "MAX_GOAL_JOURNAL_ENTRIES", 2)
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:bounded-journal:create",
+    )
+    edited = _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(expected_version=1, objective="Bounded edit one."),
+        idempotency_ref="idempotency-ref:bounded-journal:edit-one",
+    )
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_JOURNAL_CAPACITY_EXCEEDED",
+    ):
+        _edit_goal(
+            service,
+            created.goal_ref,
+            GoalEditRequest(
+                expected_version=edited.version,
+                objective="Bounded edit two must fail closed.",
+            ),
+            idempotency_ref="idempotency-ref:bounded-journal:edit-two",
+        )
+
+    assert service.goals.get(created.goal_ref).version == edited.version
+    assert len(
+        (tmp_path / "goals.jsonl").read_text(encoding="utf-8").splitlines()
+    ) == 2
 
 
 @pytest.mark.parametrize(

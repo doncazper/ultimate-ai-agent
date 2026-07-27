@@ -17,6 +17,10 @@ links, evidence refs, lifecycle state, version, and timestamps. The append-first
 goal journal is atomically replaced under a single-writer lock and checks its
 monotonic versions, idempotency refs, predecessor hashes, entry hashes, and
 deterministic entry refs on every read.
+The complete audit chain is bounded by explicit entry and byte capacities.
+Mutations fail closed before either capacity is crossed, so a long-lived goal
+cannot make the journal or the cost of each atomic rewrite grow without limit;
+the existing hash-linked history is never silently truncated or compacted away.
 
 Supported local metadata transitions are create, edit, pause, resume, block,
 wait, cancel, clear, request completion, and verify completion. Every API or CLI
@@ -57,8 +61,10 @@ continuity, sequence order, per-run type consistency, and duplicate
 idempotency refs on every read. Reusing an idempotency ref with a different
 payload is rejected. A bounded durable tombstone/fingerprint index preserves
 exact idempotent replay after event-payload retention and fails closed at its
-capacity instead of evicting accepted idempotency history. Completion events
-require matching prior receipt evidence. Cancelled, verified-complete,
+capacity instead of evicting accepted idempotency history. Integrity-checked
+tombstones also preserve completion-bearing receipt and proof evidence after
+the replay payload itself is evicted. Completion events require matching prior
+receipt evidence. Cancelled, verified-complete,
 terminal-failure, and dead-letter events require receipt and proof refs; those
 streams are terminal and late success events are rejected.
 
@@ -68,10 +74,16 @@ projected at the Python Core boundary as `run_started` plus
 secures the exact two-event projection capacity without holding the event lock
 across the bounded runtime call. The reservation is then bound to the exact
 receipt-derived event keys and consumed atomically under the writer lock.
+Reservation identity is deterministic for the operation idempotency ref, and
+each reservation is a short bounded lease longer than the maximum supported
+runtime call. Exact retries reuse the lease, while expired crash leftovers are
+reclaimed under the same writer lock before capacity is counted.
 Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
 idempotently after a process interruption. `GET /api/runtime/run-events` and
 CLI inspection remain strictly read-only. Blocked or approval-pending
 invocations are not projected as accepted runs.
+Projection-capacity or corruption failures are returned through redacted API
+and CLI error envelopes rather than escaping as unstructured failures.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained
@@ -114,7 +126,9 @@ field and wrapper tampering, type substitution, receipt-bound completion,
 terminal proof requirements, pre-commit terminal fences, interrupted
 terminal-event commit recovery, exact transition retry, retained idempotency
 tombstones, pre-execution projection-capacity fencing, read-only inspection,
-private writer authority, private filesystem modes, malformed idempotency
+completion after payload retention, crash-reservation recovery, bounded goal
+journal capacity, redacted projection failures, private writer authority,
+private filesystem modes, malformed idempotency
 refs, accepted RuntimeGateway producer wiring, approval wait/resume,
 controlled worker-restart evidence, and a second cancelled run. API and CLI
 are compared after process-state reconstruction, while the Control Center
