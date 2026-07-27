@@ -14012,6 +14012,7 @@ export type RuntimeGoalTransitionKind =
   | "wait"
   | "cancel"
   | "clear"
+  | "restore"
   | "request_completion";
 
 export interface RuntimeGoalTransitionRequest {

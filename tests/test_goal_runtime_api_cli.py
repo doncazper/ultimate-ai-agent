@@ -27,7 +27,7 @@ def goal_runtime_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[TestClient, GoalRuntimeService]:
-    service = GoalRuntimeService(tmp_path)
+    service = GoalRuntimeService.for_runtime_store(tmp_path)
     monkeypatch.setattr(
         runtime_pilot_service,
         "_goal_runtime_service_getter",
@@ -59,6 +59,8 @@ def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,
 ) -> DurableRunEvent:
+    if request.event_kind == DurableRunEventKind.receipt_recorded.value:
+        return service._events.append(request)  # noqa: SLF001
     approval = capture_exact_goal_mutation_approval(
         operation="append-run-event",
         subject_ref=request.run_ref,
@@ -207,6 +209,23 @@ def test_goal_get_rejects_malformed_path_ref_with_safe_envelope(
     assert body["success"] is False
     assert body["operation"] == "api_runtime_goal"
     assert body["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
+    assert body["error"]["details_redacted"] is True
+
+
+def test_run_events_rejects_malformed_run_ref_with_safe_envelope(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, _service = goal_runtime_client
+    response = client.get(
+        "/api/runtime/run-events",
+        params={"run_ref": "abcdefgh"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["operation"] == "api_runtime_run_events"
+    assert body["error"]["code"] == "RUN_EVENT_REQUEST_REF_INVALID"
     assert body["error"]["details_redacted"] is True
 
 
@@ -408,6 +427,35 @@ def test_goal_cli_and_api_read_identical_state_after_restart(
     assert json.loads(shown.stdout)["goal"] == created
 
 
+def test_goal_cli_state_directory_failure_is_redacted(tmp_path: Path) -> None:
+    blocked_state_dir = tmp_path / "not-a-directory"
+    blocked_state_dir.write_text("bounded fixture", encoding="utf-8")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    command = [
+        sys.executable,
+        "scripts/dev/uaa_runtime.py",
+        "--state-dir",
+        str(blocked_state_dir),
+        "goals-list",
+        "--json",
+    ]
+
+    cli = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    assert cli.stdout == ""
+    assert cli.stderr.strip() == "Goal lifecycle could not be read safely."
+    assert str(blocked_state_dir) not in cli.stderr
+    assert "Traceback" not in cli.stderr
+
+
 def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> None:
     env = dict(os.environ)
     env["PYTHONPATH"] = "src"
@@ -480,7 +528,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
     assert [event["sequence"] for event in disconnected["events"]] == [1, 2]
     assert disconnected["next_cursor"] == 2
 
-    restored = GoalRuntimeService(tmp_path)
+    restored = GoalRuntimeService.for_runtime_store(tmp_path)
     resumed_specs = [
         (
             DurableRunEventKind.approval_resumed,

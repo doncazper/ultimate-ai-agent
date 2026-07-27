@@ -23,7 +23,10 @@ cannot make the journal or the cost of each atomic rewrite grow without limit;
 the existing hash-linked history is never silently truncated or compacted away.
 
 Supported local metadata transitions are create, edit, pause, resume, block,
-wait, cancel, clear, request completion, and verify completion. Every API or CLI
+wait, cancel, clear, restore, request completion, and verify completion. Restore
+replays the exact durable snapshot immediately before the latest clear, advances
+the version, and remains approval-bound and idempotent; clear is therefore
+hidden by default without being an irreversible delete. Every API or CLI
 mutation requires an idempotency ref and captures one request-scoped
 `LocalApprovalAuthority` decision bound to the exact operation, subject,
 payload fingerprint, and scope. The Core store revalidates the complete typed
@@ -71,9 +74,13 @@ The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime.
 
-Accepted `RuntimeGateway` local-model and governed-command receipts are
+Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
-`receipt_recorded`. Before runtime execution, a private durable reservation
+`receipt_recorded`. Deterministically unsuccessful or indeterminate attempts
+instead project `run_started` plus proof-backed `failed_terminal`, so their
+receipts can never satisfy goal completion. Public metadata writers reject both
+receipt and completion events; only receipt-validated Core producers may append
+them. Before runtime execution, a private durable reservation
 secures the exact two-event projection capacity without holding the event lock
 across the bounded runtime call. The reservation is then bound to the exact
 receipt-derived event keys and consumed atomically under the writer lock.
@@ -91,6 +98,9 @@ Projection-capacity or corruption failures are returned through redacted API
 and CLI error envelopes rather than escaping as unstructured failures. Local
 storage failures are normalized to the same safe contract, and goal mutations
 remain in the governed-runtime targeted rate-limit group.
+When CLI `--state-dir` is supplied, goal state is derived from the same
+`goal_runtime` child used by the API for that runtime store. An unavailable or
+invalid directory returns a bounded message without exposing the supplied path.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained
@@ -119,6 +129,11 @@ trusted Core producer paths.
 - `scripts/dev/uaa_runtime.py inspect-run-events`
 - Control Center `/runtime` goal and durable-event summary
 
+Control Center retains one pending create idempotency ref until the
+post-mutation authoritative refresh succeeds. A transient refresh failure can
+therefore only replay the accepted create; it cannot silently create a second
+goal.
+
 The existing mission-control boundary keeps run cancellation, approval
 decisions, and dead-letter recovery on separate exact routes. Those routes
 re-evaluate their own current policy/approval/lease posture; a durable goal or
@@ -135,8 +150,10 @@ terminal-event commit recovery, exact transition retry, retained idempotency
 tombstones, pre-execution projection-capacity fencing, read-only inspection,
 completion after payload retention, crash-reservation recovery, bounded goal
 journal capacity, redacted projection failures, private writer authority,
-private filesystem modes, malformed idempotency
-refs, accepted RuntimeGateway producer wiring, approval wait/resume,
+private filesystem modes, malformed idempotency and run refs, exact clear
+restore, custom-state CLI/API parity, retained create idempotency after refresh
+failure, trusted receipt-producer enforcement, successful-versus-failed
+RuntimeGateway projection, accepted RuntimeGateway producer wiring, approval wait/resume,
 controlled worker-restart evidence, and a second cancelled run. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly

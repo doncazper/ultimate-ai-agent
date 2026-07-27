@@ -46,6 +46,8 @@ def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,
 ) -> DurableRunEvent:
+    if request.event_kind == DurableRunEventKind.receipt_recorded.value:
+        return service._events.append(request)  # noqa: SLF001
     approval = capture_exact_goal_mutation_approval(
         operation="append-run-event",
         subject_ref=request.run_ref,
@@ -475,6 +477,31 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
     )
     assert cleared.state == GoalState.cleared.value
     assert cleared.completion_receipt_ref == evidence.receipt_ref
+
+    restored_goal = _transition_goal(
+        recovered,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=cleared.version,
+            transition=GoalTransitionKind.restore,
+            reason_ref="reason-ref:restore-cleared-verified-goal",
+        ),
+        idempotency_ref="idempotency-ref:goal-restore-verified",
+    )
+    assert restored_goal.state == GoalState.verified_complete.value
+    assert restored_goal.version == cleared.version + 1
+    assert restored_goal.completion_receipt_ref == evidence.receipt_ref
+    restored_service = GoalRuntimeService(tmp_path)
+    restored_service.reconcile_durable_events()
+    completion_events_after_restore = [
+        event
+        for event in restored_service.events.replay(
+            "run-ref:accepted-local:one",
+            after_sequence=0,
+        ).events
+        if event.event_kind == DurableRunEventKind.completion_verified.value
+    ]
+    assert len(completion_events_after_restore) == 1
 
 
 def test_completion_binds_exact_receipt_plan_and_rejects_substitution(
@@ -1140,6 +1167,52 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     assert len(restored.events.replay(result.record.invocation_ref).events) == 2
 
 
+def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    goal_service = GoalRuntimeService(tmp_path / "goals")
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=1,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_FAILURE",
+        )
+
+    result = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            runtime_dir,
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=goal_service,
+    ).invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect current repository status with redacted output.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-event-failed-producer",
+    )
+
+    replay = goal_service.events.replay(result.record.invocation_ref)
+    assert [event.event_kind for event in replay.events] == [
+        DurableRunEventKind.run_started.value,
+        DurableRunEventKind.failed_terminal.value,
+    ]
+    assert replay.events[-1].receipt_refs == [
+        result.record.receipt.receipt_ref
+    ]
+    assert not any(
+        event.event_kind == DurableRunEventKind.receipt_recorded.value
+        for event in replay.events
+    )
+
+
 @pytest.mark.parametrize("journal_state", ["missing", "empty"])
 def test_event_journal_cannot_disappear_while_tombstones_remain(
     tmp_path: Path,
@@ -1251,6 +1324,44 @@ def test_run_event_writer_requires_exact_approval_and_is_not_on_reader(
         match="GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
     ):
         service.append_run_event(request, approval_binding=wrong_approval)
+    assert service.events.replay(request.run_ref).events == []
+
+
+@pytest.mark.parametrize(
+    "event_kind",
+    [
+        DurableRunEventKind.receipt_recorded,
+        DurableRunEventKind.completion_verified,
+    ],
+)
+def test_run_event_writer_rejects_trusted_producer_events(
+    tmp_path: Path,
+    event_kind: DurableRunEventKind,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref=f"run-ref:trusted-producer:{event_kind.value}",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=event_kind,
+        safe_summary="A fabricated receipt-bearing event must fail closed.",
+        proof_refs=[f"proof-ref:trusted-producer:{event_kind.value}"],
+        receipt_refs=[f"receipt-ref:trusted-producer:{event_kind.value}"],
+        goal_ref="goal-ref:trusted-producer",
+        idempotency_ref=f"idempotency-ref:trusted-producer:{event_kind.value}",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    approval = capture_exact_goal_mutation_approval(
+        operation="append-run-event",
+        subject_ref=request.run_ref,
+        request_payload=request.model_dump(mode="json"),
+        idempotency_ref=request.idempotency_ref,
+    )
+
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="RUN_EVENT_TRUSTED_PRODUCER_REQUIRED",
+    ):
+        service.append_run_event(request, approval_binding=approval)
     assert service.events.replay(request.run_ref).events == []
 
 

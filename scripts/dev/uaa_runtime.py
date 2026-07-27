@@ -4040,7 +4040,7 @@ def _inspect_run_events(args: argparse.Namespace) -> int:
 
 def _goal_runtime_service(args: argparse.Namespace) -> GoalRuntimeService:
     return (
-        GoalRuntimeService(Path(args.state_dir))
+        GoalRuntimeService.for_runtime_store(Path(args.state_dir))
         if args.state_dir
         else GoalRuntimeService.from_env()
     )

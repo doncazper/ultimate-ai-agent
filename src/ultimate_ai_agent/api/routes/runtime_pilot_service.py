@@ -1252,11 +1252,16 @@ def get_api_runtime_run_events(
             after_sequence=after_sequence,
             limit=limit,
         )
-    except GoalRuntimeError as exc:
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("RUN_EVENT_REQUEST_REF_INVALID")
+        )
         return _goal_runtime_failure(
             "api_runtime_run_events",
             run_ref or "run-event-index-ref:durable-local",
-            exc,
+            failure,
         )
     return ResultEnvelope(
         success=True,

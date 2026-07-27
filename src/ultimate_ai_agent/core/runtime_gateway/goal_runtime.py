@@ -112,6 +112,7 @@ class GoalTransitionKind(str, Enum):
     wait = "wait"
     cancel = "cancel"
     clear = "clear"
+    restore = "restore"
     request_completion = "request_completion"
     verify_completion = "verify_completion"
 
@@ -169,6 +170,50 @@ def _canonical_json(value: Any) -> str:
 def _sha256_ref(prefix: str, value: Any) -> str:
     digest = hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
     return f"{prefix}:sha256:{digest}"
+
+
+def _runtime_receipt_projection_kind(
+    record: RuntimeInvocationRecord,
+) -> DurableRunEventKind:
+    receipt = record.receipt
+    if receipt is None:
+        return DurableRunEventKind.failed_terminal
+    if receipt.invocation_status != "receipt_recorded":
+        return DurableRunEventKind.failed_terminal
+    model_metadata = receipt.model_receipt_metadata
+    if model_metadata is not None:
+        successful = (
+            receipt.model_call_performed
+            and receipt.execution_performed
+            and receipt.adapter_execution_performed
+            and model_metadata.response_received
+            and model_metadata.status_code is not None
+            and 200 <= model_metadata.status_code < 300
+            and model_metadata.error_category is None
+            and not model_metadata.attempt_outcome_unknown
+        )
+        return (
+            DurableRunEventKind.receipt_recorded
+            if successful
+            else DurableRunEventKind.failed_terminal
+        )
+    command_metadata = receipt.command_receipt_metadata
+    if command_metadata is not None:
+        successful = (
+            receipt.command_execution_performed
+            and receipt.execution_performed
+            and receipt.adapter_execution_performed
+            and command_metadata.command_execution_attempted
+            and command_metadata.exit_code == 0
+            and not command_metadata.timed_out
+            and command_metadata.error_category is None
+        )
+        return (
+            DurableRunEventKind.receipt_recorded
+            if successful
+            else DurableRunEventKind.failed_terminal
+        )
+    return DurableRunEventKind.failed_terminal
 
 
 def _bounded_safe_text(value: str, field_name: str) -> str:
@@ -792,7 +837,10 @@ class _GoalJournalStore:
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
-            mutate=lambda current: self._edited_goal(current, validated),
+            mutate=lambda current, _entries: self._edited_goal(
+                current,
+                validated,
+            ),
         )
 
     def transition(
@@ -820,11 +868,17 @@ class _GoalJournalStore:
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
-            mutate=lambda current: self._transitioned_goal(
+            mutate=lambda current, entries: self._transitioned_goal(
                 current,
                 validated,
                 completion_verified=completion_verified,
                 completion_plan_ref=completion_plan_ref,
+                restore_goal=(
+                    self._goal_before_latest_clear(entries, goal_ref)
+                    if validated.transition
+                    == GoalTransitionKind.restore.value
+                    else None
+                ),
             ),
         )
 
@@ -905,13 +959,20 @@ class _GoalJournalStore:
     ) -> GoalJournalEntry:
         validate_execution_ref(goal_ref, "goal_ref")
         with self._locks.acquire("goal-journal"):
-            for entry in reversed(self._load_entries()):
+            previous_state: str | None = None
+            candidate: GoalJournalEntry | None = None
+            for entry in self._load_entries():
+                if entry.goal_ref != goal_ref:
+                    continue
                 if (
-                    entry.goal_ref == goal_ref
+                    previous_state == GoalState.complete_requested.value
                     and entry.goal.state
                     == GoalState.verified_complete.value
                 ):
-                    return entry.model_copy(deep=True)
+                    candidate = entry
+                previous_state = entry.goal.state
+            if candidate is not None:
+                return candidate.model_copy(deep=True)
         raise GoalRuntimeCorruptionError(
             "GOAL_VERIFIED_COMPLETION_ENTRY_MISSING"
         )
@@ -974,7 +1035,7 @@ class _GoalJournalStore:
                 raise GoalNotFoundError("GOAL_NOT_FOUND")
             if current.version != expected_version:
                 raise GoalVersionConflictError("GOAL_VERSION_CONFLICT")
-            updated = mutate(current.model_copy(deep=True))
+            updated = mutate(current.model_copy(deep=True), entries)
             self._append(
                 entries,
                 operation=operation,
@@ -1015,6 +1076,7 @@ class _GoalJournalStore:
         *,
         completion_verified: bool,
         completion_plan_ref: str | None,
+        restore_goal: PersistentGoal | None,
     ) -> PersistentGoal:
         allowed: dict[str, set[str]] = {
             GoalState.active.value: {
@@ -1051,7 +1113,7 @@ class _GoalJournalStore:
             },
             GoalState.verified_complete.value: {GoalTransitionKind.clear.value},
             GoalState.cancelled.value: {GoalTransitionKind.clear.value},
-            GoalState.cleared.value: set(),
+            GoalState.cleared.value: {GoalTransitionKind.restore.value},
         }
         if request.transition not in allowed[current.state]:
             raise GoalTransitionDeniedError("GOAL_TRANSITION_DENIED")
@@ -1060,6 +1122,27 @@ class _GoalJournalStore:
             and not completion_verified
         ):
             raise GoalTransitionDeniedError("GOAL_COMPLETION_NOT_VERIFIED")
+        if request.transition == GoalTransitionKind.restore.value:
+            if restore_goal is None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_RESTORE_SNAPSHOT_MISSING"
+                )
+            return PersistentGoal.model_validate(
+                restore_goal.model_copy(
+                    update={
+                        "version": current.version + 1,
+                        "updated_at": utc_now(),
+                        "evidence_refs": list(
+                            dict.fromkeys(
+                                [
+                                    *restore_goal.evidence_refs,
+                                    *request.evidence_refs,
+                                ]
+                            )
+                        ),
+                    }
+                ).model_dump()
+            )
         target = {
             GoalTransitionKind.pause.value: GoalState.paused.value,
             GoalTransitionKind.resume.value: GoalState.active.value,
@@ -1102,6 +1185,23 @@ class _GoalJournalStore:
         return PersistentGoal.model_validate(
             current.model_copy(update=updates).model_dump()
         )
+
+    @staticmethod
+    def _goal_before_latest_clear(
+        entries: list[GoalJournalEntry],
+        goal_ref: str,
+    ) -> PersistentGoal:
+        matching = [entry for entry in entries if entry.goal_ref == goal_ref]
+        if len(matching) < 2 or (
+            matching[-1].goal.state != GoalState.cleared.value
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_RESTORE_SNAPSHOT_MISSING"
+            )
+        for entry in reversed(matching[:-1]):
+            if entry.goal.state != GoalState.cleared.value:
+                return entry.goal.model_copy(deep=True)
+        raise GoalRuntimeCorruptionError("GOAL_RESTORE_SNAPSHOT_MISSING")
 
     @staticmethod
     def _idempotent_replay(
@@ -1812,6 +1912,12 @@ class _DurableRunEventStore:
         if record is None or record.receipt is None:
             return None
         run_ref = record.invocation_ref
+        projection_kind = _runtime_receipt_projection_kind(record)
+        projection_idempotency_prefix = (
+            "idempotency-ref:runtime-receipt-recorded"
+            if projection_kind == DurableRunEventKind.receipt_recorded
+            else "idempotency-ref:runtime-failed-terminal"
+        )
         expected_keys = (
             (
                 run_ref,
@@ -1823,7 +1929,7 @@ class _DurableRunEventStore:
             (
                 run_ref,
                 _sha256_ref(
-                    "idempotency-ref:runtime-receipt-recorded",
+                    projection_idempotency_prefix,
                     {
                         "invocation_ref": run_ref,
                         "receipt_ref": record.receipt.receipt_ref,
@@ -2253,11 +2359,18 @@ class GoalRuntimeService:
         retention_limit: int = DEFAULT_RUN_EVENT_RETENTION,
     ) -> None:
         self.state_dir = Path(state_dir)
-        self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        state_metadata = os.lstat(self.state_dir)
-        if not stat.S_ISDIR(state_metadata.st_mode):
-            raise OSError("goal runtime state directory must be a real directory")
-        os.chmod(self.state_dir, 0o700)
+        try:
+            self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            state_metadata = os.lstat(self.state_dir)
+            if not stat.S_ISDIR(state_metadata.st_mode):
+                raise OSError(
+                    "goal runtime state directory must be a real directory"
+                )
+            os.chmod(self.state_dir, 0o700)
+        except OSError as exc:
+            raise GoalRuntimeError(
+                "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+            ) from exc
         self.goals = _GoalJournalStore(self.state_dir)
         self._events = _DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
@@ -2329,7 +2442,11 @@ class GoalRuntimeService:
             idempotency_ref=idempotency_ref,
         )
         if replayed is not None:
-            if replayed.state == GoalState.verified_complete.value:
+            if (
+                validated.transition
+                == GoalTransitionKind.verify_completion.value
+                and replayed.state == GoalState.verified_complete.value
+            ):
                 entry = self.goals.transition_entry(
                     goal_ref,
                     validated,
@@ -2393,7 +2510,11 @@ class GoalRuntimeService:
                 completion_verified=completion_verified,
                 completion_plan_ref=completion_plan_ref,
             )
-            if goal.state == GoalState.verified_complete.value:
+            if (
+                validated.transition
+                == GoalTransitionKind.verify_completion.value
+                and goal.state == GoalState.verified_complete.value
+            ):
                 self._append_verified_completion_event(
                     goal,
                     approval_decision_ref=approval_binding.approval_decision_ref,
@@ -2487,10 +2608,10 @@ class GoalRuntimeService:
         """Append one exact operator-approved metadata event."""
 
         validated = DurableRunEventAppendRequest.model_validate(request.model_dump())
-        if (
-            validated.event_kind
-            == DurableRunEventKind.completion_verified.value
-        ):
+        if validated.event_kind in {
+            DurableRunEventKind.receipt_recorded.value,
+            DurableRunEventKind.completion_verified.value,
+        }:
             raise GoalTransitionDeniedError(
                 "RUN_EVENT_TRUSTED_PRODUCER_REQUIRED"
             )
@@ -2583,6 +2704,12 @@ class GoalRuntimeService:
                 ]
             )
         )
+        projection_kind = _runtime_receipt_projection_kind(validated)
+        projection_idempotency_prefix = (
+            "idempotency-ref:runtime-receipt-recorded"
+            if projection_kind == DurableRunEventKind.receipt_recorded
+            else "idempotency-ref:runtime-failed-terminal"
+        )
         with self._events.exclusive():
             self._events.bind_runtime_projection_reservation(
                 reservation_ref,
@@ -2612,17 +2739,23 @@ class GoalRuntimeService:
                 DurableRunEventAppendRequest(
                 run_ref=validated.invocation_ref,
                 run_type=run_type,
-                event_kind=DurableRunEventKind.receipt_recorded,
+                event_kind=projection_kind,
                 safe_summary=(
-                    "RuntimeGateway recorded the accepted local invocation "
-                    "receipt with redacted evidence refs."
+                    "RuntimeGateway recorded the successful accepted local "
+                    "invocation receipt with redacted evidence refs."
+                    if projection_kind
+                    == DurableRunEventKind.receipt_recorded
+                    else (
+                        "RuntimeGateway recorded the unsuccessful local "
+                        "invocation as a proof-backed terminal failure."
+                    )
                 ),
                 proof_refs=proof_refs,
                 receipt_refs=[receipt.receipt_ref],
                 goal_ref=goal_ref,
                 plan_ref=plan_ref,
                 idempotency_ref=_sha256_ref(
-                    "idempotency-ref:runtime-receipt-recorded",
+                    projection_idempotency_prefix,
                     {
                         "invocation_ref": validated.invocation_ref,
                         "receipt_ref": receipt.receipt_ref,

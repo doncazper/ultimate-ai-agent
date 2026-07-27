@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type {
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
@@ -131,6 +131,7 @@ export function RuntimeReadinessPanel({
   );
   const [editedObjective, setEditedObjective] = useState("");
   const [goalMutationBusy, setGoalMutationBusy] = useState(false);
+  const pendingGoalCreateIdempotencyRef = useRef<string | null>(null);
   const [goalNotice, setGoalNotice] = useState(
     "Goal mutations require the exact local backend and a current truth binding.",
   );
@@ -164,6 +165,8 @@ export function RuntimeReadinessPanel({
                 : selectedGoal.state === "verified_complete" ||
                     selectedGoal.state === "cancelled"
                   ? ["clear"]
+                  : selectedGoal.state === "cleared"
+                    ? ["restore"]
                   : [];
 
   async function refreshGoalState() {
@@ -176,7 +179,10 @@ export function RuntimeReadinessPanel({
       setGoalNotice("Goal creation is blocked until backend truth is current.");
       return;
     }
-    const nonce = Date.now();
+    const idempotencyRef =
+      pendingGoalCreateIdempotencyRef.current ??
+      `idempotency-ref:control-center-goal-create:${Date.now()}`;
+    pendingGoalCreateIdempotencyRef.current = idempotencyRef;
     setGoalMutationBusy(true);
     try {
       const result = await createRuntimeGoal(
@@ -201,10 +207,20 @@ export function RuntimeReadinessPanel({
           },
           evidence_refs: [],
         },
-        `idempotency-ref:control-center-goal-create:${nonce}`,
+        idempotencyRef,
         mutationBinding,
       );
-      await refreshGoalState();
+      try {
+        await refreshGoalState();
+      } catch {
+        setSelectedGoalRef(result.goal.goal_ref);
+        setGoalNotice(
+          "Goal creation was accepted, but the authoritative refresh failed. " +
+            "Retrying this form will replay the same idempotency ref.",
+        );
+        return;
+      }
+      pendingGoalCreateIdempotencyRef.current = null;
       setSelectedGoalRef(result.goal.goal_ref);
       setGoalObjective("");
       setGoalOutcome("");
