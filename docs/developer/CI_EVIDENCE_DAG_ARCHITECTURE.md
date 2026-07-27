@@ -21,7 +21,7 @@ than required to be zero.
 | Stage | Declared budget | Work |
 | --- | ---: | --- |
 | bootstrap | 1/4 | canonical manifest attestation |
-| parallel validation | exact canonical DAG width of 13 hosted jobs | lint, exact-base affected preflight, required backend lanes, complete pytest, static verification, and Control Center start as soon as their real dependencies are met |
+| parallel validation | up to 4/4 per machine; exact cross-machine DAG width of 13 hosted jobs | lint, exact-base affected preflight, required backend lanes, complete pytest, static verification, and Control Center start as soon as their real dependencies are met |
 | pytest exclusive | 4/4 on its machine | eight logical shards, four workers, one installed environment |
 | frontend/static branches | up to 4/4 on each machine | static and Control Center run independently; frontend, visual, and packaging retain only their actual upstream edges |
 | performance exclusive | 4/4 | isolated latency measurement after functional work |
@@ -71,12 +71,15 @@ The envelope binds:
   derived receipt spans and content-binds the complete transitive pre-suite
   dependency closure rather than only the final shard edge.
 
-The terminal validator accepts one ordered result and envelope per upstream
-job. It rejects arity or order drift, duplicate bindings, cross-operation or
-cross-head substitution, wrapper/content-fingerprint tampering, non-success job
-results, unexpected receipt status, dependency chronology drift, or an
-aggregate whose exact receipt bindings, dependency-span timestamps, duration,
-and missing-unit posture do not match its point in the DAG. The commandless
+The terminal runner accepts one uniquely bound envelope per upstream job,
+rejects missing, duplicate, or extra unit bindings, and canonicalizes the
+validated set into declared DAG order before aggregation. The validator still
+rejects arity or internal receipt-order drift, duplicate bindings,
+cross-operation or cross-head substitution, wrapper/content-fingerprint
+tampering, non-success job results, unexpected receipt status, dependency
+chronology drift, or an aggregate whose exact receipt bindings,
+dependency-span timestamps, duration, and missing-unit posture do not match its
+point in the DAG. The commandless
 pytest receipt is also bound to the exact dependency receipt refs from which it
 was derived. Typed-optional lanes always emit a v3 envelope. Their required
 contract commands remain exact executed evidence, while a declared optional
@@ -116,8 +119,10 @@ payload, or host identity is durable evidence.
   the incomplete set.
 - A superseding SHA cancels the prior workflow through the existing concurrency
   key. Receipts from that SHA cannot satisfy the replacement plan.
-- Missing required, duplicated, reordered, oversized, malformed, or cross-job envelopes
-  fail before Foundation starts.
+- Missing required, duplicated, extra, oversized, malformed, or cross-job
+  envelopes fail before Foundation starts. Valid command-line envelope
+  permutations are canonicalized to the declared DAG order; they cannot alter
+  proof membership or aggregation order.
 - A comparison-base, lockfile, manifest, checkout, or verifier change produces
   a different plan and rejects prior envelopes even if a wrapper hash is
   recomputed.

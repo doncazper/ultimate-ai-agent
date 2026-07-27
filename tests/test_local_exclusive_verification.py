@@ -130,7 +130,9 @@ def test_local_lane_prints_only_safe_pytest_failure_refs(
     assert "pytest-shard-ref:99:failed" not in output
     assert "unsafe-local-detail" not in output
     assert "diagnostic-ref:local-verification:" in output
-    retained = tuple((tmp_path / "diagnostics").iterdir())
+    retained = tuple(
+        path for path in (tmp_path / "diagnostics").iterdir() if path.is_dir()
+    )
     assert len(retained) == 1
     assert retained[0].is_dir()
     payload = json.loads(
@@ -168,7 +170,9 @@ def test_local_diagnostics_drop_untrusted_output_and_receipt_fields(
         "ci-pytest-shards",
         fence_root=tmp_path / "fence",
     ) == 1
-    retained = tuple((tmp_path / "diagnostics").iterdir())
+    retained = tuple(
+        path for path in (tmp_path / "diagnostics").iterdir() if path.is_dir()
+    )
     encoded = (retained[0] / "diagnostic.json").read_text(encoding="utf-8")
     assert "secret-like-value" not in encoded
     assert "unsafe-local-detail" not in encoded

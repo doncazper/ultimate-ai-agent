@@ -93,6 +93,31 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
     assert "if: always()" in section
     assert "uaa_foundation_prerequisite_manifest.json" in section
     assert '--github-output-file "$GITHUB_OUTPUT"' in section
+    dependency_envelopes = tuple(
+        line.strip().removeprefix('--dependency-envelope "$').removesuffix('" \\')
+        for line in section.splitlines()
+        if line.strip().startswith('--dependency-envelope "$')
+    )
+    assert dependency_envelopes == (
+        "MANIFEST_ENVELOPE",
+        "LINT_ENVELOPE",
+        "AFFECTED_ENVELOPE",
+        "DOCS_ENVELOPE",
+        "OPENAPI_ENVELOPE",
+        "API_SAFETY_ENVELOPE",
+        "SECURITY_REDACTION_ENVELOPE",
+        "PRODUCT_TRUTH_ENVELOPE",
+        "LOCAL_MODEL_ENVELOPE",
+        "DURABILITY_ENVELOPE",
+        "PYTEST_SHARDS_ENVELOPE",
+        "PYTEST_ENVELOPE",
+        "STATIC_ENVELOPE",
+        "CONTROL_CENTER_ENVELOPE",
+        "DESKTOP_ENVELOPE",
+        "FRONTEND_ENVELOPE",
+        "VISUAL_ENVELOPE",
+        "PERFORMANCE_ENVELOPE",
+    )
 
 
 def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -145,7 +146,7 @@ def test_preflight_rejects_insufficient_temp_capacity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    usage = preflight.shutil._ntuple_diskusage(1, 1, 0)
+    usage = SimpleNamespace(total=1, used=1, free=0)
     monkeypatch.setattr(preflight.shutil, "disk_usage", lambda _path: usage)
 
     with pytest.raises(

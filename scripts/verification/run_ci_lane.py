@@ -1234,6 +1234,21 @@ def _build_typed_lane_evidence(
     return receipt, run
 
 
+def _canonicalize_terminal_dependency_receipts(
+    required_unit_refs: tuple[str, ...],
+    dependency_receipts_by_unit: dict[str, VerificationReceipt],
+) -> dict[str, VerificationReceipt]:
+    if (
+        len(dependency_receipts_by_unit) != len(required_unit_refs)
+        or set(dependency_receipts_by_unit) != set(required_unit_refs)
+    ):
+        raise ValueError("terminal dependency evidence is incomplete")
+    return {
+        unit_ref: dependency_receipts_by_unit[unit_ref]
+        for unit_ref in required_unit_refs
+    }
+
+
 def _build_terminal_foundation_run(
     full_plan: Any,
     dependency_receipts_by_unit: dict[str, VerificationReceipt],
@@ -1244,10 +1259,12 @@ def _build_terminal_foundation_run(
     foundation_unit = next(
         unit for unit in CI_JOB_GRAPH if unit.unit_ref == "foundation-gate-report"
     )
-    if foundation_receipt.unit_ref != foundation_unit.unit_ref or (
-        tuple(dependency_receipts_by_unit) != foundation_unit.needs
-    ):
+    if foundation_receipt.unit_ref != foundation_unit.unit_ref:
         raise ValueError("terminal dependency evidence is incomplete")
+    dependency_receipts_by_unit = _canonicalize_terminal_dependency_receipts(
+        foundation_unit.needs,
+        dependency_receipts_by_unit,
+    )
     aggregate_result = aggregate_verification_run(
         full_plan,
         VERIFICATION_DAG,
@@ -1532,10 +1549,13 @@ def run_lane(
                         raise ValueError(
                             "verification dependency envelope proves no reused command"
                         )
-            if terminal_foundation and (
-                tuple(dependency_receipts_by_unit) != direct_dependencies
-            ):
-                raise ValueError("terminal dependency evidence is incomplete")
+            if terminal_foundation:
+                dependency_receipts_by_unit = (
+                    _canonicalize_terminal_dependency_receipts(
+                        direct_dependencies,
+                        dependency_receipts_by_unit,
+                    )
+                )
             if lane.satisfied_command_refs and set(reused_receipts_by_command) != set(
                 lane.satisfied_command_refs
             ):

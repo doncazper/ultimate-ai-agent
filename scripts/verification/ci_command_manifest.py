@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import itertools
 import json
 import os
 import platform
@@ -874,7 +873,7 @@ CI_TYPED_OPTIONAL_EVIDENCE_UNIT_REFS = tuple(
 
 
 def maximum_parallel_job_width(jobs: tuple[JobSpec, ...]) -> int:
-    """Return the exact DAG antichain width for unconstrained hosted execution."""
+    """Return the exact DAG antichain width via bipartite maximum matching."""
 
     by_ref = {job.job_ref: job for job in jobs}
     if len(by_ref) != len(jobs):
@@ -899,15 +898,24 @@ def maximum_parallel_job_width(jobs: tuple[JobSpec, ...]) -> int:
     refs = tuple(by_ref)
     for ref in refs:
         ancestors(ref)
-    for width in range(len(refs), 0, -1):
-        for candidates in itertools.combinations(refs, width):
-            if all(
-                left not in ancestors_by_ref[right]
-                and right not in ancestors_by_ref[left]
-                for left, right in itertools.combinations(candidates, 2)
+    matched_left_by_right: dict[str, str] = {}
+
+    def augment(left_ref: str, visited_right: set[str]) -> bool:
+        for right_ref in refs:
+            if (
+                left_ref not in ancestors_by_ref[right_ref]
+                or right_ref in visited_right
             ):
-                return width
-    return 0
+                continue
+            visited_right.add(right_ref)
+            matched_left = matched_left_by_right.get(right_ref)
+            if matched_left is None or augment(matched_left, visited_right):
+                matched_left_by_right[right_ref] = left_ref
+                return True
+        return False
+
+    matching_size = sum(augment(left_ref, set()) for left_ref in refs)
+    return len(refs) - matching_size
 
 
 def ci_architecture_inventory() -> dict[str, Any]:

@@ -81,8 +81,7 @@ def _prepare_diagnostic_root(path: Path) -> Path:
 
 @contextmanager
 def _locked_diagnostic_root(root: Path):
-    root_ref = hashlib.sha256(os.fsencode(root.resolve())).hexdigest()
-    lock_path = root.parent / f".uaa-diagnostic-retention-{root_ref}.lock"
+    lock_path = root / ".uaa-diagnostic-retention.lock"
     descriptor = os.open(
         lock_path,
         os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
@@ -232,7 +231,7 @@ def _retain_diagnostics(
             reverse=True,
         )
         for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
-            shutil.rmtree(stale)
+            shutil.rmtree(stale, ignore_errors=True)
     return f"diagnostic-ref:local-verification:{token}"
 
 

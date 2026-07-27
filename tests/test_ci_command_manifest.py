@@ -166,6 +166,30 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
         assert jobs[ref].cpu_units == jobs[ref].memory_units == 4
 
 
+def test_parallel_width_calculation_scales_for_large_chain_and_antichain() -> None:
+    antichain = tuple(
+        manifest.JobSpec(
+            f"independent-{index}",
+            f"Independent {index}",
+            None,
+            (),
+        )
+        for index in range(64)
+    )
+    chain = tuple(
+        manifest.JobSpec(
+            f"chain-{index}",
+            f"Chain {index}",
+            None,
+            (() if index == 0 else (f"chain-{index - 1}",)),
+        )
+        for index in range(64)
+    )
+
+    assert manifest.maximum_parallel_job_width(antichain) == 64
+    assert manifest.maximum_parallel_job_width(chain) == 1
+
+
 def test_definition_rejects_a_parallel_cap_that_disagrees_with_dag_width(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

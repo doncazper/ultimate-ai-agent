@@ -814,6 +814,47 @@ def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
     assert run.status is VerificationTerminalStatus.FAILED
 
 
+def test_terminal_dependency_receipts_are_canonicalized_by_declared_dag_order() -> None:
+    required = ("unit-a", "unit-b", "unit-c")
+    receipts = {
+        "unit-c": object(),
+        "unit-a": object(),
+        "unit-b": object(),
+    }
+
+    canonical = runner._canonicalize_terminal_dependency_receipts(
+        required,
+        receipts,
+    )
+
+    assert tuple(canonical) == required
+    assert canonical["unit-a"] is receipts["unit-a"]
+    assert canonical["unit-b"] is receipts["unit-b"]
+    assert canonical["unit-c"] is receipts["unit-c"]
+
+
+@pytest.mark.parametrize(
+    "receipts",
+    (
+        {"unit-a": object(), "unit-b": object()},
+        {
+            "unit-a": object(),
+            "unit-b": object(),
+            "unit-c": object(),
+            "unit-extra": object(),
+        },
+    ),
+)
+def test_terminal_dependency_receipts_reject_incomplete_or_extra_units(
+    receipts: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="terminal dependency evidence is incomplete"):
+        runner._canonicalize_terminal_dependency_receipts(
+            ("unit-a", "unit-b", "unit-c"),
+            receipts,
+        )
+
+
 def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -909,6 +950,45 @@ def test_typed_frontend_release_rejects_synthetic_dependency_reuse(
             temp_root=tmp_path / "temp",
             verification_store_root=store_root,
         )
+    assert not store_root.exists()
+
+
+def test_preflight_failure_blocks_before_attempt_or_fence_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: plan)
+
+    def block_preflight(*_args: object, **_kwargs: object) -> None:
+        raise runner.VerificationEnvironmentPreflightError(
+            "reason-ref:verification-preflight:test-blocked"
+        )
+
+    monkeypatch.setattr(runner, "validate_lane_environment", block_preflight)
+    fence_root = tmp_path / "execution-fence"
+    store_root = tmp_path / "proof-store"
+
+    with pytest.raises(
+        runner.VerificationEnvironmentPreflightError,
+        match="test-blocked",
+    ):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_store_root=store_root,
+            verification_execution_fence_root=fence_root,
+        )
+
+    assert not fence_root.exists()
     assert not store_root.exists()
 
 
