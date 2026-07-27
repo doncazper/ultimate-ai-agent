@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Event, get_ident
 
@@ -48,6 +48,14 @@ from ultimate_ai_agent.core.governed_browser.replay_provenance import (
     replay_validation_context,
 )
 from ultimate_ai_agent.core.time import utc_now
+
+
+class _FixedClock:
+    def __init__(self, value: datetime) -> None:
+        self.value = value
+
+    def __call__(self) -> datetime:
+        return self.value
 
 
 def _rehash_receipt(payload: dict[str, object]) -> dict[str, object]:
@@ -168,11 +176,13 @@ def _seed_download_success_replay(
         suffix=suffix,
     )
     kernel_path = tmp_path / f"{suffix}-kernel"
+    clock = _FixedClock(recipe.created_at + timedelta(minutes=1))
     service, _, _ = _service(
         kernel_path,
         store=store,
         request=request,
         registry=registry,
+        clock=clock,
     )
     exact = _exact(request, recipe)
     result = service.execute(
@@ -201,11 +211,15 @@ def _seed_upload_success_replay(
         operation=GovernedArtifactTransferOperation.download_quarantine,
         suffix=f"{suffix}-download",
     )
+    download_clock = _FixedClock(
+        download_recipe.created_at + timedelta(minutes=1)
+    )
     download_service, download_kernel, _ = _service(
         tmp_path / f"{suffix}-download-kernel",
         store=store,
         request=download_request,
         registry=download_registry,
+        clock=download_clock,
     )
     downloaded = download_service.execute(
         _exact(download_request, download_recipe),
@@ -228,6 +242,9 @@ def _seed_upload_success_replay(
         source_download_recipe_ref=download_recipe.recipe_ref,
     )
     kernel_path = tmp_path / f"{suffix}-upload-kernel"
+    upload_clock = _FixedClock(
+        upload_recipe.created_at + timedelta(minutes=1)
+    )
     upload_service, _, _ = _service(
         kernel_path,
         store=store,
@@ -236,6 +253,7 @@ def _seed_upload_success_replay(
         source_download_kernel=download_kernel,
         source_download_registry=download_registry,
         source_download_request=_exact(download_request, download_recipe),
+        clock=upload_clock,
     )
     exact = _exact(upload_request, upload_recipe)
     result = upload_service.execute(exact)

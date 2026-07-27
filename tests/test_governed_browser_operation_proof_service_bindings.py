@@ -6,7 +6,10 @@ from typing import Any, Callable
 
 import pytest
 
-from tests.test_governed_browser_queue01_group01 import _authorized_kernel
+from tests.test_governed_browser_queue01_group01 import (
+    _authorized_kernel,
+    _readiness,
+)
 from tests.test_governed_browser_queue01_group03 import (
     _ExactEvidenceTransport,
     _exact_request as _observation_request,
@@ -83,12 +86,29 @@ class _ExactClock:
         return self.value
 
 
+def _authorized_fixture_kernel(
+    tmp_path: Path,
+    request: Any,
+) -> tuple[object, object]:
+    readiness = _readiness(request)
+    clock = _ExactClock(readiness.observed_at + timedelta(seconds=5))
+    return _authorized_kernel(
+        tmp_path,
+        request,
+        readiness_provider=lambda _item: readiness,
+        clock=clock,
+    )
+
+
 def _observation_case(
     tmp_path: Path,
 ) -> tuple[object, Callable[[], Any], _ExactEvidenceTransport, object]:
     request = _observation_request(suffix="service-binding-observation")
     recipe = _observation_recipe(request)
-    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    kernel, _ = _authorized_fixture_kernel(
+        tmp_path / "kernel",
+        request,
+    )
     transport = _ExactEvidenceTransport()
     service, _ = _observation_service(
         request=request,
@@ -113,7 +133,10 @@ def _action_case(
         operation=operation,
     )
     recipe = _action_recipe(request, operation)
-    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    kernel, _ = _authorized_fixture_kernel(
+        tmp_path / "kernel",
+        request,
+    )
     transport = _ExactActionPlanTransport()
     service, _ = _action_service(
         request=request,
@@ -135,7 +158,10 @@ def _post_form_case(
     request, schema, recipe, _ = _post_context(
         suffix="service-binding-post-form"
     )
-    kernel, _ = _authorized_kernel(tmp_path / "kernel", request)
+    kernel, _ = _authorized_fixture_kernel(
+        tmp_path / "kernel",
+        request,
+    )
     transport = _ExactPostFormPlanTransport()
     service, _ = _post_form_service(
         request=request,
