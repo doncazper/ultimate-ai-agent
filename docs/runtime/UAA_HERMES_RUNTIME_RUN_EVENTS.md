@@ -17,6 +17,10 @@ links, evidence refs, lifecycle state, version, and timestamps. The append-first
 goal journal is atomically replaced under a single-writer lock and checks its
 monotonic versions, idempotency refs, predecessor hashes, entry hashes, and
 deterministic entry refs on every read.
+Edit evidence is append-only: newly supplied evidence refs are unioned with
+the prior authoritative snapshot instead of replacing its audit history.
+Every transition journal entry also retains the validated reason ref, covered
+by the entry hash, so lifecycle intent remains readable after restart.
 The complete audit chain is bounded by explicit entry and byte capacities.
 Mutations fail closed before either capacity is crossed, so a long-lived goal
 cannot make the journal or the cost of each atomic rewrite grow without limit;
@@ -100,7 +104,8 @@ storage failures are normalized to the same safe contract, and goal mutations
 remain in the governed-runtime targeted rate-limit group.
 When CLI `--state-dir` is supplied, goal state is derived from the same
 `goal_runtime` child used by the API for that runtime store. An unavailable or
-invalid directory returns a bounded message without exposing the supplied path.
+invalid directory, corrupt journal, or malformed inspection ref returns a
+bounded message without exposing the supplied path or a traceback.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained
@@ -132,7 +137,12 @@ trusted Core producer paths.
 Control Center retains one pending create idempotency ref until the
 post-mutation authoritative refresh succeeds. A transient refresh failure can
 therefore only replay the accepted create; it cannot silently create a second
-goal.
+goal. Accepted create, edit, and transition responses are applied as local
+authoritative snapshots before the follow-up read; a refresh failure cannot
+leave the UI on a stale version or misreport an accepted mutation as rejected.
+The run-events operator read model includes cleared goals so its exact restore
+control remains reachable, while the dedicated default goal listing continues
+to hide cleared records.
 
 The existing mission-control boundary keeps run cancellation, approval
 decisions, and dead-letter recovery on separate exact routes. Those routes
@@ -152,7 +162,9 @@ completion after payload retention, crash-reservation recovery, bounded goal
 journal capacity, redacted projection failures, private writer authority,
 private filesystem modes, malformed idempotency and run refs, exact clear
 restore, custom-state CLI/API parity, retained create idempotency after refresh
-failure, trusted receipt-producer enforcement, successful-versus-failed
+failure, append-only edit evidence, hash-bound transition reasons, redacted CLI
+inspection failures, cleared-goal restore visibility, typed budget/link edits,
+trusted receipt-producer enforcement, successful-versus-failed
 RuntimeGateway projection, accepted RuntimeGateway producer wiring, approval wait/resume,
 controlled worker-restart evidence, and a second cancelled run. API and CLI
 are compared after process-state reconstruction, while the Control Center

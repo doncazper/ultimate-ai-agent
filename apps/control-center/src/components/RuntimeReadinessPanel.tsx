@@ -17,6 +17,7 @@ import type {
   RuntimeMessagingGatewayPostureReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimePluginMetadataPostureReadModel,
+  RuntimePersistentGoal,
   RuntimeSkillMarketplacePostureReadModel,
   RuntimeSubagentIsolationReadModel,
   RuntimeSessionContinuityReadModel,
@@ -173,6 +174,38 @@ export function RuntimeReadinessPanel({
     setRuntimeGoalEvents(await fetchRuntimeRunEvents());
   }
 
+  function applyGoalSnapshot(goal: RuntimePersistentGoal) {
+    setRuntimeGoalEvents((current) => {
+      const existingIndex = current.goal_lifecycle.goals.findIndex(
+        (candidate) => candidate.goal_ref === goal.goal_ref,
+      );
+      const goals =
+        existingIndex === -1
+          ? [goal, ...current.goal_lifecycle.goals]
+          : current.goal_lifecycle.goals.map((candidate, index) =>
+              index === existingIndex ? goal : candidate,
+            );
+      return {
+        ...current,
+        goal_lifecycle: {
+          ...current.goal_lifecycle,
+          goals,
+          goal_count: goals.length,
+          active_count: goals.filter(
+            (candidate) => candidate.state === "active",
+          ).length,
+          completion_requested_count: goals.filter(
+            (candidate) => candidate.state === "complete_requested",
+          ).length,
+          verified_complete_count: goals.filter(
+            (candidate) => candidate.state === "verified_complete",
+          ).length,
+        },
+      };
+    });
+    setSelectedGoalRef(goal.goal_ref);
+  }
+
   async function createGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (mutationBinding === null) {
@@ -210,10 +243,10 @@ export function RuntimeReadinessPanel({
         idempotencyRef,
         mutationBinding,
       );
+      applyGoalSnapshot(result.goal);
       try {
         await refreshGoalState();
       } catch {
-        setSelectedGoalRef(result.goal.goal_ref);
         setGoalNotice(
           "Goal creation was accepted, but the authoritative refresh failed. " +
             "Retrying this form will replay the same idempotency ref.",
@@ -260,8 +293,17 @@ export function RuntimeReadinessPanel({
         `idempotency-ref:control-center-goal-edit:${nonce}`,
         mutationBinding,
       );
-      await refreshGoalState();
+      applyGoalSnapshot(result.goal);
       setEditedObjective("");
+      try {
+        await refreshGoalState();
+      } catch {
+        setGoalNotice(
+          `Goal objective was accepted at version ${result.goal.version}, ` +
+            "but the authoritative refresh failed. The accepted snapshot remains visible.",
+        );
+        return;
+      }
       setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
     } catch (error) {
       setGoalNotice(
@@ -295,7 +337,16 @@ export function RuntimeReadinessPanel({
         `idempotency-ref:control-center-goal-${transition}:${nonce}`,
         mutationBinding,
       );
-      await refreshGoalState();
+      applyGoalSnapshot(result.goal);
+      try {
+        await refreshGoalState();
+      } catch {
+        setGoalNotice(
+          `Goal moved to ${result.goal.state} at version ${result.goal.version}, ` +
+            "but the authoritative refresh failed. The accepted snapshot remains visible.",
+        );
+        return;
+      }
       setGoalNotice(
         `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
       );

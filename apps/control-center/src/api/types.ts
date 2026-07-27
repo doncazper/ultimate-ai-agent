@@ -14002,6 +14002,8 @@ export interface RuntimeGoalEditRequest {
   constraints?: string[];
   in_scope_resource_refs?: string[];
   stop_condition?: string;
+  budget?: RuntimePersistentGoal["budget"];
+  links?: RuntimePersistentGoal["links"];
   evidence_refs?: string[];
 }
 

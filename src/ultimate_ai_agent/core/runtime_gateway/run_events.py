@@ -505,7 +505,10 @@ def build_runtime_run_events_read_model_from_authority_catalog(
     )
     events = [_durable_event_preview(event) for event in durable_events]
     stream_summaries = runtime_service.events.summaries()
-    goal_lifecycle = runtime_service.goals.read_model()
+    # Cleared goals remain part of the authoritative operator read model so the
+    # exact restore transition is reachable. The dedicated goals listing keeps
+    # its default of hiding cleared records.
+    goal_lifecycle = runtime_service.goals.read_model(include_cleared=True)
     mappings = [
         _mapping(
             RuntimeExternalRunLifecycleState.proposed,

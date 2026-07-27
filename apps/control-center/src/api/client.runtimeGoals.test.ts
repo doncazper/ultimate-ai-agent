@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRuntimeGoal,
+  editRuntimeGoal,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
 } from "./client";
@@ -146,6 +147,67 @@ describe("proof-backed runtime goal mutations", () => {
         mutationResult.goal.goal_ref,
       )}/transition`,
     );
+  });
+
+  it("forwards typed budget and link edits without dropping fields", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              ...mutationResult,
+              goal: {
+                ...mutationResult.goal,
+                version: 2,
+                budget: {
+                  operation_limit: 50,
+                  cost_budget_microusd: 0,
+                },
+                links: {
+                  ...mutationResult.goal.links,
+                  run_refs: ["run-ref:goal-client-edited"],
+                },
+              },
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await editRuntimeGoal(
+      mutationResult.goal.goal_ref,
+      {
+        expected_version: 1,
+        budget: {
+          operation_limit: 50,
+          cost_budget_microusd: 0,
+        },
+        links: {
+          ...mutationResult.goal.links,
+          run_refs: ["run-ref:goal-client-edited"],
+        },
+      },
+      "idempotency-ref:goal-client-edit-links",
+      binding,
+    );
+
+    const requestInit = fetchMock.mock.calls[0][1];
+    expect(JSON.parse(String(requestInit?.body))).toEqual({
+      expected_version: 1,
+      budget: {
+        operation_limit: 50,
+        cost_budget_microusd: 0,
+      },
+      links: {
+        ...mutationResult.goal.links,
+        run_refs: ["run-ref:goal-client-edited"],
+      },
+    });
   });
 
   it("rejects standing authority and missing truth bindings", async () => {

@@ -509,6 +509,7 @@ class GoalJournalEntry(BaseModel):
     request_fingerprint_ref: str
     approval_ref: str
     approval_decision_ref: str
+    transition_reason_ref: str | None = None
     recorded_at: datetime
     goal: PersistentGoal
     previous_entry_hash_ref: str | None = None
@@ -531,6 +532,10 @@ class GoalJournalEntry(BaseModel):
         if self.previous_entry_hash_ref is not None:
             validate_execution_ref(
                 self.previous_entry_hash_ref, "previous_entry_hash_ref"
+            )
+        if self.transition_reason_ref is not None:
+            validate_execution_ref(
+                self.transition_reason_ref, "transition_reason_ref"
             )
         if self.goal.goal_ref != self.goal_ref or self.goal.version != self.goal_version:
             raise ValueError("GOAL_JOURNAL_SNAPSHOT_BINDING_MISMATCH")
@@ -868,6 +873,7 @@ class _GoalJournalStore:
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
+            transition_reason_ref=validated.reason_ref,
             mutate=lambda current, entries: self._transitioned_goal(
                 current,
                 validated,
@@ -1016,6 +1022,7 @@ class _GoalJournalStore:
         expected_version: int,
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
+        transition_reason_ref: str | None = None,
         mutate: Any,
     ) -> PersistentGoal:
         validate_execution_ref(goal_ref, "goal_ref")
@@ -1044,6 +1051,7 @@ class _GoalJournalStore:
                 request_fingerprint_ref=fingerprint,
                 approval_ref=approval_binding.approval_ref,
                 approval_decision_ref=approval_binding.approval_decision_ref,
+                transition_reason_ref=transition_reason_ref,
             )
             return updated.model_copy(deep=True)
 
@@ -1064,6 +1072,12 @@ class _GoalJournalStore:
             ).items()
             if value is not None
         }
+        if request.evidence_refs is not None:
+            updates["evidence_refs"] = list(
+                dict.fromkeys(
+                    [*current.evidence_refs, *request.evidence_refs]
+                )
+            )
         updates.update(version=current.version + 1, updated_at=utc_now())
         return PersistentGoal.model_validate(
             current.model_copy(update=updates).model_dump()
@@ -1236,6 +1250,7 @@ class _GoalJournalStore:
         request_fingerprint_ref: str,
         approval_ref: str,
         approval_decision_ref: str,
+        transition_reason_ref: str | None = None,
     ) -> None:
         if len(entries) >= MAX_GOAL_JOURNAL_ENTRIES:
             raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
@@ -1256,6 +1271,7 @@ class _GoalJournalStore:
             request_fingerprint_ref=request_fingerprint_ref,
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
+            transition_reason_ref=transition_reason_ref,
             recorded_at=utc_now(),
             goal=goal,
             previous_entry_hash_ref=previous,
@@ -1270,6 +1286,8 @@ class _GoalJournalStore:
     def _entry_hash(entry: GoalJournalEntry) -> str:
         payload = entry.model_dump(mode="json")
         payload.pop("entry_hash_ref", None)
+        if payload.get("transition_reason_ref") is None:
+            payload.pop("transition_reason_ref", None)
         return _sha256_ref("entry-hash-ref:goal-journal", payload)
 
     def _load_entries(self) -> list[GoalJournalEntry]:

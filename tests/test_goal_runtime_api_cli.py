@@ -95,6 +95,51 @@ def test_run_events_get_is_strictly_read_only(
     ).exists()
 
 
+def test_run_events_read_model_keeps_cleared_goals_restorable(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, _service = goal_runtime_client
+    created = client.post(
+        "/api/runtime/goals",
+        json=_create_payload(),
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-create"
+        },
+    ).json()["data"]["goal"]
+    cleared = client.post(
+        f"/api/runtime/goals/{created['goal_ref']}/transition",
+        json={
+            "expected_version": created["version"],
+            "transition": "clear",
+            "reason_ref": "reason-ref:restorable-goal-clear",
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-clear"
+        },
+    ).json()["data"]["goal"]
+    assert cleared["state"] == "cleared"
+
+    default_goals = client.get("/api/runtime/goals").json()["data"]["goals"]
+    assert default_goals == []
+    operator_goals = client.get(
+        "/api/runtime/run-events"
+    ).json()["data"]["goal_lifecycle"]["goals"]
+    assert operator_goals == [cleared]
+
+    restored = client.post(
+        f"/api/runtime/goals/{created['goal_ref']}/transition",
+        json={
+            "expected_version": cleared["version"],
+            "transition": "restore",
+            "reason_ref": "reason-ref:restorable-goal-restore",
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-restore"
+        },
+    ).json()["data"]["goal"]
+    assert restored["state"] == "active"
+
+
 @pytest.mark.parametrize(
     ("path", "payload", "operation"),
     [
@@ -454,6 +499,50 @@ def test_goal_cli_state_directory_failure_is_redacted(tmp_path: Path) -> None:
     assert cli.stderr.strip() == "Goal lifecycle could not be read safely."
     assert str(blocked_state_dir) not in cli.stderr
     assert "Traceback" not in cli.stderr
+
+
+@pytest.mark.parametrize("failure_mode", ["invalid-run-ref", "corrupt-journal"])
+def test_run_event_cli_inspection_failures_are_redacted(
+    tmp_path: Path,
+    failure_mode: str,
+) -> None:
+    run_ref = "run-ref:cli-inspection:bounded"
+    if failure_mode == "invalid-run-ref":
+        run_ref = "abcdefgh"
+    else:
+        service = GoalRuntimeService.for_runtime_store(tmp_path)
+        (service.state_dir / "run_events.jsonl").write_text(
+            "{not-valid-json}\n",
+            encoding="utf-8",
+        )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "inspect-run-events",
+            "--run-ref",
+            run_ref,
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    assert cli.stdout == ""
+    assert (
+        cli.stderr.strip()
+        == "Durable run events could not be read safely."
+    )
+    assert "Traceback" not in cli.stderr
+    assert str(tmp_path) not in cli.stderr
 
 
 def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> None:

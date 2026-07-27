@@ -3999,15 +3999,19 @@ def _inspect_checkpoint_rollback(args: argparse.Namespace) -> int:
 
 
 def _inspect_run_events(args: argparse.Namespace) -> int:
-    authority_state = AuthorityLeaseStore().build_state_read_model()
-    goal_service = _goal_runtime_service(args)
-    read_model = build_runtime_run_events_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
-        service=goal_service,
-        run_ref=args.run_ref,
-        after_sequence=args.after_sequence,
-        limit=args.limit,
-    ).model_dump(mode="json")
+    try:
+        authority_state = AuthorityLeaseStore().build_state_read_model()
+        goal_service = _goal_runtime_service(args)
+        read_model = build_runtime_run_events_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+            service=goal_service,
+            run_ref=args.run_ref,
+            after_sequence=args.after_sequence,
+            limit=args.limit,
+        ).model_dump(mode="json")
+    except (GoalRuntimeError, ValueError):
+        print("Durable run events could not be read safely.", file=sys.stderr)
+        return 1
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-run-events",

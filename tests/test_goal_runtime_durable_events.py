@@ -218,6 +218,52 @@ def test_goal_lifecycle_persists_replays_and_detects_version_conflicts(
     assert restored == paused
 
 
+def test_goal_edits_append_evidence_and_transitions_persist_reason(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-audit-create",
+    )
+    edited = _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=1,
+            objective="Deliver the accepted outcome with durable audit evidence.",
+            evidence_refs=["evidence-ref:goal-edited"],
+        ),
+        idempotency_ref="idempotency-ref:goal-audit-edit",
+    )
+    assert edited.evidence_refs == [
+        "evidence-ref:goal-created",
+        "evidence-ref:goal-edited",
+    ]
+
+    reason_ref = "reason-ref:goal-audit-pause"
+    paused = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=edited.version,
+            transition=GoalTransitionKind.pause,
+            reason_ref=reason_ref,
+        ),
+        idempotency_ref="idempotency-ref:goal-audit-pause",
+    )
+    entry = service.goals.latest_entry(created.goal_ref)
+    assert paused.state == GoalState.paused.value
+    assert entry.transition_reason_ref == reason_ref
+
+    restarted = GoalRuntimeService(tmp_path)
+    assert (
+        restarted.goals.latest_entry(created.goal_ref).transition_reason_ref
+        == reason_ref
+    )
+
+
 def test_goal_store_rejects_fabricated_approval_binding(
     tmp_path: Path,
 ) -> None:
@@ -1623,6 +1669,38 @@ def test_goal_journal_tampering_fails_closed(tmp_path: Path) -> None:
     path = tmp_path / "goals.jsonl"
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     rows[1]["goal"]["objective"] = "A recomputed wrapper was not supplied."
+    path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_ENTRY_HASH_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
+
+
+def test_goal_transition_reason_tampering_fails_closed(tmp_path: Path) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-reason-tamper-create",
+    )
+    _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=1,
+            transition=GoalTransitionKind.pause,
+            reason_ref="reason-ref:goal-reason-original",
+        ),
+        idempotency_ref="idempotency-ref:goal-reason-tamper-pause",
+    )
+    path = tmp_path / "goals.jsonl"
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    rows[1]["transition_reason_ref"] = "reason-ref:goal-reason-substituted"
     path.write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
         encoding="utf-8",
