@@ -81,7 +81,7 @@ def test_local_lane_uses_canonical_local_surface_and_fence(
     assert observed["repository_sha"] == SHA
     assert observed["full_suite_lock_mode"] == "local"
     assert observed["verification_execution_fence_root"] == fence_root
-    assert observed["retain_failure_output"] is True
+    assert observed["emit_failure_diagnostic_ref"] is True
     temp_root = observed["temp_root"]
     assert isinstance(temp_root, Path)
     assert not temp_root.exists()
@@ -132,6 +132,55 @@ def test_local_lane_prints_only_safe_pytest_failure_refs(
     retained = tuple((tmp_path / "diagnostics").iterdir())
     assert len(retained) == 1
     assert retained[0].is_dir()
+    payload = json.loads(
+        (retained[0] / "diagnostic.json").read_text(encoding="utf-8")
+    )
+    assert payload["redaction_status"] == "content_free_failure_metadata_only"
+    assert payload["command_results"] == []
+
+
+def test_local_diagnostics_drop_untrusted_output_and_receipt_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(local_lane, "_repository_sha", lambda: SHA)
+
+    def fake_run_lane(_lane_ref: str, **_kwargs: object) -> dict[str, object]:
+        return {
+            "status": "secret-like-value",
+            "raw_output": "secret-like-value",
+            "command_results": [
+                {
+                    "command_ref": "command:test.safe",
+                    "status": "fail",
+                    "output_byte_count": 17,
+                    "output_digest": "b" * 64,
+                    "raw_output": "secret-like-value",
+                    "failed_test_refs": ("unsafe-local-detail",),
+                }
+            ],
+        }
+
+    monkeypatch.setattr(local_lane, "run_lane", fake_run_lane)
+
+    assert local_lane.run_local_lane(
+        "ci-pytest-shards",
+        fence_root=tmp_path / "fence",
+    ) == 1
+    retained = tuple((tmp_path / "diagnostics").iterdir())
+    encoded = (retained[0] / "diagnostic.json").read_text(encoding="utf-8")
+    assert "secret-like-value" not in encoded
+    assert "unsafe-local-detail" not in encoded
+    payload = json.loads(encoded)
+    assert payload["status"] == "blocked"
+    assert payload["command_results"] == [
+        {
+            "command_ref": "command:test.safe",
+            "output_byte_count": 17,
+            "output_digest": "b" * 64,
+            "status": "fail",
+        }
+    ]
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(

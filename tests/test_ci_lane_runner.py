@@ -1063,7 +1063,7 @@ def test_run_command_spawn_failure_releases_prestart_reservation(
     assert events == ["reserved", "spawn-failed", "released"]
 
 
-def test_run_command_retains_owner_only_local_failure_output(
+def test_run_command_emits_digest_ref_without_retaining_failure_output(
     tmp_path: Path,
 ) -> None:
     command = CommandSpec(
@@ -1082,16 +1082,16 @@ def test_run_command_retains_owner_only_local_failure_output(
         command,
         repository_sha=SHA,
         temp_root=tmp_path,
-        retain_failure_output=True,
+        emit_failure_diagnostic_ref=True,
     )
 
     retained = tmp_path / "uaa_command_failure_output.log"
     assert result["status"] == "fail"
-    assert str(result["diagnostic_output_ref"]).startswith(
+    assert str(result["diagnostic_digest_ref"]).startswith(
         "diagnostic-output-ref:sha256:"
     )
-    assert retained.read_text(encoding="utf-8") == "local diagnostic only\n"
-    assert retained.stat().st_mode & 0o077 == 0
+    assert not retained.exists()
+    assert not tuple(tmp_path.glob("uaa-ci-transient-*"))
 
 
 def test_exclusive_typed_lane_publishes_terminal_execution_fence(

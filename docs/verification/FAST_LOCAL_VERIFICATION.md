@@ -63,11 +63,12 @@ The bootstrap installs the frozen Python, Matrix, and Control Center dependency
 sets. It is explicit and reusable rather than hidden inside each verification
 attempt.
 
-Failed local exclusive lanes retain at most five owner-only diagnostic
-directories outside the repository and print only a content-free
-`diagnostic-ref:local-verification:*`. Successful runs delete their transient
-state. Raw output remains local, is never uploaded or admitted as durable
-verification evidence, and is not included in receipts.
+Failed local exclusive lanes retain at most five owner-only, metadata-only
+diagnostic envelopes outside the repository and print only a content-free
+`diagnostic-ref:local-verification:*`. Raw command output and transient
+execution state are always deleted. Each retained envelope is allowlisted to
+command refs, terminal states, byte counts, output digests, and validated safe
+failure refs. Successful runs delete their transient state.
 
 Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
 branch, and reserve complete resources for the final GitHub-hosted merge

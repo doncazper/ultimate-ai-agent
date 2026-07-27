@@ -84,6 +84,27 @@ def test_frontend_preflight_rejects_symlink_runtime(
         )
 
 
+def test_frontend_preflight_accepts_regular_typescript_runtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = tmp_path / "repo"
+    temp_root = tmp_path / "temp"
+    repo.mkdir()
+    temp_root.mkdir()
+    _runtime_file(repo, preflight.FRONTEND_RUNTIME_MARKER)
+    monkeypatch.setattr(preflight.shutil, "which", lambda _name: "/usr/bin/node")
+
+    assert preflight.validate_lane_environment(
+        repo,
+        temp_root,
+        lane_ref="ci-control-center-frontend",
+    ) == (
+        "preflight-ref:temp-capacity-and-write-ready",
+        "preflight-ref:frontend-runtime-ready",
+    )
+
+
 def test_preflight_rejects_insufficient_temp_capacity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -21,7 +21,7 @@ than required to be zero.
 | Stage | Declared budget | Work |
 | --- | ---: | --- |
 | bootstrap | 1/4 | canonical manifest attestation |
-| parallel validation | bounded to 12 hosted jobs | lint, exact-base affected preflight, required backend lanes, complete pytest, static verification, and Control Center start as soon as their real dependencies are met |
+| parallel validation | exact canonical DAG width of 13 hosted jobs | lint, exact-base affected preflight, required backend lanes, complete pytest, static verification, and Control Center start as soon as their real dependencies are met |
 | pytest exclusive | 4/4 on its machine | eight logical shards, four workers, one installed environment |
 | frontend/static branches | up to 4/4 on each machine | static and Control Center run independently; frontend, visual, and packaging retain only their actual upstream edges |
 | performance exclusive | 4/4 | isolated latency measurement after functional work |
@@ -31,10 +31,11 @@ The canonical inventory contains every job identity, display/check name,
 command lane, real prerequisite, resource class, resource stage, CPU and memory
 units, timeout, evidence posture, eight-shard count, four-worker count, four
 logical per-machine resource-budget units, permitted hosted runner classes,
-the 12-job parallel cap, the 870 job-minute worst-case timeout cap, superseded-run
+the proven 13-job DAG-width cap, the 870 job-minute worst-case timeout cap, superseded-run
 cancellation, hosted runner labels, and required check context. Static
-validation rejects an unknown stage, an over-budget job, an under-declared
-exclusive job, or invalid bounded-cost execution limits.
+validation recomputes the graph's exact maximum antichain and rejects an
+unknown stage, an over-budget job, an under-declared exclusive job, or any
+disagreement with the bounded-cost execution limits.
 
 The checked-in workflow currently selects standard hosted machines. The policy
 also permits a repository-configured larger hosted runner class when available

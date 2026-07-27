@@ -463,7 +463,7 @@ def _run_command(
     before_start: Callable[[], None] | None = None,
     after_spawn: Callable[[], None] | None = None,
     on_spawn_failure: Callable[[], None] | None = None,
-    retain_failure_output: bool = False,
+    emit_failure_diagnostic_ref: bool = False,
 ) -> dict[str, Any]:
     resolved_base_sha = base_sha or repository_sha
     started_at = _utc_now()
@@ -477,7 +477,6 @@ def _run_command(
     cleanup_attempted = False
     returncode: int | None = None
     signal_handling = False
-    retained_output = False
 
     def settle_process() -> None:
         nonlocal cleanup_attempted
@@ -590,14 +589,7 @@ def _run_command(
         output_digest = hashlib.sha256(b"").hexdigest()
     finally:
         if output_path is not None:
-            if retain_failure_output and returncode != 0:
-                retained_path = temp_root / "uaa_command_failure_output.log"
-                retained_path.unlink(missing_ok=True)
-                os.chmod(output_path, 0o600)
-                os.replace(output_path, retained_path)
-                retained_output = True
-            else:
-                output_path.unlink(missing_ok=True)
+            output_path.unlink(missing_ok=True)
 
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
     status_value = "pass" if returncode == 0 else "fail"
@@ -623,8 +615,8 @@ def _run_command(
         ),
         "redaction_status": "content_free_output_metadata_only",
     }
-    if retained_output:
-        result["diagnostic_output_ref"] = (
+    if emit_failure_diagnostic_ref and returncode != 0:
+        result["diagnostic_digest_ref"] = (
             f"diagnostic-output-ref:sha256:{output_digest}"
         )
     return result
@@ -1296,7 +1288,7 @@ def run_lane(
     dependency_envelopes: tuple[str, ...] = (),
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
-    retain_failure_output: bool = False,
+    emit_failure_diagnostic_ref: bool = False,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
@@ -1796,7 +1788,7 @@ def run_lane(
                     if execution_fence is not None
                     else None
                 ),
-                retain_failure_output=retain_failure_output,
+                emit_failure_diagnostic_ref=emit_failure_diagnostic_ref,
             )
             if lane_ref == "ci-pytest-shards":
                 assert expected_pytest_plan_ref is not None

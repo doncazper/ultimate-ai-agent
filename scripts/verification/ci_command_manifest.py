@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import platform
@@ -70,7 +71,7 @@ CI_PERMITTED_RUNNER_CLASS_REFS = (
     "runner-class:github-hosted-larger-bounded",
 )
 CI_EXECUTION_POLICY_REF = "ci-execution-policy:bounded-cost-parallel-v1"
-CI_MAX_PARALLEL_HOSTED_JOBS = 12
+CI_MAX_PARALLEL_HOSTED_JOBS = 13
 CI_MAX_HOSTED_JOB_MINUTES_PER_RUN = 870
 CI_RESOURCE_STAGE_CAPACITIES = {
     "resource-stage:bootstrap": 1,
@@ -868,6 +869,45 @@ CI_TYPED_OPTIONAL_EVIDENCE_UNIT_REFS = tuple(
     for unit in CI_JOB_GRAPH
     if unit.evidence_posture == "typed_optional"
 )
+
+
+def maximum_parallel_job_width(jobs: tuple[JobSpec, ...]) -> int:
+    """Return the exact DAG antichain width for unconstrained hosted execution."""
+
+    by_ref = {job.job_ref: job for job in jobs}
+    if len(by_ref) != len(jobs):
+        raise ValueError("hosted job refs must be unique")
+    ancestors_by_ref: dict[str, frozenset[str]] = {}
+
+    def ancestors(job_ref: str, active: frozenset[str] = frozenset()) -> frozenset[str]:
+        if job_ref in ancestors_by_ref:
+            return ancestors_by_ref[job_ref]
+        if job_ref in active:
+            raise ValueError("hosted job graph must be acyclic")
+        job = by_ref.get(job_ref)
+        if job is None:
+            raise ValueError("hosted job graph contains an unknown dependency")
+        resolved: set[str] = set(job.needs)
+        for dependency in job.needs:
+            resolved.update(ancestors(dependency, active | {job_ref}))
+        result = frozenset(resolved)
+        ancestors_by_ref[job_ref] = result
+        return result
+
+    refs = tuple(by_ref)
+    for ref in refs:
+        ancestors(ref)
+    for width in range(len(refs), 0, -1):
+        for candidates in itertools.combinations(refs, width):
+            if all(
+                left not in ancestors_by_ref[right]
+                and right not in ancestors_by_ref[left]
+                for left, right in itertools.combinations(candidates, 2)
+            ):
+                return width
+    return 0
+
+
 def ci_architecture_inventory() -> dict[str, Any]:
     """Return the content-free old/new CI architecture inventory."""
 
@@ -1103,6 +1143,16 @@ def validate_definition() -> list[str]:
             failures.append(f"job exceeds machine resource budget: {job.job_ref}")
     if CI_MAX_PARALLEL_HOSTED_JOBS <= 0:
         failures.append("hosted parallel job cap must be positive")
+    else:
+        try:
+            hosted_width = maximum_parallel_job_width(CI_JOB_GRAPH)
+        except ValueError as exc:
+            failures.append(f"hosted job width unavailable: {exc}")
+        else:
+            if hosted_width != CI_MAX_PARALLEL_HOSTED_JOBS:
+                failures.append(
+                    "hosted parallel job cap must equal the exact canonical DAG width"
+                )
     if CI_MAX_HOSTED_JOB_MINUTES_PER_RUN <= 0:
         failures.append("hosted job-minute cap must be positive")
     elif sum(job.timeout_minutes for job in CI_JOB_GRAPH) > (

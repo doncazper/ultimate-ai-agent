@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -53,6 +54,8 @@ DEFAULT_DIAGNOSTIC_ROOT = Path(
     f"/private/tmp/uaa-verification-diagnostics-v1-{os.getuid()}"
 )
 MAX_RETAINED_DIAGNOSTIC_RUNS = 5
+MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT = 64 * 1024 * 1024
+SAFE_COMMAND_REF_PATTERN = re.compile(r"^command:[a-z0-9][a-z0-9._:-]{0,127}$")
 
 
 class LocalVerificationLaneError(RuntimeError):
@@ -75,7 +78,7 @@ def _prepare_diagnostic_root(path: Path) -> Path:
 
 
 def _retain_diagnostics(
-    temp_root: Path,
+    receipt: dict[str, object] | None,
     *,
     diagnostic_root: Path,
     lane_ref: str,
@@ -88,10 +91,97 @@ def _retain_diagnostics(
         + repository_sha.encode("ascii")
     ).hexdigest()
     destination = root / token
+    destination.mkdir(mode=0o700)
+    receipt_status = None if receipt is None else receipt.get("status")
+    safe_status = (
+        receipt_status
+        if receipt_status in {"fail", "timed_out", "cancelled", "blocked"}
+        else "blocked"
+    )
+    payload: dict[str, object] = {
+        "schema_version": "uaa_local_verification_diagnostic.v1",
+        "lane_ref": lane_ref,
+        "repository_sha": repository_sha,
+        "status": safe_status,
+        "command_results": [],
+        "redaction_status": "content_free_failure_metadata_only",
+    }
+    if receipt is not None:
+        safe_results: list[dict[str, object]] = []
+        results = receipt.get("command_results")
+        if isinstance(results, list):
+            for result in results:
+                if not isinstance(result, dict):
+                    continue
+                command_ref = result.get("command_ref")
+                status_value = result.get("status")
+                output_byte_count = result.get("output_byte_count")
+                output_digest = result.get("output_digest")
+                if (
+                    not isinstance(command_ref, str)
+                    or SAFE_COMMAND_REF_PATTERN.fullmatch(command_ref) is None
+                    or not isinstance(status_value, str)
+                    or status_value not in {"pass", "fail", "timed_out", "cancelled"}
+                    or not isinstance(output_byte_count, int)
+                    or isinstance(output_byte_count, bool)
+                    or output_byte_count < 0
+                    or output_byte_count > MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT
+                    or not isinstance(output_digest, str)
+                    or len(output_digest) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in output_digest
+                    )
+                ):
+                    continue
+                safe_result: dict[str, object] = {
+                    "command_ref": command_ref,
+                    "status": status_value,
+                    "output_byte_count": output_byte_count,
+                    "output_digest": output_digest,
+                }
+                failed_shard_refs = result.get("failed_shard_refs")
+                if isinstance(failed_shard_refs, (list, tuple)):
+                    safe_shard_refs = tuple(
+                        value
+                        for value in failed_shard_refs
+                        if _safe_failed_shard_ref(value) is not None
+                    )
+                    if safe_shard_refs:
+                        safe_result["failed_shard_refs"] = safe_shard_refs
+                failed_test_refs = result.get("failed_test_refs")
+                if isinstance(failed_test_refs, (list, tuple)):
+                    safe_test_refs = tuple(
+                        value
+                        for value in failed_test_refs
+                        if isinstance(value, str) and is_safe_test_ref(value)
+                    )
+                    if safe_test_refs:
+                        safe_result["failed_test_refs"] = safe_test_refs
+                safe_results.append(safe_result)
+        payload["command_results"] = safe_results
+    diagnostic_path = destination / "diagnostic.json"
     try:
-        os.replace(temp_root, destination)
-        destination.chmod(0o700)
+        descriptor = os.open(
+            diagnostic_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+        try:
+            encoded = (
+                json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+            ).encode("utf-8")
+            remaining = memoryview(encoded)
+            while remaining:
+                written = os.write(descriptor, remaining)
+                if written <= 0:
+                    raise OSError("diagnostic write did not make progress")
+                remaining = remaining[written:]
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
     except OSError as exc:
+        shutil.rmtree(destination, ignore_errors=True)
         raise LocalVerificationLaneError(
             "local verification diagnostics could not be retained"
         ) from exc
@@ -327,12 +417,12 @@ def run_local_lane(
             temp_root=temp_root,
             verification_execution_fence_root=fence_root,
             full_suite_lock_mode="local",
-            retain_failure_output=True,
+            emit_failure_diagnostic_ref=True,
         )
         if receipt.get("status") != "pass":
             _print_safe_pytest_failure_refs(receipt)
             diagnostic_ref = _retain_diagnostics(
-                temp_root,
+                receipt,
                 diagnostic_root=resolved_diagnostic_root,
                 lane_ref=lane_ref,
                 repository_sha=repository_sha,
@@ -348,7 +438,7 @@ def run_local_lane(
     except BaseException:
         if temp_root.exists() and not retained:
             diagnostic_ref = _retain_diagnostics(
-                temp_root,
+                None,
                 diagnostic_root=resolved_diagnostic_root,
                 lane_ref=lane_ref,
                 repository_sha=repository_sha,
@@ -357,7 +447,7 @@ def run_local_lane(
             print(f"Retained local diagnostics: {diagnostic_ref}")
         raise
     finally:
-        if temp_root.exists() and not retained:
+        if temp_root.exists():
             shutil.rmtree(temp_root)
     return 0
 

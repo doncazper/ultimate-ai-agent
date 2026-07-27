@@ -144,7 +144,8 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
     assert inventory["scheduling_posture"] == "dependency_aware_parallel"
     assert inventory["strict_sequential_execution"] is False
     assert inventory["incremental_cost_posture"] == "bounded_not_zero"
-    assert inventory["max_parallel_hosted_jobs"] == 12
+    assert inventory["max_parallel_hosted_jobs"] == 13
+    assert manifest.maximum_parallel_job_width(manifest.CI_JOB_GRAPH) == 13
     assert inventory["max_hosted_job_minutes_per_run"] == 870
     assert sum(job.timeout_minutes for job in manifest.CI_JOB_GRAPH) <= (
         inventory["max_hosted_job_minutes_per_run"]
@@ -157,6 +158,17 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
     )
     for ref in ("pytest-shards", "release-lane-performance", "foundation-gate-report"):
         assert jobs[ref].cpu_units == jobs[ref].memory_units == 4
+
+
+def test_definition_rejects_a_parallel_cap_that_disagrees_with_dag_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(manifest, "CI_MAX_PARALLEL_HOSTED_JOBS", 12)
+
+    assert (
+        "hosted parallel job cap must equal the exact canonical DAG width"
+        in manifest.validate_definition()
+    )
 
 
 def test_definition_rejects_private_on_a_runtime_ineligible_unit(

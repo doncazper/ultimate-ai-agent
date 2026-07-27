@@ -12,7 +12,9 @@ MINIMUM_TEMP_FREE_BYTES = 1024 * 1024 * 1024
 MATRIX_RUNTIME_MARKER = Path(
     "integrations/matrix-client-adapter/node_modules/matrix-js-sdk/package.json"
 )
-FRONTEND_RUNTIME_MARKER = Path("apps/control-center/node_modules/.bin/tsc")
+FRONTEND_RUNTIME_MARKER = Path(
+    "apps/control-center/node_modules/typescript/bin/tsc"
+)
 
 
 class VerificationEnvironmentPreflightError(RuntimeError):
