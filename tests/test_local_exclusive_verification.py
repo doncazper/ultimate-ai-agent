@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -181,6 +182,39 @@ def test_local_diagnostics_drop_untrusted_output_and_receipt_fields(
             "status": "fail",
         }
     ]
+
+
+def test_local_diagnostic_retention_serializes_shared_pruning(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "diagnostics"
+    receipt = {
+        "status": "fail",
+        "command_results": [
+            {
+                "command_ref": "command:test.safe",
+                "status": "fail",
+                "output_byte_count": 1,
+                "output_digest": "c" * 64,
+            }
+        ],
+    }
+
+    def retain(_index: int) -> str:
+        return local_lane._retain_diagnostics(
+            receipt,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        refs = tuple(executor.map(retain, range(12)))
+
+    assert len(refs) == 12
+    retained = tuple(path for path in root.iterdir() if path.is_dir())
+    assert len(retained) == local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS
+    assert all((path / "diagnostic.json").is_file() for path in retained)
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(

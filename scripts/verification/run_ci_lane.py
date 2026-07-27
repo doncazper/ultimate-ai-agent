@@ -260,6 +260,49 @@ def _result_ref(
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
 
 
+def _transient_output_metadata(path: Path) -> tuple[int, str]:
+    """Read exact metadata from the internally-created transient output file."""
+
+    metadata = path.lstat()
+    if (
+        path.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_uid != os.getuid()
+    ):
+        raise RuntimeError("CI transient output boundary is unsafe")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            opened.st_dev != metadata.st_dev
+            or opened.st_ino != metadata.st_ino
+            or opened.st_mode != metadata.st_mode
+            or opened.st_nlink != metadata.st_nlink
+            or opened.st_uid != metadata.st_uid
+        ):
+            raise RuntimeError("CI transient output changed before hashing")
+        output_bytes = 0
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 1024 * 1024):
+            output_bytes += len(chunk)
+            digest.update(chunk)
+        final = os.fstat(descriptor)
+        if (
+            final.st_dev != opened.st_dev
+            or final.st_ino != opened.st_ino
+            or final.st_mode != opened.st_mode
+            or final.st_nlink != opened.st_nlink
+            or final.st_uid != opened.st_uid
+            or final.st_size != opened.st_size
+            or output_bytes != opened.st_size
+        ):
+            raise RuntimeError("CI transient output changed while hashing")
+        return output_bytes, digest.hexdigest()
+    finally:
+        os.close(descriptor)
+
+
 def expected_pytest_shard_plan_ref() -> str:
     return current_shard_plan_fingerprint(
         ROOT,
@@ -585,8 +628,11 @@ def _run_command(
             output_digest = digest.hexdigest()
     except KeyboardInterrupt:
         returncode = 130
-        output_bytes = 0
-        output_digest = hashlib.sha256(b"").hexdigest()
+        if output_path is None:
+            output_bytes = 0
+            output_digest = hashlib.sha256(b"").hexdigest()
+        else:
+            output_bytes, output_digest = _transient_output_metadata(output_path)
     finally:
         if output_path is not None:
             output_path.unlink(missing_ok=True)

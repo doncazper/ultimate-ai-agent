@@ -94,6 +94,12 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
         "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
     }
+    foundation_gate = manifest.command_registry()[
+        "command:foundation-gate.ci-parallel"
+    ]
+    assert foundation_gate.argv[
+        foundation_gate.argv.index("--ci-prerequisite-base-sha") + 1
+    ] == "{base_sha}"
 
 
 def test_declared_runner_profile_is_stable_across_hosted_image_patch_drift(

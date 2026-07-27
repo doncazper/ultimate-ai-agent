@@ -1620,6 +1620,7 @@ def test_run_command_repeated_signal_cleans_process_group_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ready_path = tmp_path / "command.ready"
+    output_marker = b"cancelled-output-metadata-proof\n"
     command = CommandSpec(
         "command:test.repeated-signal-cleanup",
         (
@@ -1627,6 +1628,7 @@ def test_run_command_repeated_signal_cleans_process_group_once(
             "-c",
             (
                 "import pathlib,sys,time;"
+                "print('cancelled-output-metadata-proof',flush=True);"
                 "pathlib.Path(sys.argv[1]).write_text('ready',encoding='ascii');"
                 "time.sleep(10)"
             ),
@@ -1669,6 +1671,9 @@ def test_run_command_repeated_signal_cleans_process_group_once(
     assert sender.is_alive() is False
     assert result["status"] == "cancelled"
     assert cleanup_calls == 1
+    assert result["output_byte_count"] == len(output_marker)
+    assert result["output_digest"] == hashlib.sha256(output_marker).hexdigest()
+    assert not tuple(tmp_path.glob("uaa-ci-transient-*"))
 
 
 @pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import hashlib
 import json
 import math
@@ -77,6 +79,35 @@ def _prepare_diagnostic_root(path: Path) -> Path:
     return path
 
 
+@contextmanager
+def _locked_diagnostic_root(root: Path):
+    root_ref = hashlib.sha256(os.fsencode(root.resolve())).hexdigest()
+    lock_path = root.parent / f".uaa-diagnostic-retention-{root_ref}.lock"
+    descriptor = os.open(
+        lock_path,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o077
+        ):
+            raise LocalVerificationLaneError(
+                "local verification diagnostic lock is unsafe"
+            )
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+
 def _retain_diagnostics(
     receipt: dict[str, object] | None,
     *,
@@ -91,114 +122,117 @@ def _retain_diagnostics(
         + repository_sha.encode("ascii")
     ).hexdigest()
     destination = root / token
-    destination.mkdir(mode=0o700)
-    receipt_status = None if receipt is None else receipt.get("status")
-    safe_status = (
-        receipt_status
-        if receipt_status in {"fail", "timed_out", "cancelled", "blocked"}
-        else "blocked"
-    )
-    payload: dict[str, object] = {
-        "schema_version": "uaa_local_verification_diagnostic.v1",
-        "lane_ref": lane_ref,
-        "repository_sha": repository_sha,
-        "status": safe_status,
-        "command_results": [],
-        "redaction_status": "content_free_failure_metadata_only",
-    }
-    if receipt is not None:
-        safe_results: list[dict[str, object]] = []
-        results = receipt.get("command_results")
-        if isinstance(results, list):
-            for result in results:
-                if not isinstance(result, dict):
-                    continue
-                command_ref = result.get("command_ref")
-                status_value = result.get("status")
-                output_byte_count = result.get("output_byte_count")
-                output_digest = result.get("output_digest")
-                if (
-                    not isinstance(command_ref, str)
-                    or SAFE_COMMAND_REF_PATTERN.fullmatch(command_ref) is None
-                    or not isinstance(status_value, str)
-                    or status_value not in {"pass", "fail", "timed_out", "cancelled"}
-                    or not isinstance(output_byte_count, int)
-                    or isinstance(output_byte_count, bool)
-                    or output_byte_count < 0
-                    or output_byte_count > MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT
-                    or not isinstance(output_digest, str)
-                    or len(output_digest) != 64
-                    or any(
-                        character not in "0123456789abcdef"
-                        for character in output_digest
-                    )
-                ):
-                    continue
-                safe_result: dict[str, object] = {
-                    "command_ref": command_ref,
-                    "status": status_value,
-                    "output_byte_count": output_byte_count,
-                    "output_digest": output_digest,
-                }
-                failed_shard_refs = result.get("failed_shard_refs")
-                if isinstance(failed_shard_refs, (list, tuple)):
-                    safe_shard_refs = tuple(
-                        value
-                        for value in failed_shard_refs
-                        if _safe_failed_shard_ref(value) is not None
-                    )
-                    if safe_shard_refs:
-                        safe_result["failed_shard_refs"] = safe_shard_refs
-                failed_test_refs = result.get("failed_test_refs")
-                if isinstance(failed_test_refs, (list, tuple)):
-                    safe_test_refs = tuple(
-                        value
-                        for value in failed_test_refs
-                        if isinstance(value, str) and is_safe_test_ref(value)
-                    )
-                    if safe_test_refs:
-                        safe_result["failed_test_refs"] = safe_test_refs
-                safe_results.append(safe_result)
-        payload["command_results"] = safe_results
-    diagnostic_path = destination / "diagnostic.json"
-    try:
-        descriptor = os.open(
-            diagnostic_path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
+    with _locked_diagnostic_root(root):
+        destination.mkdir(mode=0o700)
+        receipt_status = None if receipt is None else receipt.get("status")
+        safe_status = (
+            receipt_status
+            if receipt_status in {"fail", "timed_out", "cancelled", "blocked"}
+            else "blocked"
         )
+        payload: dict[str, object] = {
+            "schema_version": "uaa_local_verification_diagnostic.v1",
+            "lane_ref": lane_ref,
+            "repository_sha": repository_sha,
+            "status": safe_status,
+            "command_results": [],
+            "redaction_status": "content_free_failure_metadata_only",
+        }
+        if receipt is not None:
+            safe_results: list[dict[str, object]] = []
+            results = receipt.get("command_results")
+            if isinstance(results, list):
+                for result in results:
+                    if not isinstance(result, dict):
+                        continue
+                    command_ref = result.get("command_ref")
+                    status_value = result.get("status")
+                    output_byte_count = result.get("output_byte_count")
+                    output_digest = result.get("output_digest")
+                    if (
+                        not isinstance(command_ref, str)
+                        or SAFE_COMMAND_REF_PATTERN.fullmatch(command_ref) is None
+                        or not isinstance(status_value, str)
+                        or status_value
+                        not in {"pass", "fail", "timed_out", "cancelled"}
+                        or not isinstance(output_byte_count, int)
+                        or isinstance(output_byte_count, bool)
+                        or output_byte_count < 0
+                        or output_byte_count > MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT
+                        or not isinstance(output_digest, str)
+                        or len(output_digest) != 64
+                        or any(
+                            character not in "0123456789abcdef"
+                            for character in output_digest
+                        )
+                    ):
+                        continue
+                    safe_result: dict[str, object] = {
+                        "command_ref": command_ref,
+                        "status": status_value,
+                        "output_byte_count": output_byte_count,
+                        "output_digest": output_digest,
+                    }
+                    failed_shard_refs = result.get("failed_shard_refs")
+                    if isinstance(failed_shard_refs, (list, tuple)):
+                        safe_shard_refs = tuple(
+                            value
+                            for value in failed_shard_refs
+                            if _safe_failed_shard_ref(value) is not None
+                        )
+                        if safe_shard_refs:
+                            safe_result["failed_shard_refs"] = safe_shard_refs
+                    failed_test_refs = result.get("failed_test_refs")
+                    if isinstance(failed_test_refs, (list, tuple)):
+                        safe_test_refs = tuple(
+                            value
+                            for value in failed_test_refs
+                            if isinstance(value, str) and is_safe_test_ref(value)
+                        )
+                        if safe_test_refs:
+                            safe_result["failed_test_refs"] = safe_test_refs
+                    safe_results.append(safe_result)
+            payload["command_results"] = safe_results
+        diagnostic_path = destination / "diagnostic.json"
         try:
-            encoded = (
-                json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
-            ).encode("utf-8")
-            remaining = memoryview(encoded)
-            while remaining:
-                written = os.write(descriptor, remaining)
-                if written <= 0:
-                    raise OSError("diagnostic write did not make progress")
-                remaining = remaining[written:]
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-    except OSError as exc:
-        shutil.rmtree(destination, ignore_errors=True)
-        raise LocalVerificationLaneError(
-            "local verification diagnostics could not be retained"
-        ) from exc
-    retained = sorted(
-        (
-            path
-            for path in root.iterdir()
-            if path.is_dir()
-            and not path.is_symlink()
-            and len(path.name) == 64
-            and all(character in "0123456789abcdef" for character in path.name)
-        ),
-        key=lambda path: path.stat().st_mtime_ns,
-        reverse=True,
-    )
-    for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
-        shutil.rmtree(stale)
+            descriptor = os.open(
+                diagnostic_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+            try:
+                encoded = (
+                    json.dumps(payload, sort_keys=True, separators=(",", ":"))
+                    + "\n"
+                ).encode("utf-8")
+                remaining = memoryview(encoded)
+                while remaining:
+                    written = os.write(descriptor, remaining)
+                    if written <= 0:
+                        raise OSError("diagnostic write did not make progress")
+                    remaining = remaining[written:]
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        except OSError as exc:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise LocalVerificationLaneError(
+                "local verification diagnostics could not be retained"
+            ) from exc
+        retained = sorted(
+            (
+                path
+                for path in root.iterdir()
+                if path.is_dir()
+                and not path.is_symlink()
+                and len(path.name) == 64
+                and all(character in "0123456789abcdef" for character in path.name)
+            ),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
+            shutil.rmtree(stale)
     return f"diagnostic-ref:local-verification:{token}"
 
 

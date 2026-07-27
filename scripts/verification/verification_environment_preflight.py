@@ -80,6 +80,10 @@ def validate_lane_environment(
             raise VerificationEnvironmentPreflightError(
                 "reason-ref:verification-preflight:node-runtime-unavailable"
             )
+        if shutil.which("npm") is None:
+            raise VerificationEnvironmentPreflightError(
+                "reason-ref:verification-preflight:npm-runtime-unavailable"
+            )
         _require_regular_runtime_file(
             repo / MATRIX_RUNTIME_MARKER,
             reason_ref=(
@@ -96,6 +100,10 @@ def validate_lane_environment(
         if shutil.which("node") is None:
             raise VerificationEnvironmentPreflightError(
                 "reason-ref:verification-preflight:node-runtime-unavailable"
+            )
+        if shutil.which("npm") is None:
+            raise VerificationEnvironmentPreflightError(
+                "reason-ref:verification-preflight:npm-runtime-unavailable"
             )
         _require_regular_runtime_file(
             repo / FRONTEND_RUNTIME_MARKER,

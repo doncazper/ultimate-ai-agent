@@ -105,6 +105,42 @@ def test_frontend_preflight_accepts_regular_typescript_runtime(
     )
 
 
+@pytest.mark.parametrize(
+    ("lane_ref", "runtime_marker"),
+    (
+        ("ci-pytest-shards", preflight.MATRIX_RUNTIME_MARKER),
+        ("ci-control-center-frontend", preflight.FRONTEND_RUNTIME_MARKER),
+    ),
+)
+def test_exclusive_preflight_rejects_missing_npm_before_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lane_ref: str,
+    runtime_marker: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    temp_root = tmp_path / "temp"
+    repo.mkdir()
+    temp_root.mkdir()
+    _runtime_file(repo, runtime_marker)
+    monkeypatch.setattr(preflight.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(
+        preflight.shutil,
+        "which",
+        lambda name: "/usr/bin/node" if name == "node" else None,
+    )
+
+    with pytest.raises(
+        preflight.VerificationEnvironmentPreflightError,
+        match="npm-runtime-unavailable",
+    ):
+        preflight.validate_lane_environment(
+            repo,
+            temp_root,
+            lane_ref=lane_ref,
+        )
+
+
 def test_preflight_rejects_insufficient_temp_capacity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

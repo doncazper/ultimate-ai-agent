@@ -37,6 +37,10 @@ validation recomputes the graph's exact maximum antichain and rejects an
 unknown stage, an over-budget job, an under-declared exclusive job, or any
 disagreement with the bounded-cost execution limits.
 
+The terminal Foundation command receives both the exact head SHA and the exact
+comparison-base SHA explicitly. It reconstructs the same plan and fails closed
+if either ref disagrees with the prerequisite manifest.
+
 The checked-in workflow currently selects standard hosted machines. The policy
 also permits a repository-configured larger hosted runner class when available
 and cost-capped. It does not authorize changing account billing, spending

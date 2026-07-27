@@ -150,12 +150,14 @@ def parallel_ci_receipt(
     *,
     prerequisite_path: Path,
     repository_sha: str,
+    base_sha: str,
 ) -> FoundationGateCommandReceipt:
     prerequisite: FoundationPrerequisiteManifest = (
         load_foundation_prerequisite_manifest(
             prerequisite_path,
             ROOT,
             repository_sha,
+            base_sha,
         )
     )
     return FoundationGateCommandReceipt(
@@ -421,12 +423,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", help="Optional path for an additional JSON report copy.")
     parser.add_argument("--ci-prerequisite-manifest")
     parser.add_argument("--ci-prerequisite-sha")
+    parser.add_argument("--ci-prerequisite-base-sha")
     args = parser.parse_args(argv)
 
     command_mode = "report-only" if args.skip_commands else args.command_mode
     prerequisite_values = (
         args.ci_prerequisite_manifest,
         args.ci_prerequisite_sha,
+        args.ci_prerequisite_base_sha,
     )
     if command_mode == "ci-parallel" and not all(prerequisite_values):
         parser.error(
@@ -444,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
                 command_mode,
                 prerequisite_path=Path(args.ci_prerequisite_manifest),
                 repository_sha=args.ci_prerequisite_sha,
+                base_sha=args.ci_prerequisite_base_sha,
             )
         )
     elif command_mode == "report-only":

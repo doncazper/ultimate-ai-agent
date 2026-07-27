@@ -331,6 +331,8 @@ def command_registry() -> dict[str, CommandSpec]:
                     "{temp_root}/uaa_foundation_prerequisite_manifest.json",
                     "--ci-prerequisite-sha",
                     "{repository_sha}",
+                    "--ci-prerequisite-base-sha",
+                    "{base_sha}",
                     "--no-write-latest",
                 ),
                 (),
