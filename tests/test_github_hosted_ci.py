@@ -37,7 +37,6 @@ def test_ci_uses_only_standard_hosted_runners() -> None:
 
     assert workflow.count("runs-on: macos-15") == len(jobs) == len(CI_JOB_GRAPH)
     assert "self-hosted" not in workflow
-    assert "xlarge" not in workflow
     assert CI_HOSTED_RUNNER_LABELS == ("macos-15", "ubuntu-24.04")
 
 
@@ -91,6 +90,10 @@ def test_exact_head_and_evidence_contexts_are_preserved() -> None:
     assert workflow.count("persist-credentials: false") == checkout_count
     assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count
     assert {job.job_ref for job in CI_JOB_GRAPH} == set(verifier.job_names(workflow))
+    assert all(
+        verifier.job_dependencies(workflow, job.job_ref) == job.needs
+        for job in CI_JOB_GRAPH
+    )
     assert (
         command_registry()["command:pytest.sharded-suite"].argv[
             command_registry()["command:pytest.sharded-suite"].argv.index(

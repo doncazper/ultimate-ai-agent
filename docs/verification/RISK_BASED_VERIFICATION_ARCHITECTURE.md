@@ -35,7 +35,10 @@ These rules are permanent:
   escalate fail-closed;
 - test failures cannot be reclassified as infrastructure failures;
 - branch protection and required checks cannot be weakened;
-- larger/paid runners, billing changes, and CI-policy bypasses are out of scope;
+- hosted runner cost is bounded rather than fixed at zero; standard or
+  repository-configured larger hosted classes may be used within explicit
+  parallel-job, timeout, cancellation, and job-minute caps, while account
+  billing changes and CI-policy bypasses remain out of scope;
 - no verifier or test may be removed solely because another command appears
   similar;
 - no file is split, frozen, moved, renamed, or reorganized solely because of
@@ -64,11 +67,13 @@ unbounded plans, invalid refs, and unit definitions that do not match their
 declared execution kind. A lower-risk selection cannot omit a required
 higher-risk dependency.
 
-Graph scheduling may eventually run genuinely independent units concurrently.
-Two units are not independent when their dependency edges, test state, ports,
-temporary directories, process trees, or exclusive resource refs overlap.
-Complete pytest, matching TypeScript typecheck, visual, and other shared-machine
-resources remain serialized until isolation is proven.
+Graph scheduling runs genuinely independent units concurrently on isolated
+hosted machines. Two units are not independent when their dependency edges,
+test state, ports, temporary directories, process trees, or exclusive resource
+refs overlap. Complete pytest, matching TypeScript typecheck, visual, and other
+shared-machine resources remain internally bounded and serialized only where
+isolation is not proven; they do not serialize unrelated jobs on other fresh
+machines.
 
 ## Risk tiers
 

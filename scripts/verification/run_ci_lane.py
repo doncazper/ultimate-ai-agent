@@ -97,6 +97,10 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
     build_verification_execution_terminal_proof,
     verification_exclusive_resource_attempt_fingerprint,
 )
+from scripts.verification.verification_environment_preflight import (  # noqa: E402
+    VerificationEnvironmentPreflightError,
+    validate_lane_environment,
+)
 from scripts.verification.verification_github_transport import (  # noqa: E402
     build_github_job_output_envelope,
     decode_github_job_output,
@@ -457,6 +461,9 @@ def _run_command(
     temp_root: Path,
     validate_start: Callable[[], None] | None = None,
     before_start: Callable[[], None] | None = None,
+    after_spawn: Callable[[], None] | None = None,
+    on_spawn_failure: Callable[[], None] | None = None,
+    retain_failure_output: bool = False,
 ) -> dict[str, Any]:
     resolved_base_sha = base_sha or repository_sha
     started_at = _utc_now()
@@ -470,6 +477,7 @@ def _run_command(
     cleanup_attempted = False
     returncode: int | None = None
     signal_handling = False
+    retained_output = False
 
     def settle_process() -> None:
         nonlocal cleanup_attempted
@@ -526,9 +534,17 @@ def _run_command(
                         )
                     except BaseException:
                         registration_active = False
+                        if on_spawn_failure is not None:
+                            on_spawn_failure()
                         raise
                     else:
                         registration_active = False
+                        if after_spawn is not None:
+                            try:
+                                after_spawn()
+                            except BaseException:
+                                settle_process()
+                                raise
                         if pending_signal is not None:
                             interrupted_by = pending_signal
                             pending_signal = None
@@ -574,7 +590,14 @@ def _run_command(
         output_digest = hashlib.sha256(b"").hexdigest()
     finally:
         if output_path is not None:
-            output_path.unlink(missing_ok=True)
+            if retain_failure_output and returncode != 0:
+                retained_path = temp_root / "uaa_command_failure_output.log"
+                retained_path.unlink(missing_ok=True)
+                os.chmod(output_path, 0o600)
+                os.replace(output_path, retained_path)
+                retained_output = True
+            else:
+                output_path.unlink(missing_ok=True)
 
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
     status_value = "pass" if returncode == 0 else "fail"
@@ -582,7 +605,7 @@ def _run_command(
         status_value = "timed_out"
     elif interrupted:
         status_value = "cancelled"
-    return {
+    result = {
         "command_ref": command.command_ref,
         "category": command.category,
         "status": status_value,
@@ -600,6 +623,11 @@ def _run_command(
         ),
         "redaction_status": "content_free_output_metadata_only",
     }
+    if retained_output:
+        result["diagnostic_output_ref"] = (
+            f"diagnostic-output-ref:sha256:{output_digest}"
+        )
+    return result
 
 
 def _append_summary(path: Path | None, lines: list[str]) -> None:
@@ -1268,6 +1296,7 @@ def run_lane(
     dependency_envelopes: tuple[str, ...] = (),
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
+    retain_failure_output: bool = False,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
@@ -1340,6 +1369,7 @@ def run_lane(
         raise PytestRuntimeUnavailableError(
             "canonical pytest runtime is unavailable before suite start"
         )
+    validate_lane_environment(ROOT, temp_root, lane_ref=lane_ref)
     typed_evidence_requested = verification_execution_fence_root is not None or any(
         value is not None
         for value in (
@@ -1701,7 +1731,7 @@ def run_lane(
                 if lane_ref == "ci-pytest-shards":
                     assert_matrix_loopback_test_resource_available()
 
-            def record_durable_command_start() -> None:
+            def begin_durable_command_start() -> None:
                 nonlocal execution_fence_owner_token
                 if execution_fence is not None:
                     assert pre_execution_identity is not None
@@ -1715,27 +1745,30 @@ def run_lane(
                             "exact verification execution is not startable"
                         )
                     execution_fence_owner_token = decision.owner_token
+
+            def record_spawned_command_start() -> None:
+                if exclusive_resource_attempt_fingerprint is not None:
+                    full_suite_lock.record_start()
+
+            def abort_unspawned_command_start() -> None:
+                nonlocal execution_fence_owner_token
+                if (
+                    execution_fence is None
+                    or pre_execution_identity is None
+                    or execution_fence_owner_token is None
+                ):
+                    return
+                owner_token = execution_fence_owner_token
                 try:
-                    if exclusive_resource_attempt_fingerprint is not None:
-                        full_suite_lock.record_start()
-                except BaseException:
-                    if (
-                        execution_fence is not None
-                        and pre_execution_identity is not None
-                        and execution_fence_owner_token is not None
-                    ):
-                        owner_token = execution_fence_owner_token
-                        try:
-                            execution_fence.abort_prestart(
-                                pre_execution_identity,
-                                owner_token=owner_token,
-                            )
-                        except BaseException as cleanup_error:
-                            raise VerificationExecutionFenceError(
-                                "verification pre-start recovery is required"
-                            ) from cleanup_error
-                        execution_fence_owner_token = None
-                    raise
+                    execution_fence.abort_prestart(
+                        pre_execution_identity,
+                        owner_token=owner_token,
+                    )
+                except BaseException as cleanup_error:
+                    raise VerificationExecutionFenceError(
+                        "verification pre-start recovery is required"
+                    ) from cleanup_error
+                execution_fence_owner_token = None
 
             result = _run_command(
                 commands[command_ref],
@@ -1749,10 +1782,21 @@ def run_lane(
                     else None
                 ),
                 before_start=(
-                    record_durable_command_start
-                    if lane_ref == "ci-pytest-shards" or execution_fence is not None
+                    begin_durable_command_start
+                    if execution_fence is not None
                     else None
                 ),
+                after_spawn=(
+                    record_spawned_command_start
+                    if exclusive_resource_attempt_fingerprint is not None
+                    else None
+                ),
+                on_spawn_failure=(
+                    abort_unspawned_command_start
+                    if execution_fence is not None
+                    else None
+                ),
+                retain_failure_output=retain_failure_output,
             )
             if lane_ref == "ci-pytest-shards":
                 assert expected_pytest_plan_ref is not None
@@ -2091,6 +2135,12 @@ def main(argv: list[str] | None = None) -> int:
     except FullSuiteLockUnavailableError:
         print(
             "UAA CI lane blocked: " + FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except VerificationEnvironmentPreflightError as exc:
+        print(
+            f"UAA CI lane blocked: {exc.reason_ref}",
             file=sys.stderr,
         )
         return 1

@@ -61,14 +61,23 @@ GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS = 600
 PYTEST_JOB_SETUP_BUDGET_SECONDS = 900
 CI_MACHINE_CPU_BUDGET_UNITS = 4
 CI_MACHINE_MEMORY_BUDGET_UNITS = 4
-CI_ARCHITECTURE_PROFILE_REF = "ci-architecture:exact-head-evidence-dag-v2-hosted"
+CI_ARCHITECTURE_PROFILE_REF = (
+    "ci-architecture:exact-head-evidence-dag-v3-parallel-hosted"
+)
 CI_HOSTED_RUNNER_LABELS = ("macos-15", "ubuntu-24.04")
+CI_PERMITTED_RUNNER_CLASS_REFS = (
+    "runner-class:github-hosted-standard",
+    "runner-class:github-hosted-larger-bounded",
+)
+CI_EXECUTION_POLICY_REF = "ci-execution-policy:bounded-cost-parallel-v1"
+CI_MAX_PARALLEL_HOSTED_JOBS = 12
+CI_MAX_HOSTED_JOB_MINUTES_PER_RUN = 870
 CI_RESOURCE_STAGE_CAPACITIES = {
     "resource-stage:bootstrap": 1,
     "resource-stage:pre-suite-pool": 4,
     "resource-stage:pytest-exclusive": 4,
     "resource-stage:pytest-derived": 1,
-    "resource-stage:post-suite-pool": 4,
+    "resource-stage:parallel-validation-pool": 4,
     "resource-stage:performance-exclusive": 4,
     "resource-stage:foundation-exclusive": 4,
 }
@@ -706,18 +715,7 @@ _CI_JOB_GRAPH_BASE = (
         "pytest-shards",
         "pytest / sharded suite",
         "ci-pytest-shards",
-        (
-            "manifest-attestation",
-            "lint",
-            "affected-preflight",
-            "release-lane-docs",
-            "release-lane-openapi",
-            "release-lane-api-safety",
-            "release-lane-security-redaction",
-            "release-lane-product-truth",
-            "release-lane-local-model-e2e",
-            "release-lane-durability",
-        ),
+        ("manifest-attestation",),
         timeout_minutes=60,
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
@@ -732,7 +730,19 @@ _CI_JOB_GRAPH_BASE = (
         "pytest",
         "pytest",
         None,
-        ("pytest-shards",),
+        (
+            "manifest-attestation",
+            "lint",
+            "affected-preflight",
+            "release-lane-docs",
+            "release-lane-openapi",
+            "release-lane-api-safety",
+            "release-lane-security-redaction",
+            "release-lane-product-truth",
+            "release-lane-local-model-e2e",
+            "release-lane-durability",
+            "pytest-shards",
+        ),
         unit_kind=VerificationUnitKind.AGGREGATE,
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
@@ -744,9 +754,9 @@ _CI_JOB_GRAPH_BASE = (
         "static-verification",
         "static-verification",
         "ci-static",
-        ("manifest-attestation", "pytest"),
+        ("manifest-attestation",),
         resource_class_ref="resource-class:cpu-half-machine",
-        resource_stage_ref="resource-stage:post-suite-pool",
+        resource_stage_ref="resource-stage:parallel-validation-pool",
         cpu_units=2,
         memory_units=2,
     ),
@@ -754,13 +764,13 @@ _CI_JOB_GRAPH_BASE = (
         "control-center-frontend",
         "control-center-frontend",
         "ci-control-center-frontend",
-        ("manifest-attestation", "pytest"),
+        ("manifest-attestation",),
         minimum_risk_tier=VerificationRiskTier.TIER_3,
         execution_surfaces=("github", "local"),
         exclusive_resource_refs=("resource-ref:typescript-typecheck",),
         proof_equivalence_ref="proof-equivalence-ref:frontend-complete",
         resource_class_ref="resource-class:cpu-half-machine",
-        resource_stage_ref="resource-stage:post-suite-pool",
+        resource_stage_ref="resource-stage:parallel-validation-pool",
         cpu_units=2,
         memory_units=2,
     ),
@@ -769,7 +779,7 @@ _CI_JOB_GRAPH_BASE = (
         "Release Lane / Desktop and Local Packaging Proof",
         "desktop-packaging",
         ("manifest-attestation", "static-verification"),
-        resource_stage_ref="resource-stage:post-suite-pool",
+        resource_stage_ref="resource-stage:parallel-validation-pool",
         evidence_posture="typed_optional",
     ),
     JobSpec(
@@ -777,14 +787,14 @@ _CI_JOB_GRAPH_BASE = (
         "Release Lane / Control Center Frontend",
         "frontend",
         ("manifest-attestation", "control-center-frontend"),
-        resource_stage_ref="resource-stage:post-suite-pool",
+        resource_stage_ref="resource-stage:parallel-validation-pool",
     ),
     JobSpec(
         "release-lane-visual-regression",
         "Release Lane / Control Center Visual Regression",
         "visual-regression",
         ("manifest-attestation", "control-center-frontend"),
-        resource_stage_ref="resource-stage:post-suite-pool",
+        resource_stage_ref="resource-stage:parallel-validation-pool",
         evidence_posture="typed_optional",
     ),
     JobSpec(
@@ -811,9 +821,6 @@ _CI_JOB_GRAPH_BASE = (
             "manifest-attestation",
             "lint",
             "affected-preflight",
-            "pytest-shards",
-            "pytest",
-            "static-verification",
             "release-lane-docs",
             "release-lane-openapi",
             "release-lane-api-safety",
@@ -821,11 +828,14 @@ _CI_JOB_GRAPH_BASE = (
             "release-lane-product-truth",
             "release-lane-local-model-e2e",
             "release-lane-durability",
+            "pytest-shards",
+            "pytest",
+            "static-verification",
+            "control-center-frontend",
+            "release-lane-desktop-packaging",
             "release-lane-frontend",
             "release-lane-visual-regression",
-            "release-lane-desktop-packaging",
             "release-lane-performance",
-            "control-center-frontend",
         ),
         resource_class_ref="resource-class:exclusive-machine",
         resource_stage_ref="resource-stage:foundation-exclusive",
@@ -858,30 +868,23 @@ CI_TYPED_OPTIONAL_EVIDENCE_UNIT_REFS = tuple(
     for unit in CI_JOB_GRAPH
     if unit.evidence_posture == "typed_optional"
 )
-CI_RESOURCE_CONCURRENCY_SETS = (
-    ("static-verification", "control-center-frontend"),
-    (
-        "static-verification",
-        "release-lane-frontend",
-        "release-lane-visual-regression",
-    ),
-    (
-        "release-lane-desktop-packaging",
-        "release-lane-frontend",
-        "release-lane-visual-regression",
-    ),
-)
-
-
 def ci_architecture_inventory() -> dict[str, Any]:
     """Return the content-free old/new CI architecture inventory."""
 
     return {
         "schema_version": "uaa_ci_architecture_inventory.v1",
-        "previous_profile_ref": "ci-architecture:serialized-post-pytest-v1",
+        "previous_profile_ref": "ci-architecture:exact-head-evidence-dag-v2-hosted",
         "current_profile_ref": CI_ARCHITECTURE_PROFILE_REF,
         "runner_posture": "ephemeral_standard_github_hosted",
         "runner_labels": CI_HOSTED_RUNNER_LABELS,
+        "permitted_runner_class_refs": CI_PERMITTED_RUNNER_CLASS_REFS,
+        "execution_policy_ref": CI_EXECUTION_POLICY_REF,
+        "scheduling_posture": "dependency_aware_parallel",
+        "strict_sequential_execution": False,
+        "incremental_cost_posture": "bounded_not_zero",
+        "max_parallel_hosted_jobs": CI_MAX_PARALLEL_HOSTED_JOBS,
+        "max_hosted_job_minutes_per_run": CI_MAX_HOSTED_JOB_MINUTES_PER_RUN,
+        "superseded_run_cancellation": True,
         "machine_cpu_budget_units": CI_MACHINE_CPU_BUDGET_UNITS,
         "machine_memory_budget_units": CI_MACHINE_MEMORY_BUDGET_UNITS,
         "pytest_shard_count": CANONICAL_PYTEST_SHARD_COUNT,
@@ -1098,13 +1101,14 @@ def validate_definition() -> list[str]:
             or job.memory_units > CI_MACHINE_MEMORY_BUDGET_UNITS
         ):
             failures.append(f"job exceeds machine resource budget: {job.job_ref}")
-    jobs_by_ref = {job.job_ref: job for job in CI_JOB_GRAPH}
-    for concurrency_set in CI_RESOURCE_CONCURRENCY_SETS:
-        units = tuple(jobs_by_ref[unit_ref] for unit_ref in concurrency_set)
-        if sum(unit.cpu_units for unit in units) > CI_MACHINE_CPU_BUDGET_UNITS:
-            failures.append("concurrent CI set exceeds machine CPU budget")
-        if sum(unit.memory_units for unit in units) > CI_MACHINE_MEMORY_BUDGET_UNITS:
-            failures.append("concurrent CI set exceeds machine memory budget")
+    if CI_MAX_PARALLEL_HOSTED_JOBS <= 0:
+        failures.append("hosted parallel job cap must be positive")
+    if CI_MAX_HOSTED_JOB_MINUTES_PER_RUN <= 0:
+        failures.append("hosted job-minute cap must be positive")
+    elif sum(job.timeout_minutes for job in CI_JOB_GRAPH) > (
+        CI_MAX_HOSTED_JOB_MINUTES_PER_RUN
+    ):
+        failures.append("canonical job timeouts exceed the hosted job-minute cap")
     for job in CI_JOB_GRAPH:
         if job.resource_class_ref == "resource-class:exclusive-machine" and (
             job.cpu_units != CI_MACHINE_CPU_BUDGET_UNITS

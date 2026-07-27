@@ -159,3 +159,15 @@ def test_make_verify_runs_full_sharded_release_gate_and_preserves_serial_diagnos
     assert make_target_body(text, "test-serial") == [
         "PYTHONPATH=src $(PYTHON) -m pytest"
     ]
+
+
+def test_verification_bootstrap_installs_every_frozen_local_runtime() -> None:
+    text = MAKEFILE.read_text(encoding="utf-8")
+
+    assert make_target_body(text, "verification-bootstrap") == [
+        "python3.12 -m venv .ci-bootstrap",
+        '.ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"',
+        ".ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12",
+        "npm --prefix integrations/matrix-client-adapter ci --ignore-scripts",
+        "npm --prefix apps/control-center ci --ignore-scripts",
+    ]

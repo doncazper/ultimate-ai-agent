@@ -136,6 +136,8 @@ DEFINITION OF DONE
 Finish with a concise report of activation-gate evidence, files changed,
 behavior delivered, authority still blocked, tests/verifiers run, visual QA,
 skipped checks, and remaining work. Do not commit, push, open a PR, trigger
-GitHub Actions, deploy, or publish unless the operator separately requests it
-and the managed zero-incremental-cost policy is satisfied.
+GitHub Actions, deploy, or publish unless the operator separately requests it.
+When requested, use the repository's bounded-cost, dependency-aware execution
+policy; do not require incremental cost to be zero, and do not change account
+billing or spending settings.
 ```

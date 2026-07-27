@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -34,6 +36,9 @@ from scripts.verification.run_ci_lane import (  # noqa: E402
 from scripts.verification.verification_execution_identity import (  # noqa: E402
     VerificationExecutionFenceError,
 )
+from scripts.verification.verification_environment_preflight import (  # noqa: E402
+    VerificationEnvironmentPreflightError,
+)
 
 
 DEFAULT_FENCE_ROOT = Path(
@@ -44,10 +49,67 @@ ALLOWED_LANES = {
     "ci-control-center-frontend",
 }
 MAX_TIMING_PROFILE_BYTES = 4 * 1024 * 1024
+DEFAULT_DIAGNOSTIC_ROOT = Path(
+    f"/private/tmp/uaa-verification-diagnostics-v1-{os.getuid()}"
+)
+MAX_RETAINED_DIAGNOSTIC_RUNS = 5
 
 
 class LocalVerificationLaneError(RuntimeError):
     """A local exclusive lane could not execute or publish safe evidence."""
+
+
+def _prepare_diagnostic_root(path: Path) -> Path:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.lstat()
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or stat.S_ISLNK(info.st_mode)
+        or info.st_uid != os.getuid()
+        or info.st_mode & 0o077
+    ):
+        raise LocalVerificationLaneError(
+            "local verification diagnostic boundary is unsafe"
+        )
+    return path
+
+
+def _retain_diagnostics(
+    temp_root: Path,
+    *,
+    diagnostic_root: Path,
+    lane_ref: str,
+    repository_sha: str,
+) -> str:
+    root = _prepare_diagnostic_root(diagnostic_root)
+    token = hashlib.sha256(
+        os.urandom(32)
+        + lane_ref.encode("utf-8")
+        + repository_sha.encode("ascii")
+    ).hexdigest()
+    destination = root / token
+    try:
+        os.replace(temp_root, destination)
+        destination.chmod(0o700)
+    except OSError as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostics could not be retained"
+        ) from exc
+    retained = sorted(
+        (
+            path
+            for path in root.iterdir()
+            if path.is_dir()
+            and not path.is_symlink()
+            and len(path.name) == 64
+            and all(character in "0123456789abcdef" for character in path.name)
+        ),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
+        shutil.rmtree(stale)
+    return f"diagnostic-ref:local-verification:{token}"
 
 
 def _safe_failed_shard_ref(value: object) -> str | None:
@@ -235,6 +297,7 @@ def run_local_lane(
     *,
     fence_root: Path = DEFAULT_FENCE_ROOT,
     profile_output: Path | None = None,
+    diagnostic_root: Path | None = None,
 ) -> int:
     if lane_ref not in ALLOWED_LANES:
         raise LocalVerificationLaneError("local verification lane is not allowlisted")
@@ -248,27 +311,54 @@ def run_local_lane(
         raise LocalVerificationLaneError(
             "local verification temporary boundary is unavailable"
         )
-    with tempfile.TemporaryDirectory(
-        prefix="uaa-local-verification-",
-        dir=parent,
-    ) as rendered:
-        temp_root = Path(rendered)
-        temp_root.chmod(0o700)
+    temp_root = Path(
+        tempfile.mkdtemp(
+            prefix="uaa-local-verification-",
+            dir=parent,
+        )
+    )
+    temp_root.chmod(0o700)
+    retained = False
+    resolved_diagnostic_root = diagnostic_root or DEFAULT_DIAGNOSTIC_ROOT
+    try:
         receipt = run_lane(
             lane_ref,
             repository_sha=repository_sha,
             temp_root=temp_root,
             verification_execution_fence_root=fence_root,
             full_suite_lock_mode="local",
+            retain_failure_output=True,
         )
         if receipt.get("status") != "pass":
             _print_safe_pytest_failure_refs(receipt)
+            diagnostic_ref = _retain_diagnostics(
+                temp_root,
+                diagnostic_root=resolved_diagnostic_root,
+                lane_ref=lane_ref,
+                repository_sha=repository_sha,
+            )
+            retained = True
+            print(f"Retained local diagnostics: {diagnostic_ref}")
             return 1
         if profile_output is not None:
             _publish_timing_profile(
                 temp_root / PYTEST_FILE_TIMINGS_NAME,
                 profile_output,
             )
+    except BaseException:
+        if temp_root.exists() and not retained:
+            diagnostic_ref = _retain_diagnostics(
+                temp_root,
+                diagnostic_root=resolved_diagnostic_root,
+                lane_ref=lane_ref,
+                repository_sha=repository_sha,
+            )
+            retained = True
+            print(f"Retained local diagnostics: {diagnostic_ref}")
+        raise
+    finally:
+        if temp_root.exists() and not retained:
+            shutil.rmtree(temp_root)
     return 0
 
 
@@ -295,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
         LocalVerificationLaneError,
         PytestRuntimeUnavailableError,
         VerificationExecutionFenceError,
+        VerificationEnvironmentPreflightError,
         OSError,
         ValueError,
     ):

@@ -78,6 +78,11 @@ def _isolate_matrix_loopback_prestart_probe(
         "assert_matrix_loopback_test_resource_available",
         lambda: None,
     )
+    monkeypatch.setattr(
+        runner,
+        "validate_lane_environment",
+        lambda *_args, **_kwargs: ("preflight-ref:test-ready",),
+    )
 
 
 def _write_pytest_performance_report(
@@ -959,7 +964,7 @@ def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
     assert events == ["validated-lock"]
 
 
-def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
+def test_attempt_ledger_failure_after_spawn_leaves_recovery_fence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -989,14 +994,17 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
         *,
         validate_start=None,
         before_start=None,
+        after_spawn=None,
         **_kwargs: object,
     ) -> dict[str, object]:
         assert validate_start is not None
         assert before_start is not None
+        assert after_spawn is not None
         validate_start()
         before_start()
         events.append("spawned")
-        raise AssertionError("command spawn must not be reached")
+        after_spawn()
+        raise AssertionError("attempt record failure must stop command handling")
 
     monkeypatch.setattr(runner, "FullSuiteLock", FailingFullSuiteLock)
     monkeypatch.setattr(runner, "_run_command", fake_run_command)
@@ -1011,7 +1019,7 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
             verification_execution_fence_root=fence_root,
         )
 
-    assert events == ["attempt-record-failed"]
+    assert events == ["spawned", "attempt-record-failed"]
     unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
     identity = build_verification_execution_identity(
         full_plan,
@@ -1019,8 +1027,71 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
         execution_surface_ref="surface-ref:github",
     )
     assert VerificationExecutionFence(fence_root).begin(identity).disposition is (
-        VerificationExecutionFenceDisposition.START_GRANTED
+        VerificationExecutionFenceDisposition.RECOVERY_REQUIRED
     )
+
+
+def test_run_command_spawn_failure_releases_prestart_reservation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.spawn-failure-rollback",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def fail_spawn(*_args: object, **_kwargs: object) -> None:
+        events.append("spawn-failed")
+        raise RuntimeError("spawn unavailable")
+
+    monkeypatch.setattr(runner, "spawn_owned_process_group", fail_spawn)
+
+    with pytest.raises(RuntimeError, match="spawn unavailable"):
+        runner._run_command(
+            command,
+            repository_sha=SHA,
+            temp_root=tmp_path,
+            before_start=lambda: events.append("reserved"),
+            after_spawn=lambda: events.append("recorded"),
+            on_spawn_failure=lambda: events.append("released"),
+        )
+
+    assert events == ["reserved", "spawn-failed", "released"]
+
+
+def test_run_command_retains_owner_only_local_failure_output(
+    tmp_path: Path,
+) -> None:
+    command = CommandSpec(
+        "command:test.retained-failure-output",
+        (
+            sys.executable,
+            "-c",
+            "print('local diagnostic only'); raise SystemExit(7)",
+        ),
+        (),
+        "test",
+        10,
+    )
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        retain_failure_output=True,
+    )
+
+    retained = tmp_path / "uaa_command_failure_output.log"
+    assert result["status"] == "fail"
+    assert str(result["diagnostic_output_ref"]).startswith(
+        "diagnostic-output-ref:sha256:"
+    )
+    assert retained.read_text(encoding="utf-8") == "local diagnostic only\n"
+    assert retained.stat().st_mode & 0o077 == 0
 
 
 def test_exclusive_typed_lane_publishes_terminal_execution_fence(

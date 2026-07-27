@@ -16,10 +16,17 @@ CI_LANE ?= ci-lint
 CI_TEMP_ROOT ?= /tmp/uaa-ci-lane
 CI_SHARD_INDEX ?= 0
 VERIFICATION_EXECUTION_FENCE_ROOT ?= /private/tmp/uaa-verification-execution-fence-v2-$(shell /usr/bin/id -u)
-.PHONY: doctor test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
+.PHONY: doctor verification-bootstrap test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
+
+verification-bootstrap:
+	python3.12 -m venv .ci-bootstrap
+	.ci-bootstrap/bin/python -m pip install --disable-pip-version-check "uv==0.11.21"
+	.ci-bootstrap/bin/uv sync --frozen --extra dev --python python3.12
+	npm --prefix integrations/matrix-client-adapter ci --ignore-scripts
+	npm --prefix apps/control-center ci --ignore-scripts
 
 test:
 	$(MAKE) test-sharded

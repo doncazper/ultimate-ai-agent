@@ -169,15 +169,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - lint
-      - affected-preflight
-      - release-lane-docs
-      - release-lane-openapi
-      - release-lane-api-safety
-      - release-lane-security-redaction
-      - release-lane-product-truth
-      - release-lane-local-model-e2e
-      - release-lane-durability
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
     steps:
@@ -336,7 +327,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
@@ -1072,7 +1062,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 

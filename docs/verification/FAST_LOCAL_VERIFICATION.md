@@ -48,6 +48,27 @@ verify-local` also include the canonical complete-pytest lane and consume that
 attempt. `test-sharded-profile` is an alternative first and only complete run
 for the state, not a second refresh after `test-sharded`.
 
+Before durable admission, an exclusive local lane checks writable temporary
+capacity and every runtime it requires. Complete pytest requires the installed
+Python test runtime, Node, and the frozen Matrix adapter runtime; Control Center
+requires Node and the installed TypeScript launcher. A missing prerequisite
+fails before consuming the exact-state attempt. Prepare a new isolated worktree
+once with:
+
+```bash
+make verification-bootstrap
+```
+
+The bootstrap installs the frozen Python, Matrix, and Control Center dependency
+sets. It is explicit and reusable rather than hidden inside each verification
+attempt.
+
+Failed local exclusive lanes retain at most five owner-only diagnostic
+directories outside the repository and print only a content-free
+`diagnostic-ref:local-verification:*`. Successful runs delete their transient
+state. Raw output remains local, is never uploaded or admitted as durable
+verification evidence, and is not included in receipts.
+
 Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
 branch, and reserve complete resources for the final GitHub-hosted merge
 gate. For a dirty worktree, a selected frontend typecheck is advisory feedback
@@ -85,12 +106,14 @@ Same-machine local measurements before this refactor, in seconds:
 | Documentation integrity | 0.28 | 0.22 | static |
 | Product truth | 3.31 | 3.48 | static plus imports |
 | Foundation Gate | 23.46 | 23.11 | 627 checks |
-| Sharded pytest | 126.87 | 111.48 | eight shards; cold run had one isolated-worktree environment failure, warm run green |
+| Sharded pytest | 126.87 | 111.48 | eight shards; historical cold run had one isolated-worktree environment failure before fail-fast admission, warm run green |
 | Control Center frontend | 58.66 | 56.73 | typecheck, lint, 257 tests, production build |
 
 The cold pytest value is diagnostic only because one shard could not find the
 worktree-local virtual environment. It is not a passing baseline. The warm
-measurement is the comparable green baseline. `make verify-value-audit`
+measurement is the comparable green baseline. The current preflight prevents
+that class of missing-runtime failure from consuming an attempt. `make
+verify-value-audit`
 records the unique defect class and overlap posture for the main active lanes.
 That audit is registry-bound to every selector command and release lane and
 validates the exact-SHA synthetic run and timing derivations in

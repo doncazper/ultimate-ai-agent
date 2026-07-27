@@ -39,8 +39,6 @@ FORBIDDEN_CI_FRAGMENTS = (
     "actions/upload-artifact",
     "actions/download-artifact",
     "pull_request_target",
-    "macos-15-xlarge",
-    "macos-latest-xlarge",
 )
 
 
@@ -62,13 +60,32 @@ def job_section(workflow: str, job_name: str) -> str:
     return match.group(0) if match is not None else ""
 
 
+def job_dependencies(workflow: str, job_name: str) -> tuple[str, ...]:
+    section = job_section(workflow, job_name)
+    match = re.search(
+        r"(?ms)^    needs:\n(?P<body>(?:^      - [a-zA-Z0-9_-]+\n)+)",
+        section,
+    )
+    if match is None:
+        return ()
+    return tuple(
+        dependency
+        for dependency in re.findall(
+            r"(?m)^      - ([a-zA-Z0-9_-]+)$",
+            match.group("body"),
+        )
+    )
+
+
 def _verify_exact_receipt_graph(workflow: str, failures: list[str]) -> None:
     pytest_shards_job = job_section(workflow, "pytest-shards")
-    if not all(
+    if "      - manifest-attestation\n" not in pytest_shards_job:
+        failures.append("pytest shards must wait for exact manifest attestation")
+    if any(
         f"      - {dependency}\n" in pytest_shards_job
         for dependency in ("lint", "affected-preflight")
     ):
-        failures.append("pytest shards must wait for lint and fast affected preflight")
+        failures.append("pytest shards must not serialize behind independent preflights")
     if "trap terminate_shard_runner EXIT INT TERM HUP" not in pytest_shards_job:
         failures.append("pytest cancellation must reach the shard runner")
     if "for _ in {1..100}" not in pytest_shards_job:
@@ -334,11 +351,10 @@ def verify(root: Path = ROOT) -> list[str]:
 
     for job in CI_JOB_GRAPH:
         section = job_section(workflow, job.job_ref)
-        for dependency in job.needs:
-            if f"      - {dependency}\n" not in section:
-                failures.append(
-                    f"{job.job_ref} must preserve canonical dependency {dependency}"
-                )
+        if job_dependencies(workflow, job.job_ref) != job.needs:
+            failures.append(
+                f"{job.job_ref} must preserve its exact canonical dependencies"
+            )
         if job.lane_ref is not None:
             for fragment in (
                 "scripts/verification/run_ci_lane.py",

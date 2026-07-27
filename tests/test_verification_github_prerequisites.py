@@ -481,11 +481,12 @@ def test_malformed_nonpassing_and_dependency_impossible_evidence_are_rejected() 
     )
 
     envelopes = list(_envelopes(plan))
-    envelopes[-1] = _encoded(
+    shard_index = PYTEST_AGGREGATE_SOURCE_UNIT_REFS.index("pytest-shards")
+    envelopes[shard_index] = _encoded(
         plan,
-        "static-verification",
-        started_at="2026-07-15T00:00:02Z",
-        completed_at="2026-07-15T00:00:03Z",
+        "pytest-shards",
+        started_at="2026-07-15T00:00:00Z",
+        completed_at="2026-07-15T00:00:01Z",
     )
     _assert_reason(
         lambda: collect_foundation_prerequisites(plan, tuple(envelopes)),
@@ -1289,7 +1290,7 @@ def test_final_ci_evidence_dag_rejects_dependency_chronology_substitution(
     results, envelopes = _final_gate_bindings(plan)
     substituted = _encoded(
         plan,
-        "static-verification",
+        "release-lane-frontend",
         started_at="2026-07-15T00:00:02Z",
         completed_at="2026-07-15T00:00:03Z",
     )
@@ -1302,7 +1303,11 @@ def test_final_ci_evidence_dag_rejects_dependency_chronology_substitution(
             plan.base_sha,
             plan.frontend_visual_scope,
             results,
-            _replace_binding(envelopes, "static-verification", substituted),
+            _replace_binding(
+                envelopes,
+                "release-lane-frontend",
+                substituted,
+            ),
             _final_optional_bindings(plan),
         )
 

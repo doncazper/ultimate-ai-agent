@@ -16,6 +16,18 @@ SHA = "a" * 40
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def _isolate_diagnostic_retention(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        local_lane,
+        "DEFAULT_DIAGNOSTIC_ROOT",
+        tmp_path / "diagnostics",
+    )
+
+
 def test_local_lane_default_fence_is_owner_scoped() -> None:
     assert local_lane.DEFAULT_FENCE_ROOT == Path(
         f"/private/tmp/uaa-verification-execution-fence-v2-{os.getuid()}"
@@ -69,6 +81,7 @@ def test_local_lane_uses_canonical_local_surface_and_fence(
     assert observed["repository_sha"] == SHA
     assert observed["full_suite_lock_mode"] == "local"
     assert observed["verification_execution_fence_root"] == fence_root
+    assert observed["retain_failure_output"] is True
     temp_root = observed["temp_root"]
     assert isinstance(temp_root, Path)
     assert not temp_root.exists()
@@ -115,6 +128,10 @@ def test_local_lane_prints_only_safe_pytest_failure_refs(
     assert safe_failure_ref in output
     assert "pytest-shard-ref:99:failed" not in output
     assert "unsafe-local-detail" not in output
+    assert "diagnostic-ref:local-verification:" in output
+    retained = tuple((tmp_path / "diagnostics").iterdir())
+    assert len(retained) == 1
+    assert retained[0].is_dir()
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(
