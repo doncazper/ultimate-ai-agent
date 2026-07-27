@@ -518,6 +518,9 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
         "/api/runtime/authority-leases/revoke",
         "/api/runtime/command/run",
         "/api/runtime/hermes/chat",
+        "/api/runtime/goals",
+        "/api/runtime/goals/{goal_ref}/edit",
+        "/api/runtime/goals/{goal_ref}/transition",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}/approve",
         "/api/runtime/invocations/{id}/execute",
@@ -548,6 +551,17 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
     assert route_rate_limit_group("POST", "/api/runtime/hermes/chat") == (
         "governed_runtime_pilot"
     )
+    assert route_rate_limit_group("POST", "/api/runtime/goals") == (
+        "governed_runtime_pilot"
+    )
+    assert route_rate_limit_group(
+        "POST",
+        "/api/runtime/goals/goal-ref:abc/edit",
+    ) == "governed_runtime_pilot"
+    assert route_rate_limit_group(
+        "POST",
+        "/api/runtime/goals/goal-ref:abc/transition",
+    ) == "governed_runtime_pilot"
     assert route_rate_limit_group("POST", "/api/runtime/authority-leases") == (
         "governed_runtime_pilot"
     )

@@ -1005,15 +1005,20 @@ def _goal_runtime_failure(
 def _runtime_projection_failure(
     operation: str,
     trace_id: str,
-    exc: GoalRuntimeError,
+    exc: GoalRuntimeError | OSError,
 ) -> ResultEnvelope:
+    code = (
+        str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
+        if isinstance(exc, GoalRuntimeError)
+        else "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    )
     return ResultEnvelope(
         success=False,
         operation=operation,
         service="GovernedRuntimeAPI",
         trace_id=trace_id,
         error=ErrorEnvelope(
-            code=str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED",
+            code=code,
             category=ErrorCategory.internal_error,
             safe_message=(
                 "The governed runtime durable-event projection failed closed."
@@ -1056,8 +1061,13 @@ def get_api_runtime_goals(
 def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
     try:
         goal = _goal_runtime_service().goals.get(goal_ref)
-    except GoalRuntimeError as exc:
-        return _goal_runtime_failure("api_runtime_goal", goal_ref, exc)
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure("api_runtime_goal", goal_ref, failure)
     return ResultEnvelope(
         success=True,
         operation="api_runtime_goal",
@@ -2203,7 +2213,7 @@ def post_api_runtime_local_model_call(
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
         )
-    except GoalRuntimeError as exc:
+    except (GoalRuntimeError, OSError) as exc:
         return _runtime_projection_failure(
             "api_runtime_local_model_call",
             idempotency_ref,
@@ -2292,7 +2302,7 @@ def post_api_runtime_command_run(
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
         )
-    except GoalRuntimeError as exc:
+    except (GoalRuntimeError, OSError) as exc:
         return _runtime_projection_failure(
             "api_runtime_command_run",
             idempotency_ref,
@@ -2572,7 +2582,7 @@ def post_api_runtime_invocations_id_execute(
                 ),
                 redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
             )
-        except GoalRuntimeError as exc:
+        except (GoalRuntimeError, OSError) as exc:
             return _runtime_projection_failure(
                 "api_runtime_invocation_execute",
                 idempotency_ref,

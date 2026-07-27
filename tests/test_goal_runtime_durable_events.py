@@ -1071,6 +1071,7 @@ def test_terminal_run_events_require_receipt_proof(
 
 def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runtime_dir = tmp_path / "runtime"
     goal_dir = tmp_path / "goals"
@@ -1116,13 +1117,80 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     assert reservations_path.read_text(encoding="utf-8") == ""
     assert stat.S_IMODE(reservations_path.stat().st_mode) == 0o600
     restored = GoalRuntimeService(goal_dir)
-    restored.sync_runtime_invocations(
-        RuntimeInvocationStore(
-            runtime_dir,
-            active_authority_leases=[workspace_execute_authority_lease()],
-        ).list_invocations()
+    records = RuntimeInvocationStore(
+        runtime_dir,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    ).list_invocations()
+    tombstone_write_calls = 0
+
+    def reject_redundant_tombstone_write(
+        _tombstones: object,
+    ) -> None:
+        nonlocal tombstone_write_calls
+        tombstone_write_calls += 1
+        raise AssertionError("fully projected history must not be rewritten")
+
+    monkeypatch.setattr(
+        restored._events,  # noqa: SLF001
+        "_write_idempotency_tombstones",
+        reject_redundant_tombstone_write,
     )
+    assert restored.sync_runtime_invocations(records) == []
+    assert tombstone_write_calls == 0
     assert len(restored.events.replay(result.record.invocation_ref).events) == 2
+
+
+@pytest.mark.parametrize("journal_state", ["missing", "empty"])
+def test_event_journal_cannot_disappear_while_tombstones_remain(
+    tmp_path: Path,
+    journal_state: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:journal-disappearance",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="A durable local run started.",
+            idempotency_ref="idempotency-ref:journal-disappearance",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    path = tmp_path / "run_events.jsonl"
+    if journal_state == "missing":
+        path.unlink()
+    else:
+        path.write_text("", encoding="utf-8")
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_JOURNAL_MISSING_WITH_IDEMPOTENCY_HISTORY",
+    ):
+        GoalRuntimeService(tmp_path).events.replay(
+            "run-ref:journal-disappearance"
+        )
+
+
+def test_atomic_storage_failure_is_normalized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+
+    def fail_replace(*_args: object, **_kwargs: object) -> None:
+        raise OSError("raw storage failure")
+
+    monkeypatch.setattr(goal_runtime_module.os, "replace", fail_replace)
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        _create_goal(
+            service,
+            _create_request(),
+            idempotency_ref="idempotency-ref:storage-failure:create",
+        )
 
 
 def test_goal_runtime_files_are_private(tmp_path: Path) -> None:

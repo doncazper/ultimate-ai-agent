@@ -133,30 +133,45 @@ def test_run_events_get_is_strictly_read_only(
         ),
     ],
 )
+@pytest.mark.parametrize(
+    ("projection_exception", "expected_code"),
+    [
+        (
+            GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"),
+            "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED",
+        ),
+        (
+            OSError("raw storage failure must stay redacted"),
+            "GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+        ),
+    ],
+)
 def test_runtime_projection_failures_keep_the_public_result_envelope(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
     monkeypatch: pytest.MonkeyPatch,
     path: str,
     payload: dict[str, object],
     operation: str,
+    projection_exception: Exception,
+    expected_code: str,
 ) -> None:
     client, _service = goal_runtime_client
 
     class FailingProjectionGateway:
         @staticmethod
         def invoke_local_model(*_args: object, **_kwargs: object) -> None:
-            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+            raise projection_exception
 
         @staticmethod
         def invoke_command(*_args: object, **_kwargs: object) -> None:
-            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+            raise projection_exception
 
         @staticmethod
         def execute_approved_command(
             *_args: object,
             **_kwargs: object,
         ) -> None:
-            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+            raise projection_exception
 
     monkeypatch.setattr(
         runtime_pilot_service,
@@ -177,10 +192,21 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
     body = response.json()
     assert body["success"] is False
     assert body["operation"] == operation
-    assert (
-        body["error"]["code"]
-        == "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
-    )
+    assert body["error"]["code"] == expected_code
+    assert body["error"]["details_redacted"] is True
+
+
+def test_goal_get_rejects_malformed_path_ref_with_safe_envelope(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, _service = goal_runtime_client
+    response = client.get("/api/runtime/goals/not-a-ref")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["operation"] == "api_runtime_goal"
+    assert body["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
     assert body["error"]["details_redacted"] is True
 
 

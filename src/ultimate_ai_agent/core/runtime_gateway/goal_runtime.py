@@ -1837,6 +1837,37 @@ class _DurableRunEventStore:
             if key not in tombstones
         ]
 
+    def unprojected_runtime_invocations(
+        self,
+        records: Iterable[RuntimeInvocationRecord],
+    ) -> list[RuntimeInvocationRecord]:
+        from ultimate_ai_agent.core.runtime_gateway.contracts import (
+            RuntimeInvocationRecord,
+            RuntimeInvocationStatus,
+        )
+
+        candidates: list[RuntimeInvocationRecord] = []
+        with self.exclusive():
+            events = self._load_events()
+            tombstones = self._load_idempotency_tombstones(events)
+            for record in records:
+                validated = RuntimeInvocationRecord.model_validate(
+                    record.model_dump()
+                )
+                if (
+                    validated.receipt is None
+                    or validated.status
+                    != RuntimeInvocationStatus.receipt_recorded.value
+                ):
+                    continue
+                missing_key_refs = self._missing_runtime_projection_key_refs(
+                    validated,
+                    tombstones,
+                )
+                if missing_key_refs:
+                    candidates.append(validated)
+        return candidates
+
     def _build_projection_reservation(
         self,
         reservation_ref: str,
@@ -2057,12 +2088,17 @@ class _DurableRunEventStore:
 
     def _load_events(self) -> list[DurableRunEvent]:
         if not self.path.exists():
+            self._assert_no_orphaned_idempotency_history()
             return []
         events: list[DurableRunEvent] = []
         grouped: dict[str, list[DurableRunEvent]] = {}
         idempotency: set[tuple[str, str]] = set()
         try:
-            for raw_line in self.path.read_text(encoding="utf-8").splitlines():
+            raw_content = self.path.read_text(encoding="utf-8")
+            if not raw_content.strip():
+                self._assert_no_orphaned_idempotency_history()
+                return []
+            for raw_line in raw_content.splitlines():
                 if not raw_line.strip():
                     continue
                 event = DurableRunEvent.model_validate_json(raw_line)
@@ -2114,6 +2150,22 @@ class _DurableRunEventStore:
         except (OSError, UnicodeError, ValueError) as exc:
             raise GoalRuntimeCorruptionError("RUN_EVENT_STORE_CORRUPT") from exc
         return events
+
+    def _assert_no_orphaned_idempotency_history(self) -> None:
+        try:
+            if (
+                self.idempotency_path.exists()
+                and self.idempotency_path.read_text(encoding="utf-8").strip()
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_JOURNAL_MISSING_WITH_IDEMPOTENCY_HISTORY"
+                )
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT"
+            ) from exc
 
     def _apply_retention(
         self, events: list[DurableRunEvent], run_ref: str
@@ -2588,7 +2640,7 @@ class GoalRuntimeService:
     ) -> list[DurableRunEvent]:
         self.reconcile_durable_events()
         projected: list[DurableRunEvent] = []
-        for record in records:
+        for record in self._events.unprojected_runtime_invocations(records):
             projected.extend(self.record_accepted_runtime_invocation(record))
         return projected
 
@@ -2752,13 +2804,14 @@ def _validate_goal_mutation_approval_binding(
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    parent_metadata = os.lstat(path.parent)
-    if not stat.S_ISDIR(parent_metadata.st_mode):
-        raise OSError("goal runtime state directory must be a real directory")
-    os.chmod(path.parent, 0o700)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temp_path: Path | None = None
     try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        parent_metadata = os.lstat(path.parent)
+        if not stat.S_ISDIR(parent_metadata.st_mode):
+            raise OSError("goal runtime state directory must be a real directory")
+        os.chmod(path.parent, 0o700)
+        temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         flags = (
             os.O_WRONLY
             | os.O_CREAT
@@ -2781,6 +2834,17 @@ def _atomic_write(path: Path, content: str) -> None:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
+    except OSError as exc:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
     except Exception:
-        temp_path.unlink(missing_ok=True)
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         raise

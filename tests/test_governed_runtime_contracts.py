@@ -4475,6 +4475,44 @@ def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_rec
     assert payload["record"]["receipt"] is None
 
 
+def test_runtime_launcher_command_run_cli_redacts_storage_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _UnavailableGoalRuntime:
+        @staticmethod
+        def sync_runtime_invocations(_records: object) -> None:
+            raise OSError("raw storage failure must stay redacted")
+
+    monkeypatch.setattr(
+        uaa_runtime,
+        "_goal_runtime_service",
+        lambda _args: _UnavailableGoalRuntime(),
+    )
+    args = argparse.Namespace(
+        intent="git_status",
+        profile="local-runtime",
+        mission_ref=None,
+        target_ref=[],
+        summary="Inspect current repo status with redacted output.",
+        timeout_seconds=5.0,
+        output_byte_limit=4096,
+        metadata_ref=[],
+        idempotency_ref="idempotency-ref:runtime-command-cli-storage-failure",
+        state_dir=str(tmp_path / "cli-state"),
+        json=True,
+    )
+
+    assert uaa_runtime._command_run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is False
+    assert payload["error_category"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert payload["safe_refs_only"] is True
+    assert payload["raw_paths_omitted"] is True
+    assert "raw storage failure" not in json.dumps(payload)
+
+
 def test_runtime_gateway_command_nonzero_and_timeout_receipts(
     tmp_path: Path,
 ) -> None:

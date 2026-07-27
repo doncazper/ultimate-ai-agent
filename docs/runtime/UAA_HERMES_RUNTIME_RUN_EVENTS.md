@@ -67,6 +67,9 @@ the replay payload itself is evicted. Completion events require matching prior
 receipt evidence. Cancelled, verified-complete,
 terminal-failure, and dead-letter events require receipt and proof refs; those
 streams are terminal and late success events are rejected.
+The event journal and tombstone history are one consistency boundary: a missing
+or empty event journal with surviving accepted tombstones is corruption, not an
+empty runtime.
 
 Accepted `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -79,11 +82,15 @@ each reservation is a short bounded lease longer than the maximum supported
 runtime call. Exact retries reuse the lease, while expired crash leftovers are
 reclaimed under the same writer lock before capacity is counted.
 Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
-idempotently after a process interruption. `GET /api/runtime/run-events` and
-CLI inspection remain strictly read-only. Blocked or approval-pending
-invocations are not projected as accepted runs.
+idempotently after a process interruption. Reconciliation reads the tombstone
+index once and selects only records whose exact projection keys remain absent;
+already-projected history is not rewritten for every new invocation.
+`GET /api/runtime/run-events` and CLI inspection remain strictly read-only.
+Blocked or approval-pending invocations are not projected as accepted runs.
 Projection-capacity or corruption failures are returned through redacted API
-and CLI error envelopes rather than escaping as unstructured failures.
+and CLI error envelopes rather than escaping as unstructured failures. Local
+storage failures are normalized to the same safe contract, and goal mutations
+remain in the governed-runtime targeted rate-limit group.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained

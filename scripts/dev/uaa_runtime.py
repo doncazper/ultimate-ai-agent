@@ -2052,15 +2052,18 @@ def _command_run(args: argparse.Namespace) -> int:
             print(f"Error: {payload['error_category']}")
             print(payload["safe_message"])
         return 1
-    except GoalRuntimeError as exc:
+    except (GoalRuntimeError, OSError) as exc:
+        error_category = (
+            str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
+            if isinstance(exc, GoalRuntimeError)
+            else "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+        )
         payload = {
             "schema_version": "governed-runtime-cli:v1",
             "command_ref": "repo-local-command:uaa-runtime-command-run",
             "success": False,
             "trace_id": args.idempotency_ref,
-            "error_category": (
-                str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
-            ),
+            "error_category": error_category,
             "safe_message": (
                 "The governed runtime durable-event projection failed closed."
             ),

@@ -131,8 +131,8 @@
       "approval_posture": "required_before_mutation_authority",
       "idempotency_posture": "required_before_mutation_authority",
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_group": null
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
     },
     {
       "method": "POST",
@@ -144,8 +144,8 @@
       "approval_posture": "required_before_mutation_authority",
       "idempotency_posture": "required_before_mutation_authority",
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_group": null
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
     },
     {
       "method": "POST",
@@ -157,8 +157,8 @@
       "approval_posture": "required_before_mutation_authority",
       "idempotency_posture": "required_before_mutation_authority",
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_group": null
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
     },
     {
       "method": "POST",

@@ -1,6 +1,6 @@
 {
   "control_center_route_count": 172,
-  "fingerprint": "api-contract-fingerprint:sha256:16ad25388aef8517bb211a173f5670e5427b8be506cc5fb491410eac99f32c58",
+  "fingerprint": "api-contract-fingerprint:sha256:c8716eb433859bfa8cd779f214569c60b691a9437fb66ce989510334219c4865",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "mutating_route_count": 114,
   "openapi_path_count": 341,
@@ -50,8 +50,8 @@
   },
   "route_operation_count": 343,
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 204,
-    "targeted_local_fixed_window": 139
+    "not_targeted_for_route": 201,
+    "targeted_local_fixed_window": 142
   },
   "routes": [
     {
@@ -563,10 +563,10 @@
       "method": "POST",
       "operation_id": "post_api_runtime_goals",
       "path": "/api/runtime/goals",
-      "rate_limit_group": null,
-      "rate_limit_policy_ref": null,
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_targeted": false,
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post api runtime goals",
@@ -603,10 +603,10 @@
       "method": "POST",
       "operation_id": "post_api_runtime_goals_goal_ref_edit",
       "path": "/api/runtime/goals/{goal_ref}/edit",
-      "rate_limit_group": null,
-      "rate_limit_policy_ref": null,
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_targeted": false,
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post api runtime goals goal ref edit",
@@ -623,10 +623,10 @@
       "method": "POST",
       "operation_id": "post_api_runtime_goals_goal_ref_transition",
       "path": "/api/runtime/goals/{goal_ref}/transition",
-      "rate_limit_group": null,
-      "rate_limit_policy_ref": null,
-      "rate_limit_posture": "not_targeted_for_route",
-      "rate_limit_targeted": false,
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post api runtime goals goal ref transition",
@@ -6920,5 +6920,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 139
+  "targeted_rate_limit_route_count": 142
 }
