@@ -25,7 +25,11 @@ provider, connector, production, billing, or AuthorityLease capability.
   repository-allowlisted revisions of `actions/setup-python` and
   `actions/setup-node`.
 - Every repository checkout uses the exact allowlisted
-  `actions/checkout@11d5960a326750d5838078e36cf38b85af677262` revision.
+  `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` revision.
+- Checkout v7.0.1 and setup-python/setup-node v7.0.0 execute on the actions
+  Node 24 runtime. This removes the retired actions Node runtime warning; it
+  does not change UAA's explicitly installed Node 22.23.1 application
+  toolchain.
 - Frozen `uv` and npm locks remain mandatory. Actions cache and artifact
   upload/download services are not used.
 

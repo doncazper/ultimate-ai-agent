@@ -50,7 +50,7 @@ def test_pr_and_push_jobs_checkout_the_same_explicit_sha_they_attest() -> None:
     assert "github.event.pull_request.base.sha" in workflow
     assert "github.event.before" in workflow
     checkout_count = workflow.count(
-        "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+        "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
     )
     assert checkout_count > 0
     assert workflow.count("ref: ${{ env.UAA_CI_EXACT_SHA }}") == checkout_count

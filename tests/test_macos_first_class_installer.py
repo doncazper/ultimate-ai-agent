@@ -696,8 +696,8 @@ def test_workflow_is_tag_bound_checksum_verified_and_does_not_move_tags() -> Non
     assert "git push --force" not in workflow
     assert "actions/setup-python" not in workflow
     assert [step["uses"] for step in checkout_steps] == [
-        "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
-        "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
     ]
     assert checkout_steps[0]["with"]["ref"] == "${{ github.workflow_sha }}"
     assert checkout_steps[1]["with"]["ref"] == (

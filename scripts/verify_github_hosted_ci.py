@@ -27,7 +27,7 @@ CI_RUNNER_SELECTOR = "runs-on: macos-15"
 FORK_POLICY_RUNNER_SELECTOR = "runs-on: ubuntu-24.04"
 SETUP_TOOLCHAIN_ACTION = "uses: ./.github/actions/setup-toolchain"
 CHECKOUT_ACTION = (
-    "uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
+    "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 )
 FORBIDDEN_CI_FRAGMENTS = (
     "runs-on: [self-hosted",
@@ -177,9 +177,9 @@ def _verify_supporting_workflows(root: Path, failures: list[str]) -> None:
     toolchain = (root / TOOLCHAIN_ACTION.relative_to(ROOT)).read_text(encoding="utf-8")
     for fragment in (
         "using: composite",
-        "uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+        "uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
         'python-version: "3.12.10"',
-        "uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+        "uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
         'node-version: "22.23.1"',
     ):
         if fragment not in toolchain:

@@ -83,7 +83,7 @@ jobs:
           echo "requested_channel=$channel" >> "$GITHUB_OUTPUT"
 
       - name: Check out trusted workflow toolchain
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           clean: true
           fetch-depth: 1
@@ -94,7 +94,7 @@ jobs:
         uses: ./.github/actions/setup-toolchain
 
       - name: Check out exact tag
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           clean: true
           fetch-depth: 0

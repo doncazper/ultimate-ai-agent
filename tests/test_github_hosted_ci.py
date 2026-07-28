@@ -64,11 +64,11 @@ def test_hosted_toolchain_is_pinned_and_cacheless() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert (
-        "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065"
+        "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
         in action
     )
     assert 'python-version: "3.12.10"' in action
-    assert "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020" in action
+    assert "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020" in action
     assert 'node-version: "22.23.1"' in action
     assert "cache:" not in action
     assert (
@@ -79,6 +79,9 @@ def test_hosted_toolchain_is_pinned_and_cacheless() -> None:
     assert workflow.count("uses: ./.github/actions/setup-toolchain") == len(
         CI_JOB_GRAPH
     )
+    docs = (ROOT / "docs/developer/GITHUB_HOSTED_CI.md").read_text(encoding="utf-8")
+    assert "Checkout v7.0.1 and setup-python/setup-node v7.0.0" in docs
+    assert "Node 24 runtime" in docs
 
 
 def test_exact_head_and_evidence_contexts_are_preserved() -> None:
