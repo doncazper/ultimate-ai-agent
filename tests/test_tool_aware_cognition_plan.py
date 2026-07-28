@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -10,15 +11,16 @@ def test_tool_aware_cognition_plan_is_complete_and_queue_gated() -> None:
 
     assert result == {
         "status": "passed",
-        "phase_count": 9,
-        "normal_chat_fast_path": True,
-        "direct_chat_quality_non_inferiority": True,
-        "local_model_preserved": True,
-        "familiarity_states": 8,
-        "goat_comparison_gate": True,
-        "evaluation_governance": True,
-        "reversible_rollout": True,
-        "runtime_authority_added": False,
+        "documented_phase_count": 9,
+        "normal_chat_fast_path_required": True,
+        "direct_chat_quality_non_inferiority_required": True,
+        "local_model_preservation_required": True,
+        "documented_familiarity_state_count": 8,
+        "goat_comparison_gate_documented": True,
+        "evaluation_governance_required": True,
+        "reversible_rollout_required": True,
+        "structured_runtime_authority_added": False,
+        "ordered_manifest_item_count": 11,
     }
 
 
@@ -58,6 +60,31 @@ def test_self_authorizing_language_is_rejected(
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
         + "\nThis plan authorizes runtime model calls.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "Runtime model calls are now authorized.",
+        "This program grants browser authority.",
+        "Policy checks may be bypassed.",
+        "Automatic skill execution is allowed.",
+    ),
+)
+def test_equivalent_authority_contradictions_are_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
@@ -154,6 +181,50 @@ def test_reordered_queue_gate_fails_closed(
     monkeypatch.setattr(verifier, "QUEUE", queue)
 
     with pytest.raises(RuntimeError, match="ordered queue insertion is missing"):
+        verifier.verify()
+
+
+def test_remaining_queue_manifest_order_and_hashes_are_exact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    payload["items"][8], payload["items"][9] = (
+        payload["items"][9],
+        payload["items"][8],
+    )
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="immutable sequence is invalid"):
+        verifier.verify()
+
+
+def test_structured_authority_boundary_cannot_enable_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    payload["authority_boundary"]["runtime_model_or_provider_calls"] = True
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="enables authority"):
+        verifier.verify()
+
+
+def test_pre_goat_insertion_is_bound_to_exact_manifest_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    payload["pre_goat_insertion"]["before_item_id"] = (
+        "governed-self-improvement"
+    )
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="pre-Goat insertion is invalid"):
         verifier.verify()
 
 

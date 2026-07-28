@@ -7,6 +7,14 @@ Accepted repository checkpoint: checkpoint-m169
 Accepted local model lane checkpoints: checkpoint-m166, checkpoint-m167
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
 
+Planned comparison-order gate: the exact remaining program order is pinned in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. Tool-Aware Cognition And Chat
+Quality TAW-00 through TAW-08 is planned at the boundary immediately before the
+final GoatCitadel comparison and must be implemented, exact-head accepted, and
+post-merge verified before that comparison begins. The plan preserves the
+configured local model and grants no runtime authority; it is not shipped
+product evidence.
+
 This packet is the repo-owned product truth and gap matrix for the Operator
 Runtime Excellence Program. It is a release-claim discipline artifact, not a
 runtime implementation plan by itself.

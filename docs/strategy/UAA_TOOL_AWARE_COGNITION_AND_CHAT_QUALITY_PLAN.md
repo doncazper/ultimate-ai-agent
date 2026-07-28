@@ -164,6 +164,31 @@ the catalog, selected manifests, policy snapshot, and applicable evaluation
 set. It must not persist raw operator text, raw model text, secrets, local
 paths, or provider payloads.
 
+The states are a derived operator view over separate typed dimensions:
+terminal-proof posture, interpretation cardinality, capability identity,
+authority-lane posture, availability, input completeness, approval posture,
+and proposal readiness. Implementations must retain those dimensions rather
+than overwrite them with a single confidence score. When more than one state
+predicate is true, the following fail-closed precedence is mandatory:
+
+1. `outcome_uncertain` when work began and exact durable terminal proof is
+   absent or inconsistent;
+2. `ambiguous` when materially different interpretations remain;
+3. `familiar_authority_blocked` when a known requested effect has no graduated
+   exact authority lane;
+4. `familiar_unavailable` when the known capability is not currently usable;
+5. `familiar_input_required` when the exact usable capability still lacks
+   required typed inputs;
+6. `familiar_requires_approval` when complete inputs bind an existing exact
+   lane that requires approval;
+7. `familiar_supported` when the exact no-effect answer or governed proposal is
+   ready; otherwise
+8. `novel_unsupported`.
+
+This ordering prevents an input question or approval request from obscuring a
+stronger ambiguity, authority, availability, or recovery block. TAW-02 must
+encode the dimensions and precedence as a table-driven decision contract.
+
 ## 5. Capability Understanding
 
 Each capability's awareness envelope should be generated from canonical typed
@@ -190,11 +215,13 @@ effect or schema incompatibility before proposal, and the exact operation
 schema remains authoritative. Cross-capability composition is a proposal
 graph; it is never standing authority.
 
-Retrieval must not add a per-turn model or provider call. Any semantic index is
-local, deterministic for a fixed catalog/evaluator version, and built only
-from canonical content-free capability metadata. If that constraint cannot be
-met at the accepted catalog scale, TAW-00 must select a deterministic lexical
-or hybrid metadata index rather than silently adding another model.
+Retrieval, cold catalog construction, and every refresh must be model- and
+provider-call-free. Any semantic index is local, deterministic for a fixed
+catalog/evaluator version, and built only from canonical content-free
+capability metadata without invoking the configured chat model, an embedding
+model, or a provider. If that constraint cannot be met at the accepted catalog
+scale, TAW-00 must select a deterministic lexical or hybrid metadata index
+rather than silently adding another model.
 
 ## 6. Performance And Context Budgets
 
@@ -210,9 +237,13 @@ The implementation must meet explicit budgets on supported development Macs:
 - cold catalog build or refresh: p95 at or below 150 ms for the accepted
   baseline catalog;
 - Tier 0 exposes zero tool manifests;
-- Tier 2 hydrates at most 8 candidate manifests by default;
-- hydrated catalog material is bounded by a configurable byte budget and fails
-  closed when it cannot be represented safely;
+- Tier 2 hydrates at most 8 candidate manifests as a non-overridable ceiling;
+  configuration may lower but never raise it;
+- hydrated material is also capped at 32 KiB and at
+  `min(4096, floor(model_context_tokens * 0.05))` estimated tokens; all three
+  limits must pass, configuration may only tighten them, and missing token
+  accounting fails closed for capability hydration without harming Tier 0
+  chat;
 - cache keys bind the canonical catalog, capability schemas, policy version,
   availability epoch, and evaluator version; and
 - no network call is required for routing or local catalog hydration.
@@ -245,6 +276,9 @@ Minimum release thresholds:
 - direct-chat false-positive tool selection at or below 2%;
 - recall of an applicable capability at or above 95% on the accepted
   tool-required corpus;
+- top-3 retrieval precision at or above 80%, final route/proposal exact-match
+  at or above 90% overall, and final exact-match at or above 85% in every
+  predeclared capability and risk category;
 - blind paired scoring on the accepted ordinary-chat corpus shows no more than
   a 5 percentage-point degradation from direct use of the same frozen local
   model in helpfulness, instruction following, tone, or response relevance;
@@ -255,12 +289,18 @@ Minimum release thresholds:
 - no statistically material chat latency regression outside the stated
   budgets.
 
-Quality reporting must show the confusion matrix and per-category failures, not
-only one aggregate score. It must also identify the exact model artifact,
+Quality reporting must show top-k retrieval precision/recall, final
+route/proposal exact-match, the confusion matrix, and per-category failures,
+not only one aggregate score. It must also identify the exact model artifact,
 inference settings, prompt-format version, sample counts, and paired scoring
-rubric, and report point estimates plus 95% confidence intervals. A small
-sample or wide interval is an unresolved measurement gap, not evidence of
-non-inferiority.
+rubric, and report point estimates plus 95% confidence intervals. For each of
+the four ordinary-chat dimensions, the simultaneous lower confidence bound on
+the paired UAA-minus-baseline difference must clear the predeclared
+`-5 percentage-point` non-inferiority margin. TAW-00 must predeclare the paired
+estimator, a one-sided familywise alpha of 0.05, and Holm-adjusted inference
+across the four dimensions before candidate results are observed. A point
+estimate alone, a small sample, or an interval crossing the margin is an
+unresolved measurement gap and cannot pass TAW-08.
 
 ### 7.1 Evaluation governance
 
@@ -289,12 +329,33 @@ category labels, blinded order, bounded numeric/rubric decisions, content
 hashes, aggregate statistics, and safe failure reason codes. Any tooling that
 cannot enforce that separation fails the acceptance gate.
 
+Every durable evaluation case must be exactly reproducible without operator
+content. The corpus stores a pinned synthetic-generator ref and version,
+deterministic seed, content-safe parameter refs, category/rubric refs, and the
+expected generated-content hash. The generator reconstructs the exact
+synthetic system/user payload locally and the verifier rejects hash drift.
+Operator corrections may inform a separately reviewed synthetic
+transformation, but neither the correction nor a reversible encoding of it may
+become generator input or repository data.
+
+Shadow activation criteria are predeclared before observing candidate shadow
+results. Coverage must include every accepted category and risk class with
+sample counts justified by a recorded power calculation. Promotion requires:
+the one-sided 95% upper bound for direct-chat false-positive tool selection at
+or below 2%; zero unsafe authority decisions with its one-sided 95% upper bound
+below 1%; accepted-router disagreement at or below 5% after every disagreement
+is adjudicated; and all final selection and per-category thresholds above.
+Shadow evidence remains content-free and cannot change responses or authority.
+
 ## 8. Outcome Learning Without Replacing The Model
 
 “Learning” in this program means improving governed data and tests:
 
 - successful and failed terminal receipts update bounded capability outcome
-  statistics keyed by contract version and safe environment class;
+  statistics keyed by exact receipt ref, attempt ref, contract version, and
+  safe environment class; replaying the same receipt/attempt is an idempotent
+  no-op, while conflicting reuse fails closed and produces auditable,
+  rollback-aware evidence;
 - operator corrections become safe-ref-only review candidates and must be
   transformed into synthetic or fully redacted fixtures before durable eval
   promotion; raw correction, prompt, and response content is rejected by the
@@ -488,6 +549,11 @@ This program does not authorize:
 - raw prompt, response, provider payload, or local-path persistence; or
 - public release, production authority, or claims of human-like
   self-awareness.
+
+The machine-readable authority declaration and immutable queue order are in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. The verifier treats that
+structured declaration as authoritative for this planning artifact and rejects
+any enabled authority bit or drift in the pre-Goat sequence.
 
 ## 13. Definition Of Done
 

@@ -17,6 +17,9 @@ runtime authority and is not completion evidence. Canonical plan:
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`; ordered
 execution record:
 `docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`.
+The exact intervening item order, pre-Goat insertion boundary, and
+machine-readable no-new-authority declaration are pinned in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.
 
 Product hardening implementation is ready for review: strict no-mock
 production Control Center mode, memory-only launcher bearer handoff, real

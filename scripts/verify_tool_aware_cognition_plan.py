@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -13,6 +14,9 @@ PLAN = ROOT / "docs" / "strategy" / "UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_P
 QUEUE = ROOT / "docs" / "roadmap" / "UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md"
 BOARD = ROOT / "docs" / "kanban" / "current_board.md"
 ROADMAP = ROOT / "docs" / "roadmap" / "OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
+CANONICAL_ROADMAP = ROOT / "docs" / "canonical" / "09_roadmap.md"
+TRUTH_PACKET = ROOT / "docs" / "roadmap" / "PRODUCT_RELEASE_TRUTH_PACKET.md"
+MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
 
 PLAN_REQUIRED = (
     "This program extends the accepted Turn Contract Router",
@@ -37,7 +41,16 @@ PLAN_REQUIRED = (
     "A model-as-judge call is neither implicitly authorized",
     "written to repository reports, receipts, test",
     "number of repeated paired samples",
-    "Retrieval must not add a per-turn model or provider call",
+    "cold catalog construction, and every refresh must be model- and",
+    "at most 8 candidate manifests as a non-overridable ceiling",
+    "`min(4096, floor(model_context_tokens * 0.05))`",
+    "top-3 retrieval precision at or above 80%",
+    "simultaneous lower confidence bound",
+    "one-sided familywise alpha of 0.05",
+    "pinned synthetic-generator ref and version",
+    "Shadow activation criteria are predeclared",
+    "exact receipt ref, attempt ref, contract version",
+    "fail-closed precedence is mandatory",
     "TAW-00",
     "TAW-08",
     "final GoatCitadel comparison may start only after",
@@ -59,23 +72,39 @@ QUEUE_REQUIRED = (
     "The local model remains UAA's language and reasoning engine",
     "The queue item is not complete when these documents merge",
     "Continue every already-authorized intervening queue item",
-    "governed social publishing, and governed self-improvement",
-    "boundary immediately before the final GoatCitadel comparison",
+    "remaining Queue 03 parity phases",
+    "governed self-improvement. Stop at the boundary immediately",
+    "before the final GoatCitadel comparison",
+    "UAA_REMAINING_QUEUE_MANIFEST.json",
 )
 BOARD_REQUIRED = (
     "Tool-Aware Cognition And Chat Quality",
     "before the final GoatCitadel comparison",
     "docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md",
+    "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
 )
 ROADMAP_REQUIRED = (
     "Ordered queue insertion: the Tool-Aware Cognition And Chat Quality program",
     "must reach its TAW-08 acceptance gate before",
     "does not replace the configured local model",
 )
-FORBIDDEN = (
-    "this plan authorizes runtime model calls",
-    "this plan grants browser authority",
-    "automatic skill activation is allowed",
+CANONICAL_ROADMAP_REQUIRED = (
+    "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
+    "TAW-00 through TAW-08",
+    "completion evidence or runtime authority",
+)
+TRUTH_PACKET_REQUIRED = (
+    "Planned comparison-order gate",
+    "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
+    "not shipped",
+    "product evidence",
+)
+FORBIDDEN_PATTERNS = (
+    r"\b(?:this plan|this program) authorizes? (?:new )?runtime model",
+    r"\bruntime model calls? (?:are|is) (?:now )?authorized\b",
+    r"\b(?:this plan|this program) grants? (?:browser|connector|shell|production) authority\b",
+    r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
+    r"\bautomatic skill (?:activation|execution) is allowed\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
@@ -108,6 +137,87 @@ QUEUE_ORDERED_STEPS = (
     "3. At that pre-Goat boundary, execute TAW-00 through TAW-08",
     "4. Run the final GoatCitadel comparison only after",
 )
+EXPECTED_QUEUE_ITEMS = (
+    (
+        1,
+        "queue-01-governed-browser-external-actions",
+        "01_queue_01_governed_browser_external_actions.prompt.md",
+        "968cab8c5a62ebb58ef22dd0a3ed3a111baa3160d346b5acefbe37e90d822e01",
+    ),
+    (
+        2,
+        "queue-02-browser-external-action-hardening",
+        "02_queue_02_browser_external_action_hardening.prompt.md",
+        "b2f1cbf86d0762ce230183c44dda918a56b16bedd58a6a7377f8381ab6211078",
+    ),
+    (
+        3,
+        "queue-03-hermes-openclaw-parity",
+        "03_queue_03_hermes_openclaw_parity.prompt.md",
+        "c16cdbe70548b72d91f6f93861df87998aa24e21945238bf26004b5781ece93a",
+    ),
+    (
+        4,
+        "queue-04-delegated-mission-document-organization",
+        "04_queue_04_delegated_mission_document_organization.prompt.md",
+        "4e5f3cdf7059f29bec053ce5a850754ce69e847f579bb083bf10cdb6ac1a070b",
+    ),
+    (
+        5,
+        "queue-05-capability-evaluation-lab",
+        "05_queue_05_capability_evaluation_lab.prompt.md",
+        "b097a483c595333a77a513fa2b4fb7231908159c3601289afa2f2324782adbda",
+    ),
+    (
+        6,
+        "queue-06-kanban-work-board",
+        "06_queue_06_kanban_work_board.prompt.md",
+        "6053f24f1fd221ae48d94ab9b723047f7ecf10b85b6de5fee0fd93dbfe01de75",
+    ),
+    (
+        7,
+        "queue-07-news-signals",
+        "07_queue_07_news_signals.prompt.md",
+        "839e2c4ecfa1241f038bf217f38e8eef733d8989c588cd7878b4ddad880ebbcd",
+    ),
+    (
+        8,
+        "queue-08-autocorrect-controls",
+        "08_queue_08_autocorrect_controls.prompt.md",
+        "25237cf2f6f7528bc5d7490e9523c1ad4c7c840bd1b200ec3094b1c05d81dcd3",
+    ),
+    (
+        9,
+        "governed-cross-platform-social-publishing",
+        "09_governed_cross_platform_social_publishing.prompt.md",
+        "99691cba334deab8e5a1696681b69d7b609a7b9604e6731273e26a68972c66d9",
+    ),
+    (
+        10,
+        "governed-self-improvement",
+        "10_governed_self_improvement_program.prompt.md",
+        "ec4a65e75cafe302c1173879759444813cba501f70d6cb82c4ba5c42b0daadd0",
+    ),
+    (
+        11,
+        "queue-09-final-goat-comparison",
+        "11_queue_09_final_goat_comparison.prompt.md",
+        "b437f83fc55d22fc4d583b2553b3d043b28189f5e3e525c36f6be6b650dd26b2",
+    ),
+)
+DENIED_AUTHORITY_KEYS = (
+    "runtime_model_or_provider_calls",
+    "web_fetch_or_browser_automation",
+    "connector_writes",
+    "unrestricted_shell_or_subprocess",
+    "automatic_skill_or_plugin_execution",
+    "automatic_pr_submission_or_merge",
+    "standing_or_cross_request_approval",
+    "billing_account_or_credential_changes",
+    "policy_approval_route_openapi_redaction_or_gate_bypass",
+    "raw_sensitive_content_persistence",
+    "public_release_or_production_authority",
+)
 
 
 def _read(path: Path) -> str:
@@ -134,20 +244,82 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
         raise RuntimeError(f"{label} is not in required order")
 
 
+def _read_manifest() -> dict[str, object]:
+    try:
+        manifest = json.loads(_read(MANIFEST))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("remaining queue manifest is not valid JSON") from exc
+    if not isinstance(manifest, dict):
+        raise RuntimeError("remaining queue manifest root is invalid")
+    return manifest
+
+
+def _verify_manifest(manifest: dict[str, object]) -> None:
+    if manifest.get("schema_version") != "uaa.remaining_queue_manifest.v1":
+        raise RuntimeError("remaining queue manifest schema is invalid")
+    if (
+        manifest.get("source_manifest_sha256")
+        != "b039e6b977f0f49092f5100ae5665f7c07bde974c98bcd1dbdd3015e06a77b09"
+    ):
+        raise RuntimeError("remaining queue source manifest binding is invalid")
+    authority = manifest.get("authority_boundary")
+    if not isinstance(authority, dict) or set(authority) != set(DENIED_AUTHORITY_KEYS):
+        raise RuntimeError("remaining queue authority boundary is invalid")
+    if any(authority[key] is not False for key in DENIED_AUTHORITY_KEYS):
+        raise RuntimeError("remaining queue authority boundary enables authority")
+
+    items = manifest.get("items")
+    if not isinstance(items, list):
+        raise RuntimeError("remaining queue item list is invalid")
+    actual_items = tuple(
+        (
+            item.get("position"),
+            item.get("item_id"),
+            item.get("filename"),
+            item.get("sha256"),
+        )
+        for item in items
+        if isinstance(item, dict)
+    )
+    if len(actual_items) != len(items) or actual_items != EXPECTED_QUEUE_ITEMS:
+        raise RuntimeError("remaining queue immutable sequence is invalid")
+
+    expected_insertion = {
+        "after_item_id": "governed-self-improvement",
+        "program_id": "tool-aware-cognition-and-chat-quality",
+        "phase_ids": [f"TAW-{index:02d}" for index in range(9)],
+        "before_item_id": "queue-09-final-goat-comparison",
+    }
+    if manifest.get("pre_goat_insertion") != expected_insertion:
+        raise RuntimeError("remaining queue pre-Goat insertion is invalid")
+
+
 def verify() -> dict[str, object]:
     plan = _read(PLAN)
     queue = _read(QUEUE)
     board = _read(BOARD)
     roadmap = _read(ROADMAP)
+    canonical_roadmap = _read(CANONICAL_ROADMAP)
+    truth_packet = _read(TRUTH_PACKET)
+    manifest = _read_manifest()
     _require("plan", plan, PLAN_REQUIRED)
     _require("plan authority boundary", plan, AUTHORITY_DENIALS)
     _require("queue insertion", queue, QUEUE_REQUIRED)
     _require_ordered("ordered queue insertion", queue, QUEUE_ORDERED_STEPS)
     _require("current board", board, BOARD_REQUIRED)
     _require("canonical roadmap", roadmap, ROADMAP_REQUIRED)
+    _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)
+    _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
+    _verify_manifest(manifest)
 
-    combined = "\n".join((plan, queue, board, roadmap)).lower()
-    present = [phrase for phrase in FORBIDDEN if phrase in combined]
+    combined = "\n".join(
+        (plan, queue, board, roadmap, canonical_roadmap, truth_packet)
+    ).lower()
+    present = [
+        pattern
+        for pattern in FORBIDDEN_PATTERNS
+        if re.search(pattern, combined, flags=re.IGNORECASE)
+    ]
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")
 
@@ -155,15 +327,16 @@ def verify() -> dict[str, object]:
 
     return {
         "status": "passed",
-        "phase_count": len(PHASE_HEADINGS),
-        "normal_chat_fast_path": True,
-        "direct_chat_quality_non_inferiority": True,
-        "local_model_preserved": True,
-        "familiarity_states": 8,
-        "goat_comparison_gate": True,
-        "evaluation_governance": True,
-        "reversible_rollout": True,
-        "runtime_authority_added": False,
+        "documented_phase_count": len(PHASE_HEADINGS),
+        "normal_chat_fast_path_required": True,
+        "direct_chat_quality_non_inferiority_required": True,
+        "local_model_preservation_required": True,
+        "documented_familiarity_state_count": 8,
+        "goat_comparison_gate_documented": True,
+        "evaluation_governance_required": True,
+        "reversible_rollout_required": True,
+        "structured_runtime_authority_added": False,
+        "ordered_manifest_item_count": len(EXPECTED_QUEUE_ITEMS),
     }
 
 

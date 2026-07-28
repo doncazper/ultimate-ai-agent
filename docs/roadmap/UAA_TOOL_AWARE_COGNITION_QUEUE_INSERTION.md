@@ -6,15 +6,19 @@ Date: 2026-07-28.
 
 Canonical plan:
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`.
+Canonical ordered manifest and structured authority boundary:
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.
 
 ## Position
 
 1. Finish the currently admitted PR or verification atomic unit without
    changing its scope.
 2. Continue every already-authorized intervening queue item in its existing
-   manifest order, including the remaining parity phases, Queues 04 through
-   08, governed social publishing, and governed self-improvement. Stop at the
-   boundary immediately before the final GoatCitadel comparison.
+   manifest order. The exact immutable item IDs, filenames, titles, and source
+   hashes are materialized in `UAA_REMAINING_QUEUE_MANIFEST.json`: finish the
+   remaining Queue 03 parity phases, then Queues 04 through 08, governed social
+   publishing, and governed self-improvement. Stop at the boundary immediately
+   before the final GoatCitadel comparison.
 3. At that pre-Goat boundary, execute TAW-00 through TAW-08 as one
    dependency-aware finite program.
    Independent implementation and verification may run concurrently after
