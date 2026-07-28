@@ -38,6 +38,13 @@ FULL_SUITE_RESOURCE_REFS = frozenset(
         "resource-ref:typescript-typecheck",
     }
 )
+FULL_SUITE_RESOURCE_LOCK_NAMES = frozenset(
+    full_suite_lock_name
+    for full_suite_lock_name in (
+        "active.lock",
+        "typescript-typecheck.lock",
+    )
+)
 
 
 class FullSuiteLockUnavailableError(RuntimeError):
@@ -63,6 +70,26 @@ def full_suite_resource_paths(
             root / "typescript-typecheck-attempts.json",
         )
     raise ValueError("full-suite resource ref is invalid")
+
+
+def _validate_full_suite_resource_path_binding(
+    *,
+    resource_ref: str,
+    lock_path: Path,
+    attempt_path: Path,
+) -> None:
+    """Fail closed when a recognized resource lock is paired incorrectly."""
+
+    if lock_path.name not in FULL_SUITE_RESOURCE_LOCK_NAMES:
+        return
+    expected_lock_path, expected_attempt_path = full_suite_resource_paths(
+        resource_ref,
+        root=lock_path.parent,
+    )
+    if lock_path != expected_lock_path:
+        raise ValueError("full-suite lock path does not match resource ref")
+    if attempt_path != expected_attempt_path:
+        raise ValueError("full-suite attempt path does not match resource ref")
 
 
 def _prepare_shared_full_suite_directory(path: Path) -> None:
@@ -481,6 +508,11 @@ class FullSuiteLock:
             and attempt_path != resource_attempt_path
         ):
             raise ValueError("full-suite attempt path does not match resource ref")
+        _validate_full_suite_resource_path_binding(
+            resource_ref=resource_ref,
+            lock_path=path,
+            attempt_path=attempt_path,
+        )
         self.path = path
         self.wait_seconds = wait_seconds
         self.repository_sha = repository_sha

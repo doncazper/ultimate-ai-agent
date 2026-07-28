@@ -870,6 +870,33 @@ def test_independent_resource_classes_have_independent_locks_and_attempt_ledgers
                 resource_ref="resource-ref:complete-pytest",
             ).__enter__()
 
+    for lock_path, attempt_path, resource_ref, expected_error in (
+        (
+            pytest_lock_path,
+            pytest_attempt_path,
+            "resource-ref:typescript-typecheck",
+            "lock path does not match resource ref",
+        ),
+        (
+            typescript_lock_path,
+            pytest_attempt_path,
+            "resource-ref:typescript-typecheck",
+            "attempt path does not match resource ref",
+        ),
+        (
+            pytest_lock_path,
+            typescript_attempt_path,
+            "resource-ref:complete-pytest",
+            "attempt path does not match resource ref",
+        ),
+    ):
+        with pytest.raises(ValueError, match=expected_error):
+            FullSuiteLock(
+                lock_path,
+                attempt_path=attempt_path,
+                resource_ref=resource_ref,
+            )
+
     for resource_ref, lock_path, attempt_path in (
         (
             "resource-ref:complete-pytest",
@@ -904,7 +931,7 @@ def test_independent_resource_classes_have_independent_locks_and_attempt_ledgers
         ) as pytest_lock:
             pytest_lock.ensure_start_available()
 
-    with pytest.raises(ValueError, match="attempt ledger is corrupt"):
+    with pytest.raises(ValueError, match="attempt path does not match resource ref"):
         with FullSuiteLock(
             typescript_lock_path,
             repository_sha=SHA_A,
@@ -1043,9 +1070,7 @@ def test_full_suite_attempts_are_bounded_across_execution_planes(
             attempt_path=attempts,
         ) as lock:
             lock.ensure_start_available()
-    with pytest.raises(
-        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
-    ):
+    with pytest.raises(FullSuiteAttemptAlreadyRecordedError, match="already attempted"):
         with FullSuiteLock(
             lock_path,
             repository_sha=SHA_A,
