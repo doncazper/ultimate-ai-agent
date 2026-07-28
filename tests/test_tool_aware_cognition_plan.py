@@ -142,8 +142,8 @@ def test_reordered_queue_gate_fails_closed(
     queue.write_text(
         verifier.QUEUE.read_text(encoding="utf-8")
         .replace(
-            "3. Execute TAW-00 through TAW-08",
-            "4. Execute TAW-00 through TAW-08",
+            "3. At that pre-Goat boundary, execute TAW-00 through TAW-08",
+            "4. At that pre-Goat boundary, execute TAW-00 through TAW-08",
         )
         .replace(
             "4. Run the final GoatCitadel comparison only after",

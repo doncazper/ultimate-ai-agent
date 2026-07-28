@@ -58,6 +58,9 @@ QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",
     "The local model remains UAA's language and reasoning engine",
     "The queue item is not complete when these documents merge",
+    "Continue every already-authorized intervening queue item",
+    "governed social publishing, and governed self-improvement",
+    "boundary immediately before the final GoatCitadel comparison",
 )
 BOARD_REQUIRED = (
     "Tool-Aware Cognition And Chat Quality",
@@ -101,8 +104,8 @@ PHASE_HEADINGS = (
 )
 QUEUE_ORDERED_STEPS = (
     "1. Finish the currently admitted PR or verification atomic unit",
-    "2. Continue already-started prerequisite parity work",
-    "3. Execute TAW-00 through TAW-08",
+    "2. Continue every already-authorized intervening queue item",
+    "3. At that pre-Goat boundary, execute TAW-00 through TAW-08",
     "4. Run the final GoatCitadel comparison only after",
 )
 

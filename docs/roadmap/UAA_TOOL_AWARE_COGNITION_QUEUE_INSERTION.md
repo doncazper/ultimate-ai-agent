@@ -11,8 +11,12 @@ Canonical plan:
 
 1. Finish the currently admitted PR or verification atomic unit without
    changing its scope.
-2. Continue already-started prerequisite parity work in its existing order.
-3. Execute TAW-00 through TAW-08 as one dependency-aware finite program.
+2. Continue every already-authorized intervening queue item in its existing
+   manifest order, including the remaining parity phases, Queues 04 through
+   08, governed social publishing, and governed self-improvement. Stop at the
+   boundary immediately before the final GoatCitadel comparison.
+3. At that pre-Goat boundary, execute TAW-00 through TAW-08 as one
+   dependency-aware finite program.
    Independent implementation and verification may run concurrently after
    shared contracts are stable; merge admission follows the evidence
    dependency order.
