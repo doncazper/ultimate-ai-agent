@@ -1994,6 +1994,11 @@ def run_lane(
         }
         for result in results
     ) and len(results) == len(lane.command_refs)
+    legacy_status = "pass" if terminal_ok else "fail"
+    if any(result.get("status") == "cancelled" for result in results):
+        legacy_status = "cancelled"
+    elif any(result.get("status") == "timed_out" for result in results):
+        legacy_status = "timed_out"
     receipt = {
         "schema_version": "uaa_ci_lane_receipt.v1",
         "profile_ref": PROFILE_REF,
@@ -2003,7 +2008,7 @@ def run_lane(
         "started_at": started_at,
         "completed_at": _utc_now(),
         "duration_ms": max(0, int((time.perf_counter() - started) * 1000)),
-        "status": "pass" if terminal_ok else "fail",
+        "status": legacy_status,
         "command_results": results,
         "github_gate_satisfied": False,
         "merge_gate_satisfied": False,

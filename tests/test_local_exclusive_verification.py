@@ -431,10 +431,11 @@ def test_local_diagnostic_retention_rejects_root_path_swap(
     sentinel.mkdir(mode=0o700)
     original_write = local_lane._write_diagnostic_payload
 
-    def swap_root_after_write(*args: object, **kwargs: object) -> None:
-        original_write(*args, **kwargs)
+    def swap_root_after_write(*args: object, **kwargs: object):
+        result = original_write(*args, **kwargs)
         root.rename(moved_root)
         root.symlink_to(replacement, target_is_directory=True)
+        return result
 
     monkeypatch.setattr(
         local_lane,
@@ -466,6 +467,116 @@ def test_local_diagnostic_retention_rejects_root_path_swap(
         == ()
     )
     assert sentinel.is_dir()
+
+
+def test_local_diagnostic_retention_rejects_token_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    moved_name = "moved-original"
+    replacement_name: str | None = None
+    original_write = local_lane._write_diagnostic_payload
+
+    def substitute_token(*args: object, **kwargs: object):
+        nonlocal replacement_name
+        result = original_write(*args, **kwargs)
+        token_paths = tuple(
+            path
+            for path in root.iterdir()
+            if len(path.name) == 64 and path.is_dir()
+        )
+        assert len(token_paths) == 1
+        replacement_name = token_paths[0].name
+        token_paths[0].rename(root / moved_name)
+        (root / replacement_name).mkdir(mode=0o700)
+        return result
+
+    monkeypatch.setattr(
+        local_lane,
+        "_write_diagnostic_payload",
+        substitute_token,
+    )
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    assert not (root / moved_name).exists()
+    assert replacement_name is not None
+    (root / replacement_name).rmdir()
+
+
+def test_local_diagnostic_retention_rejects_payload_tampering(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    original_write = local_lane._write_diagnostic_payload
+
+    def tamper_with_payload(*args: object, **kwargs: object):
+        descriptor, metadata, encoded = original_write(*args, **kwargs)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        os.write(descriptor, b"X")
+        os.fsync(descriptor)
+        return descriptor, metadata, encoded
+
+    monkeypatch.setattr(
+        local_lane,
+        "_write_diagnostic_payload",
+        tamper_with_payload,
+    )
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    assert tuple(path for path in root.iterdir() if len(path.name) == 64) == ()
+
+
+@pytest.mark.parametrize("terminal_status", ("timed_out", "cancelled"))
+def test_local_diagnostic_retention_preserves_terminal_status(
+    tmp_path: Path,
+    terminal_status: str,
+) -> None:
+    root = tmp_path / "diagnostics"
+    local_lane._retain_diagnostics(
+        {
+            "status": terminal_status,
+            "command_results": [
+                {
+                    "command_ref": "command:test.safe",
+                    "status": terminal_status,
+                    "output_byte_count": 1,
+                    "output_digest": "d" * 64,
+                }
+            ],
+        },
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
+    )
+
+    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
+    assert len(retained) == 1
+    payload = json.loads(
+        (retained[0] / "diagnostic.json").read_text(encoding="utf-8")
+    )
+    assert payload["status"] == terminal_status
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(

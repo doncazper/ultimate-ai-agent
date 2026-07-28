@@ -1592,7 +1592,7 @@ def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
         verification_execution_fence_root=fence_root,
     )
 
-    assert receipt["status"] == "fail"
+    assert receipt["status"] == "timed_out"
     assert receipt["command_results"][0]["status"] == "timed_out"
     unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
     identity = build_verification_execution_identity(
