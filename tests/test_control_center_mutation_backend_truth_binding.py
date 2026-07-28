@@ -121,9 +121,12 @@ def test_exact_browser_goal_binding_reaches_goal_route(
         headers={
             **_bound_headers(tmp_path),
             "X-UAA-Idempotency-Key": "idempotency-ref:browser-goal-binding",
-        },
-        json={
-            "objective": "Verify exact browser provenance.",
+            },
+            json={
+                "text_redaction_posture": (
+                    "operator_authored_redacted_summary_only"
+                ),
+                "objective": "Verify exact browser provenance.",
             "desired_outcome": "One bounded local goal record.",
             "success_criteria": ["The exact provenance binding is current."],
             "constraints": ["No runtime execution."],
