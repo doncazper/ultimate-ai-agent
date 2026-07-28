@@ -143,6 +143,28 @@ def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
     )
 
 
+def _remove_diagnostic_directory(path: Path) -> None:
+    try:
+        shutil.rmtree(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostics cannot be bounded"
+        ) from exc
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostics cannot be bounded"
+        ) from exc
+    raise LocalVerificationLaneError(
+        "local verification diagnostics cannot be bounded"
+    )
+
+
 def _retain_diagnostics(
     receipt: dict[str, object] | None,
     *,
@@ -250,22 +272,29 @@ def _retain_diagnostics(
             finally:
                 os.close(descriptor)
         except OSError as exc:
-            shutil.rmtree(destination, ignore_errors=True)
+            _remove_diagnostic_directory(destination)
             raise LocalVerificationLaneError(
                 "local verification diagnostics could not be retained"
             ) from exc
         try:
             retained = _retained_diagnostic_directories(root)
+            if destination not in retained:
+                raise LocalVerificationLaneError(
+                    "local verification diagnostics cannot be bounded"
+                )
+            for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
+                _remove_diagnostic_directory(stale)
+            retained = _retained_diagnostic_directories(root)
+            if (
+                destination not in retained
+                or len(retained) > MAX_RETAINED_DIAGNOSTIC_RUNS
+            ):
+                raise LocalVerificationLaneError(
+                    "local verification diagnostics cannot be bounded"
+                )
         except LocalVerificationLaneError:
-            shutil.rmtree(destination, ignore_errors=True)
+            _remove_diagnostic_directory(destination)
             raise
-        if destination not in retained:
-            shutil.rmtree(destination, ignore_errors=True)
-            raise LocalVerificationLaneError(
-                "local verification diagnostics cannot be bounded"
-            )
-        for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
-            shutil.rmtree(stale, ignore_errors=True)
     return f"diagnostic-ref:local-verification:{token}"
 
 

@@ -282,10 +282,16 @@ def _transient_output_metadata(path: Path) -> tuple[int, str]:
             or opened.st_uid != metadata.st_uid
         ):
             raise RuntimeError("CI transient output changed before hashing")
+        if opened.st_size > MAX_TRANSIENT_OUTPUT_BYTES:
+            raise RuntimeError("CI transient output exceeds the bounded byte limit")
         output_bytes = 0
         digest = hashlib.sha256()
         while chunk := os.read(descriptor, 1024 * 1024):
             output_bytes += len(chunk)
+            if output_bytes > MAX_TRANSIENT_OUTPUT_BYTES:
+                raise RuntimeError(
+                    "CI transient output exceeds the bounded byte limit"
+                )
             digest.update(chunk)
         final = os.fstat(descriptor)
         if (

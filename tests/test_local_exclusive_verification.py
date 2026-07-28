@@ -318,6 +318,43 @@ def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
     assert retained == ()
 
 
+def test_local_diagnostic_retention_rolls_back_when_stale_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir(mode=0o700)
+    stale_paths = []
+    for index in range(local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS):
+        stale = root / f"{index:064x}"
+        stale.mkdir(mode=0o700)
+        stale_paths.append(stale)
+    original_rmtree = local_lane.shutil.rmtree
+
+    def reject_stale_cleanup(path: Path) -> None:
+        if path in stale_paths:
+            raise PermissionError("cleanup unavailable")
+        original_rmtree(path)
+
+    monkeypatch.setattr(local_lane.shutil, "rmtree", reject_stale_cleanup)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    retained = tuple(path for path in root.iterdir() if path.is_dir())
+    assert set(retained) == set(stale_paths)
+    for stale in stale_paths:
+        original_rmtree(stale)
+
+
 def test_local_pytest_profile_is_validated_and_published_atomically(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
