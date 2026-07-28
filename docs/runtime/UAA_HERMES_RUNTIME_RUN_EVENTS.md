@@ -97,7 +97,10 @@ The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
 append preflights the complete next event and tombstone images before either
-file is replaced.
+file is replaced. The proof-ref and receipt-ref arities and the event,
+tombstone, and first-journal-generation reservation sizes are derived from the
+same bounded Pydantic maximum envelopes. A schema-valid maximum record
+therefore cannot outgrow a separately maintained reservation constant.
 If an interrupted append leaves the event journal exactly one accepted event
 ahead of its tombstone index, the next mutating path durably repairs that
 accepted tombstone generation before installing any different event. Repeated
@@ -135,6 +138,9 @@ When CLI `--state-dir` is supplied, goal state is derived from the same
 `goal_runtime` child used by the API for that runtime store. An unavailable or
 invalid directory, corrupt journal, or malformed inspection ref returns a
 bounded message without exposing the supplied path or a traceback.
+Every goal CLI command honors `--json` on failure with a stable redacted code;
+validation, conflict, corruption, and storage failures never require parsing a
+human stderr sentence.
 
 Retention is bounded per run. Cursor replay returns explicit `ok`,
 `unknown_run`, `stale_cursor`, or `retention_loss` state with the retained
@@ -167,6 +173,17 @@ The exact-goal read and `goal-show` CLI return the bounded, content-free mutatio
 provenance chain alongside the current goal. Provenance includes operation,
 version, idempotency, request fingerprint, approval, reason, and hash refs, but
 does not repeat raw request payloads or goal text.
+
+Verified completion is currently blocked on the public API, CLI, and Control
+Center because no trusted criterion-evaluator receipt producer exists in the
+accepted runtime authority. Caller-supplied proof refs are not promoted into
+evaluator authority. The read model exposes this blocked posture explicitly,
+and `verify_completion` fails closed with
+`GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE`. The internal durable contract
+retains the exact ordered criterion, proof, verifier, evaluator-receipt, source
+goal-version, and completion-evidence bindings so a future separately
+authorized trusted producer can use the same evidence model without changing
+historical records.
 
 Control Center retains the exact pending create, edit, or transition request and
 idempotency ref until the

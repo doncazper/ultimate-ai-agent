@@ -63,6 +63,8 @@ const mutationResult: RuntimeGoalMutationResult = {
     updated_at: "2026-07-25T00:00:00Z",
     evidence_refs: request.evidence_refs,
     completion_criterion_proof_refs: [],
+    completion_source_goal_version: null,
+    completion_criterion_verifier_bindings: [],
     safe_refs_only: true,
     model_output_authoritative: false,
   },
@@ -511,6 +513,7 @@ describe("proof-backed runtime goal mutations", () => {
       event_hash_ref: "event-hash-ref:goal-client:started",
       proof_refs: [],
       receipt_refs: [],
+      criterion_verifier_bindings: [],
       goal_ref: null,
       plan_ref: null,
       runtime_payload_persisted: false,
@@ -568,6 +571,7 @@ describe("proof-backed runtime goal mutations", () => {
         event_hash_ref: `event-hash-ref:goal-client:${eventKind}`,
         proof_refs: ["proof-ref:goal-client:semantic-binding"],
         receipt_refs: [],
+        criterion_verifier_bindings: [],
         goal_ref: null,
         plan_ref: null,
         runtime_payload_persisted: false,
@@ -641,6 +645,7 @@ describe("proof-backed runtime goal mutations", () => {
       event_hash_ref: "event-hash-ref:goal-client:test",
       proof_refs: ["proof-ref:goal-client:test"],
       receipt_refs: ["receipt-ref:goal-client:test"],
+      criterion_verifier_bindings: [],
       goal_ref: "goal-ref:goal-client:test",
       plan_ref: "plan-ref:goal-client:test",
       runtime_payload_persisted: false,
@@ -664,6 +669,65 @@ describe("proof-backed runtime goal mutations", () => {
       ],
       stream_count: 1,
       retained_event_count: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it("accepts the Python safe-ref grammar including at-sign versions", async () => {
+    const goal = {
+      ...mutationResult.goal,
+      evidence_refs: ["evidence-ref:artifact@v1"],
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [goal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it.each([
+    "Review path:/workspace/private.txt.",
+    "Inspect artifact:/opt/company/private.txt.",
+  ])("rejects colon-delimited absolute paths in durable text", async (objective) => {
+    const goal = {
+      ...mutationResult.goal,
+      objective,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [goal],
+        goal_count: 1,
+        active_count: 1,
+      },
     };
     vi.stubGlobal(
       "fetch",

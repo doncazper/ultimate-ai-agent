@@ -145,6 +145,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalRuntimeError,
     GoalRuntimeService,
     GoalTransitionDeniedError,
+    GoalTransitionKind,
     GoalTransitionRequest,
     GoalVersionConflictError,
     capture_exact_goal_mutation_approval,
@@ -1216,6 +1217,10 @@ def post_api_runtime_goal_transition(
     ),
 ) -> ResultEnvelope:
     try:
+        if request.transition == GoalTransitionKind.verify_completion.value:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
+            )
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         approval = capture_exact_goal_mutation_approval(
             operation=f"transition-{request.transition}",

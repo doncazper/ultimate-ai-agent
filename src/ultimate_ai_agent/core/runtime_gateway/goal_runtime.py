@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import stat
 import threading
 import uuid
@@ -23,6 +22,7 @@ from ultimate_ai_agent.core.approvals import (
     LocalApprovalAuthority,
 )
 from ultimate_ai_agent.core.execution.validation import (
+    contains_absolute_local_path,
     validate_execution_ref as _validate_execution_ref,
     validate_safe_execution_text,
 )
@@ -35,6 +35,12 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
+)
+from ultimate_ai_agent.core.runtime_gateway.contracts import (
+    MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS,
+    MAX_RUNTIME_GOAL_VERSION,
+    MAX_RUNTIME_RECEIPT_EVIDENCE_REFS,
+    RuntimeCriterionVerificationBinding,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -67,17 +73,23 @@ MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
 MAX_GOAL_JOURNAL_ENTRIES = 4096
 MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
 MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
-MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES = 128 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
 MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES = 16 * 1024 * 1024
-MAX_RESERVED_RUN_EVENT_BYTES = 64 * 1024
-MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES = 64 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
 RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 GOAL_TEXT_REDACTION_POSTURE = "operator_authored_redacted_summary_only"
 GOAL_COMPLETION_VERIFIER_REF = "verifier-ref:goal-runtime:criteria-receipt-binding:v1"
+GOAL_COMPLETION_EVALUATOR_BLOCKED_REASON_REF = (
+    "blocked-authority-ref:goal-runtime:trusted-criterion-evaluator-unavailable"
+)
+MAX_RUN_EVENT_PROOF_REFS = (
+    1
+    + MAX_RUNTIME_RECEIPT_EVIDENCE_REFS
+    + (2 * MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS)
+)
+MAX_RUN_EVENT_RECEIPT_REFS = 1 + MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS
 _RAW_CONTENT_MARKERS = (
     "prompt:",
     "response:",
@@ -93,12 +105,6 @@ _RAW_CONTENT_MARKERS = (
     "<|user|>",
     "<|assistant|>",
     "<|tool|>",
-)
-_ABSOLUTE_LOCAL_PATH_PATTERNS = (
-    re.compile(r"(?:^|[\s\"'(<\[=])/(?:/)?[^\s\"')>\],;]+"),
-    re.compile(r"(?:^|[\s\"'(<\[=])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
-    re.compile(r"(?:^|[\s\"'(<\[=])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
-    re.compile(r"\bfile:(?://|%2f)", re.IGNORECASE),
 )
 
 
@@ -305,9 +311,7 @@ def _bounded_safe_text(value: str, field_name: str) -> str:
 
 
 def _bounded_redacted_summary(value: str, field_name: str) -> str:
-    if isinstance(value, str) and any(
-        pattern.search(value.strip()) for pattern in _ABSOLUTE_LOCAL_PATH_PATTERNS
-    ):
+    if isinstance(value, str) and contains_absolute_local_path(value.strip()):
         raise ValueError("GOAL_RAW_CONTENT_PERSISTENCE_DENIED")
     candidate = _bounded_safe_text(value, field_name)
     lowered = candidate.casefold()
@@ -316,7 +320,7 @@ def _bounded_redacted_summary(value: str, field_name: str) -> str:
         or "\r" in candidate
         or any(marker in lowered for marker in _RAW_CONTENT_MARKERS)
         or lowered.startswith(("summarize ", "translate ", "respond to "))
-        or any(pattern.search(candidate) for pattern in _ABSOLUTE_LOCAL_PATH_PATTERNS)
+        or contains_absolute_local_path(candidate)
     ):
         raise ValueError("GOAL_RAW_CONTENT_PERSISTENCE_DENIED")
     return candidate
@@ -341,9 +345,14 @@ def build_goal_criterion_ref(
     )
 
 
-def _validate_refs(refs: Iterable[str], field_name: str) -> list[str]:
+def _validate_refs(
+    refs: Iterable[str],
+    field_name: str,
+    *,
+    max_items: int = MAX_GOAL_LIST_ITEMS,
+) -> list[str]:
     values = list(dict.fromkeys(refs))
-    if len(values) > MAX_GOAL_LIST_ITEMS:
+    if len(values) > max_items:
         raise ValueError(f"{field_name} exceeds the bounded item limit")
     for ref in values:
         validate_execution_ref(ref, field_name)
@@ -434,7 +443,7 @@ class GoalCreateRequest(BaseModel):
 
 
 class GoalEditRequest(BaseModel):
-    expected_version: StrictInt = Field(ge=1)
+    expected_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     text_redaction_posture: (
         Literal["operator_authored_redacted_summary_only"] | None
     ) = None
@@ -512,7 +521,7 @@ class GoalEditRequest(BaseModel):
 
 class GoalCompletionEvidence(BaseModel):
     goal_ref: str
-    goal_version: StrictInt = Field(ge=1)
+    goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     run_ref: str
     receipt_ref: str
     proof_ref: str
@@ -543,7 +552,7 @@ class GoalCompletionEvidence(BaseModel):
 
 
 class GoalTransitionRequest(BaseModel):
-    expected_version: StrictInt = Field(ge=1)
+    expected_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     transition: GoalTransitionKind
     reason_ref: str
     evidence_refs: list[str] = Field(default_factory=list)
@@ -564,8 +573,10 @@ class GoalTransitionRequest(BaseModel):
 
 
 class PersistentGoal(BaseModel):
-    schema_version: str = "persistent_goal.v1"
-    contract_ref: str = GOAL_RUNTIME_CONTRACT_REF
+    schema_version: Literal["persistent_goal.v1"] = "persistent_goal.v1"
+    contract_ref: Literal["contract-ref:proof-backed-goals-durable-events:v1"] = (
+        GOAL_RUNTIME_CONTRACT_REF
+    )
     goal_ref: str
     text_redaction_posture: Literal["operator_authored_redacted_summary_only"] = (
         GOAL_TEXT_REDACTION_POSTURE
@@ -579,7 +590,7 @@ class PersistentGoal(BaseModel):
     state: GoalState
     budget: GoalBudget
     links: GoalLinks
-    version: StrictInt = Field(ge=1)
+    version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     created_at: datetime
     updated_at: datetime
     evidence_refs: list[str]
@@ -589,6 +600,14 @@ class PersistentGoal(BaseModel):
     completion_receipt_ref: str | None = None
     completion_proof_ref: str | None = None
     completion_criterion_proof_refs: list[str] = Field(default_factory=list)
+    completion_source_goal_version: StrictInt | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_RUNTIME_GOAL_VERSION,
+    )
+    completion_criterion_verifier_bindings: list[
+        RuntimeCriterionVerificationBinding
+    ] = Field(default_factory=list, max_length=MAX_GOAL_LIST_ITEMS)
     completion_verifier_ref: str | None = None
     safe_refs_only: bool = True
     model_output_authoritative: bool = False
@@ -629,12 +648,19 @@ class PersistentGoal(BaseModel):
             self.completion_criterion_proof_refs,
             "completion_criterion_proof_refs",
         )
+        binding_keys = {
+            (binding.goal_ref, binding.goal_version, binding.criterion_ref)
+            for binding in self.completion_criterion_verifier_bindings
+        }
+        if len(binding_keys) != len(self.completion_criterion_verifier_bindings):
+            raise ValueError("GOAL_COMPLETION_CRITERION_BINDING_DUPLICATE")
         required_completion_refs = (
             self.completion_run_ref,
             self.completion_evidence_ref,
             self.completion_receipt_ref,
             self.completion_proof_ref,
             self.completion_verifier_ref,
+            self.completion_source_goal_version,
         )
         has_any_completion_ref = any(
             value is not None
@@ -653,6 +679,7 @@ class PersistentGoal(BaseModel):
                 raise ValueError("GOAL_COMPLETION_PLAN_BINDING_REQUIRED")
             if len(self.completion_criterion_proof_refs) != len(self.success_criteria):
                 raise ValueError("GOAL_COMPLETION_CRITERION_PROOF_ARITY_MISMATCH")
+            self._validate_completion_bindings()
         elif self.state == GoalState.cleared.value and has_any_completion_ref:
             if any(value is None for value in required_completion_refs):
                 raise ValueError("GOAL_CLEARED_COMPLETION_PROOF_INCOMPLETE")
@@ -660,21 +687,78 @@ class PersistentGoal(BaseModel):
                 raise ValueError("GOAL_COMPLETION_PLAN_BINDING_REQUIRED")
             if len(self.completion_criterion_proof_refs) != len(self.success_criteria):
                 raise ValueError("GOAL_COMPLETION_CRITERION_PROOF_ARITY_MISMATCH")
+            self._validate_completion_bindings()
         elif has_any_completion_ref:
             raise ValueError("GOAL_UNVERIFIED_COMPLETION_PROOF_DENIED")
-        elif self.completion_criterion_proof_refs:
+        elif (
+            self.completion_criterion_proof_refs
+            or self.completion_criterion_verifier_bindings
+        ):
             raise ValueError("GOAL_UNVERIFIED_COMPLETION_PROOF_DENIED")
         if not self.safe_refs_only or self.model_output_authoritative:
             raise ValueError("GOAL_UNSAFE_AUTHORITY_POSTURE")
         return self
 
+    def _validate_completion_bindings(self) -> None:
+        if self.completion_source_goal_version is None:
+            raise ValueError("GOAL_COMPLETION_SOURCE_VERSION_REQUIRED")
+        if len(self.completion_criterion_verifier_bindings) != len(
+            self.success_criteria
+        ):
+            raise ValueError("GOAL_COMPLETION_CRITERION_BINDING_ARITY_MISMATCH")
+        expected_criterion_refs = [
+            _sha256_ref(
+                "criterion-ref:goal-runtime",
+                {
+                    "goal_ref": self.goal_ref,
+                    "goal_version": self.completion_source_goal_version,
+                    "criterion_index": index,
+                    "criterion_summary": criterion,
+                },
+            )
+            for index, criterion in enumerate(self.success_criteria)
+        ]
+        for expected_ref, expected_proof_ref, binding in zip(
+            expected_criterion_refs,
+            self.completion_criterion_proof_refs,
+            self.completion_criterion_verifier_bindings,
+            strict=True,
+        ):
+            if (
+                binding.goal_ref != self.goal_ref
+                or binding.goal_version != self.completion_source_goal_version
+                or binding.criterion_ref != expected_ref
+                or binding.proof_ref != expected_proof_ref
+                or binding.verifier_ref != self.completion_verifier_ref
+            ):
+                raise ValueError("GOAL_COMPLETION_CRITERION_BINDING_MISMATCH")
+        expected_evidence_ref = _sha256_ref(
+            "evidence-ref:goal-completion-verification",
+            {
+                "verifier_ref": self.completion_verifier_ref,
+                "goal_ref": self.goal_ref,
+                "goal_version": self.completion_source_goal_version,
+                "success_criteria": self.success_criteria,
+                "run_ref": self.completion_run_ref,
+                "receipt_ref": self.completion_receipt_ref,
+                "proof_ref": self.completion_proof_ref,
+                "criterion_verifier_bindings": [
+                    binding.model_dump(mode="json")
+                    for binding in self.completion_criterion_verifier_bindings
+                ],
+                "plan_ref": self.completion_plan_ref,
+            },
+        )
+        if self.completion_evidence_ref != expected_evidence_ref:
+            raise ValueError("GOAL_COMPLETION_CRITERION_BINDING_EVIDENCE_MISMATCH")
+
 
 class GoalJournalEntry(BaseModel):
-    schema_version: str = GOAL_JOURNAL_SCHEMA_VERSION
+    schema_version: Literal["goal_journal.v1"] = GOAL_JOURNAL_SCHEMA_VERSION
     entry_ref: str
     operation: GoalJournalOperation
     goal_ref: str
-    goal_version: StrictInt = Field(ge=1)
+    goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     idempotency_ref: str
     request_fingerprint_ref: str
     approval_ref: str
@@ -718,7 +802,7 @@ class GoalMutationProvenanceEntry(BaseModel):
     entry_ref: str
     operation: GoalJournalOperation
     goal_ref: str
-    goal_version: StrictInt = Field(ge=1)
+    goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     idempotency_ref: str
     request_fingerprint_ref: str
     approval_ref: str
@@ -806,7 +890,7 @@ class DurableCriterionVerifierBinding(BaseModel):
     """Criterion proof and evaluator provenance copied from a trusted receipt."""
 
     goal_ref: str
-    goal_version: StrictInt = Field(ge=1)
+    goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     criterion_ref: str
     proof_ref: str
     verifier_ref: str
@@ -859,8 +943,16 @@ class DurableRunEventAppendRequest(BaseModel):
             self.safe_summary,
             "safe_summary",
         )
-        self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
-        self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        self.proof_refs = _validate_refs(
+            self.proof_refs,
+            "proof_refs",
+            max_items=MAX_RUN_EVENT_PROOF_REFS,
+        )
+        self.receipt_refs = _validate_refs(
+            self.receipt_refs,
+            "receipt_refs",
+            max_items=MAX_RUN_EVENT_RECEIPT_REFS,
+        )
         if len(self.criterion_verifier_bindings) > MAX_GOAL_LIST_ITEMS:
             raise ValueError("RUN_EVENT_CRITERION_BINDING_LIMIT_EXCEEDED")
         binding_keys = {
@@ -869,10 +961,10 @@ class DurableRunEventAppendRequest(BaseModel):
         }
         if len(binding_keys) != len(self.criterion_verifier_bindings):
             raise ValueError("RUN_EVENT_CRITERION_BINDING_DUPLICATE")
-        if (
-            self.criterion_verifier_bindings
-            and self.event_kind != DurableRunEventKind.receipt_recorded.value
-        ):
+        if self.criterion_verifier_bindings and self.event_kind not in {
+            DurableRunEventKind.receipt_recorded.value,
+            DurableRunEventKind.completion_verified.value,
+        }:
             raise ValueError("RUN_EVENT_CRITERION_BINDING_KIND_INVALID")
         if (
             self.event_kind == DurableRunEventKind.goal_linked.value
@@ -894,11 +986,14 @@ class DurableRunEventAppendRequest(BaseModel):
 
 
 class DurableRunEvent(BaseModel):
-    schema_version: str = RUN_EVENT_SCHEMA_VERSION
+    schema_version: Literal["durable_run_event.v1"] = RUN_EVENT_SCHEMA_VERSION
     event_ref: str
     run_ref: str
     run_type: AcceptedLocalRunType
-    sequence: StrictInt = Field(ge=1)
+    sequence: StrictInt = Field(
+        ge=1,
+        le=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS,
+    )
     recorded_at: datetime
     event_kind: DurableRunEventKind
     safe_summary: str
@@ -913,7 +1008,7 @@ class DurableRunEvent(BaseModel):
     authority_decision_ref: str
     predecessor_hash_ref: str | None = None
     event_hash_ref: str
-    redaction_status: str = "redacted_safe_refs_only"
+    redaction_status: Literal["redacted_safe_refs_only"] = "redacted_safe_refs_only"
     raw_payload_persisted: bool = False
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -936,8 +1031,16 @@ class DurableRunEvent(BaseModel):
             self.safe_summary,
             "safe_summary",
         )
-        self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
-        self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        self.proof_refs = _validate_refs(
+            self.proof_refs,
+            "proof_refs",
+            max_items=MAX_RUN_EVENT_PROOF_REFS,
+        )
+        self.receipt_refs = _validate_refs(
+            self.receipt_refs,
+            "receipt_refs",
+            max_items=MAX_RUN_EVENT_RECEIPT_REFS,
+        )
         if len(self.criterion_verifier_bindings) > MAX_GOAL_LIST_ITEMS:
             raise ValueError("RUN_EVENT_CRITERION_BINDING_LIMIT_EXCEEDED")
         binding_keys = {
@@ -946,10 +1049,10 @@ class DurableRunEvent(BaseModel):
         }
         if len(binding_keys) != len(self.criterion_verifier_bindings):
             raise ValueError("RUN_EVENT_CRITERION_BINDING_DUPLICATE")
-        if (
-            self.criterion_verifier_bindings
-            and self.event_kind != DurableRunEventKind.receipt_recorded.value
-        ):
+        if self.criterion_verifier_bindings and self.event_kind not in {
+            DurableRunEventKind.receipt_recorded.value,
+            DurableRunEventKind.completion_verified.value,
+        }:
             raise ValueError("RUN_EVENT_CRITERION_BINDING_KIND_INVALID")
         if (
             self.event_kind == DurableRunEventKind.goal_linked.value
@@ -973,7 +1076,9 @@ class DurableRunEvent(BaseModel):
 
 
 class RunEventIdempotencyTombstone(BaseModel):
-    schema_version: str = "run_event_idempotency_tombstone.v1"
+    schema_version: Literal["run_event_idempotency_tombstone.v1"] = (
+        "run_event_idempotency_tombstone.v1"
+    )
     run_ref: str
     idempotency_ref: str
     request_fingerprint_ref: str
@@ -1035,6 +1140,186 @@ class RunEventProjectionReservation(BaseModel):
         return self
 
 
+def _maximum_typed_ref(prefix: str, index: int) -> str:
+    stem = f"{prefix}:{index:03d}:"
+    return stem + ("x" * (MAX_EXECUTION_REF_LENGTH - len(stem)))
+
+
+def _maximum_typed_summary(index: int) -> str:
+    suffix = f"{index:04d}"
+    return ("x" * (MAX_GOAL_TEXT - len(suffix))) + suffix
+
+
+def _maximum_goal_genesis_intent() -> GoalJournalGenesisIntent:
+    goal_ref = _maximum_typed_ref("goal-ref:max-envelope", 0)
+    now = datetime.max.replace(tzinfo=utc_now().tzinfo)
+    goal = PersistentGoal(
+        goal_ref=goal_ref,
+        text_redaction_posture=GOAL_TEXT_REDACTION_POSTURE,
+        objective=_maximum_typed_summary(0),
+        desired_outcome=_maximum_typed_summary(1),
+        success_criteria=[
+            _maximum_typed_summary(index + 2) for index in range(MAX_GOAL_LIST_ITEMS)
+        ],
+        constraints=[
+            _maximum_typed_summary(index + 100) for index in range(MAX_GOAL_LIST_ITEMS)
+        ],
+        in_scope_resource_refs=[
+            _maximum_typed_ref("resource-ref:max-envelope", index)
+            for index in range(MAX_GOAL_LIST_ITEMS)
+        ],
+        stop_condition=_maximum_typed_summary(999),
+        state=GoalState.active,
+        budget=GoalBudget(
+            operation_limit=10_000,
+            cost_budget_microusd=10_000_000_000,
+            deadline_at=now,
+        ),
+        links=GoalLinks(
+            plan_refs=[
+                _maximum_typed_ref("plan-ref:max-envelope", index)
+                for index in range(MAX_GOAL_LIST_ITEMS)
+            ],
+            run_refs=[
+                _maximum_typed_ref("run-ref:max-envelope", index)
+                for index in range(MAX_GOAL_LIST_ITEMS)
+            ],
+            action_inbox_refs=[
+                _maximum_typed_ref("action-inbox-ref:max-envelope", index)
+                for index in range(MAX_GOAL_LIST_ITEMS)
+            ],
+            work_board_refs=[
+                _maximum_typed_ref("work-board-ref:max-envelope", index)
+                for index in range(MAX_GOAL_LIST_ITEMS)
+            ],
+        ),
+        version=1,
+        created_at=now,
+        updated_at=now,
+        evidence_refs=[
+            _maximum_typed_ref("evidence-ref:max-envelope", index)
+            for index in range(MAX_GOAL_LIST_ITEMS)
+        ],
+    )
+    entry_hash_ref = _maximum_typed_ref("entry-hash-ref:max-envelope", 0)
+    entry = GoalJournalEntry(
+        entry_ref=_maximum_typed_ref("goal-journal-entry-ref:max-envelope", 0),
+        operation=GoalJournalOperation.create,
+        goal_ref=goal_ref,
+        goal_version=1,
+        idempotency_ref=_maximum_typed_ref("idempotency-ref:max-envelope", 0),
+        request_fingerprint_ref=_maximum_typed_ref(
+            "request-fingerprint-ref:max-envelope",
+            0,
+        ),
+        approval_ref=_maximum_typed_ref("approval-ref:max-envelope", 0),
+        approval_decision_ref=_maximum_typed_ref(
+            "approval-decision-ref:max-envelope",
+            0,
+        ),
+        recorded_at=now,
+        goal=goal,
+        entry_hash_ref=entry_hash_ref,
+    )
+    return GoalJournalGenesisIntent(
+        entry=entry,
+        head_manifest=GoalJournalHeadManifest(
+            entry_count=1,
+            head_entry_hash_ref=entry_hash_ref,
+            idempotency_set_hash_ref=_maximum_typed_ref(
+                "idempotency-set-hash-ref:max-envelope",
+                0,
+            ),
+        ),
+        journal_content_hash_ref=_maximum_typed_ref(
+            "journal-content-hash-ref:max-envelope",
+            0,
+        ),
+    )
+
+
+def _maximum_run_event_envelopes() -> tuple[
+    DurableRunEvent,
+    RunEventIdempotencyTombstone,
+]:
+    now = datetime.max.replace(tzinfo=utc_now().tzinfo)
+    goal_ref = _maximum_typed_ref("goal-ref:max-envelope", 0)
+    bindings = [
+        DurableCriterionVerifierBinding(
+            goal_ref=goal_ref,
+            goal_version=MAX_RUNTIME_GOAL_VERSION,
+            criterion_ref=_maximum_typed_ref(
+                "criterion-ref:max-envelope",
+                index,
+            ),
+            proof_ref=_maximum_typed_ref("proof-ref:max-envelope-binding", index),
+            verifier_ref=_maximum_typed_ref("verifier-ref:max-envelope", index),
+            evaluator_receipt_ref=_maximum_typed_ref(
+                "evaluator-receipt-ref:max-envelope",
+                index,
+            ),
+        )
+        for index in range(MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS)
+    ]
+    event = DurableRunEvent(
+        event_ref=_maximum_typed_ref("run-event-ref:max-envelope", 0),
+        run_ref=_maximum_typed_ref("run-ref:max-envelope", 0),
+        run_type=AcceptedLocalRunType.local_metadata_action,
+        sequence=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS,
+        recorded_at=now,
+        event_kind=DurableRunEventKind.receipt_recorded,
+        safe_summary=_maximum_typed_summary(0),
+        proof_refs=[
+            _maximum_typed_ref("proof-ref:max-envelope", index)
+            for index in range(MAX_RUN_EVENT_PROOF_REFS)
+        ],
+        receipt_refs=[
+            _maximum_typed_ref("receipt-ref:max-envelope", index)
+            for index in range(MAX_RUN_EVENT_RECEIPT_REFS)
+        ],
+        criterion_verifier_bindings=bindings,
+        goal_ref=goal_ref,
+        plan_ref=_maximum_typed_ref("plan-ref:max-envelope", 0),
+        idempotency_ref=_maximum_typed_ref("idempotency-ref:max-envelope", 0),
+        authority_decision_ref=_maximum_typed_ref(
+            "authority-decision-ref:max-envelope",
+            0,
+        ),
+        predecessor_hash_ref=_maximum_typed_ref(
+            "predecessor-hash-ref:max-envelope",
+            0,
+        ),
+        event_hash_ref=_maximum_typed_ref("event-hash-ref:max-envelope", 0),
+    )
+    tombstone = RunEventIdempotencyTombstone(
+        run_ref=event.run_ref,
+        idempotency_ref=event.idempotency_ref,
+        request_fingerprint_ref=_maximum_typed_ref(
+            "request-fingerprint-ref:max-envelope",
+            0,
+        ),
+        event=event,
+        tombstone_hash_ref=_maximum_typed_ref(
+            "tombstone-hash-ref:max-envelope",
+            0,
+        ),
+    )
+    return event, tombstone
+
+
+_MAXIMUM_GOAL_GENESIS_INTENT = _maximum_goal_genesis_intent()
+MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES = len(
+    (_MAXIMUM_GOAL_GENESIS_INTENT.model_dump_json() + "\n").encode("utf-8")
+)
+_MAXIMUM_RUN_EVENT, _MAXIMUM_RUN_EVENT_TOMBSTONE = _maximum_run_event_envelopes()
+MAX_RESERVED_RUN_EVENT_BYTES = len(
+    (_MAXIMUM_RUN_EVENT.model_dump_json() + "\n").encode("utf-8")
+)
+MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES = len(
+    (_MAXIMUM_RUN_EVENT_TOMBSTONE.model_dump_json() + "\n").encode("utf-8")
+)
+
+
 class GoalLifecycleReadModel(BaseModel):
     schema_version: str = "goal_lifecycle_read_model.v1"
     contract_ref: str = GOAL_RUNTIME_CONTRACT_REF
@@ -1045,6 +1330,13 @@ class GoalLifecycleReadModel(BaseModel):
     completion_requested_count: StrictInt = Field(ge=0)
     verified_complete_count: StrictInt = Field(ge=0)
     mutation_authority: str = "exact_local_metadata_only"
+    completion_verification_state: Literal[
+        "blocked_missing_trusted_criterion_evaluator"
+    ] = "blocked_missing_trusted_criterion_evaluator"
+    completion_verification_available: bool = False
+    completion_verification_blocked_reason_ref: str = (
+        GOAL_COMPLETION_EVALUATOR_BLOCKED_REASON_REF
+    )
     runtime_execution_enabled: bool = False
     model_output_authoritative: bool = False
     safe_refs_only: bool = True
@@ -1053,6 +1345,16 @@ class GoalLifecycleReadModel(BaseModel):
     )
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_completion_posture(self) -> "GoalLifecycleReadModel":
+        validate_execution_ref(
+            self.completion_verification_blocked_reason_ref,
+            "completion_verification_blocked_reason_ref",
+        )
+        if self.completion_verification_available:
+            raise ValueError("GOAL_COMPLETION_EVALUATOR_AUTHORITY_NOT_GRANTED")
+        return self
 
 
 class RunEventStreamSummary(BaseModel):
@@ -1096,9 +1398,7 @@ class _GoalJournalStore:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goals.jsonl"
         self.head_path = self.state_dir / "goal_journal_head.json"
-        self.genesis_intent_path = (
-            self.state_dir / "goal_journal_genesis_intent.json"
-        )
+        self.genesis_intent_path = self.state_dir / "goal_journal_genesis_intent.json"
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     def create(
@@ -1206,6 +1506,10 @@ class _GoalJournalStore:
         approval_binding: GoalMutationApprovalBinding,
         completion_verified: bool = False,
         completion_plan_ref: str | None = None,
+        completion_criterion_verifier_bindings: list[
+            RuntimeCriterionVerificationBinding
+        ]
+        | None = None,
     ) -> PersistentGoal:
         validated = GoalTransitionRequest.model_validate(request.model_dump())
         _validate_goal_mutation_approval_binding(
@@ -1228,6 +1532,9 @@ class _GoalJournalStore:
                 validated,
                 completion_verified=completion_verified,
                 completion_plan_ref=completion_plan_ref,
+                completion_criterion_verifier_bindings=(
+                    completion_criterion_verifier_bindings or []
+                ),
                 restore_goal=(
                     self._goal_before_latest_clear(entries, goal_ref)
                     if validated.transition == GoalTransitionKind.restore.value
@@ -1495,6 +1802,9 @@ class _GoalJournalStore:
         *,
         completion_verified: bool,
         completion_plan_ref: str | None,
+        completion_criterion_verifier_bindings: list[
+            RuntimeCriterionVerificationBinding
+        ],
         restore_goal: PersistentGoal | None,
     ) -> PersistentGoal:
         allowed: dict[str, set[str]] = {
@@ -1591,6 +1901,10 @@ class _GoalJournalStore:
                 completion_proof_ref=request.completion_evidence.proof_ref,
                 completion_criterion_proof_refs=(
                     request.completion_evidence.criterion_proof_refs
+                ),
+                completion_source_goal_version=request.completion_evidence.goal_version,
+                completion_criterion_verifier_bindings=(
+                    completion_criterion_verifier_bindings
                 ),
                 completion_verifier_ref=request.completion_evidence.verifier_ref,
                 evidence_refs=list(
@@ -1774,8 +2088,7 @@ class _GoalJournalStore:
                 genesis_intent is not None
                 and len(entries) == 1
                 and genesis_intent.entry == entries[0]
-                and genesis_intent.head_manifest
-                == self._build_head_manifest(entries)
+                and genesis_intent.head_manifest == self._build_head_manifest(entries)
                 and genesis_intent.journal_content_hash_ref
                 == self._journal_content_hash(entries)
             ):
@@ -1842,9 +2155,7 @@ class _GoalJournalStore:
             return None
         try:
             if not raw_content.strip():
-                raise GoalRuntimeCorruptionError(
-                    "GOAL_JOURNAL_GENESIS_INTENT_EMPTY"
-                )
+                raise GoalRuntimeCorruptionError("GOAL_JOURNAL_GENESIS_INTENT_EMPTY")
             intent = GoalJournalGenesisIntent.model_validate_json(raw_content)
             if (
                 intent.entry.previous_entry_hash_ref is not None
@@ -1902,9 +2213,7 @@ class _GoalJournalStore:
             return None
         try:
             if not raw_content.strip():
-                raise GoalRuntimeCorruptionError(
-                    "GOAL_JOURNAL_HEAD_MANIFEST_EMPTY"
-                )
+                raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_EMPTY")
             return GoalJournalHeadManifest.model_validate_json(raw_content)
         except GoalRuntimeCorruptionError:
             raise
@@ -2249,8 +2558,10 @@ class _DurableRunEventStore:
             if not any(
                 event.event_kind == DurableRunEventKind.receipt_recorded.value
                 and event.goal_ref == validated.goal_ref
-                and set(validated.receipt_refs).issubset(event.receipt_refs)
-                and set(validated.proof_refs).issubset(event.proof_refs)
+                and validated.receipt_refs[0] in event.receipt_refs
+                and validated.proof_refs[0] in event.proof_refs
+                and event.criterion_verifier_bindings
+                == validated.criterion_verifier_bindings
                 for event in receipt_candidates
             ):
                 raise GoalTransitionDeniedError(
@@ -2287,7 +2598,9 @@ class _DurableRunEventStore:
         next_events = self._apply_retention([*events, event], validated.run_ref)
         tombstone = self._build_idempotency_tombstone(event, expected_fingerprint)
         tombstones[key] = tombstone
-        remaining_reserved_slots = reserved_slots - (1 if reservation is not None else 0)
+        remaining_reserved_slots = reserved_slots - (
+            1 if reservation is not None else 0
+        )
         self._assert_projection_capacity(
             next_events,
             tombstones.values(),
@@ -2771,10 +3084,7 @@ class _DurableRunEventStore:
         content = "".join(
             reservation.model_dump_json() + "\n" for reservation in reservations
         )
-        if (
-            len(content.encode("utf-8"))
-            > MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES
-        ):
+        if len(content.encode("utf-8")) > MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES:
             raise GoalRuntimeError(
                 "RUN_EVENT_PROJECTION_RESERVATION_STORE_CAPACITY_EXCEEDED"
             )
@@ -3030,9 +3340,7 @@ class _DurableRunEventStore:
             )
             expected_accepted_suffix = accepted[-expected_accepted_count:]
             retained_accepted_suffix = [
-                event
-                for event in retained
-                if event.sequence <= accepted_last_sequence
+                event for event in retained if event.sequence <= accepted_last_sequence
             ]
             if retained_accepted_suffix != expected_accepted_suffix:
                 raise GoalRuntimeCorruptionError(
@@ -3113,8 +3421,7 @@ class _DurableRunEventStore:
         )
         tombstone_bytes = len(
             "".join(
-                tombstone.model_dump_json() + "\n"
-                for tombstone in tombstone_rows
+                tombstone.model_dump_json() + "\n" for tombstone in tombstone_rows
             ).encode("utf-8")
         )
         if (
@@ -3127,8 +3434,7 @@ class _DurableRunEventStore:
         ):
             raise GoalRuntimeError("RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED")
         if (
-            tombstone_bytes
-            + required_slots * MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
+            tombstone_bytes + required_slots * MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
             > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
         ):
             raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED")
@@ -3378,6 +3684,9 @@ class GoalRuntimeService:
         evidence = validated.completion_evidence
         event_lock = self._events.exclusive() if evidence is not None else nullcontext()
         completion_plan_ref: str | None = None
+        completion_criterion_verifier_bindings: list[
+            RuntimeCriterionVerificationBinding
+        ] = []
         with event_lock:
             if evidence is not None:
                 current = self.goals.get(goal_ref)
@@ -3458,6 +3767,12 @@ class GoalRuntimeService:
                         "GOAL_COMPLETION_VERIFIER_BINDING_MISMATCH"
                     )
                 completion_verified = True
+                completion_criterion_verifier_bindings = [
+                    RuntimeCriterionVerificationBinding.model_validate(
+                        binding.model_dump(mode="json")
+                    )
+                    for binding in ordered_bindings
+                ]
             goal = self.goals.transition(
                 goal_ref,
                 validated,
@@ -3465,6 +3780,9 @@ class GoalRuntimeService:
                 approval_binding=approval_binding,
                 completion_verified=completion_verified,
                 completion_plan_ref=completion_plan_ref,
+                completion_criterion_verifier_bindings=(
+                    completion_criterion_verifier_bindings
+                ),
             )
             if (
                 validated.transition == GoalTransitionKind.verify_completion.value
@@ -3487,9 +3805,12 @@ class GoalRuntimeService:
                         goal.completion_proof_ref,
                         goal.completion_evidence_ref,
                         goal.completion_verifier_ref,
+                        goal.completion_source_goal_version,
                     )
-                ) and len(goal.completion_criterion_proof_refs) == len(
-                    goal.success_criteria
+                ) and (
+                    len(goal.completion_criterion_proof_refs)
+                    == len(goal.success_criteria)
+                    == len(goal.completion_criterion_verifier_bindings)
                 )
                 if (
                     goal.state
@@ -3530,7 +3851,14 @@ class GoalRuntimeService:
             or goal.completion_run_ref is None
             or goal.completion_receipt_ref is None
             or goal.completion_proof_ref is None
-            or len(goal.completion_criterion_proof_refs) != len(goal.success_criteria)
+            or goal.completion_evidence_ref is None
+            or goal.completion_verifier_ref is None
+            or goal.completion_source_goal_version is None
+            or not (
+                len(goal.completion_criterion_proof_refs)
+                == len(goal.success_criteria)
+                == len(goal.completion_criterion_verifier_bindings)
+            )
         ):
             raise GoalRuntimeCorruptionError("GOAL_COMPLETION_EVENT_BINDING_INCOMPLETE")
         return self._events._append_locked(
@@ -3547,11 +3875,36 @@ class GoalRuntimeService:
                         dict.fromkeys(
                             [
                                 goal.completion_proof_ref,
+                                goal.completion_evidence_ref,
                                 *goal.completion_criterion_proof_refs,
+                                *(
+                                    binding.evaluator_receipt_ref
+                                    for binding in (
+                                        goal.completion_criterion_verifier_bindings
+                                    )
+                                ),
                             ]
                         )
                     ),
-                    "receipt_refs": [goal.completion_receipt_ref],
+                    "receipt_refs": list(
+                        dict.fromkeys(
+                            [
+                                goal.completion_receipt_ref,
+                                *(
+                                    binding.evaluator_receipt_ref
+                                    for binding in (
+                                        goal.completion_criterion_verifier_bindings
+                                    )
+                                ),
+                            ]
+                        )
+                    ),
+                    "criterion_verifier_bindings": [
+                        DurableCriterionVerifierBinding.model_validate(
+                            binding.model_dump(mode="json")
+                        )
+                        for binding in goal.completion_criterion_verifier_bindings
+                    ],
                     "goal_ref": goal.goal_ref,
                     "plan_ref": goal.completion_plan_ref,
                     "idempotency_ref": _sha256_ref(
@@ -3629,9 +3982,7 @@ class GoalRuntimeService:
 
         validated = RuntimeInvocationRecord.model_validate(record.model_dump())
         try:
-            stored_record = invocation_store.get_invocation(
-                validated.invocation_ref
-            )
+            stored_record = invocation_store.get_invocation(validated.invocation_ref)
         except RuntimeInvocationStorageError as exc:
             raise GoalRuntimeCorruptionError(
                 "RUN_EVENT_DURABLE_INVOCATION_NOT_FOUND"
@@ -3988,12 +4339,12 @@ def _nonmutating_goal_runtime_read_lock(
     *,
     generation_paths: tuple[Path, ...] = (),
 ) -> Iterator[None]:
-    safe_name = "".join(
-        ch if ch.isalnum() or ch in "._-" else "_" for ch in writer_key
-    )
+    safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in writer_key)
     lock_path = lock_dir / f"{safe_name}.lock"
     if not _path_generation(lock_path)[0]:
-        before = tuple(_path_generation(path) for path in (*generation_paths, lock_path))
+        before = tuple(
+            _path_generation(path) for path in (*generation_paths, lock_path)
+        )
         try:
             yield
         finally:
@@ -4007,9 +4358,7 @@ def _nonmutating_goal_runtime_read_lock(
     try:
         descriptor = os.open(
             lock_path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
         metadata = os.fstat(descriptor)
         path_metadata = os.lstat(lock_path)
@@ -4052,9 +4401,7 @@ def _read_bounded_regular_utf8(
     try:
         descriptor = os.open(
             path,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
     except FileNotFoundError:
         if missing_ok:

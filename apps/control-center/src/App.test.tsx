@@ -9224,6 +9224,8 @@ describe("Web Control Center shell", () => {
         updated_at: "2026-07-28T00:00:00Z",
         evidence_refs: ["evidence-ref:goal-app-test"],
         completion_criterion_proof_refs: [],
+        completion_source_goal_version: null,
+        completion_criterion_verifier_bindings: [],
         safe_refs_only: true,
         model_output_authoritative: false,
       };

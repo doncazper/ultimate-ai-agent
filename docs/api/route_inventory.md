@@ -529,10 +529,12 @@ AuthorityState mapping/catalog/decision/reason/unsupported-adapter refs for
 `lane-ref:runtime-run-events-read-model`. `GET /api/runtime/goals` and
 `GET /api/runtime/goals/{goal_ref}` inspect the same persistent goal journal.
 The goal create, edit, and transition POST routes are protected, idempotent,
-request-scoped local metadata mutations with optimistic versions and
-receipt/proof-backed completion verification. They do not create delegated
-runs, stop runs, resolve mission approvals, grant standing authority, or enable
-live event transport.
+request-scoped local metadata mutations with optimistic versions. Completion
+requests are supported, while verified completion fails closed until a trusted
+criterion-evaluator receipt producer is separately authorized; caller refs do
+not establish evaluator provenance. The routes do not create delegated runs,
+stop runs, resolve mission approvals, grant standing authority, or enable live
+event transport.
 `GET /api/runtime/approval-bridge` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 04 approval bridge posture for approval
 envelopes, Action Inbox projection refs, proof refs, denial/timeout/scope-

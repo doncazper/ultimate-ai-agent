@@ -12,6 +12,13 @@ SAFE_REF_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]
 SECRET_LIKE_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token|client[_-]?secret)"
 )
+ABSOLUTE_LOCAL_PATH_PATTERNS = (
+    re.compile(r"(?:^|[\s\"'(<\[=])/(?:/)?[^\s\"')>\],;]+"),
+    re.compile(r":/(?!/)[^\s\"')>\],;]+"),
+    re.compile(r"(?:^|[\s\"'(<\[=])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
+    re.compile(r"(?:^|[\s\"'(<\[=])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
+    re.compile(r"\b(?i:file):(?://|%2f)"),
+)
 RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:\\)")
 EFFECTFUL_HINT_RE = re.compile(
     r"(?i)("
@@ -57,7 +64,9 @@ def dedupe_reasons(reasons: list[str]) -> list[str]:
     return list(dict.fromkeys(reason for reason in reasons if reason))
 
 
-def validation_reason(exc: Exception, fallback: str = "EXECUTION_REVALIDATION_FAILED") -> list[str]:
+def validation_reason(
+    exc: Exception, fallback: str = "EXECUTION_REVALIDATION_FAILED"
+) -> list[str]:
     message = str(exc).lower()
     if "raw_prompt_denied" in message:
         return ["RAW_PROMPT_DENIED", fallback]
@@ -79,8 +88,18 @@ def validation_reason(exc: Exception, fallback: str = "EXECUTION_REVALIDATION_FA
 def validate_safe_execution_text(value: str, field_name: str = "text") -> None:
     if not value or not value.strip():
         raise ValueError(f"{field_name} is required")
-    if SECRET_LIKE_RE.search(value) or "-----BEGIN" in value or RAW_LOCAL_PATH_RE.search(value):
+    if (
+        SECRET_LIKE_RE.search(value)
+        or "-----BEGIN" in value
+        or RAW_LOCAL_PATH_RE.search(value)
+    ):
         raise ValueError(f"{field_name} contains unsafe content")
+
+
+def contains_absolute_local_path(value: str) -> bool:
+    """Return whether text contains an absolute local path in canonical grammar."""
+
+    return any(pattern.search(value) for pattern in ABSOLUTE_LOCAL_PATH_PATTERNS)
 
 
 def validate_safe_execution_payload(value: Any, field_name: str = "payload") -> None:
@@ -169,7 +188,9 @@ def infer_input_trust_level(source_ref: str) -> ExecutionInputTrustLevel:
     return ExecutionInputTrustLevel.unknown_blocked
 
 
-def input_trust_reasons(source_ref: str, declared: ExecutionInputTrustLevel) -> list[str]:
+def input_trust_reasons(
+    source_ref: str, declared: ExecutionInputTrustLevel
+) -> list[str]:
     inferred = infer_input_trust_level(source_ref)
     reasons: list[str] = []
     if inferred == ExecutionInputTrustLevel.unknown_blocked:
@@ -182,11 +203,20 @@ def input_trust_reasons(source_ref: str, declared: ExecutionInputTrustLevel) -> 
         reasons.append("OPENWEBUI_OUTPUT_NOT_EXECUTION_AUTHORITY")
     if inferred == ExecutionInputTrustLevel.control_center_preview_blocked:
         reasons.append("CONTROL_CENTER_PREVIEW_NOT_EXECUTION_AUTHORITY")
-    if inferred == ExecutionInputTrustLevel.memory_ref or declared == ExecutionInputTrustLevel.memory_ref:
+    if (
+        inferred == ExecutionInputTrustLevel.memory_ref
+        or declared == ExecutionInputTrustLevel.memory_ref
+    ):
         reasons.append("MEMORY_REF_NOT_EXECUTION_AUTHORITY")
-    if inferred == ExecutionInputTrustLevel.context_pack_ref or declared == ExecutionInputTrustLevel.context_pack_ref:
+    if (
+        inferred == ExecutionInputTrustLevel.context_pack_ref
+        or declared == ExecutionInputTrustLevel.context_pack_ref
+    ):
         reasons.append("CONTEXT_PACK_NOT_EXECUTION_AUTHORITY")
-    if inferred == ExecutionInputTrustLevel.tool_intent_ref or declared == ExecutionInputTrustLevel.tool_intent_ref:
+    if (
+        inferred == ExecutionInputTrustLevel.tool_intent_ref
+        or declared == ExecutionInputTrustLevel.tool_intent_ref
+    ):
         reasons.append("TOOL_INTENT_NOT_EXECUTION_AUTHORITY")
     if inferred in {
         ExecutionInputTrustLevel.approval_ref,
@@ -209,12 +239,26 @@ def input_trust_reasons(source_ref: str, declared: ExecutionInputTrustLevel) -> 
 
 def boundary_reason_codes(boundary: Any) -> list[str]:
     reasons = raw_input_reasons(boundary)
-    for ref in [*getattr(boundary, "input_refs", []), *getattr(boundary, "metadata_refs", [])]:
-        reasons.extend(input_trust_reasons(ref, getattr(boundary, "input_trust_level", ExecutionInputTrustLevel.safe_reference)))
+    for ref in [
+        *getattr(boundary, "input_refs", []),
+        *getattr(boundary, "metadata_refs", []),
+    ]:
+        reasons.extend(
+            input_trust_reasons(
+                ref,
+                getattr(
+                    boundary,
+                    "input_trust_level",
+                    ExecutionInputTrustLevel.safe_reference,
+                ),
+            )
+        )
     return dedupe_reasons(reasons)
 
 
 def step_mode_reason(mode: ExecutionStepMode) -> str | None:
     if mode in SAFE_STEP_MODES:
         return None
-    return STEP_MODE_REASONS.get(mode, ExecutionBlockReason.unknown_step_mode_denied.value)
+    return STEP_MODE_REASONS.get(
+        mode, ExecutionBlockReason.unknown_step_mode_denied.value
+    )

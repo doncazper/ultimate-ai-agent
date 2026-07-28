@@ -13906,12 +13906,22 @@ export interface RuntimeRunEventPreview {
   event_hash_ref?: string | null;
   proof_refs: string[];
   receipt_refs: string[];
+  criterion_verifier_bindings: RuntimeCriterionVerifierBinding[];
   goal_ref?: string | null;
   plan_ref?: string | null;
   runtime_payload_persisted: boolean;
   raw_log_persisted: boolean;
   raw_prompt_persisted: boolean;
   raw_response_persisted: boolean;
+}
+
+export interface RuntimeCriterionVerifierBinding {
+  goal_ref: string;
+  goal_version: number;
+  criterion_ref: string;
+  proof_ref: string;
+  verifier_ref: string;
+  evaluator_receipt_ref: string;
 }
 
 export interface RuntimePersistentGoal {
@@ -13955,6 +13965,8 @@ export interface RuntimePersistentGoal {
   completion_receipt_ref?: string | null;
   completion_proof_ref?: string | null;
   completion_criterion_proof_refs: string[];
+  completion_source_goal_version?: number | null;
+  completion_criterion_verifier_bindings: RuntimeCriterionVerifierBinding[];
   completion_verifier_ref?: string | null;
   safe_refs_only: boolean;
   model_output_authoritative: boolean;
@@ -13970,6 +13982,9 @@ export interface RuntimeGoalLifecycleReadModel {
   completion_requested_count: number;
   verified_complete_count: number;
   mutation_authority: "exact_local_metadata_only";
+  completion_verification_state: "blocked_missing_trusted_criterion_evaluator";
+  completion_verification_available: false;
+  completion_verification_blocked_reason_ref: string;
   runtime_execution_enabled: boolean;
   model_output_authoritative: boolean;
   safe_refs_only: boolean;

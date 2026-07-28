@@ -66,9 +66,7 @@ def _criterion_bindings(
             ),
             proof_ref=proof_ref,
             verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
-            evaluator_receipt_ref=(
-                f"evaluator-receipt-ref:accepted-local:{index + 1}"
-            ),
+            evaluator_receipt_ref=(f"evaluator-receipt-ref:accepted-local:{index + 1}"),
         )
         for index, (criterion, proof_ref) in enumerate(
             zip(goal.success_criteria, criterion_proof_refs, strict=True)
@@ -125,9 +123,7 @@ def _append_event(
             goal = service.goals.get(request.goal_ref)
         except GoalRuntimeError:
             goal = None
-        if goal is not None and len(request.proof_refs) >= len(
-            goal.success_criteria
-        ):
+        if goal is not None and len(request.proof_refs) >= len(goal.success_criteria):
             criterion_proof_refs = request.proof_refs[: len(goal.success_criteria)]
             bindings = _criterion_bindings(goal, criterion_proof_refs)
             request = request.model_copy(
@@ -719,10 +715,34 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
     assert replayed_goal.state == GoalState.verified_complete.value
     assert replayed_goal.version == requested.version + 1
     assert len(completion_events) == 1
-    assert completion_events[0].receipt_refs == [evidence.receipt_ref]
-    assert completion_events[0].proof_refs == list(
-        dict.fromkeys([evidence.proof_ref, *evidence.criterion_proof_refs])
+    assert completion_events[0].receipt_refs == list(
+        dict.fromkeys(
+            [
+                evidence.receipt_ref,
+                *(
+                    binding.evaluator_receipt_ref
+                    for binding in replayed_goal.completion_criterion_verifier_bindings
+                ),
+            ]
+        )
     )
+    assert completion_events[0].proof_refs == list(
+        dict.fromkeys(
+            [
+                evidence.proof_ref,
+                evidence.evidence_ref,
+                *evidence.criterion_proof_refs,
+                *(
+                    binding.evaluator_receipt_ref
+                    for binding in replayed_goal.completion_criterion_verifier_bindings
+                ),
+            ]
+        )
+    )
+    assert completion_events[0].criterion_verifier_bindings == [
+        DurableCriterionVerifierBinding.model_validate(binding.model_dump(mode="json"))
+        for binding in replayed_goal.completion_criterion_verifier_bindings
+    ]
 
     cleared = _transition_goal(
         recovered,
@@ -1149,15 +1169,10 @@ def test_completion_receipt_remains_verifiable_after_payload_retention(
             run_ref="run-ref:retained-completion",
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
-            safe_summary=(
-                "The trusted evaluator bound the requested goal criteria."
-            ),
+            safe_summary=("The trusted evaluator bound the requested goal criteria."),
             proof_refs=[
                 *criterion_proof_refs,
-                *(
-                    binding.evaluator_receipt_ref
-                    for binding in criterion_bindings
-                ),
+                *(binding.evaluator_receipt_ref for binding in criterion_bindings),
             ],
             receipt_refs=["receipt-ref:retained-completion"],
             criterion_verifier_bindings=criterion_bindings,
@@ -1523,16 +1538,16 @@ def test_goal_completion_rejects_untrusted_or_unbound_verifier_evidence(
 @pytest.mark.parametrize(
     ("criterion_proof_refs", "expected_code"),
     [
-            (
-                ["proof-ref:accepted-local:one"],
-                "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
-            ),
+        (
+            ["proof-ref:accepted-local:one"],
+            "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
+        ),
         (
             [
                 "proof-ref:accepted-local:one",
                 "proof-ref:substituted:criterion:2",
             ],
-                "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
+            "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
         ),
     ],
 )
@@ -1816,9 +1831,7 @@ def test_event_journal_rejects_individual_run_rollback(
                 event_kind=DurableRunEventKind.evidence_linked,
                 safe_summary=f"Bounded target event {index}.",
                 proof_refs=[f"proof-ref:journal-rollback:target:{index}"],
-                idempotency_ref=(
-                    f"idempotency-ref:journal-rollback:target:{index}"
-                ),
+                idempotency_ref=(f"idempotency-ref:journal-rollback:target:{index}"),
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
             ),
         )
@@ -1835,8 +1848,7 @@ def test_event_journal_rejects_individual_run_rollback(
     )
     event_path = tmp_path / "run_events.jsonl"
     rows = [
-        json.loads(line)
-        for line in event_path.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in event_path.read_text(encoding="utf-8").splitlines()
     ]
     if rollback == "whole-run":
         rows = [row for row in rows if row["run_ref"] != rolled_back_run_ref]
@@ -1844,17 +1856,13 @@ def test_event_journal_rejects_individual_run_rollback(
         rows = [
             row
             for row in rows
-            if not (
-                row["run_ref"] == rolled_back_run_ref and row["sequence"] == 2
-            )
+            if not (row["run_ref"] == rolled_back_run_ref and row["sequence"] == 2)
         ]
     else:
         rows = [
             row
             for row in rows
-            if not (
-                row["run_ref"] == rolled_back_run_ref and row["sequence"] == 4
-            )
+            if not (row["run_ref"] == rolled_back_run_ref and row["sequence"] == 4)
         ]
     event_path.write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
@@ -2398,11 +2406,7 @@ def test_nonreserved_append_preserves_active_projection_bytes(
     monkeypatch.setattr(
         goal_runtime_module,
         limit_name,
-        (
-            event_bytes
-            if limit_name == "MAX_RUN_EVENT_STORE_BYTES"
-            else tombstone_bytes
-        )
+        (event_bytes if limit_name == "MAX_RUN_EVENT_STORE_BYTES" else tombstone_bytes)
         + reserved_bytes,
     )
 
@@ -2514,9 +2518,7 @@ def test_completion_capacity_credits_exact_retention_eviction(
         run_ref="run-ref:accepted-local:one"
     )
     event_bytes = service._events.path.stat().st_size  # noqa: SLF001
-    eviction_credit = len(
-        (retained_before[0].model_dump_json() + "\n").encode("utf-8")
-    )
+    eviction_credit = len((retained_before[0].model_dump_json() + "\n").encode("utf-8"))
     monkeypatch.setattr(
         goal_runtime_module,
         "MAX_RUN_EVENT_STORE_BYTES",
@@ -2845,8 +2847,7 @@ def test_goal_journal_head_manifest_rejects_rollback(
     else:
         manifest = json.loads(head_path.read_text(encoding="utf-8"))
         manifest["idempotency_set_hash_ref"] = (
-            "idempotency-set-hash-ref:goal-journal:sha256:"
-            + "0" * 64
+            "idempotency-set-hash-ref:goal-journal:sha256:" + "0" * 64
         )
         head_path.write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -2891,9 +2892,12 @@ def test_goal_journal_recovers_one_entry_ahead_manifest_on_mutation(
     )
 
     assert replayed == edited
-    assert json.loads(
-        (tmp_path / "goal_journal_head.json").read_text(encoding="utf-8")
-    )["entry_count"] == 2
+    assert (
+        json.loads((tmp_path / "goal_journal_head.json").read_text(encoding="utf-8"))[
+            "entry_count"
+        ]
+        == 2
+    )
 
 
 def test_goal_transition_reason_tampering_fails_closed(tmp_path: Path) -> None:
@@ -2947,21 +2951,14 @@ def test_first_goal_commit_recovers_only_from_bound_genesis_intent(
 
         def fail_selected_write(path: Path, content: str) -> None:
             nonlocal failed
-            if (
-                not failed
-                and (
-                    (
-                        failure_boundary == "intent"
-                        and path.name == "goal_journal_genesis_intent.json"
-                    )
-                    or (
-                        failure_boundary == "journal"
-                        and path.name == "goals.jsonl"
-                    )
-                    or (
-                        failure_boundary == "head"
-                        and path.name == "goal_journal_head.json"
-                    )
+            if not failed and (
+                (
+                    failure_boundary == "intent"
+                    and path.name == "goal_journal_genesis_intent.json"
+                )
+                or (failure_boundary == "journal" and path.name == "goals.jsonl")
+                or (
+                    failure_boundary == "head" and path.name == "goal_journal_head.json"
                 )
             ):
                 failed = True
@@ -3165,6 +3162,8 @@ def test_lagging_tombstone_repairs_before_next_event_install(
         r"Read C:\Users\operator\private.txt.",
         r"Read \\server\share\private.txt.",
         "Read file:///private/operator-data.",
+        "Review path:/workspace/private.txt.",
+        "Inspect artifact:/opt/company/private.txt.",
     ],
 )
 def test_durable_summaries_reject_every_absolute_local_path_family(
@@ -3174,9 +3173,9 @@ def test_durable_summaries_reject_every_absolute_local_path_family(
         _create_request().model_copy(
             update={"objective": unsafe_summary}
         ).model_validate(
-            _create_request().model_copy(
-                update={"objective": unsafe_summary}
-            ).model_dump()
+            _create_request()
+            .model_copy(update={"objective": unsafe_summary})
+            .model_dump()
         )
     with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
         DurableRunEventAppendRequest(
@@ -3189,16 +3188,114 @@ def test_durable_summaries_reject_every_absolute_local_path_family(
         )
 
 
-def test_https_summary_is_not_misclassified_as_a_local_path() -> None:
+@pytest.mark.parametrize(
+    "safe_summary",
+    [
+        "Reviewed https://example.test/bounded-evidence.",
+        "Recorded urn:uaa:evidence:bounded.",
+        "Recorded artifact-ref:bounded/path.",
+    ],
+)
+def test_valid_uri_or_safe_ref_is_not_misclassified_as_a_local_path(
+    safe_summary: str,
+) -> None:
     request = DurableRunEventAppendRequest(
         run_ref="run-ref:https-summary",
         run_type=AcceptedLocalRunType.local_read_task,
         event_kind=DurableRunEventKind.run_started,
-        safe_summary="Reviewed https://example.test/bounded-evidence.",
+        safe_summary=safe_summary,
         idempotency_ref="idempotency-ref:https-summary",
         authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
     )
-    assert request.safe_summary.startswith("Reviewed https://")
+    assert request.safe_summary == safe_summary
+
+
+def test_schema_maximum_envelopes_define_all_storage_reservations() -> None:
+    maximum_intent = goal_runtime_module._MAXIMUM_GOAL_GENESIS_INTENT  # noqa: SLF001
+    maximum_event = goal_runtime_module._MAXIMUM_RUN_EVENT  # noqa: SLF001
+    maximum_tombstone = (
+        goal_runtime_module._MAXIMUM_RUN_EVENT_TOMBSTONE  # noqa: SLF001
+    )
+
+    assert (
+        len((maximum_intent.model_dump_json() + "\n").encode("utf-8"))
+        == goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES
+    )
+    assert goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES > 128 * 1024
+    assert len(maximum_event.proof_refs) == (
+        goal_runtime_module.MAX_RUN_EVENT_PROOF_REFS
+    )
+    assert len(maximum_event.receipt_refs) == (
+        goal_runtime_module.MAX_RUN_EVENT_RECEIPT_REFS
+    )
+    assert len(maximum_event.criterion_verifier_bindings) == (
+        goal_runtime_module.MAX_GOAL_LIST_ITEMS
+    )
+    assert (
+        len((maximum_event.model_dump_json() + "\n").encode("utf-8"))
+        == goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES
+    )
+    assert (
+        len((maximum_tombstone.model_dump_json() + "\n").encode("utf-8"))
+        == goal_runtime_module.MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
+    )
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "goal_ref",
+        "goal_version",
+        "criterion_ref",
+        "proof_ref",
+        "verifier_ref",
+        "evaluator_receipt_ref",
+    ],
+)
+def test_verified_goal_snapshot_rejects_tampered_evaluator_envelope(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:envelope-tamper:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:envelope-tamper:request",
+        ),
+        idempotency_ref="idempotency-ref:envelope-tamper:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    verified = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=requested.version,
+            transition=GoalTransitionKind.verify_completion,
+            reason_ref="reason-ref:envelope-tamper:verify",
+            completion_evidence=_completion_evidence(requested),
+        ),
+        idempotency_ref="idempotency-ref:envelope-tamper:verify",
+    )
+    bindings = list(verified.completion_criterion_verifier_bindings)
+    replacement: object = "proof-ref:substituted-envelope"
+    if field_name == "goal_version":
+        replacement = verified.completion_source_goal_version + 1
+    bindings[0] = bindings[0].model_copy(update={field_name: replacement})
+
+    with pytest.raises(ValueError, match="GOAL_COMPLETION_CRITERION_BINDING"):
+        PersistentGoal.model_validate(
+            verified.model_copy(
+                update={"completion_criterion_verifier_bindings": bindings}
+            ).model_dump()
+        )
 
 
 def test_aggregate_snapshot_blocks_cross_store_mutation_until_complete(
@@ -3251,9 +3348,7 @@ def test_aggregate_snapshot_blocks_cross_store_mutation_until_complete(
                 created.goal_ref,
                 GoalEditRequest(
                     expected_version=created.version,
-                    text_redaction_posture=(
-                        "operator_authored_redacted_summary_only"
-                    ),
+                    text_redaction_posture=("operator_authored_redacted_summary_only"),
                     objective="The writer advances only after the snapshot.",
                 ),
                 idempotency_ref="idempotency-ref:aggregate-snapshot:edit",
@@ -3303,9 +3398,7 @@ def test_completion_rejects_cross_criterion_and_recomputed_client_evidence(
     reversed_bindings = list(reversed(receipt.criterion_verifier_bindings))
     recomputed = correct.model_copy(
         update={
-            "criterion_proof_refs": list(
-                reversed(correct.criterion_proof_refs)
-            ),
+            "criterion_proof_refs": list(reversed(correct.criterion_proof_refs)),
             "evidence_ref": build_goal_completion_evidence_ref(
                 requested,
                 run_ref=correct.run_ref,
@@ -3330,9 +3423,7 @@ def test_completion_rejects_cross_criterion_and_recomputed_client_evidence(
                 reason_ref="reason-ref:criterion-provenance:cross-criterion",
                 completion_evidence=recomputed,
             ),
-            idempotency_ref=(
-                "idempotency-ref:criterion-provenance:cross-criterion"
-            ),
+            idempotency_ref=("idempotency-ref:criterion-provenance:cross-criterion"),
         )
 
 

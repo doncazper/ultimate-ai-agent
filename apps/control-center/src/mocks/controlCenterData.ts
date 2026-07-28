@@ -16265,6 +16265,11 @@ export const mockControlCenterData: ControlCenterData = {
       completion_requested_count: 0,
       verified_complete_count: 0,
       mutation_authority: "exact_local_metadata_only",
+      completion_verification_state:
+        "blocked_missing_trusted_criterion_evaluator",
+      completion_verification_available: false,
+      completion_verification_blocked_reason_ref:
+        "blocked-authority-ref:goal-runtime:trusted-criterion-evaluator-unavailable",
       runtime_execution_enabled: false,
       model_output_authoritative: false,
       safe_refs_only: true,

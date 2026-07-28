@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GOAL_COMPLETION_VERIFIER_REF,
     GoalRuntimeError,
     GoalRuntimeService,
+    GoalTransitionRequest,
     PersistentGoal,
     build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
@@ -127,6 +128,11 @@ def test_run_events_get_is_strictly_read_only(
 
     assert response.status_code == 200
     assert response.json()["success"] is True
+    completion_posture = response.json()["data"]["goal_lifecycle"]
+    assert completion_posture["completion_verification_available"] is False
+    assert completion_posture["completion_verification_state"] == (
+        "blocked_missing_trusted_criterion_evaluator"
+    )
     assert sync_calls == 0
     assert not service.state_dir.exists()
     assert not (service.state_dir / "run_events.jsonl").exists()
@@ -445,7 +451,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
         criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
-    verified = client.post(
+    blocked_completion = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",
         json={
             "expected_version": 2,
@@ -463,7 +469,42 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             },
         },
         headers={"x-uaa-idempotency-key": "idempotency-ref:api-goal-verify"},
-    ).json()["data"]["goal"]
+    ).json()
+    assert blocked_completion["success"] is False
+    assert blocked_completion["error"]["code"] == (
+        "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
+    )
+    assert service.goals.get(goal["goal_ref"]).state == "complete_requested"
+
+    transition_request = runtime_pilot_service.GoalTransitionRequest.model_validate(
+        {
+            "expected_version": 2,
+            "transition": "verify_completion",
+            "reason_ref": "reason-ref:trusted-internal-goal-verifier",
+            "completion_evidence": {
+                "goal_ref": goal["goal_ref"],
+                "goal_version": 2,
+                "run_ref": "run-ref:api-cli:one",
+                "receipt_ref": "receipt-ref:api-cli:one",
+                "proof_ref": "proof-ref:api-cli:one",
+                "criterion_proof_refs": ["proof-ref:api-cli:one"],
+                "evidence_ref": completion_evidence_ref,
+                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
+            },
+        }
+    )
+    approval = capture_exact_goal_mutation_approval(
+        operation="transition-verify_completion",
+        subject_ref=goal["goal_ref"],
+        request_payload=transition_request.model_dump(mode="json"),
+        idempotency_ref="idempotency-ref:trusted-internal-goal-verify",
+    )
+    verified = service.transition_goal(
+        goal["goal_ref"],
+        transition_request,
+        idempotency_ref="idempotency-ref:trusted-internal-goal-verify",
+        approval_binding=approval,
+    ).model_dump(mode="json")
     assert verified["state"] == "verified_complete"
 
     goals = client.get("/api/runtime/goals").json()["data"]
@@ -576,10 +617,100 @@ def test_goal_cli_state_directory_failure_is_redacted(tmp_path: Path) -> None:
     )
 
     assert cli.returncode == 1
-    assert cli.stdout == ""
-    assert cli.stderr.strip() == "Goal lifecycle could not be read safely."
-    assert str(blocked_state_dir) not in cli.stderr
-    assert "Traceback" not in cli.stderr
+    payload = json.loads(cli.stdout)
+    assert payload["success"] is False
+    assert payload["error"]["code"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert payload["raw_error_omitted"] is True
+    assert cli.stderr == ""
+    assert str(blocked_state_dir) not in cli.stdout
+    assert "Traceback" not in cli.stdout
+
+
+@pytest.mark.parametrize(
+    ("command_name", "extra_args"),
+    [
+        ("goal-create", []),
+        ("goal-edit", ["goal-ref:json-failure"]),
+        ("goal-transition", ["goal-ref:json-failure"]),
+    ],
+)
+def test_goal_cli_mutation_validation_failures_honor_json(
+    tmp_path: Path,
+    command_name: str,
+    extra_args: list[str],
+) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            command_name,
+            *extra_args,
+            "--request-json",
+            "{}",
+            "--idempotency-ref",
+            f"idempotency-ref:{command_name}:json-failure",
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    payload = json.loads(cli.stdout)
+    assert payload["success"] is False
+    assert payload["error"]["code"] == "GOAL_REQUEST_VALIDATION_FAILED"
+    assert payload["raw_error_omitted"] is True
+    assert cli.stderr == ""
+
+
+def test_goal_cli_verified_completion_is_explicitly_blocked(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    request = {
+        "expected_version": 2,
+        "transition": "verify_completion",
+        "reason_ref": "reason-ref:cli-evaluator-blocked",
+        "completion_evidence": {
+            "goal_ref": "goal-ref:cli-evaluator-blocked",
+            "goal_version": 2,
+            "run_ref": "run-ref:cli-evaluator-blocked",
+            "receipt_ref": "receipt-ref:cli-evaluator-blocked",
+            "proof_ref": "proof-ref:cli-evaluator-blocked",
+            "criterion_proof_refs": ["proof-ref:cli-evaluator-blocked"],
+            "evidence_ref": "evidence-ref:cli-evaluator-blocked",
+            "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
+        },
+    }
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "goal-transition",
+            "goal-ref:cli-evaluator-blocked",
+            "--request-json",
+            json.dumps(request),
+            "--idempotency-ref",
+            "idempotency-ref:cli-evaluator-blocked",
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    payload = json.loads(cli.stdout)
+    assert payload["error"]["code"] == ("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
+    assert cli.stderr == ""
 
 
 @pytest.mark.parametrize("failure_mode", ["invalid-run-ref", "corrupt-journal"])
@@ -752,9 +883,7 @@ def test_command_cli_projection_failure_preserves_execution_truth(
         assert payload["execution_outcome"] == "durable_receipt_recovered"
         assert payload["execution_performed"] is True
         assert payload["command_execution_performed"] is True
-        assert payload["invocation_ref"] == (
-            "invocation-ref:cli-projection-failure"
-        )
+        assert payload["invocation_ref"] == ("invocation-ref:cli-projection-failure")
         assert payload["receipt_ref"] == "receipt-ref:cli-projection-failure"
     else:
         assert payload["execution_outcome"] == "unknown_after_projection_failure"
@@ -888,9 +1017,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             run_ref=run_ref,
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
-            safe_summary=(
-                "The trusted evaluator bound the exact requested criterion."
-            ),
+            safe_summary=("The trusted evaluator bound the exact requested criterion."),
             proof_refs=[
                 "proof-ref:e2e:accepted-local",
                 *(binding.evaluator_receipt_ref for binding in criterion_bindings),
@@ -911,7 +1038,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
-    verified = client.post(
+    blocked = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
         json={
             "expected_version": requested["version"],
@@ -929,7 +1056,37 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             },
         },
         headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:verify"},
-    ).json()["data"]["goal"]
+    ).json()
+    assert blocked["error"]["code"] == ("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
+    trusted_request = GoalTransitionRequest.model_validate(
+        {
+            "expected_version": requested["version"],
+            "transition": "verify_completion",
+            "reason_ref": "reason-ref:e2e:trusted-internal-verifier",
+            "completion_evidence": {
+                "goal_ref": created["goal_ref"],
+                "goal_version": requested["version"],
+                "run_ref": run_ref,
+                "receipt_ref": "receipt-ref:e2e:accepted-local",
+                "proof_ref": "proof-ref:e2e:accepted-local",
+                "criterion_proof_refs": ["proof-ref:e2e:accepted-local"],
+                "evidence_ref": completion_evidence_ref,
+                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
+            },
+        }
+    )
+    trusted_approval = capture_exact_goal_mutation_approval(
+        operation="transition-verify_completion",
+        subject_ref=created["goal_ref"],
+        request_payload=trusted_request.model_dump(mode="json"),
+        idempotency_ref="idempotency-ref:e2e:trusted-internal-verify",
+    )
+    verified = restored.transition_goal(
+        created["goal_ref"],
+        trusted_request,
+        idempotency_ref="idempotency-ref:e2e:trusted-internal-verify",
+        approval_binding=trusted_approval,
+    ).model_dump(mode="json")
     assert verified["state"] == "verified_complete"
 
     reconnected = client.get(

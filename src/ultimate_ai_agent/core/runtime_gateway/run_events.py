@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.runtime_gateway.delegation import (
     RUNTIME_DELEGATION_CONTROL_CENTER_REF,
 )
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    DurableCriterionVerifierBinding,
     DurableRunEvent,
     GoalLifecycleReadModel,
     GoalRuntimeService,
@@ -47,9 +48,7 @@ RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state
 RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF = (
     "repo-local-command:uaa-runtime-inspect-authority-state"
 )
-RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF = (
-    "lane-ref:runtime-run-events-read-model"
-)
+RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF = "lane-ref:runtime-run-events-read-model"
 _AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
@@ -167,6 +166,10 @@ class RuntimeRunEventPreview(BaseModel):
     event_hash_ref: str | None = None
     proof_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
+    criterion_verifier_bindings: list[DurableCriterionVerifierBinding] = Field(
+        default_factory=list,
+        max_length=32,
+    )
     goal_ref: str | None = None
     plan_ref: str | None = None
     runtime_payload_persisted: bool = False
@@ -338,8 +341,9 @@ class RuntimeRunEventsReadModel(BaseModel):
         "external runtime control remain blocked."
     )
     redactions_applied: list[str] = Field(
-        default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
-        + ["runtime_event_payload_omitted"]
+        default_factory=lambda: (
+            list(GOVERNED_RUNTIME_REDACTIONS) + ["runtime_event_payload_omitted"]
+        )
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -400,8 +404,7 @@ class RuntimeRunEventsReadModel(BaseModel):
         if self.approval_wait_count != expected_approval_wait:
             raise ValueError("RUNTIME_RUN_EVENT_APPROVAL_WAIT_COUNT_DRIFT")
         expected_completed = sum(
-            stream.terminal_event_kind
-            == RuntimeRunEventKind.completion_verified.value
+            stream.terminal_event_kind == RuntimeRunEventKind.completion_verified.value
             for stream in self.stream_summaries
         )
         if self.completed_run_count != expected_completed:
@@ -600,8 +603,7 @@ def build_runtime_run_events_read_model_from_authority_catalog(
             for event in events
         ),
         completed_run_count=sum(
-            stream.terminal_event_kind
-            == RuntimeRunEventKind.completion_verified.value
+            stream.terminal_event_kind == RuntimeRunEventKind.completion_verified.value
             for stream in stream_summaries
         ),
         blocked_authority_refs=[
@@ -679,6 +681,7 @@ def _durable_event_preview(event: DurableRunEvent) -> RuntimeRunEventPreview:
         event_hash_ref=event.event_hash_ref,
         proof_refs=event.proof_refs,
         receipt_refs=event.receipt_refs,
+        criterion_verifier_bindings=event.criterion_verifier_bindings,
         goal_ref=event.goal_ref,
         plan_ref=event.plan_ref,
     )

@@ -9088,6 +9088,12 @@ function isSafeRuntimeRunEvents(
       value.goal_lifecycle.goals.filter(
         (goal) => goal.state === "verified_complete",
       ).length &&
+    value.goal_lifecycle.completion_verification_state ===
+      "blocked_missing_trusted_criterion_evaluator" &&
+    value.goal_lifecycle.completion_verification_available === false &&
+    isSafeTrustAuthorityRef(
+      value.goal_lifecycle.completion_verification_blocked_reason_ref,
+    ) &&
     value.goal_lifecycle.runtime_execution_enabled === false &&
     value.goal_lifecycle.model_output_authoritative === false &&
     value.goal_lifecycle.safe_refs_only === true &&
@@ -9153,12 +9159,25 @@ function isSafeRuntimeRunEventPreview(
   const safeRef = (value: unknown): value is string =>
     typeof value === "string" &&
     value.length <= 320 &&
-    /^[a-z][a-z0-9-]*-ref:[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) &&
     isSafeTrustAuthorityRef(value);
-  const safeRefs = (value: unknown) =>
+  const safeRefs = (value: unknown, maximum: number) =>
     Array.isArray(value) &&
-    value.length <= 32 &&
+    value.length <= maximum &&
     value.every(safeRef);
+  const criterionBindingsValid =
+    Array.isArray(event.criterion_verifier_bindings) &&
+    event.criterion_verifier_bindings.length <= 32 &&
+    event.criterion_verifier_bindings.every(
+      (binding) =>
+        isSafeTrustAuthorityRef(binding.goal_ref) &&
+        Number.isSafeInteger(binding.goal_version) &&
+        binding.goal_version >= 1 &&
+        binding.goal_version <= 4096 &&
+        isSafeTrustAuthorityRef(binding.criterion_ref) &&
+        isSafeTrustAuthorityRef(binding.proof_ref) &&
+        isSafeTrustAuthorityRef(binding.verifier_ref) &&
+        isSafeTrustAuthorityRef(binding.evaluator_receipt_ref),
+    );
   const hasDurableSequence = event.sequence !== null && event.sequence !== undefined;
   const durableFieldsValid = hasDurableSequence
     ? Number.isSafeInteger(event.sequence) &&
@@ -9195,9 +9214,11 @@ function isSafeRuntimeRunEventPreview(
     safeRef(event.proof_ref) &&
     isBoundedDisplayText(event.safe_summary, 1200) &&
     !containsSecretLike(event.safe_summary) &&
+    !containsAbsoluteLocalPath(event.safe_summary) &&
     event.redaction_status === "redacted_safe_ref_only" &&
-    safeRefs(event.proof_refs) &&
-    safeRefs(event.receipt_refs) &&
+    safeRefs(event.proof_refs, 97) &&
+    safeRefs(event.receipt_refs, 33) &&
+    criterionBindingsValid &&
     proofBindingValid &&
     (!terminalKinds.has(event.event_kind) ||
       (event.proof_refs.length > 0 && event.receipt_refs.length > 0)) &&
@@ -9228,7 +9249,9 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
     "cleared",
   ]);
   const safeText = (value: unknown) =>
-    isBoundedDisplayText(value, 1200) && !containsSecretLike(value);
+    isBoundedDisplayText(value, 1200) &&
+    !containsSecretLike(value) &&
+    !containsAbsoluteLocalPath(String(value));
   const safeRefs = (value: unknown) =>
     Array.isArray(value) &&
     value.length <= 32 &&
@@ -9244,13 +9267,17 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
     goal.completion_receipt_ref,
     goal.completion_proof_ref,
     goal.completion_verifier_ref,
+    goal.completion_source_goal_version,
   ];
   const noCompletionRefs = completionRefs.every(
     (ref) => ref === null || ref === undefined,
   );
-  const exactCompletionRefs = completionRefs.every(
+  const exactCompletionRefs = completionRefs.slice(0, -1).every(
     (ref) => typeof ref === "string" && isSafeTrustAuthorityRef(ref),
-  );
+  ) &&
+    Number.isSafeInteger(goal.completion_source_goal_version) &&
+    Number(goal.completion_source_goal_version) >= 1 &&
+    Number(goal.completion_source_goal_version) <= 4096;
   const noCompletionPlan =
     goal.completion_plan_ref === null ||
     goal.completion_plan_ref === undefined;
@@ -9268,19 +9295,39 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
       ? goal.completion_criterion_proof_refs.length ===
         goal.success_criteria.length
       : goal.completion_criterion_proof_refs.length === 0);
+  const criterionBindingsValid =
+    Array.isArray(goal.completion_criterion_verifier_bindings) &&
+    goal.completion_criterion_verifier_bindings.length <= 32 &&
+    (goal.state === "verified_complete" ||
+    (goal.state === "cleared" && exactCompletionRefs)
+      ? goal.completion_criterion_verifier_bindings.length ===
+          goal.success_criteria.length &&
+        goal.completion_criterion_verifier_bindings.every(
+          (binding, index) =>
+            binding.goal_ref === goal.goal_ref &&
+            binding.goal_version === goal.completion_source_goal_version &&
+            isSafeTrustAuthorityRef(binding.criterion_ref) &&
+            binding.proof_ref === goal.completion_criterion_proof_refs[index] &&
+            binding.verifier_ref === goal.completion_verifier_ref &&
+            isSafeTrustAuthorityRef(binding.evaluator_receipt_ref),
+        )
+      : goal.completion_criterion_verifier_bindings.length === 0);
   const completionPostureValid =
     goal.state === "verified_complete"
       ? exactCompletionRefs &&
         completionPlanValid &&
-        criterionProofRefsValid
+        criterionProofRefsValid &&
+        criterionBindingsValid
       : goal.state === "cleared"
         ? (noCompletionRefs && noCompletionPlan) ||
           (exactCompletionRefs &&
             completionPlanValid &&
-            criterionProofRefsValid)
+            criterionProofRefsValid &&
+            criterionBindingsValid)
         : noCompletionRefs &&
           noCompletionPlan &&
-          criterionProofRefsValid;
+          criterionProofRefsValid &&
+          criterionBindingsValid;
 
   return (
     goal.schema_version === "persistent_goal.v1" &&
@@ -14207,6 +14254,20 @@ function isSafeTrustAuthorityDomainCoverage(value: unknown): boolean {
   );
 }
 
+const CANONICAL_SAFE_REF_RE =
+  /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/;
+const ABSOLUTE_LOCAL_PATH_PATTERNS = [
+  /(?:^|[\s"'(<\[=])\/(?:\/)?[^\s"')>\],;]+/,
+  /:\/(?!\/)[^\s"')>\],;]+/,
+  /(?:^|[\s"'(<\[=])[A-Za-z]:[\\/][^\s"')>\],;]*/,
+  /(?:^|[\s"'(<\[=])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
+  /\bfile:(?:\/\/|%2f)/i,
+];
+
+function containsAbsoluteLocalPath(value: string): boolean {
+  return ABSOLUTE_LOCAL_PATH_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 function isSafeTrustAuthorityRef(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0) {
     return false;
@@ -14219,10 +14280,10 @@ function isSafeTrustAuthorityRef(value: unknown): value is string {
   ) {
     return false;
   }
-  if (value.includes("@") || value.includes("\\") || value.includes(" ")) {
+  if (value.includes("\\") || value.includes(" ")) {
     return false;
   }
-  return /^[A-Za-z0-9:_./-]+$/.test(value);
+  return CANONICAL_SAFE_REF_RE.test(value);
 }
 
 function isSafeTrustAuthorityTierSummary(value: unknown): boolean {

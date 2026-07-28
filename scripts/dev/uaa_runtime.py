@@ -60,6 +60,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     GoalEditRequest,
     GoalRuntimeError,
     GoalRuntimeService,
+    GoalTransitionKind,
     GoalTransitionRequest,
     capture_exact_goal_mutation_approval,
     active_runtime_authority_leases,
@@ -4136,14 +4137,65 @@ def _goal_mutation_result(
     }
 
 
+def _stable_goal_cli_error_code(exc: Exception) -> str:
+    message = str(exc).strip()
+    if (
+        message
+        and len(message) <= 128
+        and message[0].isalpha()
+        and all(
+            character.isupper() or character.isdigit() or character == "_"
+            for character in message
+        )
+        and message.startswith(("GOAL_", "RUN_EVENT_"))
+    ):
+        return message
+    if isinstance(exc, ValidationError):
+        return "GOAL_REQUEST_VALIDATION_FAILED"
+    if isinstance(exc, OSError):
+        return "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    return "GOAL_REQUEST_INVALID"
+
+
+def _goal_cli_failure(
+    args: argparse.Namespace,
+    *,
+    command_ref: str,
+    exc: Exception,
+    safe_summary: str,
+) -> int:
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": command_ref,
+        "success": False,
+        "error": {
+            "code": _stable_goal_cli_error_code(exc),
+            "safe_summary": safe_summary,
+        },
+        "safe_refs_only": True,
+        "raw_error_omitted": True,
+        "runtime_execution_performed": False,
+        "standing_authority_granted": False,
+    }
+    if getattr(args, "json", False):
+        _print_json(payload)
+    else:
+        print(safe_summary, file=sys.stderr)
+    return 1
+
+
 def _goals_list(args: argparse.Namespace) -> int:
     try:
         read_model = _goal_runtime_service(args).goals.read_model(
             include_cleared=args.include_cleared
         )
-    except GoalRuntimeError:
-        print("Goal lifecycle could not be read safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goals-list",
+            exc=exc,
+            safe_summary="Goal lifecycle could not be read safely.",
+        )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-goals-list",
@@ -4164,9 +4216,13 @@ def _goal_show(args: argparse.Namespace) -> int:
     try:
         goal_store = _goal_runtime_service(args).goals
         goal, mutation_provenance = goal_store.goal_with_provenance(args.goal_ref)
-    except GoalRuntimeError:
-        print("Goal could not be read safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-show",
+            exc=exc,
+            safe_summary="Goal could not be read safely.",
+        )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-goal-show",
@@ -4201,9 +4257,13 @@ def _goal_create(args: argparse.Namespace) -> int:
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
-    except (GoalRuntimeError, ValidationError, ValueError):
-        print("Goal creation failed safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-create",
+            exc=exc,
+            safe_summary="Goal creation failed safely.",
+        )
     payload = _goal_mutation_result(
         command_ref="repo-local-command:uaa-runtime-goal-create",
         goal=goal,
@@ -4235,9 +4295,13 @@ def _goal_edit(args: argparse.Namespace) -> int:
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
-    except (GoalRuntimeError, ValidationError, ValueError):
-        print("Goal edit failed safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-edit",
+            exc=exc,
+            safe_summary="Goal edit failed safely.",
+        )
     payload = _goal_mutation_result(
         command_ref="repo-local-command:uaa-runtime-goal-edit",
         goal=goal,
@@ -4257,6 +4321,8 @@ def _goal_transition(args: argparse.Namespace) -> int:
         request = GoalTransitionRequest.model_validate(
             _goal_request_payload(args.request_json)
         )
+        if request.transition == GoalTransitionKind.verify_completion.value:
+            raise GoalRuntimeError("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
         approval = capture_exact_goal_mutation_approval(
             operation=f"transition-{request.transition}",
             subject_ref=args.goal_ref,
@@ -4269,9 +4335,13 @@ def _goal_transition(args: argparse.Namespace) -> int:
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
-    except (GoalRuntimeError, ValidationError, ValueError):
-        print("Goal transition failed safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-transition",
+            exc=exc,
+            safe_summary="Goal transition failed safely.",
+        )
     payload = _goal_mutation_result(
         command_ref="repo-local-command:uaa-runtime-goal-transition",
         goal=goal,

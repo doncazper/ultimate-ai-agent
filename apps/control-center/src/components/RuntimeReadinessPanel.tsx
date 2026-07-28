@@ -4291,9 +4291,9 @@ export function RuntimeReadinessPanel({
         </p>
         {selectedGoal?.state === "complete_requested" ? (
           <p className="section-copy">
-            Verified completion is intentionally unavailable as a generic UI
-            button. Supply the exact linked run, receipt, proof, Evidence, and
-            deterministic verifier refs through the typed API or CLI.
+            Verified completion is blocked on every surface until a trusted
+            criterion evaluator can produce exact durable evaluator receipts.
+            The API and CLI fail closed with the same redacted blocked code.
           </p>
         ) : null}
         <h4>Durable goals</h4>
