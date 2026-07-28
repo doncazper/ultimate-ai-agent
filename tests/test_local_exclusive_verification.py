@@ -240,6 +240,81 @@ def test_local_diagnostic_enumeration_ignores_disappearing_entries(
     assert local_lane._retained_diagnostic_directories(root) == ()
 
 
+def test_local_diagnostic_enumeration_rejects_unstatable_existing_entry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir()
+    entry = root / ("a" * 64)
+    entry.mkdir()
+    original_lstat = Path.lstat
+
+    def reject_entry(path: Path):
+        if path == entry:
+            raise OSError("metadata unavailable")
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", reject_entry)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retained_diagnostic_directories(root)
+
+
+def test_local_diagnostic_retention_rejects_non_enumerable_owner_root(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir(mode=0o700)
+    root.chmod(0o300)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostic boundary is unsafe",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+
+def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    original_iterdir = Path.iterdir
+    calls = 0
+
+    def fail_first_enumeration(path: Path):
+        nonlocal calls
+        if path == root and calls == 0:
+            calls += 1
+            raise OSError("enumeration unavailable")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_first_enumeration)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    retained = tuple(path for path in root.iterdir() if path.is_dir())
+    assert retained == ()
+
+
 def test_local_pytest_profile_is_validated_and_published_atomically(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

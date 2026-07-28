@@ -72,6 +72,7 @@ def _prepare_diagnostic_root(path: Path) -> Path:
         or stat.S_ISLNK(info.st_mode)
         or info.st_uid != os.getuid()
         or info.st_mode & 0o077
+        or stat.S_IMODE(info.st_mode) & 0o700 != 0o700
     ):
         raise LocalVerificationLaneError(
             "local verification diagnostic boundary is unsafe"
@@ -111,8 +112,10 @@ def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
     retained: list[tuple[int, Path]] = []
     try:
         candidates = tuple(root.iterdir())
-    except OSError:
-        return ()
+    except OSError as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostics cannot be bounded"
+        ) from exc
     for path in candidates:
         if (
             len(path.name) != 64
@@ -121,8 +124,12 @@ def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
             continue
         try:
             metadata = path.lstat()
-        except OSError:
+        except FileNotFoundError:
             continue
+        except OSError as exc:
+            raise LocalVerificationLaneError(
+                "local verification diagnostics cannot be bounded"
+            ) from exc
         if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
             continue
         retained.append((metadata.st_mtime_ns, path))
@@ -247,7 +254,16 @@ def _retain_diagnostics(
             raise LocalVerificationLaneError(
                 "local verification diagnostics could not be retained"
             ) from exc
-        retained = _retained_diagnostic_directories(root)
+        try:
+            retained = _retained_diagnostic_directories(root)
+        except LocalVerificationLaneError:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise
+        if destination not in retained:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise LocalVerificationLaneError(
+                "local verification diagnostics cannot be bounded"
+            )
         for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
             shutil.rmtree(stale, ignore_errors=True)
     return f"diagnostic-ref:local-verification:{token}"

@@ -562,10 +562,18 @@ def _run_command(
                 try:
                     if validate_start is not None:
                         validate_start()
+                    registration_active = True
                     if before_start is not None:
                         unspawned_reservation_active = True
                         before_start()
-                    registration_active = True
+                    if pending_signal is not None:
+                        interrupted_by = pending_signal
+                        pending_signal = None
+                        registration_active = False
+                        release_unspawned_reservation()
+                        raise KeyboardInterrupt(
+                            f"CI lane interrupted by signal {interrupted_by}"
+                        )
                     try:
                         process = spawn_owned_process_group(
                             _resolved_argv(
