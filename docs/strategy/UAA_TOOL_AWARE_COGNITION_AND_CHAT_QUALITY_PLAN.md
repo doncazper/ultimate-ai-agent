@@ -120,6 +120,29 @@ Capability awareness uses four bounded tiers:
 | 2 — manifest hydration | Load only the top relevant typed manifests and input schemas | Bounded local context; still no authority |
 | 3 — governed proposal/execution | Build an exact proposal and use existing policy, approval, dispatcher, receipt, and rollback boundaries | Execution only when the exact lane is already authorized |
 
+Initial arbitration performs one bounded, deterministic, model-free,
+content-free discovery probe over the cached compact catalog before a turn can
+be committed to Tier 0. This probe runs inside the Turn Contract Router rather
+than as a later capability-gate escalation, so paraphrases that do not match a
+legacy regex can still reach Tier 1. It exposes no manifest, input schema,
+executable code, raw catalog content, or provider/model call to the chat model.
+The probe has a hard entry/byte/time budget and returns only safe candidate refs
+and scores. A confirmed direct-chat turn then enters Tier 0 with zero manifest
+hydration, zero tool-schema context, and zero additional model calls.
+
+The accepted router also owns a versioned, model-free
+`possible-tool-intent-sentinel:v1`. It is a small, content-safe grammar over
+generic action shape (for example, an imperative plus a recipient, destination,
+or consequence marker), not a capability catalog and not an authority source.
+It runs in the same initial arbitration and is evaluated against both ordinary
+chat and paraphrased tool turns. When the compact index is missing, corrupt,
+stale, or over budget, a sentinel-positive turn returns the fail-closed
+`capability_evidence_unavailable` posture with no proposal, approval request, or
+execution; it never falls through to Tier 0. A sentinel-negative turn may use
+the accepted direct-chat fallback. This preserves ordinary chat without
+silently answering a possible tool request as if capability evidence had been
+checked.
+
 No tier may automatically load executable skill code, fetch the web, invoke a
 provider, or broaden an approval.
 
@@ -276,8 +299,8 @@ Minimum release thresholds:
 - direct-chat false-positive tool selection at or below 2%;
 - recall of an applicable capability at or above 95% on the accepted
   tool-required corpus;
-- top-3 retrieval precision at or above 80%, final route/proposal exact-match
-  at or above 90% overall, and final exact-match at or above 85% in every
+- top-3 capability hit rate at or above 80%, final route/proposal exact-match at
+  or above 90% overall, and final exact-match at or above 85% in every
   predeclared capability and risk category;
 - blind paired scoring on the accepted ordinary-chat corpus shows no more than
   a 5 percentage-point degradation from direct use of the same frozen local
@@ -289,9 +312,14 @@ Minimum release thresholds:
 - no statistically material chat latency regression outside the stated
   budgets.
 
-Quality reporting must show top-k retrieval precision/recall, final
-route/proposal exact-match, the confusion matrix, and per-category failures,
-not only one aggregate score. It must also identify the exact model artifact,
+The top-3 capability hit-rate numerator is the count of eligible tool-required
+cases with at least one adjudicated-relevant capability in the first three
+ranked results (or all returned results when fewer than three exist); its
+denominator is every eligible case with at least one adjudicated-relevant
+capability. Cases cannot be removed because retrieval returned no candidates.
+Quality reporting must show that hit rate, top-k retrieval precision/recall,
+final route/proposal exact-match, the confusion matrix, and per-category
+failures, not only one aggregate score. It must also identify the exact model artifact,
 inference settings, prompt-format version, sample counts, and paired scoring
 rubric, and report point estimates plus 95% confidence intervals. For each of
 the four ordinary-chat dimensions, the simultaneous lower confidence bound on
@@ -343,9 +371,42 @@ results. Coverage must include every accepted category and risk class with
 sample counts justified by a recorded power calculation. Promotion requires:
 the one-sided 95% upper bound for direct-chat false-positive tool selection at
 or below 2%; zero unsafe authority decisions with its one-sided 95% upper bound
-below 1%; accepted-router disagreement at or below 5% after every disagreement
+below 1%; candidate-error disagreement at or below 5% after every disagreement
 is adjudicated; and all final selection and per-category thresholds above.
-Shadow evidence remains content-free and cannot change responses or authority.
+
+The disagreement population `N` is every predeclared shadow turn for which both
+the accepted router and candidate produced invariant-valid canonical decision
+envelopes. An infrastructure-invalid envelope invalidates the run rather than
+shrinking `N`. `D` is the count whose final canonical route, familiarity state,
+or proposal ref differs. Independent blinded adjudication partitions every
+member of `D` into `A` (the accepted router was wrong and the candidate
+corrected it) or `C` (the candidate was wrong); unresolved or mixed cases make
+promotion fail. The identities `D = A + C`, raw disagreement `D / N`,
+candidate-correction rate `A / N`, and gated candidate-error disagreement
+`C / N` are all reported. Adjudicated-correct candidate improvements therefore
+remain visible in raw disagreement but do not count as candidate errors; the
+promotion ceiling is exactly `C / N <= 0.05`. Shadow evidence remains
+content-free and cannot change responses or authority.
+
+Before shadow collection, TAW-00 freezes
+`legacy-router-normalization:v1`. It converts the accepted `TurnDecision` into
+the same canonical comparison envelope without inventing capability evidence:
+
+| Accepted `turn_contract` | Canonical route | Canonical familiarity state | Canonical proposal ref |
+|---|---|---|---|
+| `answer_directly`, `base_answer` | unchanged direct-chat route | `familiar_supported` for the built-in direct-chat capability | null |
+| `answer_with_reviewed_memory`, `draft_or_plan`, `prepare_tool_or_action` | unchanged accepted route | `familiar_supported` | null |
+| `approval_required` | `approval_required` | `familiar_requires_approval` only when the frozen case supplies an exact pre-existing authority lane and its availability proof; otherwise `familiar_authority_blocked` | null |
+| `execute_approved_action` | `execute_approved_action` | `familiar_supported` only when the accepted decision's exact approved scope validates; otherwise the envelope is invalid | exact accepted action-scope ref |
+| `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
+| `blocked_unsafe` | `blocked_unsafe` | `novel_unsupported` | null |
+
+The adapter copies only safe refs and validated typed fields, never reclassifies
+authority, and records its normalization version in both sides' envelopes. A
+candidate decision is projected through the corresponding canonical projection
+contract before comparison. Missing, contradictory, or unmappable fields make
+the envelope infrastructure-invalid and therefore invalidate the entire shadow
+run rather than disappearing from `N`.
 
 ## 8. Outcome Learning Without Replacing The Model
 

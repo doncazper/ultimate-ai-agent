@@ -42,13 +42,23 @@ PLAN_REQUIRED = (
     "written to repository reports, receipts, test",
     "number of repeated paired samples",
     "cold catalog construction, and every refresh must be model- and",
+    "content-free discovery probe over the cached compact catalog before a turn can",
+    "paraphrases that do not match a",
+    "`possible-tool-intent-sentinel:v1`",
+    "`capability_evidence_unavailable`",
     "at most 8 candidate manifests as a non-overridable ceiling",
     "`min(4096, floor(model_context_tokens * 0.05))`",
-    "top-3 retrieval precision at or above 80%",
+    "top-3 capability hit rate at or above 80%",
+    "top-3 capability hit-rate numerator",
     "simultaneous lower confidence bound",
     "one-sided familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
     "Shadow activation criteria are predeclared",
+    "candidate-error disagreement at or below 5%",
+    "The disagreement population `N` is every predeclared shadow turn",
+    "`D = A + C`",
+    "`C / N <= 0.05`",
+    "`legacy-router-normalization:v1`",
     "exact receipt ref, attempt ref, contract version",
     "fail-closed precedence is mandatory",
     "TAW-00",
@@ -141,66 +151,77 @@ EXPECTED_QUEUE_ITEMS = (
     (
         1,
         "queue-01-governed-browser-external-actions",
+        "Queue 01 — Governed browser external actions",
         "01_queue_01_governed_browser_external_actions.prompt.md",
         "968cab8c5a62ebb58ef22dd0a3ed3a111baa3160d346b5acefbe37e90d822e01",
     ),
     (
         2,
         "queue-02-browser-external-action-hardening",
+        "Queue 02 — Browser external action hardening",
         "02_queue_02_browser_external_action_hardening.prompt.md",
         "b2f1cbf86d0762ce230183c44dda918a56b16bedd58a6a7377f8381ab6211078",
     ),
     (
         3,
         "queue-03-hermes-openclaw-parity",
+        "Queue 03 — Hermes and OpenClaw parity",
         "03_queue_03_hermes_openclaw_parity.prompt.md",
         "c16cdbe70548b72d91f6f93861df87998aa24e21945238bf26004b5781ece93a",
     ),
     (
         4,
         "queue-04-delegated-mission-document-organization",
+        "Queue 04 — Delegated mission and document organization",
         "04_queue_04_delegated_mission_document_organization.prompt.md",
         "4e5f3cdf7059f29bec053ce5a850754ce69e847f579bb083bf10cdb6ac1a070b",
     ),
     (
         5,
         "queue-05-capability-evaluation-lab",
+        "Queue 05 — Capability evaluation lab",
         "05_queue_05_capability_evaluation_lab.prompt.md",
         "b097a483c595333a77a513fa2b4fb7231908159c3601289afa2f2324782adbda",
     ),
     (
         6,
         "queue-06-kanban-work-board",
+        "Queue 06 — Kanban work board",
         "06_queue_06_kanban_work_board.prompt.md",
         "6053f24f1fd221ae48d94ab9b723047f7ecf10b85b6de5fee0fd93dbfe01de75",
     ),
     (
         7,
         "queue-07-news-signals",
+        "Queue 07 — News and signals",
         "07_queue_07_news_signals.prompt.md",
         "839e2c4ecfa1241f038bf217f38e8eef733d8989c588cd7878b4ddad880ebbcd",
     ),
     (
         8,
         "queue-08-autocorrect-controls",
+        "Queue 08 — Autocorrect controls",
         "08_queue_08_autocorrect_controls.prompt.md",
         "25237cf2f6f7528bc5d7490e9523c1ad4c7c840bd1b200ec3094b1c05d81dcd3",
     ),
     (
         9,
         "governed-cross-platform-social-publishing",
+        "Governed cross-platform social publishing",
         "09_governed_cross_platform_social_publishing.prompt.md",
         "99691cba334deab8e5a1696681b69d7b609a7b9604e6731273e26a68972c66d9",
     ),
     (
         10,
         "governed-self-improvement",
+        "Governed self-improvement program",
         "10_governed_self_improvement_program.prompt.md",
         "ec4a65e75cafe302c1173879759444813cba501f70d6cb82c4ba5c42b0daadd0",
     ),
     (
         11,
         "queue-09-final-goat-comparison",
+        "Queue 09 — Final GoatCitadel comparison",
         "11_queue_09_final_goat_comparison.prompt.md",
         "b437f83fc55d22fc4d583b2553b3d043b28189f5e3e525c36f6be6b650dd26b2",
     ),
@@ -223,12 +244,12 @@ DENIED_AUTHORITY_KEYS = (
 def _read(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError):
         try:
             safe_ref = path.relative_to(ROOT).as_posix()
         except ValueError:
             safe_ref = "required-ref:outside-repository"
-        raise RuntimeError(f"missing or unreadable required file: {safe_ref}") from exc
+        raise RuntimeError(f"missing or unreadable required file: {safe_ref}") from None
 
 
 def _require(label: str, text: str, fragments: tuple[str, ...]) -> None:
@@ -255,8 +276,29 @@ def _read_manifest() -> dict[str, object]:
 
 
 def _verify_manifest(manifest: dict[str, object]) -> None:
+    expected_top_level_keys = {
+        "schema_version",
+        "artifact_status",
+        "source_manifest_sha256",
+        "authority_boundary",
+        "pre_goat_insertion",
+        "items",
+    }
+    if set(manifest) != expected_top_level_keys:
+        raise RuntimeError("remaining queue manifest top-level schema is invalid")
+    if any(
+        not isinstance(manifest[key], str)
+        for key in (
+            "schema_version",
+            "artifact_status",
+            "source_manifest_sha256",
+        )
+    ):
+        raise RuntimeError("remaining queue manifest scalar types are invalid")
     if manifest.get("schema_version") != "uaa.remaining_queue_manifest.v1":
         raise RuntimeError("remaining queue manifest schema is invalid")
+    if manifest.get("artifact_status") != "planning_order_only":
+        raise RuntimeError("remaining queue manifest artifact status is invalid")
     if (
         manifest.get("source_manifest_sha256")
         != "b039e6b977f0f49092f5100ae5665f7c07bde974c98bcd1dbdd3015e06a77b09"
@@ -265,23 +307,37 @@ def _verify_manifest(manifest: dict[str, object]) -> None:
     authority = manifest.get("authority_boundary")
     if not isinstance(authority, dict) or set(authority) != set(DENIED_AUTHORITY_KEYS):
         raise RuntimeError("remaining queue authority boundary is invalid")
-    if any(authority[key] is not False for key in DENIED_AUTHORITY_KEYS):
+    if any(
+        type(authority[key]) is not bool or authority[key] is not False
+        for key in DENIED_AUTHORITY_KEYS
+    ):
         raise RuntimeError("remaining queue authority boundary enables authority")
 
     items = manifest.get("items")
     if not isinstance(items, list):
         raise RuntimeError("remaining queue item list is invalid")
-    actual_items = tuple(
-        (
-            item.get("position"),
-            item.get("item_id"),
-            item.get("filename"),
-            item.get("sha256"),
-        )
-        for item in items
-        if isinstance(item, dict)
-    )
-    if len(actual_items) != len(items) or actual_items != EXPECTED_QUEUE_ITEMS:
+    expected_item_keys = {"position", "item_id", "title", "filename", "sha256"}
+    actual_items: list[tuple[int, str, str, str, str]] = []
+    for item in items:
+        if not isinstance(item, dict) or set(item) != expected_item_keys:
+            raise RuntimeError("remaining queue immutable sequence is invalid")
+        position = item["position"]
+        item_id = item["item_id"]
+        title = item["title"]
+        filename = item["filename"]
+        sha256 = item["sha256"]
+        if (
+            type(position) is not int
+            or not isinstance(item_id, str)
+            or not isinstance(title, str)
+            or not title
+            or not isinstance(filename, str)
+            or not isinstance(sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+        ):
+            raise RuntimeError("remaining queue item types are invalid")
+        actual_items.append((position, item_id, title, filename, sha256))
+    if tuple(actual_items) != EXPECTED_QUEUE_ITEMS:
         raise RuntimeError("remaining queue immutable sequence is invalid")
 
     expected_insertion = {
@@ -290,7 +346,17 @@ def _verify_manifest(manifest: dict[str, object]) -> None:
         "phase_ids": [f"TAW-{index:02d}" for index in range(9)],
         "before_item_id": "queue-09-final-goat-comparison",
     }
-    if manifest.get("pre_goat_insertion") != expected_insertion:
+    insertion = manifest.get("pre_goat_insertion")
+    if (
+        not isinstance(insertion, dict)
+        or set(insertion) != set(expected_insertion)
+        or not isinstance(insertion.get("after_item_id"), str)
+        or not isinstance(insertion.get("program_id"), str)
+        or not isinstance(insertion.get("before_item_id"), str)
+        or not isinstance(insertion.get("phase_ids"), list)
+        or any(not isinstance(item, str) for item in insertion["phase_ids"])
+        or insertion != expected_insertion
+    ):
         raise RuntimeError("remaining queue pre-Goat insertion is invalid")
 
 

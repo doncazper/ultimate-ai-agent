@@ -200,6 +200,30 @@ def test_remaining_queue_manifest_order_and_hashes_are_exact(
         verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda payload: payload.update({"extra": "not-allowed"}),
+        lambda payload: payload["items"][0].update({"extra": "not-allowed"}),
+        lambda payload: payload["items"][0].update({"position": True}),
+        lambda payload: payload["items"][0].update({"title": 1}),
+    ),
+)
+def test_remaining_queue_manifest_schema_and_types_are_exact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation,
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    mutation(payload)
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="manifest|sequence|types"):
+        verifier.verify()
+
+
 def test_structured_authority_boundary_cannot_enable_authority(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -239,3 +263,35 @@ def test_missing_file_error_uses_repository_safe_ref(
 
     assert str(tmp_path) not in str(raised.value)
     assert "required-ref:outside-repository" in str(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__suppress_context__ is True
+
+
+def test_invalid_utf8_error_uses_repository_safe_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corrupt = tmp_path / "operator-name" / "plan.md"
+    corrupt.parent.mkdir()
+    corrupt.write_bytes(b"\xff")
+    monkeypatch.setattr(verifier, "PLAN", corrupt)
+
+    with pytest.raises(RuntimeError) as raised:
+        verifier.verify()
+
+    assert str(tmp_path) not in str(raised.value)
+    assert "required-ref:outside-repository" in str(raised.value)
+    assert raised.value.__cause__ is None
+    assert raised.value.__suppress_context__ is True
+
+
+def test_remaining_queue_title_is_immutable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    payload["items"][0]["title"] = "A different title"
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="immutable sequence is invalid"):
+        verifier.verify()
