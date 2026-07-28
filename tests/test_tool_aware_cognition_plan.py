@@ -12,9 +12,12 @@ def test_tool_aware_cognition_plan_is_complete_and_queue_gated() -> None:
         "status": "passed",
         "phase_count": 9,
         "normal_chat_fast_path": True,
+        "direct_chat_quality_non_inferiority": True,
         "local_model_preserved": True,
         "familiarity_states": 8,
         "goat_comparison_gate": True,
+        "evaluation_governance": True,
+        "reversible_rollout": True,
         "runtime_authority_added": False,
     }
 

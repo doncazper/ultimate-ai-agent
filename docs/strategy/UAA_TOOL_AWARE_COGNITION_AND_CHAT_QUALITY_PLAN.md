@@ -20,6 +20,9 @@ The intended product behavior is:
 
 - ordinary chat feels comparable in responsiveness and conversational quality
   to a direct local-model chat;
+- paired evaluation against the same frozen local model and inference settings
+  proves that UAA's routing wrapper does not materially degrade ordinary-chat
+  helpfulness, instruction following, tone, or response relevance;
 - tool awareness is broad enough to understand capability descriptions,
   synonyms, paraphrases, and composed tasks rather than only exact commands;
 - tool details are loaded progressively, so normal chat does not carry the
@@ -120,6 +123,27 @@ Capability awareness uses four bounded tiers:
 No tier may automatically load executable skill code, fetch the web, invoke a
 provider, or broaden an approval.
 
+### 3.5 Rollout is reversible and chat-survivable
+
+The awareness layer must first run in evidence-only shadow mode against the
+accepted router. Shadow decisions cannot change responses, hydrate model
+context, request approval, or reach execution. Promotion requires the versioned
+evaluation and latency thresholds in this plan on the exact candidate.
+
+The promoted integration must retain one explicit safe-disable boundary that
+returns routing to the accepted legacy Turn Contract Router without changing
+the configured local model, chat payload, authority policy, or durable
+evidence. A malformed, stale, over-budget, or unreadable awareness index must
+never make ordinary chat unavailable: direct-chat classification falls back to
+the accepted no-tool path, while any turn that would require capability
+evidence fails closed as unsupported or unavailable. The fallback must not
+silently construct a proposal, request approval, or execute a capability.
+
+Safe-disable and rollback are operational recovery controls, not a global
+autonomy flag and not new authority. Their state, reason code, catalog
+fingerprint, and activation evidence must be redacted and inspectable through
+the shared Python Core, CLI, and API contracts.
+
 ## 4. Familiarity And Uncertainty Contract
 
 The canonical operator-visible states are:
@@ -166,6 +190,12 @@ effect or schema incompatibility before proposal, and the exact operation
 schema remains authoritative. Cross-capability composition is a proposal
 graph; it is never standing authority.
 
+Retrieval must not add a per-turn model or provider call. Any semantic index is
+local, deterministic for a fixed catalog/evaluator version, and built only
+from canonical content-free capability metadata. If that constraint cannot be
+met at the accepted catalog scale, TAW-00 must select a deterministic lexical
+or hybrid metadata index rather than silently adding another model.
+
 ## 6. Performance And Context Budgets
 
 The implementation must meet explicit budgets on supported development Macs:
@@ -173,6 +203,9 @@ The implementation must meet explicit budgets on supported development Macs:
 - routing adds zero additional model calls to the direct-chat path;
 - direct-chat router overhead: warm p95 at or below 20 ms and p99 at or below
   50 ms;
+- paired direct-chat time to first token is reported against the same local
+  model, prompt payload, and frozen inference settings, with routing overhead
+  measured separately from model generation;
 - compact capability shortlist: warm p95 at or below 50 ms;
 - cold catalog build or refresh: p95 at or below 150 ms for the accepted
   baseline catalog;
@@ -212,6 +245,9 @@ Minimum release thresholds:
 - direct-chat false-positive tool selection at or below 2%;
 - recall of an applicable capability at or above 95% on the accepted
   tool-required corpus;
+- blind paired scoring on the accepted ordinary-chat corpus shows no more than
+  a 5 percentage-point degradation from direct use of the same frozen local
+  model in helpfulness, instruction following, tone, or response relevance;
 - unsafe authority broadening: zero;
 - fabricated availability or successful execution claims: zero;
 - raw sensitive content in durable routing evidence: zero;
@@ -220,7 +256,38 @@ Minimum release thresholds:
   budgets.
 
 Quality reporting must show the confusion matrix and per-category failures, not
-only one aggregate score.
+only one aggregate score. It must also identify the exact model artifact,
+inference settings, prompt-format version, sample counts, and paired scoring
+rubric, and report point estimates plus 95% confidence intervals. A small
+sample or wide interval is an unresolved measurement gap, not evidence of
+non-inferiority.
+
+### 7.1 Evaluation governance
+
+The ordinary-chat comparison must be a true paired test. Baseline and UAA
+outputs use the same model artifact, tokenizer, system/user payload, context
+limit, sampler settings, and seed when the backend supports deterministic
+seeding. Pair order and display labels are randomized for scoring. If the
+backend cannot reproduce a seeded response, the benchmark uses a predeclared
+number of repeated paired samples and reports the additional variance instead
+of selecting favorable generations.
+
+Human blind scoring with a versioned rubric is the default quality judge.
+Evaluator identity is represented only by a safe ref; the report records
+evaluator count, agreement, adjudication rules, exclusions, and missing scores.
+Deterministic format, latency, safety, and task-specific assertions supplement
+human scoring. A model-as-judge call is neither implicitly authorized nor
+sufficient as the sole quality proof; using one would require a separately
+accepted, cost-bounded evaluation lane with exact model/prompt identity,
+calibration against human judgments, and redacted receipts.
+
+Prompts and expected behaviors in the accepted corpus are synthetic or fully
+redacted. Candidate responses may be viewed transiently by the scorer, but raw
+prompt and response text is not written to repository reports, receipts, test
+fixtures, logs, or benchmark artifacts. Durable evidence contains case refs,
+category labels, blinded order, bounded numeric/rubric decisions, content
+hashes, aggregate statistics, and safe failure reason codes. Any tooling that
+cannot enforce that separation fails the acceptance gate.
 
 ## 8. Outcome Learning Without Replacing The Model
 
@@ -278,8 +345,9 @@ hosted CI/review, merge, proportional post-merge verification, and cleanup.
 - Map every requirement in this plan to the existing Turn Contract Router,
   capability registry, skill disclosure, chat route, and authority system.
 - Establish the versioned evaluation corpus and benchmark harness.
-- Record baseline routing accuracy, chat latency, catalog scale, and current
-  failure categories.
+- Record baseline routing accuracy, paired same-model ordinary-chat quality,
+  time to first token, routing latency, catalog scale, and current failure
+  categories under frozen model, inference, and prompt-format identities.
 - Do not change runtime behavior in this phase unless required to make
   measurement deterministic.
 
@@ -312,9 +380,14 @@ hosted CI/review, merge, proportional post-merge verification, and cleanup.
 ### TAW-04 — Chat integration and clarification behavior
 
 - Preserve the existing direct-chat path and zero extra model-call rule.
+- Introduce the awareness decision in evidence-only shadow mode before it can
+  affect model context or operator-visible routing.
 - Supply only selected typed manifests to the local model when needed.
 - Add focused clarification for truly ambiguous material effects.
 - Prove no hidden skill activation, execution, provider call, or web fetch.
+- Add one explicit safe-disable back to the accepted legacy router; corrupt,
+  stale, unreadable, or over-budget awareness state must preserve ordinary
+  no-tool chat while blocking capability proposal and execution.
 - Keep CLI/API inspection parity with the shared Python Core.
 
 ### TAW-05 — Outcome evidence and governed improvement
@@ -342,6 +415,11 @@ hosted CI/review, merge, proportional post-merge verification, and cleanup.
 
 - Run the full evaluation corpus, performance budgets, context-budget tests,
   fault injection, and stale-cache recovery.
+- Run blind paired ordinary-chat scoring against the frozen direct-local-model
+  baseline and report per-dimension non-inferiority with statistical
+  uncertainty.
+- Exercise shadow-to-active promotion, safe-disable, rollback, and corrupt-index
+  recovery without changing the local model or broadening authority.
 - Audit false positives, false negatives, ambiguity, authority separation, and
   multilingual/paraphrase behavior.
 - Batch all findings into one final candidate and rerun broad qualification
@@ -371,7 +449,19 @@ The implementation must measure rather than assume:
 - which composed requests require clarification instead of a multi-step
   proposal; and
 - whether the current chat UI can expose optional diagnostics without harming
-  the normal conversational experience.
+  the normal conversational experience;
+- the benchmark sample size required for stable per-category routing and paired
+  chat-quality confidence intervals; and
+- the human-evaluation staffing, agreement target, and adjudication procedure
+  needed to make blind scoring credible without persisting raw conversations;
+- which supported local-model backends provide reproducible seeding and how
+  many repeated pairs are required when they do not; and
+- how supported local-model prompt formats alter manifest presentation without
+  changing the underlying capability or authority contract;
+- the minimum shadow-observation sample and category coverage required before
+  activation; and
+- the operator-facing recovery language when awareness is safely disabled but
+  ordinary chat remains available.
 
 Unknowns are not authority. If a safe answer requires materially new runtime
 authority, the phase must stop at the exact minimal proposal and evidence.
@@ -400,11 +490,15 @@ The program is complete only when:
 1. every phase is merged and verified on exact current main;
 2. the quality and performance thresholds are met with an inspectable corpus;
 3. ordinary chat retains the no-tool fast path and conversational behavior;
-4. relevant tools can be discovered from meaning and typed capability evidence,
+4. paired same-model evaluation proves ordinary-chat quality is non-inferior
+   within the accepted threshold and reports its statistical uncertainty;
+5. relevant tools can be discovered from meaning and typed capability evidence,
    not only exact commands;
-5. familiarity, availability, authority, and outcome truth are distinct;
-6. unsupported and uncertain states fail closed without fabricated capability;
-7. the local model remains the language/reasoning engine;
-8. no new authority was implied by the plan or implementation;
-9. docs, CLI/API parity, redaction, and evidence are current; and
-10. the queue may proceed to the final GoatCitadel comparison.
+6. familiarity, availability, authority, and outcome truth are distinct;
+7. unsupported and uncertain states fail closed without fabricated capability;
+8. the local model remains the language/reasoning engine;
+9. no new authority was implied by the plan or implementation;
+10. shadow promotion, safe-disable, corrupt-index fallback, and rollback are
+    proven without replacing or reconfiguring the local model;
+11. docs, CLI/API parity, redaction, and evidence are current; and
+12. the queue may proceed to the final GoatCitadel comparison.
