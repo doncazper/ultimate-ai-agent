@@ -271,16 +271,19 @@ def test_local_diagnostic_retention_rejects_non_enumerable_owner_root(
     root.mkdir(mode=0o700)
     root.chmod(0o300)
 
-    with pytest.raises(
-        local_lane.LocalVerificationLaneError,
-        match="diagnostic boundary is unsafe",
-    ):
-        local_lane._retain_diagnostics(
-            None,
-            diagnostic_root=root,
-            lane_ref="ci-pytest-shards",
-            repository_sha=SHA,
-        )
+    try:
+        with pytest.raises(
+            local_lane.LocalVerificationLaneError,
+            match="diagnostic boundary is unsafe",
+        ):
+            local_lane._retain_diagnostics(
+                None,
+                diagnostic_root=root,
+                lane_ref="ci-pytest-shards",
+                repository_sha=SHA,
+            )
+    finally:
+        root.chmod(0o700)
 
 
 def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
