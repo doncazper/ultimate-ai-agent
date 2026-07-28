@@ -39,10 +39,12 @@ attempt ledger and owner-only exact-execution fence; they are not separate
 command definitions. Local entry points use an owner-scoped
 `/private/tmp/uaa-verification-execution-fence-v2-<uid>` store so the
 repository-scoped runner's owner-only fence cannot block a different local
-account; the shared attempt ledger still prevents duplicate exact-state work.
-Starting one consumes the single complete-pytest or
-TypeScript resource attempt for that SHA and dependency state, so GitHub must
-receive a new commit before it can perform the authoritative attempt. `make
+account. Complete pytest and TypeScript verification use separate host-wide
+locks and separate attempt ledgers, so those independent resource classes may
+run concurrently while duplicate work within either class still fails closed.
+Starting one consumes the single attempt for its own resource class, SHA, and
+dependency state, so GitHub must receive a new commit before it can perform the
+authoritative attempt for that class. `make
 verify`, `make verify-dev-fast`, `make verify-dev-sharded`, and `make
 verify-local` also include the canonical complete-pytest lane and consume that
 attempt. `test-sharded-profile` is an alternative first and only complete run

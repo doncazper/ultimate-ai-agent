@@ -24,8 +24,20 @@ from scripts.verification.ci_fallback_contracts import (
 FULL_SUITE_SHARED_DIRECTORY = Path("/tmp/uaa-ci-full-suite.v3")
 FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "active.lock"
 FULL_SUITE_ATTEMPT_PATH = FULL_SUITE_SHARED_DIRECTORY / "attempts.json"
+TYPESCRIPT_TYPECHECK_LOCK_PATH = (
+    FULL_SUITE_SHARED_DIRECTORY / "typescript-typecheck.lock"
+)
+TYPESCRIPT_TYPECHECK_ATTEMPT_PATH = (
+    FULL_SUITE_SHARED_DIRECTORY / "typescript-typecheck-attempts.json"
+)
 SHARED_FULL_SUITE_DIRECTORY_MODE = 0o770
 SHARED_FULL_SUITE_FILE_MODE = 0o660
+FULL_SUITE_RESOURCE_REFS = frozenset(
+    {
+        "resource-ref:complete-pytest",
+        "resource-ref:typescript-typecheck",
+    }
+)
 
 
 class FullSuiteLockUnavailableError(RuntimeError):
@@ -34,6 +46,23 @@ class FullSuiteLockUnavailableError(RuntimeError):
 
 class FullSuiteAttemptAlreadyRecordedError(RuntimeError):
     """Raised when an execution plane already consumed its exact-SHA attempt."""
+
+
+def full_suite_resource_paths(
+    resource_ref: str,
+    *,
+    root: Path = FULL_SUITE_SHARED_DIRECTORY,
+) -> tuple[Path, Path]:
+    """Return the independent lock and attempt ledger for one resource class."""
+
+    if resource_ref == "resource-ref:complete-pytest":
+        return root / "active.lock", root / "attempts.json"
+    if resource_ref == "resource-ref:typescript-typecheck":
+        return (
+            root / "typescript-typecheck.lock",
+            root / "typescript-typecheck-attempts.json",
+        )
+    raise ValueError("full-suite resource ref is invalid")
 
 
 def _prepare_shared_full_suite_directory(path: Path) -> None:
@@ -420,23 +449,47 @@ class AttemptLedger:
 class FullSuiteLock:
     def __init__(
         self,
-        path: Path = FULL_SUITE_LOCK_PATH,
+        path: Path | None = None,
         *,
         wait_seconds: float = 0,
         repository_sha: str | None = None,
         attempt_scope: str = "private",
         resource_attempt_fingerprint: str | None = None,
-        attempt_path: Path = FULL_SUITE_ATTEMPT_PATH,
+        attempt_path: Path | None = None,
         shared_across_accounts: bool | None = None,
+        resource_ref: str = "resource-ref:complete-pytest",
     ) -> None:
+        if resource_ref not in FULL_SUITE_RESOURCE_REFS:
+            raise ValueError("full-suite resource ref is invalid")
+        resource_lock_path, resource_attempt_path = full_suite_resource_paths(
+            resource_ref
+        )
+        if path is None:
+            path = resource_lock_path
+        elif path in {FULL_SUITE_LOCK_PATH, TYPESCRIPT_TYPECHECK_LOCK_PATH} and (
+            path != resource_lock_path
+        ):
+            raise ValueError("full-suite lock path does not match resource ref")
+        if attempt_path is None:
+            attempt_path = resource_attempt_path
+        elif (
+            attempt_path
+            in {
+                FULL_SUITE_ATTEMPT_PATH,
+                TYPESCRIPT_TYPECHECK_ATTEMPT_PATH,
+            }
+            and attempt_path != resource_attempt_path
+        ):
+            raise ValueError("full-suite attempt path does not match resource ref")
         self.path = path
         self.wait_seconds = wait_seconds
         self.repository_sha = repository_sha
         self.attempt_scope = attempt_scope
         self.resource_attempt_fingerprint = resource_attempt_fingerprint
         self.attempt_path = attempt_path
+        self.resource_ref = resource_ref
         self.shared_across_accounts = (
-            path == FULL_SUITE_LOCK_PATH
+            path in {FULL_SUITE_LOCK_PATH, TYPESCRIPT_TYPECHECK_LOCK_PATH}
             if shared_across_accounts is None
             else shared_across_accounts
         )
@@ -534,6 +587,31 @@ class FullSuiteLock:
             for record in records:
                 if not isinstance(record, dict):
                     raise ValueError("full-suite attempt ledger is corrupt")
+                recorded_resource_ref = record.get("resource_ref")
+                legacy_complete_pytest_record = (
+                    recorded_resource_ref is None
+                    and self.resource_ref == "resource-ref:complete-pytest"
+                    and set(record)
+                    == {
+                        "repository_sha",
+                        "attempt_scope",
+                        "resource_attempt_fingerprint",
+                        "attempt_ref",
+                    }
+                )
+                current_resource_record = (
+                    recorded_resource_ref == self.resource_ref
+                    and set(record)
+                    == {
+                        "repository_sha",
+                        "attempt_scope",
+                        "resource_ref",
+                        "resource_attempt_fingerprint",
+                        "attempt_ref",
+                    }
+                )
+                if not legacy_complete_pytest_record and not current_resource_record:
+                    raise ValueError("full-suite attempt ledger is corrupt")
                 base = {
                     "repository_sha": record.get("repository_sha"),
                     "attempt_scope": record.get("attempt_scope"),
@@ -541,6 +619,8 @@ class FullSuiteLock:
                         "resource_attempt_fingerprint"
                     ),
                 }
+                if current_resource_record:
+                    base["resource_ref"] = recorded_resource_ref
                 expected = "attempt-ref:ci:" + hashlib.sha256(
                     json.dumps(base, sort_keys=True, separators=(",", ":")).encode()
                 ).hexdigest()
@@ -588,6 +668,7 @@ class FullSuiteLock:
         record = {
             "repository_sha": self.repository_sha,
             "attempt_scope": self.attempt_scope,
+            "resource_ref": self.resource_ref,
             "resource_attempt_fingerprint": self.resource_attempt_fingerprint,
         }
         record["attempt_ref"] = "attempt-ref:ci:" + hashlib.sha256(

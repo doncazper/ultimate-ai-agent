@@ -1466,7 +1466,7 @@ def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
             "result_status": "passed",
         },
     )
-    lock_attempts: list[tuple[str, object]] = []
+    lock_attempts: list[tuple[str, object, object]] = []
 
     class LocalFrontendLock(_FakeFullSuiteLock):
         def __init__(self, **kwargs: object) -> None:
@@ -1474,6 +1474,7 @@ def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
                 (
                     str(kwargs.get("attempt_scope")),
                     kwargs.get("resource_attempt_fingerprint"),
+                    kwargs.get("resource_ref"),
                 )
             )
 
@@ -1529,7 +1530,11 @@ def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
     assert receipt["status"] == command_status
     assert receipt["command_results"][0]["status"] == command_status
     assert lock_attempts == [
-        ("local", local_identity.exclusive_resource_attempt_fingerprint)
+        (
+            "local",
+            local_identity.exclusive_resource_attempt_fingerprint,
+            "resource-ref:typescript-typecheck",
+        )
     ]
     assert (
         decision.disposition
@@ -2963,9 +2968,11 @@ def test_pytest_lane_uses_host_lock_with_exact_sha_and_execution_plane(
     resource_attempt_fingerprint = captured[0].pop(
         "resource_attempt_fingerprint"
     )
+    resource_ref = captured[0].pop("resource_ref")
     assert isinstance(resource_attempt_fingerprint, str)
     assert len(resource_attempt_fingerprint) == 64
     int(resource_attempt_fingerprint, 16)
+    assert resource_ref == "resource-ref:complete-pytest"
     assert captured == [
         {
             "wait_seconds": runner.GITHUB_FULL_SUITE_LOCK_WAIT_SECONDS,

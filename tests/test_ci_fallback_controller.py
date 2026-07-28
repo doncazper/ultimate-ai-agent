@@ -29,7 +29,10 @@ from scripts.verification.ci_command_manifest import (
     definition_fingerprint,
 )
 from scripts.verification.ci_fallback_storage import (
+    FULL_SUITE_ATTEMPT_PATH,
+    FULL_SUITE_LOCK_PATH,
     FullSuiteAttemptAlreadyRecordedError,
+    full_suite_resource_paths,
 )
 from scripts.verification.ci_fallback_execution import RemoteHeadAttestationError
 from scripts.verification.ci_fallback_private_scope import (
@@ -827,6 +830,143 @@ def test_concurrent_private_full_suites_are_denied_and_stale_lock_recovers(
             FullSuiteLock(lock_path).__enter__()
     with FullSuiteLock(lock_path):
         pass
+
+
+def test_independent_resource_classes_have_independent_locks_and_attempt_ledgers(
+    tmp_path: Path,
+) -> None:
+    pytest_lock_path, pytest_attempt_path = full_suite_resource_paths(
+        "resource-ref:complete-pytest",
+        root=tmp_path,
+    )
+    typescript_lock_path, typescript_attempt_path = full_suite_resource_paths(
+        "resource-ref:typescript-typecheck",
+        root=tmp_path,
+    )
+
+    assert pytest_lock_path != typescript_lock_path
+    assert pytest_attempt_path != typescript_attempt_path
+    typescript_lock = FullSuiteLock(
+        resource_ref="resource-ref:typescript-typecheck"
+    )
+    assert typescript_lock.path.name == "typescript-typecheck.lock"
+    assert typescript_lock.attempt_path.name == "typescript-typecheck-attempts.json"
+
+    with FullSuiteLock(
+        pytest_lock_path,
+        attempt_path=pytest_attempt_path,
+        resource_ref="resource-ref:complete-pytest",
+    ):
+        with FullSuiteLock(
+            typescript_lock_path,
+            attempt_path=typescript_attempt_path,
+            resource_ref="resource-ref:typescript-typecheck",
+        ):
+            pass
+        with pytest.raises(RuntimeError, match="already active"):
+            FullSuiteLock(
+                pytest_lock_path,
+                attempt_path=pytest_attempt_path,
+                resource_ref="resource-ref:complete-pytest",
+            ).__enter__()
+
+    for resource_ref, lock_path, attempt_path in (
+        (
+            "resource-ref:complete-pytest",
+            pytest_lock_path,
+            pytest_attempt_path,
+        ),
+        (
+            "resource-ref:typescript-typecheck",
+            typescript_lock_path,
+            typescript_attempt_path,
+        ),
+    ):
+        with FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="local",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+            attempt_path=attempt_path,
+            resource_ref=resource_ref,
+        ) as resource_lock:
+            resource_lock.ensure_start_available()
+            resource_lock.record_start()
+
+    with pytest.raises(FullSuiteAttemptAlreadyRecordedError):
+        with FullSuiteLock(
+            pytest_lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="local",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+            attempt_path=pytest_attempt_path,
+            resource_ref="resource-ref:complete-pytest",
+        ) as pytest_lock:
+            pytest_lock.ensure_start_available()
+
+    with pytest.raises(ValueError, match="attempt ledger is corrupt"):
+        with FullSuiteLock(
+            typescript_lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="local",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_B,
+            attempt_path=pytest_attempt_path,
+            resource_ref="resource-ref:typescript-typecheck",
+        ) as substituted_lock:
+            substituted_lock.ensure_start_available()
+
+
+def test_full_suite_resource_paths_reject_unknown_resources(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="resource ref is invalid"):
+        full_suite_resource_paths("resource-ref:unknown", root=tmp_path)
+
+
+def test_canonical_resource_paths_cannot_be_cross_bound() -> None:
+    with pytest.raises(ValueError, match="lock path does not match resource ref"):
+        FullSuiteLock(
+            FULL_SUITE_LOCK_PATH,
+            resource_ref="resource-ref:typescript-typecheck",
+        )
+    with pytest.raises(ValueError, match="attempt path does not match resource ref"):
+        FullSuiteLock(
+            resource_ref="resource-ref:typescript-typecheck",
+            attempt_path=FULL_SUITE_ATTEMPT_PATH,
+        )
+
+
+def test_existing_complete_pytest_attempt_ledger_remains_compatible(
+    tmp_path: Path,
+) -> None:
+    lock_path = tmp_path / "pytest.lock"
+    attempt_path = tmp_path / "attempts.json"
+    legacy_record = {
+        "repository_sha": SHA_A,
+        "attempt_scope": "local",
+        "resource_attempt_fingerprint": RESOURCE_ATTEMPT_A,
+    }
+    legacy_record["attempt_ref"] = "attempt-ref:ci:" + hashlib.sha256(
+        json.dumps(
+            legacy_record,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    attempt_path.write_text(
+        json.dumps([legacy_record], sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    attempt_path.chmod(0o600)
+
+    with pytest.raises(FullSuiteAttemptAlreadyRecordedError):
+        with FullSuiteLock(
+            lock_path,
+            repository_sha=SHA_A,
+            attempt_scope="local",
+            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+            attempt_path=attempt_path,
+            resource_ref="resource-ref:complete-pytest",
+        ) as lock:
+            lock.ensure_start_available()
 
 
 def test_full_suite_attempt_bound_is_shared_across_local_accounts(
