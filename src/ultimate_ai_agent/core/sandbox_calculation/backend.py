@@ -35,6 +35,7 @@ BACKEND_REF = "backend-ref:docker-desktop-sealed-calculation-v1"
 PLATFORM_REF = "platform-ref:macos-docker-desktop-linux-vm"
 CONTAINER_LABEL = "com.ultimate-ai-agent.sealed-calculation=v1"
 CONTAINER_NAME_PREFIX = "uaa-sealed-calculation-"
+CONTAINER_NAME_RE = re.compile(r"uaa-sealed-calculation-[0-9a-f]{20}\Z")
 BASE_IMAGE_REF = (
     "python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0"
 )
@@ -271,9 +272,7 @@ class SealedCalculationExecutionHandle:
 
     def settle(self) -> None:
         if self._settled or not self._committed:
-            raise SealedCalculationBackendError(
-                "SEALED_CALCULATION_SETTLEMENT_INVALID"
-            )
+            raise SealedCalculationBackendError("SEALED_CALCULATION_SETTLEMENT_INVALID")
         self._settled = True
 
     def _collect_result(self) -> SealedCalculationResult:
@@ -1391,6 +1390,8 @@ class DockerSealedCalculationBackend:
         try:
             self._docker(["rm", "--force", container_name], timeout=3.0)
         except SealedCalculationBackendError as exc:
+            if self._inspect_container_or_none(container_name) is None:
+                return
             raise SealedCalculationCleanupUnconfirmedError(
                 "SEALED_CALCULATION_CLEANUP_UNCONFIRMED"
             ) from exc
@@ -1430,13 +1431,11 @@ class DockerSealedCalculationBackend:
                 "SEALED_CALCULATION_CONTAINER_INSPECTION_OVERSIZED"
             )
         if result.returncode != 0:
-            try:
-                self._inspect_daemon_payload()
-            except SealedCalculationBackendError as exc:
-                raise SealedCalculationCleanupUnconfirmedError(
-                    "SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED"
-                ) from exc
-            return None
+            if self._exact_container_absence_confirmed(container_name):
+                return None
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED"
+            )
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as exc:
@@ -1448,6 +1447,54 @@ class DockerSealedCalculationBackend:
                 "SEALED_CALCULATION_CONTAINER_INSPECTION_INVALID"
             )
         return payload
+
+    def _exact_container_absence_confirmed(self, container_name: str) -> bool:
+        if CONTAINER_NAME_RE.fullmatch(container_name) is None:
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_CONTAINER_NAME_INVALID"
+            )
+        command = [
+            str(self.config.docker_binary),
+            "--host",
+            self.config.docker_host,
+            "container",
+            "ls",
+            "--all",
+            "--filter",
+            f"name=^/{container_name}$",
+            "--format",
+            "{{.Names}}",
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                check=False,
+                text=True,
+                capture_output=True,
+                env=self._docker_env,
+                timeout=3.0,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED"
+            ) from exc
+        if (
+            result.returncode != 0
+            or len(result.stdout) > 4096
+            or len(result.stderr) > 4096
+            or result.stderr.strip()
+        ):
+            raise SealedCalculationCleanupUnconfirmedError(
+                "SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED"
+            )
+        names = result.stdout.splitlines()
+        if not names:
+            return True
+        if names == [container_name]:
+            return False
+        raise SealedCalculationCleanupUnconfirmedError(
+            "SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED"
+        )
 
     @staticmethod
     def _container_name(execution_ref: str) -> str:

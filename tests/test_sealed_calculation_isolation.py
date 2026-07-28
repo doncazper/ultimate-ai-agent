@@ -571,3 +571,169 @@ def test_ambiguous_create_timeout_requires_exact_container_inspection(
             "execution-ref:sealed-calculation:create-timeout"
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("post_remove_outcome", "cleanup_confirmed"),
+    [
+        ("absent", True),
+        ("present", False),
+        ("inspection-unavailable", False),
+    ],
+)
+def test_ambiguous_remove_failure_reconciles_exact_container_postcondition(
+    monkeypatch,
+    post_remove_outcome: str,
+    cleanup_confirmed: bool,
+) -> None:
+    backend = object.__new__(DockerSealedCalculationBackend)
+    backend.config = SimpleNamespace(image_id="sha256:" + ("a" * 64))
+    container_name = "uaa-sealed-calculation-reconciled"
+    execution_ref = "execution-ref:sealed-calculation:reconciled"
+    inspection = {
+        "Config": {
+            "Labels": {
+                "com.ultimate-ai-agent.execution": hash_text(execution_ref)[:24],
+                "com.ultimate-ai-agent.sealed-calculation": "v1",
+            }
+        },
+        "Image": backend.config.image_id,
+    }
+    inspection_calls = 0
+
+    def inspect_container(_container_name: str):
+        nonlocal inspection_calls
+        inspection_calls += 1
+        if inspection_calls == 1 or post_remove_outcome == "present":
+            return inspection
+        if post_remove_outcome == "absent":
+            return None
+        raise SealedCalculationCleanupUnconfirmedError(
+            "SEALED_CALCULATION_CONTAINER_INSPECTION_UNAVAILABLE"
+        )
+
+    monkeypatch.setattr(backend, "_inspect_container_or_none", inspect_container)
+    monkeypatch.setattr(
+        backend,
+        "_docker",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            SealedCalculationBackendError("SEALED_CALCULATION_DOCKER_UNAVAILABLE")
+        ),
+    )
+
+    if cleanup_confirmed:
+        backend._remove_owned_container(container_name, execution_ref)  # noqa: SLF001
+    else:
+        with pytest.raises(SealedCalculationCleanupUnconfirmedError):
+            backend._remove_owned_container(  # noqa: SLF001
+                container_name,
+                execution_ref,
+            )
+
+    assert inspection_calls == 2
+
+
+@pytest.mark.parametrize(
+    ("inventory_outcome", "absence_confirmed"),
+    [
+        ("absent", True),
+        ("present", False),
+        ("unrelated-name", False),
+        ("command-failed", False),
+        ("stderr-present", False),
+        ("timeout", False),
+        ("os-error", False),
+        ("oversized-stdout", False),
+        ("oversized-stderr", False),
+    ],
+)
+def test_nonzero_inspect_requires_exact_name_inventory_absence(
+    monkeypatch,
+    inventory_outcome: str,
+    absence_confirmed: bool,
+) -> None:
+    backend = object.__new__(DockerSealedCalculationBackend)
+    backend.config = SimpleNamespace(
+        docker_binary=Path("/usr/local/bin/docker"),
+        docker_host="unix:///safe/docker.sock",
+    )
+    backend._docker_env = {}  # noqa: SLF001
+    container_name = backend._container_name(  # noqa: SLF001
+        "execution-ref:sealed-calculation:inventory-proof"
+    )
+    commands: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs):
+        commands.append(command)
+        if "inspect" in command:
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                stdout="",
+                stderr="inspection failed",
+            )
+        assert command[-3:] == [
+            f"name=^/{container_name}$",
+            "--format",
+            "{{.Names}}",
+        ]
+        if inventory_outcome == "timeout":
+            raise subprocess.TimeoutExpired(command, 3.0)
+        if inventory_outcome == "os-error":
+            raise OSError("inventory unavailable")
+        if inventory_outcome == "absent":
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if inventory_outcome == "present":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=f"{container_name}\n",
+                stderr="",
+            )
+        if inventory_outcome == "unrelated-name":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="uaa-sealed-calculation-unrelated\n",
+                stderr="",
+            )
+        if inventory_outcome == "command-failed":
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                stdout="",
+                stderr="inventory failed",
+            )
+        if inventory_outcome == "oversized-stdout":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="x" * 4097,
+                stderr="",
+            )
+        if inventory_outcome == "oversized-stderr":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="",
+                stderr="x" * 4097,
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="",
+            stderr="inventory warning",
+        )
+
+    monkeypatch.setattr(backend_module.subprocess, "run", run)
+
+    if absence_confirmed:
+        assert backend._inspect_container_or_none(container_name) is None  # noqa: SLF001
+    else:
+        with pytest.raises(
+            SealedCalculationCleanupUnconfirmedError,
+            match="SEALED_CALCULATION_CONTAINER_ABSENCE_UNCONFIRMED",
+        ):
+            backend._inspect_container_or_none(container_name)  # noqa: SLF001
+
+    assert len(commands) == 2

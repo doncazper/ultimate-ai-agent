@@ -51,8 +51,12 @@ configuration, receives the runner `READY` frame, commits the transient input,
 and verifies the matching `INPUT_ACCEPTED` hash. Only then does it append the
 runtime-start-confirmed receipt. A succeeded receipt requires runtime start,
 input commitment, result collection, and verified absence of the exact owned
-container. Unknown execution or cleanup truth remains recovery-required and is
-never automatically replayed.
+container. If the bounded removal or inspection command reports failure,
+cleanup is accepted only when an immediate exact-name container inventory
+proves that container absent; a still-present container or unavailable
+inventory remains recovery-required. This reconciliation records only
+content-free status and safe refs. Unknown execution or cleanup truth is never
+automatically replayed.
 
 ## Isolation profile
 

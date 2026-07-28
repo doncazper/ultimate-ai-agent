@@ -11,7 +11,7 @@ _SHELL_TRUE_FRAGMENT = "shell" + "=True"
 _OS_SYSTEM_FRAGMENT = "os." + "system("
 _BACKEND_REL = "src/ultimate_ai_agent/core/sandbox_calculation/backend.py"
 _BACKEND_SOURCE_SHA256 = (
-    "7e6cc369c343d138640a335f2652c9e8bca08255cee9b7a004a4af203f2d2ec7"
+    "149e1795a22abc6cb68c327537ccc9889e7b4b69a1152358d83c3a27321d0e5d"
 )
 _ALLOWED_SUBPROCESS_ATTRIBUTES = frozenset(
     {
@@ -66,7 +66,7 @@ def is_exact_sealed_calculation_subprocess_site(
         or fragment not in {_RUN_FRAGMENT, _POPEN_FRAGMENT}
         or hashlib.sha256(source.encode("utf-8")).hexdigest()
         != _BACKEND_SOURCE_SHA256
-        or source.count(_RUN_FRAGMENT) != 4
+        or source.count(_RUN_FRAGMENT) != 5
         or source.count(_POPEN_FRAGMENT) != 1
         or _SHELL_TRUE_FRAGMENT in source
         or _OS_SYSTEM_FRAGMENT in source
@@ -122,7 +122,7 @@ def is_exact_sealed_calculation_subprocess_site(
                 and keyword.value.value is True
             ):
                 return False
-    return subprocess_imports == 1 and run_calls == 4 and popen_calls == 1
+    return subprocess_imports == 1 and run_calls == 5 and popen_calls == 1
 
 
 def is_exact_sealed_calculation_forbidden_fragment_exception(
