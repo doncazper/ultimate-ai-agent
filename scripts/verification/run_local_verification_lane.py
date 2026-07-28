@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -59,6 +60,8 @@ DEFAULT_DIAGNOSTIC_ROOT = Path(
 MAX_RETAINED_DIAGNOSTIC_RUNS = 5
 MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT = 64 * 1024 * 1024
 MAX_DIAGNOSTIC_ENVELOPE_BYTES = 1024 * 1024
+DIAGNOSTIC_LOCK_TIMEOUT_SECONDS = 5.0
+DIAGNOSTIC_LOCK_POLL_SECONDS = 0.05
 SAFE_COMMAND_REF_PATTERN = re.compile(r"^command:[a-z0-9][a-z0-9._:-]{0,127}$")
 RMTREE_AVOIDS_SYMLINK_ATTACKS = shutil.rmtree.avoids_symlink_attacks
 DIAGNOSTIC_THREAD_LOCK = threading.Lock()
@@ -129,14 +132,22 @@ def _validate_pinned_diagnostic_root_path(path: Path, descriptor: int) -> None:
 
 @contextmanager
 def _locked_diagnostic_root(root_descriptor: int):
-    with DIAGNOSTIC_THREAD_LOCK:
-        descriptor = os.open(
-            ".uaa-diagnostic-retention.lock",
-            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
-            0o600,
-            dir_fd=root_descriptor,
+    if not DIAGNOSTIC_THREAD_LOCK.acquire(
+        timeout=DIAGNOSTIC_LOCK_TIMEOUT_SECONDS
+    ):
+        raise LocalVerificationLaneError(
+            "local verification diagnostic lock is unavailable"
         )
+    descriptor: int | None = None
+    lock_acquired = False
+    try:
         try:
+            descriptor = os.open(
+                ".uaa-diagnostic-retention.lock",
+                os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=root_descriptor,
+            )
             metadata = os.fstat(descriptor)
             if (
                 not stat.S_ISREG(metadata.st_mode)
@@ -147,16 +158,38 @@ def _locked_diagnostic_root(root_descriptor: int):
                 raise LocalVerificationLaneError(
                     "local verification diagnostic lock is unsafe"
                 )
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            deadline = time.monotonic() + DIAGNOSTIC_LOCK_TIMEOUT_SECONDS
+            while True:
+                try:
+                    fcntl.flock(
+                        descriptor,
+                        fcntl.LOCK_EX | fcntl.LOCK_NB,
+                    )
+                    lock_acquired = True
+                    break
+                except BlockingIOError:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise LocalVerificationLaneError(
+                            "local verification diagnostic lock is unavailable"
+                        ) from None
+                    time.sleep(min(DIAGNOSTIC_LOCK_POLL_SECONDS, remaining))
+        except OSError as exc:
+            raise LocalVerificationLaneError(
+                "local verification diagnostic lock is unavailable"
+            ) from exc
+        try:
             yield
         finally:
-            try:
+            if lock_acquired:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
-            finally:
-                os.close(descriptor)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        DIAGNOSTIC_THREAD_LOCK.release()
 
 
-def _retained_diagnostic_directory_names(
+def _retained_diagnostic_entry_names(
     root_descriptor: int,
 ) -> tuple[str, ...]:
     retained: list[tuple[int, str]] = []
@@ -183,8 +216,23 @@ def _retained_diagnostic_directory_names(
             raise LocalVerificationLaneError(
                 "local verification diagnostics cannot be bounded"
             ) from exc
-        if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
-            continue
+        is_current_envelope = (
+            stat.S_ISREG(metadata.st_mode)
+            and metadata.st_uid == os.getuid()
+            and metadata.st_nlink == 1
+            and not metadata.st_mode & 0o077
+            and metadata.st_size <= MAX_DIAGNOSTIC_ENVELOPE_BYTES
+        )
+        is_legacy_envelope = (
+            stat.S_ISDIR(metadata.st_mode)
+            and not stat.S_ISLNK(metadata.st_mode)
+            and metadata.st_uid == os.getuid()
+            and not metadata.st_mode & 0o077
+        )
+        if not is_current_envelope and not is_legacy_envelope:
+            raise LocalVerificationLaneError(
+                "local verification diagnostics cannot be bounded"
+            )
         retained.append((metadata.st_mtime_ns, name))
     return tuple(
         name
@@ -196,19 +244,34 @@ def _retained_diagnostic_directory_names(
     )
 
 
-def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
+def _retained_diagnostic_entries(root: Path) -> tuple[Path, ...]:
     with _pinned_diagnostic_root(root) as descriptor:
-        retained = _retained_diagnostic_directory_names(descriptor)
+        retained = _retained_diagnostic_entry_names(descriptor)
         _validate_pinned_diagnostic_root_path(root, descriptor)
     return tuple(root / name for name in retained)
 
 
-def _remove_diagnostic_directory_at(
+def _remove_diagnostic_entry_at(
     root_descriptor: int,
     name: str,
 ) -> None:
     try:
-        shutil.rmtree(name, dir_fd=root_descriptor)
+        metadata = os.stat(name, dir_fd=root_descriptor, follow_symlinks=False)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostics cannot be bounded"
+        ) from exc
+    try:
+        if stat.S_ISDIR(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode):
+            shutil.rmtree(name, dir_fd=root_descriptor)
+        elif stat.S_ISREG(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode):
+            os.unlink(name, dir_fd=root_descriptor)
+        else:
+            raise LocalVerificationLaneError(
+                "local verification diagnostics cannot be bounded"
+            )
     except FileNotFoundError:
         pass
     except OSError as exc:
@@ -230,13 +293,13 @@ def _remove_diagnostic_directory_at(
     raise LocalVerificationLaneError("local verification diagnostics cannot be bounded")
 
 
-def _remove_bound_diagnostic_directory(
+def _remove_bound_diagnostic_entry(
     root_descriptor: int,
     token: str,
-    destination_metadata: os.stat_result | None,
+    envelope_metadata: os.stat_result | None,
 ) -> None:
-    if destination_metadata is None:
-        _remove_diagnostic_directory_at(root_descriptor, token)
+    if envelope_metadata is None:
+        _remove_diagnostic_entry_at(root_descriptor, token)
         return
     try:
         candidates = tuple(os.listdir(root_descriptor))
@@ -258,10 +321,10 @@ def _remove_bound_diagnostic_directory(
                 "local verification diagnostics cannot be bounded"
             ) from exc
         if (
-            metadata.st_dev == destination_metadata.st_dev
-            and metadata.st_ino == destination_metadata.st_ino
+            metadata.st_dev == envelope_metadata.st_dev
+            and metadata.st_ino == envelope_metadata.st_ino
         ):
-            _remove_diagnostic_directory_at(root_descriptor, name)
+            _remove_diagnostic_entry_at(root_descriptor, name)
 
 
 def _retain_diagnostics(
@@ -344,46 +407,43 @@ def _retain_diagnostics(
                 safe_results.append(safe_result)
         payload["command_results"] = safe_results
     with _pinned_diagnostic_root(diagnostic_root) as root_descriptor:
-        destination_descriptor: int | None = None
-        payload_descriptor: int | None = None
-        destination_metadata: os.stat_result | None = None
-        destination_created = False
+        envelope_descriptor: int | None = None
+        envelope_metadata: os.stat_result | None = None
+        envelope_created = False
         try:
             with _locked_diagnostic_root(root_descriptor):
-                os.mkdir(token, mode=0o700, dir_fd=root_descriptor)
-                destination_created = True
-                destination_descriptor = os.open(
+                envelope_descriptor = os.open(
                     token,
-                    os.O_RDONLY
-                    | getattr(os, "O_DIRECTORY", 0)
+                    os.O_RDWR
+                    | os.O_CREAT
+                    | os.O_EXCL
                     | getattr(os, "O_NOFOLLOW", 0),
+                    0o600,
                     dir_fd=root_descriptor,
                 )
-                destination_metadata = os.fstat(destination_descriptor)
+                envelope_created = True
+                envelope_metadata = os.fstat(envelope_descriptor)
                 if (
-                    not stat.S_ISDIR(destination_metadata.st_mode)
-                    or destination_metadata.st_uid != os.getuid()
-                    or destination_metadata.st_mode & 0o077
+                    not stat.S_ISREG(envelope_metadata.st_mode)
+                    or envelope_metadata.st_uid != os.getuid()
+                    or envelope_metadata.st_nlink != 1
+                    or envelope_metadata.st_mode & 0o077
                 ):
                     raise LocalVerificationLaneError(
                         "local verification diagnostics cannot be bounded"
                     )
-                (
-                    payload_descriptor,
-                    payload_metadata,
-                    encoded_payload,
-                ) = _write_diagnostic_payload(
-                    destination_descriptor,
+                encoded_payload = _write_diagnostic_envelope(
+                    envelope_descriptor,
                     payload,
                 )
-                retained = _retained_diagnostic_directory_names(root_descriptor)
+                retained = _retained_diagnostic_entry_names(root_descriptor)
                 if token not in retained:
                     raise LocalVerificationLaneError(
                         "local verification diagnostics cannot be bounded"
                     )
                 for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
-                    _remove_diagnostic_directory_at(root_descriptor, stale)
-                retained = _retained_diagnostic_directory_names(root_descriptor)
+                    _remove_diagnostic_entry_at(root_descriptor, stale)
+                retained = _retained_diagnostic_entry_names(root_descriptor)
                 if (
                     token not in retained
                     or len(retained) > MAX_RETAINED_DIAGNOSTIC_RUNS
@@ -394,20 +454,16 @@ def _retain_diagnostics(
                 _validate_retained_diagnostic_identity(
                     root_descriptor,
                     token,
-                    destination_descriptor,
-                    destination_metadata,
-                    payload_descriptor,
-                    payload_metadata,
+                    envelope_descriptor,
+                    envelope_metadata,
                     encoded_payload,
                 )
                 os.fsync(root_descriptor)
                 _validate_retained_diagnostic_identity(
                     root_descriptor,
                     token,
-                    destination_descriptor,
-                    destination_metadata,
-                    payload_descriptor,
-                    payload_metadata,
+                    envelope_descriptor,
+                    envelope_metadata,
                     encoded_payload,
                 )
                 _validate_pinned_diagnostic_root_path(
@@ -417,91 +473,72 @@ def _retain_diagnostics(
             _validate_retained_diagnostic_identity(
                 root_descriptor,
                 token,
-                destination_descriptor,
-                destination_metadata,
-                payload_descriptor,
-                payload_metadata,
+                envelope_descriptor,
+                envelope_metadata,
                 encoded_payload,
             )
             _validate_pinned_diagnostic_root_path(
                 diagnostic_root,
                 root_descriptor,
             )
-        except (OSError, LocalVerificationLaneError) as exc:
-            if destination_created:
+        except BaseException as exc:
+            if envelope_created:
                 with _locked_diagnostic_root(root_descriptor):
-                    _remove_bound_diagnostic_directory(
+                    _remove_bound_diagnostic_entry(
                         root_descriptor,
                         token,
-                        destination_metadata,
+                        envelope_metadata,
                     )
             if isinstance(exc, LocalVerificationLaneError):
+                raise
+            if not isinstance(exc, OSError):
                 raise
             raise LocalVerificationLaneError(
                 "local verification diagnostics cannot be bounded"
             ) from exc
         finally:
-            if payload_descriptor is not None:
-                os.close(payload_descriptor)
-            if destination_descriptor is not None:
-                os.close(destination_descriptor)
+            if envelope_descriptor is not None:
+                os.close(envelope_descriptor)
     return f"diagnostic-ref:local-verification:{token}"
 
 
 def _validate_retained_diagnostic_identity(
     root_descriptor: int,
     token: str,
-    destination_descriptor: int,
-    destination_metadata: os.stat_result,
-    payload_descriptor: int,
-    payload_metadata: os.stat_result,
+    envelope_descriptor: int,
+    envelope_metadata: os.stat_result,
     encoded_payload: bytes,
 ) -> None:
     try:
-        named_destination = os.stat(
+        named_envelope = os.stat(
             token,
             dir_fd=root_descriptor,
             follow_symlinks=False,
         )
-        current_destination = os.fstat(destination_descriptor)
-        named_payload = os.stat(
-            "diagnostic.json",
-            dir_fd=destination_descriptor,
-            follow_symlinks=False,
-        )
-        current_payload = os.fstat(payload_descriptor)
+        current_envelope = os.fstat(envelope_descriptor)
     except OSError as exc:
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"
         ) from exc
     if any(
-        metadata.st_dev != destination_metadata.st_dev
-        or metadata.st_ino != destination_metadata.st_ino
-        or not stat.S_ISDIR(metadata.st_mode)
-        for metadata in (named_destination, current_destination)
-    ):
-        raise LocalVerificationLaneError(
-            "local verification diagnostics cannot be bounded"
-        )
-    if any(
-        metadata.st_dev != payload_metadata.st_dev
-        or metadata.st_ino != payload_metadata.st_ino
+        metadata.st_dev != envelope_metadata.st_dev
+        or metadata.st_ino != envelope_metadata.st_ino
         or not stat.S_ISREG(metadata.st_mode)
         or metadata.st_uid != os.getuid()
         or metadata.st_nlink != 1
         or metadata.st_mode & 0o077
         or metadata.st_size != len(encoded_payload)
-        for metadata in (named_payload, current_payload)
+        for metadata in (named_envelope, current_envelope)
     ):
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"
         )
     try:
-        os.lseek(payload_descriptor, 0, os.SEEK_SET)
+        os.lseek(envelope_descriptor, 0, os.SEEK_SET)
         observed_payload = bytearray()
         while len(observed_payload) <= len(encoded_payload):
             chunk = os.read(
-                payload_descriptor,
+                envelope_descriptor,
                 min(
                     64 * 1024,
                     len(encoded_payload) + 1 - len(observed_payload),
@@ -520,10 +557,10 @@ def _validate_retained_diagnostic_identity(
         )
 
 
-def _write_diagnostic_payload(
-    destination_descriptor: int,
+def _write_diagnostic_envelope(
+    descriptor: int,
     payload: dict[str, object],
-) -> tuple[int, os.stat_result, bytes]:
+) -> bytes:
     encoded = (
         json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode("utf-8")
@@ -531,12 +568,6 @@ def _write_diagnostic_payload(
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"
         )
-    descriptor = os.open(
-        "diagnostic.json",
-        os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-        0o600,
-        dir_fd=destination_descriptor,
-    )
     try:
         remaining = memoryview(encoded)
         while remaining:
@@ -545,7 +576,6 @@ def _write_diagnostic_payload(
                 raise OSError("diagnostic write did not make progress")
             remaining = remaining[written:]
         os.fsync(descriptor)
-        os.fsync(destination_descriptor)
         metadata = os.fstat(descriptor)
         if (
             not stat.S_ISREG(metadata.st_mode)
@@ -557,9 +587,8 @@ def _write_diagnostic_payload(
             raise LocalVerificationLaneError(
                 "local verification diagnostics cannot be bounded"
             )
-        return descriptor, metadata, encoded
+        return encoded
     except BaseException:
-        os.close(descriptor)
         raise
 
 

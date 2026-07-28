@@ -1419,9 +1419,11 @@ def test_local_exclusive_lane_uses_same_resource_fence_without_output_files(
     )
 
 
-def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
+@pytest.mark.parametrize("command_status", ("pass", "timed_out", "cancelled"))
+def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    command_status: str,
 ) -> None:
     lane_plan = build_plan(
         ROOT,
@@ -1489,7 +1491,7 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         return {
             "command_ref": command.command_ref,
             "category": command.category,
-            "status": "pass",
+            "status": command_status,
             "started_at": "2026-07-15T00:00:00Z",
             "completed_at": "2026-07-15T00:00:01Z",
             "duration_ms": 1_000,
@@ -1522,7 +1524,8 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         typescript_version_ref="typescript-version:7.0.2",
     )
     decision = VerificationExecutionFence(fence_root).begin(local_identity)
-    assert receipt["status"] == "pass"
+    assert receipt["status"] == command_status
+    assert receipt["command_results"][0]["status"] == command_status
     assert lock_attempts == [
         ("local", local_identity.exclusive_resource_attempt_fingerprint)
     ]
@@ -1530,6 +1533,15 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         decision.disposition
         is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
     )
+    if command_status != "pass":
+        assert decision.terminal_proof is not None
+        expected_reason = (
+            "reason-ref:verification:execution-cancelled"
+            if command_status == "cancelled"
+            else "reason-ref:verification:infrastructure-failure"
+        )
+        assert decision.terminal_proof.failure_reason_ref == expected_reason
+        assert decision.terminal_proof.deterministic_failure is False
 
 
 def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
@@ -1866,6 +1878,27 @@ def test_transient_output_metadata_caps_reads_when_file_grows(
         runner._transient_output_metadata(output_path)
 
     assert requested_sizes == [4]
+
+
+def test_transient_output_metadata_uses_bound_inode_after_path_substitution(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    moved_path = tmp_path / "moved-output"
+    original_bytes = b"descriptor-bound-output"
+    output_path.write_bytes(original_bytes)
+    descriptor = os.open(output_path, os.O_RDONLY)
+    try:
+        output_path.rename(moved_path)
+        output_path.write_bytes(b"substituted-output")
+        output_bytes, output_digest = (
+            runner._transient_output_metadata_from_descriptor(descriptor)
+        )
+    finally:
+        os.close(descriptor)
+
+    assert output_bytes == len(original_bytes)
+    assert output_digest == hashlib.sha256(original_bytes).hexdigest()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")

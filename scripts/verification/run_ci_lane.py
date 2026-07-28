@@ -282,34 +282,50 @@ def _transient_output_metadata(path: Path) -> tuple[int, str]:
             or opened.st_uid != metadata.st_uid
         ):
             raise RuntimeError("CI transient output changed before hashing")
-        if opened.st_size > MAX_TRANSIENT_OUTPUT_BYTES:
-            raise RuntimeError("CI transient output exceeds the bounded byte limit")
-        output_bytes = 0
-        digest = hashlib.sha256()
-        while output_bytes < opened.st_size:
-            remaining_bytes = min(
-                opened.st_size - output_bytes,
-                MAX_TRANSIENT_OUTPUT_BYTES - output_bytes,
-            )
-            chunk = os.read(descriptor, min(1024 * 1024, remaining_bytes))
-            if not chunk:
-                break
-            output_bytes += len(chunk)
-            digest.update(chunk)
-        final = os.fstat(descriptor)
-        if (
-            final.st_dev != opened.st_dev
-            or final.st_ino != opened.st_ino
-            or final.st_mode != opened.st_mode
-            or final.st_nlink != opened.st_nlink
-            or final.st_uid != opened.st_uid
-            or final.st_size != opened.st_size
-            or output_bytes != opened.st_size
-        ):
-            raise RuntimeError("CI transient output changed while hashing")
-        return output_bytes, digest.hexdigest()
+        return _transient_output_metadata_from_descriptor(descriptor)
     finally:
         os.close(descriptor)
+
+
+def _transient_output_metadata_from_descriptor(
+    descriptor: int,
+) -> tuple[int, str]:
+    """Hash the exact internally-created transient output inode."""
+
+    opened = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or opened.st_nlink != 1
+        or opened.st_uid != os.getuid()
+    ):
+        raise RuntimeError("CI transient output boundary is unsafe")
+    if opened.st_size > MAX_TRANSIENT_OUTPUT_BYTES:
+        raise RuntimeError("CI transient output exceeds the bounded byte limit")
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    output_bytes = 0
+    digest = hashlib.sha256()
+    while output_bytes < opened.st_size:
+        remaining_bytes = min(
+            opened.st_size - output_bytes,
+            MAX_TRANSIENT_OUTPUT_BYTES - output_bytes,
+        )
+        chunk = os.read(descriptor, min(1024 * 1024, remaining_bytes))
+        if not chunk:
+            break
+        output_bytes += len(chunk)
+        digest.update(chunk)
+    final = os.fstat(descriptor)
+    if (
+        final.st_dev != opened.st_dev
+        or final.st_ino != opened.st_ino
+        or final.st_mode != opened.st_mode
+        or final.st_nlink != opened.st_nlink
+        or final.st_uid != opened.st_uid
+        or final.st_size != opened.st_size
+        or output_bytes != opened.st_size
+    ):
+        raise RuntimeError("CI transient output changed while hashing")
+    return output_bytes, digest.hexdigest()
 
 
 def expected_pytest_shard_plan_ref() -> str:
@@ -521,6 +537,7 @@ def _run_command(
     started_at = _utc_now()
     started = time.perf_counter()
     output_path: Path | None = None
+    output_descriptor: int | None = None
     process: subprocess.Popen[bytes] | None = None
     timed_out = False
     interrupted = False
@@ -567,6 +584,7 @@ def _run_command(
             delete=False,
         ) as output:
             output_path = Path(output.name)
+            output_descriptor = os.dup(output.fileno())
             with installed_signal_handlers(cancellation_signals(), handle_signal):
                 try:
                     if validate_start is not None:
@@ -664,8 +682,16 @@ def _run_command(
             output_bytes = 0
             output_digest = hashlib.sha256(b"").hexdigest()
         else:
-            output_bytes, output_digest = _transient_output_metadata(output_path)
+            if output_descriptor is None:
+                raise RuntimeError(
+                    "CI transient output descriptor is unavailable"
+                ) from None
+            output_bytes, output_digest = (
+                _transient_output_metadata_from_descriptor(output_descriptor)
+            )
     finally:
+        if output_descriptor is not None:
+            os.close(output_descriptor)
         if output_path is not None:
             output_path.unlink(missing_ok=True)
 
@@ -1953,7 +1979,14 @@ def run_lane(
                     evidence_passed = (
                         frontend_collection_payload["result_status"] == "passed"
                     )
-                    if (result["status"] == "pass") != evidence_passed:
+                    terminal_process_status = result["status"] in {
+                        "timed_out",
+                        "cancelled",
+                    }
+                    if (
+                        not terminal_process_status
+                        and (result["status"] == "pass") != evidence_passed
+                    ):
                         result["status"] = "fail"
                         result.update(
                             {
