@@ -226,16 +226,32 @@ def test_local_diagnostic_enumeration_ignores_disappearing_entries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    root.mkdir()
-    missing = root / ("a" * 64)
-    original_iterdir = Path.iterdir
+    root.mkdir(mode=0o700)
+    missing_name = "a" * 64
+    original_listdir = local_lane.os.listdir
+    original_stat = local_lane.os.stat
 
-    def include_disappearing_entry(path: Path):
-        if path == root:
-            return iter((missing,))
-        return original_iterdir(path)
+    def include_disappearing_entry(path: object):
+        if isinstance(path, int):
+            return [missing_name]
+        return original_listdir(path)
 
-    monkeypatch.setattr(Path, "iterdir", include_disappearing_entry)
+    def report_disappearance(
+        path: object,
+        *,
+        dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ):
+        if path == missing_name and dir_fd is not None:
+            raise FileNotFoundError("entry disappeared")
+        return original_stat(
+            path,
+            dir_fd=dir_fd,
+            follow_symlinks=follow_symlinks,
+        )
+
+    monkeypatch.setattr(local_lane.os, "listdir", include_disappearing_entry)
+    monkeypatch.setattr(local_lane.os, "stat", report_disappearance)
 
     assert local_lane._retained_diagnostic_directories(root) == ()
 
@@ -245,17 +261,26 @@ def test_local_diagnostic_enumeration_rejects_unstatable_existing_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    root.mkdir()
+    root.mkdir(mode=0o700)
     entry = root / ("a" * 64)
     entry.mkdir()
-    original_lstat = Path.lstat
+    original_stat = local_lane.os.stat
 
-    def reject_entry(path: Path):
-        if path == entry:
+    def reject_entry(
+        path: object,
+        *,
+        dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ):
+        if path == entry.name and dir_fd is not None:
             raise OSError("metadata unavailable")
-        return original_lstat(path)
+        return original_stat(
+            path,
+            dir_fd=dir_fd,
+            follow_symlinks=follow_symlinks,
+        )
 
-    monkeypatch.setattr(Path, "lstat", reject_entry)
+    monkeypatch.setattr(local_lane.os, "stat", reject_entry)
 
     with pytest.raises(
         local_lane.LocalVerificationLaneError,
@@ -291,17 +316,17 @@ def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    original_iterdir = Path.iterdir
+    original_listdir = local_lane.os.listdir
     calls = 0
 
-    def fail_first_enumeration(path: Path):
+    def fail_first_enumeration(path: object):
         nonlocal calls
-        if path == root and calls == 0:
+        if isinstance(path, int) and calls == 0:
             calls += 1
             raise OSError("enumeration unavailable")
-        return original_iterdir(path)
+        return original_listdir(path)
 
-    monkeypatch.setattr(Path, "iterdir", fail_first_enumeration)
+    monkeypatch.setattr(local_lane.os, "listdir", fail_first_enumeration)
 
     with pytest.raises(
         local_lane.LocalVerificationLaneError,
@@ -331,10 +356,14 @@ def test_local_diagnostic_retention_rolls_back_when_stale_cleanup_fails(
         stale_paths.append(stale)
     original_rmtree = local_lane.shutil.rmtree
 
-    def reject_stale_cleanup(path: Path) -> None:
-        if path in stale_paths:
+    def reject_stale_cleanup(
+        path: object,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
+        if isinstance(path, str) and path in {item.name for item in stale_paths}:
             raise PermissionError("cleanup unavailable")
-        original_rmtree(path)
+        original_rmtree(path, dir_fd=dir_fd)
 
     monkeypatch.setattr(local_lane.shutil, "rmtree", reject_stale_cleanup)
 
@@ -359,10 +388,16 @@ def test_local_diagnostic_cleanup_verifies_root_after_descendant_disappears(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    destination = tmp_path / "diagnostic"
-    destination.mkdir(mode=0o700)
+    root = tmp_path / "diagnostics"
+    root.mkdir(mode=0o700)
+    destination_name = "a" * 64
+    (root / destination_name).mkdir(mode=0o700)
 
-    def report_descendant_disappearance(_path: Path) -> None:
+    def report_descendant_disappearance(
+        _path: object,
+        *,
+        dir_fd: int | None = None,
+    ) -> None:
         raise FileNotFoundError("descendant disappeared")
 
     monkeypatch.setattr(
@@ -371,13 +406,66 @@ def test_local_diagnostic_cleanup_verifies_root_after_descendant_disappears(
         report_descendant_disappearance,
     )
 
-    with pytest.raises(
-        local_lane.LocalVerificationLaneError,
-        match="diagnostics cannot be bounded",
-    ):
-        local_lane._remove_diagnostic_directory(destination)
+    with local_lane._pinned_diagnostic_root(root) as descriptor:
+        with pytest.raises(
+            local_lane.LocalVerificationLaneError,
+            match="diagnostics cannot be bounded",
+        ):
+            local_lane._remove_diagnostic_directory_at(
+                descriptor,
+                destination_name,
+            )
 
-    assert destination.is_dir()
+    assert (root / destination_name).is_dir()
+
+
+def test_local_diagnostic_retention_rejects_root_path_swap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    moved_root = tmp_path / "moved-diagnostics"
+    replacement = tmp_path / "replacement"
+    replacement.mkdir(mode=0o700)
+    sentinel = replacement / ("f" * 64)
+    sentinel.mkdir(mode=0o700)
+    original_write = local_lane._write_diagnostic_payload
+
+    def swap_root_after_write(*args: object, **kwargs: object) -> None:
+        original_write(*args, **kwargs)
+        root.rename(moved_root)
+        root.symlink_to(replacement, target_is_directory=True)
+
+    monkeypatch.setattr(
+        local_lane,
+        "_write_diagnostic_payload",
+        swap_root_after_write,
+    )
+
+    try:
+        with pytest.raises(
+            local_lane.LocalVerificationLaneError,
+            match="diagnostic boundary is unsafe",
+        ):
+            local_lane._retain_diagnostics(
+                None,
+                diagnostic_root=root,
+                lane_ref="ci-pytest-shards",
+                repository_sha=SHA,
+            )
+    finally:
+        if root.is_symlink():
+            root.unlink()
+
+    assert (
+        tuple(
+            path
+            for path in moved_root.iterdir()
+            if path.name != ".uaa-diagnostic-retention.lock"
+        )
+        == ()
+    )
+    assert sentinel.is_dir()
 
 
 def test_local_pytest_profile_is_validated_and_published_atomically(

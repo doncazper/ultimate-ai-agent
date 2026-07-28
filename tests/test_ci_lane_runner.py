@@ -1181,6 +1181,38 @@ def test_run_command_cancellation_before_spawn_releases_prestart_reservation(
     assert events == ["reserved", "released"]
 
 
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
+def test_run_command_defers_cancellation_through_attempt_recording(
+    tmp_path: Path,
+) -> None:
+    command = CommandSpec(
+        "command:test.post-spawn-record-cancellation",
+        (sys.executable, "-c", "import time; time.sleep(10)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def cancel_while_recording() -> None:
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+        events.append("attempt-recorded")
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        before_start=lambda: events.append("reserved"),
+        after_spawn=cancel_while_recording,
+        on_spawn_failure=lambda: events.append("released"),
+    )
+
+    assert result["status"] == "cancelled"
+    assert events == ["reserved", "attempt-recorded"]
+
+
 def test_run_command_emits_digest_ref_without_retaining_failure_output(
     tmp_path: Path,
 ) -> None:

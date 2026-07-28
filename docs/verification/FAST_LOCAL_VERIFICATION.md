@@ -68,7 +68,10 @@ diagnostic envelopes outside the repository and print only a content-free
 `diagnostic-ref:local-verification:*`. Raw command output and transient
 execution state are always deleted. Each retained envelope is allowlisted to
 command refs, terminal states, byte counts, output digests, and validated safe
-failure refs. Successful runs delete their transient state.
+failure refs. Retention pins and validates the owner-only root descriptor, then
+creates, enumerates, locks, and prunes relative to that descriptor so pathname
+replacement cannot redirect mutation. Successful runs delete their transient
+state.
 
 Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
 branch, and reserve complete resources for the final GitHub-hosted merge

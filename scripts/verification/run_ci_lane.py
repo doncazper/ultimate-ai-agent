@@ -606,7 +606,6 @@ def _run_command(
                         release_unspawned_reservation()
                         raise
                     else:
-                        registration_active = False
                         unspawned_reservation_active = False
                         if after_spawn is not None:
                             try:
@@ -614,6 +613,7 @@ def _run_command(
                             except BaseException:
                                 settle_process()
                                 raise
+                        registration_active = False
                         if pending_signal is not None:
                             interrupted_by = pending_signal
                             pending_signal = None

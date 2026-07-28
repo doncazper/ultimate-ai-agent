@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,72 +59,123 @@ DEFAULT_DIAGNOSTIC_ROOT = Path(
 MAX_RETAINED_DIAGNOSTIC_RUNS = 5
 MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT = 64 * 1024 * 1024
 SAFE_COMMAND_REF_PATTERN = re.compile(r"^command:[a-z0-9][a-z0-9._:-]{0,127}$")
+RMTREE_AVOIDS_SYMLINK_ATTACKS = shutil.rmtree.avoids_symlink_attacks
+DIAGNOSTIC_THREAD_LOCK = threading.Lock()
 
 
 class LocalVerificationLaneError(RuntimeError):
     """A local exclusive lane could not execute or publish safe evidence."""
 
 
-def _prepare_diagnostic_root(path: Path) -> Path:
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    info = path.lstat()
+def _validate_diagnostic_root_metadata(metadata: os.stat_result) -> None:
     if (
-        not stat.S_ISDIR(info.st_mode)
-        or stat.S_ISLNK(info.st_mode)
-        or info.st_uid != os.getuid()
-        or info.st_mode & 0o077
-        or stat.S_IMODE(info.st_mode) & 0o700 != 0o700
+        not stat.S_ISDIR(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or metadata.st_uid != os.getuid()
+        or metadata.st_mode & 0o077
+        or stat.S_IMODE(metadata.st_mode) & 0o700 != 0o700
     ):
         raise LocalVerificationLaneError(
             "local verification diagnostic boundary is unsafe"
         )
-    return path
 
 
 @contextmanager
-def _locked_diagnostic_root(root: Path):
-    lock_path = root / ".uaa-diagnostic-retention.lock"
-    descriptor = os.open(
-        lock_path,
-        os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
-        0o600,
-    )
+def _pinned_diagnostic_root(path: Path):
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
-        metadata = os.fstat(descriptor)
+        initial = path.lstat()
+        _validate_diagnostic_root_metadata(initial)
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+    except (OSError, LocalVerificationLaneError) as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostic boundary is unsafe"
+        ) from exc
+    try:
+        opened = os.fstat(descriptor)
+        _validate_diagnostic_root_metadata(opened)
         if (
-            not stat.S_ISREG(metadata.st_mode)
-            or metadata.st_nlink != 1
-            or metadata.st_uid != os.getuid()
-            or metadata.st_mode & 0o077
+            opened.st_dev != initial.st_dev
+            or opened.st_ino != initial.st_ino
+            or not RMTREE_AVOIDS_SYMLINK_ATTACKS
         ):
             raise LocalVerificationLaneError(
-                "local verification diagnostic lock is unsafe"
+                "local verification diagnostic boundary is unsafe"
             )
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        yield
+        yield descriptor
     finally:
-        try:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
-            os.close(descriptor)
+        os.close(descriptor)
 
 
-def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
-    retained: list[tuple[int, Path]] = []
+def _validate_pinned_diagnostic_root_path(path: Path, descriptor: int) -> None:
     try:
-        candidates = tuple(root.iterdir())
+        current = path.lstat()
+        opened = os.fstat(descriptor)
+        _validate_diagnostic_root_metadata(current)
+        _validate_diagnostic_root_metadata(opened)
+    except (OSError, LocalVerificationLaneError) as exc:
+        raise LocalVerificationLaneError(
+            "local verification diagnostic boundary is unsafe"
+        ) from exc
+    if current.st_dev != opened.st_dev or current.st_ino != opened.st_ino:
+        raise LocalVerificationLaneError(
+            "local verification diagnostic boundary is unsafe"
+        )
+
+
+@contextmanager
+def _locked_diagnostic_root(root_descriptor: int):
+    with DIAGNOSTIC_THREAD_LOCK:
+        descriptor = os.open(
+            ".uaa-diagnostic-retention.lock",
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=root_descriptor,
+        )
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or metadata.st_uid != os.getuid()
+                or metadata.st_mode & 0o077
+            ):
+                raise LocalVerificationLaneError(
+                    "local verification diagnostic lock is unsafe"
+                )
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+
+
+def _retained_diagnostic_directory_names(
+    root_descriptor: int,
+) -> tuple[str, ...]:
+    retained: list[tuple[int, str]] = []
+    try:
+        candidates = tuple(os.listdir(root_descriptor))
     except OSError as exc:
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"
         ) from exc
-    for path in candidates:
-        if (
-            len(path.name) != 64
-            or any(character not in "0123456789abcdef" for character in path.name)
+    for name in candidates:
+        if len(name) != 64 or any(
+            character not in "0123456789abcdef" for character in name
         ):
             continue
         try:
-            metadata = path.lstat()
+            metadata = os.stat(
+                name,
+                dir_fd=root_descriptor,
+                follow_symlinks=False,
+            )
         except FileNotFoundError:
             continue
         except OSError as exc:
@@ -132,10 +184,10 @@ def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
             ) from exc
         if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
             continue
-        retained.append((metadata.st_mtime_ns, path))
+        retained.append((metadata.st_mtime_ns, name))
     return tuple(
-        path
-        for _mtime_ns, path in sorted(
+        name
+        for _mtime_ns, name in sorted(
             retained,
             key=lambda item: item[0],
             reverse=True,
@@ -143,9 +195,19 @@ def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
     )
 
 
-def _remove_diagnostic_directory(path: Path) -> None:
+def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
+    with _pinned_diagnostic_root(root) as descriptor:
+        retained = _retained_diagnostic_directory_names(descriptor)
+        _validate_pinned_diagnostic_root_path(root, descriptor)
+    return tuple(root / name for name in retained)
+
+
+def _remove_diagnostic_directory_at(
+    root_descriptor: int,
+    name: str,
+) -> None:
     try:
-        shutil.rmtree(path)
+        shutil.rmtree(name, dir_fd=root_descriptor)
     except FileNotFoundError:
         pass
     except OSError as exc:
@@ -153,16 +215,18 @@ def _remove_diagnostic_directory(path: Path) -> None:
             "local verification diagnostics cannot be bounded"
         ) from exc
     try:
-        path.lstat()
+        os.stat(
+            name,
+            dir_fd=root_descriptor,
+            follow_symlinks=False,
+        )
     except FileNotFoundError:
         return
     except OSError as exc:
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"
         ) from exc
-    raise LocalVerificationLaneError(
-        "local verification diagnostics cannot be bounded"
-    )
+    raise LocalVerificationLaneError("local verification diagnostics cannot be bounded")
 
 
 def _retain_diagnostics(
@@ -172,130 +236,167 @@ def _retain_diagnostics(
     lane_ref: str,
     repository_sha: str,
 ) -> str:
-    root = _prepare_diagnostic_root(diagnostic_root)
     token = hashlib.sha256(
-        os.urandom(32)
-        + lane_ref.encode("utf-8")
-        + repository_sha.encode("ascii")
+        os.urandom(32) + lane_ref.encode("utf-8") + repository_sha.encode("ascii")
     ).hexdigest()
-    destination = root / token
-    with _locked_diagnostic_root(root):
-        destination.mkdir(mode=0o700)
-        receipt_status = None if receipt is None else receipt.get("status")
-        safe_status = (
-            receipt_status
-            if receipt_status in {"fail", "timed_out", "cancelled", "blocked"}
-            else "blocked"
-        )
-        payload: dict[str, object] = {
-            "schema_version": "uaa_local_verification_diagnostic.v1",
-            "lane_ref": lane_ref,
-            "repository_sha": repository_sha,
-            "status": safe_status,
-            "command_results": [],
-            "redaction_status": "content_free_failure_metadata_only",
-        }
-        if receipt is not None:
-            safe_results: list[dict[str, object]] = []
-            results = receipt.get("command_results")
-            if isinstance(results, list):
-                for result in results:
-                    if not isinstance(result, dict):
-                        continue
-                    command_ref = result.get("command_ref")
-                    status_value = result.get("status")
-                    output_byte_count = result.get("output_byte_count")
-                    output_digest = result.get("output_digest")
-                    if (
-                        not isinstance(command_ref, str)
-                        or SAFE_COMMAND_REF_PATTERN.fullmatch(command_ref) is None
-                        or not isinstance(status_value, str)
-                        or status_value
-                        not in {"pass", "fail", "timed_out", "cancelled"}
-                        or not isinstance(output_byte_count, int)
-                        or isinstance(output_byte_count, bool)
-                        or output_byte_count < 0
-                        or output_byte_count > MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT
-                        or not isinstance(output_digest, str)
-                        or len(output_digest) != 64
-                        or any(
-                            character not in "0123456789abcdef"
-                            for character in output_digest
-                        )
-                    ):
-                        continue
-                    safe_result: dict[str, object] = {
-                        "command_ref": command_ref,
-                        "status": status_value,
-                        "output_byte_count": output_byte_count,
-                        "output_digest": output_digest,
-                    }
-                    failed_shard_refs = result.get("failed_shard_refs")
-                    if isinstance(failed_shard_refs, (list, tuple)):
-                        safe_shard_refs = tuple(
-                            value
-                            for value in failed_shard_refs
-                            if _safe_failed_shard_ref(value) is not None
-                        )
-                        if safe_shard_refs:
-                            safe_result["failed_shard_refs"] = safe_shard_refs
-                    failed_test_refs = result.get("failed_test_refs")
-                    if isinstance(failed_test_refs, (list, tuple)):
-                        safe_test_refs = tuple(
-                            value
-                            for value in failed_test_refs
-                            if isinstance(value, str) and is_safe_test_ref(value)
-                        )
-                        if safe_test_refs:
-                            safe_result["failed_test_refs"] = safe_test_refs
-                    safe_results.append(safe_result)
-            payload["command_results"] = safe_results
-        diagnostic_path = destination / "diagnostic.json"
-        try:
-            descriptor = os.open(
-                diagnostic_path,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-                0o600,
+    receipt_status = None if receipt is None else receipt.get("status")
+    safe_status = (
+        receipt_status
+        if receipt_status in {"fail", "timed_out", "cancelled", "blocked"}
+        else "blocked"
+    )
+    payload: dict[str, object] = {
+        "schema_version": "uaa_local_verification_diagnostic.v1",
+        "lane_ref": lane_ref,
+        "repository_sha": repository_sha,
+        "status": safe_status,
+        "command_results": [],
+        "redaction_status": "content_free_failure_metadata_only",
+    }
+    if receipt is not None:
+        safe_results: list[dict[str, object]] = []
+        results = receipt.get("command_results")
+        if isinstance(results, list):
+            for result in results:
+                if not isinstance(result, dict):
+                    continue
+                command_ref = result.get("command_ref")
+                status_value = result.get("status")
+                output_byte_count = result.get("output_byte_count")
+                output_digest = result.get("output_digest")
+                if (
+                    not isinstance(command_ref, str)
+                    or SAFE_COMMAND_REF_PATTERN.fullmatch(command_ref) is None
+                    or not isinstance(status_value, str)
+                    or status_value
+                    not in {"pass", "fail", "timed_out", "cancelled"}
+                    or not isinstance(output_byte_count, int)
+                    or isinstance(output_byte_count, bool)
+                    or output_byte_count < 0
+                    or output_byte_count > MAX_DIAGNOSTIC_OUTPUT_BYTE_COUNT
+                    or not isinstance(output_digest, str)
+                    or len(output_digest) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in output_digest
+                    )
+                ):
+                    continue
+                safe_result: dict[str, object] = {
+                    "command_ref": command_ref,
+                    "status": status_value,
+                    "output_byte_count": output_byte_count,
+                    "output_digest": output_digest,
+                }
+                failed_shard_refs = result.get("failed_shard_refs")
+                if isinstance(failed_shard_refs, (list, tuple)):
+                    safe_shard_refs = tuple(
+                        value
+                        for value in failed_shard_refs
+                        if _safe_failed_shard_ref(value) is not None
+                    )
+                    if safe_shard_refs:
+                        safe_result["failed_shard_refs"] = safe_shard_refs
+                failed_test_refs = result.get("failed_test_refs")
+                if isinstance(failed_test_refs, (list, tuple)):
+                    safe_test_refs = tuple(
+                        value
+                        for value in failed_test_refs
+                        if isinstance(value, str) and is_safe_test_ref(value)
+                    )
+                    if safe_test_refs:
+                        safe_result["failed_test_refs"] = safe_test_refs
+                safe_results.append(safe_result)
+        payload["command_results"] = safe_results
+    with _pinned_diagnostic_root(diagnostic_root) as root_descriptor:
+        with _locked_diagnostic_root(root_descriptor):
+            os.mkdir(token, mode=0o700, dir_fd=root_descriptor)
+            destination_descriptor = os.open(
+                token,
+                os.O_RDONLY
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=root_descriptor,
             )
             try:
-                encoded = (
-                    json.dumps(payload, sort_keys=True, separators=(",", ":"))
-                    + "\n"
-                ).encode("utf-8")
-                remaining = memoryview(encoded)
-                while remaining:
-                    written = os.write(descriptor, remaining)
-                    if written <= 0:
-                        raise OSError("diagnostic write did not make progress")
-                    remaining = remaining[written:]
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
-        except OSError as exc:
-            _remove_diagnostic_directory(destination)
-            raise LocalVerificationLaneError(
-                "local verification diagnostics could not be retained"
-            ) from exc
-        try:
-            retained = _retained_diagnostic_directories(root)
-            if destination not in retained:
+                destination_metadata = os.fstat(destination_descriptor)
+                if (
+                    not stat.S_ISDIR(destination_metadata.st_mode)
+                    or destination_metadata.st_uid != os.getuid()
+                    or destination_metadata.st_mode & 0o077
+                ):
+                    raise LocalVerificationLaneError(
+                        "local verification diagnostics cannot be bounded"
+                    )
+                _write_diagnostic_payload(
+                    destination_descriptor,
+                    payload,
+                )
+            except (OSError, LocalVerificationLaneError) as exc:
+                os.close(destination_descriptor)
+                _remove_diagnostic_directory_at(root_descriptor, token)
+                if isinstance(exc, LocalVerificationLaneError):
+                    raise
+                raise LocalVerificationLaneError(
+                    "local verification diagnostics could not be retained"
+                ) from exc
+            else:
+                os.close(destination_descriptor)
+            try:
+                retained = _retained_diagnostic_directory_names(root_descriptor)
+                if token not in retained:
+                    raise LocalVerificationLaneError(
+                        "local verification diagnostics cannot be bounded"
+                    )
+                for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
+                    _remove_diagnostic_directory_at(root_descriptor, stale)
+                retained = _retained_diagnostic_directory_names(root_descriptor)
+                if (
+                    token not in retained
+                    or len(retained) > MAX_RETAINED_DIAGNOSTIC_RUNS
+                ):
+                    raise LocalVerificationLaneError(
+                        "local verification diagnostics cannot be bounded"
+                    )
+                _validate_pinned_diagnostic_root_path(
+                    diagnostic_root,
+                    root_descriptor,
+                )
+                os.fsync(root_descriptor)
+            except (OSError, LocalVerificationLaneError) as exc:
+                _remove_diagnostic_directory_at(root_descriptor, token)
+                if isinstance(exc, LocalVerificationLaneError):
+                    raise
                 raise LocalVerificationLaneError(
                     "local verification diagnostics cannot be bounded"
-                )
-            for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
-                _remove_diagnostic_directory(stale)
-            retained = _retained_diagnostic_directories(root)
-            if (
-                destination not in retained
-                or len(retained) > MAX_RETAINED_DIAGNOSTIC_RUNS
-            ):
-                raise LocalVerificationLaneError(
-                    "local verification diagnostics cannot be bounded"
-                )
-        except LocalVerificationLaneError:
-            _remove_diagnostic_directory(destination)
-            raise
+                ) from exc
     return f"diagnostic-ref:local-verification:{token}"
+
+
+def _write_diagnostic_payload(
+    destination_descriptor: int,
+    payload: dict[str, object],
+) -> None:
+    descriptor = os.open(
+        "diagnostic.json",
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+        dir_fd=destination_descriptor,
+    )
+    try:
+        encoded = (
+            json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode("utf-8")
+        remaining = memoryview(encoded)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("diagnostic write did not make progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+        os.fsync(destination_descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _safe_failed_shard_ref(value: object) -> str | None:
