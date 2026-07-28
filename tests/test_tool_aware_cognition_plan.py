@@ -118,6 +118,23 @@ def test_missing_phase_heading_fails_even_when_phase_token_remains(
         verifier.verify()
 
 
+def test_fixed_one_pr_per_phase_policy_cannot_be_restored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "PR count follows contract and risk seams rather than a fixed",
+            "Every phase always uses one separate pull request because a fixed",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
 def test_reordered_queue_gate_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -51,6 +51,8 @@ PLAN_REQUIRED = (
     "ordinary chat unavailable",
     "fails closed as unsupported or unavailable",
     "corrupt-index fallback",
+    "PR count follows contract and risk seams rather than a fixed",
+    "must remain isolated and cannot be hidden inside a delivery group",
 )
 QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",
