@@ -45,6 +45,25 @@ FULL_SUITE_RESOURCE_LOCK_NAMES = frozenset(
         "typescript-typecheck.lock",
     )
 )
+FULL_SUITE_RESOURCE_ATTEMPT_PATHS = frozenset(
+    {
+        FULL_SUITE_ATTEMPT_PATH,
+        TYPESCRIPT_TYPECHECK_ATTEMPT_PATH,
+    }
+)
+
+
+def _full_suite_path_identity(path: Path) -> Path:
+    """Return one normalized path identity without exposing the raw path."""
+
+    try:
+        return path.resolve(strict=False)
+    except (OSError, RuntimeError):
+        raise ValueError("full-suite path identity is unavailable") from None
+
+
+def _same_full_suite_path(left: Path, right: Path) -> bool:
+    return _full_suite_path_identity(left) == _full_suite_path_identity(right)
 
 
 class FullSuiteLockUnavailableError(RuntimeError):
@@ -80,15 +99,27 @@ def _validate_full_suite_resource_path_binding(
 ) -> None:
     """Fail closed when a recognized resource lock is paired incorrectly."""
 
-    if lock_path.name not in FULL_SUITE_RESOURCE_LOCK_NAMES:
+    recognized_lock_name = lock_path.name in FULL_SUITE_RESOURCE_LOCK_NAMES
+    canonical_attempt_path = any(
+        _same_full_suite_path(attempt_path, canonical_path)
+        for canonical_path in FULL_SUITE_RESOURCE_ATTEMPT_PATHS
+    )
+    if not recognized_lock_name and not canonical_attempt_path:
         return
+    binding_root = lock_path.parent if recognized_lock_name else attempt_path.parent
     expected_lock_path, expected_attempt_path = full_suite_resource_paths(
         resource_ref,
-        root=lock_path.parent,
+        root=binding_root,
     )
-    if lock_path != expected_lock_path:
+    if (
+        lock_path.name != expected_lock_path.name
+        or not _same_full_suite_path(lock_path.parent, binding_root)
+    ):
         raise ValueError("full-suite lock path does not match resource ref")
-    if attempt_path != expected_attempt_path:
+    if (
+        attempt_path.name != expected_attempt_path.name
+        or not _same_full_suite_path(attempt_path.parent, lock_path.parent)
+    ):
         raise ValueError("full-suite attempt path does not match resource ref")
 
 
@@ -493,19 +524,34 @@ class FullSuiteLock:
         )
         if path is None:
             path = resource_lock_path
-        elif path in {FULL_SUITE_LOCK_PATH, TYPESCRIPT_TYPECHECK_LOCK_PATH} and (
-            path != resource_lock_path
+        elif any(
+            _same_full_suite_path(path, canonical_path)
+            for canonical_path in {
+                FULL_SUITE_LOCK_PATH,
+                TYPESCRIPT_TYPECHECK_LOCK_PATH,
+            }
+        ) and (
+            not _same_full_suite_path(path, resource_lock_path)
         ):
             raise ValueError("full-suite lock path does not match resource ref")
         if attempt_path is None:
-            attempt_path = resource_attempt_path
-        elif (
-            attempt_path
-            in {
+            if _same_full_suite_path(path, resource_lock_path):
+                attempt_path = resource_attempt_path
+            elif path.name in FULL_SUITE_RESOURCE_LOCK_NAMES:
+                _, attempt_path = full_suite_resource_paths(
+                    resource_ref,
+                    root=path.parent,
+                )
+            else:
+                attempt_path = path.with_name(f"{path.name}.attempts.json")
+        elif any(
+            _same_full_suite_path(attempt_path, canonical_path)
+            for canonical_path in {
                 FULL_SUITE_ATTEMPT_PATH,
                 TYPESCRIPT_TYPECHECK_ATTEMPT_PATH,
             }
-            and attempt_path != resource_attempt_path
+        ) and (
+            not _same_full_suite_path(attempt_path, resource_attempt_path)
         ):
             raise ValueError("full-suite attempt path does not match resource ref")
         _validate_full_suite_resource_path_binding(
@@ -521,7 +567,13 @@ class FullSuiteLock:
         self.attempt_path = attempt_path
         self.resource_ref = resource_ref
         self.shared_across_accounts = (
-            path in {FULL_SUITE_LOCK_PATH, TYPESCRIPT_TYPECHECK_LOCK_PATH}
+            any(
+                _same_full_suite_path(path, canonical_path)
+                for canonical_path in {
+                    FULL_SUITE_LOCK_PATH,
+                    TYPESCRIPT_TYPECHECK_LOCK_PATH,
+                }
+            )
             if shared_across_accounts is None
             else shared_across_accounts
         )
@@ -700,9 +752,10 @@ class FullSuiteLock:
         record = {
             "repository_sha": self.repository_sha,
             "attempt_scope": self.attempt_scope,
-            "resource_ref": self.resource_ref,
             "resource_attempt_fingerprint": self.resource_attempt_fingerprint,
         }
+        if self.resource_ref != "resource-ref:complete-pytest":
+            record["resource_ref"] = self.resource_ref
         record["attempt_ref"] = "attempt-ref:ci:" + hashlib.sha256(
             json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
