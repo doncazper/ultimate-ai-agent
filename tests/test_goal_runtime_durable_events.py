@@ -1851,6 +1851,161 @@ def test_runtime_projection_capacity_fails_before_adapter_side_effect(
     assert gateway.store.list_invocations() == []
 
 
+def test_runtime_projection_byte_capacity_fails_before_adapter_side_effect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    goal_service = GoalRuntimeService(tmp_path / "goals")
+    _append_event(
+        goal_service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:byte-capacity:existing",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="An existing bounded run occupied encoded event bytes.",
+            idempotency_ref="idempotency-ref:byte-capacity:existing",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    event_bytes = goal_service._events.path.stat().st_size  # noqa: SLF001
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUN_EVENT_STORE_BYTES",
+        event_bytes + 2 * goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES - 1,
+    )
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=goal_service,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED",
+    ):
+        gateway.invoke_command(
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                safe_summary="Inspect repository status with redacted output.",
+            ),
+            idempotency_ref="idempotency-ref:byte-capacity:new-runtime",
+        )
+
+    assert calls == 0
+    assert gateway.store.list_invocations() == []
+
+
+def test_completion_event_capacity_fails_before_goal_transition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:completion-capacity:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:completion-capacity:request",
+        ),
+        idempotency_ref="idempotency-ref:completion-capacity:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    event_bytes = service._events.path.stat().st_size  # noqa: SLF001
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUN_EVENT_STORE_BYTES",
+        event_bytes + goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES - 1,
+    )
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED",
+    ):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            GoalTransitionRequest(
+                expected_version=requested.version,
+                transition=GoalTransitionKind.verify_completion,
+                reason_ref="reason-ref:completion-capacity:verify",
+                completion_evidence=_completion_evidence(requested),
+            ),
+            idempotency_ref="idempotency-ref:completion-capacity:verify",
+        )
+
+    unchanged = service.goals.get(created.goal_ref)
+    assert unchanged.state == GoalState.complete_requested.value
+    assert unchanged.version == requested.version
+    assert not any(
+        event.event_kind == DurableRunEventKind.completion_verified.value
+        for event in service.events.retained_events()
+    )
+
+
+def test_projection_byte_reservation_bounds_maximal_event_and_tombstone(
+    tmp_path: Path,
+) -> None:
+    def maximal_ref(prefix: str, discriminator: str) -> str:
+        suffix_length = goal_runtime_module.MAX_EXECUTION_REF_LENGTH - len(prefix)
+        return prefix + discriminator + "x" * (suffix_length - len(discriminator))
+
+    service = GoalRuntimeService(tmp_path)
+    event = _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref=maximal_ref("run-ref:", "r"),
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="s" * goal_runtime_module.MAX_GOAL_TEXT,
+            proof_refs=[
+                maximal_ref("proof-ref:", f"{index:02d}")
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+            receipt_refs=[
+                maximal_ref("receipt-ref:", f"{index:02d}")
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+            goal_ref=maximal_ref("goal-ref:", "g"),
+            plan_ref=maximal_ref("plan-ref:", "p"),
+            idempotency_ref=maximal_ref("idempotency-ref:", "i"),
+            authority_decision_ref=maximal_ref("authority-decision-ref:", "a"),
+        ),
+    )
+    tombstone = service._events._load_idempotency_tombstones(  # noqa: SLF001
+        [event]
+    )[(event.run_ref, event.idempotency_ref)]
+
+    assert len((event.model_dump_json() + "\n").encode("utf-8")) <= (
+        goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES
+    )
+    assert len((tombstone.model_dump_json() + "\n").encode("utf-8")) <= (
+        goal_runtime_module.MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
+    )
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected_code"),
     [

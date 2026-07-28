@@ -67,6 +67,8 @@ MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
+MAX_RESERVED_RUN_EVENT_BYTES = 64 * 1024
+MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES = 64 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
 RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 GOAL_TEXT_REDACTION_POSTURE = "operator_authored_redacted_summary_only"
@@ -1635,11 +1637,11 @@ class _DurableRunEventStore:
                 for ref, reservation in reservations.items()
                 if ref != reservation_ref
             )
-            if (
-                len(tombstones) + reserved_slots + required_slots
-                > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS
-            ):
-                raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+            self._assert_projection_capacity(
+                events,
+                tombstones.values(),
+                required_slots=reserved_slots + required_slots,
+            )
             reservation = self._build_projection_reservation(
                 reservation_ref,
                 operation_idempotency_ref=operation_idempotency_ref,
@@ -1995,6 +1997,18 @@ class _DurableRunEventStore:
             raise GoalTransitionDeniedError("GOAL_COMPLETION_DURABLE_RECEIPT_NOT_FOUND")
         if same_run[-1].event_kind in TERMINAL_RUN_EVENT_KINDS:
             raise GoalTransitionDeniedError("GOAL_COMPLETION_TERMINAL_STREAM_FENCE")
+        active_reservations = [
+            reservation
+            for reservation in self._load_projection_reservations().values()
+            if reservation.expires_at > utc_now()
+        ]
+        self._assert_projection_capacity(
+            events,
+            tombstones.values(),
+            required_slots=(
+                1 + sum(reservation.slot_count for reservation in active_reservations)
+            ),
+        )
         return matched.model_copy(deep=True)
 
     @staticmethod
@@ -2488,6 +2502,42 @@ class _DurableRunEventStore:
         if len(event_content.encode("utf-8")) > MAX_RUN_EVENT_STORE_BYTES:
             raise GoalRuntimeError("RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED")
         if len(tombstone_content.encode("utf-8")) > MAX_RUN_EVENT_IDEMPOTENCY_BYTES:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED")
+
+    @staticmethod
+    def _assert_projection_capacity(
+        events: Iterable[DurableRunEvent],
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+        *,
+        required_slots: int,
+    ) -> None:
+        """Reserve worst-case encoded space before any runtime or goal mutation."""
+
+        event_rows = list(events)
+        tombstone_rows = list(tombstones)
+        if len(tombstone_rows) + required_slots > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
+            raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+        event_bytes = len(
+            "".join(event.model_dump_json() + "\n" for event in event_rows).encode(
+                "utf-8"
+            )
+        )
+        tombstone_bytes = len(
+            "".join(
+                tombstone.model_dump_json() + "\n"
+                for tombstone in tombstone_rows
+            ).encode("utf-8")
+        )
+        if (
+            event_bytes + required_slots * MAX_RESERVED_RUN_EVENT_BYTES
+            > MAX_RUN_EVENT_STORE_BYTES
+        ):
+            raise GoalRuntimeError("RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED")
+        if (
+            tombstone_bytes
+            + required_slots * MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
+            > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
+        ):
             raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED")
 
     def _write_idempotency_tombstones(

@@ -593,6 +593,21 @@ def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> N
     assert payload["runtime_execution_performed"] is False
 
 
+def test_goal_cli_uses_effective_runtime_gateway_state_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime_state_dir = tmp_path / "configured-runtime"
+    monkeypatch.setenv("UAA_RUNTIME_GATEWAY_STATE_DIR", str(runtime_state_dir))
+    monkeypatch.delenv("UAA_GOAL_RUNTIME_STATE_DIR", raising=False)
+
+    service = uaa_runtime._goal_runtime_service(
+        argparse.Namespace(state_dir=None),
+    )
+
+    assert service.state_dir == runtime_state_dir / "goal_runtime"
+
+
 @pytest.mark.parametrize("durable_truth", ["receipt", "missing", "unreadable"])
 def test_command_cli_projection_failure_preserves_execution_truth(
     tmp_path: Path,
