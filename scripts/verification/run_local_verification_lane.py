@@ -147,7 +147,7 @@ def _remove_diagnostic_directory(path: Path) -> None:
     try:
         shutil.rmtree(path)
     except FileNotFoundError:
-        return
+        pass
     except OSError as exc:
         raise LocalVerificationLaneError(
             "local verification diagnostics cannot be bounded"

@@ -1809,6 +1809,33 @@ def test_transient_output_metadata_rejects_oversized_file(
         runner._transient_output_metadata(output_path)
 
 
+def test_transient_output_metadata_caps_reads_when_file_grows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    output_path.write_bytes(b"1234")
+    original_read = runner.os.read
+    requested_sizes: list[int] = []
+
+    def grow_before_read(descriptor: int, size: int) -> bytes:
+        requested_sizes.append(size)
+        with output_path.open("ab") as output:
+            output.write(b"5")
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(runner, "MAX_TRANSIENT_OUTPUT_BYTES", 4)
+    monkeypatch.setattr(runner.os, "read", grow_before_read)
+
+    with pytest.raises(
+        RuntimeError,
+        match="transient output changed while hashing",
+    ):
+        runner._transient_output_metadata(output_path)
+
+    assert requested_sizes == [4]
+
+
 @pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
 def test_run_command_preserves_spawn_cleanup_failure_over_pending_signal(
     tmp_path: Path,

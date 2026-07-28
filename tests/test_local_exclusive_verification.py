@@ -355,6 +355,31 @@ def test_local_diagnostic_retention_rolls_back_when_stale_cleanup_fails(
         original_rmtree(stale)
 
 
+def test_local_diagnostic_cleanup_verifies_root_after_descendant_disappears(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    destination = tmp_path / "diagnostic"
+    destination.mkdir(mode=0o700)
+
+    def report_descendant_disappearance(_path: Path) -> None:
+        raise FileNotFoundError("descendant disappeared")
+
+    monkeypatch.setattr(
+        local_lane.shutil,
+        "rmtree",
+        report_descendant_disappearance,
+    )
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._remove_diagnostic_directory(destination)
+
+    assert destination.is_dir()
+
+
 def test_local_pytest_profile_is_validated_and_published_atomically(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
