@@ -38,6 +38,7 @@ from scripts.run_agent_capability_evaluation import (  # noqa: E402
     _scenario_fingerprint,
     evaluation_report_projection,
     evaluation_registry_fingerprint,
+    evaluation_source_commit_is_ancestor,
     evaluation_source_digest,
     evaluation_source_digest_at_commit,
     evaluation_source_paths,
@@ -481,6 +482,10 @@ def verify_data(
         r"[0-9a-f]{40}", source_commit
     ):
         raise VerificationError("exact UAA evaluation source commit is required")
+    if not evaluation_source_commit_is_ancestor(source_commit):
+        raise VerificationError(
+            "UAA evaluation source commit is not reachable from the current head"
+        )
     if result.get("evaluator_source_digest") != evaluation_source_digest_at_commit(
         source_commit
     ):

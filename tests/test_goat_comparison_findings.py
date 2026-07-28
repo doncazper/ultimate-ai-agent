@@ -132,6 +132,14 @@ def test_comparison_findings_reject_report_binding_drift(
     with pytest.raises(verifier.VerificationError, match="stale.*current evaluator"):
         verifier.verify_data(_data())
 
+    monkeypatch.setattr(
+        verifier,
+        "evaluation_source_commit_is_ancestor",
+        lambda _commit: False,
+    )
+    with pytest.raises(verifier.VerificationError, match="not reachable"):
+        verifier.verify_data(_data())
+
 
 def test_comparison_findings_runtime_revalidation_uses_actual_projection(
     monkeypatch: pytest.MonkeyPatch,

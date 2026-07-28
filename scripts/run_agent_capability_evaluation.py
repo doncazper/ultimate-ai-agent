@@ -361,6 +361,31 @@ def evaluation_source_digest_at_commit(commit: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def evaluation_source_commit_is_ancestor(commit: str) -> bool:
+    if len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
+        raise ValueError("exact evaluation source commit is required")
+    executable = _trusted_executable("git")
+    result = subprocess.run(
+        (executable, "merge-base", "--is-ancestor", commit, "HEAD"),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise ValueError("evaluation source ancestry could not be established")
+
+
 def repository_commit() -> str:
     executable = _trusted_executable("git")
     result = subprocess.run(
