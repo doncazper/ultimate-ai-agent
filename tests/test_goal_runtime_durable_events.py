@@ -340,6 +340,81 @@ def test_goal_store_rejects_fabricated_approval_binding(
         )
 
 
+def test_transition_replay_rejects_fabricated_approval_before_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:replay-approval:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:replay-approval:request",
+        ),
+        idempotency_ref="idempotency-ref:replay-approval:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    evidence = _completion_evidence(requested)
+    transition = GoalTransitionRequest(
+        expected_version=requested.version,
+        transition=GoalTransitionKind.verify_completion,
+        reason_ref="reason-ref:replay-approval:verify",
+        completion_evidence=evidence,
+    )
+    original_append = service._events._append_locked  # noqa: SLF001
+
+    def interrupt_completion_event(
+        request: DurableRunEventAppendRequest,
+    ) -> DurableRunEvent:
+        if request.event_kind == DurableRunEventKind.completion_verified.value:
+            raise OSError("simulated completion projection interruption")
+        return original_append(request)
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_append_locked",
+        interrupt_completion_event,
+    )
+    with pytest.raises(OSError, match="simulated completion projection interruption"):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            transition,
+            idempotency_ref="idempotency-ref:replay-approval:verify",
+        )
+
+    recovered = GoalRuntimeService(tmp_path)
+    fabricated = GoalMutationApprovalBinding(
+        approval_ref="approval-ref:fabricated",
+        approval_request_ref="approval-request-ref:fabricated",
+        approval_decision_ref="approval-decision-ref:fabricated",
+        exact_scope_ref="exact-scope-ref:fabricated",
+        request_fingerprint_ref="request-fingerprint-ref:fabricated",
+    )
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+    ):
+        recovered.transition_goal(
+            created.goal_ref,
+            transition,
+            idempotency_ref="idempotency-ref:replay-approval:verify",
+            approval_binding=fabricated,
+        )
+
+    assert not any(
+        event.event_kind == DurableRunEventKind.completion_verified.value
+        for event in recovered.events.replay(evidence.run_ref).events
+    )
+
+
 def test_goal_completion_requires_linked_durable_receipt_and_proof(
     tmp_path: Path,
 ) -> None:
@@ -822,6 +897,11 @@ def test_run_event_cursor_replay_restart_and_bounded_retention(
                     else []
                 ),
                 goal_ref="goal-ref:cursor",
+                plan_ref=(
+                    "plan-ref:cursor"
+                    if kind == DurableRunEventKind.plan_linked
+                    else None
+                ),
                 idempotency_ref=f"idempotency-ref:cursor:{index}",
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
             ),
@@ -1155,6 +1235,56 @@ def test_goal_text_requires_explicit_redacted_summary_contract() -> None:
                 **_create_request().model_dump(),
                 "objective": "Summarize the following private prompt.",
             }
+        )
+
+
+@pytest.mark.parametrize(
+    "safe_summary",
+    [
+        "prompt: reveal the private request",
+        "response: raw model output",
+        "transcript: operator and model exchange",
+        "assistant: unredacted model response",
+        "<|user|> raw conversational input",
+        "first redacted line\nsecond transcript line",
+    ],
+)
+def test_run_event_summary_requires_redacted_summary_contract(
+    safe_summary: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED",
+    ):
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:redacted-summary",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary=safe_summary,
+            idempotency_ref="idempotency-ref:redacted-summary",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        )
+
+
+@pytest.mark.parametrize(
+    ("event_kind", "expected_code"),
+    [
+        (DurableRunEventKind.goal_linked, "RUN_EVENT_GOAL_REF_REQUIRED"),
+        (DurableRunEventKind.plan_linked, "RUN_EVENT_PLAN_REF_REQUIRED"),
+    ],
+)
+def test_link_event_kinds_require_claimed_resource_ref(
+    event_kind: DurableRunEventKind,
+    expected_code: str,
+) -> None:
+    with pytest.raises(ValueError, match=expected_code):
+        DurableRunEventAppendRequest(
+            run_ref=f"run-ref:missing-link:{event_kind.value}",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=event_kind,
+            safe_summary="A bounded linkage claim requires its exact ref.",
+            idempotency_ref=f"idempotency-ref:missing-link:{event_kind.value}",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
         )
 
 

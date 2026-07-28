@@ -9138,6 +9138,8 @@ function isSafeRuntimeRunEventPreview(
     "failed_terminal",
     "dead_lettered",
   ]);
+  const synthesizedPresenceProofRef =
+    "proof-ref:runtime-run-events:redacted-event-presence";
   const safeRef = (value: unknown): value is string =>
     typeof value === "string" &&
     value.length <= 320 &&
@@ -9161,6 +9163,20 @@ function isSafeRuntimeRunEventPreview(
       (event.event_hash_ref === null || event.event_hash_ref === undefined) &&
       (event.predecessor_hash_ref === null ||
         event.predecessor_hash_ref === undefined);
+  const proofBindingValid =
+    event.proof_refs.length > 0
+      ? event.proof_ref === event.proof_refs[0]
+      : !terminalKinds.has(event.event_kind) &&
+        event.proof_ref === synthesizedPresenceProofRef;
+  const operationBindingsValid =
+    (event.event_kind !== "goal_linked" ||
+      (event.goal_ref !== null &&
+        event.goal_ref !== undefined &&
+        safeRef(event.goal_ref))) &&
+    (event.event_kind !== "plan_linked" ||
+      (event.plan_ref !== null &&
+        event.plan_ref !== undefined &&
+        safeRef(event.plan_ref)));
   return (
     allowedKinds.has(event.event_kind) &&
     safeRef(event.event_ref) &&
@@ -9169,10 +9185,10 @@ function isSafeRuntimeRunEventPreview(
     safeRef(event.proof_ref) &&
     isBoundedDisplayText(event.safe_summary, 1200) &&
     !containsSecretLike(event.safe_summary) &&
-    event.redaction_status === "redacted_safe_refs_only" &&
+    event.redaction_status === "redacted_safe_ref_only" &&
     safeRefs(event.proof_refs) &&
     safeRefs(event.receipt_refs) &&
-    event.proof_refs.includes(event.proof_ref) &&
+    proofBindingValid &&
     (!terminalKinds.has(event.event_kind) ||
       (event.proof_refs.length > 0 && event.receipt_refs.length > 0)) &&
     (event.goal_ref === null ||
@@ -9181,6 +9197,7 @@ function isSafeRuntimeRunEventPreview(
     (event.plan_ref === null ||
       event.plan_ref === undefined ||
       safeRef(event.plan_ref)) &&
+    operationBindingsValid &&
     durableFieldsValid &&
     event.runtime_payload_persisted === false &&
     event.raw_log_persisted === false &&
@@ -9190,6 +9207,16 @@ function isSafeRuntimeRunEventPreview(
 }
 
 function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
+  const allowedStates = new Set<RuntimePersistentGoal["state"]>([
+    "active",
+    "paused",
+    "blocked",
+    "waiting",
+    "complete_requested",
+    "verified_complete",
+    "cancelled",
+    "cleared",
+  ]);
   const safeText = (value: unknown) =>
     isBoundedDisplayText(value, 1200) && !containsSecretLike(value);
   const safeRefs = (value: unknown) =>
@@ -9261,6 +9288,7 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
     safeRefs(goal.links.run_refs) &&
     safeRefs(goal.links.action_inbox_refs) &&
     safeRefs(goal.links.work_board_refs) &&
+    allowedStates.has(goal.state) &&
     Number.isSafeInteger(goal.version) &&
     goal.version >= 1 &&
     Number.isSafeInteger(goal.budget.operation_limit) &&
@@ -9303,6 +9331,63 @@ export async function fetchRuntimeRunEvents(
     throw new Error("Runtime goal/event state failed safe validation.");
   }
   return payload;
+}
+
+type RuntimeGoalMutationIdentityMaterial =
+  | {
+      operation: "create";
+      goalRef: null;
+      request: RuntimeGoalCreateRequest;
+    }
+  | {
+      operation: "edit";
+      goalRef: string;
+      request: RuntimeGoalEditRequest;
+    }
+  | {
+      operation: "transition";
+      goalRef: string;
+      request: RuntimeGoalTransitionRequest;
+    };
+
+const RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN =
+  "uaa.control-center.runtime-goal-mutation-idempotency.v1";
+
+async function sha256Hex(value: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle === undefined) {
+    throw new Error("RUNTIME_GOAL_MUTATION_DIGEST_UNAVAILABLE");
+  }
+  try {
+    const bytes = new TextEncoder().encode(value);
+    const digest = await subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  } catch {
+    throw new Error("RUNTIME_GOAL_MUTATION_DIGEST_UNAVAILABLE");
+  }
+}
+
+export async function runtimeGoalMutationIdempotencyRef(
+  material: RuntimeGoalMutationIdentityMaterial,
+): Promise<string> {
+  if (
+    (material.operation === "create" && material.goalRef !== null) ||
+    (material.operation !== "create" &&
+      (typeof material.goalRef !== "string" ||
+        !isSafeTrustAuthorityRef(material.goalRef)))
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN,
+    operation: material.operation,
+    goal_ref: material.goalRef,
+    request: material.request,
+  });
+  const digest = await sha256Hex(canonicalIntent);
+  return `idempotency-ref:control-center-goal-${material.operation}:sha256:${digest}`;
 }
 
 async function postRuntimeGoalMutation(

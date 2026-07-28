@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import type {
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
@@ -37,6 +37,7 @@ import type {
   RuntimeVoiceMediaPostureReadModel,
   RuntimeWorktreePerAgentReadModel,
   RuntimeGoalTransitionKind,
+  RuntimeGoalCreateRequest,
   RuntimeGoalEditRequest,
   RuntimeGoalTransitionRequest,
 } from "../api/types";
@@ -44,6 +45,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
 } from "../api/client";
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
@@ -134,18 +136,6 @@ export function RuntimeReadinessPanel({
   );
   const [editedObjective, setEditedObjective] = useState("");
   const [goalMutationBusy, setGoalMutationBusy] = useState(false);
-  const pendingGoalCreateIdempotencyRef = useRef<string | null>(null);
-  const pendingGoalEdit = useRef<{
-    goalRef: string;
-    request: RuntimeGoalEditRequest;
-    idempotencyRef: string;
-  } | null>(null);
-  const pendingGoalTransition = useRef<{
-    goalRef: string;
-    transition: RuntimeGoalTransitionKind;
-    request: RuntimeGoalTransitionRequest;
-    idempotencyRef: string;
-  } | null>(null);
   const [goalNotice, setGoalNotice] = useState(
     "Goal mutations require the exact local backend and a current truth binding.",
   );
@@ -225,36 +215,38 @@ export function RuntimeReadinessPanel({
       setGoalNotice("Goal creation is blocked until backend truth is current.");
       return;
     }
-    const idempotencyRef =
-      pendingGoalCreateIdempotencyRef.current ??
-      `idempotency-ref:control-center-goal-create:${Date.now()}`;
-    pendingGoalCreateIdempotencyRef.current = idempotencyRef;
     setGoalMutationBusy(true);
     try {
-      const result = await createRuntimeGoal(
-        {
-          text_redaction_posture:
-            "operator_authored_redacted_summary_only",
-          objective: goalObjective,
-          desired_outcome: goalOutcome,
-          success_criteria: [goalSuccessCriterion],
-          constraints: [
-            "No external execution, standing authority, or unverified completion.",
-          ],
-          in_scope_resource_refs: [],
-          stop_condition: goalStopCondition,
-          budget: {
-            operation_limit: 25,
-            cost_budget_microusd: 0,
-          },
-          links: {
-            plan_refs: [],
-            run_refs: [],
-            action_inbox_refs: [],
-            work_board_refs: [],
-          },
-          evidence_refs: [],
+      const request: RuntimeGoalCreateRequest = {
+        text_redaction_posture:
+          "operator_authored_redacted_summary_only",
+        objective: goalObjective,
+        desired_outcome: goalOutcome,
+        success_criteria: [goalSuccessCriterion],
+        constraints: [
+          "No external execution, standing authority, or unverified completion.",
+        ],
+        in_scope_resource_refs: [],
+        stop_condition: goalStopCondition,
+        budget: {
+          operation_limit: 25,
+          cost_budget_microusd: 0,
         },
+        links: {
+          plan_refs: [],
+          run_refs: [],
+          action_inbox_refs: [],
+          work_board_refs: [],
+        },
+        evidence_refs: [],
+      };
+      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
+        operation: "create",
+        goalRef: null,
+        request,
+      });
+      const result = await createRuntimeGoal(
+        request,
         idempotencyRef,
         mutationBinding,
       );
@@ -268,7 +260,6 @@ export function RuntimeReadinessPanel({
         );
         return;
       }
-      pendingGoalCreateIdempotencyRef.current = null;
       setSelectedGoalRef(result.goal.goal_ref);
       setGoalObjective("");
       setGoalOutcome("");
@@ -293,29 +284,24 @@ export function RuntimeReadinessPanel({
       setGoalNotice("Goal editing is blocked until backend truth is current.");
       return;
     }
-    const nonce = Date.now();
-    const pending =
-      pendingGoalEdit.current ??
-      {
-        goalRef: selectedGoal.goal_ref,
-        request: {
-          expected_version: selectedGoal.version,
-          text_redaction_posture:
-            "operator_authored_redacted_summary_only" as const,
-          objective: editedObjective,
-          evidence_refs: [
-            `evidence-ref:control-center-goal-edit:${nonce}`,
-          ],
-        },
-        idempotencyRef: `idempotency-ref:control-center-goal-edit:${nonce}`,
-      };
-    pendingGoalEdit.current = pending;
     setGoalMutationBusy(true);
     try {
+      const request: RuntimeGoalEditRequest = {
+        expected_version: selectedGoal.version,
+        text_redaction_posture:
+          "operator_authored_redacted_summary_only",
+        objective: editedObjective,
+        evidence_refs: selectedGoal.evidence_refs,
+      };
+      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
+        operation: "edit",
+        goalRef: selectedGoal.goal_ref,
+        request,
+      });
       const result = await editRuntimeGoal(
-        pending.goalRef,
-        pending.request,
-        pending.idempotencyRef,
+        selectedGoal.goal_ref,
+        request,
+        idempotencyRef,
         mutationBinding,
       );
       applyGoalSnapshot(result.goal);
@@ -329,7 +315,6 @@ export function RuntimeReadinessPanel({
         );
         return;
       }
-      pendingGoalEdit.current = null;
       setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
     } catch (error) {
       setGoalNotice(
@@ -347,40 +332,28 @@ export function RuntimeReadinessPanel({
       );
       return;
     }
-    const nonce = Date.now();
-    if (
-      pendingGoalTransition.current !== null &&
-      (pendingGoalTransition.current.goalRef !== selectedGoal.goal_ref ||
-        pendingGoalTransition.current.transition !== transition)
-    ) {
-      setGoalNotice(
-        "A prior transition has an ambiguous outcome. Retry that exact transition before starting another.",
-      );
-      return;
-    }
-    const pending =
-      pendingGoalTransition.current ??
-      {
-        goalRef: selectedGoal.goal_ref,
-        transition,
-        request: {
-          expected_version: selectedGoal.version,
-          transition,
-          reason_ref: `reason-ref:control-center-goal-${transition}:${nonce}`,
-          evidence_refs: [
-            `evidence-ref:control-center-goal-${transition}:${nonce}`,
-          ],
-        },
-        idempotencyRef:
-          `idempotency-ref:control-center-goal-${transition}:${nonce}`,
-      };
-    pendingGoalTransition.current = pending;
     setGoalMutationBusy(true);
     try {
+      const request: RuntimeGoalTransitionRequest = {
+        expected_version: selectedGoal.version,
+        transition,
+        reason_ref:
+          `reason-ref:control-center-goal-${transition}:` +
+          `${selectedGoal.goal_ref}:v${selectedGoal.version}`,
+        evidence_refs: [
+          `evidence-ref:control-center-goal-${transition}:` +
+            `${selectedGoal.goal_ref}:v${selectedGoal.version}`,
+        ],
+      };
+      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
+        operation: "transition",
+        goalRef: selectedGoal.goal_ref,
+        request,
+      });
       const result = await transitionRuntimeGoal(
-        pending.goalRef,
-        pending.request,
-        pending.idempotencyRef,
+        selectedGoal.goal_ref,
+        request,
+        idempotencyRef,
         mutationBinding,
       );
       applyGoalSnapshot(result.goal);
@@ -393,7 +366,6 @@ export function RuntimeReadinessPanel({
         );
         return;
       }
-      pendingGoalTransition.current = null;
       setGoalNotice(
         `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
       );

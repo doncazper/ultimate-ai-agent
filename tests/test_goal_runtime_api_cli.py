@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
@@ -588,6 +591,103 @@ def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> N
     assert payload["approval_binding"]["approval_validated"] is True
     assert payload["standing_authority_granted"] is False
     assert payload["runtime_execution_performed"] is False
+
+
+@pytest.mark.parametrize("durable_truth", ["receipt", "missing", "unreadable"])
+def test_command_cli_projection_failure_preserves_execution_truth(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    durable_truth: str,
+) -> None:
+    class ProjectionFailingStore:
+        @staticmethod
+        def list_invocations() -> list[object]:
+            return []
+
+        @staticmethod
+        def get_invocation_for_idempotency(_idempotency_ref: str) -> object | None:
+            if durable_truth == "unreadable":
+                raise OSError("raw durable ledger failure must stay redacted")
+            if durable_truth == "missing":
+                return None
+            return SimpleNamespace(
+                invocation_ref="invocation-ref:cli-projection-failure",
+                receipt=SimpleNamespace(
+                    receipt_ref="receipt-ref:cli-projection-failure",
+                    execution_performed=True,
+                    command_execution_performed=True,
+                ),
+            )
+
+    class ProjectionAcceptingGoalRuntime:
+        @staticmethod
+        def sync_runtime_invocations(
+            _records: object,
+            *,
+            invocation_store: object,
+        ) -> None:
+            del invocation_store
+
+    class ProjectionFailingGateway:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        @staticmethod
+        def invoke_command(
+            _request: object,
+            *,
+            idempotency_ref: str,
+        ) -> None:
+            del idempotency_ref
+            raise GoalRuntimeError("RUNTIME_DURABLE_EVENT_PROJECTION_FAILED")
+
+    monkeypatch.setattr(
+        uaa_runtime,
+        "_runtime_store",
+        lambda _args: ProjectionFailingStore(),
+    )
+    monkeypatch.setattr(
+        uaa_runtime,
+        "_goal_runtime_service",
+        lambda _args: ProjectionAcceptingGoalRuntime(),
+    )
+    monkeypatch.setattr(uaa_runtime, "RuntimeGateway", ProjectionFailingGateway)
+    args = argparse.Namespace(
+        intent="git_status",
+        profile="local-runtime",
+        mission_ref=None,
+        target_ref=[],
+        summary="Inspect current repo status with redacted output.",
+        timeout_seconds=5.0,
+        output_byte_limit=4096,
+        metadata_ref=[],
+        idempotency_ref="idempotency-ref:runtime-command-cli-projection-failure",
+        state_dir=str(tmp_path / "cli-state"),
+        json=True,
+    )
+
+    assert uaa_runtime._command_run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is False
+    assert payload["error_category"] == "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
+    assert payload["retry_allowed"] is False
+    assert "Traceback" not in json.dumps(payload)
+    assert "raw durable ledger failure" not in json.dumps(payload)
+    if durable_truth == "receipt":
+        assert payload["execution_outcome"] == "durable_receipt_recovered"
+        assert payload["execution_performed"] is True
+        assert payload["command_execution_performed"] is True
+        assert payload["invocation_ref"] == (
+            "invocation-ref:cli-projection-failure"
+        )
+        assert payload["receipt_ref"] == "receipt-ref:cli-projection-failure"
+    else:
+        assert payload["execution_outcome"] == "unknown_after_projection_failure"
+        assert payload["execution_performed"] is None
+        assert payload["command_execution_performed"] is None
+        assert payload["invocation_ref"] is None
+        assert payload["receipt_ref"] is None
 
 
 def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(

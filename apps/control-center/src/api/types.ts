@@ -13898,7 +13898,7 @@ export interface RuntimeRunEventPreview {
   runtime_run_ref: string;
   uaa_durable_run_ref: string;
   proof_ref: string;
-  redaction_status: string;
+  redaction_status: "redacted_safe_ref_only";
   safe_summary: string;
   sequence?: number | null;
   recorded_at?: string | null;

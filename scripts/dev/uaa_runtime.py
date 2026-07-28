@@ -112,6 +112,9 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (  # noqa: E402
     RuntimeApprovalBindingRequest,
     RuntimeSafeDisableRequest,
 )
+from ultimate_ai_agent.core.runtime_gateway.storage import (  # noqa: E402
+    RuntimeInvocationStorageError,
+)
 
 
 def _print_json(payload: dict[str, Any]) -> None:
@@ -2004,7 +2007,50 @@ def _capability_availability(args: argparse.Namespace) -> int:
     return 0
 
 
+def _command_projection_failure_truth(
+    runtime_store: RuntimeInvocationStore | None,
+    *,
+    idempotency_ref: str,
+    invocation_attempted: bool,
+) -> dict[str, Any]:
+    truth: dict[str, Any] = {
+        "execution_outcome": (
+            "unknown_after_projection_failure"
+            if invocation_attempted
+            else "not_started"
+        ),
+        "execution_performed": None if invocation_attempted else False,
+        "command_execution_performed": None if invocation_attempted else False,
+        "invocation_ref": None,
+        "receipt_ref": None,
+        "retry_allowed": False,
+    }
+    if runtime_store is None or not invocation_attempted:
+        return truth
+    try:
+        record = runtime_store.get_invocation_for_idempotency(idempotency_ref)
+    except (OSError, RuntimeInvocationStorageError, ValueError):
+        return truth
+    if record is None:
+        return truth
+    truth["invocation_ref"] = record.invocation_ref
+    receipt = record.receipt
+    if receipt is None:
+        return truth
+    truth.update(
+        {
+            "execution_outcome": "durable_receipt_recovered",
+            "execution_performed": receipt.execution_performed,
+            "command_execution_performed": receipt.command_execution_performed,
+            "receipt_ref": receipt.receipt_ref,
+        }
+    )
+    return truth
+
+
 def _command_run(args: argparse.Namespace) -> int:
+    runtime_store: RuntimeInvocationStore | None = None
+    invocation_attempted = False
     try:
         request = RuntimeCommandExecutionRequest(
             intent=args.intent,
@@ -2022,10 +2068,12 @@ def _command_run(args: argparse.Namespace) -> int:
             runtime_store.list_invocations(),
             invocation_store=runtime_store,
         )
-        result = RuntimeGateway(
+        gateway = RuntimeGateway(
             store=runtime_store,
             goal_runtime_service=goal_service,
-        ).invoke_command(
+        )
+        invocation_attempted = True
+        result = gateway.invoke_command(
             request,
             idempotency_ref=args.idempotency_ref,
         )
@@ -2056,6 +2104,11 @@ def _command_run(args: argparse.Namespace) -> int:
             print(payload["safe_message"])
         return 1
     except (GoalRuntimeError, OSError) as exc:
+        execution_truth = _command_projection_failure_truth(
+            runtime_store,
+            idempotency_ref=args.idempotency_ref,
+            invocation_attempted=invocation_attempted,
+        )
         error_category = (
             str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
             if isinstance(exc, GoalRuntimeError)
@@ -2074,7 +2127,7 @@ def _command_run(args: argparse.Namespace) -> int:
             "raw_content_omitted": True,
             "raw_paths_omitted": True,
             "raw_command_output_omitted": True,
-            "execution_performed": False,
+            **execution_truth,
         }
         if args.json:
             _print_json(payload)

@@ -3,6 +3,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
 } from "./client";
@@ -83,6 +84,7 @@ const mutationResult: RuntimeGoalMutationResult = {
 
 describe("proof-backed runtime goal mutations", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -335,17 +337,269 @@ describe("proof-backed runtime goal mutations", () => {
     );
   });
 
+  it("derives the same durable create identity across canonical key order and remount", async () => {
+    const reorderedRequest: RuntimeGoalCreateRequest = {
+      evidence_refs: [...request.evidence_refs],
+      links: {
+        work_board_refs: [...request.links.work_board_refs],
+        action_inbox_refs: [...request.links.action_inbox_refs],
+        run_refs: [...request.links.run_refs],
+        plan_refs: [...request.links.plan_refs],
+      },
+      budget: {
+        cost_budget_microusd: request.budget.cost_budget_microusd,
+        operation_limit: request.budget.operation_limit,
+      },
+      stop_condition: request.stop_condition,
+      in_scope_resource_refs: [...request.in_scope_resource_refs],
+      constraints: [...request.constraints],
+      success_criteria: [...request.success_criteria],
+      desired_outcome: request.desired_outcome,
+      objective: request.objective,
+      text_redaction_posture: request.text_redaction_posture,
+    };
+    const storageRead = vi.spyOn(Storage.prototype, "getItem");
+    const storageWrite = vi.spyOn(Storage.prototype, "setItem");
+
+    const beforeUnmount = await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request,
+    });
+    const afterRemount = await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request: JSON.parse(JSON.stringify(reorderedRequest)),
+    });
+
+    expect(afterRemount).toBe(beforeUnmount);
+    expect(beforeUnmount).toMatch(
+      /^idempotency-ref:control-center-goal-create:sha256:[a-f0-9]{64}$/,
+    );
+    expect(storageRead).not.toHaveBeenCalled();
+    expect(storageWrite).not.toHaveBeenCalled();
+  });
+
+  it("domain-separates materially distinct mutation payloads, operations, and goals", async () => {
+    const createIdentity = await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request,
+    });
+    const changedCreateIdentity = await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request: {
+        ...request,
+        desired_outcome: "A materially different durable outcome.",
+      },
+    });
+    const editRequest = {
+      expected_version: 1,
+      objective: request.objective,
+      evidence_refs: request.evidence_refs,
+    };
+    const editIdentity = await runtimeGoalMutationIdempotencyRef({
+      operation: "edit",
+      goalRef: mutationResult.goal.goal_ref,
+      request: editRequest,
+    });
+    const otherGoalIdentity = await runtimeGoalMutationIdempotencyRef({
+      operation: "edit",
+      goalRef: `goal-ref:sha256:${"9".repeat(64)}`,
+      request: editRequest,
+    });
+    const transitionIdentity = await runtimeGoalMutationIdempotencyRef({
+      operation: "transition",
+      goalRef: mutationResult.goal.goal_ref,
+      request: {
+        expected_version: 1,
+        transition: "pause",
+        reason_ref: "reason-ref:goal-client-pause",
+      },
+    });
+
+    expect(
+      new Set([
+        createIdentity,
+        changedCreateIdentity,
+        editIdentity,
+        otherGoalIdentity,
+        transitionIdentity,
+      ]).size,
+    ).toBe(5);
+  });
+
+  it("fails closed when canonical mutation digesting is unavailable", async () => {
+    vi.stubGlobal("crypto", undefined);
+
+    await expect(
+      runtimeGoalMutationIdempotencyRef({
+        operation: "create",
+        goalRef: null,
+        request,
+      }),
+    ).rejects.toThrow("RUNTIME_GOAL_MUTATION_DIGEST_UNAVAILABLE");
+  });
+
+  it("rejects an unknown goal lifecycle state from runtime JSON", async () => {
+    const invalidGoal = {
+      ...mutationResult.goal,
+      state: "production_ready",
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [invalidGoal],
+        goal_count: 1,
+        active_count: 0,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it("accepts the backend synthesized presence proof for a valid nonterminal durable event", async () => {
+    const event = {
+      event_ref: "runtime-run-event-ref:goal-client:started",
+      event_kind: "run_started" as const,
+      runtime_run_ref: "runtime-run-ref:goal-client:test",
+      uaa_durable_run_ref: "runtime-run-ref:goal-client:test",
+      proof_ref: "proof-ref:runtime-run-events:redacted-event-presence",
+      redaction_status: "redacted_safe_ref_only" as const,
+      safe_summary: "A durable local run started with content omitted.",
+      sequence: 1,
+      recorded_at: "2026-07-25T00:00:00Z",
+      predecessor_hash_ref: null,
+      event_hash_ref: "event-hash-ref:goal-client:started",
+      proof_refs: [],
+      receipt_refs: [],
+      goal_ref: null,
+      plan_ref: null,
+      runtime_payload_persisted: false,
+      raw_log_persisted: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      event_previews: [event],
+      stream_summaries: [
+        {
+          run_ref: event.runtime_run_ref,
+          run_type: "local_read_task" as const,
+          first_retained_sequence: 1,
+          last_sequence: 1,
+          retained_event_count: 1,
+          retention_anchor_hash_ref: null,
+          terminal_event_kind: null,
+        },
+      ],
+      stream_count: 1,
+      retained_event_count: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it.each([
+    ["goal_linked", "goal_ref"],
+    ["plan_linked", "plan_ref"],
+  ] as const)(
+    "rejects %s durable events when the required %s binding is missing",
+    async (eventKind, _requiredBinding) => {
+      const event = {
+        event_ref: `runtime-run-event-ref:goal-client:${eventKind}`,
+        event_kind: eventKind,
+        runtime_run_ref: "runtime-run-ref:goal-client:test",
+        uaa_durable_run_ref: "runtime-run-ref:goal-client:test",
+        proof_ref: "proof-ref:goal-client:semantic-binding",
+        redaction_status: "redacted_safe_ref_only" as const,
+        safe_summary: "A durable semantic link was recorded with safe refs.",
+        sequence: 1,
+        recorded_at: "2026-07-25T00:00:00Z",
+        predecessor_hash_ref: null,
+        event_hash_ref: `event-hash-ref:goal-client:${eventKind}`,
+        proof_refs: ["proof-ref:goal-client:semantic-binding"],
+        receipt_refs: [],
+        goal_ref: null,
+        plan_ref: null,
+        runtime_payload_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      };
+      const data = {
+        ...mockControlCenterData.runtimeRunEvents,
+        event_previews: [event],
+        stream_summaries: [
+          {
+            run_ref: event.runtime_run_ref,
+            run_type: "local_read_task" as const,
+            first_retained_sequence: 1,
+            last_sequence: 1,
+            retained_event_count: 1,
+            retention_anchor_hash_ref: null,
+            terminal_event_kind: null,
+          },
+        ],
+        stream_count: 1,
+        retained_event_count: 1,
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(JSON.stringify({ success: true, data }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      );
+
+      await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+        "Runtime goal/event state failed safe validation.",
+      );
+    },
+  );
+
   it.each([
     ["event_kind", "invented_event"],
     ["event_ref", "unsafe"],
     ["runtime_run_ref", "unsafe"],
     ["proof_ref", "unsafe"],
+    ["proof_ref", "proof-ref:goal-client:substituted"],
     ["safe_summary", ["token", "raw-secret"].join("=")],
     ["redaction_status", "raw"],
+    ["redaction_status", "redacted_safe_refs_only"],
     ["sequence", 0],
     ["event_hash_ref", "unsafe"],
     ["proof_refs", ["unsafe"]],
+    ["proof_refs", []],
     ["receipt_refs", ["unsafe"]],
+    ["receipt_refs", []],
+    ["goal_ref", "unsafe"],
+    ["plan_ref", "unsafe"],
     ["runtime_payload_persisted", true],
   ])("rejects malformed durable event field %s", async (field, replacement) => {
     const event = {
@@ -354,7 +608,7 @@ describe("proof-backed runtime goal mutations", () => {
       runtime_run_ref: "runtime-run-ref:goal-client:test",
       uaa_durable_run_ref: "runtime-run-ref:goal-client:test",
       proof_ref: "proof-ref:goal-client:test",
-      redaction_status: "redacted_safe_refs_only",
+      redaction_status: "redacted_safe_ref_only",
       safe_summary: "A durable receipt was recorded with bounded safe refs.",
       sequence: 1,
       recorded_at: "2026-07-25T00:00:00Z",

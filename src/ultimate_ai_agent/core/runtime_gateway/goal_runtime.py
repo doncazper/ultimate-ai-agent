@@ -74,12 +74,18 @@ GOAL_COMPLETION_VERIFIER_REF = "verifier-ref:goal-runtime:criteria-receipt-bindi
 _RAW_CONTENT_MARKERS = (
     "prompt:",
     "response:",
+    "transcript:",
     "system:",
+    "developer:",
     "assistant:",
     "user:",
+    "tool:",
+    "model:",
     "<|system|>",
+    "<|developer|>",
     "<|user|>",
     "<|assistant|>",
+    "<|tool|>",
 )
 
 
@@ -736,9 +742,22 @@ class DurableRunEventAppendRequest(BaseModel):
         ):
             if value is not None:
                 validate_execution_ref(value, field_name)
-        self.safe_summary = _bounded_safe_text(self.safe_summary, "safe_summary")
+        self.safe_summary = _bounded_redacted_summary(
+            self.safe_summary,
+            "safe_summary",
+        )
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        if (
+            self.event_kind == DurableRunEventKind.goal_linked.value
+            and self.goal_ref is None
+        ):
+            raise ValueError("RUN_EVENT_GOAL_REF_REQUIRED")
+        if (
+            self.event_kind == DurableRunEventKind.plan_linked.value
+            and self.plan_ref is None
+        ):
+            raise ValueError("RUN_EVENT_PLAN_REF_REQUIRED")
         if self.event_kind in {
             DurableRunEventKind.receipt_recorded.value,
             *TERMINAL_RUN_EVENT_KINDS,
@@ -784,9 +803,22 @@ class DurableRunEvent(BaseModel):
         ):
             if value is not None:
                 validate_execution_ref(value, field_name)
-        self.safe_summary = _bounded_safe_text(self.safe_summary, "safe_summary")
+        self.safe_summary = _bounded_redacted_summary(
+            self.safe_summary,
+            "safe_summary",
+        )
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        if (
+            self.event_kind == DurableRunEventKind.goal_linked.value
+            and self.goal_ref is None
+        ):
+            raise ValueError("RUN_EVENT_GOAL_REF_REQUIRED")
+        if (
+            self.event_kind == DurableRunEventKind.plan_linked.value
+            and self.plan_ref is None
+        ):
+            raise ValueError("RUN_EVENT_PLAN_REF_REQUIRED")
         if self.event_kind in {
             DurableRunEventKind.receipt_recorded.value,
             *TERMINAL_RUN_EVENT_KINDS,
@@ -2598,8 +2630,15 @@ class GoalRuntimeService:
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
-        self.reconcile_durable_events()
         validated = GoalTransitionRequest.model_validate(request.model_dump())
+        _validate_goal_mutation_approval_binding(
+            approval_binding,
+            operation=f"transition-{validated.transition}",
+            subject_ref=goal_ref,
+            request_payload=validated.model_dump(mode="json"),
+            idempotency_ref=idempotency_ref,
+        )
+        self.reconcile_durable_events()
         replayed = self.goals.replay_transition(
             goal_ref,
             validated,
