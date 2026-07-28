@@ -1074,8 +1074,7 @@ def get_api_runtime_goals(
 def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
     try:
         goal_store = _goal_runtime_service().goals
-        goal = goal_store.get(goal_ref)
-        mutation_provenance = goal_store.mutation_provenance(goal_ref)
+        goal, mutation_provenance = goal_store.goal_with_provenance(goal_ref)
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
             exc

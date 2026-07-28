@@ -8953,6 +8953,17 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Goal lifecycle controls")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
+    expect(screen.getByLabelText("Objective")).toBeDisabled();
+    expect(screen.getByLabelText("Desired outcome")).toBeDisabled();
+    expect(screen.getByLabelText("Success criterion")).toBeDisabled();
+    expect(screen.getByLabelText("Stop condition")).toBeDisabled();
+    expect(screen.getByLabelText("Selected durable goal")).toBeDisabled();
+    expect(screen.getByLabelText("Refined objective")).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Goal mutations are blocked until GET /api/runtime/run-events returns current backend-owned durable state.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Save objective" }),
@@ -9152,6 +9163,34 @@ describe("Web Control Center shell", () => {
       unmount();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("blocks all goal controls when backend truth is current but durable events are invalid", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.runtimeRunEvents]: {},
+    });
+
+    window.history.pushState({}, "", "/runtime");
+    render(<App />);
+
+    expect(await screen.findByText("Goal lifecycle controls")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
+    expect(screen.getByLabelText("Objective")).toBeDisabled();
+    expect(screen.getByLabelText("Desired outcome")).toBeDisabled();
+    expect(screen.getByLabelText("Success criterion")).toBeDisabled();
+    expect(screen.getByLabelText("Stop condition")).toBeDisabled();
+    expect(screen.getByLabelText("Selected durable goal")).toBeDisabled();
+    expect(screen.getByLabelText("Refined objective")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save objective" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Goal mutations are blocked until GET /api/runtime/run-events returns current backend-owned durable state.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders API route classification posture", async () => {

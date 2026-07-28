@@ -3,6 +3,7 @@ import type {
   ControlCenterData,
   ControlCenterRouteReadState,
 } from "./api/types";
+import { API_ENDPOINTS } from "./api/endpoints";
 import type { RouteStateDescriptor } from "./components/DataState";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
@@ -535,6 +536,9 @@ export function renderRoute(path: string, data: ControlCenterData) {
           hermesContextPack={data.runtimeHermesContextPack}
           capabilityDiscovery={data.runtimeCapabilityDiscovery}
           runEvents={data.runtimeRunEvents}
+          runEventsReadState={
+            data.routeStates[API_ENDPOINTS.runtimeRunEvents]
+          }
           approvalBridge={data.runtimeApprovalBridge}
           streamingProgress={data.runtimeStreamingProgress}
           profiles={data.runtimeProfiles}

@@ -316,6 +316,35 @@ def test_goal_edits_append_evidence_and_transitions_persist_reason(
     )
 
 
+def test_goal_snapshot_and_provenance_share_one_journal_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:atomic-goal-detail:create",
+    )
+    original_load = service.goals._load_entries  # noqa: SLF001
+    load_count = 0
+
+    def counted_load(
+        *,
+        repair_manifest: bool = False,
+    ) -> list[object]:
+        nonlocal load_count
+        load_count += 1
+        return original_load(repair_manifest=repair_manifest)
+
+    monkeypatch.setattr(service.goals, "_load_entries", counted_load)
+    goal, provenance = service.goals.goal_with_provenance(created.goal_ref)
+
+    assert load_count == 1
+    assert goal.version == provenance.entries[-1].goal_version
+    assert goal.goal_ref == provenance.goal_ref
+
+
 def test_goal_store_rejects_fabricated_approval_binding(
     tmp_path: Path,
 ) -> None:
@@ -1786,10 +1815,100 @@ def test_goal_runtime_files_are_private(tmp_path: Path) -> None:
     assert stat.S_IMODE(state_dir.stat().st_mode) == 0o700
     for path in (
         state_dir / "goals.jsonl",
+        state_dir / "goal_journal_head.json",
         state_dir / "run_events.jsonl",
         state_dir / "run_event_idempotency.jsonl",
     ):
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("substitution", ["symlink", "directory"])
+@pytest.mark.parametrize(
+    ("file_name", "read_surface", "expected_code"),
+    [
+        ("goals.jsonl", "goals", "GOAL_JOURNAL_CORRUPT"),
+        (
+            "goal_journal_head.json",
+            "goals",
+            "GOAL_JOURNAL_HEAD_MANIFEST_CORRUPT",
+        ),
+        ("run_events.jsonl", "events", "RUN_EVENT_STORE_CORRUPT"),
+        (
+            "run_event_idempotency.jsonl",
+            "events",
+            "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT",
+        ),
+        (
+            "run_event_projection_reservations.jsonl",
+            "reservations",
+            "RUN_EVENT_PROJECTION_RESERVATION_STORE_CORRUPT",
+        ),
+    ],
+)
+def test_goal_runtime_durable_reads_reject_link_and_nonregular_substitution(
+    tmp_path: Path,
+    substitution: str,
+    file_name: str,
+    read_surface: str,
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:safe-file-reader:create",
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:safe-file-reader",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="A bounded local run started.",
+            idempotency_ref="idempotency-ref:safe-file-reader:event",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    service._events.reserve_runtime_projection(  # noqa: SLF001
+        None,
+        operation_idempotency_ref="idempotency-ref:safe-file-reader:reservation",
+    )
+
+    path = tmp_path / file_name
+    if substitution == "symlink":
+        preserved = tmp_path / f"{file_name}.preserved"
+        path.replace(preserved)
+        path.symlink_to(preserved.name)
+    else:
+        path.unlink()
+        path.mkdir()
+
+    with pytest.raises(GoalRuntimeCorruptionError, match=expected_code):
+        if read_surface == "goals":
+            service.goals.read_model()
+        elif read_surface == "events":
+            service.events.summaries()
+        else:
+            service._events._load_projection_reservations()  # noqa: SLF001
+
+
+def test_goal_journal_head_manifest_rejects_schema_drift(tmp_path: Path) -> None:
+    service = GoalRuntimeService(tmp_path)
+    _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:head-schema-drift:create",
+    )
+    head_path = tmp_path / "goal_journal_head.json"
+    payload = json.loads(head_path.read_text(encoding="utf-8"))
+    payload["schema_version"] = "goal_journal_head.v2"
+    head_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_HEAD_MANIFEST_CORRUPT",
+    ):
+        service.goals.read_model()
 
 
 def test_goal_runtime_reads_do_not_initialize_storage(tmp_path: Path) -> None:
@@ -1812,6 +1931,139 @@ def test_goal_runtime_reads_do_not_initialize_storage(tmp_path: Path) -> None:
     assert existing_service.events.summaries() == []
     assert stat.S_IMODE(existing_state_dir.stat().st_mode) == 0o755
     assert list(existing_state_dir.iterdir()) == []
+
+
+def test_first_lock_creation_race_retries_event_and_goal_generations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_dir = tmp_path / "event-race"
+    event_reader = GoalRuntimeService(event_dir)
+    event_writer = GoalRuntimeService(event_dir)
+    original_load_events = event_reader._events._load_events  # noqa: SLF001
+    event_raced = False
+
+    def race_event_generation() -> list[DurableRunEvent]:
+        nonlocal event_raced
+        if not event_raced:
+            event_raced = True
+            _append_event(
+                event_writer,
+                DurableRunEventAppendRequest(
+                    run_ref="run-ref:first-lock-race",
+                    run_type=AcceptedLocalRunType.local_read_task,
+                    event_kind=DurableRunEventKind.run_started,
+                    safe_summary="The first writer created a consistent generation.",
+                    idempotency_ref="idempotency-ref:first-lock-race",
+                    authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+                ),
+            )
+        return original_load_events()
+
+    monkeypatch.setattr(
+        event_reader._events,  # noqa: SLF001
+        "_load_events",
+        race_event_generation,
+    )
+    replay = event_reader.events.replay("run-ref:first-lock-race")
+    assert event_raced is True
+    assert [event.sequence for event in replay.events] == [1]
+
+    goal_dir = tmp_path / "goal-race"
+    goal_reader = GoalRuntimeService(goal_dir)
+    goal_writer = GoalRuntimeService(goal_dir)
+    original_load_entries = goal_reader.goals._load_entries  # noqa: SLF001
+    goal_raced = False
+
+    def race_goal_generation(
+        *,
+        repair_manifest: bool = False,
+    ) -> list[object]:
+        nonlocal goal_raced
+        if not goal_raced:
+            goal_raced = True
+            _create_goal(
+                goal_writer,
+                _create_request(),
+                idempotency_ref="idempotency-ref:first-goal-lock-race",
+            )
+        return original_load_entries(repair_manifest=repair_manifest)
+
+    monkeypatch.setattr(
+        goal_reader.goals,
+        "_load_entries",
+        race_goal_generation,
+    )
+    assert goal_reader.goals.read_model().goal_count == 1
+    assert goal_raced is True
+
+
+def test_goal_runtime_lock_failures_are_normalized(tmp_path: Path) -> None:
+    event_dir = tmp_path / "event-lock-failure"
+    event_dir.mkdir()
+    (event_dir / ".locks").write_text("blocked", encoding="utf-8")
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        GoalRuntimeService(event_dir)._events.append(  # noqa: SLF001
+            DurableRunEventAppendRequest(
+                run_ref="run-ref:lock-failure",
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.run_started,
+                safe_summary="A lock failure must remain safely normalized.",
+                idempotency_ref="idempotency-ref:lock-failure",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            )
+        )
+
+    goal_dir = tmp_path / "goal-lock-failure"
+    goal_dir.mkdir()
+    (goal_dir / ".locks").write_text("blocked", encoding="utf-8")
+    request = _create_request()
+    approval = capture_exact_goal_mutation_approval(
+        operation="create",
+        subject_ref="goal-ref:new",
+        request_payload=request.model_dump(mode="json"),
+        idempotency_ref="idempotency-ref:goal-lock-failure",
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        GoalRuntimeService(goal_dir).goals.create(
+            request,
+            idempotency_ref="idempotency-ref:goal-lock-failure",
+            approval_binding=approval,
+        )
+
+
+@pytest.mark.parametrize(
+    ("writer_key", "read_surface"),
+    [
+        ("run-events", "events"),
+        ("goal-journal", "goals"),
+    ],
+)
+def test_goal_runtime_reads_reject_dangling_lock_symlinks(
+    tmp_path: Path,
+    writer_key: str,
+    read_surface: str,
+) -> None:
+    state_dir = tmp_path / writer_key
+    lock_dir = state_dir / ".locks"
+    lock_dir.mkdir(parents=True)
+    (lock_dir / f"{writer_key}.lock").symlink_to("missing-lock-target")
+    service = GoalRuntimeService(state_dir)
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        if read_surface == "events":
+            service.events.summaries()
+        else:
+            service.goals.read_model()
 
 
 def test_run_event_writer_requires_exact_approval_and_is_not_on_reader(
@@ -2005,6 +2257,69 @@ def test_runtime_projection_byte_capacity_fails_before_adapter_side_effect(
 
     assert calls == 0
     assert gateway.store.list_invocations() == []
+
+
+@pytest.mark.parametrize(
+    ("limit_name", "expected_code"),
+    [
+        ("MAX_RUN_EVENT_STORE_BYTES", "RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED"),
+        (
+            "MAX_RUN_EVENT_IDEMPOTENCY_BYTES",
+            "RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED",
+        ),
+    ],
+)
+def test_nonreserved_append_preserves_active_projection_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    limit_name: str,
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    reservation_ref = service._events.reserve_runtime_projection(  # noqa: SLF001
+        None,
+        operation_idempotency_ref="idempotency-ref:reserved-byte-allowance",
+    )
+    event_bytes = (
+        service._events.path.stat().st_size  # noqa: SLF001
+        if service._events.path.exists()  # noqa: SLF001
+        else 0
+    )
+    tombstone_bytes = (
+        service._events.idempotency_path.stat().st_size  # noqa: SLF001
+        if service._events.idempotency_path.exists()  # noqa: SLF001
+        else 0
+    )
+    reserved_bytes = 2 * (
+        goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES
+        if limit_name == "MAX_RUN_EVENT_STORE_BYTES"
+        else goal_runtime_module.MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        limit_name,
+        (
+            event_bytes
+            if limit_name == "MAX_RUN_EVENT_STORE_BYTES"
+            else tombstone_bytes
+        )
+        + reserved_bytes,
+    )
+
+    with pytest.raises(GoalRuntimeError, match=expected_code):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref="run-ref:unrelated-reserved-bytes",
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.run_started,
+                safe_summary="An unrelated append cannot consume reserved bytes.",
+                idempotency_ref="idempotency-ref:unrelated-reserved-bytes",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+
+    assert reservation_ref in service._events._load_projection_reservations()  # noqa: SLF001
 
 
 def test_completion_event_capacity_fails_before_goal_transition(
@@ -2384,6 +2699,101 @@ def test_goal_journal_tampering_fails_closed(tmp_path: Path) -> None:
         match="GOAL_JOURNAL_ENTRY_HASH_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
+
+
+@pytest.mark.parametrize(
+    ("tamper", "expected_code"),
+    [
+        ("empty-journal", "GOAL_JOURNAL_EMPTY_ROLLBACK"),
+        ("prefix-rollback", "GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH"),
+        ("missing-manifest", "GOAL_JOURNAL_HEAD_MANIFEST_MISSING"),
+        ("manifest-mismatch", "GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH"),
+    ],
+)
+def test_goal_journal_head_manifest_rejects_rollback(
+    tmp_path: Path,
+    tamper: str,
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-head:create",
+    )
+    _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="A second entry anchors the independent journal head.",
+        ),
+        idempotency_ref="idempotency-ref:goal-head:edit",
+    )
+    journal_path = tmp_path / "goals.jsonl"
+    head_path = tmp_path / "goal_journal_head.json"
+    if tamper == "empty-journal":
+        journal_path.write_text("", encoding="utf-8")
+    elif tamper == "prefix-rollback":
+        journal_path.write_text(
+            journal_path.read_text(encoding="utf-8").splitlines()[0] + "\n",
+            encoding="utf-8",
+        )
+    elif tamper == "missing-manifest":
+        head_path.unlink()
+    else:
+        manifest = json.loads(head_path.read_text(encoding="utf-8"))
+        manifest["idempotency_set_hash_ref"] = (
+            "idempotency-set-hash-ref:goal-journal:sha256:"
+            + "0" * 64
+        )
+        head_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(GoalRuntimeCorruptionError, match=expected_code):
+        GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
+
+
+def test_goal_journal_recovers_one_entry_ahead_manifest_on_mutation(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-head-recovery:create",
+    )
+    old_manifest = (tmp_path / "goal_journal_head.json").read_text(encoding="utf-8")
+    edited = _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="The journal commit survived before its head update.",
+        ),
+        idempotency_ref="idempotency-ref:goal-head-recovery:edit",
+    )
+    (tmp_path / "goal_journal_head.json").write_text(
+        old_manifest,
+        encoding="utf-8",
+    )
+
+    replayed = _edit_goal(
+        GoalRuntimeService(tmp_path),
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="The journal commit survived before its head update.",
+        ),
+        idempotency_ref="idempotency-ref:goal-head-recovery:edit",
+    )
+
+    assert replayed == edited
+    assert json.loads(
+        (tmp_path / "goal_journal_head.json").read_text(encoding="utf-8")
+    )["entry_count"] == 2
 
 
 def test_goal_transition_reason_tampering_fails_closed(tmp_path: Path) -> None:

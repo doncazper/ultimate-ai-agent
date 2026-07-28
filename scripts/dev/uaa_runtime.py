@@ -4163,8 +4163,7 @@ def _goals_list(args: argparse.Namespace) -> int:
 def _goal_show(args: argparse.Namespace) -> int:
     try:
         goal_store = _goal_runtime_service(args).goals
-        goal = goal_store.get(args.goal_ref)
-        mutation_provenance = goal_store.mutation_provenance(args.goal_ref)
+        goal, mutation_provenance = goal_store.goal_with_provenance(args.goal_ref)
     except GoalRuntimeError:
         print("Goal could not be read safely.", file=sys.stderr)
         return 1

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import stat
+import threading
 import uuid
 from collections.abc import Iterable
 from contextlib import contextmanager, nullcontext
@@ -64,9 +65,11 @@ MAX_REPLAY_EVENTS = 100
 MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
 MAX_GOAL_JOURNAL_ENTRIES = 4096
 MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
+MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
+MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES = 16 * 1024 * 1024
 MAX_RESERVED_RUN_EVENT_BYTES = 64 * 1024
 MAX_RESERVED_RUN_EVENT_TOMBSTONE_BYTES = 64 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
@@ -113,6 +116,10 @@ class GoalIdempotencyConflictError(GoalRuntimeError):
 
 class GoalTransitionDeniedError(GoalRuntimeError):
     """Raised when a goal lifecycle transition is not allowed."""
+
+
+class _GoalRuntimeGenerationChanged(RuntimeError):
+    """Internal signal for a bounded optimistic read retry."""
 
 
 class RunEventNotFoundError(GoalRuntimeError):
@@ -719,6 +726,24 @@ class GoalMutationProvenanceReadModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class GoalJournalHeadManifest(BaseModel):
+    schema_version: Literal["goal_journal_head.v1"] = "goal_journal_head.v1"
+    entry_count: StrictInt = Field(ge=1, le=MAX_GOAL_JOURNAL_ENTRIES)
+    head_entry_hash_ref: str
+    idempotency_set_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> "GoalJournalHeadManifest":
+        validate_execution_ref(self.head_entry_hash_ref, "head_entry_hash_ref")
+        validate_execution_ref(
+            self.idempotency_set_hash_ref,
+            "idempotency_set_hash_ref",
+        )
+        return self
+
+
 class DurableRunEventAppendRequest(BaseModel):
     run_ref: str
     run_type: AcceptedLocalRunType
@@ -955,6 +980,7 @@ class _GoalJournalStore:
     def __init__(self, state_dir: str | Path) -> None:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goals.jsonl"
+        self.head_path = self.state_dir / "goal_journal_head.json"
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     def create(
@@ -978,8 +1004,8 @@ class _GoalJournalStore:
             validated.model_dump(mode="json"),
         )
         _initialize_goal_runtime_state_dir(self.state_dir)
-        with self._locks.acquire("goal-journal"):
-            entries = self._load_entries()
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
+            entries = self._load_entries(repair_manifest=True)
             replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
             if replay is not None:
                 return replay
@@ -1111,9 +1137,9 @@ class _GoalJournalStore:
                 "request": validated.model_dump(mode="json"),
             },
         )
-        with self._locks.acquire("goal-journal"):
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             return self._idempotent_replay(
-                self._load_entries(),
+                self._load_entries(repair_manifest=True),
                 idempotency_ref,
                 fingerprint,
             )
@@ -1137,8 +1163,8 @@ class _GoalJournalStore:
                 "request": validated.model_dump(mode="json"),
             },
         )
-        with self._locks.acquire("goal-journal"):
-            for entry in self._load_entries():
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
+            for entry in self._load_entries(repair_manifest=True):
                 if entry.idempotency_ref != idempotency_ref:
                     continue
                 if entry.request_fingerprint_ref != fingerprint:
@@ -1155,7 +1181,7 @@ class _GoalJournalStore:
 
     def latest_entry(self, goal_ref: str) -> GoalJournalEntry:
         validate_execution_ref(goal_ref, "goal_ref")
-        entries = self._load_entries()
+        entries = self._load_consistent_entries()
         for entry in reversed(entries):
             if entry.goal_ref == goal_ref:
                 return entry.model_copy(deep=True)
@@ -1170,7 +1196,9 @@ class _GoalJournalStore:
         validate_execution_ref(goal_ref, "goal_ref")
         bounded_limit = max(1, min(int(limit), MAX_GOAL_PROVENANCE_ENTRIES))
         matching = [
-            entry for entry in self._load_entries() if entry.goal_ref == goal_ref
+            entry
+            for entry in self._load_consistent_entries()
+            if entry.goal_ref == goal_ref
         ]
         if not matching:
             raise GoalNotFoundError("GOAL_NOT_FOUND")
@@ -1184,15 +1212,40 @@ class _GoalJournalStore:
             entry_count=len(entries),
         )
 
+    def goal_with_provenance(
+        self,
+        goal_ref: str,
+        *,
+        limit: int = MAX_GOAL_PROVENANCE_ENTRIES,
+    ) -> tuple[PersistentGoal, GoalMutationProvenanceReadModel]:
+        validate_execution_ref(goal_ref, "goal_ref")
+        bounded_limit = max(1, min(int(limit), MAX_GOAL_PROVENANCE_ENTRIES))
+        all_entries = self._load_consistent_entries()
+        matching = [entry for entry in all_entries if entry.goal_ref == goal_ref]
+        if not matching:
+            raise GoalNotFoundError("GOAL_NOT_FOUND")
+        provenance_entries = [
+            GoalMutationProvenanceEntry.from_journal_entry(entry)
+            for entry in matching[-bounded_limit:]
+        ]
+        return (
+            matching[-1].goal.model_copy(deep=True),
+            GoalMutationProvenanceReadModel(
+                goal_ref=goal_ref,
+                entries=provenance_entries,
+                entry_count=len(provenance_entries),
+            ),
+        )
+
     def latest_verified_completion_entry(
         self,
         goal_ref: str,
     ) -> GoalJournalEntry:
         validate_execution_ref(goal_ref, "goal_ref")
-        with self._locks.acquire("goal-journal"):
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             previous_state: str | None = None
             candidate: GoalJournalEntry | None = None
-            for entry in self._load_entries():
+            for entry in self._load_entries(repair_manifest=True):
                 if entry.goal_ref != goal_ref:
                     continue
                 if (
@@ -1207,13 +1260,13 @@ class _GoalJournalStore:
 
     def get(self, goal_ref: str) -> PersistentGoal:
         validate_execution_ref(goal_ref, "goal_ref")
-        latest = self._latest_by_goal(self._load_entries())
+        latest = self._latest_by_goal(self._load_consistent_entries())
         if goal_ref not in latest:
             raise GoalNotFoundError("GOAL_NOT_FOUND")
         return latest[goal_ref].model_copy(deep=True)
 
     def list(self, *, include_cleared: bool = False) -> list[PersistentGoal]:
-        goals = list(self._latest_by_goal(self._load_entries()).values())
+        goals = list(self._latest_by_goal(self._load_consistent_entries()).values())
         goals.sort(key=lambda goal: (goal.updated_at, goal.goal_ref), reverse=True)
         if not include_cleared:
             goals = [goal for goal in goals if goal.state != GoalState.cleared.value]
@@ -1252,8 +1305,8 @@ class _GoalJournalStore:
             {"goal_ref": goal_ref, "request": request_payload},
         )
         _initialize_goal_runtime_state_dir(self.state_dir)
-        with self._locks.acquire("goal-journal"):
-            entries = self._load_entries()
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
+            entries = self._load_entries(repair_manifest=True)
             replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
             if replay is not None:
                 return replay
@@ -1504,20 +1557,32 @@ class _GoalJournalStore:
             payload.pop("transition_reason_ref", None)
         return _sha256_ref("entry-hash-ref:goal-journal", payload)
 
-    def _load_entries(self) -> list[GoalJournalEntry]:
-        if not self.path.exists():
+    def _load_entries(
+        self,
+        *,
+        repair_manifest: bool = False,
+    ) -> list[GoalJournalEntry]:
+        raw_content = _read_bounded_regular_utf8(
+            self.path,
+            max_bytes=MAX_GOAL_JOURNAL_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_JOURNAL_BYTE_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_JOURNAL_CORRUPT",
+        )
+        if raw_content is None:
+            if self._load_head_manifest() is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_MISSING_WITH_HEAD_MANIFEST"
+                )
             return []
-        try:
-            if self.path.stat().st_size > MAX_GOAL_JOURNAL_BYTES:
-                raise GoalRuntimeCorruptionError("GOAL_JOURNAL_BYTE_CAPACITY_EXCEEDED")
-        except OSError as exc:
-            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT") from exc
         entries: list[GoalJournalEntry] = []
         previous: str | None = None
         versions: dict[str, int] = {}
         idempotency: dict[str, str] = {}
         try:
-            lines = self.path.read_text(encoding="utf-8").splitlines()
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError("GOAL_JOURNAL_EMPTY_ROLLBACK")
+            lines = raw_content.splitlines()
             for raw_line in lines:
                 if not raw_line.strip():
                     continue
@@ -1558,7 +1623,82 @@ class _GoalJournalStore:
             raise
         except (OSError, UnicodeError, ValueError) as exc:
             raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT") from exc
-        return entries
+        manifest = self._load_head_manifest()
+        if manifest is None:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_MISSING")
+        exact_manifest = self._build_head_manifest(entries)
+        if manifest == exact_manifest:
+            return entries
+        if len(entries) == manifest.entry_count + 1:
+            previous_manifest = self._build_head_manifest(entries[:-1])
+            if manifest == previous_manifest:
+                if repair_manifest:
+                    self._write_head_manifest(exact_manifest)
+                return entries
+        raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH")
+
+    def _load_consistent_entries(self) -> list[GoalJournalEntry]:
+        for _attempt in range(3):
+            try:
+                with _nonmutating_goal_runtime_read_lock(
+                    self.state_dir / ".locks",
+                    "goal-journal",
+                    generation_paths=(self.path, self.head_path),
+                ):
+                    return self._load_entries()
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError("GOAL_JOURNAL_GENERATION_UNSTABLE")
+
+    def _load_head_manifest(self) -> GoalJournalHeadManifest | None:
+        raw_content = _read_bounded_regular_utf8(
+            self.head_path,
+            max_bytes=MAX_GOAL_JOURNAL_HEAD_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_JOURNAL_HEAD_MANIFEST_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_JOURNAL_HEAD_MANIFEST_CORRUPT",
+        )
+        if raw_content is None:
+            return None
+        try:
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_HEAD_MANIFEST_EMPTY"
+                )
+            return GoalJournalHeadManifest.model_validate_json(raw_content)
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_HEAD_MANIFEST_CORRUPT"
+            ) from exc
+
+    @staticmethod
+    def _build_head_manifest(
+        entries: list[GoalJournalEntry],
+    ) -> GoalJournalHeadManifest:
+        if not entries:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_EMPTY")
+        return GoalJournalHeadManifest(
+            entry_count=len(entries),
+            head_entry_hash_ref=entries[-1].entry_hash_ref,
+            idempotency_set_hash_ref=_sha256_ref(
+                "idempotency-set-hash-ref:goal-journal",
+                sorted(
+                    (
+                        entry.idempotency_ref,
+                        entry.request_fingerprint_ref,
+                    )
+                    for entry in entries
+                ),
+            ),
+        )
+
+    def _write_head_manifest(self, manifest: GoalJournalHeadManifest) -> None:
+        content = manifest.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_GOAL_JOURNAL_HEAD_BYTES:
+            raise GoalRuntimeError("GOAL_JOURNAL_HEAD_MANIFEST_CAPACITY_EXCEEDED")
+        _atomic_write(self.head_path, content)
 
     def _write_entries(self, entries: list[GoalJournalEntry]) -> None:
         content = "".join(entry.model_dump_json() + "\n" for entry in entries)
@@ -1568,6 +1708,7 @@ class _GoalJournalStore:
         ):
             raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
         _atomic_write(self.path, content)
+        self._write_head_manifest(self._build_head_manifest(entries))
 
 
 class _DurableRunEventStore:
@@ -1587,12 +1728,45 @@ class _DurableRunEventStore:
         )
         self.retention_limit = retention_limit
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
+        self._lock_state = threading.local()
 
     @contextmanager
     def exclusive(self) -> Iterator[None]:
         _initialize_goal_runtime_state_dir(self.state_dir)
-        with self._locks.acquire("run-events"):
+        with _normalized_goal_runtime_lock(self._locks, "run-events"):
+            depth = getattr(self._lock_state, "exclusive_depth", 0)
+            self._lock_state.exclusive_depth = depth + 1
+            try:
+                yield
+            finally:
+                self._lock_state.exclusive_depth = depth
+
+    @contextmanager
+    def consistent_read(self) -> Iterator[None]:
+        if getattr(self._lock_state, "exclusive_depth", 0):
             yield
+            return
+        with _nonmutating_goal_runtime_read_lock(
+            self.state_dir / ".locks",
+            "run-events",
+            generation_paths=(self.path, self.idempotency_path),
+        ):
+            yield
+
+    def _load_consistent_generation(
+        self,
+    ) -> tuple[
+        list[DurableRunEvent],
+        dict[tuple[str, str], RunEventIdempotencyTombstone],
+    ]:
+        for _attempt in range(3):
+            try:
+                with self.consistent_read():
+                    events = self._load_events()
+                    return events, self._load_idempotency_tombstones(events)
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError("RUN_EVENT_GENERATION_UNSTABLE")
 
     def append(self, request: DurableRunEventAppendRequest) -> DurableRunEvent:
         validated = DurableRunEventAppendRequest.model_validate(request.model_dump())
@@ -1822,9 +1996,11 @@ class _DurableRunEventStore:
         next_events = self._apply_retention([*events, event], validated.run_ref)
         tombstone = self._build_idempotency_tombstone(event, expected_fingerprint)
         tombstones[key] = tombstone
-        self._assert_encoded_store_capacity(
+        remaining_reserved_slots = reserved_slots - (1 if reservation is not None else 0)
+        self._assert_projection_capacity(
             next_events,
             tombstones.values(),
+            required_slots=remaining_reserved_slots,
         )
         self._write_events(next_events)
         self._write_idempotency_tombstones(tombstones.values())
@@ -1859,7 +2035,8 @@ class _DurableRunEventStore:
         if after_sequence < 0:
             raise ValueError("RUN_EVENT_CURSOR_INVALID")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
-        same_run = [event for event in self._load_events() if event.run_ref == run_ref]
+        events, _tombstones = self._load_consistent_generation()
+        same_run = [event for event in events if event.run_ref == run_ref]
         if not same_run:
             return RunEventReplayReadModel(
                 status=RunEventReplayStatus.unknown_run,
@@ -1912,7 +2089,8 @@ class _DurableRunEventStore:
 
     def summaries(self) -> list[RunEventStreamSummary]:
         grouped: dict[str, list[DurableRunEvent]] = {}
-        for event in self._load_events():
+        events, _tombstones = self._load_consistent_generation()
+        for event in events:
             grouped.setdefault(event.run_ref, []).append(event)
         summaries = [
             RunEventStreamSummary(
@@ -1948,7 +2126,7 @@ class _DurableRunEventStore:
         if run_ref is not None:
             validate_execution_ref(run_ref, "run_ref")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
-        events = self._load_events()
+        events, _tombstones = self._load_consistent_generation()
         if run_ref is not None:
             events = [event for event in events if event.run_ref == run_ref]
         return [event.model_copy(deep=True) for event in events[-bounded_limit:]]
@@ -1962,8 +2140,7 @@ class _DurableRunEventStore:
         goal_ref: str,
     ) -> bool:
         validate_execution_ref(run_ref, "run_ref")
-        events = self._load_events()
-        tombstones = self._load_idempotency_tombstones(events)
+        events, tombstones = self._load_consistent_generation()
         return (
             self._completion_receipt_event(
                 events,
@@ -2053,7 +2230,8 @@ class _DurableRunEventStore:
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
         validate_execution_ref(run_ref, "run_ref")
-        for event in self._load_events():
+        events, _tombstones = self._load_consistent_generation()
+        for event in events:
             if event.run_ref == run_ref:
                 return AcceptedLocalRunType(event.run_type)
         raise RunEventNotFoundError("RUN_EVENT_STREAM_NOT_FOUND")
@@ -2212,12 +2390,17 @@ class _DurableRunEventStore:
         self,
     ) -> dict[str, RunEventProjectionReservation]:
         reservations: dict[str, RunEventProjectionReservation] = {}
+        raw_content = _read_bounded_regular_utf8(
+            self.reservations_path,
+            max_bytes=MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_PROJECTION_RESERVATION_STORE_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_PROJECTION_RESERVATION_STORE_CORRUPT",
+        )
+        if raw_content is None:
+            return reservations
         try:
-            if not self.reservations_path.exists():
-                return reservations
-            for raw_line in self.reservations_path.read_text(
-                encoding="utf-8"
-            ).splitlines():
+            for raw_line in raw_content.splitlines():
                 if not raw_line.strip():
                     continue
                 reservation = RunEventProjectionReservation.model_validate_json(
@@ -2261,6 +2444,13 @@ class _DurableRunEventStore:
         content = "".join(
             reservation.model_dump_json() + "\n" for reservation in reservations
         )
+        if (
+            len(content.encode("utf-8"))
+            > MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES
+        ):
+            raise GoalRuntimeError(
+                "RUN_EVENT_PROJECTION_RESERVATION_STORE_CAPACITY_EXCEEDED"
+            )
         _atomic_write(self.reservations_path, content)
 
     def _build_idempotency_tombstone(
@@ -2319,19 +2509,17 @@ class _DurableRunEventStore:
         self,
     ) -> dict[tuple[str, str], RunEventIdempotencyTombstone]:
         tombstones: dict[tuple[str, str], RunEventIdempotencyTombstone] = {}
+        raw_content = _read_bounded_regular_utf8(
+            self.idempotency_path,
+            max_bytes=MAX_RUN_EVENT_IDEMPOTENCY_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT",
+        )
+        if raw_content is None:
+            return tombstones
         try:
-            if not self.idempotency_path.exists():
-                return tombstones
-            if (
-                self.idempotency_path.stat().st_size
-                > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
-            ):
-                raise GoalRuntimeCorruptionError(
-                    "RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED"
-                )
-            for raw_line in self.idempotency_path.read_text(
-                encoding="utf-8"
-            ).splitlines():
+            for raw_line in raw_content.splitlines():
                 if not raw_line.strip():
                     continue
                 tombstone = RunEventIdempotencyTombstone.model_validate_json(raw_line)
@@ -2414,18 +2602,20 @@ class _DurableRunEventStore:
                     )
 
     def _load_events(self) -> list[DurableRunEvent]:
-        if not self.path.exists():
+        raw_content = _read_bounded_regular_utf8(
+            self.path,
+            max_bytes=MAX_RUN_EVENT_STORE_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_STORE_CORRUPT",
+        )
+        if raw_content is None:
             self._assert_no_orphaned_idempotency_history()
             return []
         events: list[DurableRunEvent] = []
         grouped: dict[str, list[DurableRunEvent]] = {}
         idempotency: set[tuple[str, str]] = set()
         try:
-            if self.path.stat().st_size > MAX_RUN_EVENT_STORE_BYTES:
-                raise GoalRuntimeCorruptionError(
-                    "RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED"
-                )
-            raw_content = self.path.read_text(encoding="utf-8")
             if not raw_content.strip():
                 self._assert_no_orphaned_idempotency_history()
                 return []
@@ -2530,20 +2720,17 @@ class _DurableRunEventStore:
                 )
 
     def _assert_no_orphaned_idempotency_history(self) -> None:
-        try:
-            if (
-                self.idempotency_path.exists()
-                and self.idempotency_path.read_text(encoding="utf-8").strip()
-            ):
-                raise GoalRuntimeCorruptionError(
-                    "RUN_EVENT_JOURNAL_MISSING_WITH_IDEMPOTENCY_HISTORY"
-                )
-        except GoalRuntimeCorruptionError:
-            raise
-        except (OSError, UnicodeError) as exc:
+        raw_content = _read_bounded_regular_utf8(
+            self.idempotency_path,
+            max_bytes=MAX_RUN_EVENT_IDEMPOTENCY_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT",
+        )
+        if raw_content is not None and raw_content.strip():
             raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT"
-            ) from exc
+                "RUN_EVENT_JOURNAL_MISSING_WITH_IDEMPOTENCY_HISTORY"
+            )
 
     def _apply_retention(
         self, events: list[DurableRunEvent], run_ref: str
@@ -3341,6 +3528,173 @@ def _validate_goal_runtime_state_dir_for_read(state_dir: Path) -> None:
         raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
     if not stat.S_ISDIR(state_metadata.st_mode):
         raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+
+
+@contextmanager
+def _normalized_goal_runtime_lock(
+    manager: FileSingleWriterLockManager,
+    writer_key: str,
+) -> Iterator[None]:
+    entered = False
+    try:
+        with manager.acquire(writer_key):
+            entered = True
+            yield
+    except OSError as exc:
+        if not entered:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+        raise
+
+
+@contextmanager
+def _nonmutating_goal_runtime_read_lock(
+    lock_dir: Path,
+    writer_key: str,
+    *,
+    generation_paths: tuple[Path, ...] = (),
+) -> Iterator[None]:
+    safe_name = "".join(
+        ch if ch.isalnum() or ch in "._-" else "_" for ch in writer_key
+    )
+    lock_path = lock_dir / f"{safe_name}.lock"
+    if not _path_generation(lock_path)[0]:
+        before = tuple(_path_generation(path) for path in (*generation_paths, lock_path))
+        try:
+            yield
+        finally:
+            after = tuple(
+                _path_generation(path) for path in (*generation_paths, lock_path)
+            )
+            if after != before:
+                raise _GoalRuntimeGenerationChanged
+        return
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        metadata = os.fstat(descriptor)
+        path_metadata = os.lstat(lock_path)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+        ):
+            raise OSError("goal runtime read lock must be a regular file")
+        try:
+            import fcntl
+        except ImportError:
+            fcntl = None
+        if fcntl is not None:
+            fcntl.flock(descriptor, fcntl.LOCK_SH)
+        try:
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+    except OSError as exc:
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _read_bounded_regular_utf8(
+    path: Path,
+    *,
+    max_bytes: int,
+    missing_ok: bool,
+    capacity_error: str,
+    corruption_error: str,
+) -> str | None:
+    """Read one immutable regular-file identity without following links."""
+
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+    except FileNotFoundError:
+        if missing_ok:
+            return None
+        raise GoalRuntimeCorruptionError(corruption_error) from None
+    except OSError as exc:
+        raise GoalRuntimeCorruptionError(corruption_error) from exc
+
+    try:
+        opened = os.fstat(descriptor)
+        linked = os.lstat(path)
+        opened_identity = (opened.st_dev, opened.st_ino)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or not stat.S_ISREG(linked.st_mode)
+            or opened.st_nlink != 1
+            or linked.st_nlink != 1
+            or opened_identity != (linked.st_dev, linked.st_ino)
+        ):
+            raise GoalRuntimeCorruptionError(corruption_error)
+        if opened.st_size > max_bytes:
+            raise GoalRuntimeCorruptionError(capacity_error)
+
+        content = bytearray()
+        while len(content) <= max_bytes:
+            chunk = os.read(
+                descriptor,
+                min(64 * 1024, max_bytes + 1 - len(content)),
+            )
+            if not chunk:
+                break
+            content.extend(chunk)
+        if len(content) > max_bytes:
+            raise GoalRuntimeCorruptionError(capacity_error)
+
+        closed_over = os.fstat(descriptor)
+        still_linked = os.lstat(path)
+        if (
+            not stat.S_ISREG(closed_over.st_mode)
+            or not stat.S_ISREG(still_linked.st_mode)
+            or closed_over.st_nlink != 1
+            or still_linked.st_nlink != 1
+            or (closed_over.st_dev, closed_over.st_ino) != opened_identity
+            or (still_linked.st_dev, still_linked.st_ino) != opened_identity
+            or (
+                closed_over.st_size,
+                closed_over.st_mtime_ns,
+                closed_over.st_ctime_ns,
+            )
+            != (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
+        ):
+            raise GoalRuntimeCorruptionError(corruption_error)
+        return bytes(content).decode("utf-8")
+    except GoalRuntimeCorruptionError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise GoalRuntimeCorruptionError(corruption_error) from exc
+    finally:
+        os.close(descriptor)
+
+
+def _path_generation(path: Path) -> tuple[bool, int, int, int, int]:
+    try:
+        metadata = os.stat(path, follow_symlinks=False)
+    except FileNotFoundError:
+        return (False, 0, 0, 0, 0)
+    except OSError as exc:
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+    return (
+        True,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
 
 
 def _atomic_write(path: Path, content: str) -> None:

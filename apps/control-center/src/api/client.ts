@@ -2429,6 +2429,16 @@ export async function loadControlCenterData(
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
+      route: API_ENDPOINTS.runtimeRunEvents,
+      surfaceLabel: "Durable goals and run events",
+      backendRouteRef: "GET /api/runtime/run-events",
+      endpointReturned: runtimeRunEvents !== undefined,
+      usedFallback: runtimeRunEventsFallbackUsed,
+      warningRefs: runtimeRunEventsFallbackUsed
+        ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+        : [],
+    }),
+    routeReadStateInput({
       route: "/start",
       surfaceLabel: "Start Here",
       backendRouteRef: "GET /control-center/start-here/summary",
