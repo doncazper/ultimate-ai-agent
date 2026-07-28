@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 945,
+  "timed_file_count": 946,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -4249,6 +4249,11 @@
       "path": "tests/test_token_accounting.py",
       "seconds": 0.270693,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_tool_aware_cognition_plan.py",
+      "seconds": 0.1,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_tool_broker_authorization.py",

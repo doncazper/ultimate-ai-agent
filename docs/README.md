@@ -1,5 +1,12 @@
 # Ultimate AI Agent Docs
 
+Tool-aware cognition and normal-chat quality are governed by
+`docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` and its
+ordered pre-Goat queue record,
+`docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`. This program
+extends the existing Turn Contract Router, preserves the local model as UAA's
+language/reasoning engine, and grants no runtime authority by itself.
+
 This is the active documentation entrypoint. Start with UAA as the
 Founder Command Center product path: a local-first professional AI command
 center for Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust,
