@@ -130,7 +130,22 @@ def _append_shared_api_lane_failures(
 def _append_test_corpus_guard_failures(
     failures: list[str], policy: dict[str, Any]
 ) -> None:
-    if "test_corpus_guard" not in policy:
+    expected = {
+        "schema_version": "uaa.test_corpus_retirements.v1",
+        "retirement_ledger": "docs/verification/test_corpus_retirements.json",
+        "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+        "enforcement": "fail_closed_when_exact_base_is_available",
+        "required_evidence": [
+            "replacement_refs",
+            "assertion_equivalence_artifact",
+            "assertion_equivalence_ref",
+            "evidence_artifact",
+            "evidence_ref",
+            "reason",
+        ],
+    }
+    if policy.get("test_corpus_guard") != expected:
+        failures.append("test corpus guard policy section is missing or invalid")
         return
     try:
         verify_test_corpus_guard(ROOT)

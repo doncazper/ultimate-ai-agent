@@ -7,31 +7,39 @@ import hashlib
 import json
 import os
 import re
+import select
 import stat
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+
+from scripts.verification.test_corpus_evidence import (
+    ASSERTION_EQUIVALENCE_SCHEMA as ASSERTION_EQUIVALENCE_SCHEMA,
+    RETIREMENT_EVIDENCE_SCHEMA as RETIREMENT_EVIDENCE_SCHEMA,
+    TestCorpusEvidenceError,
+    retirement_artifact_ref as retirement_artifact_ref,
+)
+from scripts.verification.test_corpus_evidence import (
+    validate_retirements as _validate_retirement_evidence,
+)
+from scripts.verification.test_corpus_frontend import (
+    FrontendInventoryError,
+    parse_frontend_refs,
+)
 
 
 RETIREMENT_SCHEMA = "uaa.test_corpus_retirements.v1"
 RETIREMENT_LEDGER = Path("docs/verification/test_corpus_retirements.json")
 BASE_SHA_ENV = "UAA_VERIFICATION_BASE_SHA"
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
-ASSERTION_EQUIVALENCE_REF_PATTERN = re.compile(
-    r"assertion-equivalence-ref:sha256:[0-9a-f]{64}"
-)
-TEST_CORPUS_EVIDENCE_REF_PATTERN = re.compile(
-    r"test-corpus-evidence-ref:sha256:[0-9a-f]{64}"
-)
 MAX_TEST_FILE_BYTES = 5_000_000
 MAX_RETIREMENT_LEDGER_BYTES = 1_000_000
-FRONTEND_TEST_PATTERN = re.compile(
-    r"(?<![.\w$])(?:it|test)(?:\.(?:concurrent|fails|only|skip|todo))*\s*\("
-)
-FRONTEND_EACH_PATTERN = re.compile(
-    r"(?<![.\w$])(?:it|test)(?:\.(?:concurrent|fails|only|skip|todo))*\.each\b"
-)
+MAX_GIT_STDOUT_BYTES = 8_000_000
+MAX_CHANGED_PATH_BYTES = 4_000_000
+MAX_CHANGED_TEST_PATHS = 20_000
+GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
 TEST_FILE_PATTERNS = (
     "tests/**/test_*.py",
     "tests/**/*_test.py",
@@ -50,118 +58,6 @@ class TestCorpusGuardError(RuntimeError):
 class TestDeclaration:
     ref: str
     kind: str
-
-
-def _normalized_frontend_title(value: str) -> str:
-    return " ".join(value.split())
-
-
-def _skip_javascript_string(text: str, start: int) -> int:
-    quote = text[start]
-    index = start + 1
-    while index < len(text):
-        character = text[index]
-        if character == "\\":
-            index += 2
-            continue
-        if character == quote:
-            return index + 1
-        index += 1
-    raise TestCorpusGuardError("frontend test inventory has an unterminated string")
-
-
-def _skip_javascript_comment(text: str, start: int) -> int:
-    if text.startswith("//", start):
-        newline = text.find("\n", start + 2)
-        return len(text) if newline < 0 else newline + 1
-    if text.startswith("/*", start):
-        end = text.find("*/", start + 2)
-        if end < 0:
-            raise TestCorpusGuardError(
-                "frontend test inventory has an unterminated comment"
-            )
-        return end + 2
-    return start
-
-
-def _javascript_code_mask(text: str) -> bytearray:
-    mask = bytearray(b"\x01" * len(text))
-    index = 0
-    while index < len(text):
-        if text[index] in "\"'`":
-            end = _skip_javascript_string(text, index)
-            mask[index:end] = b"\x00" * (end - index)
-            index = end
-            continue
-        comment_end = _skip_javascript_comment(text, index)
-        if comment_end != index:
-            mask[index:comment_end] = b"\x00" * (comment_end - index)
-            index = comment_end
-            continue
-        index += 1
-    return mask
-
-
-def _skip_balanced_javascript(text: str, start: int) -> int:
-    pairs = {"(": ")", "[": "]", "{": "}"}
-    opening = text[start]
-    if opening not in pairs:
-        raise TestCorpusGuardError("frontend parameterized test data is invalid")
-    stack = [pairs[opening]]
-    index = start + 1
-    while index < len(text):
-        character = text[index]
-        if character in "\"'`":
-            index = _skip_javascript_string(text, index)
-            continue
-        comment_end = _skip_javascript_comment(text, index)
-        if comment_end != index:
-            index = comment_end
-            continue
-        if character in pairs:
-            stack.append(pairs[character])
-        elif character == stack[-1]:
-            stack.pop()
-            if not stack:
-                return index + 1
-        index += 1
-    raise TestCorpusGuardError(
-        "frontend parameterized test data has unbalanced delimiters"
-    )
-
-
-def _parameterized_frontend_titles(
-    text: str,
-    code_mask: bytearray,
-) -> tuple[str, ...]:
-    titles: list[str] = []
-    for match in FRONTEND_EACH_PATTERN.finditer(text):
-        if not code_mask[match.start()]:
-            continue
-        index = match.end()
-        while index < len(text) and text[index].isspace():
-            index += 1
-        if index >= len(text):
-            raise TestCorpusGuardError("frontend parameterized test data is missing")
-        if text[index] == "(":
-            index = _skip_balanced_javascript(text, index)
-        elif text[index] == "`":
-            index = _skip_javascript_string(text, index)
-        else:
-            raise TestCorpusGuardError("frontend parameterized test data is invalid")
-        while index < len(text) and text[index].isspace():
-            index += 1
-        if index >= len(text) or text[index] != "(":
-            raise TestCorpusGuardError("frontend parameterized test title is missing")
-        index += 1
-        while index < len(text) and text[index].isspace():
-            index += 1
-        if index >= len(text) or text[index] not in "\"'`":
-            raise TestCorpusGuardError("frontend parameterized test title is invalid")
-        title_start = index + 1
-        title_end = _skip_javascript_string(text, index) - 1
-        titles.append(text[title_start:title_end])
-    return tuple(titles)
 
 
 def _deduplicate_refs(refs: Iterable[tuple[str, str]]) -> tuple[TestDeclaration, ...]:
@@ -200,32 +96,11 @@ def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ..
 
 
 def parse_frontend_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
-    refs: list[tuple[str, str]] = []
-    code_mask = _javascript_code_mask(text)
-    for match in FRONTEND_TEST_PATTERN.finditer(text):
-        if not code_mask[match.start()]:
-            continue
-        index = match.end()
-        while index < len(text) and text[index].isspace():
-            index += 1
-        if index >= len(text) or text[index] not in "\"'`":
-            if ".skip" in match.group(0):
-                # Playwright permits test.skip(condition, reason) as a
-                # runtime annotation inside an already-declared test.
-                continue
-            raise TestCorpusGuardError(f"frontend test title is invalid: {path}")
-        title_start = index + 1
-        title_end = _skip_javascript_string(text, index) - 1
-        title = _normalized_frontend_title(text[title_start:title_end])
-        if not title or len(title) > 500:
-            raise TestCorpusGuardError(f"frontend test title is invalid: {path}")
-        refs.append((f"{path}::{title}", "frontend_test"))
-    for raw_title in _parameterized_frontend_titles(text, code_mask):
-        title = _normalized_frontend_title(raw_title)
-        if not title or len(title) > 500:
-            raise TestCorpusGuardError(f"frontend test title is invalid: {path}")
-        refs.append((f"{path}::{title}", "frontend_test"))
-    return _deduplicate_refs(refs)
+    try:
+        refs = parse_frontend_refs(path, text)
+    except FrontendInventoryError as exc:
+        raise TestCorpusGuardError(str(exc)) from None
+    return tuple(TestDeclaration(ref=ref, kind="frontend_test") for ref in refs)
 
 
 def parse_test_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
@@ -248,26 +123,64 @@ def discover_test_files(repo: Path) -> tuple[str, ...]:
 
 
 def _read_bounded_regular_text(
-    path: Path,
+    repo: Path,
+    relative_path: Path,
     *,
     max_bytes: int,
     unsafe_message: str,
     invalid_message: str,
 ) -> str:
     descriptor: int | None = None
+    parent_descriptor: int | None = None
     try:
+        parts = relative_path.parts
+        if (
+            relative_path.is_absolute()
+            or not parts
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
+            raise TestCorpusGuardError(unsafe_message)
+        directory_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        parent_descriptor = os.open(repo, directory_flags)
+        parent_info = os.fstat(parent_descriptor)
+        if not stat.S_ISDIR(parent_info.st_mode):
+            raise TestCorpusGuardError(unsafe_message)
+        for component in parts[:-1]:
+            next_descriptor = os.open(
+                component,
+                directory_flags,
+                dir_fd=parent_descriptor,
+            )
+            next_info = os.fstat(next_descriptor)
+            if not stat.S_ISDIR(next_info.st_mode):
+                os.close(next_descriptor)
+                raise TestCorpusGuardError(unsafe_message)
+            os.close(parent_descriptor)
+            parent_descriptor = next_descriptor
         descriptor = os.open(
-            path,
+            parts[-1],
             os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=parent_descriptor,
         )
     except FileNotFoundError as exc:
         raise TestCorpusGuardError(invalid_message) from exc
+    except TestCorpusGuardError:
+        raise
     except OSError as exc:
         raise TestCorpusGuardError(unsafe_message) from exc
 
     try:
         opened = os.fstat(descriptor)
-        linked = os.lstat(path)
+        linked = os.stat(
+            parts[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
         identity = (opened.st_dev, opened.st_ino)
         if (
             not stat.S_ISREG(opened.st_mode)
@@ -292,7 +205,11 @@ def _read_bounded_regular_text(
             raise TestCorpusGuardError(unsafe_message)
 
         closed_over = os.fstat(descriptor)
-        still_linked = os.lstat(path)
+        still_linked = os.stat(
+            parts[-1],
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
         if (
             not stat.S_ISREG(closed_over.st_mode)
             or not stat.S_ISREG(still_linked.st_mode)
@@ -319,12 +236,14 @@ def _read_bounded_regular_text(
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
 
 
 def _read_worktree_text(repo: Path, path: str) -> str:
-    candidate = repo / path
     return _read_bounded_regular_text(
-        candidate,
+        repo,
+        Path(path),
         max_bytes=MAX_TEST_FILE_BYTES,
         unsafe_message=f"test inventory file is unsafe: {path}",
         invalid_message=f"cannot read test inventory: {path}",
@@ -345,12 +264,52 @@ def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
 
 
 def _run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", *args],
+    command = ["git", *args]
+    process = subprocess.Popen(
+        command,
         cwd=repo,
-        check=False,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
+    if process.stdout is None:
+        process.kill()
+        process.wait()
+        raise TestCorpusGuardError("git inspection output is unavailable")
+
+    chunks: list[bytes] = []
+    total = 0
+    deadline = time.monotonic() + GIT_INSPECTION_TIMEOUT_SECONDS
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TestCorpusGuardError("git inspection timed out")
+            ready, _, _ = select.select([process.stdout], [], [], remaining)
+            if not ready:
+                raise TestCorpusGuardError("git inspection timed out")
+            chunk = os.read(
+                process.stdout.fileno(),
+                min(64 * 1024, MAX_GIT_STDOUT_BYTES + 1 - total),
+            )
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_GIT_STDOUT_BYTES:
+                raise TestCorpusGuardError("git inspection output exceeds byte budget")
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=process.wait(),
+            stdout=b"".join(chunks),
+            stderr=b"",
+        )
+    except BaseException:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        raise
+    finally:
+        process.stdout.close()
 
 
 def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
@@ -392,26 +351,62 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
 
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
-    result = _run_git(
-        repo,
+    commands = (
         [
             "diff",
             "--name-only",
             "--no-renames",
             "-z",
-            f"{base_sha}...HEAD",
+            base_sha,
+            "HEAD",
+            "--",
+            "tests",
+            "apps",
+        ],
+        [
+            "diff",
+            "--cached",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            "--",
+            "tests",
+            "apps",
+        ],
+        [
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            "--",
+            "tests",
+            "apps",
+        ],
+        [
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
             "--",
             "tests",
             "apps",
         ],
     )
-    if result.returncode != 0:
-        raise TestCorpusGuardError("cannot derive changed test corpus")
+    raw_paths = bytearray()
+    for command in commands:
+        result = _run_git(repo, command)
+        if result.returncode != 0:
+            raise TestCorpusGuardError("cannot derive changed test corpus")
+        raw_paths.extend(result.stdout)
+        if len(raw_paths) > MAX_CHANGED_PATH_BYTES:
+            raise TestCorpusGuardError("changed test corpus paths exceed byte budget")
     try:
-        paths = result.stdout.decode("utf-8").split("\0")
+        paths = bytes(raw_paths).decode("utf-8").split("\0")
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
-    changed = tuple(sorted(path for path in paths if path and _is_test_path(path)))
+    changed = tuple(sorted({path for path in paths if path and _is_test_path(path)}))
+    if len(changed) > MAX_CHANGED_TEST_PATHS:
+        raise TestCorpusGuardError("changed test corpus path count exceeds budget")
     for path in changed:
         _validate_test_path(path)
     return changed
@@ -447,6 +442,23 @@ def _validate_test_path(path: str) -> None:
         raise TestCorpusGuardError("changed test path is unsafe")
 
 
+def _validate_test_ref(value: str) -> None:
+    if (
+        "::" not in value
+        or not value.split("::", 1)[1]
+        or len(value) > 2_000
+        or any(ord(character) < 32 for character in value)
+    ):
+        raise TestCorpusEvidenceError("retired test ref is invalid")
+    path = value.split("::", 1)[0]
+    try:
+        _validate_test_path(path)
+    except TestCorpusGuardError as exc:
+        raise TestCorpusEvidenceError("retired test ref is invalid") from exc
+    if not _is_test_path(path):
+        raise TestCorpusEvidenceError("retired test ref is invalid")
+
+
 def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
     size = _run_git(repo, ["cat-file", "-s", f"{base_sha}:{path}"])
     if size.returncode != 0:
@@ -459,7 +471,7 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
         raise TestCorpusGuardError(f"base test file exceeds byte budget: {path}")
     result = _run_git(repo, ["show", f"{base_sha}:{path}"])
     if result.returncode != 0:
-        return None
+        raise TestCorpusGuardError(f"cannot read base test file: {path}")
     try:
         return result.stdout.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -468,13 +480,13 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
 
 def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
     removed: set[str] = set()
+    current_paths = set(discover_test_files(repo))
     for path in _changed_test_paths(repo, base_sha):
         prior = _base_text(repo, base_sha, path)
         if prior is None:
             continue
         prior_refs = {item.ref for item in parse_test_declarations(path, prior)}
-        current_path = repo / path
-        if current_path.is_file():
+        if path in current_paths:
             current_text = _read_worktree_text(repo, path)
             current_refs = {
                 item.ref for item in parse_test_declarations(path, current_text)
@@ -485,20 +497,10 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
     return tuple(sorted(removed))
 
 
-def _load_ledger(repo: Path) -> dict[str, Any]:
-    path = repo / RETIREMENT_LEDGER
+def _parse_ledger_text(text: str) -> dict[str, Any]:
     try:
-        value = json.loads(
-            _read_bounded_regular_text(
-                path,
-                max_bytes=MAX_RETIREMENT_LEDGER_BYTES,
-                unsafe_message="test-corpus retirement ledger is unsafe",
-                invalid_message="test-corpus retirement ledger is invalid",
-            )
-        )
-    except TestCorpusGuardError:
-        raise
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
         raise TestCorpusGuardError("test-corpus retirement ledger is invalid") from exc
     if (
         not isinstance(value, dict)
@@ -509,95 +511,61 @@ def _load_ledger(repo: Path) -> dict[str, Any]:
     return value
 
 
+def _load_ledger(repo: Path) -> dict[str, Any]:
+    return _parse_ledger_text(
+        _read_bounded_regular_text(
+            repo,
+            RETIREMENT_LEDGER,
+            max_bytes=MAX_RETIREMENT_LEDGER_BYTES,
+            unsafe_message="test-corpus retirement ledger is unsafe",
+            invalid_message="test-corpus retirement ledger is invalid",
+        )
+    )
+
+
+def _load_base_ledger(repo: Path, base_sha: str) -> dict[str, Any]:
+    path = RETIREMENT_LEDGER.as_posix()
+    size = _run_git(repo, ["cat-file", "-s", f"{base_sha}:{path}"])
+    if size.returncode != 0:
+        return {"schema_version": RETIREMENT_SCHEMA, "retirements": []}
+    try:
+        byte_count = int(size.stdout.decode("ascii").strip())
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise TestCorpusGuardError(
+            "base test-corpus retirement ledger size is invalid"
+        ) from exc
+    if byte_count > MAX_RETIREMENT_LEDGER_BYTES:
+        raise TestCorpusGuardError(
+            "base test-corpus retirement ledger exceeds byte budget"
+        )
+    result = _run_git(repo, ["show", f"{base_sha}:{path}"])
+    if result.returncode != 0:
+        raise TestCorpusGuardError("cannot read base test-corpus retirement ledger")
+    try:
+        return _parse_ledger_text(result.stdout.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise TestCorpusGuardError(
+            "base test-corpus retirement ledger is invalid"
+        ) from exc
+
+
 def validate_retirements(
     current_refs: set[str],
     removed_refs: set[str],
     ledger: dict[str, Any],
+    *,
+    base_ledger: dict[str, Any] | None = None,
 ) -> int:
-    records = ledger.get("retirements")
-    if not isinstance(records, list):
-        raise TestCorpusGuardError("test-corpus retirements must be a list")
-    by_retired_ref: dict[str, dict[str, Any]] = {}
-    for record in records:
-        if not isinstance(record, dict):
-            raise TestCorpusGuardError(
-                "test-corpus retirement record must be an object"
-            )
-        if set(record) != {
-            "retired_ref",
-            "replacement_refs",
-            "reason",
-            "assertion_equivalence_ref",
-            "evidence_ref",
-        }:
-            raise TestCorpusGuardError(
-                "test-corpus retirement record fields are invalid"
-            )
-        retired_ref = record.get("retired_ref")
-        replacements = record.get("replacement_refs")
-        reason = record.get("reason")
-        equivalence_ref = record.get("assertion_equivalence_ref")
-        evidence_ref = record.get("evidence_ref")
-        if (
-            not isinstance(retired_ref, str)
-            or "::" not in retired_ref
-            or not retired_ref.split("::", 1)[1]
-            or len(retired_ref) > 2_000
-            or any(ord(character) < 32 for character in retired_ref)
-        ):
-            raise TestCorpusGuardError("retired test ref is invalid")
-        retired_path = retired_ref.split("::", 1)[0]
-        _validate_test_path(retired_path)
-        if not _is_test_path(retired_path):
-            raise TestCorpusGuardError("retired test ref is invalid")
-        if retired_ref in by_retired_ref:
-            raise TestCorpusGuardError(f"duplicate retired test ref: {retired_ref}")
-        if retired_ref in current_refs:
-            raise TestCorpusGuardError(f"retired test is still active: {retired_ref}")
-        if (
-            not isinstance(replacements, list)
-            or not replacements
-            or any(not isinstance(item, str) for item in replacements)
-            or len(replacements) != len(set(replacements))
-        ):
-            raise TestCorpusGuardError(
-                f"replacement refs are invalid for retired test: {retired_ref}"
-            )
-        missing = sorted(set(replacements) - current_refs)
-        if missing:
-            raise TestCorpusGuardError(
-                f"retired test has missing replacements: {retired_ref}: {missing}"
-            )
-        if (
-            not isinstance(reason, str)
-            or not 20 <= len(reason.strip()) <= 500
-            or any(ord(character) < 32 for character in reason)
-        ):
-            raise TestCorpusGuardError(
-                f"retired test reason is too weak: {retired_ref}"
-            )
-        if (
-            not isinstance(equivalence_ref, str)
-            or ASSERTION_EQUIVALENCE_REF_PATTERN.fullmatch(equivalence_ref) is None
-        ):
-            raise TestCorpusGuardError(
-                f"retired test equivalence ref is invalid: {retired_ref}"
-            )
-        if (
-            not isinstance(evidence_ref, str)
-            or TEST_CORPUS_EVIDENCE_REF_PATTERN.fullmatch(evidence_ref) is None
-        ):
-            raise TestCorpusGuardError(
-                f"retired test evidence ref is invalid: {retired_ref}"
-            )
-        by_retired_ref[retired_ref] = record
-
-    unaccounted = sorted(removed_refs - set(by_retired_ref))
-    if unaccounted:
-        raise TestCorpusGuardError(
-            f"removed tests lack retirement/replacement evidence: {unaccounted}"
+    try:
+        return _validate_retirement_evidence(
+            current_refs,
+            removed_refs,
+            ledger,
+            validate_test_ref=_validate_test_ref,
+            base_ledger=base_ledger,
         )
-    return len(records)
+    except TestCorpusEvidenceError as exc:
+        raise TestCorpusGuardError(str(exc)) from None
 
 
 def inventory_fingerprint(declarations: tuple[TestDeclaration, ...]) -> str:
@@ -629,6 +597,11 @@ def verify_test_corpus_guard(
         current_refs,
         removed,
         _load_ledger(repo),
+        base_ledger=(
+            _load_base_ledger(repo, resolved_base)
+            if resolved_base is not None
+            else None
+        ),
     )
     return {
         "test_declaration_count": len(declarations),

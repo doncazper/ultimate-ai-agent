@@ -335,7 +335,9 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           clean: true
-          fetch-depth: 1
+          # The test-corpus guard compares exact declarations against the
+          # pull-request base and therefore requires the base ancestry locally.
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ env.UAA_CI_EXACT_SHA }}
 

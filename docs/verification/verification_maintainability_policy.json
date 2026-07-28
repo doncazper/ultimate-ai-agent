@@ -217,7 +217,9 @@
     "enforcement": "fail_closed_when_exact_base_is_available",
     "required_evidence": [
       "replacement_refs",
+      "assertion_equivalence_artifact",
       "assertion_equivalence_ref",
+      "evidence_artifact",
       "evidence_ref",
       "reason"
     ]

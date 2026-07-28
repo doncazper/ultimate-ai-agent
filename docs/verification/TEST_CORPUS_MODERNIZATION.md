@@ -40,17 +40,32 @@ Each retirement entry must identify:
 - the exact retired test ref;
 - one or more replacements that are present in the current corpus;
 - a substantive reason;
-- an assertion-equivalence ref; and
-- a test-corpus evidence ref.
+- a typed assertion-equivalence artifact plus the SHA-256 ref recomputed from
+  its canonical JSON; and
+- a typed verification-evidence artifact plus the SHA-256 ref recomputed from
+  its canonical JSON.
+
+The assertion artifact binds the retired and replacement refs to one or more
+content-free `assertion-ref:sha256:*` identifiers. The evidence artifact binds
+the same refs to one or more content-free `test-result-ref:sha256:*`
+identifiers. Arbitrary well-shaped hashes are insufficient. Records accepted
+on the exact comparison commit are immutable: later candidates must preserve
+the complete typed record field-for-field. If a historical replacement is later
+retired, its own new record must preserve the replacement chain and retain at
+least one active replacement.
 
 Missing or malformed canonical CI base commits, malformed inventories,
-duplicate refs, missing replacements, weak reasons, or unaccounted removals
-fail closed. A local checkout without a comparison ref reports an explicit
-local-only unavailable state; hosted verification may not use that fallback.
-Adding this guard does not retire any test.
+duplicate refs, missing replacements, weak reasons, modified historical
+records, or unaccounted removals fail closed. Base-to-HEAD, index, worktree,
+and untracked test paths are unioned under fixed byte and path-count budgets,
+and the exact base commit supplies both the path comparison and prior content.
+A local checkout without a comparison ref reports an explicit local-only
+unavailable state; hosted verification may not use that fallback. Adding this
+guard does not retire any test.
 Worktree test files and the retirement ledger are read as bounded,
-single-link regular-file identities without following symlinks; substitutions
-or mid-read identity changes fail closed.
+single-link regular-file identities by walking every repository-relative path
+component through pinned no-follow directory descriptors; substitutions,
+symlinked parents, or mid-read identity changes fail closed.
 
 The durable result stores only repository code metadata, counts, and hashes.
 It does not store raw test output, application payloads, prompts, responses,

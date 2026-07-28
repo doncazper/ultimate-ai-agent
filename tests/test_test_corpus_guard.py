@@ -10,12 +10,33 @@ def _record(
     retired_ref: str,
     replacement_ref: str,
 ) -> dict[str, object]:
+    replacement_refs = [replacement_ref]
+    equivalence_artifact = {
+        "schema_version": guard.ASSERTION_EQUIVALENCE_SCHEMA,
+        "retired_ref": retired_ref,
+        "replacement_refs": replacement_refs,
+        "preserved_assertion_refs": ["assertion-ref:sha256:" + ("a" * 64)],
+    }
+    evidence_artifact = {
+        "schema_version": guard.RETIREMENT_EVIDENCE_SCHEMA,
+        "retired_ref": retired_ref,
+        "replacement_refs": replacement_refs,
+        "verification_refs": ["test-result-ref:sha256:" + ("b" * 64)],
+    }
     return {
         "retired_ref": retired_ref,
-        "replacement_refs": [replacement_ref],
+        "replacement_refs": replacement_refs,
         "reason": "The replacement preserves the same exact defect class.",
-        "assertion_equivalence_ref": "assertion-equivalence-ref:sha256:" + ("a" * 64),
-        "evidence_ref": "test-corpus-evidence-ref:sha256:" + ("b" * 64),
+        "assertion_equivalence_artifact": equivalence_artifact,
+        "assertion_equivalence_ref": guard.retirement_artifact_ref(
+            "assertion-equivalence-ref",
+            equivalence_artifact,
+        ),
+        "evidence_artifact": evidence_artifact,
+        "evidence_ref": guard.retirement_artifact_ref(
+            "test-corpus-evidence-ref",
+            evidence_artifact,
+        ),
     }
 
 
@@ -71,6 +92,7 @@ it.each([
   ["two", { nested: true }],
 ])("renders %s safely", () => {});
 test.concurrent.each(cases)("rejects %s", () => {});
+test.for(cases)("binds one case object", () => {});
 test.each`
   name | allowed
   ${"x"} | ${false}
@@ -81,7 +103,34 @@ test.each`
     assert [item.ref for item in declarations] == [
         "apps/control-center/src/example.test.tsx::renders %s safely",
         "apps/control-center/src/example.test.tsx::rejects %s",
+        "apps/control-center/src/example.test.tsx::binds one case object",
         "apps/control-center/src/example.test.tsx::blocks $name",
+    ]
+
+
+def test_frontend_inventory_includes_supported_modifiers() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        """
+it.skipIf(process.platform === "win32")("skips on Windows", () => {});
+test.runIf(featureEnabled)("runs when enabled", () => {});
+it.sequential("runs in sequence", () => {});
+test.fail("records an expected failure", () => {});
+test.fixme("records an unavailable case", () => {});
+test("declared test", async () => {
+  test.fail(runtimeCondition, "runtime annotation");
+  test.fixme(runtimeCondition, "runtime annotation");
+});
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.tsx::runs in sequence",
+        "apps/control-center/src/example.test.tsx::records an expected failure",
+        "apps/control-center/src/example.test.tsx::records an unavailable case",
+        "apps/control-center/src/example.test.tsx::declared test",
+        "apps/control-center/src/example.test.tsx::skips on Windows",
+        "apps/control-center/src/example.test.tsx::runs when enabled",
     ]
 
 
@@ -464,9 +513,38 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--name-only",
             "--no-renames",
             "-z",
-            "a" * 40 + "...HEAD",
+            "a" * 40,
+            "HEAD",
             "--",
             "tests",
             "apps",
-        ]
+        ],
+        [
+            "diff",
+            "--cached",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            "--",
+            "tests",
+            "apps",
+        ],
+        [
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            "--",
+            "tests",
+            "apps",
+        ],
+        [
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            "tests",
+            "apps",
+        ],
     ]
