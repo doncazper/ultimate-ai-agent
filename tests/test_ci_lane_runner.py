@@ -1241,7 +1241,9 @@ def test_run_command_emits_digest_ref_without_retaining_failure_output(
         "diagnostic-output-ref:sha256:"
     )
     assert not retained.exists()
-    assert not tuple(tmp_path.glob("uaa-ci-transient-*"))
+    transient_files = tuple(tmp_path.glob("uaa-ci-transient-*"))
+    assert len(transient_files) == 1
+    assert transient_files[0].read_bytes() == b""
 
 
 def test_exclusive_typed_lane_publishes_terminal_execution_fence(
@@ -1835,7 +1837,9 @@ def test_run_command_repeated_signal_cleans_process_group_once(
     assert cleanup_calls == 1
     assert result["output_byte_count"] == len(output_marker)
     assert result["output_digest"] == hashlib.sha256(output_marker).hexdigest()
-    assert not tuple(tmp_path.glob("uaa-ci-transient-*"))
+    transient_files = tuple(tmp_path.glob("uaa-ci-transient-*"))
+    assert len(transient_files) == 1
+    assert transient_files[0].read_bytes() == b""
 
 
 def test_transient_output_metadata_rejects_oversized_file(
@@ -1901,7 +1905,7 @@ def test_transient_output_metadata_uses_bound_inode_after_path_substitution(
     assert output_digest == hashlib.sha256(original_bytes).hexdigest()
 
 
-def test_transient_output_cleanup_erases_and_unlinks_bound_inode_after_substitution(
+def test_transient_output_cleanup_erases_bound_inode_after_substitution(
     tmp_path: Path,
 ) -> None:
     output_path = tmp_path / "transient-output"
@@ -1919,7 +1923,7 @@ def test_transient_output_cleanup_erases_and_unlinks_bound_inode_after_substitut
     finally:
         os.close(descriptor)
 
-    assert not moved_path.exists()
+    assert moved_path.read_bytes() == b""
     assert output_path.read_bytes() == b"unrelated-replacement"
 
 

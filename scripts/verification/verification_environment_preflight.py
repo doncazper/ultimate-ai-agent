@@ -4,6 +4,7 @@ import importlib.util
 import os
 import shutil
 import stat
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,9 @@ FRONTEND_RUNTIME_MARKERS = (
     Path("apps/control-center/node_modules/vite/bin/vite.js"),
 )
 FRONTEND_RUNTIME_MARKER = FRONTEND_RUNTIME_MARKERS[0]
+MATRIX_RUNTIME_ROOT = Path("integrations/matrix-client-adapter")
+FRONTEND_RUNTIME_ROOT = Path("apps/control-center")
+NPM_TREE_TIMEOUT_SECONDS = 30
 
 
 class VerificationEnvironmentPreflightError(RuntimeError):
@@ -38,6 +42,40 @@ def _require_regular_runtime_file(path: Path, *, reason_ref: str) -> None:
         or stat.S_ISLNK(info.st_mode)
         or info.st_nlink != 1
     ):
+        raise VerificationEnvironmentPreflightError(reason_ref)
+
+
+def _require_complete_npm_runtime(
+    repo: Path,
+    runtime_root: Path,
+    *,
+    reason_ref: str,
+) -> None:
+    npm = shutil.which("npm")
+    if npm is None:
+        raise VerificationEnvironmentPreflightError(
+            "reason-ref:verification-preflight:npm-runtime-unavailable"
+        )
+    try:
+        result = subprocess.run(
+            (
+                npm,
+                "ls",
+                "--all",
+                "--offline",
+                "--ignore-scripts",
+                "--json",
+            ),
+            cwd=repo / runtime_root,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=NPM_TREE_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise VerificationEnvironmentPreflightError(reason_ref) from None
+    if result.returncode != 0:
         raise VerificationEnvironmentPreflightError(reason_ref)
 
 
@@ -93,6 +131,13 @@ def validate_lane_environment(
                 "reason-ref:verification-preflight:matrix-runtime-unavailable"
             ),
         )
+        _require_complete_npm_runtime(
+            repo,
+            MATRIX_RUNTIME_ROOT,
+            reason_ref=(
+                "reason-ref:verification-preflight:matrix-runtime-unavailable"
+            ),
+        )
         observations.extend(
             (
                 "preflight-ref:pytest-runtime-ready",
@@ -115,6 +160,13 @@ def validate_lane_environment(
                     "reason-ref:verification-preflight:frontend-runtime-unavailable"
                 ),
             )
+        _require_complete_npm_runtime(
+            repo,
+            FRONTEND_RUNTIME_ROOT,
+            reason_ref=(
+                "reason-ref:verification-preflight:frontend-runtime-unavailable"
+            ),
+        )
         observations.append("preflight-ref:frontend-runtime-ready")
 
     return tuple(observations)

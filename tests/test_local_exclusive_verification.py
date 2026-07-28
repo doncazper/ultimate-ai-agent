@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import copy
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,16 @@ def _isolate_diagnostic_retention(
         "DEFAULT_DIAGNOSTIC_ROOT",
         tmp_path / "diagnostics",
     )
+
+
+def _diagnostic_entries(root: Path) -> list[dict[str, object]]:
+    store = json.loads(
+        (root / local_lane.DIAGNOSTIC_STORE_NAME).read_text(encoding="utf-8")
+    )
+    assert store["schema_version"] == "uaa_local_diagnostic_store.v1"
+    entries = store["entries"]
+    assert isinstance(entries, list)
+    return entries
 
 
 def test_local_lane_default_fence_is_owner_scoped() -> None:
@@ -130,14 +141,10 @@ def test_local_lane_prints_only_safe_pytest_failure_refs(
     assert "pytest-shard-ref:99:failed" not in output
     assert "unsafe-local-detail" not in output
     assert "diagnostic-ref:local-verification:" in output
-    retained = tuple(
-        path
-        for path in (tmp_path / "diagnostics").iterdir()
-        if len(path.name) == 64
-    )
+    retained = _diagnostic_entries(tmp_path / "diagnostics")
     assert len(retained) == 1
-    assert retained[0].is_file()
-    payload = json.loads(retained[0].read_text(encoding="utf-8"))
+    payload = retained[0]["payload"]
+    assert isinstance(payload, dict)
     assert payload["redaction_status"] == "content_free_failure_metadata_only"
     assert payload["command_results"] == []
 
@@ -203,12 +210,8 @@ def test_local_diagnostics_drop_untrusted_output_and_receipt_fields(
         "ci-pytest-shards",
         fence_root=tmp_path / "fence",
     ) == 1
-    retained = tuple(
-        path
-        for path in (tmp_path / "diagnostics").iterdir()
-        if len(path.name) == 64
-    )
-    encoded = retained[0].read_text(encoding="utf-8")
+    retained = _diagnostic_entries(tmp_path / "diagnostics")
+    encoded = json.dumps(retained[0]["payload"], sort_keys=True)
     assert "secret-like-value" not in encoded
     assert "unsafe-local-detail" not in encoded
     payload = json.loads(encoded)
@@ -251,102 +254,32 @@ def test_local_diagnostic_retention_serializes_shared_pruning(
         refs = tuple(executor.map(retain, range(12)))
 
     assert len(refs) == 12
-    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
+    retained = _diagnostic_entries(root)
     assert len(retained) == local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS
-    assert all(path.is_file() for path in retained)
+    retained_tokens = {entry["token"] for entry in retained}
+    assert retained_tokens.issubset({ref.rsplit(":", 1)[-1] for ref in refs})
 
 
-def test_local_diagnostic_retention_preserves_current_token_under_clock_skew(
+def test_local_diagnostic_retention_uses_insertion_order_not_clock_time(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "diagnostics"
-    root.mkdir(mode=0o700)
-    future_time = 4_102_444_800
-    for index in range(local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS):
-        stale = root / f"{index:064x}"
-        stale.write_text("{}\n", encoding="ascii")
-        stale.chmod(0o600)
-        os.utime(stale, (future_time, future_time))
-
-    diagnostic_ref = local_lane._retain_diagnostics(
-        None,
-        diagnostic_root=root,
-        lane_ref="ci-pytest-shards",
-        repository_sha=SHA,
+    refs = tuple(
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+        for _index in range(local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS + 2)
     )
 
-    token = diagnostic_ref.rsplit(":", 1)[-1]
-    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
+    retained = _diagnostic_entries(root)
     assert len(retained) == local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS
-    assert (root / token).is_file()
-
-
-def test_local_diagnostic_enumeration_ignores_disappearing_entries(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    root = tmp_path / "diagnostics"
-    root.mkdir(mode=0o700)
-    missing_name = "a" * 64
-    original_listdir = local_lane.os.listdir
-    original_stat = local_lane.os.stat
-
-    def include_disappearing_entry(path: object):
-        if isinstance(path, int):
-            return [missing_name]
-        return original_listdir(path)
-
-    def report_disappearance(
-        path: object,
-        *,
-        dir_fd: int | None = None,
-        follow_symlinks: bool = True,
-    ):
-        if path == missing_name and dir_fd is not None:
-            raise FileNotFoundError("entry disappeared")
-        return original_stat(
-            path,
-            dir_fd=dir_fd,
-            follow_symlinks=follow_symlinks,
-        )
-
-    monkeypatch.setattr(local_lane.os, "listdir", include_disappearing_entry)
-    monkeypatch.setattr(local_lane.os, "stat", report_disappearance)
-
-    assert local_lane._retained_diagnostic_entries(root) == ()
-
-
-def test_local_diagnostic_enumeration_rejects_unstatable_existing_entry(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    root = tmp_path / "diagnostics"
-    root.mkdir(mode=0o700)
-    entry = root / ("a" * 64)
-    entry.mkdir()
-    original_stat = local_lane.os.stat
-
-    def reject_entry(
-        path: object,
-        *,
-        dir_fd: int | None = None,
-        follow_symlinks: bool = True,
-    ):
-        if path == entry.name and dir_fd is not None:
-            raise OSError("metadata unavailable")
-        return original_stat(
-            path,
-            dir_fd=dir_fd,
-            follow_symlinks=follow_symlinks,
-        )
-
-    monkeypatch.setattr(local_lane.os, "stat", reject_entry)
-
-    with pytest.raises(
-        local_lane.LocalVerificationLaneError,
-        match="diagnostics cannot be bounded",
-    ):
-        local_lane._retained_diagnostic_entries(root)
+    assert [entry["token"] for entry in retained] == [
+        ref.rsplit(":", 1)[-1]
+        for ref in refs[-local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS :]
+    ]
 
 
 def test_local_diagnostic_retention_rejects_non_enumerable_owner_root(
@@ -396,28 +329,14 @@ def test_local_diagnostic_retention_lock_times_out_fail_closed(
                 pytest.fail("unavailable diagnostic lock was acquired")
 
 
-def test_local_diagnostic_creation_rejects_precreated_token_atomically(
+def test_local_diagnostic_store_rejects_precreated_corrupt_state(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    original_open = local_lane.os.open
-    substituted_token: str | None = None
-
-    def precreate_token(path: object, flags: int, *args: object, **kwargs: object):
-        nonlocal substituted_token
-        if (
-            isinstance(path, str)
-            and len(path) == 64
-            and flags & os.O_CREAT
-            and flags & os.O_EXCL
-            and kwargs.get("dir_fd") is not None
-        ):
-            substituted_token = path
-            (root / path).write_text("replacement", encoding="ascii")
-        return original_open(path, flags, *args, **kwargs)
-
-    monkeypatch.setattr(local_lane.os, "open", precreate_token)
+    root.mkdir(mode=0o700)
+    store = root / local_lane.DIAGNOSTIC_STORE_NAME
+    store.write_text("corrupt", encoding="ascii")
+    store.chmod(0o600)
 
     with pytest.raises(
         local_lane.LocalVerificationLaneError,
@@ -430,26 +349,125 @@ def test_local_diagnostic_creation_rejects_precreated_token_atomically(
             repository_sha=SHA,
         )
 
-    assert substituted_token is not None
-    assert (root / substituted_token).read_text(encoding="ascii") == "replacement"
+    assert store.read_text(encoding="ascii") == "corrupt"
 
 
-def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
+@pytest.mark.parametrize(
+    "tamper_case",
+    (
+        "extra-envelope-field",
+        "unsafe-lane",
+        "invalid-repository-sha",
+        "invalid-terminal-status",
+        "unsafe-command-ref",
+        "boolean-byte-count",
+        "invalid-output-digest",
+        "unsafe-shard-ref",
+        "unsafe-test-ref",
+    ),
+)
+def test_local_diagnostic_store_rejects_every_untrusted_payload_field(
+    tmp_path: Path,
+    tamper_case: str,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir(mode=0o700)
+    payload: dict[str, object] = {
+        "schema_version": "uaa_local_verification_diagnostic.v1",
+        "lane_ref": "ci-pytest-shards",
+        "repository_sha": SHA,
+        "status": "fail",
+        "command_results": [
+            {
+                "command_ref": "command:pytest.sharded-suite",
+                "status": "fail",
+                "output_byte_count": 1,
+                "output_digest": "b" * 64,
+                "failed_shard_refs": ["pytest-shard-ref:0:failed"],
+                "failed_test_refs": [safe_test_ref("tests/test_safe.py::test_safe")],
+            }
+        ],
+        "redaction_status": "content_free_failure_metadata_only",
+    }
+    tampered = copy.deepcopy(payload)
+    result = tampered["command_results"][0]
+    assert isinstance(result, dict)
+    if tamper_case == "extra-envelope-field":
+        tampered["raw_output"] = "not-allowed"
+    elif tamper_case == "unsafe-lane":
+        tampered["lane_ref"] = "ci-unknown"
+    elif tamper_case == "invalid-repository-sha":
+        tampered["repository_sha"] = "not-a-sha"
+    elif tamper_case == "invalid-terminal-status":
+        tampered["status"] = "pass"
+    elif tamper_case == "unsafe-command-ref":
+        result["command_ref"] = "rm -rf"
+    elif tamper_case == "boolean-byte-count":
+        result["output_byte_count"] = True
+    elif tamper_case == "invalid-output-digest":
+        result["output_digest"] = "not-a-digest"
+    elif tamper_case == "unsafe-shard-ref":
+        result["failed_shard_refs"] = ["pytest-shard-ref:99:failed"]
+    elif tamper_case == "unsafe-test-ref":
+        result["failed_test_refs"] = ["raw-secret-path"]
+    store = root / local_lane.DIAGNOSTIC_STORE_NAME
+    original_store = (
+        json.dumps(
+            {
+                "schema_version": "uaa_local_diagnostic_store.v1",
+                "entries": [{"token": "c" * 64, "payload": tampered}],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+    store.write_bytes(original_store)
+    store.chmod(0o600)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostics cannot be bounded",
+    ):
+        local_lane._retain_diagnostics(
+            None,
+            diagnostic_root=root,
+            lane_ref="ci-pytest-shards",
+            repository_sha=SHA,
+        )
+
+    assert store.read_bytes() == original_store
+
+
+def test_local_diagnostic_store_restores_previous_bytes_when_write_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    original_listdir = local_lane.os.listdir
+    local_lane._retain_diagnostics(
+        None,
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
+    )
+    store = root / local_lane.DIAGNOSTIC_STORE_NAME
+    original_store = store.read_bytes()
+    original_replace = local_lane._replace_descriptor_bytes
     calls = 0
 
-    def fail_first_enumeration(path: object):
+    def fail_first_write(descriptor: int, encoded: bytes) -> None:
         nonlocal calls
-        if isinstance(path, int) and calls == 0:
-            calls += 1
-            raise OSError("enumeration unavailable")
-        return original_listdir(path)
+        calls += 1
+        if calls == 1:
+            os.ftruncate(descriptor, 0)
+            raise OSError("store write unavailable")
+        original_replace(descriptor, encoded)
 
-    monkeypatch.setattr(local_lane.os, "listdir", fail_first_enumeration)
+    monkeypatch.setattr(
+        local_lane,
+        "_replace_descriptor_bytes",
+        fail_first_write,
+    )
 
     with pytest.raises(
         local_lane.LocalVerificationLaneError,
@@ -462,11 +480,11 @@ def test_local_diagnostic_retention_rolls_back_when_enumeration_fails(
             repository_sha=SHA,
         )
 
-    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
-    assert retained == ()
+    assert calls == 2
+    assert store.read_bytes() == original_store
 
 
-def test_local_diagnostic_retention_rolls_back_when_stale_cleanup_fails(
+def test_local_diagnostic_store_never_deletes_legacy_named_entries(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -477,69 +495,25 @@ def test_local_diagnostic_retention_rolls_back_when_stale_cleanup_fails(
         stale = root / f"{index:064x}"
         stale.mkdir(mode=0o700)
         stale_paths.append(stale)
-    original_rmtree = local_lane.shutil.rmtree
+    cleanup_attempted = False
 
-    def reject_stale_cleanup(
-        path: object,
-        *,
-        dir_fd: int | None = None,
-    ) -> None:
-        if isinstance(path, str) and path in {item.name for item in stale_paths}:
-            raise PermissionError("cleanup unavailable")
-        original_rmtree(path, dir_fd=dir_fd)
+    def reject_stale_cleanup(*_args: object, **_kwargs: object) -> None:
+        nonlocal cleanup_attempted
+        cleanup_attempted = True
+        raise AssertionError("diagnostic journal must not prune path entries")
 
     monkeypatch.setattr(local_lane.shutil, "rmtree", reject_stale_cleanup)
 
-    with pytest.raises(
-        local_lane.LocalVerificationLaneError,
-        match="diagnostics cannot be bounded",
-    ):
-        local_lane._retain_diagnostics(
-            None,
-            diagnostic_root=root,
-            lane_ref="ci-pytest-shards",
-            repository_sha=SHA,
-        )
-
-    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
-    assert set(retained) == set(stale_paths)
-    for stale in stale_paths:
-        original_rmtree(stale)
-
-
-def test_local_diagnostic_cleanup_verifies_root_after_descendant_disappears(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    root = tmp_path / "diagnostics"
-    root.mkdir(mode=0o700)
-    destination_name = "a" * 64
-    (root / destination_name).mkdir(mode=0o700)
-
-    def report_descendant_disappearance(
-        _path: object,
-        *,
-        dir_fd: int | None = None,
-    ) -> None:
-        raise FileNotFoundError("descendant disappeared")
-
-    monkeypatch.setattr(
-        local_lane.shutil,
-        "rmtree",
-        report_descendant_disappearance,
+    local_lane._retain_diagnostics(
+        None,
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
     )
 
-    with local_lane._pinned_diagnostic_root(root) as descriptor:
-        with pytest.raises(
-            local_lane.LocalVerificationLaneError,
-            match="diagnostics cannot be bounded",
-        ):
-            local_lane._remove_diagnostic_entry_at(
-                descriptor,
-                destination_name,
-            )
-
-    assert (root / destination_name).is_dir()
+    assert cleanup_attempted is False
+    assert all(stale.is_dir() for stale in stale_paths)
+    assert len(_diagnostic_entries(root)) == 1
 
 
 def test_local_diagnostic_retention_rejects_root_path_swap(
@@ -552,17 +526,20 @@ def test_local_diagnostic_retention_rejects_root_path_swap(
     replacement.mkdir(mode=0o700)
     sentinel = replacement / ("f" * 64)
     sentinel.mkdir(mode=0o700)
-    original_write = local_lane._write_diagnostic_envelope
+    original_write = local_lane._replace_descriptor_bytes
+    swapped = False
 
-    def swap_root_after_write(*args: object, **kwargs: object):
-        result = original_write(*args, **kwargs)
-        root.rename(moved_root)
-        root.symlink_to(replacement, target_is_directory=True)
-        return result
+    def swap_root_after_write(descriptor: int, encoded: bytes) -> None:
+        nonlocal swapped
+        original_write(descriptor, encoded)
+        if not swapped:
+            swapped = True
+            root.rename(moved_root)
+            root.symlink_to(replacement, target_is_directory=True)
 
     monkeypatch.setattr(
         local_lane,
-        "_write_diagnostic_envelope",
+        "_replace_descriptor_bytes",
         swap_root_after_write,
     )
 
@@ -581,44 +558,34 @@ def test_local_diagnostic_retention_rejects_root_path_swap(
         if root.is_symlink():
             root.unlink()
 
-    assert (
-        tuple(
-            path
-            for path in moved_root.iterdir()
-            if path.name != ".uaa-diagnostic-retention.lock"
-        )
-        == ()
-    )
+    moved_store = moved_root / local_lane.DIAGNOSTIC_STORE_NAME
+    assert moved_store.read_bytes() == b""
     assert sentinel.is_dir()
 
 
-def test_local_diagnostic_retention_rejects_token_substitution(
+def test_local_diagnostic_store_rejects_named_inode_substitution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
     moved_name = "moved-original"
-    replacement_name: str | None = None
-    original_write = local_lane._write_diagnostic_envelope
+    original_write = local_lane._replace_descriptor_bytes
+    substituted = False
 
-    def substitute_token(*args: object, **kwargs: object):
-        nonlocal replacement_name
-        result = original_write(*args, **kwargs)
-        token_paths = tuple(
-            path
-            for path in root.iterdir()
-            if len(path.name) == 64 and path.is_file()
-        )
-        assert len(token_paths) == 1
-        replacement_name = token_paths[0].name
-        token_paths[0].rename(root / moved_name)
-        (root / replacement_name).write_text("replacement", encoding="ascii")
-        return result
+    def substitute_store(descriptor: int, encoded: bytes) -> None:
+        nonlocal substituted
+        original_write(descriptor, encoded)
+        if not substituted:
+            substituted = True
+            store = root / local_lane.DIAGNOSTIC_STORE_NAME
+            store.rename(root / moved_name)
+            store.write_text("replacement", encoding="ascii")
+            store.chmod(0o600)
 
     monkeypatch.setattr(
         local_lane,
-        "_write_diagnostic_envelope",
-        substitute_token,
+        "_replace_descriptor_bytes",
+        substitute_store,
     )
 
     with pytest.raises(
@@ -632,30 +599,32 @@ def test_local_diagnostic_retention_rejects_token_substitution(
             repository_sha=SHA,
         )
 
-    assert not (root / moved_name).exists()
-    assert replacement_name is not None
-    (root / replacement_name).unlink()
+    assert (root / moved_name).read_bytes() == b""
+    assert (
+        root / local_lane.DIAGNOSTIC_STORE_NAME
+    ).read_text(encoding="ascii") == "replacement"
 
 
-def test_local_diagnostic_retention_rejects_payload_tampering(
+def test_local_diagnostic_store_rejects_payload_tampering(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
-    original_write = local_lane._write_diagnostic_envelope
+    original_write = local_lane._replace_descriptor_bytes
+    tampered = False
 
-    def tamper_with_payload(*args: object, **kwargs: object):
-        encoded = original_write(*args, **kwargs)
-        descriptor = args[0]
-        assert isinstance(descriptor, int)
-        os.lseek(descriptor, 0, os.SEEK_SET)
-        os.write(descriptor, b"X")
-        os.fsync(descriptor)
-        return encoded
+    def tamper_with_payload(descriptor: int, encoded: bytes) -> None:
+        nonlocal tampered
+        original_write(descriptor, encoded)
+        if not tampered:
+            tampered = True
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            os.write(descriptor, b"X")
+            os.fsync(descriptor)
 
     monkeypatch.setattr(
         local_lane,
-        "_write_diagnostic_envelope",
+        "_replace_descriptor_bytes",
         tamper_with_payload,
     )
 
@@ -670,7 +639,7 @@ def test_local_diagnostic_retention_rejects_payload_tampering(
             repository_sha=SHA,
         )
 
-    assert tuple(path for path in root.iterdir() if len(path.name) == 64) == ()
+    assert (root / local_lane.DIAGNOSTIC_STORE_NAME).read_bytes() == b""
 
 
 def test_local_diagnostic_retention_rolls_back_on_unexpected_unwind(
@@ -678,14 +647,20 @@ def test_local_diagnostic_retention_rolls_back_on_unexpected_unwind(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
+    original_write = local_lane._replace_descriptor_bytes
+    interrupted = False
 
-    def interrupt_after_creation(*_args: object, **_kwargs: object) -> bytes:
-        raise KeyboardInterrupt("interrupt diagnostic retention")
+    def interrupt_after_write(descriptor: int, encoded: bytes) -> None:
+        nonlocal interrupted
+        original_write(descriptor, encoded)
+        if not interrupted:
+            interrupted = True
+            raise KeyboardInterrupt("interrupt diagnostic retention")
 
     monkeypatch.setattr(
         local_lane,
-        "_write_diagnostic_envelope",
-        interrupt_after_creation,
+        "_replace_descriptor_bytes",
+        interrupt_after_write,
     )
 
     with pytest.raises(KeyboardInterrupt, match="interrupt diagnostic retention"):
@@ -696,7 +671,7 @@ def test_local_diagnostic_retention_rolls_back_on_unexpected_unwind(
             repository_sha=SHA,
         )
 
-    assert tuple(path for path in root.iterdir() if len(path.name) == 64) == ()
+    assert (root / local_lane.DIAGNOSTIC_STORE_NAME).read_bytes() == b""
 
 
 @pytest.mark.parametrize("terminal_status", ("timed_out", "cancelled"))
@@ -722,9 +697,10 @@ def test_local_diagnostic_retention_preserves_terminal_status(
         repository_sha=SHA,
     )
 
-    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
+    retained = _diagnostic_entries(root)
     assert len(retained) == 1
-    payload = json.loads(retained[0].read_text(encoding="utf-8"))
+    payload = retained[0]["payload"]
+    assert isinstance(payload, dict)
     assert payload["status"] == terminal_status
 
 

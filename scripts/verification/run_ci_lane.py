@@ -333,8 +333,9 @@ def _cleanup_transient_output_inode(
     *,
     temp_root: Path,
 ) -> None:
-    """Erase the bound output inode and unlink its name when still reachable."""
+    """Erase the bound output inode without acting on a mutable pathname."""
 
+    del temp_root
     os.ftruncate(descriptor, 0)
     os.fsync(descriptor)
     bound = os.fstat(descriptor)
@@ -343,47 +344,6 @@ def _cleanup_transient_output_inode(
         or bound.st_uid != os.getuid()
         or bound.st_size != 0
     ):
-        raise RuntimeError("CI transient output cleanup is unproven")
-    root_descriptor = os.open(
-        temp_root,
-        os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_NOFOLLOW", 0),
-    )
-    try:
-        for name in tuple(os.listdir(root_descriptor)):
-            try:
-                candidate = os.stat(
-                    name,
-                    dir_fd=root_descriptor,
-                    follow_symlinks=False,
-                )
-            except FileNotFoundError:
-                continue
-            if (
-                candidate.st_dev == bound.st_dev
-                and candidate.st_ino == bound.st_ino
-            ):
-                os.unlink(name, dir_fd=root_descriptor)
-        os.fsync(root_descriptor)
-        for name in tuple(os.listdir(root_descriptor)):
-            try:
-                candidate = os.stat(
-                    name,
-                    dir_fd=root_descriptor,
-                    follow_symlinks=False,
-                )
-            except FileNotFoundError:
-                continue
-            if (
-                candidate.st_dev == bound.st_dev
-                and candidate.st_ino == bound.st_ino
-            ):
-                raise RuntimeError("CI transient output cleanup is unproven")
-    finally:
-        os.close(root_descriptor)
-    final = os.fstat(descriptor)
-    if final.st_size != 0:
         raise RuntimeError("CI transient output cleanup is unproven")
 
 
