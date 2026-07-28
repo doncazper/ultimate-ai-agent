@@ -713,10 +713,17 @@ def test_goal_cli_verified_completion_is_explicitly_blocked(tmp_path: Path) -> N
     assert cli.stderr == ""
 
 
-@pytest.mark.parametrize("failure_mode", ["invalid-run-ref", "corrupt-journal"])
+@pytest.mark.parametrize(
+    ("failure_mode", "expected_code"),
+    [
+        ("invalid-run-ref", "RUN_EVENT_INSPECTION_FAILED"),
+        ("corrupt-journal", "RUN_EVENT_STORE_CORRUPT"),
+    ],
+)
 def test_run_event_cli_inspection_failures_are_redacted(
     tmp_path: Path,
     failure_mode: str,
+    expected_code: str,
 ) -> None:
     run_ref = "run-ref:cli-inspection:bounded"
     if failure_mode == "invalid-run-ref":
@@ -741,6 +748,48 @@ def test_run_event_cli_inspection_failures_are_redacted(
             "--run-ref",
             run_ref,
             "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    payload = json.loads(cli.stdout)
+    assert payload == {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-run-events",
+        "success": False,
+        "error": {
+            "code": expected_code,
+            "safe_summary": "Durable run events could not be read safely.",
+        },
+        "safe_refs_only": True,
+        "raw_error_omitted": True,
+        "runtime_execution_performed": False,
+        "standing_authority_granted": False,
+    }
+    assert cli.stderr == ""
+    assert "Traceback" not in cli.stdout
+    assert str(tmp_path) not in cli.stdout
+
+
+def test_run_event_cli_plain_inspection_failure_remains_redacted(
+    tmp_path: Path,
+) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "inspect-run-events",
+            "--run-ref",
+            "abcdefgh",
         ],
         check=False,
         capture_output=True,

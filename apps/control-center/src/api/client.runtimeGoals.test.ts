@@ -715,10 +715,72 @@ describe("proof-backed runtime goal mutations", () => {
   it.each([
     "Review path:/workspace/private.txt.",
     "Inspect artifact:/opt/company/private.txt.",
-  ])("rejects colon-delimited absolute paths in durable text", async (objective) => {
+    ...Array.from("!\"#$%&'()*+,;<=>?[\\]^`{|}~").map(
+      (delimiter) =>
+        `Inspect artifact${delimiter}/home/operator/private.txt.`,
+    ),
+    String.raw`Inspect artifact|C:\Users\operator\private.txt.`,
+    String.raw`Inspect artifact!\\server\share\private.txt.`,
+  ])("rejects punctuated absolute paths in durable text", async (objective) => {
     const goal = {
       ...mutationResult.goal,
       objective,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [goal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it("uses Unicode code-point bounds that match the Python contract", async () => {
+    const goal = {
+      ...mutationResult.goal,
+      objective: "😀".repeat(1200),
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [goal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it("rejects durable text above the Unicode code-point bound", async () => {
+    const goal = {
+      ...mutationResult.goal,
+      objective: "😀".repeat(1201),
     };
     const data = {
       ...mockControlCenterData.runtimeRunEvents,

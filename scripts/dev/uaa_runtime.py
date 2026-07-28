@@ -4066,9 +4066,16 @@ def _inspect_run_events(args: argparse.Namespace) -> int:
             after_sequence=args.after_sequence,
             limit=args.limit,
         ).model_dump(mode="json")
-    except (GoalRuntimeError, ValueError):
-        print("Durable run events could not be read safely.", file=sys.stderr)
-        return 1
+    except (GoalRuntimeError, ValueError, OSError) as exc:
+        return _runtime_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-inspect-run-events",
+            exc=exc,
+            safe_summary="Durable run events could not be read safely.",
+            default_code="RUN_EVENT_INSPECTION_FAILED",
+            validation_code="RUN_EVENT_INSPECTION_FAILED",
+            storage_code="RUN_EVENT_STORAGE_UNAVAILABLE",
+        )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-run-events",
@@ -4137,7 +4144,13 @@ def _goal_mutation_result(
     }
 
 
-def _stable_goal_cli_error_code(exc: Exception) -> str:
+def _stable_runtime_cli_error_code(
+    exc: Exception,
+    *,
+    default_code: str,
+    validation_code: str,
+    storage_code: str,
+) -> str:
     message = str(exc).strip()
     if (
         message
@@ -4151,25 +4164,33 @@ def _stable_goal_cli_error_code(exc: Exception) -> str:
     ):
         return message
     if isinstance(exc, ValidationError):
-        return "GOAL_REQUEST_VALIDATION_FAILED"
+        return validation_code
     if isinstance(exc, OSError):
-        return "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
-    return "GOAL_REQUEST_INVALID"
+        return storage_code
+    return default_code
 
 
-def _goal_cli_failure(
+def _runtime_cli_failure(
     args: argparse.Namespace,
     *,
     command_ref: str,
     exc: Exception,
     safe_summary: str,
+    default_code: str,
+    validation_code: str,
+    storage_code: str,
 ) -> int:
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": command_ref,
         "success": False,
         "error": {
-            "code": _stable_goal_cli_error_code(exc),
+            "code": _stable_runtime_cli_error_code(
+                exc,
+                default_code=default_code,
+                validation_code=validation_code,
+                storage_code=storage_code,
+            ),
             "safe_summary": safe_summary,
         },
         "safe_refs_only": True,
@@ -4182,6 +4203,24 @@ def _goal_cli_failure(
     else:
         print(safe_summary, file=sys.stderr)
     return 1
+
+
+def _goal_cli_failure(
+    args: argparse.Namespace,
+    *,
+    command_ref: str,
+    exc: Exception,
+    safe_summary: str,
+) -> int:
+    return _runtime_cli_failure(
+        args,
+        command_ref=command_ref,
+        exc=exc,
+        safe_summary=safe_summary,
+        default_code="GOAL_REQUEST_INVALID",
+        validation_code="GOAL_REQUEST_VALIDATION_FAILED",
+        storage_code="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    )
 
 
 def _goals_list(args: argparse.Namespace) -> int:

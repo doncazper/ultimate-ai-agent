@@ -9000,9 +9000,11 @@ function isSafeSkillMarketplaceRedactionArray(
 }
 
 function isBoundedDisplayText(value: unknown, maxLength: number): value is string {
-  return (
-    typeof value === "string" && value.length > 0 && value.length <= maxLength
-  );
+  if (typeof value !== "string") {
+    return false;
+  }
+  const codePointLength = Array.from(value).length;
+  return codePointLength > 0 && codePointLength <= maxLength;
 }
 
 function isSafeRuntimeRunEvents(
@@ -14257,10 +14259,10 @@ function isSafeTrustAuthorityDomainCoverage(value: unknown): boolean {
 const CANONICAL_SAFE_REF_RE =
   /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/;
 const ABSOLUTE_LOCAL_PATH_PATTERNS = [
-  /(?:^|[\s"'(<\[=])\/(?:\/)?[^\s"')>\],;]+/,
+  /(?:^|[^A-Za-z0-9_:/@.-])\/(?:\/)?[^\s"')>\],;]+/,
   /:\/(?!\/)[^\s"')>\],;]+/,
-  /(?:^|[\s"'(<\[=])[A-Za-z]:[\\/][^\s"')>\],;]*/,
-  /(?:^|[\s"'(<\[=])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
+  /(?:^|[^A-Za-z0-9_:/@.-])[A-Za-z]:[\\/][^\s"')>\],;]*/,
+  /(?:^|[^A-Za-z0-9_:/@.-])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
   /\bfile:(?:\/\/|%2f)/i,
 ];
 

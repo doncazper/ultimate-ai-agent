@@ -3164,6 +3164,15 @@ def test_lagging_tombstone_repairs_before_next_event_install(
         "Read file:///private/operator-data.",
         "Review path:/workspace/private.txt.",
         "Inspect artifact:/opt/company/private.txt.",
+        "Inspect artifact,/home/operator/private.txt.",
+        "Inspect artifact;/Users/operator/private.txt.",
+        "Inspect artifact|/home/operator/private.txt.",
+        "Inspect artifact!/tmp/operator/private.txt.",
+        "Inspect artifact{/root/operator/private.txt.",
+        "Inspect artifact}/workspace/operator/private.txt.",
+        "Inspect artifact#/var/operator/private.txt.",
+        r"Inspect artifact|C:\Users\operator\private.txt.",
+        r"Inspect artifact!\\server\share\private.txt.",
     ],
 )
 def test_durable_summaries_reject_every_absolute_local_path_family(
@@ -3189,6 +3198,23 @@ def test_durable_summaries_reject_every_absolute_local_path_family(
 
 
 @pytest.mark.parametrize(
+    "delimiter",
+    list("!\"#$%&'()*+,;<=>?[\\]^`{|}~"),
+)
+def test_durable_summaries_reject_ascii_punctuation_path_delimiters(
+    delimiter: str,
+) -> None:
+    unsafe_summary = f"Inspect artifact{delimiter}/home/operator/private.txt."
+
+    with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
+        GoalCreateRequest.model_validate(
+            _create_request()
+            .model_copy(update={"objective": unsafe_summary})
+            .model_dump(mode="json")
+        )
+
+
+@pytest.mark.parametrize(
     "safe_summary",
     [
         "Reviewed https://example.test/bounded-evidence.",
@@ -3210,6 +3236,99 @@ def test_valid_uri_or_safe_ref_is_not_misclassified_as_a_local_path(
     assert request.safe_summary == safe_summary
 
 
+def test_goal_refs_reject_trailing_newlines() -> None:
+    payload = _create_request().model_dump(mode="json")
+    payload["evidence_refs"] = ["evidence-ref:bounded\n"]
+
+    with pytest.raises(ValueError, match="structured safe ref"):
+        GoalCreateRequest.model_validate(payload)
+
+
+def test_maximum_unicode_goal_envelope_fits_derived_genesis_budget(
+    tmp_path: Path,
+) -> None:
+    maximum_summary = "😀" * goal_runtime_module.MAX_GOAL_TEXT
+
+    def distinct_summary(index: int) -> str:
+        return ("😀" * (goal_runtime_module.MAX_GOAL_TEXT - 2)) + f"{index:02x}"
+
+    request = GoalCreateRequest(
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective=maximum_summary,
+        desired_outcome=maximum_summary,
+        success_criteria=[
+            distinct_summary(index)
+            for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+        ],
+        constraints=[
+            distinct_summary(index + goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+        ],
+        in_scope_resource_refs=[
+            goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                "resource-ref:max-unicode",
+                index,
+            )
+            for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+        ],
+        stop_condition=maximum_summary,
+        budget=goal_runtime_module.GoalBudget(
+            operation_limit=10_000,
+            cost_budget_microusd=10_000_000_000,
+            deadline_at=datetime.max.replace(tzinfo=timezone.utc),
+        ),
+        links=goal_runtime_module.GoalLinks(
+            plan_refs=[
+                goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                    "plan-ref:max-unicode",
+                    index,
+                )
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+            run_refs=[
+                goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                    "run-ref:max-unicode",
+                    index,
+                )
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+            action_inbox_refs=[
+                goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                    "action-inbox-ref:max-unicode",
+                    index,
+                )
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+            work_board_refs=[
+                goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                    "work-board-ref:max-unicode",
+                    index,
+                )
+                for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+            ],
+        ),
+        evidence_refs=[
+            goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+                "evidence-ref:max-unicode",
+                index,
+            )
+            for index in range(goal_runtime_module.MAX_GOAL_LIST_ITEMS)
+        ],
+    )
+    service = GoalRuntimeService(tmp_path)
+
+    created = _create_goal(
+        service,
+        request,
+        idempotency_ref="idempotency-ref:max-unicode-envelope",
+    )
+
+    assert created.objective == maximum_summary
+    assert service.goals.path.stat().st_size <= (
+        goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES
+    )
+
+
 def test_schema_maximum_envelopes_define_all_storage_reservations() -> None:
     maximum_intent = goal_runtime_module._MAXIMUM_GOAL_GENESIS_INTENT  # noqa: SLF001
     maximum_event = goal_runtime_module._MAXIMUM_RUN_EVENT  # noqa: SLF001
@@ -3217,6 +3336,12 @@ def test_schema_maximum_envelopes_define_all_storage_reservations() -> None:
         goal_runtime_module._MAXIMUM_RUN_EVENT_TOMBSTONE  # noqa: SLF001
     )
 
+    revalidated_goal = PersistentGoal.model_validate(
+        maximum_intent.entry.goal.model_dump(mode="json")
+    )
+    assert revalidated_goal.objective == goal_runtime_module._maximum_typed_summary(  # noqa: SLF001
+        0
+    )
     assert (
         len((maximum_intent.model_dump_json() + "\n").encode("utf-8"))
         == goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES

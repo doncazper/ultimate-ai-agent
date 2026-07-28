@@ -13,10 +13,10 @@ SECRET_LIKE_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token|client[_-]?secret)"
 )
 ABSOLUTE_LOCAL_PATH_PATTERNS = (
-    re.compile(r"(?:^|[\s\"'(<\[=])/(?:/)?[^\s\"')>\],;]+"),
+    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])/(?:/)?[^\s\"')>\],;]+"),
     re.compile(r":/(?!/)[^\s\"')>\],;]+"),
-    re.compile(r"(?:^|[\s\"'(<\[=])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
-    re.compile(r"(?:^|[\s\"'(<\[=])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
+    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
+    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
     re.compile(r"\b(?i:file):(?://|%2f)"),
 )
 RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:\\)")
@@ -136,7 +136,7 @@ def hidden_side_effect_reasons(value: Any) -> list[str]:
 
 def validate_execution_ref(value: str, field_name: str = "ref") -> None:
     validate_safe_execution_text(value, field_name)
-    if not SAFE_REF_RE.match(value):
+    if SAFE_REF_RE.fullmatch(value) is None:
         raise ValueError(f"{field_name} must be a structured safe ref")
 
 

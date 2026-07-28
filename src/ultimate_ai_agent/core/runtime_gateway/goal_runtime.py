@@ -1145,9 +1145,23 @@ def _maximum_typed_ref(prefix: str, index: int) -> str:
     return stem + ("x" * (MAX_EXECUTION_REF_LENGTH - len(stem)))
 
 
+_MAXIMUM_JSON_ESCAPED_TEXT_CHARACTERS = tuple(
+    chr(codepoint) for codepoint in range(32) if codepoint not in {8, 9, 10, 12, 13}
+)
+
+
 def _maximum_typed_summary(index: int) -> str:
-    suffix = f"{index:04d}"
-    return ("x" * (MAX_GOAL_TEXT - len(suffix))) + suffix
+    alphabet = _MAXIMUM_JSON_ESCAPED_TEXT_CHARACTERS
+    encoded_index = index
+    suffix: list[str] = []
+    for _ in range(3):
+        suffix.append(alphabet[encoded_index % len(alphabet)])
+        encoded_index //= len(alphabet)
+    # Each accepted control code point serializes as a six-byte ``\u00xx``
+    # escape. This is larger than the four UTF-8 bytes used by supplementary
+    # Unicode characters and therefore bounds every accepted 1,200-code-point
+    # summary while keeping the generated list entries distinct.
+    return (alphabet[0] * (MAX_GOAL_TEXT - len(suffix))) + "".join(suffix)
 
 
 def _maximum_goal_genesis_intent() -> GoalJournalGenesisIntent:
