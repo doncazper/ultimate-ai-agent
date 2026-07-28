@@ -5,11 +5,13 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 
 MINIMUM_TEMP_FREE_BYTES = 1024 * 1024 * 1024
+CANONICAL_PYTHON_VERSION = (3, 12)
 MATRIX_RUNTIME_MARKER = Path(
     "integrations/matrix-client-adapter/node_modules/matrix-js-sdk/package.json"
 )
@@ -113,6 +115,10 @@ def validate_lane_environment(
     observations.append("preflight-ref:temp-capacity-and-write-ready")
 
     if lane_ref == "ci-pytest-shards":
+        if sys.version_info[:2] != CANONICAL_PYTHON_VERSION:
+            raise VerificationEnvironmentPreflightError(
+                "reason-ref:verification-preflight:python-runtime-version-mismatch"
+            )
         if importlib.util.find_spec("pytest") is None:
             raise VerificationEnvironmentPreflightError(
                 "reason-ref:verification-preflight:pytest-runtime-unavailable"
@@ -127,19 +133,16 @@ def validate_lane_environment(
             )
         _require_regular_runtime_file(
             repo / MATRIX_RUNTIME_MARKER,
-            reason_ref=(
-                "reason-ref:verification-preflight:matrix-runtime-unavailable"
-            ),
+            reason_ref=("reason-ref:verification-preflight:matrix-runtime-unavailable"),
         )
         _require_complete_npm_runtime(
             repo,
             MATRIX_RUNTIME_ROOT,
-            reason_ref=(
-                "reason-ref:verification-preflight:matrix-runtime-unavailable"
-            ),
+            reason_ref=("reason-ref:verification-preflight:matrix-runtime-unavailable"),
         )
         observations.extend(
             (
+                "preflight-ref:python-runtime-3.12-ready",
                 "preflight-ref:pytest-runtime-ready",
                 "preflight-ref:matrix-runtime-ready",
             )

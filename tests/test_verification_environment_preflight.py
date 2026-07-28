@@ -41,9 +41,31 @@ def test_pytest_preflight_accepts_complete_runtime(
         lane_ref="ci-pytest-shards",
     ) == (
         "preflight-ref:temp-capacity-and-write-ready",
+        "preflight-ref:python-runtime-3.12-ready",
         "preflight-ref:pytest-runtime-ready",
         "preflight-ref:matrix-runtime-ready",
     )
+
+
+def test_pytest_preflight_rejects_noncanonical_python_before_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = tmp_path / "repo"
+    temp_root = tmp_path / "temp"
+    repo.mkdir()
+    temp_root.mkdir()
+    monkeypatch.setattr(preflight.sys, "version_info", (3, 13))
+
+    with pytest.raises(
+        preflight.VerificationEnvironmentPreflightError,
+        match="python-runtime-version-mismatch",
+    ):
+        preflight.validate_lane_environment(
+            repo,
+            temp_root,
+            lane_ref="ci-pytest-shards",
+        )
 
 
 def test_pytest_preflight_rejects_missing_matrix_runtime_before_admission(
