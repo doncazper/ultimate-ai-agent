@@ -3,6 +3,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  prepareRuntimeGoalCreateSubmission,
   runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
@@ -361,23 +362,47 @@ describe("proof-backed runtime goal mutations", () => {
     const storageRead = vi.spyOn(Storage.prototype, "getItem");
     const storageWrite = vi.spyOn(Storage.prototype, "setItem");
 
-    const beforeUnmount = await runtimeGoalMutationIdempotencyRef({
-      operation: "create",
-      goalRef: null,
-      request,
-    });
-    const afterRemount = await runtimeGoalMutationIdempotencyRef({
-      operation: "create",
-      goalRef: null,
-      request: JSON.parse(JSON.stringify(reorderedRequest)),
-    });
+    const beforeUnmount = await prepareRuntimeGoalCreateSubmission(request, []);
+    const afterRemount = await prepareRuntimeGoalCreateSubmission(
+      JSON.parse(JSON.stringify(reorderedRequest)),
+      [],
+    );
 
-    expect(afterRemount).toBe(beforeUnmount);
-    expect(beforeUnmount).toMatch(
+    expect(afterRemount).toEqual(beforeUnmount);
+    expect(beforeUnmount.idempotencyRef).toMatch(
       /^idempotency-ref:control-center-goal-create:sha256:[a-f0-9]{64}$/,
     );
     expect(storageRead).not.toHaveBeenCalled();
     expect(storageWrite).not.toHaveBeenCalled();
+  });
+
+  it("advances identical create identity only after the prior submission is durable", async () => {
+    const firstSubmission = await prepareRuntimeGoalCreateSubmission(
+      request,
+      [],
+    );
+    const ambiguousRetry = await prepareRuntimeGoalCreateSubmission(
+      request,
+      [],
+    );
+    const acceptedGoal = {
+      ...mutationResult.goal,
+      evidence_refs: firstSubmission.request.evidence_refs,
+    };
+    const laterIdenticalSubmission =
+      await prepareRuntimeGoalCreateSubmission(request, [acceptedGoal]);
+    const laterAmbiguousRetry =
+      await prepareRuntimeGoalCreateSubmission(request, [acceptedGoal]);
+
+    expect(ambiguousRetry).toEqual(firstSubmission);
+    expect(firstSubmission.submissionEvidenceRef).toMatch(/:ordinal:1$/);
+    expect(laterIdenticalSubmission.submissionEvidenceRef).toMatch(
+      /:ordinal:2$/,
+    );
+    expect(laterIdenticalSubmission.idempotencyRef).not.toBe(
+      firstSubmission.idempotencyRef,
+    );
+    expect(laterAmbiguousRetry).toEqual(laterIdenticalSubmission);
   });
 
   it("domain-separates materially distinct mutation payloads, operations, and goals", async () => {

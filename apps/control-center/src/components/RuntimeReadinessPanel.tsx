@@ -45,6 +45,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  prepareRuntimeGoalCreateSubmission,
   runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
 } from "../api/client";
@@ -240,31 +241,30 @@ export function RuntimeReadinessPanel({
         },
         evidence_refs: [],
       };
-      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
-        operation: "create",
-        goalRef: null,
+      const submission = await prepareRuntimeGoalCreateSubmission(
         request,
-      });
+        runtimeGoalEvents.goal_lifecycle.goals,
+      );
       const result = await createRuntimeGoal(
-        request,
-        idempotencyRef,
+        submission.request,
+        submission.idempotencyRef,
         mutationBinding,
       );
       applyGoalSnapshot(result.goal);
-      try {
-        await refreshGoalState();
-      } catch {
-        setGoalNotice(
-          "Goal creation was accepted, but the authoritative refresh failed. " +
-            "Retrying this form will replay the same idempotency ref.",
-        );
-        return;
-      }
       setSelectedGoalRef(result.goal.goal_ref);
       setGoalObjective("");
       setGoalOutcome("");
       setGoalSuccessCriterion("");
       setGoalStopCondition("");
+      try {
+        await refreshGoalState();
+      } catch {
+        setGoalNotice(
+          "Goal creation was accepted, but the authoritative refresh failed. " +
+            "The accepted backend snapshot remains visible.",
+        );
+        return;
+      }
       setGoalNotice(
         `Goal created at version ${result.goal.version}; no runtime work was started.`,
       );

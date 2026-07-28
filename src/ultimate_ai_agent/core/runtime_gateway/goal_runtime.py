@@ -977,6 +977,7 @@ class _GoalJournalStore:
             "request-fingerprint-ref:goal-create",
             validated.model_dump(mode="json"),
         )
+        _initialize_goal_runtime_state_dir(self.state_dir)
         with self._locks.acquire("goal-journal"):
             entries = self._load_entries()
             replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
@@ -1168,10 +1169,9 @@ class _GoalJournalStore:
     ) -> GoalMutationProvenanceReadModel:
         validate_execution_ref(goal_ref, "goal_ref")
         bounded_limit = max(1, min(int(limit), MAX_GOAL_PROVENANCE_ENTRIES))
-        with self._locks.acquire("goal-journal"):
-            matching = [
-                entry for entry in self._load_entries() if entry.goal_ref == goal_ref
-            ]
+        matching = [
+            entry for entry in self._load_entries() if entry.goal_ref == goal_ref
+        ]
         if not matching:
             raise GoalNotFoundError("GOAL_NOT_FOUND")
         entries = [
@@ -1251,6 +1251,7 @@ class _GoalJournalStore:
             f"request-fingerprint-ref:goal-{operation.value}",
             {"goal_ref": goal_ref, "request": request_payload},
         )
+        _initialize_goal_runtime_state_dir(self.state_dir)
         with self._locks.acquire("goal-journal"):
             entries = self._load_entries()
             replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
@@ -1589,6 +1590,7 @@ class _DurableRunEventStore:
 
     @contextmanager
     def exclusive(self) -> Iterator[None]:
+        _initialize_goal_runtime_state_dir(self.state_dir)
         with self._locks.acquire("run-events"):
             yield
 
@@ -2008,6 +2010,10 @@ class _DurableRunEventStore:
             required_slots=(
                 1 + sum(reservation.slot_count for reservation in active_reservations)
             ),
+            event_byte_credit=self._completion_retention_byte_credit(
+                events,
+                run_ref,
+            ),
         )
         return matched.model_copy(deep=True)
 
@@ -2277,34 +2283,8 @@ class _DurableRunEventStore:
         self,
         events: list[DurableRunEvent],
     ) -> dict[tuple[str, str], RunEventIdempotencyTombstone]:
-        tombstones: dict[tuple[str, str], RunEventIdempotencyTombstone] = {}
+        tombstones = self._load_persisted_idempotency_tombstones()
         try:
-            if self.idempotency_path.exists():
-                if (
-                    self.idempotency_path.stat().st_size
-                    > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
-                ):
-                    raise GoalRuntimeCorruptionError(
-                        "RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED"
-                    )
-                for raw_line in self.idempotency_path.read_text(
-                    encoding="utf-8"
-                ).splitlines():
-                    if not raw_line.strip():
-                        continue
-                    tombstone = RunEventIdempotencyTombstone.model_validate_json(
-                        raw_line
-                    )
-                    if tombstone.tombstone_hash_ref != self._tombstone_hash(tombstone):
-                        raise GoalRuntimeCorruptionError(
-                            "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_HASH_MISMATCH"
-                        )
-                    key = (tombstone.run_ref, tombstone.idempotency_ref)
-                    if key in tombstones:
-                        raise GoalRuntimeCorruptionError(
-                            "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_DUPLICATE"
-                        )
-                    tombstones[key] = tombstone
             for event in events:
                 key = (event.run_ref, event.idempotency_ref)
                 fingerprint = _sha256_ref(
@@ -2322,6 +2302,49 @@ class _DurableRunEventStore:
                         )
                     continue
                 tombstones[key] = self._build_idempotency_tombstone(event, fingerprint)
+            if len(tombstones) > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
+                )
+            self._validate_tombstone_event_history(tombstones.values())
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_IDEMPOTENCY_STORE_CORRUPT"
+            ) from exc
+        return tombstones
+
+    def _load_persisted_idempotency_tombstones(
+        self,
+    ) -> dict[tuple[str, str], RunEventIdempotencyTombstone]:
+        tombstones: dict[tuple[str, str], RunEventIdempotencyTombstone] = {}
+        try:
+            if not self.idempotency_path.exists():
+                return tombstones
+            if (
+                self.idempotency_path.stat().st_size
+                > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED"
+                )
+            for raw_line in self.idempotency_path.read_text(
+                encoding="utf-8"
+            ).splitlines():
+                if not raw_line.strip():
+                    continue
+                tombstone = RunEventIdempotencyTombstone.model_validate_json(raw_line)
+                if tombstone.tombstone_hash_ref != self._tombstone_hash(tombstone):
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_HASH_MISMATCH"
+                    )
+                key = (tombstone.run_ref, tombstone.idempotency_ref)
+                if key in tombstones:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_DUPLICATE"
+                    )
+                tombstones[key] = tombstone
             if len(tombstones) > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
                 raise GoalRuntimeCorruptionError(
                     "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
@@ -2449,11 +2472,62 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_RETENTION_ANCHOR_MISSING"
                     )
+            self._assert_retained_suffix_matches_tombstones(
+                events,
+                self._load_persisted_idempotency_tombstones().values(),
+            )
         except GoalRuntimeCorruptionError:
             raise
         except (OSError, UnicodeError, ValueError) as exc:
             raise GoalRuntimeCorruptionError("RUN_EVENT_STORE_CORRUPT") from exc
         return events
+
+    def _assert_retained_suffix_matches_tombstones(
+        self,
+        events: list[DurableRunEvent],
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+    ) -> None:
+        retained_by_run: dict[str, list[DurableRunEvent]] = {}
+        accepted_by_run: dict[str, list[DurableRunEvent]] = {}
+        for event in events:
+            retained_by_run.setdefault(event.run_ref, []).append(event)
+        for tombstone in tombstones:
+            accepted_by_run.setdefault(tombstone.run_ref, []).append(tombstone.event)
+        for run_ref, accepted in accepted_by_run.items():
+            accepted.sort(key=lambda event: event.sequence)
+            retained = retained_by_run.get(run_ref, [])
+            if not retained:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_JOURNAL_RETAINED_SUFFIX_MISMATCH"
+                )
+            accepted_last_sequence = accepted[-1].sequence
+            retained_last_sequence = retained[-1].sequence
+            journal_ahead_by = retained_last_sequence - accepted_last_sequence
+            if journal_ahead_by not in {0, 1}:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_JOURNAL_RETAINED_SUFFIX_MISMATCH"
+                )
+            expected_accepted_count = min(
+                len(accepted),
+                self.retention_limit - journal_ahead_by,
+            )
+            expected_accepted_suffix = accepted[-expected_accepted_count:]
+            retained_accepted_suffix = [
+                event
+                for event in retained
+                if event.sequence <= accepted_last_sequence
+            ]
+            if retained_accepted_suffix != expected_accepted_suffix:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_JOURNAL_RETAINED_SUFFIX_MISMATCH"
+                )
+            if journal_ahead_by == 1 and (
+                len(retained) != len(retained_accepted_suffix) + 1
+                or retained[-1].sequence != accepted_last_sequence + 1
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_JOURNAL_RETAINED_SUFFIX_MISMATCH"
+                )
 
     def _assert_no_orphaned_idempotency_history(self) -> None:
         try:
@@ -2510,6 +2584,7 @@ class _DurableRunEventStore:
         tombstones: Iterable[RunEventIdempotencyTombstone],
         *,
         required_slots: int,
+        event_byte_credit: int = 0,
     ) -> None:
         """Reserve worst-case encoded space before any runtime or goal mutation."""
 
@@ -2529,7 +2604,11 @@ class _DurableRunEventStore:
             ).encode("utf-8")
         )
         if (
-            event_bytes + required_slots * MAX_RESERVED_RUN_EVENT_BYTES
+            event_bytes
+            + max(
+                0,
+                required_slots * MAX_RESERVED_RUN_EVENT_BYTES - event_byte_credit,
+            )
             > MAX_RUN_EVENT_STORE_BYTES
         ):
             raise GoalRuntimeError("RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED")
@@ -2539,6 +2618,16 @@ class _DurableRunEventStore:
             > MAX_RUN_EVENT_IDEMPOTENCY_BYTES
         ):
             raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED")
+
+    def _completion_retention_byte_credit(
+        self,
+        events: Iterable[DurableRunEvent],
+        run_ref: str,
+    ) -> int:
+        same_run = [event for event in events if event.run_ref == run_ref]
+        if len(same_run) < self.retention_limit:
+            return 0
+        return len((same_run[0].model_dump_json() + "\n").encode("utf-8"))
 
     def _write_idempotency_tombstones(
         self,
@@ -2609,14 +2698,7 @@ class GoalRuntimeService:
         retention_limit: int = DEFAULT_RUN_EVENT_RETENTION,
     ) -> None:
         self.state_dir = Path(state_dir)
-        try:
-            self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-            state_metadata = os.lstat(self.state_dir)
-            if not stat.S_ISDIR(state_metadata.st_mode):
-                raise OSError("goal runtime state directory must be a real directory")
-            os.chmod(self.state_dir, 0o700)
-        except OSError as exc:
-            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+        _validate_goal_runtime_state_dir_for_read(self.state_dir)
         self.goals = _GoalJournalStore(self.state_dir)
         self._events = _DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
@@ -3237,6 +3319,28 @@ def _validate_goal_mutation_approval_binding(
     )
     if validated != expected:
         raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_BINDING_MISMATCH")
+
+
+def _initialize_goal_runtime_state_dir(state_dir: Path) -> None:
+    try:
+        state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        state_metadata = os.lstat(state_dir)
+        if not stat.S_ISDIR(state_metadata.st_mode):
+            raise OSError("goal runtime state directory must be a real directory")
+        os.chmod(state_dir, 0o700)
+    except OSError as exc:
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+
+def _validate_goal_runtime_state_dir_for_read(state_dir: Path) -> None:
+    try:
+        state_metadata = os.lstat(state_dir)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+    if not stat.S_ISDIR(state_metadata.st_mode):
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
 
 
 def _atomic_write(path: Path, content: str) -> None:

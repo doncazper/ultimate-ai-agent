@@ -100,9 +100,30 @@ def test_run_events_get_is_strictly_read_only(
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert sync_calls == 0
+    assert not service.state_dir.exists()
     assert not (service.state_dir / "run_events.jsonl").exists()
     assert not (service.state_dir / "run_event_idempotency.jsonl").exists()
     assert not (service.state_dir / "run_event_projection_reservations.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/runtime/goals",
+        "/api/runtime/goals/goal-ref:read-only:missing",
+        "/api/runtime/run-events",
+    ],
+)
+def test_goal_runtime_get_routes_do_not_initialize_state(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    path: str,
+) -> None:
+    client, service = goal_runtime_client
+
+    response = client.get(path)
+
+    assert response.status_code == 200
+    assert not service.state_dir.exists()
 
 
 def test_run_events_read_model_keeps_cleared_goals_restorable(
@@ -534,6 +555,7 @@ def test_run_event_cli_inspection_failures_are_redacted(
         run_ref = "abcdefgh"
     else:
         service = GoalRuntimeService.for_runtime_store(tmp_path)
+        service.state_dir.mkdir(parents=True, mode=0o700)
         (service.state_dir / "run_events.jsonl").write_text(
             "{not-valid-json}\n",
             encoding="utf-8",

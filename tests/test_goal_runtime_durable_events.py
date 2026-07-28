@@ -1668,6 +1668,79 @@ def test_event_journal_cannot_disappear_while_tombstones_remain(
         GoalRuntimeService(tmp_path).events.replay("run-ref:journal-disappearance")
 
 
+@pytest.mark.parametrize(
+    "rollback",
+    ["whole-run", "oldest-retained", "latest-suffix"],
+)
+def test_event_journal_rejects_individual_run_rollback(
+    tmp_path: Path,
+    rollback: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path, retention_limit=3)
+    rolled_back_run_ref = "run-ref:journal-rollback:target"
+    for index in range(1, 5):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref=rolled_back_run_ref,
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.evidence_linked,
+                safe_summary=f"Bounded target event {index}.",
+                proof_refs=[f"proof-ref:journal-rollback:target:{index}"],
+                idempotency_ref=(
+                    f"idempotency-ref:journal-rollback:target:{index}"
+                ),
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:journal-rollback:survivor",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="The unrelated retained stream remains present.",
+            idempotency_ref="idempotency-ref:journal-rollback:survivor",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    event_path = tmp_path / "run_events.jsonl"
+    rows = [
+        json.loads(line)
+        for line in event_path.read_text(encoding="utf-8").splitlines()
+    ]
+    if rollback == "whole-run":
+        rows = [row for row in rows if row["run_ref"] != rolled_back_run_ref]
+    elif rollback == "oldest-retained":
+        rows = [
+            row
+            for row in rows
+            if not (
+                row["run_ref"] == rolled_back_run_ref and row["sequence"] == 2
+            )
+        ]
+    else:
+        rows = [
+            row
+            for row in rows
+            if not (
+                row["run_ref"] == rolled_back_run_ref and row["sequence"] == 4
+            )
+        ]
+    event_path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_JOURNAL_RETAINED_SUFFIX_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path, retention_limit=3).events.replay(
+            rolled_back_run_ref
+        )
+
+
 def test_atomic_storage_failure_is_normalized(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1692,7 +1765,7 @@ def test_atomic_storage_failure_is_normalized(
 def test_goal_runtime_files_are_private(tmp_path: Path) -> None:
     state_dir = tmp_path / "private-state"
     service = GoalRuntimeService(state_dir)
-    assert stat.S_IMODE(state_dir.stat().st_mode) == 0o700
+    assert not state_dir.exists()
     _create_goal(
         service,
         _create_request(),
@@ -1717,6 +1790,28 @@ def test_goal_runtime_files_are_private(tmp_path: Path) -> None:
         state_dir / "run_event_idempotency.jsonl",
     ):
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_goal_runtime_reads_do_not_initialize_storage(tmp_path: Path) -> None:
+    state_dir = tmp_path / "read-only-state"
+    service = GoalRuntimeService(state_dir)
+
+    goals = service.goals.read_model()
+    summaries = service.events.summaries()
+    replay = service.events.replay("run-ref:read-only:missing")
+
+    assert goals.goal_count == 0
+    assert summaries == []
+    assert replay.status == RunEventReplayStatus.unknown_run.value
+    assert not state_dir.exists()
+
+    existing_state_dir = tmp_path / "existing-read-only-state"
+    existing_state_dir.mkdir(mode=0o755)
+    existing_service = GoalRuntimeService(existing_state_dir)
+    assert existing_service.goals.read_model().goal_count == 0
+    assert existing_service.events.summaries() == []
+    assert stat.S_IMODE(existing_state_dir.stat().st_mode) == 0o755
+    assert list(existing_state_dir.iterdir()) == []
 
 
 def test_run_event_writer_requires_exact_approval_and_is_not_on_reader(
@@ -1962,6 +2057,80 @@ def test_completion_event_capacity_fails_before_goal_transition(
     assert not any(
         event.event_kind == DurableRunEventKind.completion_verified.value
         for event in service.events.retained_events()
+    )
+
+
+def test_completion_capacity_credits_exact_retention_eviction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path, retention_limit=2)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:completion-retention:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:completion-retention:request",
+        ),
+        idempotency_ref="idempotency-ref:completion-retention:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:accepted-local:one",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.evidence_linked,
+            safe_summary="Additional bounded evidence reached the retention limit.",
+            proof_refs=["proof-ref:completion-retention:additional"],
+            goal_ref=created.goal_ref,
+            plan_ref="plan-ref:accepted-local:one",
+            idempotency_ref="idempotency-ref:completion-retention:additional",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    retained_before = service.events.retained_events(
+        run_ref="run-ref:accepted-local:one"
+    )
+    event_bytes = service._events.path.stat().st_size  # noqa: SLF001
+    eviction_credit = len(
+        (retained_before[0].model_dump_json() + "\n").encode("utf-8")
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUN_EVENT_STORE_BYTES",
+        (
+            event_bytes
+            + goal_runtime_module.MAX_RESERVED_RUN_EVENT_BYTES
+            - eviction_credit
+        ),
+    )
+
+    verified = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=requested.version,
+            transition=GoalTransitionKind.verify_completion,
+            reason_ref="reason-ref:completion-retention:verify",
+            completion_evidence=_completion_evidence(requested),
+        ),
+        idempotency_ref="idempotency-ref:completion-retention:verify",
+    )
+    retained_after = service.events.retained_events(
+        run_ref="run-ref:accepted-local:one"
+    )
+
+    assert verified.state == GoalState.verified_complete.value
+    assert [event.sequence for event in retained_after] == [2, 3]
+    assert retained_after[-1].event_kind == (
+        DurableRunEventKind.completion_verified.value
     )
 
 

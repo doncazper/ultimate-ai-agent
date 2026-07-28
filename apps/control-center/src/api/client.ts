@@ -9352,6 +9352,10 @@ type RuntimeGoalMutationIdentityMaterial =
 
 const RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN =
   "uaa.control-center.runtime-goal-mutation-idempotency.v1";
+const RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN =
+  "uaa.control-center.runtime-goal-create-submission.v1";
+const RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX =
+  "evidence-ref:control-center-goal-create-submission:sha256:";
 
 async function sha256Hex(value: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
@@ -9388,6 +9392,63 @@ export async function runtimeGoalMutationIdempotencyRef(
   });
   const digest = await sha256Hex(canonicalIntent);
   return `idempotency-ref:control-center-goal-${material.operation}:sha256:${digest}`;
+}
+
+export async function prepareRuntimeGoalCreateSubmission(
+  request: RuntimeGoalCreateRequest,
+  durableGoals: RuntimePersistentGoal[],
+): Promise<{
+  request: RuntimeGoalCreateRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+}> {
+  const evidenceRefs = request.evidence_refs.filter(
+    (ref) => !ref.startsWith(RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX),
+  );
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN,
+    request: {
+      ...request,
+      evidence_refs: evidenceRefs,
+    },
+  });
+  const intentDigest = await sha256Hex(canonicalIntent);
+  const exactPrefix =
+    `${RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX}${intentDigest}:ordinal:`;
+  const seenOrdinals = new Set<number>();
+  for (const goal of durableGoals) {
+    for (const evidenceRef of goal.evidence_refs) {
+      if (!evidenceRef.startsWith(exactPrefix)) continue;
+      const encodedOrdinal = evidenceRef.slice(exactPrefix.length);
+      if (!/^[1-9][0-9]*$/.test(encodedOrdinal)) {
+        throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
+      }
+      const ordinal = Number(encodedOrdinal);
+      if (!Number.isSafeInteger(ordinal) || seenOrdinals.has(ordinal)) {
+        throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
+      }
+      seenOrdinals.add(ordinal);
+    }
+  }
+  const nextOrdinal =
+    seenOrdinals.size === 0 ? 1 : Math.max(...seenOrdinals) + 1;
+  if (!Number.isSafeInteger(nextOrdinal)) {
+    throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
+  }
+  const submissionEvidenceRef = `${exactPrefix}${nextOrdinal}`;
+  const submissionRequest: RuntimeGoalCreateRequest = {
+    ...request,
+    evidence_refs: [...evidenceRefs, submissionEvidenceRef],
+  };
+  return {
+    request: submissionRequest,
+    idempotencyRef: await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request: submissionRequest,
+    }),
+    submissionEvidenceRef,
+  };
 }
 
 async function postRuntimeGoalMutation(
