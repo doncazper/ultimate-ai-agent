@@ -50,10 +50,10 @@ for the state, not a second refresh after `test-sharded`.
 
 Before durable admission, an exclusive local lane checks writable temporary
 capacity and every runtime it requires. Complete pytest requires the installed
-Python test runtime, Node, and the frozen Matrix adapter runtime; Control Center
-requires Node and the installed TypeScript launcher. A missing prerequisite
-fails before consuming the exact-state attempt. Prepare a new isolated worktree
-once with:
+Python test runtime, Node, npm, and the frozen Matrix adapter runtime; Control
+Center requires Node, npm, and the installed TypeScript, Vitest, and Vite tool
+targets. A missing prerequisite fails before consuming the exact-state attempt.
+Prepare a new isolated worktree once with:
 
 ```bash
 make verification-bootstrap

@@ -1143,6 +1143,44 @@ def test_run_command_spawn_failure_releases_prestart_reservation(
     assert events == ["reserved", "spawn-failed", "released"]
 
 
+def test_run_command_cancellation_before_spawn_releases_prestart_reservation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pre-spawn-cancellation",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def cancel_after_reservation() -> None:
+        events.append("reserved")
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+
+    monkeypatch.setattr(
+        runner,
+        "spawn_owned_process_group",
+        lambda *_args, **_kwargs: pytest.fail("command must not spawn"),
+    )
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        before_start=cancel_after_reservation,
+        after_spawn=lambda: events.append("recorded"),
+        on_spawn_failure=lambda: events.append("released"),
+    )
+
+    assert result["status"] == "cancelled"
+    assert events == ["reserved", "released"]
+
+
 def test_run_command_emits_digest_ref_without_retaining_failure_output(
     tmp_path: Path,
 ) -> None:

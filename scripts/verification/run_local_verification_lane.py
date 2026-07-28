@@ -107,6 +107,35 @@ def _locked_diagnostic_root(root: Path):
             os.close(descriptor)
 
 
+def _retained_diagnostic_directories(root: Path) -> tuple[Path, ...]:
+    retained: list[tuple[int, Path]] = []
+    try:
+        candidates = tuple(root.iterdir())
+    except OSError:
+        return ()
+    for path in candidates:
+        if (
+            len(path.name) != 64
+            or any(character not in "0123456789abcdef" for character in path.name)
+        ):
+            continue
+        try:
+            metadata = path.lstat()
+        except OSError:
+            continue
+        if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            continue
+        retained.append((metadata.st_mtime_ns, path))
+    return tuple(
+        path
+        for _mtime_ns, path in sorted(
+            retained,
+            key=lambda item: item[0],
+            reverse=True,
+        )
+    )
+
+
 def _retain_diagnostics(
     receipt: dict[str, object] | None,
     *,
@@ -218,18 +247,7 @@ def _retain_diagnostics(
             raise LocalVerificationLaneError(
                 "local verification diagnostics could not be retained"
             ) from exc
-        retained = sorted(
-            (
-                path
-                for path in root.iterdir()
-                if path.is_dir()
-                and not path.is_symlink()
-                and len(path.name) == 64
-                and all(character in "0123456789abcdef" for character in path.name)
-            ),
-            key=lambda path: path.stat().st_mtime_ns,
-            reverse=True,
-        )
+        retained = _retained_diagnostic_directories(root)
         for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
             shutil.rmtree(stale, ignore_errors=True)
     return f"diagnostic-ref:local-verification:{token}"

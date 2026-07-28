@@ -12,9 +12,12 @@ MINIMUM_TEMP_FREE_BYTES = 1024 * 1024 * 1024
 MATRIX_RUNTIME_MARKER = Path(
     "integrations/matrix-client-adapter/node_modules/matrix-js-sdk/package.json"
 )
-FRONTEND_RUNTIME_MARKER = Path(
-    "apps/control-center/node_modules/typescript/bin/tsc"
+FRONTEND_RUNTIME_MARKERS = (
+    Path("apps/control-center/node_modules/typescript/bin/tsc"),
+    Path("apps/control-center/node_modules/vitest/vitest.mjs"),
+    Path("apps/control-center/node_modules/vite/bin/vite.js"),
 )
+FRONTEND_RUNTIME_MARKER = FRONTEND_RUNTIME_MARKERS[0]
 
 
 class VerificationEnvironmentPreflightError(RuntimeError):
@@ -105,12 +108,13 @@ def validate_lane_environment(
             raise VerificationEnvironmentPreflightError(
                 "reason-ref:verification-preflight:npm-runtime-unavailable"
             )
-        _require_regular_runtime_file(
-            repo / FRONTEND_RUNTIME_MARKER,
-            reason_ref=(
-                "reason-ref:verification-preflight:frontend-runtime-unavailable"
-            ),
-        )
+        for marker in FRONTEND_RUNTIME_MARKERS:
+            _require_regular_runtime_file(
+                repo / marker,
+                reason_ref=(
+                    "reason-ref:verification-preflight:frontend-runtime-unavailable"
+                ),
+            )
         observations.append("preflight-ref:frontend-runtime-ready")
 
     return tuple(observations)

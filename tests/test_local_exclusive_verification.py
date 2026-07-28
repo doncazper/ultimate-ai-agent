@@ -221,6 +221,25 @@ def test_local_diagnostic_retention_serializes_shared_pruning(
     assert all((path / "diagnostic.json").is_file() for path in retained)
 
 
+def test_local_diagnostic_enumeration_ignores_disappearing_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir()
+    missing = root / ("a" * 64)
+    original_iterdir = Path.iterdir
+
+    def include_disappearing_entry(path: Path):
+        if path == root:
+            return iter((missing,))
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", include_disappearing_entry)
+
+    assert local_lane._retained_diagnostic_directories(root) == ()
+
+
 def test_local_pytest_profile_is_validated_and_published_atomically(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

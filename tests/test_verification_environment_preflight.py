@@ -93,7 +93,8 @@ def test_frontend_preflight_accepts_regular_typescript_runtime(
     temp_root = tmp_path / "temp"
     repo.mkdir()
     temp_root.mkdir()
-    _runtime_file(repo, preflight.FRONTEND_RUNTIME_MARKER)
+    for marker in preflight.FRONTEND_RUNTIME_MARKERS:
+        _runtime_file(repo, marker)
     monkeypatch.setattr(preflight.shutil, "which", lambda _name: "/usr/bin/node")
 
     assert preflight.validate_lane_environment(
@@ -104,6 +105,32 @@ def test_frontend_preflight_accepts_regular_typescript_runtime(
         "preflight-ref:temp-capacity-and-write-ready",
         "preflight-ref:frontend-runtime-ready",
     )
+
+
+@pytest.mark.parametrize("missing_marker", preflight.FRONTEND_RUNTIME_MARKERS)
+def test_frontend_preflight_rejects_each_missing_frozen_tool(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    missing_marker: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    temp_root = tmp_path / "temp"
+    repo.mkdir()
+    temp_root.mkdir()
+    for marker in preflight.FRONTEND_RUNTIME_MARKERS:
+        if marker != missing_marker:
+            _runtime_file(repo, marker)
+    monkeypatch.setattr(preflight.shutil, "which", lambda _name: "/usr/bin/tool")
+
+    with pytest.raises(
+        preflight.VerificationEnvironmentPreflightError,
+        match="frontend-runtime-unavailable",
+    ):
+        preflight.validate_lane_environment(
+            repo,
+            temp_root,
+            lane_ref="ci-control-center-frontend",
+        )
 
 
 @pytest.mark.parametrize(

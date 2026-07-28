@@ -520,6 +520,7 @@ def _run_command(
     cleanup_attempted = False
     returncode: int | None = None
     signal_handling = False
+    unspawned_reservation_active = False
 
     def settle_process() -> None:
         nonlocal cleanup_attempted
@@ -541,6 +542,14 @@ def _run_command(
             return
         raise KeyboardInterrupt(f"CI lane interrupted by signal {signum}")
 
+    def release_unspawned_reservation() -> None:
+        nonlocal unspawned_reservation_active
+        if not unspawned_reservation_active:
+            return
+        unspawned_reservation_active = False
+        if on_spawn_failure is not None:
+            on_spawn_failure()
+
     try:
         with tempfile.NamedTemporaryFile(
             mode="w+b",
@@ -554,6 +563,7 @@ def _run_command(
                     if validate_start is not None:
                         validate_start()
                     if before_start is not None:
+                        unspawned_reservation_active = True
                         before_start()
                     registration_active = True
                     try:
@@ -576,11 +586,11 @@ def _run_command(
                         )
                     except BaseException:
                         registration_active = False
-                        if on_spawn_failure is not None:
-                            on_spawn_failure()
+                        release_unspawned_reservation()
                         raise
                     else:
                         registration_active = False
+                        unspawned_reservation_active = False
                         if after_spawn is not None:
                             try:
                                 after_spawn()
@@ -614,6 +624,11 @@ def _run_command(
                             returncode = 124
                             break
                         time.sleep(0.05)
+                except BaseException:
+                    registration_active = False
+                    if process is None:
+                        release_unspawned_reservation()
+                    raise
                 finally:
                     settle_process()
             output.flush()
