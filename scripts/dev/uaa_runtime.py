@@ -2018,7 +2018,10 @@ def _command_run(args: argparse.Namespace) -> int:
         )
         runtime_store = _runtime_store(args)
         goal_service = _goal_runtime_service(args)
-        goal_service.sync_runtime_invocations(runtime_store.list_invocations())
+        goal_service.sync_runtime_invocations(
+            runtime_store.list_invocations(),
+            invocation_store=runtime_store,
+        )
         result = RuntimeGateway(
             store=runtime_store,
             goal_runtime_service=goal_service,
@@ -4108,7 +4111,9 @@ def _goals_list(args: argparse.Namespace) -> int:
 
 def _goal_show(args: argparse.Namespace) -> int:
     try:
-        goal = _goal_runtime_service(args).goals.get(args.goal_ref)
+        goal_store = _goal_runtime_service(args).goals
+        goal = goal_store.get(args.goal_ref)
+        mutation_provenance = goal_store.mutation_provenance(args.goal_ref)
     except GoalRuntimeError:
         print("Goal could not be read safely.", file=sys.stderr)
         return 1
@@ -4116,6 +4121,7 @@ def _goal_show(args: argparse.Namespace) -> int:
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-goal-show",
         "goal": goal.model_dump(mode="json"),
+        "mutation_provenance": mutation_provenance.model_dump(mode="json"),
         "safe_refs_only": True,
         "runtime_execution_performed": False,
     }

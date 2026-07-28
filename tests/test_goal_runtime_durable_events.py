@@ -26,6 +26,9 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalTransitionKind,
     GoalTransitionRequest,
     GoalVersionConflictError,
+    GOAL_COMPLETION_VERIFIER_REF,
+    PersistentGoal,
+    build_goal_completion_evidence_ref,
     RunEventReplayStatus,
     capture_exact_goal_mutation_approval,
 )
@@ -42,11 +45,52 @@ EVENT_AUTHORITY_DECISION_REF = "authority-decision-ref:accepted-local:test"
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _completion_evidence(
+    goal: PersistentGoal,
+    *,
+    run_ref: str = "run-ref:accepted-local:one",
+    receipt_ref: str = "receipt-ref:accepted-local:one",
+    proof_ref: str = "proof-ref:accepted-local:one",
+    criterion_proof_refs: list[str] | None = None,
+    plan_ref: str | None = "plan-ref:accepted-local:one",
+) -> GoalCompletionEvidence:
+    bound_criterion_proof_refs = criterion_proof_refs or [
+        proof_ref,
+        *[
+            f"proof-ref:accepted-local:criterion:{index}"
+            for index in range(2, len(goal.success_criteria) + 1)
+        ],
+    ]
+    return GoalCompletionEvidence(
+        goal_ref=goal.goal_ref,
+        goal_version=goal.version,
+        run_ref=run_ref,
+        receipt_ref=receipt_ref,
+        proof_ref=proof_ref,
+        criterion_proof_refs=bound_criterion_proof_refs,
+        evidence_ref=build_goal_completion_evidence_ref(
+            goal,
+            run_ref=run_ref,
+            receipt_ref=receipt_ref,
+            proof_ref=proof_ref,
+            criterion_proof_refs=bound_criterion_proof_refs,
+            plan_ref=plan_ref,
+        ),
+        verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
+    )
+
+
 def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,
 ) -> DurableRunEvent:
-    if request.event_kind == DurableRunEventKind.receipt_recorded.value:
+    if request.event_kind in {
+        DurableRunEventKind.receipt_recorded.value,
+        DurableRunEventKind.completion_verified.value,
+        DurableRunEventKind.cancelled.value,
+        DurableRunEventKind.failed_terminal.value,
+        DurableRunEventKind.dead_lettered.value,
+    }:
         return service._events.append(request)  # noqa: SLF001
     approval = capture_exact_goal_mutation_approval(
         operation="append-run-event",
@@ -57,8 +101,11 @@ def _append_event(
     return service.append_run_event(request, approval_binding=approval)
 
 
-def _create_request(*, run_ref: str = "run-ref:accepted-local:one") -> GoalCreateRequest:
+def _create_request(
+    *, run_ref: str = "run-ref:accepted-local:one"
+) -> GoalCreateRequest:
     return GoalCreateRequest(
+        text_redaction_posture="operator_authored_redacted_summary_only",
         objective="Deliver the accepted local operator outcome.",
         desired_outcome="A durable, proof-backed completion state.",
         success_criteria=[
@@ -91,7 +138,10 @@ def _append_receipt(
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
             safe_summary="The accepted local read task recorded a redacted receipt.",
-            proof_refs=["proof-ref:accepted-local:one"],
+            proof_refs=[
+                "proof-ref:accepted-local:one",
+                "proof-ref:accepted-local:criterion:2",
+            ],
             receipt_refs=["receipt-ref:accepted-local:one"],
             goal_ref=goal_ref,
             plan_ref="plan-ref:accepted-local:one",
@@ -209,6 +259,7 @@ def test_goal_lifecycle_persists_replays_and_detects_version_conflicts(
             created.goal_ref,
             GoalEditRequest(
                 expected_version=1,
+                text_redaction_posture=("operator_authored_redacted_summary_only"),
                 stop_condition="Stop on a newly identified bounded condition.",
             ),
             idempotency_ref="idempotency-ref:goal-stale-edit",
@@ -232,6 +283,7 @@ def test_goal_edits_append_evidence_and_transitions_persist_reason(
         created.goal_ref,
         GoalEditRequest(
             expected_version=1,
+            text_redaction_posture=("operator_authored_redacted_summary_only"),
             objective="Deliver the accepted outcome with durable audit evidence.",
             evidence_refs=["evidence-ref:goal-edited"],
         ),
@@ -307,15 +359,17 @@ def test_goal_completion_requires_linked_durable_receipt_and_proof(
         ),
         idempotency_ref="idempotency-ref:goal-completion-request",
     )
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:accepted-local:one",
-        proof_ref="proof-ref:accepted-local:one",
-        evidence_ref="evidence-ref:accepted-local:one",
-        verifier_ref="verifier-ref:deterministic-receipt-binding:v1",
-    )
+    evidence = _completion_evidence(requested)
+
+    with pytest.raises(
+        ValueError,
+        match="GOAL_UNVERIFIED_COMPLETION_PROOF_DENIED",
+    ):
+        PersistentGoal.model_validate(
+            requested.model_copy(
+                update={"completion_plan_ref": "plan-ref:accepted-local:one"}
+            ).model_dump()
+        )
 
     with pytest.raises(
         GoalTransitionDeniedError,
@@ -349,6 +403,7 @@ def test_goal_completion_requires_linked_durable_receipt_and_proof(
     assert verified.state == GoalState.verified_complete.value
     assert verified.completion_receipt_ref == evidence.receipt_ref
     assert verified.completion_proof_ref == evidence.proof_ref
+    assert verified.completion_criterion_proof_refs == evidence.criterion_proof_refs
     assert verified.completion_verifier_ref == evidence.verifier_ref
     assert verified.completion_plan_ref == "plan-ref:accepted-local:one"
     assert evidence.evidence_ref in verified.evidence_refs
@@ -387,17 +442,9 @@ def test_goal_completion_rejects_already_terminal_run_before_journal_commit(
             goal_ref=created.goal_ref,
             idempotency_ref="idempotency-ref:terminal-preflight:cancelled",
             authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-        )
+        ),
     )
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:accepted-local:one",
-        proof_ref="proof-ref:accepted-local:one",
-        evidence_ref="evidence-ref:terminal-preflight:completion",
-        verifier_ref="verifier-ref:terminal-preflight:v1",
-    )
+    evidence = _completion_evidence(requested)
 
     with pytest.raises(
         GoalTransitionDeniedError,
@@ -441,15 +488,7 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
         idempotency_ref="idempotency-ref:goal-completion-recovery-request",
     )
     _append_receipt(service, goal_ref=created.goal_ref)
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:accepted-local:one",
-        proof_ref="proof-ref:accepted-local:one",
-        evidence_ref="evidence-ref:accepted-local:completion-recovery",
-        verifier_ref="verifier-ref:deterministic-receipt-binding:v1",
-    )
+    evidence = _completion_evidence(requested)
     transition = GoalTransitionRequest(
         expected_version=requested.version,
         transition=GoalTransitionKind.verify_completion,
@@ -465,8 +504,7 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
         nonlocal failed_once
         if (
             not failed_once
-            and request.event_kind
-            == DurableRunEventKind.completion_verified.value
+            and request.event_kind == DurableRunEventKind.completion_verified.value
         ):
             failed_once = True
             raise OSError("simulated completion event commit interruption")
@@ -509,7 +547,9 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
     assert replayed_goal.version == requested.version + 1
     assert len(completion_events) == 1
     assert completion_events[0].receipt_refs == [evidence.receipt_ref]
-    assert completion_events[0].proof_refs == [evidence.proof_ref]
+    assert completion_events[0].proof_refs == list(
+        dict.fromkeys([evidence.proof_ref, *evidence.criterion_proof_refs])
+    )
 
     cleared = _transition_goal(
         recovered,
@@ -576,7 +616,10 @@ def test_completion_binds_exact_receipt_plan_and_rejects_substitution(
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
             safe_summary="A substituted plan recorded bounded receipt evidence.",
-            proof_refs=["proof-ref:accepted-local:one"],
+            proof_refs=[
+                "proof-ref:accepted-local:one",
+                "proof-ref:accepted-local:criterion:2",
+            ],
             receipt_refs=["receipt-ref:accepted-local:one"],
             goal_ref=created.goal_ref,
             plan_ref="plan-ref:substituted",
@@ -584,14 +627,9 @@ def test_completion_binds_exact_receipt_plan_and_rejects_substitution(
             authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
         ),
     )
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:accepted-local:one",
-        proof_ref="proof-ref:accepted-local:one",
-        evidence_ref="evidence-ref:plan-binding",
-        verifier_ref="verifier-ref:deterministic-receipt-binding:v1",
+    evidence = _completion_evidence(
+        requested,
+        plan_ref="plan-ref:substituted",
     )
 
     with pytest.raises(
@@ -634,15 +672,7 @@ def test_cleared_verified_goal_recovers_missing_terminal_event(
         idempotency_ref="idempotency-ref:cleared-recovery:request",
     )
     _append_receipt(service, goal_ref=created.goal_ref)
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:accepted-local:one",
-        proof_ref="proof-ref:accepted-local:one",
-        evidence_ref="evidence-ref:cleared-recovery",
-        verifier_ref="verifier-ref:deterministic-receipt-binding:v1",
-    )
+    evidence = _completion_evidence(requested)
     verified = _transition_goal(
         service,
         created.goal_ref,
@@ -688,8 +718,7 @@ def test_cleared_verified_goal_recovers_missing_terminal_event(
     retained = [
         event
         for event in events
-        if event.event_kind
-        != DurableRunEventKind.completion_verified.value
+        if event.event_kind != DurableRunEventKind.completion_verified.value
     ]
     events_path.write_text(
         "".join(event.model_dump_json() + "\n" for event in retained),
@@ -748,6 +777,7 @@ def test_goal_terminal_states_fail_closed(tmp_path: Path) -> None:
             created.goal_ref,
             GoalEditRequest(
                 expected_version=cancelled.version,
+                text_redaction_posture=("operator_authored_redacted_summary_only"),
                 objective="Attempted late success edit.",
             ),
             idempotency_ref="idempotency-ref:goal-late-edit",
@@ -794,7 +824,7 @@ def test_run_event_cursor_replay_restart_and_bounded_retention(
                 goal_ref="goal-ref:cursor",
                 idempotency_ref=f"idempotency-ref:cursor:{index}",
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-            )
+            ),
         )
 
     restored = GoalRuntimeService(tmp_path, retention_limit=3)
@@ -813,9 +843,9 @@ def test_run_event_cursor_replay_restart_and_bounded_retention(
         limit=2,
     )
     assert [event.sequence for event in page_two.events] == [5]
-    assert not {
-        event.event_ref for event in page_one.events
-    }.intersection(event.event_ref for event in page_two.events)
+    assert not {event.event_ref for event in page_one.events}.intersection(
+        event.event_ref for event in page_two.events
+    )
 
     stale = restored.events.replay(run_ref, after_sequence=99)
     assert stale.status == RunEventReplayStatus.stale_cursor.value
@@ -862,7 +892,7 @@ def test_run_event_idempotency_survives_payload_retention(
             service,
             requests[0].model_copy(
                 update={"safe_summary": "A conflicting delayed retry."}
-            )
+            ),
         )
 
 
@@ -882,7 +912,10 @@ def test_completion_receipt_remains_verifiable_after_payload_retention(
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
             safe_summary="The retained completion receipt was recorded.",
-            proof_refs=["proof-ref:retained-completion"],
+            proof_refs=[
+                "proof-ref:retained-completion",
+                "proof-ref:accepted-local:criterion:2",
+            ],
             receipt_refs=["receipt-ref:retained-completion"],
             goal_ref=created.goal_ref,
             plan_ref="plan-ref:accepted-local:one",
@@ -900,9 +933,7 @@ def test_completion_receipt_remains_verifiable_after_payload_retention(
                 safe_summary=f"Later retained evidence event {index}.",
                 proof_refs=[f"proof-ref:retained-completion:later:{index}"],
                 goal_ref=created.goal_ref,
-                idempotency_ref=(
-                    f"idempotency-ref:retained-completion:later:{index}"
-                ),
+                idempotency_ref=(f"idempotency-ref:retained-completion:later:{index}"),
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
             ),
         )
@@ -936,14 +967,12 @@ def test_completion_receipt_remains_verifiable_after_payload_retention(
             expected_version=requested.version,
             transition=GoalTransitionKind.verify_completion,
             reason_ref="reason-ref:retained-completion:verify",
-            completion_evidence=GoalCompletionEvidence(
-                goal_ref=created.goal_ref,
-                goal_version=requested.version,
+            completion_evidence=_completion_evidence(
+                requested,
                 run_ref="run-ref:retained-completion",
                 receipt_ref="receipt-ref:retained-completion",
                 proof_ref="proof-ref:retained-completion",
-                evidence_ref="evidence-ref:retained-completion",
-                verifier_ref="verifier-ref:retained-completion",
+                plan_ref="plan-ref:accepted-local:one",
             ),
         ),
         idempotency_ref="idempotency-ref:retained-completion:verify",
@@ -998,18 +1027,14 @@ def test_retained_completion_receipt_rejects_recomputed_tombstone_wrapper(
 
     path = tmp_path / "run_event_idempotency.jsonl"
     rows = [
-        goal_runtime_module.RunEventIdempotencyTombstone.model_validate_json(
-            line
-        )
+        goal_runtime_module.RunEventIdempotencyTombstone.model_validate_json(line)
         for line in path.read_text(encoding="utf-8").splitlines()
     ]
     receipt = rows[0]
     tampered_event = receipt.event.model_copy(
         update={"proof_refs": ["proof-ref:substituted"]}
     )
-    recomputed_wrapper = receipt.model_copy(
-        update={"event": tampered_event}
-    )
+    recomputed_wrapper = receipt.model_copy(update={"event": tampered_event})
     recomputed_wrapper = recomputed_wrapper.model_copy(
         update={
             "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
@@ -1019,8 +1044,7 @@ def test_retained_completion_receipt_rejects_recomputed_tombstone_wrapper(
     )
     path.write_text(
         "".join(
-            row.model_dump_json() + "\n"
-            for row in [recomputed_wrapper, *rows[1:]]
+            row.model_dump_json() + "\n" for row in [recomputed_wrapper, *rows[1:]]
         ),
         encoding="utf-8",
     )
@@ -1058,10 +1082,7 @@ def test_projection_reservations_are_reused_and_expired_crash_leases_reclaimed(
     assert len(reservation_path.read_text(encoding="utf-8").splitlines()) == 1
 
     now += timedelta(
-        seconds=(
-            goal_runtime_module.RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS
-            + 1
-        )
+        seconds=(goal_runtime_module.RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS + 1)
     )
     second_ref = service._events.reserve_runtime_projection(  # noqa: SLF001
         None,
@@ -1089,7 +1110,11 @@ def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
     edited = _edit_goal(
         service,
         created.goal_ref,
-        GoalEditRequest(expected_version=1, objective="Bounded edit one."),
+        GoalEditRequest(
+            expected_version=1,
+            text_redaction_posture=("operator_authored_redacted_summary_only"),
+            objective="Bounded edit one.",
+        ),
         idempotency_ref="idempotency-ref:bounded-journal:edit-one",
     )
 
@@ -1102,15 +1127,202 @@ def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
             created.goal_ref,
             GoalEditRequest(
                 expected_version=edited.version,
+                text_redaction_posture=("operator_authored_redacted_summary_only"),
                 objective="Bounded edit two must fail closed.",
             ),
             idempotency_ref="idempotency-ref:bounded-journal:edit-two",
         )
 
     assert service.goals.get(created.goal_ref).version == edited.version
-    assert len(
-        (tmp_path / "goals.jsonl").read_text(encoding="utf-8").splitlines()
-    ) == 2
+    assert len((tmp_path / "goals.jsonl").read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_goal_text_requires_explicit_redacted_summary_contract() -> None:
+    safe_payload = _create_request().model_dump()
+    safe_payload.pop("text_redaction_posture")
+    with pytest.raises(
+        ValueError,
+        match="text_redaction_posture",
+    ):
+        GoalCreateRequest.model_validate(safe_payload)
+
+    with pytest.raises(
+        ValueError,
+        match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED",
+    ):
+        GoalCreateRequest.model_validate(
+            {
+                **_create_request().model_dump(),
+                "objective": "Summarize the following private prompt.",
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("event_limit", "idempotency_limit", "expected_code"),
+    [
+        (256, 32 * 1024 * 1024, "RUN_EVENT_STORE_BYTE_CAPACITY_EXCEEDED"),
+        (
+            16 * 1024 * 1024,
+            256,
+            "RUN_EVENT_IDEMPOTENCY_BYTE_CAPACITY_EXCEEDED",
+        ),
+    ],
+)
+def test_run_event_encoded_byte_caps_fail_before_partial_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    event_limit: int,
+    idempotency_limit: int,
+    expected_code: str,
+) -> None:
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUN_EVENT_STORE_BYTES",
+        event_limit,
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUN_EVENT_IDEMPOTENCY_BYTES",
+        idempotency_limit,
+    )
+    service = GoalRuntimeService(tmp_path)
+    with pytest.raises(GoalRuntimeError, match=expected_code):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref="run-ref:byte-cap:test",
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.run_started,
+                safe_summary="A bounded event must preflight both durable stores.",
+                idempotency_ref="idempotency-ref:byte-cap:test",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+    assert not (tmp_path / "run_events.jsonl").exists()
+    assert not (tmp_path / "run_event_idempotency.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("field_name", "replacement", "expected_code"),
+    [
+        (
+            "verifier_ref",
+            "verifier-ref:untrusted:substitution",
+            "GOAL_COMPLETION_VERIFIER_NOT_TRUSTED",
+        ),
+        (
+            "evidence_ref",
+            "evidence-ref:unbound:substitution",
+            "GOAL_COMPLETION_VERIFIER_BINDING_MISMATCH",
+        ),
+    ],
+)
+def test_goal_completion_rejects_untrusted_or_unbound_verifier_evidence(
+    tmp_path: Path,
+    field_name: str,
+    replacement: str,
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:verifier-binding:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:verifier-binding:request",
+        ),
+        idempotency_ref="idempotency-ref:verifier-binding:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    evidence = _completion_evidence(requested).model_copy(
+        update={field_name: replacement}
+    )
+    with pytest.raises(GoalTransitionDeniedError, match=expected_code):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            GoalTransitionRequest(
+                expected_version=requested.version,
+                transition=GoalTransitionKind.verify_completion,
+                reason_ref="reason-ref:verifier-binding:reject",
+                completion_evidence=evidence,
+            ),
+            idempotency_ref=(f"idempotency-ref:verifier-binding:{field_name}"),
+        )
+    assert service.goals.get(created.goal_ref).state == (
+        GoalState.complete_requested.value
+    )
+
+
+@pytest.mark.parametrize(
+    ("criterion_proof_refs", "expected_code"),
+    [
+        (
+            ["proof-ref:accepted-local:one"],
+            "GOAL_COMPLETION_CRITERION_PROOF_ARITY_MISMATCH",
+        ),
+        (
+            [
+                "proof-ref:accepted-local:one",
+                "proof-ref:substituted:criterion:2",
+            ],
+            "GOAL_COMPLETION_CRITERION_PROOF_NOT_FOUND",
+        ),
+    ],
+)
+def test_goal_completion_rejects_unbound_criterion_proofs(
+    tmp_path: Path,
+    criterion_proof_refs: list[str],
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:criterion-binding:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:criterion-binding:request",
+        ),
+        idempotency_ref="idempotency-ref:criterion-binding:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    evidence = _completion_evidence(requested)
+    if len(criterion_proof_refs) == len(requested.success_criteria):
+        evidence = _completion_evidence(
+            requested,
+            criterion_proof_refs=criterion_proof_refs,
+        )
+    else:
+        evidence = evidence.model_copy(
+            update={"criterion_proof_refs": criterion_proof_refs}
+        )
+    with pytest.raises(GoalTransitionDeniedError, match=expected_code):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            GoalTransitionRequest(
+                expected_version=requested.version,
+                transition=GoalTransitionKind.verify_completion,
+                reason_ref="reason-ref:criterion-binding:reject",
+                completion_evidence=evidence,
+            ),
+            idempotency_ref=(
+                f"idempotency-ref:criterion-binding:{expected_code.lower()}"
+            ),
+        )
 
 
 @pytest.mark.parametrize(
@@ -1134,11 +1346,9 @@ def test_terminal_run_events_require_receipt_proof(
                 run_type=AcceptedLocalRunType.local_read_task,
                 event_kind=event_kind,
                 safe_summary="An unsupported terminal claim must fail closed.",
-                idempotency_ref=(
-                    f"idempotency-ref:terminal-proof:{event_kind.value}"
-                ),
+                idempotency_ref=(f"idempotency-ref:terminal-proof:{event_kind.value}"),
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-            )
+            ),
         )
 
 
@@ -1183,17 +1393,52 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
         DurableRunEventKind.run_started.value,
         DurableRunEventKind.receipt_recorded.value,
     ]
-    assert replay.events[-1].receipt_refs == [
-        result.record.receipt.receipt_ref
-    ]
+    assert replay.events[-1].receipt_refs == [result.record.receipt.receipt_ref]
+
+    class _SubstitutingInvocationStore:
+        @staticmethod
+        def get_invocation(_invocation_ref: str) -> object:
+            substituted_ref = "runtime-invocation-ref:substituted"
+            return result.record.model_copy(
+                update={
+                    "invocation_ref": substituted_ref,
+                    "receipt": result.record.receipt.model_copy(
+                        update={"invocation_ref": substituted_ref}
+                    ),
+                }
+            )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_DURABLE_INVOCATION_REF_MISMATCH",
+    ):
+        goal_service.record_accepted_runtime_invocation(
+            result.record,
+            invocation_store=_SubstitutingInvocationStore(),  # type: ignore[arg-type]
+        )
+
+    class _MalformedInvocationStore:
+        @staticmethod
+        def get_invocation(_invocation_ref: str) -> object:
+            return object()
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_DURABLE_INVOCATION_INVALID",
+    ):
+        goal_service.record_accepted_runtime_invocation(
+            result.record,
+            invocation_store=_MalformedInvocationStore(),  # type: ignore[arg-type]
+        )
     reservations_path = goal_dir / "run_event_projection_reservations.jsonl"
     assert reservations_path.read_text(encoding="utf-8") == ""
     assert stat.S_IMODE(reservations_path.stat().st_mode) == 0o600
     restored = GoalRuntimeService(goal_dir)
-    records = RuntimeInvocationStore(
+    restored_runtime_store = RuntimeInvocationStore(
         runtime_dir,
         active_authority_leases=[workspace_execute_authority_lease()],
-    ).list_invocations()
+    )
+    records = restored_runtime_store.list_invocations()
     tombstone_write_calls = 0
 
     def reject_redundant_tombstone_write(
@@ -1208,7 +1453,13 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
         "_write_idempotency_tombstones",
         reject_redundant_tombstone_write,
     )
-    assert restored.sync_runtime_invocations(records) == []
+    assert (
+        restored.sync_runtime_invocations(
+            records,
+            invocation_store=restored_runtime_store,
+        )
+        == []
+    )
     assert tombstone_write_calls == 0
     assert len(restored.events.replay(result.record.invocation_ref).events) == 2
 
@@ -1250,9 +1501,7 @@ def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
         DurableRunEventKind.run_started.value,
         DurableRunEventKind.failed_terminal.value,
     ]
-    assert replay.events[-1].receipt_refs == [
-        result.record.receipt.receipt_ref
-    ]
+    assert replay.events[-1].receipt_refs == [result.record.receipt.receipt_ref]
     assert not any(
         event.event_kind == DurableRunEventKind.receipt_recorded.value
         for event in replay.events
@@ -1286,9 +1535,7 @@ def test_event_journal_cannot_disappear_while_tombstones_remain(
         GoalRuntimeCorruptionError,
         match="RUN_EVENT_JOURNAL_MISSING_WITH_IDEMPOTENCY_HISTORY",
     ):
-        GoalRuntimeService(tmp_path).events.replay(
-            "run-ref:journal-disappearance"
-        )
+        GoalRuntimeService(tmp_path).events.replay("run-ref:journal-disappearance")
 
 
 def test_atomic_storage_failure_is_normalized(
@@ -1330,7 +1577,7 @@ def test_goal_runtime_files_are_private(tmp_path: Path) -> None:
             safe_summary="A bounded local run started.",
             idempotency_ref="idempotency-ref:private-files:event",
             authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-        )
+        ),
     )
 
     assert stat.S_IMODE(state_dir.stat().st_mode) == 0o700
@@ -1378,6 +1625,9 @@ def test_run_event_writer_requires_exact_approval_and_is_not_on_reader(
     [
         DurableRunEventKind.receipt_recorded,
         DurableRunEventKind.completion_verified,
+        DurableRunEventKind.cancelled,
+        DurableRunEventKind.failed_terminal,
+        DurableRunEventKind.dead_lettered,
     ],
 )
 def test_run_event_writer_rejects_trusted_producer_events(
@@ -1499,7 +1749,7 @@ def test_run_event_tampering_fails_closed(
                 goal_ref="goal-ref:tamper",
                 idempotency_ref=f"idempotency-ref:tamper:{index}",
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-            )
+            ),
         )
 
     path = tmp_path / "run_events.jsonl"
@@ -1566,7 +1816,7 @@ def test_run_event_reorder_idempotency_completion_and_terminal_fences(
             service,
             receipt_request.model_copy(
                 update={"safe_summary": "A conflicting idempotent event."}
-            )
+            ),
         )
 
     completed = service._events.append(  # noqa: SLF001
@@ -1606,7 +1856,7 @@ def test_run_event_reorder_idempotency_completion_and_terminal_fences(
                 "run_ref": unmatched_run_ref,
                 "idempotency_ref": "idempotency-ref:fences:unmatched-receipt",
             }
-        )
+        ),
     )
     with pytest.raises(
         GoalTransitionDeniedError,
@@ -1639,7 +1889,7 @@ def test_run_event_reorder_idempotency_completion_and_terminal_fences(
                 goal_ref="goal-ref:reordered",
                 idempotency_ref=f"idempotency-ref:reordered:{index}",
                 authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-            )
+            ),
         )
     event_path = reorder_dir / "run_events.jsonl"
     rows = event_path.read_text(encoding="utf-8").splitlines()
@@ -1662,6 +1912,7 @@ def test_goal_journal_tampering_fails_closed(tmp_path: Path) -> None:
         created.goal_ref,
         GoalEditRequest(
             expected_version=1,
+            text_redaction_posture=("operator_authored_redacted_summary_only"),
             objective="A safely edited objective.",
         ),
         idempotency_ref="idempotency-ref:goal-edit-tamper",

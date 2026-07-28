@@ -16,8 +16,10 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     DurableRunEvent,
     DurableRunEventAppendRequest,
     DurableRunEventKind,
+    GOAL_COMPLETION_VERIFIER_REF,
     GoalRuntimeError,
     GoalRuntimeService,
+    build_goal_completion_evidence_ref,
     capture_exact_goal_mutation_approval,
 )
 
@@ -39,6 +41,7 @@ def goal_runtime_client(
 
 def _create_payload() -> dict[str, object]:
     return {
+        "text_redaction_posture": "operator_authored_redacted_summary_only",
         "objective": "Deliver one accepted local outcome.",
         "desired_outcome": "A proof-backed durable goal completion.",
         "success_criteria": ["A linked receipt and proof are present."],
@@ -59,7 +62,13 @@ def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,
 ) -> DurableRunEvent:
-    if request.event_kind == DurableRunEventKind.receipt_recorded.value:
+    if request.event_kind in {
+        DurableRunEventKind.receipt_recorded.value,
+        DurableRunEventKind.completion_verified.value,
+        DurableRunEventKind.cancelled.value,
+        DurableRunEventKind.failed_terminal.value,
+        DurableRunEventKind.dead_lettered.value,
+    }:
         return service._events.append(request)  # noqa: SLF001
     approval = capture_exact_goal_mutation_approval(
         operation="append-run-event",
@@ -90,9 +99,7 @@ def test_run_events_get_is_strictly_read_only(
     assert sync_calls == 0
     assert not (service.state_dir / "run_events.jsonl").exists()
     assert not (service.state_dir / "run_event_idempotency.jsonl").exists()
-    assert not (
-        service.state_dir / "run_event_projection_reservations.jsonl"
-    ).exists()
+    assert not (service.state_dir / "run_event_projection_reservations.jsonl").exists()
 
 
 def test_run_events_read_model_keeps_cleared_goals_restorable(
@@ -102,9 +109,7 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
     created = client.post(
         "/api/runtime/goals",
         json=_create_payload(),
-        headers={
-            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-create"
-        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-create"},
     ).json()["data"]["goal"]
     cleared = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
@@ -113,17 +118,15 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
             "transition": "clear",
             "reason_ref": "reason-ref:restorable-goal-clear",
         },
-        headers={
-            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-clear"
-        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-clear"},
     ).json()["data"]["goal"]
     assert cleared["state"] == "cleared"
 
     default_goals = client.get("/api/runtime/goals").json()["data"]["goals"]
     assert default_goals == []
-    operator_goals = client.get(
-        "/api/runtime/run-events"
-    ).json()["data"]["goal_lifecycle"]["goals"]
+    operator_goals = client.get("/api/runtime/run-events").json()["data"][
+        "goal_lifecycle"
+    ]["goals"]
     assert operator_goals == [cleared]
 
     restored = client.post(
@@ -133,9 +136,7 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
             "transition": "restore",
             "reason_ref": "reason-ref:restorable-goal-restore",
         },
-        headers={
-            "x-uaa-idempotency-key": "idempotency-ref:restorable-goal-restore"
-        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-restore"},
     ).json()["data"]["goal"]
     assert restored["state"] == "active"
 
@@ -148,9 +149,7 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
             {
                 "base_url": "http://127.0.0.1:9",
                 "model_ref": "uaa-local-runtime",
-                "messages": [
-                    {"role": "user", "content": "projection failure test"}
-                ],
+                "messages": [{"role": "user", "content": "projection failure test"}],
                 "requested_profile": "local-runtime",
                 "safe_summary": "Exercise the redacted projection failure envelope.",
                 "timeout_seconds": 0.1,
@@ -253,8 +252,18 @@ def test_goal_get_rejects_malformed_path_ref_with_safe_envelope(
     body = response.json()
     assert body["success"] is False
     assert body["operation"] == "api_runtime_goal"
+    assert body["trace_id"] == "failure-trace-ref:goal-runtime:goal-read"
     assert body["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
     assert body["error"]["details_redacted"] is True
+
+    run_response = client.get(
+        "/api/runtime/run-events",
+        params={"run_ref": "not-a-ref"},
+    )
+    run_body = run_response.json()
+    assert run_body["success"] is False
+    assert run_body["trace_id"] == ("failure-trace-ref:goal-runtime:run-event-read")
+    assert "not-a-ref" not in json.dumps(run_body)
 
 
 def test_run_events_rejects_malformed_run_ref_with_safe_envelope(
@@ -290,10 +299,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     )
     assert malformed_idempotency.status_code == 200
     assert malformed_idempotency.json()["success"] is False
-    assert (
-        malformed_idempotency.json()["error"]["code"]
-        == "GOAL_REQUEST_REF_INVALID"
-    )
+    assert malformed_idempotency.json()["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
     malformed_preferred_ref = client.post(
         "/api/runtime/goals",
         json=_create_payload(),
@@ -304,10 +310,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     )
     assert malformed_preferred_ref.status_code == 200
     assert malformed_preferred_ref.json()["success"] is False
-    assert (
-        malformed_preferred_ref.json()["error"]["code"]
-        == "GOAL_REQUEST_REF_INVALID"
-    )
+    assert malformed_preferred_ref.json()["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
 
     headers = {"x-uaa-idempotency-key": "idempotency-ref:api-goal-create"}
     created_response = client.post(
@@ -322,8 +325,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     assert goal["state"] == "active"
     assert created_body["data"]["approval_binding"]["approval_validated"] is True
     assert (
-        created_body["data"]["approval_binding"]["standing_authority_granted"]
-        is False
+        created_body["data"]["approval_binding"]["standing_authority_granted"] is False
     )
 
     replay = client.post(
@@ -335,7 +337,11 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
 
     stale_edit = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/edit",
-        json={"expected_version": 99, "objective": "A stale edit."},
+        json={
+            "expected_version": 99,
+            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+            "objective": "A stale edit.",
+        },
         headers={"x-uaa-idempotency-key": "idempotency-ref:api-goal-stale-edit"},
     ).json()
     assert stale_edit["success"] is False
@@ -349,9 +355,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             "reason_ref": "reason-ref:api-goal-completion-request",
         },
         headers={
-            "x-uaa-idempotency-key": (
-                "idempotency-ref:api-goal-completion-request"
-            )
+            "x-uaa-idempotency-key": ("idempotency-ref:api-goal-completion-request")
         },
     ).json()["data"]["goal"]
     assert requested["state"] == "complete_requested"
@@ -369,7 +373,16 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             plan_ref="plan-ref:api-cli:one",
             idempotency_ref="idempotency-ref:api-cli-event-receipt",
             authority_decision_ref="authority-decision-ref:api-cli:accepted-local",
-        )
+        ),
+    )
+    requested_goal = service.goals.get(goal["goal_ref"])
+    completion_evidence_ref = build_goal_completion_evidence_ref(
+        requested_goal,
+        run_ref="run-ref:api-cli:one",
+        receipt_ref="receipt-ref:api-cli:one",
+        proof_ref="proof-ref:api-cli:one",
+        criterion_proof_refs=["proof-ref:api-cli:one"],
+        plan_ref="plan-ref:api-cli:one",
     )
     verified = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",
@@ -383,8 +396,9 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
                 "run_ref": "run-ref:api-cli:one",
                 "receipt_ref": "receipt-ref:api-cli:one",
                 "proof_ref": "proof-ref:api-cli:one",
-                "evidence_ref": "evidence-ref:api-cli:one",
-                "verifier_ref": "verifier-ref:receipt-binding:v1",
+                "criterion_proof_refs": ["proof-ref:api-cli:one"],
+                "evidence_ref": completion_evidence_ref,
+                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
             },
         },
         headers={"x-uaa-idempotency-key": "idempotency-ref:api-goal-verify"},
@@ -393,10 +407,9 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
 
     goals = client.get("/api/runtime/goals").json()["data"]
     assert goals["verified_complete_count"] == 1
-    inspected = client.get(
-        f"/api/runtime/goals/{goal['goal_ref']}"
-    ).json()["data"]
-    assert inspected == verified
+    inspected = client.get(f"/api/runtime/goals/{goal['goal_ref']}").json()["data"]
+    assert inspected["goal"] == verified
+    assert inspected["mutation_provenance"]["entry_count"] == 3
 
     replay_response = client.get(
         "/api/runtime/run-events",
@@ -469,7 +482,14 @@ def test_goal_cli_and_api_read_identical_state_after_restart(
         text=True,
         env=env,
     )
-    assert json.loads(shown.stdout)["goal"] == created
+    shown_payload = json.loads(shown.stdout)
+    assert shown_payload["goal"] == created
+    assert shown_payload["mutation_provenance"]["entry_count"] == 1
+    api_shown = client.get(f"/api/runtime/goals/{created['goal_ref']}").json()["data"]
+    assert api_shown == {
+        "goal": shown_payload["goal"],
+        "mutation_provenance": shown_payload["mutation_provenance"],
+    }
 
 
 def test_goal_cli_state_directory_failure_is_redacted(tmp_path: Path) -> None:
@@ -537,10 +557,7 @@ def test_run_event_cli_inspection_failures_are_redacted(
 
     assert cli.returncode == 1
     assert cli.stdout == ""
-    assert (
-        cli.stderr.strip()
-        == "Durable run events could not be read safely."
-    )
+    assert cli.stderr.strip() == "Durable run events could not be read safely."
     assert "Traceback" not in cli.stderr
     assert str(tmp_path) not in cli.stderr
 
@@ -604,10 +621,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 goal_ref=created["goal_ref"],
                 plan_ref="plan-ref:api-cli:one",
                 idempotency_ref=f"idempotency-ref:e2e:event:{index}",
-                authority_decision_ref=(
-                    "authority-decision-ref:e2e:accepted-local"
-                ),
-            )
+                authority_decision_ref=("authority-decision-ref:e2e:accepted-local"),
+            ),
         )
 
     disconnected = client.get(
@@ -644,10 +659,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 goal_ref=created["goal_ref"],
                 plan_ref="plan-ref:api-cli:one",
                 idempotency_ref=f"idempotency-ref:e2e:event:{offset}",
-                authority_decision_ref=(
-                    "authority-decision-ref:e2e:accepted-local"
-                ),
-            )
+                authority_decision_ref=("authority-decision-ref:e2e:accepted-local"),
+            ),
         )
     _append_event(
         restored,
@@ -662,7 +675,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             plan_ref="plan-ref:api-cli:one",
             idempotency_ref="idempotency-ref:e2e:event:receipt",
             authority_decision_ref="authority-decision-ref:e2e:accepted-local",
-        )
+        ),
     )
     _append_event(
         restored,
@@ -677,7 +690,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             plan_ref="plan-ref:api-cli:one",
             idempotency_ref="idempotency-ref:e2e:event:evidence",
             authority_decision_ref="authority-decision-ref:e2e:accepted-local",
-        )
+        ),
     )
 
     requested = client.post(
@@ -687,10 +700,17 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             "transition": "request_completion",
             "reason_ref": "reason-ref:e2e:completion-request",
         },
-        headers={
-            "x-uaa-idempotency-key": "idempotency-ref:e2e:completion-request"
-        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:completion-request"},
     ).json()["data"]["goal"]
+    requested_goal = restored.goals.get(created["goal_ref"])
+    completion_evidence_ref = build_goal_completion_evidence_ref(
+        requested_goal,
+        run_ref=run_ref,
+        receipt_ref="receipt-ref:e2e:accepted-local",
+        proof_ref="proof-ref:e2e:accepted-local",
+        criterion_proof_refs=["proof-ref:e2e:accepted-local"],
+        plan_ref="plan-ref:api-cli:one",
+    )
     verified = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
         json={
@@ -703,8 +723,9 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 "run_ref": run_ref,
                 "receipt_ref": "receipt-ref:e2e:accepted-local",
                 "proof_ref": "proof-ref:e2e:accepted-local",
-                "evidence_ref": "evidence-ref:e2e:accepted-local",
-                "verifier_ref": "verifier-ref:e2e:receipt-binding:v1",
+                "criterion_proof_refs": ["proof-ref:e2e:accepted-local"],
+                "evidence_ref": completion_evidence_ref,
+                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
             },
         },
         headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:verify"},
@@ -720,9 +741,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         },
     ).json()["data"]["replay"]
     assert reconnected["status"] == "ok"
-    assert [event["sequence"] for event in reconnected["events"]] == list(
-        range(3, 11)
-    )
+    assert [event["sequence"] for event in reconnected["events"]] == list(range(3, 11))
     assert reconnected["events"][-1]["event_kind"] == "completion_verified"
 
     cancelled_payload = _create_payload()
@@ -733,9 +752,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
     cancelled_goal = client.post(
         "/api/runtime/goals",
         json=cancelled_payload,
-        headers={
-            "x-uaa-idempotency-key": "idempotency-ref:e2e:cancel-goal-create"
-        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:cancel-goal-create"},
     ).json()["data"]["goal"]
     cancelled = client.post(
         f"/api/runtime/goals/{cancelled_goal['goal_ref']}/transition",
@@ -773,10 +790,8 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
                 ),
                 goal_ref=cancelled_goal["goal_ref"],
                 idempotency_ref=f"idempotency-ref:e2e:cancel-event:{index}",
-                authority_decision_ref=(
-                    "authority-decision-ref:e2e:operator-cancel"
-                ),
-            )
+                authority_decision_ref=("authority-decision-ref:e2e:operator-cancel"),
+            ),
         )
 
     env = dict(os.environ)

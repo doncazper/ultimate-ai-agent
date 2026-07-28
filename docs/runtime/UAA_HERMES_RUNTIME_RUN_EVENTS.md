@@ -17,6 +17,10 @@ links, evidence refs, lifecycle state, version, and timestamps. The append-first
 goal journal is atomically replaced under a single-writer lock and checks its
 monotonic versions, idempotency refs, predecessor hashes, entry hashes, and
 deterministic entry refs on every read.
+Goal text is accepted only under the explicit
+`operator_authored_redacted_summary_only` posture and rejects multiline,
+prompt-like, response-like, or secret-like raw-content shapes before durable
+persistence.
 Edit evidence is append-only: newly supplied evidence refs are unioned with
 the prior authoritative snapshot instead of replacing its audit history.
 Every transition journal entry also retains the validated reason ref, covered
@@ -40,10 +44,14 @@ decision grants no standing authority and cannot execute a runtime action.
 
 `complete_requested` is distinct from `verified_complete`. Verification fails
 closed unless the current goal version links the exact run and the durable event
-store already contains a matching goal-bound receipt and proof. Successful
-verification records a terminal `completion_verified` event. Model output is
-never authoritative. The verified goal snapshot retains the exact run,
-receipt-derived plan, evidence, receipt, proof, and verifier refs. On the next
+store already contains a matching goal-bound receipt and proof. Every ordered
+success criterion must also bind to a criterion proof ref present in that exact
+trusted receipt; the built-in verifier hash covers the criterion/proof pairs,
+goal version, run, receipt, primary proof, and plan. Successful verification
+records all of those bindings in a terminal `completion_verified` event. Model
+output is never authoritative. The verified goal snapshot retains the exact run,
+receipt-derived plan, evidence, receipt, primary proof, criterion proofs, and
+verifier refs. On the next
 mutating path after restart, the Core reconciles any verified or subsequently
 cleared goal whose terminal event commit was interrupted, appends the same
 deterministic idempotent event with the original transition approval decision,
@@ -76,7 +84,9 @@ terminal-failure, and dead-letter events require receipt and proof refs; those
 streams are terminal and late success events are rejected.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
-empty runtime.
+empty runtime. Both stores have explicit encoded-byte limits, and a candidate
+append preflights the complete next event and tombstone images before either
+file is replaced.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -134,12 +144,21 @@ trusted Core producer paths.
 - `scripts/dev/uaa_runtime.py inspect-run-events`
 - Control Center `/runtime` goal and durable-event summary
 
-Control Center retains one pending create idempotency ref until the
+The exact-goal read and `goal-show` CLI return the bounded, content-free mutation
+provenance chain alongside the current goal. Provenance includes operation,
+version, idempotency, request fingerprint, approval, reason, and hash refs, but
+does not repeat raw request payloads or goal text.
+
+Control Center retains the exact pending create, edit, or transition request and
+idempotency ref until the
 post-mutation authoritative refresh succeeds. A transient refresh failure can
-therefore only replay the accepted create; it cannot silently create a second
-goal. Accepted create, edit, and transition responses are applied as local
+therefore only replay the same mutation; it cannot silently create a second
+goal, edit, or transition. Accepted create, edit, and transition responses are
+applied as local
 authoritative snapshots before the follow-up read; a refresh failure cannot
 leave the UI on a stale version or misreport an accepted mutation as rejected.
+The follow-up event read is bound to the same selected backend-truth envelope,
+and every event preview is checked field-by-field before display.
 The run-events operator read model includes cleared goals so its exact restore
 control remains reachable, while the dedicated default goal listing continues
 to hide cleared records.

@@ -13918,6 +13918,7 @@ export interface RuntimePersistentGoal {
   schema_version: "persistent_goal.v1";
   contract_ref: string;
   goal_ref: string;
+  text_redaction_posture: "operator_authored_redacted_summary_only";
   objective: string;
   desired_outcome: string;
   success_criteria: string[];
@@ -13949,9 +13950,11 @@ export interface RuntimePersistentGoal {
   updated_at: string;
   evidence_refs: string[];
   completion_run_ref?: string | null;
+  completion_plan_ref?: string | null;
   completion_evidence_ref?: string | null;
   completion_receipt_ref?: string | null;
   completion_proof_ref?: string | null;
+  completion_criterion_proof_refs: string[];
   completion_verifier_ref?: string | null;
   safe_refs_only: boolean;
   model_output_authoritative: boolean;
@@ -13974,6 +13977,7 @@ export interface RuntimeGoalLifecycleReadModel {
 }
 
 export interface RuntimeGoalCreateRequest {
+  text_redaction_posture: "operator_authored_redacted_summary_only";
   objective: string;
   desired_outcome: string;
   success_criteria: string[];
@@ -13996,6 +14000,7 @@ export interface RuntimeGoalCreateRequest {
 
 export interface RuntimeGoalEditRequest {
   expected_version: number;
+  text_redaction_posture?: "operator_authored_redacted_summary_only";
   objective?: string;
   desired_outcome?: string;
   success_criteria?: string[];

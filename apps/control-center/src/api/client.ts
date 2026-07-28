@@ -9102,20 +9102,105 @@ function isSafeRuntimeRunEvents(
         isNonEmptyStringArray(proposal.proof_refs) &&
         isNonEmptyStringArray(proposal.blocked_authority_refs),
     ) &&
-    value.event_previews.every(
-      (event) =>
-        event.runtime_payload_persisted === false &&
-        event.raw_log_persisted === false &&
-        event.raw_prompt_persisted === false &&
-        event.raw_response_persisted === false &&
-        Array.isArray(event.proof_refs) &&
-        Array.isArray(event.receipt_refs),
-    ) &&
+    value.event_previews.every(isSafeRuntimeRunEventPreview) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
 }
 
+function isSafeRuntimeRunEventPreview(
+  event: RuntimeRunEventsReadModel["event_previews"][number],
+): boolean {
+  const allowedKinds = new Set([
+    "run_proposed",
+    "approval_wait_entered",
+    "event_stream_preview",
+    "stop_requested_preview",
+    "proof_bound",
+    "goal_linked",
+    "plan_linked",
+    "run_started",
+    "approval_resumed",
+    "worker_restart_recovered",
+    "allowed_local_action_recorded",
+    "receipt_recorded",
+    "evidence_linked",
+    "completion_verified",
+    "cancellation_requested",
+    "cancelled",
+    "failed_retryable",
+    "failed_terminal",
+    "dead_lettered",
+  ]);
+  const terminalKinds = new Set([
+    "receipt_recorded",
+    "completion_verified",
+    "cancelled",
+    "failed_terminal",
+    "dead_lettered",
+  ]);
+  const safeRef = (value: unknown): value is string =>
+    typeof value === "string" &&
+    value.length <= 320 &&
+    /^[a-z][a-z0-9-]*-ref:[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) &&
+    isSafeTrustAuthorityRef(value);
+  const safeRefs = (value: unknown) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(safeRef);
+  const hasDurableSequence = event.sequence !== null && event.sequence !== undefined;
+  const durableFieldsValid = hasDurableSequence
+    ? Number.isSafeInteger(event.sequence) &&
+      Number(event.sequence) >= 1 &&
+      typeof event.recorded_at === "string" &&
+      Number.isFinite(Date.parse(event.recorded_at)) &&
+      safeRef(event.event_hash_ref) &&
+      (event.predecessor_hash_ref === null ||
+        event.predecessor_hash_ref === undefined ||
+        safeRef(event.predecessor_hash_ref))
+    : (event.recorded_at === null || event.recorded_at === undefined) &&
+      (event.event_hash_ref === null || event.event_hash_ref === undefined) &&
+      (event.predecessor_hash_ref === null ||
+        event.predecessor_hash_ref === undefined);
+  return (
+    allowedKinds.has(event.event_kind) &&
+    safeRef(event.event_ref) &&
+    safeRef(event.runtime_run_ref) &&
+    safeRef(event.uaa_durable_run_ref) &&
+    safeRef(event.proof_ref) &&
+    isBoundedDisplayText(event.safe_summary, 1200) &&
+    !containsSecretLike(event.safe_summary) &&
+    event.redaction_status === "redacted_safe_refs_only" &&
+    safeRefs(event.proof_refs) &&
+    safeRefs(event.receipt_refs) &&
+    event.proof_refs.includes(event.proof_ref) &&
+    (!terminalKinds.has(event.event_kind) ||
+      (event.proof_refs.length > 0 && event.receipt_refs.length > 0)) &&
+    (event.goal_ref === null ||
+      event.goal_ref === undefined ||
+      safeRef(event.goal_ref)) &&
+    (event.plan_ref === null ||
+      event.plan_ref === undefined ||
+      safeRef(event.plan_ref)) &&
+    durableFieldsValid &&
+    event.runtime_payload_persisted === false &&
+    event.raw_log_persisted === false &&
+    event.raw_prompt_persisted === false &&
+    event.raw_response_persisted === false
+  );
+}
+
 function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
+  const safeText = (value: unknown) =>
+    isBoundedDisplayText(value, 1200) && !containsSecretLike(value);
+  const safeRefs = (value: unknown) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(isSafeTrustAuthorityRef);
+  const safeTexts = (value: unknown, required = false) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    (!required || value.length > 0) &&
+    value.every(safeText);
   const completionRefs = [
     goal.completion_run_ref,
     goal.completion_evidence_ref,
@@ -9129,27 +9214,42 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
   const exactCompletionRefs = completionRefs.every(
     (ref) => typeof ref === "string" && isSafeTrustAuthorityRef(ref),
   );
+  const noCompletionPlan =
+    goal.completion_plan_ref === null ||
+    goal.completion_plan_ref === undefined;
+  const exactCompletionPlan =
+    typeof goal.completion_plan_ref === "string" &&
+    isSafeTrustAuthorityRef(goal.completion_plan_ref) &&
+    goal.links.plan_refs.includes(goal.completion_plan_ref);
+  const completionPlanValid = goal.links.plan_refs.length
+    ? exactCompletionPlan
+    : noCompletionPlan;
+  const criterionProofRefsValid =
+    safeRefs(goal.completion_criterion_proof_refs) &&
+    (goal.state === "verified_complete" ||
+    (goal.state === "cleared" && exactCompletionRefs)
+      ? goal.completion_criterion_proof_refs.length ===
+        goal.success_criteria.length
+      : goal.completion_criterion_proof_refs.length === 0);
   const completionPostureValid =
     goal.state === "verified_complete"
-      ? exactCompletionRefs
+      ? exactCompletionRefs &&
+        completionPlanValid &&
+        criterionProofRefsValid
       : goal.state === "cleared"
-        ? noCompletionRefs || exactCompletionRefs
-        : noCompletionRefs;
-  const safeText = (value: unknown) =>
-    isBoundedDisplayText(value, 1200) && !containsSecretLike(value);
-  const safeRefs = (value: unknown) =>
-    Array.isArray(value) &&
-    value.length <= 32 &&
-    value.every(isSafeTrustAuthorityRef);
-  const safeTexts = (value: unknown, required = false) =>
-    Array.isArray(value) &&
-    value.length <= 32 &&
-    (!required || value.length > 0) &&
-    value.every(safeText);
+        ? (noCompletionRefs && noCompletionPlan) ||
+          (exactCompletionRefs &&
+            completionPlanValid &&
+            criterionProofRefsValid)
+        : noCompletionRefs &&
+          noCompletionPlan &&
+          criterionProofRefsValid;
 
   return (
     goal.schema_version === "persistent_goal.v1" &&
     isSafeTrustAuthorityRef(goal.goal_ref) &&
+    goal.text_redaction_posture ===
+      "operator_authored_redacted_summary_only" &&
     safeText(goal.objective) &&
     safeText(goal.desired_outcome) &&
     safeText(goal.stop_condition) &&
@@ -9191,9 +9291,13 @@ function isSafeRuntimeGoalMutationResult(
   );
 }
 
-export async function fetchRuntimeRunEvents(): Promise<RuntimeRunEventsReadModel> {
+export async function fetchRuntimeRunEvents(
+  expectedBinding: BackendTruthReadBinding | null = null,
+): Promise<RuntimeRunEventsReadModel> {
   const payload = await readEnvelope<RuntimeRunEventsReadModel>(
     API_ENDPOINTS.runtimeRunEvents,
+    defaultControlCenterReadLimiter,
+    expectedBinding,
   );
   if (!isSafeRuntimeRunEvents(payload)) {
     throw new Error("Runtime goal/event state failed safe validation.");

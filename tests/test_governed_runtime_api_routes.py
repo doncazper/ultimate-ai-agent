@@ -6,7 +6,10 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
-from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state, route_rate_limit_group
+from ultimate_ai_agent.api.rate_limits import (
+    reset_api_rate_limit_state,
+    route_rate_limit_group,
+)
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway import (
@@ -24,9 +27,13 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
     HERMES_INTERFACE_MODE_ENABLED_ENV,
 )
-from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
+from ultimate_ai_agent.core.runtime_gateway.local_model import (
+    RUNTIME_LOCAL_MODEL_ENABLED_ENV,
+)
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
-from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_BASE_URL_ENV
+from ultimate_ai_agent.core.local_model_management.gateway import (
+    UAA_LLAMA_CPP_BASE_URL_ENV,
+)
 from ultimate_ai_agent.core.local_model_management import FakeM164GatewayTransport
 from tests.authority_helpers import provider_model_execute_authority_lease
 
@@ -35,7 +42,9 @@ client = TestClient(app)
 IDEMPOTENCY_HEADERS = {"x-uaa-idempotency-key": "idempotency-ref:runtime-api"}
 
 
-def _runtime_payload(summary: str = "safe governed runtime api summary") -> dict[str, object]:
+def _runtime_payload(
+    summary: str = "safe governed runtime api summary",
+) -> dict[str, object]:
     return {
         "requested_authority": "local_model",
         "requested_profile": "sealed",
@@ -66,7 +75,9 @@ def _test_hash_ref(prefix: str, value: object) -> str:
         separators=(",", ":"),
         ensure_ascii=True,
     )
-    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    return (
+        f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    )
 
 
 def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
@@ -159,17 +170,22 @@ def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     assert data["model_call_enabled"] is False
     assert data["command_execution_enabled"] is False
     assert data["safe_disable"]["active"] is True
-    assert data["chat_runtime_integration"]["route_ref"] == "/api/runtime/local-model/call"
+    assert (
+        data["chat_runtime_integration"]["route_ref"] == "/api/runtime/local-model/call"
+    )
     assert data["chat_runtime_integration"]["default_status"] == "disabled_by_default"
     assert data["chat_runtime_integration"]["model_output_authority"] == (
         "untrusted_proposal_only"
     )
-    assert data["command_runtime_integration"]["route_ref"] == "/api/runtime/command/run"
+    assert (
+        data["command_runtime_integration"]["route_ref"] == "/api/runtime/command/run"
+    )
     assert data["command_runtime_integration"]["argv_only"] is True
     assert data["command_runtime_integration"]["shell_strings_accepted"] is False
     assert data["command_runtime_integration"]["raw_output_persisted"] is False
     catalog = {
-        entry["intent"]: entry for entry in data["command_runtime_integration"]["allowlist_catalog"]
+        entry["intent"]: entry
+        for entry in data["command_runtime_integration"]["allowlist_catalog"]
     }
     assert catalog["git_status"]["enabled_for_phase"] is True
     assert catalog["git_status"]["no_op_readonly"] is True
@@ -177,12 +193,16 @@ def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     assert catalog["repo_doctor"]["enabled_for_phase"] is False
 
 
-def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch) -> None:
+def test_governed_runtime_post_routes_require_idempotency(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
 
     response = client.post("/api/runtime/invocations", json=_runtime_payload())
-    local_model = client.post("/api/runtime/local-model/call", json=_local_model_payload())
+    local_model = client.post(
+        "/api/runtime/local-model/call", json=_local_model_payload()
+    )
     command = client.post(
         "/api/runtime/command/run",
         json={
@@ -228,7 +248,9 @@ def test_governed_runtime_generic_invocation_cannot_enable_local_model_runtime(
 
     create = client.post(
         "/api/runtime/invocations",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-generic-local-model"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-generic-local-model"
+        },
         json=_runtime_payload() | {"requested_profile": "local-runtime"},
     )
 
@@ -245,7 +267,9 @@ def test_governed_runtime_generic_invocation_cannot_enable_local_model_runtime(
     )
 
 
-def test_governed_runtime_invocation_flow_records_blocked_receipt(tmp_path, monkeypatch) -> None:
+def test_governed_runtime_invocation_flow_records_blocked_receipt(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
 
@@ -335,7 +359,9 @@ def test_governed_runtime_invocation_flow_records_blocked_receipt(tmp_path, monk
     assert "operator execute api summary should not persist" not in persisted
 
 
-def test_governed_runtime_safe_disable_is_idempotency_bound(tmp_path, monkeypatch) -> None:
+def test_governed_runtime_safe_disable_is_idempotency_bound(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
 
@@ -398,13 +424,14 @@ def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport
         active_authority_leases=[provider_model_execute_authority_lease()],
     )
 
-    def runtime_gateway(*, store) -> RuntimeGateway:
+    def runtime_gateway(*, store, goal_runtime_service) -> RuntimeGateway:
         return RuntimeGateway(
             store=store,
             local_model_adapter=LocalModelRuntimeAdapter(
                 transport_factory=transport_factory,
             ),
             local_model_runtime_enabled=True,
+            goal_runtime_service=goal_runtime_service,
         )
 
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
@@ -461,8 +488,7 @@ def test_governed_runtime_local_model_replay_after_safe_disable_blocks_transport
     assert replay_body["data"]["error_category"] is None
     assert replay_body["data"]["record"]["status"] == "safe_disabled"
     assert (
-        replay_body["data"]["record"]["policy_decision"]["allowed_to_execute"]
-        is False
+        replay_body["data"]["record"]["policy_decision"]["allowed_to_execute"] is False
     )
     assert calls == 1
 
@@ -508,8 +534,7 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
     assert mission_plan_route.route_classification == "local_sensitive"
     assert mission_plan_route.idempotency_required is False
     assert (
-        mission_plan_route.approval_posture
-        == "not_required_for_route_classification"
+        mission_plan_route.approval_posture == "not_required_for_route_classification"
     )
 
     for path in [
@@ -554,24 +579,33 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
     assert route_rate_limit_group("POST", "/api/runtime/goals") == (
         "governed_runtime_pilot"
     )
-    assert route_rate_limit_group(
-        "POST",
-        "/api/runtime/goals/goal-ref:abc/edit",
-    ) == "governed_runtime_pilot"
-    assert route_rate_limit_group(
-        "POST",
-        "/api/runtime/goals/goal-ref:abc/transition",
-    ) == "governed_runtime_pilot"
+    assert (
+        route_rate_limit_group(
+            "POST",
+            "/api/runtime/goals/goal-ref:abc/edit",
+        )
+        == "governed_runtime_pilot"
+    )
+    assert (
+        route_rate_limit_group(
+            "POST",
+            "/api/runtime/goals/goal-ref:abc/transition",
+        )
+        == "governed_runtime_pilot"
+    )
     assert route_rate_limit_group("POST", "/api/runtime/authority-leases") == (
         "governed_runtime_pilot"
     )
     assert route_rate_limit_group("POST", "/api/runtime/authority-leases/revoke") == (
         "governed_runtime_pilot"
     )
-    assert route_rate_limit_group(
-        "POST",
-        "/api/runtime/invocations/runtime-invocation-ref:abc/execute",
-    ) == "governed_runtime_pilot"
+    assert (
+        route_rate_limit_group(
+            "POST",
+            "/api/runtime/invocations/runtime-invocation-ref:abc/execute",
+        )
+        == "governed_runtime_pilot"
+    )
     assert route_rate_limit_group("GET", "/api/runtime/invocations") is None
 
 
@@ -641,7 +675,9 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     assert body["data"]["execution_performed"] is False
     assert body["data"]["adapter_execution_enabled"] is False
     assert body["data"]["model_call_performed"] is False
-    assert body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+    assert (
+        body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+    )
     assert body["data"]["response_preview"] is None
     assert body["data"]["response_preview_persisted"] is False
     assert body["data"]["record"]["receipt"]["model_output_non_authoritative"] is True
@@ -775,11 +811,15 @@ def test_governed_runtime_command_run_reports_in_progress_replay_without_receipt
         intent="git_status",
         safe_summary="Inspect current repo status with redacted output.",
     )
-    record = RuntimeInvocationStore(tmp_path).create_invocation(
-        runtime_command_invocation_request(request),
-        idempotency_ref="idempotency-ref:runtime-command-api-in-progress",
-        command_gateway_validated=True,
-    ).record
+    record = (
+        RuntimeInvocationStore(tmp_path)
+        .create_invocation(
+            runtime_command_invocation_request(request),
+            idempotency_ref="idempotency-ref:runtime-command-api-in-progress",
+            command_gateway_validated=True,
+        )
+        .record
+    )
     result = RuntimeCommandGatewayResult(
         record=record,
         error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
@@ -805,9 +845,7 @@ def test_governed_runtime_command_run_reports_in_progress_replay_without_receipt
     response = client.post(
         "/api/runtime/command/run",
         headers={
-            "x-uaa-idempotency-key": (
-                "idempotency-ref:runtime-command-api-in-progress"
-            )
+            "x-uaa-idempotency-key": ("idempotency-ref:runtime-command-api-in-progress")
         },
         json={
             "intent": "git_status",
@@ -883,8 +921,9 @@ def test_governed_runtime_command_run_evaluates_matching_mission_lease(
     assert missing_body["data"]["command_execution_performed"] is False
     missing_policy = missing_body["data"]["record"]["policy_decision"]
     assert missing_policy["authority_decision_outcome"] == "degrade_to_draft"
-    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
-        missing_policy["reason_codes"]
+    assert (
+        "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION"
+        in (missing_policy["reason_codes"])
     )
 
 
@@ -903,13 +942,14 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
             output_bytes=b"safe pytest output",
         )
 
-    def runtime_gateway(*, store) -> RuntimeGateway:
+    def runtime_gateway(*, store, goal_runtime_service) -> RuntimeGateway:
         return RuntimeGateway(
             store=store,
             command_adapter=GovernedCommandRuntimeAdapter(
                 workspace_root=Path(__file__).resolve().parents[1],
                 runner=runner,
             ),
+            goal_runtime_service=goal_runtime_service,
         )
 
     monkeypatch.setattr(runtime_pilot_service, "RuntimeGateway", runtime_gateway)
@@ -928,7 +968,9 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
 
     create = client.post(
         "/api/runtime/invocations",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-create"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-create"
+        },
         json=invocation_request.model_dump(mode="json"),
     )
     assert create.status_code == 200
@@ -938,13 +980,17 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
 
     approve = client.post(
         f"/api/runtime/invocations/{invocation_ref}/approve",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-approve"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-approve"
+        },
         json={
             "decision": "approve",
             "action_envelope_ref": refs["action_envelope_ref"],
             "exact_scope_ref": refs["exact_scope_ref"],
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
-            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "expected_policy_decision_ref": record["policy_decision"][
+                "policy_decision_ref"
+            ],
             "adapter_id": "governed-command-runtime-adapter",
             "command_intent": refs["command_intent"],
             "risk_class": "medium",
@@ -959,12 +1005,16 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
     )
     execute = client.post(
         f"/api/runtime/invocations/{invocation_ref}/execute",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-execute"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-execute"
+        },
         json={
             "approval_ref": envelope["approval_ref"],
             "action_envelope_ref": envelope["action_envelope_ref"],
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
-            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "expected_policy_decision_ref": record["policy_decision"][
+                "policy_decision_ref"
+            ],
             "command_request": execute_command.model_dump(mode="json"),
             "safe_summary": "Execute approved runtime command through exact bridge.",
         },
@@ -998,7 +1048,9 @@ def test_governed_runtime_command_run_blocks_unapproved_command_intent(
 
     response = client.post(
         "/api/runtime/command/run",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-command-blocked-api"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-command-blocked-api"
+        },
         json={
             "intent": "focused_pytest",
             "target_refs": ["test-ref:runtime-api"],
@@ -1038,7 +1090,9 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
 
     create = client.post(
         "/api/runtime/invocations",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-create"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-create"
+        },
         json=invocation_request.model_dump(mode="json"),
     )
     assert create.status_code == 200
@@ -1048,13 +1102,17 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
 
     approve = client.post(
         f"/api/runtime/invocations/{invocation_ref}/approve",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-approve"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-approve"
+        },
         json={
             "decision": "approve",
             "action_envelope_ref": refs["action_envelope_ref"],
             "exact_scope_ref": refs["exact_scope_ref"],
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
-            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "expected_policy_decision_ref": record["policy_decision"][
+                "policy_decision_ref"
+            ],
             "adapter_id": "governed-command-runtime-adapter",
             "command_intent": refs["command_intent"],
             "risk_class": "medium",
@@ -1079,12 +1137,16 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
     )
     execute = client.post(
         f"/api/runtime/invocations/{invocation_ref}/execute",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-execute"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-execute"
+        },
         json={
             "approval_ref": envelope["approval_ref"],
             "action_envelope_ref": envelope["action_envelope_ref"],
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
-            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "expected_policy_decision_ref": record["policy_decision"][
+                "policy_decision_ref"
+            ],
             "command_request": changed_command.model_dump(mode="json"),
             "safe_summary": "Execute approved runtime command through exact bridge.",
         },
@@ -1095,7 +1157,9 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
     assert body["success"] is False
     assert body["data"]["execution_performed"] is False
     assert body["data"]["command_execution_performed"] is False
-    assert body["data"]["error_category"] == "RUNTIME_COMMAND_ACTION_INBOX_SCOPE_CHANGED"
+    assert (
+        body["data"]["error_category"] == "RUNTIME_COMMAND_ACTION_INBOX_SCOPE_CHANGED"
+    )
     assert body["data"]["output_summary"] == (
         "Command output redacted; command was blocked before process start."
     )
@@ -1104,8 +1168,8 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
     bridge = inbox.json()["data"]["runtime_action_inbox_bridge_read_model"]
     assert bridge["item_count"] == 1
     assert bridge["items"][0]["invocation_ref"] == invocation_ref
-    assert bridge["items"][0]["action_envelope_ref"] == (
-        envelope["action_envelope_ref"]
+    assert (
+        bridge["items"][0]["action_envelope_ref"] == (envelope["action_envelope_ref"])
     )
     assert bridge["items"][0]["authority_scope_allowed"] is True
     assert bridge["items"][0]["authority_decision_outcome"] == "allow"
@@ -1142,7 +1206,9 @@ def test_governed_runtime_action_inbox_computed_approval_ref_is_identifier_only(
 
     create = client.post(
         "/api/runtime/invocations",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-create"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-create"
+        },
         json=invocation_request.model_dump(mode="json"),
     )
     assert create.status_code == 200
@@ -1151,14 +1217,18 @@ def test_governed_runtime_action_inbox_computed_approval_ref_is_identifier_only(
 
     approve = client.post(
         f"/api/runtime/invocations/{record['invocation_ref']}/approve",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-approve"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-approve"
+        },
         json={
             "approval_ref": refs["approval_ref"],
             "decision": "approve",
             "action_envelope_ref": refs["action_envelope_ref"],
             "exact_scope_ref": refs["exact_scope_ref"],
             "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
-            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "expected_policy_decision_ref": record["policy_decision"][
+                "policy_decision_ref"
+            ],
             "adapter_id": "governed-command-runtime-adapter",
             "command_intent": refs["command_intent"],
             "risk_class": "medium",
@@ -1171,11 +1241,13 @@ def test_governed_runtime_action_inbox_computed_approval_ref_is_identifier_only(
     assert body["success"] is True
     assert body["data"]["approval_validated"] is False
     assert body["data"]["command_execution_enabled"] is False
-    assert "blocked-state:runtime-approval-ref-identifier-only" in (
-        body["data"]["blocked_reason_refs"]
+    assert (
+        "blocked-state:runtime-approval-ref-identifier-only"
+        in (body["data"]["blocked_reason_refs"])
     )
-    assert "blocked-state:runtime-backend-approval-missing" in (
-        body["data"]["blocked_reason_refs"]
+    assert (
+        "blocked-state:runtime-backend-approval-missing"
+        in (body["data"]["blocked_reason_refs"])
     )
 
 
@@ -1190,7 +1262,9 @@ def test_governed_runtime_local_model_call_is_disabled_by_default(
 
     response = client.post(
         "/api/runtime/local-model/call",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-local-model-disabled"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-local-model-disabled"
+        },
         json=_local_model_payload(),
     )
 

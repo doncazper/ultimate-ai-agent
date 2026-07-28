@@ -61,7 +61,9 @@ RUNTIME_LOCAL_MODEL_ENABLED_VALUES = {"1", "true", "yes", "on", "local-runtime"}
 
 class RuntimeLocalModelMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
-    content: str = Field(..., min_length=1, max_length=LOCAL_MODEL_RUNTIME_MAX_MESSAGE_CHARS)
+    content: str = Field(
+        ..., min_length=1, max_length=LOCAL_MODEL_RUNTIME_MAX_MESSAGE_CHARS
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,8 +80,12 @@ class RuntimeLocalModelCallRequest(BaseModel):
     mission_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=500)
     allow_bounded_preview: bool = False
-    max_preview_chars: int = Field(default=0, ge=0, le=LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS)
-    timeout_seconds: float = Field(default=10.0, gt=0, le=LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS)
+    max_preview_chars: int = Field(
+        default=0, ge=0, le=LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS
+    )
+    timeout_seconds: float = Field(
+        default=10.0, gt=0, le=LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS
+    )
     max_response_bytes: int = Field(
         default=16_000,
         gt=0,
@@ -176,8 +182,9 @@ class _AdapterAttempt:
 
 
 class RuntimeLocalModelTransportFactory(Protocol):
-    def __call__(self, request: RuntimeLocalModelCallRequest) -> M164GatewayTransport:
-        ...
+    def __call__(
+        self, request: RuntimeLocalModelCallRequest
+    ) -> M164GatewayTransport: ...
 
 
 class _GuardedM164GatewayTransport:
@@ -222,9 +229,7 @@ class LocalModelRuntimeAdapter:
         self,
         request: RuntimeLocalModelCallRequest,
         *,
-        pre_transport_guard: Callable[
-            [], _LocalModelTransportBoundaryPosture
-        ]
+        pre_transport_guard: Callable[[], _LocalModelTransportBoundaryPosture]
         | None = None,
     ) -> _AdapterAttempt:
         request_byte_count = _request_byte_count(request)
@@ -358,6 +363,7 @@ class RuntimeGateway:
             )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
+                invocation_store=self.store,
                 reservation_ref=reservation_ref,
             )
         return result
@@ -406,6 +412,7 @@ class RuntimeGateway:
                 result = result.model_copy(update={"record": updated})
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
+                invocation_store=self.store,
                 reservation_ref=reservation_ref,
             )
         return result
@@ -427,6 +434,7 @@ class RuntimeGateway:
             )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
+                invocation_store=self.store,
                 reservation_ref=reservation_ref,
             )
         return result
@@ -475,7 +483,10 @@ class RuntimeGateway:
             local_model_gateway_validated=blocked_error is None,
         )
         record = created.record
-        if blocked_error is None and record.status == RuntimeInvocationStatus.safe_disabled.value:
+        if (
+            blocked_error is None
+            and record.status == RuntimeInvocationStatus.safe_disabled.value
+        ):
             blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
         if created.replayed:
             replay_runtime_disabled = self.store.operator_safe_disable_active()
@@ -525,17 +536,13 @@ class RuntimeGateway:
                 status=replay_status,
                 local_model_gateway_validated=replay_gateway_validated,
                 active_authority_leases=self.store.current_authority_leases(),
-                kill_switch_engaged=(
-                    self.store.authority_lease_kill_switch_engaged()
-                ),
+                kill_switch_engaged=(self.store.authority_lease_kill_switch_engaged()),
             )
             if (
                 replay_blocked_error is None
                 and not replay_policy_decision.allowed_to_execute
             ):
-                replay_blocked_error = (
-                    "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
-                )
+                replay_blocked_error = "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
                 replay_status = RuntimeInvocationStatus.execution_blocked
             replay_policy_decision = replay_policy_decision.model_copy(
                 update={
@@ -676,7 +683,9 @@ class RuntimeGateway:
             updated = self.store.record_receipt(
                 record.invocation_ref,
                 receipt,
-                idempotency_ref=_operation_idempotency_ref(idempotency_ref, "local-model-blocked"),
+                idempotency_ref=_operation_idempotency_ref(
+                    idempotency_ref, "local-model-blocked"
+                ),
                 payload_fingerprint_ref=_operation_fingerprint_ref(
                     record.invocation_ref,
                     {
@@ -733,8 +742,8 @@ class RuntimeGateway:
         )
         attempt = self.local_model_adapter.invoke(
             request,
-            pre_transport_guard=lambda: (
-                self._local_model_transport_boundary_posture(record, request)
+            pre_transport_guard=lambda: self._local_model_transport_boundary_posture(
+                record, request
             ),
         )
         boundary_posture = attempt.boundary_posture
@@ -790,7 +799,9 @@ class RuntimeGateway:
         updated = self.store.record_receipt(
             record.invocation_ref,
             receipt,
-            idempotency_ref=_operation_idempotency_ref(idempotency_ref, "local-model-receipt"),
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref, "local-model-receipt"
+            ),
             payload_fingerprint_ref=_operation_fingerprint_ref(
                 record.invocation_ref,
                 {
@@ -938,7 +949,9 @@ class RuntimeGateway:
         return local_model_runtime_enabled()
 
 
-def _default_transport_factory(request: RuntimeLocalModelCallRequest) -> M164GatewayTransport:
+def _default_transport_factory(
+    request: RuntimeLocalModelCallRequest,
+) -> M164GatewayTransport:
     return StdlibM164LlamaCppGatewayTransport(
         timeout_seconds=request.timeout_seconds,
         max_response_bytes=request.max_response_bytes,
@@ -985,8 +998,7 @@ def _request_byte_count(request: RuntimeLocalModelCallRequest) -> int:
                 "model": request.model_ref,
                 "message_count": len(request.messages),
                 "message_bytes": [
-                    len(message.content.encode("utf-8"))
-                    for message in request.messages
+                    len(message.content.encode("utf-8")) for message in request.messages
                 ],
                 "stream": False,
             }
@@ -1002,7 +1014,9 @@ def _runtime_invocation_request(
     prompt_ref = _prompt_ref(request)
     return RuntimeInvocationRequest(
         requested_authority=RuntimeAuthority.local_model,
-        requested_profile=RuntimeProfile.sealed if force_sealed else request.requested_profile,
+        requested_profile=RuntimeProfile.sealed
+        if force_sealed
+        else request.requested_profile,
         input_ref=prompt_ref,
         mission_ref=request.mission_ref,
         safe_summary=request.safe_summary,
@@ -1023,8 +1037,7 @@ def _receipt_proves_completed_local_model_attempt(
     metadata = receipt.model_receipt_metadata if receipt is not None else None
     return bool(
         receipt is not None
-        and receipt.invocation_status
-        == RuntimeInvocationStatus.receipt_recorded.value
+        and receipt.invocation_status == RuntimeInvocationStatus.receipt_recorded.value
         and metadata is not None
         and not metadata.attempt_outcome_unknown
     )
@@ -1082,7 +1095,9 @@ def _prompt_ref(request: RuntimeLocalModelCallRequest) -> str:
         {
             "model_ref": request.model_ref,
             "message_count": len(request.messages),
-            "messages": [message.model_dump(mode="json") for message in request.messages],
+            "messages": [
+                message.model_dump(mode="json") for message in request.messages
+            ],
         },
     )
 

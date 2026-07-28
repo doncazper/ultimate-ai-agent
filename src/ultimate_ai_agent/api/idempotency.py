@@ -17,6 +17,14 @@ IDEMPOTENCY_HEADER_NAMES = (IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_REF_HEADER)
 WEB_EVIDENCE_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:control-center-web-evidence-receipt-store:v1"
 )
+GOAL_JOURNAL_DURABLE_IDEMPOTENCY_OWNER_REF = "idempotency-owner:goal-journal:v1"
+GOAL_JOURNAL_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/api/runtime/goals",
+        "/api/runtime/goals/{goal_ref}/edit",
+        "/api/runtime/goals/{goal_ref}/transition",
+    }
+)
 IDEMPOTENCY_REQUIRED_INPUT_KINDS: tuple[str, ...] = (
     "idempotency_key",
     "idempotency_key_ref",
@@ -69,6 +77,11 @@ def route_idempotency_enforcement(
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             WEB_EVIDENCE_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in GOAL_JOURNAL_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            GOAL_JOURNAL_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
     if route_classification_requires_idempotency(route_classification):
         return ApiRouteIdempotencyEnforcement.header_shape_gate_only, None

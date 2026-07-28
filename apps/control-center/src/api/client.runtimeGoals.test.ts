@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRuntimeGoal,
   editRuntimeGoal,
+  fetchRuntimeRunEvents,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
 } from "./client";
 import { API_ENDPOINTS } from "./endpoints";
+import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   RuntimeGoalCreateRequest,
   RuntimeGoalMutationResult,
@@ -19,6 +21,7 @@ const binding: BackendTruthReadBinding = {
 };
 
 const request: RuntimeGoalCreateRequest = {
+  text_redaction_posture: "operator_authored_redacted_summary_only",
   objective: "Deliver one bounded local outcome.",
   desired_outcome: "A durable proof-backed goal.",
   success_criteria: ["A linked receipt and proof exist."],
@@ -43,6 +46,7 @@ const mutationResult: RuntimeGoalMutationResult = {
     schema_version: "persistent_goal.v1",
     contract_ref: "contract-ref:proof-backed-goals-durable-events:v1",
     goal_ref: `goal-ref:sha256:${"2".repeat(64)}`,
+    text_redaction_posture: "operator_authored_redacted_summary_only",
     objective: request.objective,
     desired_outcome: request.desired_outcome,
     success_criteria: request.success_criteria,
@@ -56,6 +60,7 @@ const mutationResult: RuntimeGoalMutationResult = {
     created_at: "2026-07-25T00:00:00Z",
     updated_at: "2026-07-25T00:00:00Z",
     evidence_refs: request.evidence_refs,
+    completion_criterion_proof_refs: [],
     safe_refs_only: true,
     model_output_authoritative: false,
   },
@@ -246,5 +251,153 @@ describe("proof-backed runtime goal mutations", () => {
         null,
       ),
     ).rejects.toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
+  });
+
+  it.each([
+    [
+      "missing criterion proof binding",
+      {
+        completion_criterion_proof_refs: [],
+      },
+    ],
+    [
+      "unlinked plan substitution",
+      {
+        completion_plan_ref: "plan-ref:substituted",
+        completion_criterion_proof_refs: ["proof-ref:goal-client:criterion"],
+      },
+    ],
+  ])("rejects verified completion with %s", async (_label, replacement) => {
+    const verifiedGoal = Object.assign(
+      {
+        ...mutationResult.goal,
+        state: "verified_complete" as const,
+        version: 3,
+        completion_run_ref: "run-ref:goal-client-test",
+        completion_plan_ref: request.links.plan_refs[0],
+        completion_evidence_ref: "evidence-ref:goal-client:completion",
+        completion_receipt_ref: "receipt-ref:goal-client:completion",
+        completion_proof_ref: "proof-ref:goal-client:completion",
+        completion_criterion_proof_refs: [
+          "proof-ref:goal-client:criterion",
+        ],
+        completion_verifier_ref: "verifier-ref:goal-client:completion",
+      },
+      replacement,
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              ...mutationResult,
+              goal: verifiedGoal,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createRuntimeGoal(
+        request,
+        "idempotency-ref:goal-client-invalid-completion",
+        binding,
+      ),
+    ).rejects.toThrow("proof-backed goal mutation failed safely");
+  });
+
+  it("binds post-mutation run-event refreshes to the selected backend", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: mockControlCenterData.runtimeRunEvents,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents(binding)).rejects.toThrow(
+      "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
+    );
+  });
+
+  it.each([
+    ["event_kind", "invented_event"],
+    ["event_ref", "unsafe"],
+    ["runtime_run_ref", "unsafe"],
+    ["proof_ref", "unsafe"],
+    ["safe_summary", ["token", "raw-secret"].join("=")],
+    ["redaction_status", "raw"],
+    ["sequence", 0],
+    ["event_hash_ref", "unsafe"],
+    ["proof_refs", ["unsafe"]],
+    ["receipt_refs", ["unsafe"]],
+    ["runtime_payload_persisted", true],
+  ])("rejects malformed durable event field %s", async (field, replacement) => {
+    const event = {
+      event_ref: "runtime-run-event-ref:goal-client:test",
+      event_kind: "receipt_recorded" as const,
+      runtime_run_ref: "runtime-run-ref:goal-client:test",
+      uaa_durable_run_ref: "runtime-run-ref:goal-client:test",
+      proof_ref: "proof-ref:goal-client:test",
+      redaction_status: "redacted_safe_refs_only",
+      safe_summary: "A durable receipt was recorded with bounded safe refs.",
+      sequence: 1,
+      recorded_at: "2026-07-25T00:00:00Z",
+      predecessor_hash_ref: null,
+      event_hash_ref: "event-hash-ref:goal-client:test",
+      proof_refs: ["proof-ref:goal-client:test"],
+      receipt_refs: ["receipt-ref:goal-client:test"],
+      goal_ref: "goal-ref:goal-client:test",
+      plan_ref: "plan-ref:goal-client:test",
+      runtime_payload_persisted: false,
+      raw_log_persisted: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      event_previews: [{ ...event, [field]: replacement }],
+      stream_summaries: [
+        {
+          run_ref: event.runtime_run_ref,
+          run_type: "local_read_task" as const,
+          first_retained_sequence: 1,
+          last_sequence: 1,
+          retained_event_count: 1,
+          retention_anchor_hash_ref: null,
+          terminal_event_kind: null,
+        },
+      ],
+      stream_count: 1,
+      retained_event_count: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
   });
 });
