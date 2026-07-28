@@ -47,9 +47,7 @@ def test_browser_critical_mutation_requires_backend_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
     assert response.headers["access-control-allow-origin"] == ORIGIN
     assert (
         "X-UAA-Backend-Revision-Ref"
@@ -85,9 +83,7 @@ def test_browser_critical_mutation_rejects_provenance_substitution(
     response = TestClient(app).post(ACTION_PATH, headers=headers, json={})
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
     assert response.headers["access-control-allow-origin"] == ORIGIN
 
 
@@ -104,9 +100,7 @@ def test_exact_browser_mutation_binding_reaches_existing_route_checks(
     )
 
     assert response.status_code != 409
-    assert response.json().get("code") != (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json().get("code") != ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
 
 
 def test_exact_browser_goal_binding_reaches_goal_route(
@@ -121,12 +115,10 @@ def test_exact_browser_goal_binding_reaches_goal_route(
         headers={
             **_bound_headers(tmp_path),
             "X-UAA-Idempotency-Key": "idempotency-ref:browser-goal-binding",
-            },
-            json={
-                "text_redaction_posture": (
-                    "operator_authored_redacted_summary_only"
-                ),
-                "objective": "Verify exact browser provenance.",
+        },
+        json={
+            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+            "objective": "Verify exact browser provenance.",
             "desired_outcome": "One bounded local goal record.",
             "success_criteria": ["The exact provenance binding is current."],
             "constraints": ["No runtime execution."],
@@ -136,9 +128,7 @@ def test_exact_browser_goal_binding_reaches_goal_route(
     )
 
     assert response.status_code != 409
-    assert response.json().get("code") != (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json().get("code") != ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
     assert response.json()["success"] is True
 
 
@@ -165,9 +155,7 @@ def test_well_shaped_but_unissued_truth_ref_is_rejected(
     response = TestClient(app).post(ACTION_PATH, headers=headers, json={})
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
 
 
 def test_concurrent_reader_truth_envelopes_remain_admitted_until_expiry(
@@ -235,6 +223,4 @@ def test_browser_product_and_runtime_mutations_require_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
