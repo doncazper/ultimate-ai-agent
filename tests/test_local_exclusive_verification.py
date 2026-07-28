@@ -142,6 +142,39 @@ def test_local_lane_prints_only_safe_pytest_failure_refs(
     assert payload["command_results"] == []
 
 
+def test_local_lane_does_not_retry_failed_diagnostic_retention(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(local_lane, "_repository_sha", lambda: SHA)
+    monkeypatch.setattr(
+        local_lane,
+        "run_lane",
+        lambda *_args, **_kwargs: {"status": "fail"},
+    )
+    attempts = 0
+
+    def reject_retention(*_args: object, **_kwargs: object) -> str:
+        nonlocal attempts
+        attempts += 1
+        raise local_lane.LocalVerificationLaneError(
+            "diagnostic lock is unavailable"
+        )
+
+    monkeypatch.setattr(local_lane, "_retain_diagnostics", reject_retention)
+
+    with pytest.raises(
+        local_lane.LocalVerificationLaneError,
+        match="diagnostic lock is unavailable",
+    ):
+        local_lane.run_local_lane(
+            "ci-pytest-shards",
+            fence_root=tmp_path / "fence",
+        )
+
+    assert attempts == 1
+
+
 def test_local_diagnostics_drop_untrusted_output_and_receipt_fields(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -221,6 +254,31 @@ def test_local_diagnostic_retention_serializes_shared_pruning(
     retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
     assert len(retained) == local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS
     assert all(path.is_file() for path in retained)
+
+
+def test_local_diagnostic_retention_preserves_current_token_under_clock_skew(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "diagnostics"
+    root.mkdir(mode=0o700)
+    future_time = 4_102_444_800
+    for index in range(local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS):
+        stale = root / f"{index:064x}"
+        stale.write_text("{}\n", encoding="ascii")
+        stale.chmod(0o600)
+        os.utime(stale, (future_time, future_time))
+
+    diagnostic_ref = local_lane._retain_diagnostics(
+        None,
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
+    )
+
+    token = diagnostic_ref.rsplit(":", 1)[-1]
+    retained = tuple(path for path in root.iterdir() if len(path.name) == 64)
+    assert len(retained) == local_lane.MAX_RETAINED_DIAGNOSTIC_RUNS
+    assert (root / token).is_file()
 
 
 def test_local_diagnostic_enumeration_ignores_disappearing_entries(
@@ -320,25 +378,22 @@ def test_local_diagnostic_retention_lock_times_out_fail_closed(
     root = tmp_path / "diagnostics"
     root.mkdir(mode=0o700)
     monkeypatch.setattr(local_lane, "DIAGNOSTIC_LOCK_TIMEOUT_SECONDS", 0.0)
+    original_flock = local_lane.fcntl.flock
+
+    def reject_lock(descriptor: int, operation: int) -> None:
+        if operation & local_lane.fcntl.LOCK_NB:
+            raise BlockingIOError("lock held")
+        original_flock(descriptor, operation)
+
+    monkeypatch.setattr(local_lane.fcntl, "flock", reject_lock)
 
     with local_lane._pinned_diagnostic_root(root) as descriptor:
-        lock_path = root / ".uaa-diagnostic-retention.lock"
-        lock_path.touch(mode=0o600)
-        lock_descriptor = os.open(lock_path, os.O_RDWR)
-        try:
-            local_lane.fcntl.flock(
-                lock_descriptor,
-                local_lane.fcntl.LOCK_EX | local_lane.fcntl.LOCK_NB,
-            )
-            with pytest.raises(
-                local_lane.LocalVerificationLaneError,
-                match="diagnostic lock is unavailable",
-            ):
-                with local_lane._locked_diagnostic_root(descriptor):
-                    pytest.fail("unavailable diagnostic lock was acquired")
-        finally:
-            local_lane.fcntl.flock(lock_descriptor, local_lane.fcntl.LOCK_UN)
-            os.close(lock_descriptor)
+        with pytest.raises(
+            local_lane.LocalVerificationLaneError,
+            match="diagnostic lock is unavailable",
+        ):
+            with local_lane._locked_diagnostic_root(descriptor):
+                pytest.fail("unavailable diagnostic lock was acquired")
 
 
 def test_local_diagnostic_creation_rejects_precreated_token_atomically(

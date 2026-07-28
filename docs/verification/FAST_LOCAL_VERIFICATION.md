@@ -69,12 +69,14 @@ diagnostic envelopes outside the repository and print only a content-free
 execution state are always deleted. Each retained envelope is allowlisted to
 command refs, terminal states, byte counts, output digests, and validated safe
 failure refs. Retention pins and validates the owner-only root descriptor, then
-atomically creates each envelope as one exclusive regular file and enumerates,
-locks, and prunes relative to that descriptor so pathname replacement cannot
-redirect mutation. Lock acquisition has a bounded deadline and fails closed.
+atomically creates each envelope as one exclusive regular file, locks the pinned
+root inode itself, and enumerates and prunes relative to that descriptor so
+pathname replacement cannot redirect mutation. Lock acquisition has a bounded
+deadline and fails closed.
 The published ref is bound to the exact retained inode and payload bytes, and
 terminal diagnostics preserve timeout and cancellation causes. Successful runs
-delete their transient state.
+erase transient output through its original descriptor before unlinking any
+still-reachable bound inode.
 
 Prefer focused tests plus `verify-fast` or `verify-affected` while stabilizing a
 branch, and reserve complete resources for the final GitHub-hosted merge

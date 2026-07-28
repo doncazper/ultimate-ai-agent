@@ -138,31 +138,14 @@ def _locked_diagnostic_root(root_descriptor: int):
         raise LocalVerificationLaneError(
             "local verification diagnostic lock is unavailable"
         )
-    descriptor: int | None = None
     lock_acquired = False
     try:
         try:
-            descriptor = os.open(
-                ".uaa-diagnostic-retention.lock",
-                os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
-                0o600,
-                dir_fd=root_descriptor,
-            )
-            metadata = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_nlink != 1
-                or metadata.st_uid != os.getuid()
-                or metadata.st_mode & 0o077
-            ):
-                raise LocalVerificationLaneError(
-                    "local verification diagnostic lock is unsafe"
-                )
             deadline = time.monotonic() + DIAGNOSTIC_LOCK_TIMEOUT_SECONDS
             while True:
                 try:
                     fcntl.flock(
-                        descriptor,
+                        root_descriptor,
                         fcntl.LOCK_EX | fcntl.LOCK_NB,
                     )
                     lock_acquired = True
@@ -182,10 +165,8 @@ def _locked_diagnostic_root(root_descriptor: int):
             yield
         finally:
             if lock_acquired:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                fcntl.flock(root_descriptor, fcntl.LOCK_UN)
     finally:
-        if descriptor is not None:
-            os.close(descriptor)
         DIAGNOSTIC_THREAD_LOCK.release()
 
 
@@ -441,7 +422,12 @@ def _retain_diagnostics(
                     raise LocalVerificationLaneError(
                         "local verification diagnostics cannot be bounded"
                     )
-                for stale in retained[MAX_RETAINED_DIAGNOSTIC_RUNS:]:
+                retained_without_current = tuple(
+                    name for name in retained if name != token
+                )
+                for stale in retained_without_current[
+                    MAX_RETAINED_DIAGNOSTIC_RUNS - 1 :
+                ]:
                     _remove_diagnostic_entry_at(root_descriptor, stale)
                 retained = _retained_diagnostic_entry_names(root_descriptor)
                 if (
@@ -798,7 +784,7 @@ def run_local_lane(
         )
     )
     temp_root.chmod(0o700)
-    retained = False
+    retention_attempted = False
     resolved_diagnostic_root = diagnostic_root or DEFAULT_DIAGNOSTIC_ROOT
     try:
         receipt = run_lane(
@@ -811,13 +797,13 @@ def run_local_lane(
         )
         if receipt.get("status") != "pass":
             _print_safe_pytest_failure_refs(receipt)
+            retention_attempted = True
             diagnostic_ref = _retain_diagnostics(
                 receipt,
                 diagnostic_root=resolved_diagnostic_root,
                 lane_ref=lane_ref,
                 repository_sha=repository_sha,
             )
-            retained = True
             print(f"Retained local diagnostics: {diagnostic_ref}")
             return 1
         if profile_output is not None:
@@ -826,14 +812,14 @@ def run_local_lane(
                 profile_output,
             )
     except BaseException:
-        if temp_root.exists() and not retained:
+        if temp_root.exists() and not retention_attempted:
+            retention_attempted = True
             diagnostic_ref = _retain_diagnostics(
                 None,
                 diagnostic_root=resolved_diagnostic_root,
                 lane_ref=lane_ref,
                 repository_sha=repository_sha,
             )
-            retained = True
             print(f"Retained local diagnostics: {diagnostic_ref}")
         raise
     finally:

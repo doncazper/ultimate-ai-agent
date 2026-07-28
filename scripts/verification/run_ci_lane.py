@@ -328,6 +328,65 @@ def _transient_output_metadata_from_descriptor(
     return output_bytes, digest.hexdigest()
 
 
+def _cleanup_transient_output_inode(
+    descriptor: int,
+    *,
+    temp_root: Path,
+) -> None:
+    """Erase the bound output inode and unlink its name when still reachable."""
+
+    os.ftruncate(descriptor, 0)
+    os.fsync(descriptor)
+    bound = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(bound.st_mode)
+        or bound.st_uid != os.getuid()
+        or bound.st_size != 0
+    ):
+        raise RuntimeError("CI transient output cleanup is unproven")
+    root_descriptor = os.open(
+        temp_root,
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        for name in tuple(os.listdir(root_descriptor)):
+            try:
+                candidate = os.stat(
+                    name,
+                    dir_fd=root_descriptor,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                continue
+            if (
+                candidate.st_dev == bound.st_dev
+                and candidate.st_ino == bound.st_ino
+            ):
+                os.unlink(name, dir_fd=root_descriptor)
+        os.fsync(root_descriptor)
+        for name in tuple(os.listdir(root_descriptor)):
+            try:
+                candidate = os.stat(
+                    name,
+                    dir_fd=root_descriptor,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                continue
+            if (
+                candidate.st_dev == bound.st_dev
+                and candidate.st_ino == bound.st_ino
+            ):
+                raise RuntimeError("CI transient output cleanup is unproven")
+    finally:
+        os.close(root_descriptor)
+    final = os.fstat(descriptor)
+    if final.st_size != 0:
+        raise RuntimeError("CI transient output cleanup is unproven")
+
+
 def expected_pytest_shard_plan_ref() -> str:
     return current_shard_plan_fingerprint(
         ROOT,
@@ -691,9 +750,13 @@ def _run_command(
             )
     finally:
         if output_descriptor is not None:
-            os.close(output_descriptor)
-        if output_path is not None:
-            output_path.unlink(missing_ok=True)
+            try:
+                _cleanup_transient_output_inode(
+                    output_descriptor,
+                    temp_root=temp_root,
+                )
+            finally:
+                os.close(output_descriptor)
 
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
     status_value = "pass" if returncode == 0 else "fail"

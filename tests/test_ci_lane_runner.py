@@ -1901,6 +1901,28 @@ def test_transient_output_metadata_uses_bound_inode_after_path_substitution(
     assert output_digest == hashlib.sha256(original_bytes).hexdigest()
 
 
+def test_transient_output_cleanup_erases_and_unlinks_bound_inode_after_substitution(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    moved_path = tmp_path / "moved-output"
+    output_path.write_bytes(b"raw-command-output")
+    descriptor = os.open(output_path, os.O_RDWR)
+    try:
+        output_path.rename(moved_path)
+        output_path.write_bytes(b"unrelated-replacement")
+        runner._cleanup_transient_output_inode(
+            descriptor,
+            temp_root=tmp_path,
+        )
+        assert os.fstat(descriptor).st_size == 0
+    finally:
+        os.close(descriptor)
+
+    assert not moved_path.exists()
+    assert output_path.read_bytes() == b"unrelated-replacement"
+
+
 @pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
 def test_run_command_preserves_spawn_cleanup_failure_over_pending_signal(
     tmp_path: Path,
