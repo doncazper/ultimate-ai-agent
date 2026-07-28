@@ -196,6 +196,31 @@ export function RuntimeReadinessPanel({
     }
   }
 
+  async function refreshGoalStateFromControl() {
+    if (mutationBinding === null || !runEventsBackendOwned) {
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        "Goal refresh is blocked until backend truth is current.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      await refreshGoalState();
+      setGoalNotice(
+        "Authoritative durable goal state refreshed from the backend.",
+      );
+    } catch (error) {
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Authoritative durable goal refresh failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
   function applyGoalSnapshot(goal: RuntimePersistentGoal) {
     setRuntimeGoalEvents((current) => {
       const existingIndex = current.goal_lifecycle.goals.findIndex(
@@ -289,6 +314,7 @@ export function RuntimeReadinessPanel({
         `Goal created at version ${result.goal.version}; no runtime work was started.`,
       );
     } catch (error) {
+      setGoalReadCurrent(false);
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -343,6 +369,7 @@ export function RuntimeReadinessPanel({
       }
       setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
     } catch (error) {
+      setGoalReadCurrent(false);
       setGoalNotice(
         error instanceof Error ? error.message : "Goal edit failed safely.",
       );
@@ -400,6 +427,7 @@ export function RuntimeReadinessPanel({
         `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
       );
     } catch (error) {
+      setGoalReadCurrent(false);
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -4145,6 +4173,17 @@ export function RuntimeReadinessPanel({
             returns current backend-owned durable state.
           </p>
         ) : null}
+        <button
+          type="button"
+          disabled={
+            goalMutationBusy ||
+            mutationBinding === null ||
+            !runEventsBackendOwned
+          }
+          onClick={refreshGoalStateFromControl}
+        >
+          Refresh durable goal state
+        </button>
         <form className="preview-form" onSubmit={createGoal}>
           <label>
             Objective

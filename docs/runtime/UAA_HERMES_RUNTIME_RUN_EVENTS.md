@@ -16,11 +16,18 @@ success criteria, constraints, in-scope resource refs, stop condition, budget,
 links, evidence refs, lifecycle state, version, and timestamps. The append-first
 goal journal is atomically replaced under a single-writer lock and checks its
 monotonic versions, idempotency refs, predecessor hashes, entry hashes, and
-deterministic entry refs on every read.
+deterministic entry refs on every read. A separately replaced head manifest
+anchors the exact entry count, terminal entry hash, and full idempotency-set
+fingerprint. The first journal commit is preceded by a durable genesis intent
+that binds the exact first entry, journal image, and head manifest; interrupted
+first commits can recover only that independently bound candidate. An
+unanchored first journal, a truncated prefix, or a journal/head disagreement
+fails closed.
 Goal text is accepted only under the explicit
 `operator_authored_redacted_summary_only` posture and rejects multiline,
 prompt-like, response-like, or secret-like raw-content shapes before durable
-persistence.
+persistence. POSIX, Windows drive, UNC, and file-URI absolute path shapes are
+also rejected without persisting the supplied content.
 Edit evidence is append-only: newly supplied evidence refs are unioned with
 the prior authoritative snapshot instead of replacing its audit history.
 Every transition journal entry also retains the validated reason ref, covered
@@ -46,8 +53,12 @@ decision grants no standing authority and cannot execute a runtime action.
 closed unless the current goal version links the exact run and the durable event
 store already contains a matching goal-bound receipt and proof. Every ordered
 success criterion must also bind to a criterion proof ref present in that exact
-trusted receipt; the built-in verifier hash covers the criterion/proof pairs,
-goal version, run, receipt, primary proof, and plan. Successful verification
+trusted terminal receipt. The receipt carries the exact goal/version,
+criterion ID, proof ref, verifier ref, and evaluator-receipt ref for each
+criterion; completion derives the ordered proof set from those trusted durable
+bindings rather than accepting client proof refs as evaluator provenance. The
+built-in verifier hash covers those criterion bindings, goal version, run,
+receipt, primary proof, and plan. Successful verification
 records all of those bindings in a terminal `completion_verified` event. Model
 output is never authoritative. The verified goal snapshot retains the exact run,
 receipt-derived plan, evidence, receipt, primary proof, criterion proofs, and
@@ -87,6 +98,10 @@ or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
 append preflights the complete next event and tombstone images before either
 file is replaced.
+If an interrupted append leaves the event journal exactly one accepted event
+ahead of its tombstone index, the next mutating path durably repairs that
+accepted tombstone generation before installing any different event. Repeated
+interruptions therefore cannot widen the bounded recovery window.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -107,6 +122,10 @@ idempotently after a process interruption. Reconciliation reads the tombstone
 index once and selects only records whose exact projection keys remain absent;
 already-projected history is not rewritten for every new invocation.
 `GET /api/runtime/run-events` and CLI inspection remain strictly read-only.
+Their aggregate event, summary, replay, and goal-lifecycle response is built
+from one canonical event-then-goal snapshot boundary; mutation paths use the
+same lock order, and absent-lock reads use bounded generation validation rather
+than creating or changing lock state.
 Blocked or approval-pending invocations are not projected as accepted runs.
 Projection-capacity or corruption failures are returned through redacted API
 and CLI error envelopes rather than escaping as unstructured failures. Local
@@ -159,6 +178,10 @@ authoritative snapshots before the follow-up read; a refresh failure cannot
 leave the UI on a stale version or misreport an accepted mutation as rejected.
 The follow-up event read is bound to the same selected backend-truth envelope,
 and every event preview is checked field-by-field before display.
+Any ambiguous create, edit, or transition error marks the durable goal read as
+stale and disables every goal mutation control. The separate read-only
+`Refresh durable goal state` control must complete an authoritative
+`GET /api/runtime/run-events` read before mutations become available again.
 The run-events operator read model includes cleared goals so its exact restore
 control remains reachable, while the dedicated default goal listing continues
 to hide cleared records.
@@ -185,7 +208,11 @@ failure, append-only edit evidence, hash-bound transition reasons, redacted CLI
 inspection failures, cleared-goal restore visibility, typed budget/link edits,
 trusted receipt-producer enforcement, successful-versus-failed
 RuntimeGateway projection, accepted RuntimeGateway producer wiring, approval wait/resume,
-controlled worker-restart evidence, and a second cancelled run. API and CLI
+controlled worker-restart evidence, a second cancelled run, first-commit
+failure at every genesis persistence boundary, unanchored-journal rejection,
+one-ahead tombstone repair, cross-store snapshot serialization, absolute-path
+family rejection, criterion/cross-transaction provenance substitution, and
+behavioral UI mutation lockout until authoritative refresh. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly
 created Control Center goal starts with empty relationship lists; the UI never

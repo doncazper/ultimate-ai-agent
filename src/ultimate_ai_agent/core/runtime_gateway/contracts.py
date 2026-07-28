@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
@@ -462,6 +462,31 @@ class RuntimeInvocationRequest(BaseModel):
         return self
 
 
+class RuntimeCriterionVerificationBinding(BaseModel):
+    """Trusted evaluator provenance for one exact goal success criterion."""
+
+    goal_ref: str = Field(..., min_length=1)
+    goal_version: StrictInt = Field(..., ge=1)
+    criterion_ref: str = Field(..., min_length=1)
+    proof_ref: str = Field(..., min_length=1)
+    verifier_ref: str = Field(..., min_length=1)
+    evaluator_receipt_ref: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "RuntimeCriterionVerificationBinding":
+        for value, field_name in (
+            (self.goal_ref, "goal_ref"),
+            (self.criterion_ref, "criterion_ref"),
+            (self.proof_ref, "proof_ref"),
+            (self.verifier_ref, "verifier_ref"),
+            (self.evaluator_receipt_ref, "evaluator_receipt_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        return self
+
+
 class RuntimeInvocationReceipt(BaseModel):
     receipt_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
@@ -471,6 +496,9 @@ class RuntimeInvocationReceipt(BaseModel):
     rollback: RuntimeRollbackRef = Field(default_factory=RuntimeRollbackRef)
     safe_disable: RuntimeSafeDisableState = Field(default_factory=RuntimeSafeDisableState)
     evidence_refs: list[str] = Field(default_factory=list)
+    criterion_verification_bindings: list[
+        RuntimeCriterionVerificationBinding
+    ] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS)
     )
@@ -501,6 +529,26 @@ class RuntimeInvocationReceipt(BaseModel):
             validate_execution_ref(value, field_name)
         for ref in self.evidence_refs:
             validate_execution_ref(ref, "evidence_ref")
+        if len(self.criterion_verification_bindings) > 32:
+            raise ValueError("RUNTIME_CRITERION_VERIFICATION_BINDING_LIMIT_EXCEEDED")
+        binding_keys = {
+            (
+                binding.goal_ref,
+                binding.goal_version,
+                binding.criterion_ref,
+            )
+            for binding in self.criterion_verification_bindings
+        }
+        if len(binding_keys) != len(self.criterion_verification_bindings):
+            raise ValueError("RUNTIME_CRITERION_VERIFICATION_BINDING_DUPLICATE")
+        if (
+            self.criterion_verification_bindings
+            and self.invocation_status
+            != RuntimeInvocationStatus.receipt_recorded.value
+        ):
+            raise ValueError(
+                "RUNTIME_CRITERION_VERIFICATION_TERMINAL_RECEIPT_REQUIRED"
+            )
         for ref in self.blocked_authority_refs:
             validate_execution_ref(ref, "blocked_authority_ref")
         for redaction in self.redactions_applied:
@@ -834,6 +882,14 @@ class RuntimeInvocationRecord(BaseModel):
             validate_execution_ref(value, field_name)
         if self.receipt and self.receipt.invocation_ref != self.invocation_ref:
             raise ValueError("RUNTIME_RECEIPT_INVOCATION_REF_MISMATCH")
+        if self.receipt and self.receipt.criterion_verification_bindings:
+            if self.request.mission_ref is None or any(
+                binding.goal_ref != self.request.mission_ref
+                for binding in self.receipt.criterion_verification_bindings
+            ):
+                raise ValueError(
+                    "RUNTIME_CRITERION_VERIFICATION_GOAL_BINDING_MISMATCH"
+                )
         return self
 
 

@@ -380,3 +380,22 @@ def test_control_center_product_language_rules_are_current_and_enforced() -> Non
         "plugin_runtime_enabled",
     ]:
         assert forbidden not in serialized
+
+
+def test_goal_mutation_errors_invalidate_control_center_read_freshness() -> None:
+    source = (
+        ROOT / "apps/control-center/src/components/RuntimeReadinessPanel.tsx"
+    ).read_text(encoding="utf-8")
+    function_boundaries = [
+        ("createGoal", "saveGoalObjective"),
+        ("saveGoalObjective", "transitionGoal"),
+        ("transitionGoal", "const booleans"),
+    ]
+
+    for function_name, next_boundary in function_boundaries:
+        start = source.index(f"async function {function_name}")
+        end = source.index(next_boundary, start)
+        function_source = source[start:end]
+        assert "} catch (error) {" in function_source
+        catch_source = function_source.rsplit("} catch (error) {", maxsplit=1)[1]
+        assert "setGoalReadCurrent(false);" in catch_source

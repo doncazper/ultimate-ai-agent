@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 import threading
 import uuid
@@ -66,6 +67,7 @@ MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
 MAX_GOAL_JOURNAL_ENTRIES = 4096
 MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
 MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
+MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES = 128 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
@@ -91,6 +93,12 @@ _RAW_CONTENT_MARKERS = (
     "<|user|>",
     "<|assistant|>",
     "<|tool|>",
+)
+_ABSOLUTE_LOCAL_PATH_PATTERNS = (
+    re.compile(r"(?:^|[\s\"'(<\[=])/(?:/)?[^\s\"')>\],;]+"),
+    re.compile(r"(?:^|[\s\"'(<\[=])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
+    re.compile(r"(?:^|[\s\"'(<\[=])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
+    re.compile(r"\bfile:(?://|%2f)", re.IGNORECASE),
 )
 
 
@@ -210,7 +218,7 @@ def build_goal_completion_evidence_ref(
     run_ref: str,
     receipt_ref: str,
     proof_ref: str,
-    criterion_proof_refs: list[str],
+    criterion_verifier_bindings: list["DurableCriterionVerifierBinding"],
     plan_ref: str | None,
 ) -> str:
     """Bind the built-in verifier result to exact durable goal/run evidence."""
@@ -225,9 +233,10 @@ def build_goal_completion_evidence_ref(
             "run_ref": run_ref,
             "receipt_ref": receipt_ref,
             "proof_ref": proof_ref,
-            "criterion_proof_bindings": list(
-                zip(goal.success_criteria, criterion_proof_refs, strict=True)
-            ),
+            "criterion_verifier_bindings": [
+                binding.model_dump(mode="json")
+                for binding in criterion_verifier_bindings
+            ],
             "plan_ref": plan_ref,
         },
     )
@@ -296,6 +305,10 @@ def _bounded_safe_text(value: str, field_name: str) -> str:
 
 
 def _bounded_redacted_summary(value: str, field_name: str) -> str:
+    if isinstance(value, str) and any(
+        pattern.search(value.strip()) for pattern in _ABSOLUTE_LOCAL_PATH_PATTERNS
+    ):
+        raise ValueError("GOAL_RAW_CONTENT_PERSISTENCE_DENIED")
     candidate = _bounded_safe_text(value, field_name)
     lowered = candidate.casefold()
     if (
@@ -303,9 +316,29 @@ def _bounded_redacted_summary(value: str, field_name: str) -> str:
         or "\r" in candidate
         or any(marker in lowered for marker in _RAW_CONTENT_MARKERS)
         or lowered.startswith(("summarize ", "translate ", "respond to "))
+        or any(pattern.search(candidate) for pattern in _ABSOLUTE_LOCAL_PATH_PATTERNS)
     ):
         raise ValueError("GOAL_RAW_CONTENT_PERSISTENCE_DENIED")
     return candidate
+
+
+def build_goal_criterion_ref(
+    goal: "PersistentGoal",
+    *,
+    criterion_index: int,
+    criterion_summary: str,
+) -> str:
+    """Return the stable identifier a trusted evaluator must bind."""
+
+    return _sha256_ref(
+        "criterion-ref:goal-runtime",
+        {
+            "goal_ref": goal.goal_ref,
+            "goal_version": goal.version,
+            "criterion_index": criterion_index,
+            "criterion_summary": criterion_summary,
+        },
+    )
 
 
 def _validate_refs(refs: Iterable[str], field_name: str) -> list[str]:
@@ -744,6 +777,56 @@ class GoalJournalHeadManifest(BaseModel):
         return self
 
 
+class GoalJournalGenesisIntent(BaseModel):
+    """Independently durable binding for the exact first journal generation."""
+
+    schema_version: Literal["goal_journal_genesis_intent.v1"] = (
+        "goal_journal_genesis_intent.v1"
+    )
+    entry: GoalJournalEntry
+    head_manifest: GoalJournalHeadManifest
+    journal_content_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "GoalJournalGenesisIntent":
+        validate_execution_ref(
+            self.journal_content_hash_ref,
+            "journal_content_hash_ref",
+        )
+        if self.head_manifest.entry_count != 1:
+            raise ValueError("GOAL_JOURNAL_GENESIS_INTENT_ARITY_INVALID")
+        if self.head_manifest.head_entry_hash_ref != self.entry.entry_hash_ref:
+            raise ValueError("GOAL_JOURNAL_GENESIS_INTENT_HEAD_MISMATCH")
+        return self
+
+
+class DurableCriterionVerifierBinding(BaseModel):
+    """Criterion proof and evaluator provenance copied from a trusted receipt."""
+
+    goal_ref: str
+    goal_version: StrictInt = Field(ge=1)
+    criterion_ref: str
+    proof_ref: str
+    verifier_ref: str
+    evaluator_receipt_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "DurableCriterionVerifierBinding":
+        for value, field_name in (
+            (self.goal_ref, "goal_ref"),
+            (self.criterion_ref, "criterion_ref"),
+            (self.proof_ref, "proof_ref"),
+            (self.verifier_ref, "verifier_ref"),
+            (self.evaluator_receipt_ref, "evaluator_receipt_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        return self
+
+
 class DurableRunEventAppendRequest(BaseModel):
     run_ref: str
     run_type: AcceptedLocalRunType
@@ -751,6 +834,9 @@ class DurableRunEventAppendRequest(BaseModel):
     safe_summary: str
     proof_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
+    criterion_verifier_bindings: list[DurableCriterionVerifierBinding] = Field(
+        default_factory=list
+    )
     goal_ref: str | None = None
     plan_ref: str | None = None
     idempotency_ref: str
@@ -775,6 +861,19 @@ class DurableRunEventAppendRequest(BaseModel):
         )
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        if len(self.criterion_verifier_bindings) > MAX_GOAL_LIST_ITEMS:
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_LIMIT_EXCEEDED")
+        binding_keys = {
+            (binding.goal_ref, binding.goal_version, binding.criterion_ref)
+            for binding in self.criterion_verifier_bindings
+        }
+        if len(binding_keys) != len(self.criterion_verifier_bindings):
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_DUPLICATE")
+        if (
+            self.criterion_verifier_bindings
+            and self.event_kind != DurableRunEventKind.receipt_recorded.value
+        ):
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_KIND_INVALID")
         if (
             self.event_kind == DurableRunEventKind.goal_linked.value
             and self.goal_ref is None
@@ -805,6 +904,9 @@ class DurableRunEvent(BaseModel):
     safe_summary: str
     proof_refs: list[str]
     receipt_refs: list[str]
+    criterion_verifier_bindings: list[DurableCriterionVerifierBinding] = Field(
+        default_factory=list
+    )
     goal_ref: str | None = None
     plan_ref: str | None = None
     idempotency_ref: str
@@ -836,6 +938,19 @@ class DurableRunEvent(BaseModel):
         )
         self.proof_refs = _validate_refs(self.proof_refs, "proof_refs")
         self.receipt_refs = _validate_refs(self.receipt_refs, "receipt_refs")
+        if len(self.criterion_verifier_bindings) > MAX_GOAL_LIST_ITEMS:
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_LIMIT_EXCEEDED")
+        binding_keys = {
+            (binding.goal_ref, binding.goal_version, binding.criterion_ref)
+            for binding in self.criterion_verifier_bindings
+        }
+        if len(binding_keys) != len(self.criterion_verifier_bindings):
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_DUPLICATE")
+        if (
+            self.criterion_verifier_bindings
+            and self.event_kind != DurableRunEventKind.receipt_recorded.value
+        ):
+            raise ValueError("RUN_EVENT_CRITERION_BINDING_KIND_INVALID")
         if (
             self.event_kind == DurableRunEventKind.goal_linked.value
             and self.goal_ref is None
@@ -981,6 +1096,9 @@ class _GoalJournalStore:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goals.jsonl"
         self.head_path = self.state_dir / "goal_journal_head.json"
+        self.genesis_intent_path = (
+            self.state_dir / "goal_journal_genesis_intent.json"
+        )
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     def create(
@@ -1273,7 +1391,22 @@ class _GoalJournalStore:
         return [goal.model_copy(deep=True) for goal in goals]
 
     def read_model(self, *, include_cleared: bool = False) -> GoalLifecycleReadModel:
-        goals = self.list(include_cleared=include_cleared)
+        return self._read_model_from_entries(
+            self._load_consistent_entries(),
+            include_cleared=include_cleared,
+        )
+
+    def _read_model_from_entries(
+        self,
+        entries: list[GoalJournalEntry],
+        *,
+        include_cleared: bool,
+    ) -> GoalLifecycleReadModel:
+        goals = list(self._latest_by_goal(entries).values())
+        goals.sort(key=lambda goal: (goal.updated_at, goal.goal_ref), reverse=True)
+        if not include_cleared:
+            goals = [goal for goal in goals if goal.state != GoalState.cleared.value]
+        goals = [goal.model_copy(deep=True) for goal in goals]
         return GoalLifecycleReadModel(
             goals=goals,
             goal_count=len(goals),
@@ -1562,6 +1695,7 @@ class _GoalJournalStore:
         *,
         repair_manifest: bool = False,
     ) -> list[GoalJournalEntry]:
+        genesis_intent = self._load_genesis_intent()
         raw_content = _read_bounded_regular_utf8(
             self.path,
             max_bytes=MAX_GOAL_JOURNAL_BYTES,
@@ -1570,6 +1704,17 @@ class _GoalJournalStore:
             corruption_error="GOAL_JOURNAL_CORRUPT",
         )
         if raw_content is None:
+            if genesis_intent is not None:
+                if self._load_head_manifest() is not None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_GENESIS_INTENT_STATE_MISMATCH"
+                    )
+                if not repair_manifest:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_GENESIS_RECOVERY_REQUIRED"
+                    )
+                self._install_genesis_intent(genesis_intent)
+                return [genesis_intent.entry.model_copy(deep=True)]
             if self._load_head_manifest() is not None:
                 raise GoalRuntimeCorruptionError(
                     "GOAL_JOURNAL_MISSING_WITH_HEAD_MANIFEST"
@@ -1625,9 +1770,35 @@ class _GoalJournalStore:
             raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT") from exc
         manifest = self._load_head_manifest()
         if manifest is None:
+            if (
+                genesis_intent is not None
+                and len(entries) == 1
+                and genesis_intent.entry == entries[0]
+                and genesis_intent.head_manifest
+                == self._build_head_manifest(entries)
+                and genesis_intent.journal_content_hash_ref
+                == self._journal_content_hash(entries)
+            ):
+                if repair_manifest:
+                    self._write_head_manifest(genesis_intent.head_manifest)
+                    self._delete_genesis_intent()
+                return entries
             raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_MISSING")
         exact_manifest = self._build_head_manifest(entries)
         if manifest == exact_manifest:
+            if genesis_intent is not None:
+                if (
+                    len(entries) != 1
+                    or genesis_intent.entry != entries[0]
+                    or genesis_intent.head_manifest != exact_manifest
+                    or genesis_intent.journal_content_hash_ref
+                    != self._journal_content_hash(entries)
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_GENESIS_INTENT_STATE_MISMATCH"
+                    )
+                if repair_manifest:
+                    self._delete_genesis_intent()
             return entries
         if len(entries) == manifest.entry_count + 1:
             previous_manifest = self._build_head_manifest(entries[:-1])
@@ -1640,15 +1811,84 @@ class _GoalJournalStore:
     def _load_consistent_entries(self) -> list[GoalJournalEntry]:
         for _attempt in range(3):
             try:
-                with _nonmutating_goal_runtime_read_lock(
-                    self.state_dir / ".locks",
-                    "goal-journal",
-                    generation_paths=(self.path, self.head_path),
-                ):
+                with self.consistent_read():
                     return self._load_entries()
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_JOURNAL_GENERATION_UNSTABLE")
+
+    @contextmanager
+    def consistent_read(self) -> Iterator[None]:
+        with _nonmutating_goal_runtime_read_lock(
+            self.state_dir / ".locks",
+            "goal-journal",
+            generation_paths=(
+                self.path,
+                self.head_path,
+                self.genesis_intent_path,
+            ),
+        ):
+            yield
+
+    def _load_genesis_intent(self) -> GoalJournalGenesisIntent | None:
+        raw_content = _read_bounded_regular_utf8(
+            self.genesis_intent_path,
+            max_bytes=MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_JOURNAL_GENESIS_INTENT_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_JOURNAL_GENESIS_INTENT_CORRUPT",
+        )
+        if raw_content is None:
+            return None
+        try:
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_EMPTY"
+                )
+            intent = GoalJournalGenesisIntent.model_validate_json(raw_content)
+            if (
+                intent.entry.previous_entry_hash_ref is not None
+                or intent.entry.goal_version != 1
+                or intent.entry.goal.version != 1
+                or intent.entry.operation != GoalJournalOperation.create.value
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_ENTRY_BINDING_MISMATCH"
+                )
+            expected_entry_ref = _sha256_ref(
+                "goal-journal-entry-ref",
+                {
+                    "goal_ref": intent.entry.goal_ref,
+                    "version": intent.entry.goal_version,
+                    "operation": intent.entry.operation,
+                },
+            )
+            if intent.entry.entry_ref != expected_entry_ref:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_ENTRY_BINDING_MISMATCH"
+                )
+            if intent.entry.entry_hash_ref != self._entry_hash(intent.entry):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_ENTRY_HASH_MISMATCH"
+                )
+            expected_manifest = self._build_head_manifest([intent.entry])
+            if intent.head_manifest != expected_manifest:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_HEAD_MISMATCH"
+                )
+            if intent.journal_content_hash_ref != self._journal_content_hash(
+                [intent.entry]
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_GENESIS_INTENT_CONTENT_MISMATCH"
+                )
+            return intent
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_GENESIS_INTENT_CORRUPT"
+            ) from exc
 
     def _load_head_manifest(self) -> GoalJournalHeadManifest | None:
         raw_content = _read_bounded_regular_utf8(
@@ -1700,13 +1940,56 @@ class _GoalJournalStore:
             raise GoalRuntimeError("GOAL_JOURNAL_HEAD_MANIFEST_CAPACITY_EXCEEDED")
         _atomic_write(self.head_path, content)
 
+    @staticmethod
+    def _journal_content(entries: list[GoalJournalEntry]) -> str:
+        return "".join(entry.model_dump_json() + "\n" for entry in entries)
+
+    @classmethod
+    def _journal_content_hash(cls, entries: list[GoalJournalEntry]) -> str:
+        return _sha256_ref(
+            "journal-content-hash-ref:goal-journal",
+            cls._journal_content(entries),
+        )
+
+    def _write_genesis_intent(self, intent: GoalJournalGenesisIntent) -> None:
+        content = intent.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES:
+            raise GoalRuntimeError("GOAL_JOURNAL_GENESIS_INTENT_CAPACITY_EXCEEDED")
+        _atomic_write(self.genesis_intent_path, content)
+
+    def _delete_genesis_intent(self) -> None:
+        try:
+            self.genesis_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+    def _install_genesis_intent(self, intent: GoalJournalGenesisIntent) -> None:
+        _atomic_write(self.path, self._journal_content([intent.entry]))
+        self._write_head_manifest(intent.head_manifest)
+        self._delete_genesis_intent()
+
     def _write_entries(self, entries: list[GoalJournalEntry]) -> None:
-        content = "".join(entry.model_dump_json() + "\n" for entry in entries)
+        content = self._journal_content(entries)
         if (
             len(entries) > MAX_GOAL_JOURNAL_ENTRIES
             or len(content.encode("utf-8")) > MAX_GOAL_JOURNAL_BYTES
         ):
             raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
+        first_generation = (
+            len(entries) == 1
+            and not _path_generation(self.path)[0]
+            and not _path_generation(self.head_path)[0]
+        )
+        if first_generation:
+            manifest = self._build_head_manifest(entries)
+            intent = GoalJournalGenesisIntent(
+                entry=entries[0],
+                head_manifest=manifest,
+                journal_content_hash_ref=self._journal_content_hash(entries),
+            )
+            self._write_genesis_intent(intent)
+            self._install_genesis_intent(intent)
+            return
         _atomic_write(self.path, content)
         self._write_head_manifest(self._build_head_manifest(entries))
 
@@ -1906,7 +2189,14 @@ class _DurableRunEventStore:
         reservation_ref: str | None = None,
     ) -> DurableRunEvent:
         events = self._load_events()
+        persisted_tombstones = self._load_persisted_idempotency_tombstones()
         tombstones = self._load_idempotency_tombstones(events)
+        if tombstones != persisted_tombstones:
+            # A prior append may have installed the event journal immediately
+            # before a process loss. Close that single recoverable generation
+            # before installing any different event so repeated interruptions
+            # can never advance the journal two generations past provenance.
+            self._write_idempotency_tombstones(tombstones.values())
         loaded_reservations = self._load_projection_reservations()
         reservations = {
             ref: reservation
@@ -1985,6 +2275,7 @@ class _DurableRunEventStore:
             safe_summary=validated.safe_summary,
             proof_refs=validated.proof_refs,
             receipt_refs=validated.receipt_refs,
+            criterion_verifier_bindings=validated.criterion_verifier_bindings,
             goal_ref=validated.goal_ref,
             plan_ref=validated.plan_ref,
             idempotency_ref=validated.idempotency_ref,
@@ -2036,6 +2327,21 @@ class _DurableRunEventStore:
             raise ValueError("RUN_EVENT_CURSOR_INVALID")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
         events, _tombstones = self._load_consistent_generation()
+        return self._replay_from_events(
+            events,
+            run_ref=run_ref,
+            after_sequence=after_sequence,
+            limit=bounded_limit,
+        )
+
+    @staticmethod
+    def _replay_from_events(
+        events: list[DurableRunEvent],
+        *,
+        run_ref: str,
+        after_sequence: int,
+        limit: int,
+    ) -> RunEventReplayReadModel:
         same_run = [event for event in events if event.run_ref == run_ref]
         if not same_run:
             return RunEventReplayReadModel(
@@ -2073,7 +2379,7 @@ class _DurableRunEventStore:
                 gap_detected=True,
             )
         selected = [event for event in same_run if event.sequence > after_sequence][
-            :bounded_limit
+            :limit
         ]
         next_cursor = selected[-1].sequence if selected else after_sequence
         return RunEventReplayReadModel(
@@ -2088,8 +2394,14 @@ class _DurableRunEventStore:
         )
 
     def summaries(self) -> list[RunEventStreamSummary]:
-        grouped: dict[str, list[DurableRunEvent]] = {}
         events, _tombstones = self._load_consistent_generation()
+        return self._summaries_from_events(events)
+
+    @staticmethod
+    def _summaries_from_events(
+        events: list[DurableRunEvent],
+    ) -> list[RunEventStreamSummary]:
+        grouped: dict[str, list[DurableRunEvent]] = {}
         for event in events:
             grouped.setdefault(event.run_ref, []).append(event)
         summaries = [
@@ -2127,9 +2439,22 @@ class _DurableRunEventStore:
             validate_execution_ref(run_ref, "run_ref")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
         events, _tombstones = self._load_consistent_generation()
+        return self._retained_from_events(
+            events,
+            run_ref=run_ref,
+            limit=bounded_limit,
+        )
+
+    @staticmethod
+    def _retained_from_events(
+        events: list[DurableRunEvent],
+        *,
+        run_ref: str | None,
+        limit: int,
+    ) -> list[DurableRunEvent]:
         if run_ref is not None:
             events = [event for event in events if event.run_ref == run_ref]
-        return [event.model_copy(deep=True) for event in events[-bounded_limit:]]
+        return [event.model_copy(deep=True) for event in events[-limit:]]
 
     def has_completion_evidence(
         self,
@@ -2215,18 +2540,16 @@ class _DurableRunEventStore:
                 if tombstone.event not in events
             ),
         ]
-        return next(
-            (
-                event
-                for event in candidates
-                if event.run_ref == run_ref
-                and event.goal_ref == goal_ref
-                and event.event_kind == DurableRunEventKind.receipt_recorded.value
-                and receipt_ref in event.receipt_refs
-                and proof_ref in event.proof_refs
-            ),
-            None,
-        )
+        matching = [
+            event
+            for event in candidates
+            if event.run_ref == run_ref
+            and event.goal_ref == goal_ref
+            and event.event_kind == DurableRunEventKind.receipt_recorded.value
+            and receipt_ref in event.receipt_refs
+            and proof_ref in event.proof_refs
+        ]
+        return max(matching, key=lambda event: event.sequence, default=None)
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
         validate_execution_ref(run_ref, "run_ref")
@@ -2252,6 +2575,10 @@ class _DurableRunEventStore:
             "safe_summary": event.safe_summary,
             "proof_refs": event.proof_refs,
             "receipt_refs": event.receipt_refs,
+            "criterion_verifier_bindings": [
+                binding.model_dump(mode="json")
+                for binding in event.criterion_verifier_bindings
+            ],
             "goal_ref": event.goal_ref,
             "plan_ref": event.plan_ref,
             "idempotency_ref": event.idempotency_ref,
@@ -2911,6 +3238,70 @@ class GoalRuntimeService:
             return cls(DEFAULT_GOAL_RUNTIME_STATE_DIR)
         return cls(candidate / "goal_runtime")
 
+    def aggregate_read_snapshot(
+        self,
+        *,
+        run_ref: str | None,
+        after_sequence: int,
+        limit: int,
+    ) -> tuple[
+        RunEventReplayReadModel | None,
+        list[DurableRunEvent],
+        list[RunEventStreamSummary],
+        GoalLifecycleReadModel,
+    ]:
+        """Read the event and goal projections from one canonical generation.
+
+        The lock order is always run-events then goal-journal, matching the
+        only mutation that spans both stores. Missing first-generation lock
+        files retain the bounded optimistic-generation checks implemented by
+        the non-mutating read lock.
+        """
+
+        if run_ref is not None:
+            validate_execution_ref(run_ref, "run_ref")
+        if after_sequence < 0:
+            raise ValueError("RUN_EVENT_CURSOR_INVALID")
+        bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
+        for _attempt in range(3):
+            try:
+                with self._events.consistent_read():
+                    with self.goals.consistent_read():
+                        events = self._events._load_events()
+                        self._events._load_idempotency_tombstones(events)
+                        entries = self.goals._load_entries()
+                        replay = (
+                            self._events._replay_from_events(
+                                events,
+                                run_ref=run_ref,
+                                after_sequence=after_sequence,
+                                limit=bounded_limit,
+                            )
+                            if run_ref is not None
+                            else None
+                        )
+                        retained = (
+                            replay.events
+                            if replay is not None
+                            else self._events._retained_from_events(
+                                events,
+                                run_ref=None,
+                                limit=bounded_limit,
+                            )
+                        )
+                        return (
+                            replay,
+                            retained,
+                            self._events._summaries_from_events(events),
+                            self.goals._read_model_from_entries(
+                                entries,
+                                include_cleared=True,
+                            ),
+                        )
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError("GOAL_RUNTIME_AGGREGATE_GENERATION_UNSTABLE")
+
     def create_goal(
         self,
         request: GoalCreateRequest,
@@ -3002,15 +3393,43 @@ class GoalRuntimeService:
                     proof_ref=evidence.proof_ref,
                     goal_ref=goal_ref,
                 )
-                if len(evidence.criterion_proof_refs) != len(current.success_criteria):
-                    raise GoalTransitionDeniedError(
-                        "GOAL_COMPLETION_CRITERION_PROOF_ARITY_MISMATCH"
+                expected_criterion_refs = [
+                    build_goal_criterion_ref(
+                        current,
+                        criterion_index=index,
+                        criterion_summary=criterion,
                     )
-                if not set(evidence.criterion_proof_refs).issubset(
-                    receipt_event.proof_refs
+                    for index, criterion in enumerate(current.success_criteria)
+                ]
+                matching_bindings = {
+                    binding.criterion_ref: binding
+                    for binding in receipt_event.criterion_verifier_bindings
+                    if binding.goal_ref == current.goal_ref
+                    and binding.goal_version == current.version
+                }
+                if set(matching_bindings) != set(expected_criterion_refs):
+                    raise GoalTransitionDeniedError(
+                        "GOAL_COMPLETION_CRITERION_VERIFIER_BINDING_MISMATCH"
+                    )
+                ordered_bindings = [
+                    matching_bindings[criterion_ref]
+                    for criterion_ref in expected_criterion_refs
+                ]
+                if any(
+                    binding.verifier_ref != GOAL_COMPLETION_VERIFIER_REF
+                    or binding.proof_ref not in receipt_event.proof_refs
+                    or binding.evaluator_receipt_ref not in receipt_event.proof_refs
+                    for binding in ordered_bindings
                 ):
                     raise GoalTransitionDeniedError(
-                        "GOAL_COMPLETION_CRITERION_PROOF_NOT_FOUND"
+                        "GOAL_COMPLETION_CRITERION_VERIFIER_NOT_TRUSTED"
+                    )
+                derived_criterion_proof_refs = [
+                    binding.proof_ref for binding in ordered_bindings
+                ]
+                if evidence.criterion_proof_refs != derived_criterion_proof_refs:
+                    raise GoalTransitionDeniedError(
+                        "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH"
                     )
                 completion_plan_ref = receipt_event.plan_ref
                 if current.links.plan_refs:
@@ -3031,7 +3450,7 @@ class GoalRuntimeService:
                     run_ref=evidence.run_ref,
                     receipt_ref=evidence.receipt_ref,
                     proof_ref=evidence.proof_ref,
-                    criterion_proof_refs=evidence.criterion_proof_refs,
+                    criterion_verifier_bindings=ordered_bindings,
                     plan_ref=completion_plan_ref,
                 )
                 if evidence.evidence_ref != expected_evidence_ref:
@@ -3092,6 +3511,8 @@ class GoalRuntimeService:
     def reconcile_durable_events(self) -> None:
         """Repair deterministic journal-to-event projections on a mutating path."""
 
+        with _normalized_goal_runtime_lock(self.goals._locks, "goal-journal"):
+            self.goals._load_entries(repair_manifest=True)
         self._reconcile_verified_completion_events()
 
     def _append_verified_completion_event(
@@ -3269,6 +3690,14 @@ class GoalRuntimeService:
                 [
                     receipt.policy_decision_ref,
                     *receipt.evidence_refs,
+                    *(
+                        binding.proof_ref
+                        for binding in receipt.criterion_verification_bindings
+                    ),
+                    *(
+                        binding.evaluator_receipt_ref
+                        for binding in receipt.criterion_verification_bindings
+                    ),
                 ]
             )
         )
@@ -3319,6 +3748,12 @@ class GoalRuntimeService:
                     ),
                     proof_refs=proof_refs,
                     receipt_refs=[receipt.receipt_ref],
+                    criterion_verifier_bindings=[
+                        DurableCriterionVerifierBinding.model_validate(
+                            binding.model_dump(mode="json")
+                        )
+                        for binding in receipt.criterion_verification_bindings
+                    ],
                     goal_ref=goal_ref,
                     plan_ref=plan_ref,
                     idempotency_ref=_sha256_ref(

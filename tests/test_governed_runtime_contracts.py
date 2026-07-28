@@ -28,8 +28,10 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeCommandExecutionRequest,
     RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
+    RuntimeCriterionVerificationBinding,
     RuntimeGateway,
     RuntimeInvocationConflictError,
+    RuntimeInvocationRecord,
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
@@ -447,6 +449,61 @@ def test_runtime_receipts_cannot_claim_execution() -> None:
             policy_decision_ref=decision.policy_decision_ref,
             invocation_status=RuntimeInvocationStatus.execution_blocked,
             execution_performed=True,
+        )
+
+
+def test_runtime_criterion_verifier_provenance_requires_exact_terminal_goal() -> None:
+    binding = RuntimeCriterionVerificationBinding(
+        goal_ref="goal-ref:criterion-provenance",
+        goal_version=2,
+        criterion_ref="criterion-ref:criterion-provenance:one",
+        proof_ref="proof-ref:criterion-provenance:one",
+        verifier_ref="verifier-ref:criterion-provenance",
+        evaluator_receipt_ref="receipt-ref:evaluator:criterion-provenance:one",
+    )
+    request = _runtime_request()
+    payload_ref = runtime_payload_fingerprint_ref(request)
+    invocation_ref = runtime_invocation_ref(
+        "idempotency-ref:criterion-provenance",
+        payload_ref,
+    )
+    decision = build_policy_decision(request, invocation_ref=invocation_ref)
+    with pytest.raises(
+        ValidationError,
+        match="RUNTIME_CRITERION_VERIFICATION_TERMINAL_RECEIPT_REQUIRED",
+    ):
+        RuntimeInvocationReceipt(
+            receipt_ref="runtime-receipt-ref:criterion-provenance",
+            invocation_ref=invocation_ref,
+            policy_decision_ref=decision.policy_decision_ref,
+            invocation_status=RuntimeInvocationStatus.execution_blocked,
+            criterion_verification_bindings=[binding],
+        )
+
+    receipt = RuntimeInvocationReceipt(
+        receipt_ref="runtime-receipt-ref:criterion-provenance",
+        invocation_ref=invocation_ref,
+        policy_decision_ref=decision.policy_decision_ref,
+        invocation_status=RuntimeInvocationStatus.receipt_recorded,
+        criterion_verification_bindings=[binding],
+    )
+    with pytest.raises(
+        ValidationError,
+        match="RUNTIME_CRITERION_VERIFICATION_GOAL_BINDING_MISMATCH",
+    ):
+        RuntimeInvocationRecord.model_validate(
+            {
+                "invocation_ref": invocation_ref,
+                "request": request.model_dump(mode="json"),
+                "policy_decision": decision.model_dump(mode="json"),
+                "approval_requirement": (
+                    decision.approval_requirement.model_dump(mode="json")
+                ),
+                "receipt": receipt.model_dump(mode="json"),
+                "payload_fingerprint_ref": payload_ref,
+                "idempotency_ref": "idempotency-ref:criterion-provenance",
+                "status": RuntimeInvocationStatus.receipt_recorded,
+            }
         )
 
 

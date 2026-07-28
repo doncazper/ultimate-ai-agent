@@ -16,15 +16,43 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
+    DurableCriterionVerifierBinding,
     DurableRunEvent,
     DurableRunEventAppendRequest,
     DurableRunEventKind,
     GOAL_COMPLETION_VERIFIER_REF,
     GoalRuntimeError,
     GoalRuntimeService,
+    PersistentGoal,
+    build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
     capture_exact_goal_mutation_approval,
 )
+
+
+def _criterion_bindings(
+    goal: PersistentGoal,
+    proof_refs: list[str],
+    *,
+    evaluator_prefix: str,
+) -> list[DurableCriterionVerifierBinding]:
+    return [
+        DurableCriterionVerifierBinding(
+            goal_ref=goal.goal_ref,
+            goal_version=goal.version,
+            criterion_ref=build_goal_criterion_ref(
+                goal,
+                criterion_index=index,
+                criterion_summary=criterion,
+            ),
+            proof_ref=proof_ref,
+            verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
+            evaluator_receipt_ref=f"{evaluator_prefix}:{index + 1}",
+        )
+        for index, (criterion, proof_ref) in enumerate(
+            zip(goal.success_criteria, proof_refs, strict=True)
+        )
+    ]
 
 
 @pytest.fixture
@@ -384,6 +412,12 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     ).json()["data"]["goal"]
     assert requested["state"] == "complete_requested"
 
+    requested_goal = service.goals.get(goal["goal_ref"])
+    criterion_bindings = _criterion_bindings(
+        requested_goal,
+        ["proof-ref:api-cli:one"],
+        evaluator_prefix="evaluator-receipt-ref:api-cli",
+    )
     _append_event(
         service,
         DurableRunEventAppendRequest(
@@ -391,21 +425,24 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             run_type=AcceptedLocalRunType.local_read_task,
             event_kind=DurableRunEventKind.receipt_recorded,
             safe_summary="Accepted local task recorded a redacted receipt.",
-            proof_refs=["proof-ref:api-cli:one"],
+            proof_refs=[
+                "proof-ref:api-cli:one",
+                *(binding.evaluator_receipt_ref for binding in criterion_bindings),
+            ],
             receipt_refs=["receipt-ref:api-cli:one"],
+            criterion_verifier_bindings=criterion_bindings,
             goal_ref=goal["goal_ref"],
             plan_ref="plan-ref:api-cli:one",
             idempotency_ref="idempotency-ref:api-cli-event-receipt",
             authority_decision_ref="authority-decision-ref:api-cli:accepted-local",
         ),
     )
-    requested_goal = service.goals.get(goal["goal_ref"])
     completion_evidence_ref = build_goal_completion_evidence_ref(
         requested_goal,
         run_ref="run-ref:api-cli:one",
         receipt_ref="receipt-ref:api-cli:one",
         proof_ref="proof-ref:api-cli:one",
-        criterion_proof_refs=["proof-ref:api-cli:one"],
+        criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
     verified = client.post(
@@ -840,12 +877,38 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:completion-request"},
     ).json()["data"]["goal"]
     requested_goal = restored.goals.get(created["goal_ref"])
+    criterion_bindings = _criterion_bindings(
+        requested_goal,
+        ["proof-ref:e2e:accepted-local"],
+        evaluator_prefix="evaluator-receipt-ref:e2e",
+    )
+    _append_event(
+        restored,
+        DurableRunEventAppendRequest(
+            run_ref=run_ref,
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary=(
+                "The trusted evaluator bound the exact requested criterion."
+            ),
+            proof_refs=[
+                "proof-ref:e2e:accepted-local",
+                *(binding.evaluator_receipt_ref for binding in criterion_bindings),
+            ],
+            receipt_refs=["receipt-ref:e2e:accepted-local"],
+            criterion_verifier_bindings=criterion_bindings,
+            goal_ref=created["goal_ref"],
+            plan_ref="plan-ref:api-cli:one",
+            idempotency_ref="idempotency-ref:e2e:event:criterion-verification",
+            authority_decision_ref="authority-decision-ref:e2e:accepted-local",
+        ),
+    )
     completion_evidence_ref = build_goal_completion_evidence_ref(
         requested_goal,
         run_ref=run_ref,
         receipt_ref="receipt-ref:e2e:accepted-local",
         proof_ref="proof-ref:e2e:accepted-local",
-        criterion_proof_refs=["proof-ref:e2e:accepted-local"],
+        criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
     verified = client.post(
@@ -878,7 +941,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         },
     ).json()["data"]["replay"]
     assert reconnected["status"] == "ok"
-    assert [event["sequence"] for event in reconnected["events"]] == list(range(3, 11))
+    assert [event["sequence"] for event in reconnected["events"]] == list(range(3, 12))
     assert reconnected["events"][-1]["event_kind"] == "completion_verified"
 
     cancelled_payload = _create_payload()

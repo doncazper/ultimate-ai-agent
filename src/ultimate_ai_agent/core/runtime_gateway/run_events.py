@@ -489,26 +489,17 @@ def build_runtime_run_events_read_model_from_authority_catalog(
 ) -> RuntimeRunEventsReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     runtime_service = service or GoalRuntimeService.from_env()
-    replay = (
-        runtime_service.events.replay(
-            run_ref,
-            after_sequence=after_sequence,
-            limit=limit,
-        )
-        if run_ref is not None
-        else None
-    )
-    durable_events = (
-        replay.events
-        if replay is not None
-        else runtime_service.events.retained_events(limit=limit)
+    (
+        replay,
+        durable_events,
+        stream_summaries,
+        goal_lifecycle,
+    ) = runtime_service.aggregate_read_snapshot(
+        run_ref=run_ref,
+        after_sequence=after_sequence,
+        limit=limit,
     )
     events = [_durable_event_preview(event) for event in durable_events]
-    stream_summaries = runtime_service.events.summaries()
-    # Cleared goals remain part of the authoritative operator read model so the
-    # exact restore transition is reachable. The dedicated goals listing keeps
-    # its default of hiding cleared records.
-    goal_lifecycle = runtime_service.goals.read_model(include_cleared=True)
     mappings = [
         _mapping(
             RuntimeExternalRunLifecycleState.proposed,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import stat
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_module
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
+    DurableCriterionVerifierBinding,
     DurableRunEvent,
     DurableRunEventAppendRequest,
     DurableRunEventKind,
@@ -28,9 +30,13 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalVersionConflictError,
     GOAL_COMPLETION_VERIFIER_REF,
     PersistentGoal,
+    build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
     RunEventReplayStatus,
     capture_exact_goal_mutation_approval,
+)
+from ultimate_ai_agent.core.runtime_gateway.run_events import (
+    build_runtime_run_events_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
@@ -43,6 +49,31 @@ from tests.authority_helpers import workspace_execute_authority_lease
 
 EVENT_AUTHORITY_DECISION_REF = "authority-decision-ref:accepted-local:test"
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _criterion_bindings(
+    goal: PersistentGoal,
+    criterion_proof_refs: list[str],
+) -> list[DurableCriterionVerifierBinding]:
+    return [
+        DurableCriterionVerifierBinding(
+            goal_ref=goal.goal_ref,
+            goal_version=goal.version,
+            criterion_ref=build_goal_criterion_ref(
+                goal,
+                criterion_index=index,
+                criterion_summary=criterion,
+            ),
+            proof_ref=proof_ref,
+            verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
+            evaluator_receipt_ref=(
+                f"evaluator-receipt-ref:accepted-local:{index + 1}"
+            ),
+        )
+        for index, (criterion, proof_ref) in enumerate(
+            zip(goal.success_criteria, criterion_proof_refs, strict=True)
+        )
+    ]
 
 
 def _completion_evidence(
@@ -61,6 +92,7 @@ def _completion_evidence(
             for index in range(2, len(goal.success_criteria) + 1)
         ],
     ]
+    bindings = _criterion_bindings(goal, bound_criterion_proof_refs)
     return GoalCompletionEvidence(
         goal_ref=goal.goal_ref,
         goal_version=goal.version,
@@ -73,7 +105,7 @@ def _completion_evidence(
             run_ref=run_ref,
             receipt_ref=receipt_ref,
             proof_ref=proof_ref,
-            criterion_proof_refs=bound_criterion_proof_refs,
+            criterion_verifier_bindings=bindings,
             plan_ref=plan_ref,
         ),
         verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
@@ -84,6 +116,36 @@ def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,
 ) -> DurableRunEvent:
+    if (
+        request.event_kind == DurableRunEventKind.receipt_recorded.value
+        and request.goal_ref is not None
+        and not request.criterion_verifier_bindings
+    ):
+        try:
+            goal = service.goals.get(request.goal_ref)
+        except GoalRuntimeError:
+            goal = None
+        if goal is not None and len(request.proof_refs) >= len(
+            goal.success_criteria
+        ):
+            criterion_proof_refs = request.proof_refs[: len(goal.success_criteria)]
+            bindings = _criterion_bindings(goal, criterion_proof_refs)
+            request = request.model_copy(
+                update={
+                    "proof_refs": list(
+                        dict.fromkeys(
+                            [
+                                *request.proof_refs,
+                                *(
+                                    binding.evaluator_receipt_ref
+                                    for binding in bindings
+                                ),
+                            ]
+                        )
+                    ),
+                    "criterion_verifier_bindings": bindings,
+                }
+            )
     if request.event_kind in {
         DurableRunEventKind.receipt_recorded.value,
         DurableRunEventKind.completion_verified.value,
@@ -131,6 +193,12 @@ def _append_receipt(
     goal_ref: str,
     run_ref: str = "run-ref:accepted-local:one",
 ) -> None:
+    goal = service.goals.get(goal_ref)
+    proof_refs = [
+        "proof-ref:accepted-local:one",
+        "proof-ref:accepted-local:criterion:2",
+    ][: len(goal.success_criteria)]
+    bindings = _criterion_bindings(goal, proof_refs)
     _append_event(
         service,
         DurableRunEventAppendRequest(
@@ -139,10 +207,11 @@ def _append_receipt(
             event_kind=DurableRunEventKind.receipt_recorded,
             safe_summary="The accepted local read task recorded a redacted receipt.",
             proof_refs=[
-                "proof-ref:accepted-local:one",
-                "proof-ref:accepted-local:criterion:2",
+                *proof_refs,
+                *(binding.evaluator_receipt_ref for binding in bindings),
             ],
             receipt_refs=["receipt-ref:accepted-local:one"],
+            criterion_verifier_bindings=bindings,
             goal_ref=goal_ref,
             plan_ref="plan-ref:accepted-local:one",
             idempotency_ref="idempotency-ref:event-receipt-one",
@@ -1069,6 +1138,37 @@ def test_completion_receipt_remains_verifiable_after_payload_retention(
         ),
         idempotency_ref="idempotency-ref:retained-completion:request",
     )
+    criterion_proof_refs = [
+        "proof-ref:retained-completion",
+        "proof-ref:accepted-local:criterion:2",
+    ]
+    criterion_bindings = _criterion_bindings(requested, criterion_proof_refs)
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:retained-completion",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary=(
+                "The trusted evaluator bound the requested goal criteria."
+            ),
+            proof_refs=[
+                *criterion_proof_refs,
+                *(
+                    binding.evaluator_receipt_ref
+                    for binding in criterion_bindings
+                ),
+            ],
+            receipt_refs=["receipt-ref:retained-completion"],
+            criterion_verifier_bindings=criterion_bindings,
+            goal_ref=created.goal_ref,
+            plan_ref="plan-ref:accepted-local:one",
+            idempotency_ref=(
+                "idempotency-ref:retained-completion:criterion-verification"
+            ),
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
     verified = _transition_goal(
         service,
         created.goal_ref,
@@ -1423,16 +1523,16 @@ def test_goal_completion_rejects_untrusted_or_unbound_verifier_evidence(
 @pytest.mark.parametrize(
     ("criterion_proof_refs", "expected_code"),
     [
-        (
-            ["proof-ref:accepted-local:one"],
-            "GOAL_COMPLETION_CRITERION_PROOF_ARITY_MISMATCH",
-        ),
+            (
+                ["proof-ref:accepted-local:one"],
+                "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
+            ),
         (
             [
                 "proof-ref:accepted-local:one",
                 "proof-ref:substituted:criterion:2",
             ],
-            "GOAL_COMPLETION_CRITERION_PROOF_NOT_FOUND",
+                "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
         ),
     ],
 )
@@ -2826,3 +2926,492 @@ def test_goal_transition_reason_tampering_fails_closed(tmp_path: Path) -> None:
         match="GOAL_JOURNAL_ENTRY_HASH_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
+
+
+@pytest.mark.parametrize(
+    "failure_boundary",
+    ["intent", "journal", "head", "cleanup"],
+)
+def test_first_goal_commit_recovers_only_from_bound_genesis_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_boundary: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    original_atomic_write = goal_runtime_module._atomic_write
+    original_cleanup = service.goals._delete_genesis_intent  # noqa: SLF001
+    failed = False
+
+    if failure_boundary in {"intent", "journal", "head"}:
+
+        def fail_selected_write(path: Path, content: str) -> None:
+            nonlocal failed
+            if (
+                not failed
+                and (
+                    (
+                        failure_boundary == "intent"
+                        and path.name == "goal_journal_genesis_intent.json"
+                    )
+                    or (
+                        failure_boundary == "journal"
+                        and path.name == "goals.jsonl"
+                    )
+                    or (
+                        failure_boundary == "head"
+                        and path.name == "goal_journal_head.json"
+                    )
+                )
+            ):
+                failed = True
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+            original_atomic_write(path, content)
+
+        monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_selected_write)
+    else:
+
+        def fail_cleanup() -> None:
+            nonlocal failed
+            if not failed:
+                failed = True
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+            original_cleanup()
+
+        monkeypatch.setattr(service.goals, "_delete_genesis_intent", fail_cleanup)
+
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _create_goal(
+            service,
+            request,
+            idempotency_ref=f"idempotency-ref:genesis:{failure_boundary}",
+        )
+    assert failed
+
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+    if failure_boundary == "cleanup":
+        monkeypatch.setattr(service.goals, "_delete_genesis_intent", original_cleanup)
+    recovered = _create_goal(
+        GoalRuntimeService(tmp_path),
+        request,
+        idempotency_ref=f"idempotency-ref:genesis:{failure_boundary}",
+    )
+
+    assert recovered.version == 1
+    assert (tmp_path / "goals.jsonl").is_file()
+    assert (tmp_path / "goal_journal_head.json").is_file()
+    assert not (tmp_path / "goal_journal_genesis_intent.json").exists()
+
+
+def test_unanchored_first_goal_journal_is_never_recovered(tmp_path: Path) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:unanchored-genesis:create",
+    )
+    (tmp_path / "goal_journal_head.json").unlink()
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_HEAD_MANIFEST_MISSING",
+    ):
+        GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
+
+
+@pytest.mark.parametrize("substitution", ["symlink", "directory"])
+def test_genesis_intent_recovery_rejects_nonregular_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    substitution: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def interrupt_journal_install(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goals.jsonl":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        interrupt_journal_install,
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _create_goal(
+            service,
+            _create_request(),
+            idempotency_ref="idempotency-ref:genesis-substitution:create",
+        )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        original_atomic_write,
+    )
+    intent_path = tmp_path / "goal_journal_genesis_intent.json"
+    if substitution == "symlink":
+        preserved = tmp_path / "goal_journal_genesis_intent.preserved"
+        intent_path.replace(preserved)
+        intent_path.symlink_to(preserved.name)
+    else:
+        intent_path.unlink()
+        intent_path.mkdir()
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_GENESIS_INTENT_CORRUPT",
+    ):
+        _create_goal(
+            GoalRuntimeService(tmp_path),
+            _create_request(),
+            idempotency_ref="idempotency-ref:genesis-substitution:create",
+        )
+
+
+def test_lagging_tombstone_repairs_before_next_event_install(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    original_write = service._events._write_idempotency_tombstones  # noqa: SLF001
+    first = DurableRunEventAppendRequest(
+        run_ref="run-ref:tombstone-repair",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.goal_linked,
+        safe_summary="The first event commits before its provenance tombstone.",
+        goal_ref="goal-ref:tombstone-repair",
+        idempotency_ref="idempotency-ref:tombstone-repair:one",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_write_idempotency_tombstones",
+        lambda _rows: (_ for _ in ()).throw(
+            GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        ),
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _append_event(service, first)
+
+    write_count = 0
+
+    def repair_then_interrupt_second_tombstone(rows: object) -> None:
+        nonlocal write_count
+        write_count += 1
+        if write_count == 2:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_write(rows)
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_write_idempotency_tombstones",
+        repair_then_interrupt_second_tombstone,
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _append_event(
+            service,
+            first.model_copy(
+                update={
+                    "safe_summary": (
+                        "The next event is installed only after provenance repair."
+                    ),
+                    "idempotency_ref": "idempotency-ref:tombstone-repair:two",
+                }
+            ),
+        )
+    assert write_count == 2
+    assert [
+        event.sequence
+        for event in service.events.replay(
+            "run-ref:tombstone-repair",
+            after_sequence=0,
+        ).events
+    ] == [1, 2]
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_write_idempotency_tombstones",
+        original_write,
+    )
+    _append_event(
+        service,
+        first.model_copy(
+            update={
+                "safe_summary": "The third event follows a repaired generation.",
+                "idempotency_ref": "idempotency-ref:tombstone-repair:three",
+            }
+        ),
+    )
+    assert [
+        event.sequence
+        for event in service.events.replay(
+            "run-ref:tombstone-repair",
+            after_sequence=0,
+        ).events
+    ] == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "unsafe_summary",
+    [
+        "Read /tmp/operator-data before continuing.",
+        "Inspect /root/project/private.txt.",
+        "Use /workspace/ultimate-ai-agent/private.txt.",
+        r"Read C:\Users\operator\private.txt.",
+        r"Read \\server\share\private.txt.",
+        "Read file:///private/operator-data.",
+    ],
+)
+def test_durable_summaries_reject_every_absolute_local_path_family(
+    unsafe_summary: str,
+) -> None:
+    with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
+        _create_request().model_copy(
+            update={"objective": unsafe_summary}
+        ).model_validate(
+            _create_request().model_copy(
+                update={"objective": unsafe_summary}
+            ).model_dump()
+        )
+    with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:absolute-path",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary=unsafe_summary,
+            idempotency_ref="idempotency-ref:absolute-path",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        )
+
+
+def test_https_summary_is_not_misclassified_as_a_local_path() -> None:
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:https-summary",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="Reviewed https://example.test/bounded-evidence.",
+        idempotency_ref="idempotency-ref:https-summary",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    assert request.safe_summary.startswith("Reviewed https://")
+
+
+def test_aggregate_snapshot_blocks_cross_store_mutation_until_complete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:aggregate-snapshot:create",
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:aggregate-snapshot",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.goal_linked,
+            safe_summary="The aggregate snapshot starts from one durable event.",
+            goal_ref=created.goal_ref,
+            idempotency_ref="idempotency-ref:aggregate-snapshot:event",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    original_load = service._events._load_events  # noqa: SLF001
+    reader_entered = threading.Event()
+    release_reader = threading.Event()
+    snapshot_holder: list[object] = []
+    edit_holder: list[PersistentGoal] = []
+
+    def slow_load() -> list[DurableRunEvent]:
+        events = original_load()
+        reader_entered.set()
+        assert release_reader.wait(timeout=5)
+        return events
+
+    monkeypatch.setattr(service._events, "_load_events", slow_load)  # noqa: SLF001
+
+    reader = threading.Thread(
+        target=lambda: snapshot_holder.append(
+            build_runtime_run_events_read_model(service=service)
+        )
+    )
+    reader.start()
+    assert reader_entered.wait(timeout=5)
+    writer = threading.Thread(
+        target=lambda: edit_holder.append(
+            _edit_goal(
+                service,
+                created.goal_ref,
+                GoalEditRequest(
+                    expected_version=created.version,
+                    text_redaction_posture=(
+                        "operator_authored_redacted_summary_only"
+                    ),
+                    objective="The writer advances only after the snapshot.",
+                ),
+                idempotency_ref="idempotency-ref:aggregate-snapshot:edit",
+            )
+        )
+    )
+    writer.start()
+    assert writer.is_alive()
+    release_reader.set()
+    reader.join(timeout=5)
+    writer.join(timeout=5)
+
+    assert not reader.is_alive()
+    assert not writer.is_alive()
+    snapshot = snapshot_holder[0]
+    assert snapshot.goal_lifecycle.goals[0].version == created.version
+    assert edit_holder[0].version == created.version + 1
+
+
+def test_completion_rejects_cross_criterion_and_recomputed_client_evidence(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:criterion-provenance:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:criterion-provenance:request",
+        ),
+        idempotency_ref="idempotency-ref:criterion-provenance:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    correct = _completion_evidence(requested)
+    receipt = service._events.assert_completion_appendable(  # noqa: SLF001
+        run_ref=correct.run_ref,
+        receipt_ref=correct.receipt_ref,
+        proof_ref=correct.proof_ref,
+        goal_ref=correct.goal_ref,
+    )
+    reversed_bindings = list(reversed(receipt.criterion_verifier_bindings))
+    recomputed = correct.model_copy(
+        update={
+            "criterion_proof_refs": list(
+                reversed(correct.criterion_proof_refs)
+            ),
+            "evidence_ref": build_goal_completion_evidence_ref(
+                requested,
+                run_ref=correct.run_ref,
+                receipt_ref=correct.receipt_ref,
+                proof_ref=correct.proof_ref,
+                criterion_verifier_bindings=reversed_bindings,
+                plan_ref=receipt.plan_ref,
+            ),
+        }
+    )
+
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH",
+    ):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            GoalTransitionRequest(
+                expected_version=requested.version,
+                transition=GoalTransitionKind.verify_completion,
+                reason_ref="reason-ref:criterion-provenance:cross-criterion",
+                completion_evidence=recomputed,
+            ),
+            idempotency_ref=(
+                "idempotency-ref:criterion-provenance:cross-criterion"
+            ),
+        )
+
+
+def test_completion_rejects_cross_transaction_verifier_binding(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:cross-transaction:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:cross-transaction:request",
+        ),
+        idempotency_ref="idempotency-ref:cross-transaction:request",
+    )
+    proof_refs = [
+        "proof-ref:cross-transaction:one",
+        "proof-ref:cross-transaction:two",
+    ]
+    bindings = [
+        binding.model_copy(update={"goal_ref": "goal-ref:other-transaction"})
+        for binding in _criterion_bindings(requested, proof_refs)
+    ]
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:accepted-local:one",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="A different transaction cannot verify this goal.",
+            proof_refs=[
+                *proof_refs,
+                *(binding.evaluator_receipt_ref for binding in bindings),
+            ],
+            receipt_refs=["receipt-ref:cross-transaction"],
+            criterion_verifier_bindings=bindings,
+            goal_ref=created.goal_ref,
+            plan_ref="plan-ref:accepted-local:one",
+            idempotency_ref="idempotency-ref:cross-transaction:receipt",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    evidence = GoalCompletionEvidence(
+        goal_ref=created.goal_ref,
+        goal_version=requested.version,
+        run_ref="run-ref:accepted-local:one",
+        receipt_ref="receipt-ref:cross-transaction",
+        proof_ref=proof_refs[0],
+        criterion_proof_refs=proof_refs,
+        evidence_ref=build_goal_completion_evidence_ref(
+            requested,
+            run_ref="run-ref:accepted-local:one",
+            receipt_ref="receipt-ref:cross-transaction",
+            proof_ref=proof_refs[0],
+            criterion_verifier_bindings=bindings,
+            plan_ref="plan-ref:accepted-local:one",
+        ),
+        verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
+    )
+
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_COMPLETION_CRITERION_VERIFIER_BINDING_MISMATCH",
+    ):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            GoalTransitionRequest(
+                expected_version=requested.version,
+                transition=GoalTransitionKind.verify_completion,
+                reason_ref="reason-ref:cross-transaction:verify",
+                completion_evidence=evidence,
+            ),
+            idempotency_ref="idempotency-ref:cross-transaction:verify",
+        )
