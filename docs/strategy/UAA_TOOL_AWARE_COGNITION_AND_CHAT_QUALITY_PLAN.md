@@ -331,14 +331,20 @@ human-readable rather than raw JSON alone.
 
 ## 10. Implementation Sequence
 
-Each phase is one isolated, reviewable PR unless current-main reconciliation
-proves a smaller implementation already satisfies every acceptance item. A
-phase may be skipped only with exact-current-main code, test, and verifier
-evidence. Independent work may be prepared and locally verified concurrently
-after its dependencies are fixed, but shared contracts and merge admission
-follow the evidence dependency order. Every phase uses targeted checks while
-coding, one broad local qualification for the final candidate, exact-head
-hosted CI/review, merge, proportional post-merge verification, and cleanup.
+Every phase requires explicit, independently inspectable acceptance evidence,
+but PR count follows contract and risk seams rather than a fixed
+one-PR-per-phase rule. Adjacent phases may share one reviewable final candidate
+when their dependencies are already fixed, the combined diff remains bounded,
+and doing so avoids duplicate broad gates. A phase may be skipped only with
+exact-current-main code, test, and verifier evidence. Runtime-authority
+graduation, new external effects, or materially different rollback boundaries
+must remain isolated and cannot be hidden inside a delivery group.
+
+Independent work may be prepared and locally verified concurrently after its
+dependencies are fixed, while shared contracts and merge admission follow the
+evidence dependency order. Each final candidate uses targeted checks while
+coding, one broad local qualification, exact-head hosted CI/review, merge,
+proportional post-merge verification, and cleanup.
 
 ### TAW-00 — Convergence ledger and evaluation baseline
 
