@@ -78,6 +78,11 @@ def _isolate_matrix_loopback_prestart_probe(
         "assert_matrix_loopback_test_resource_available",
         lambda: None,
     )
+    monkeypatch.setattr(
+        runner,
+        "validate_lane_environment",
+        lambda *_args, **_kwargs: ("preflight-ref:test-ready",),
+    )
 
 
 def _write_pytest_performance_report(
@@ -809,6 +814,47 @@ def test_failed_multicommand_lane_emits_exact_executed_prefix() -> None:
     assert run.status is VerificationTerminalStatus.FAILED
 
 
+def test_terminal_dependency_receipts_are_canonicalized_by_declared_dag_order() -> None:
+    required = ("unit-a", "unit-b", "unit-c")
+    receipts = {
+        "unit-c": object(),
+        "unit-a": object(),
+        "unit-b": object(),
+    }
+
+    canonical = runner._canonicalize_terminal_dependency_receipts(
+        required,
+        receipts,
+    )
+
+    assert tuple(canonical) == required
+    assert canonical["unit-a"] is receipts["unit-a"]
+    assert canonical["unit-b"] is receipts["unit-b"]
+    assert canonical["unit-c"] is receipts["unit-c"]
+
+
+@pytest.mark.parametrize(
+    "receipts",
+    (
+        {"unit-a": object(), "unit-b": object()},
+        {
+            "unit-a": object(),
+            "unit-b": object(),
+            "unit-c": object(),
+            "unit-extra": object(),
+        },
+    ),
+)
+def test_terminal_dependency_receipts_reject_incomplete_or_extra_units(
+    receipts: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="terminal dependency evidence is incomplete"):
+        runner._canonicalize_terminal_dependency_receipts(
+            ("unit-a", "unit-b", "unit-c"),
+            receipts,
+        )
+
+
 def test_not_affected_visual_scope_is_bound_and_never_claimed_executed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -907,6 +953,45 @@ def test_typed_frontend_release_rejects_synthetic_dependency_reuse(
     assert not store_root.exists()
 
 
+def test_preflight_failure_blocks_before_attempt_or_fence_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = build_plan(
+        ROOT,
+        SHA,
+        lane_refs=("ci-pytest-shards",),
+        verify_repository_state=False,
+    )
+    monkeypatch.setattr(runner, "_git_head", lambda _repo: SHA)
+    monkeypatch.setattr(runner.importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(runner, "build_plan", lambda *_args, **_kwargs: plan)
+
+    def block_preflight(*_args: object, **_kwargs: object) -> None:
+        raise runner.VerificationEnvironmentPreflightError(
+            "reason-ref:verification-preflight:test-blocked"
+        )
+
+    monkeypatch.setattr(runner, "validate_lane_environment", block_preflight)
+    fence_root = tmp_path / "execution-fence"
+    store_root = tmp_path / "proof-store"
+
+    with pytest.raises(
+        runner.VerificationEnvironmentPreflightError,
+        match="test-blocked",
+    ):
+        runner.run_lane(
+            "ci-pytest-shards",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+            verification_store_root=store_root,
+            verification_execution_fence_root=fence_root,
+        )
+
+    assert not fence_root.exists()
+    assert not store_root.exists()
+
+
 def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -959,7 +1044,7 @@ def test_typed_plan_mutation_before_popen_blocks_suite_attempt(
     assert events == ["validated-lock"]
 
 
-def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
+def test_attempt_ledger_failure_after_spawn_leaves_recovery_fence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -989,14 +1074,17 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
         *,
         validate_start=None,
         before_start=None,
+        after_spawn=None,
         **_kwargs: object,
     ) -> dict[str, object]:
         assert validate_start is not None
         assert before_start is not None
+        assert after_spawn is not None
         validate_start()
         before_start()
         events.append("spawned")
-        raise AssertionError("command spawn must not be reached")
+        after_spawn()
+        raise AssertionError("attempt record failure must stop command handling")
 
     monkeypatch.setattr(runner, "FullSuiteLock", FailingFullSuiteLock)
     monkeypatch.setattr(runner, "_run_command", fake_run_command)
@@ -1011,7 +1099,7 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
             verification_execution_fence_root=fence_root,
         )
 
-    assert events == ["attempt-record-failed"]
+    assert events == ["spawned", "attempt-record-failed"]
     unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
     identity = build_verification_execution_identity(
         full_plan,
@@ -1019,8 +1107,143 @@ def test_attempt_ledger_failure_aborts_unspawned_execution_fence(
         execution_surface_ref="surface-ref:github",
     )
     assert VerificationExecutionFence(fence_root).begin(identity).disposition is (
-        VerificationExecutionFenceDisposition.START_GRANTED
+        VerificationExecutionFenceDisposition.RECOVERY_REQUIRED
     )
+
+
+def test_run_command_spawn_failure_releases_prestart_reservation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.spawn-failure-rollback",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def fail_spawn(*_args: object, **_kwargs: object) -> None:
+        events.append("spawn-failed")
+        raise RuntimeError("spawn unavailable")
+
+    monkeypatch.setattr(runner, "spawn_owned_process_group", fail_spawn)
+
+    with pytest.raises(RuntimeError, match="spawn unavailable"):
+        runner._run_command(
+            command,
+            repository_sha=SHA,
+            temp_root=tmp_path,
+            before_start=lambda: events.append("reserved"),
+            after_spawn=lambda: events.append("recorded"),
+            on_spawn_failure=lambda: events.append("released"),
+        )
+
+    assert events == ["reserved", "spawn-failed", "released"]
+
+
+def test_run_command_cancellation_before_spawn_releases_prestart_reservation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pre-spawn-cancellation",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def cancel_after_reservation() -> None:
+        events.append("reserved")
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+
+    monkeypatch.setattr(
+        runner,
+        "spawn_owned_process_group",
+        lambda *_args, **_kwargs: pytest.fail("command must not spawn"),
+    )
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        before_start=cancel_after_reservation,
+        after_spawn=lambda: events.append("recorded"),
+        on_spawn_failure=lambda: events.append("released"),
+    )
+
+    assert result["status"] == "cancelled"
+    assert events == ["reserved", "released"]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")
+def test_run_command_defers_cancellation_through_attempt_recording(
+    tmp_path: Path,
+) -> None:
+    command = CommandSpec(
+        "command:test.post-spawn-record-cancellation",
+        (sys.executable, "-c", "import time; time.sleep(10)"),
+        (),
+        "test",
+        10,
+    )
+    events: list[str] = []
+
+    def cancel_while_recording() -> None:
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        handler(signal.SIGTERM, None)
+        events.append("attempt-recorded")
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        before_start=lambda: events.append("reserved"),
+        after_spawn=cancel_while_recording,
+        on_spawn_failure=lambda: events.append("released"),
+    )
+
+    assert result["status"] == "cancelled"
+    assert events == ["reserved", "attempt-recorded"]
+
+
+def test_run_command_emits_digest_ref_without_retaining_failure_output(
+    tmp_path: Path,
+) -> None:
+    command = CommandSpec(
+        "command:test.retained-failure-output",
+        (
+            sys.executable,
+            "-c",
+            "print('local diagnostic only'); raise SystemExit(7)",
+        ),
+        (),
+        "test",
+        10,
+    )
+
+    result = runner._run_command(
+        command,
+        repository_sha=SHA,
+        temp_root=tmp_path,
+        emit_failure_diagnostic_ref=True,
+    )
+
+    retained = tmp_path / "uaa_command_failure_output.log"
+    assert result["status"] == "fail"
+    assert str(result["diagnostic_digest_ref"]).startswith(
+        "diagnostic-output-ref:sha256:"
+    )
+    assert not retained.exists()
+    transient_files = tuple(tmp_path.glob("uaa-ci-transient-*"))
+    assert len(transient_files) == 1
+    assert transient_files[0].read_bytes() == b""
 
 
 def test_exclusive_typed_lane_publishes_terminal_execution_fence(
@@ -1198,9 +1421,11 @@ def test_local_exclusive_lane_uses_same_resource_fence_without_output_files(
     )
 
 
-def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
+@pytest.mark.parametrize("command_status", ("pass", "timed_out", "cancelled"))
+def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    command_status: str,
 ) -> None:
     lane_plan = build_plan(
         ROOT,
@@ -1268,7 +1493,7 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         return {
             "command_ref": command.command_ref,
             "category": command.category,
-            "status": "pass",
+            "status": command_status,
             "started_at": "2026-07-15T00:00:00Z",
             "completed_at": "2026-07-15T00:00:01Z",
             "duration_ms": 1_000,
@@ -1301,7 +1526,8 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         typescript_version_ref="typescript-version:7.0.2",
     )
     decision = VerificationExecutionFence(fence_root).begin(local_identity)
-    assert receipt["status"] == "pass"
+    assert receipt["status"] == command_status
+    assert receipt["command_results"][0]["status"] == command_status
     assert lock_attempts == [
         ("local", local_identity.exclusive_resource_attempt_fingerprint)
     ]
@@ -1309,6 +1535,15 @@ def test_local_frontend_lane_uses_typescript_resource_attempt_and_fence(
         decision.disposition
         is VerificationExecutionFenceDisposition.TERMINAL_PROOF_REUSED
     )
+    if command_status != "pass":
+        assert decision.terminal_proof is not None
+        expected_reason = (
+            "reason-ref:verification:execution-cancelled"
+            if command_status == "cancelled"
+            else "reason-ref:verification:infrastructure-failure"
+        )
+        assert decision.terminal_proof.failure_reason_ref == expected_reason
+        assert decision.terminal_proof.deterministic_failure is False
 
 
 def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
@@ -1371,7 +1606,7 @@ def test_exclusive_typed_lane_timeout_is_not_persisted_as_deterministic(
         verification_execution_fence_root=fence_root,
     )
 
-    assert receipt["status"] == "fail"
+    assert receipt["status"] == "timed_out"
     assert receipt["command_results"][0]["status"] == "timed_out"
     unit = next(unit for unit in CI_JOB_GRAPH if unit.unit_ref == "pytest-shards")
     identity = build_verification_execution_identity(
@@ -1549,6 +1784,7 @@ def test_run_command_repeated_signal_cleans_process_group_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ready_path = tmp_path / "command.ready"
+    output_marker = b"cancelled-output-metadata-proof\n"
     command = CommandSpec(
         "command:test.repeated-signal-cleanup",
         (
@@ -1556,6 +1792,7 @@ def test_run_command_repeated_signal_cleans_process_group_once(
             "-c",
             (
                 "import pathlib,sys,time;"
+                "print('cancelled-output-metadata-proof',flush=True);"
                 "pathlib.Path(sys.argv[1]).write_text('ready',encoding='ascii');"
                 "time.sleep(10)"
             ),
@@ -1598,6 +1835,96 @@ def test_run_command_repeated_signal_cleans_process_group_once(
     assert sender.is_alive() is False
     assert result["status"] == "cancelled"
     assert cleanup_calls == 1
+    assert result["output_byte_count"] == len(output_marker)
+    assert result["output_digest"] == hashlib.sha256(output_marker).hexdigest()
+    transient_files = tuple(tmp_path.glob("uaa-ci-transient-*"))
+    assert len(transient_files) == 1
+    assert transient_files[0].read_bytes() == b""
+
+
+def test_transient_output_metadata_rejects_oversized_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    output_path.write_bytes(b"12345")
+    monkeypatch.setattr(runner, "MAX_TRANSIENT_OUTPUT_BYTES", 4)
+
+    with pytest.raises(
+        RuntimeError,
+        match="transient output exceeds the bounded byte limit",
+    ):
+        runner._transient_output_metadata(output_path)
+
+
+def test_transient_output_metadata_caps_reads_when_file_grows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    output_path.write_bytes(b"1234")
+    original_read = runner.os.read
+    requested_sizes: list[int] = []
+
+    def grow_before_read(descriptor: int, size: int) -> bytes:
+        requested_sizes.append(size)
+        with output_path.open("ab") as output:
+            output.write(b"5")
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(runner, "MAX_TRANSIENT_OUTPUT_BYTES", 4)
+    monkeypatch.setattr(runner.os, "read", grow_before_read)
+
+    with pytest.raises(
+        RuntimeError,
+        match="transient output changed while hashing",
+    ):
+        runner._transient_output_metadata(output_path)
+
+    assert requested_sizes == [4]
+
+
+def test_transient_output_metadata_uses_bound_inode_after_path_substitution(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    moved_path = tmp_path / "moved-output"
+    original_bytes = b"descriptor-bound-output"
+    output_path.write_bytes(original_bytes)
+    descriptor = os.open(output_path, os.O_RDONLY)
+    try:
+        output_path.rename(moved_path)
+        output_path.write_bytes(b"substituted-output")
+        output_bytes, output_digest = (
+            runner._transient_output_metadata_from_descriptor(descriptor)
+        )
+    finally:
+        os.close(descriptor)
+
+    assert output_bytes == len(original_bytes)
+    assert output_digest == hashlib.sha256(original_bytes).hexdigest()
+
+
+def test_transient_output_cleanup_erases_bound_inode_after_substitution(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "transient-output"
+    moved_path = tmp_path / "moved-output"
+    output_path.write_bytes(b"raw-command-output")
+    descriptor = os.open(output_path, os.O_RDWR)
+    try:
+        output_path.rename(moved_path)
+        output_path.write_bytes(b"unrelated-replacement")
+        runner._cleanup_transient_output_inode(
+            descriptor,
+            temp_root=tmp_path,
+        )
+        assert os.fstat(descriptor).st_size == 0
+    finally:
+        os.close(descriptor)
+
+    assert moved_path.read_bytes() == b""
+    assert output_path.read_bytes() == b"unrelated-replacement"
 
 
 @pytest.mark.skipif(os.name != "posix", reason="signal proof is POSIX-only")

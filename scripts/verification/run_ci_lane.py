@@ -97,6 +97,10 @@ from scripts.verification.verification_execution_identity import (  # noqa: E402
     build_verification_execution_terminal_proof,
     verification_exclusive_resource_attempt_fingerprint,
 )
+from scripts.verification.verification_environment_preflight import (  # noqa: E402
+    VerificationEnvironmentPreflightError,
+    validate_lane_environment,
+)
 from scripts.verification.verification_github_transport import (  # noqa: E402
     build_github_job_output_envelope,
     decode_github_job_output,
@@ -254,6 +258,93 @@ def _result_ref(
         (command_ref, repository_sha, str(returncode), output_digest, str(duration_ms))
     )
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
+
+
+def _transient_output_metadata(path: Path) -> tuple[int, str]:
+    """Read exact metadata from the internally-created transient output file."""
+
+    metadata = path.lstat()
+    if (
+        path.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_uid != os.getuid()
+    ):
+        raise RuntimeError("CI transient output boundary is unsafe")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            opened.st_dev != metadata.st_dev
+            or opened.st_ino != metadata.st_ino
+            or opened.st_mode != metadata.st_mode
+            or opened.st_nlink != metadata.st_nlink
+            or opened.st_uid != metadata.st_uid
+        ):
+            raise RuntimeError("CI transient output changed before hashing")
+        return _transient_output_metadata_from_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _transient_output_metadata_from_descriptor(
+    descriptor: int,
+) -> tuple[int, str]:
+    """Hash the exact internally-created transient output inode."""
+
+    opened = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or opened.st_nlink != 1
+        or opened.st_uid != os.getuid()
+    ):
+        raise RuntimeError("CI transient output boundary is unsafe")
+    if opened.st_size > MAX_TRANSIENT_OUTPUT_BYTES:
+        raise RuntimeError("CI transient output exceeds the bounded byte limit")
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    output_bytes = 0
+    digest = hashlib.sha256()
+    while output_bytes < opened.st_size:
+        remaining_bytes = min(
+            opened.st_size - output_bytes,
+            MAX_TRANSIENT_OUTPUT_BYTES - output_bytes,
+        )
+        chunk = os.read(descriptor, min(1024 * 1024, remaining_bytes))
+        if not chunk:
+            break
+        output_bytes += len(chunk)
+        digest.update(chunk)
+    final = os.fstat(descriptor)
+    if (
+        final.st_dev != opened.st_dev
+        or final.st_ino != opened.st_ino
+        or final.st_mode != opened.st_mode
+        or final.st_nlink != opened.st_nlink
+        or final.st_uid != opened.st_uid
+        or final.st_size != opened.st_size
+        or output_bytes != opened.st_size
+    ):
+        raise RuntimeError("CI transient output changed while hashing")
+    return output_bytes, digest.hexdigest()
+
+
+def _cleanup_transient_output_inode(
+    descriptor: int,
+    *,
+    temp_root: Path,
+) -> None:
+    """Erase the bound output inode without acting on a mutable pathname."""
+
+    del temp_root
+    os.ftruncate(descriptor, 0)
+    os.fsync(descriptor)
+    bound = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(bound.st_mode)
+        or bound.st_uid != os.getuid()
+        or bound.st_size != 0
+    ):
+        raise RuntimeError("CI transient output cleanup is unproven")
 
 
 def expected_pytest_shard_plan_ref() -> str:
@@ -457,11 +548,15 @@ def _run_command(
     temp_root: Path,
     validate_start: Callable[[], None] | None = None,
     before_start: Callable[[], None] | None = None,
+    after_spawn: Callable[[], None] | None = None,
+    on_spawn_failure: Callable[[], None] | None = None,
+    emit_failure_diagnostic_ref: bool = False,
 ) -> dict[str, Any]:
     resolved_base_sha = base_sha or repository_sha
     started_at = _utc_now()
     started = time.perf_counter()
     output_path: Path | None = None
+    output_descriptor: int | None = None
     process: subprocess.Popen[bytes] | None = None
     timed_out = False
     interrupted = False
@@ -470,6 +565,7 @@ def _run_command(
     cleanup_attempted = False
     returncode: int | None = None
     signal_handling = False
+    unspawned_reservation_active = False
 
     def settle_process() -> None:
         nonlocal cleanup_attempted
@@ -491,6 +587,14 @@ def _run_command(
             return
         raise KeyboardInterrupt(f"CI lane interrupted by signal {signum}")
 
+    def release_unspawned_reservation() -> None:
+        nonlocal unspawned_reservation_active
+        if not unspawned_reservation_active:
+            return
+        unspawned_reservation_active = False
+        if on_spawn_failure is not None:
+            on_spawn_failure()
+
     try:
         with tempfile.NamedTemporaryFile(
             mode="w+b",
@@ -499,13 +603,23 @@ def _run_command(
             delete=False,
         ) as output:
             output_path = Path(output.name)
+            output_descriptor = os.dup(output.fileno())
             with installed_signal_handlers(cancellation_signals(), handle_signal):
                 try:
                     if validate_start is not None:
                         validate_start()
-                    if before_start is not None:
-                        before_start()
                     registration_active = True
+                    if before_start is not None:
+                        unspawned_reservation_active = True
+                        before_start()
+                    if pending_signal is not None:
+                        interrupted_by = pending_signal
+                        pending_signal = None
+                        registration_active = False
+                        release_unspawned_reservation()
+                        raise KeyboardInterrupt(
+                            f"CI lane interrupted by signal {interrupted_by}"
+                        )
                     try:
                         process = spawn_owned_process_group(
                             _resolved_argv(
@@ -526,8 +640,16 @@ def _run_command(
                         )
                     except BaseException:
                         registration_active = False
+                        release_unspawned_reservation()
                         raise
                     else:
+                        unspawned_reservation_active = False
+                        if after_spawn is not None:
+                            try:
+                                after_spawn()
+                            except BaseException:
+                                settle_process()
+                                raise
                         registration_active = False
                         if pending_signal is not None:
                             interrupted_by = pending_signal
@@ -556,6 +678,11 @@ def _run_command(
                             returncode = 124
                             break
                         time.sleep(0.05)
+                except BaseException:
+                    registration_active = False
+                    if process is None:
+                        release_unspawned_reservation()
+                    raise
                 finally:
                     settle_process()
             output.flush()
@@ -570,11 +697,26 @@ def _run_command(
             output_digest = digest.hexdigest()
     except KeyboardInterrupt:
         returncode = 130
-        output_bytes = 0
-        output_digest = hashlib.sha256(b"").hexdigest()
+        if output_path is None:
+            output_bytes = 0
+            output_digest = hashlib.sha256(b"").hexdigest()
+        else:
+            if output_descriptor is None:
+                raise RuntimeError(
+                    "CI transient output descriptor is unavailable"
+                ) from None
+            output_bytes, output_digest = (
+                _transient_output_metadata_from_descriptor(output_descriptor)
+            )
     finally:
-        if output_path is not None:
-            output_path.unlink(missing_ok=True)
+        if output_descriptor is not None:
+            try:
+                _cleanup_transient_output_inode(
+                    output_descriptor,
+                    temp_root=temp_root,
+                )
+            finally:
+                os.close(output_descriptor)
 
     duration_ms = max(0, int((time.perf_counter() - started) * 1000))
     status_value = "pass" if returncode == 0 else "fail"
@@ -582,7 +724,7 @@ def _run_command(
         status_value = "timed_out"
     elif interrupted:
         status_value = "cancelled"
-    return {
+    result = {
         "command_ref": command.command_ref,
         "category": command.category,
         "status": status_value,
@@ -600,6 +742,11 @@ def _run_command(
         ),
         "redaction_status": "content_free_output_metadata_only",
     }
+    if emit_failure_diagnostic_ref and returncode != 0:
+        result["diagnostic_digest_ref"] = (
+            f"diagnostic-output-ref:sha256:{output_digest}"
+        )
+    return result
 
 
 def _append_summary(path: Path | None, lines: list[str]) -> None:
@@ -1168,6 +1315,21 @@ def _build_typed_lane_evidence(
     return receipt, run
 
 
+def _canonicalize_terminal_dependency_receipts(
+    required_unit_refs: tuple[str, ...],
+    dependency_receipts_by_unit: dict[str, VerificationReceipt],
+) -> dict[str, VerificationReceipt]:
+    if (
+        len(dependency_receipts_by_unit) != len(required_unit_refs)
+        or set(dependency_receipts_by_unit) != set(required_unit_refs)
+    ):
+        raise ValueError("terminal dependency evidence is incomplete")
+    return {
+        unit_ref: dependency_receipts_by_unit[unit_ref]
+        for unit_ref in required_unit_refs
+    }
+
+
 def _build_terminal_foundation_run(
     full_plan: Any,
     dependency_receipts_by_unit: dict[str, VerificationReceipt],
@@ -1178,10 +1340,12 @@ def _build_terminal_foundation_run(
     foundation_unit = next(
         unit for unit in CI_JOB_GRAPH if unit.unit_ref == "foundation-gate-report"
     )
-    if foundation_receipt.unit_ref != foundation_unit.unit_ref or (
-        tuple(dependency_receipts_by_unit) != foundation_unit.needs
-    ):
+    if foundation_receipt.unit_ref != foundation_unit.unit_ref:
         raise ValueError("terminal dependency evidence is incomplete")
+    dependency_receipts_by_unit = _canonicalize_terminal_dependency_receipts(
+        foundation_unit.needs,
+        dependency_receipts_by_unit,
+    )
     aggregate_result = aggregate_verification_run(
         full_plan,
         VERIFICATION_DAG,
@@ -1268,6 +1432,7 @@ def run_lane(
     dependency_envelopes: tuple[str, ...] = (),
     full_suite_lock_mode: str = "github",
     execution_surface: str | None = None,
+    emit_failure_diagnostic_ref: bool = False,
 ) -> dict[str, Any]:
     if _git_head(ROOT) != repository_sha:
         raise ValueError("CI lane SHA does not match the checked-out repository")
@@ -1340,6 +1505,7 @@ def run_lane(
         raise PytestRuntimeUnavailableError(
             "canonical pytest runtime is unavailable before suite start"
         )
+    validate_lane_environment(ROOT, temp_root, lane_ref=lane_ref)
     typed_evidence_requested = verification_execution_fence_root is not None or any(
         value is not None
         for value in (
@@ -1464,10 +1630,13 @@ def run_lane(
                         raise ValueError(
                             "verification dependency envelope proves no reused command"
                         )
-            if terminal_foundation and (
-                tuple(dependency_receipts_by_unit) != direct_dependencies
-            ):
-                raise ValueError("terminal dependency evidence is incomplete")
+            if terminal_foundation:
+                dependency_receipts_by_unit = (
+                    _canonicalize_terminal_dependency_receipts(
+                        direct_dependencies,
+                        dependency_receipts_by_unit,
+                    )
+                )
             if lane.satisfied_command_refs and set(reused_receipts_by_command) != set(
                 lane.satisfied_command_refs
             ):
@@ -1701,7 +1870,7 @@ def run_lane(
                 if lane_ref == "ci-pytest-shards":
                     assert_matrix_loopback_test_resource_available()
 
-            def record_durable_command_start() -> None:
+            def begin_durable_command_start() -> None:
                 nonlocal execution_fence_owner_token
                 if execution_fence is not None:
                     assert pre_execution_identity is not None
@@ -1715,27 +1884,30 @@ def run_lane(
                             "exact verification execution is not startable"
                         )
                     execution_fence_owner_token = decision.owner_token
+
+            def record_spawned_command_start() -> None:
+                if exclusive_resource_attempt_fingerprint is not None:
+                    full_suite_lock.record_start()
+
+            def abort_unspawned_command_start() -> None:
+                nonlocal execution_fence_owner_token
+                if (
+                    execution_fence is None
+                    or pre_execution_identity is None
+                    or execution_fence_owner_token is None
+                ):
+                    return
+                owner_token = execution_fence_owner_token
                 try:
-                    if exclusive_resource_attempt_fingerprint is not None:
-                        full_suite_lock.record_start()
-                except BaseException:
-                    if (
-                        execution_fence is not None
-                        and pre_execution_identity is not None
-                        and execution_fence_owner_token is not None
-                    ):
-                        owner_token = execution_fence_owner_token
-                        try:
-                            execution_fence.abort_prestart(
-                                pre_execution_identity,
-                                owner_token=owner_token,
-                            )
-                        except BaseException as cleanup_error:
-                            raise VerificationExecutionFenceError(
-                                "verification pre-start recovery is required"
-                            ) from cleanup_error
-                        execution_fence_owner_token = None
-                    raise
+                    execution_fence.abort_prestart(
+                        pre_execution_identity,
+                        owner_token=owner_token,
+                    )
+                except BaseException as cleanup_error:
+                    raise VerificationExecutionFenceError(
+                        "verification pre-start recovery is required"
+                    ) from cleanup_error
+                execution_fence_owner_token = None
 
             result = _run_command(
                 commands[command_ref],
@@ -1749,10 +1921,21 @@ def run_lane(
                     else None
                 ),
                 before_start=(
-                    record_durable_command_start
-                    if lane_ref == "ci-pytest-shards" or execution_fence is not None
+                    begin_durable_command_start
+                    if execution_fence is not None
                     else None
                 ),
+                after_spawn=(
+                    record_spawned_command_start
+                    if exclusive_resource_attempt_fingerprint is not None
+                    else None
+                ),
+                on_spawn_failure=(
+                    abort_unspawned_command_start
+                    if execution_fence is not None
+                    else None
+                ),
+                emit_failure_diagnostic_ref=emit_failure_diagnostic_ref,
             )
             if lane_ref == "ci-pytest-shards":
                 assert expected_pytest_plan_ref is not None
@@ -1819,7 +2002,14 @@ def run_lane(
                     evidence_passed = (
                         frontend_collection_payload["result_status"] == "passed"
                     )
-                    if (result["status"] == "pass") != evidence_passed:
+                    terminal_process_status = result["status"] in {
+                        "timed_out",
+                        "cancelled",
+                    }
+                    if (
+                        not terminal_process_status
+                        and (result["status"] == "pass") != evidence_passed
+                    ):
                         result["status"] = "fail"
                         result.update(
                             {
@@ -1860,6 +2050,11 @@ def run_lane(
         }
         for result in results
     ) and len(results) == len(lane.command_refs)
+    legacy_status = "pass" if terminal_ok else "fail"
+    if any(result.get("status") == "cancelled" for result in results):
+        legacy_status = "cancelled"
+    elif any(result.get("status") == "timed_out" for result in results):
+        legacy_status = "timed_out"
     receipt = {
         "schema_version": "uaa_ci_lane_receipt.v1",
         "profile_ref": PROFILE_REF,
@@ -1869,7 +2064,7 @@ def run_lane(
         "started_at": started_at,
         "completed_at": _utc_now(),
         "duration_ms": max(0, int((time.perf_counter() - started) * 1000)),
-        "status": "pass" if terminal_ok else "fail",
+        "status": legacy_status,
         "command_results": results,
         "github_gate_satisfied": False,
         "merge_gate_satisfied": False,
@@ -2091,6 +2286,12 @@ def main(argv: list[str] | None = None) -> int:
     except FullSuiteLockUnavailableError:
         print(
             "UAA CI lane blocked: " + FULL_SUITE_LOCK_UNAVAILABLE_REASON_REF,
+            file=sys.stderr,
+        )
+        return 1
+    except VerificationEnvironmentPreflightError as exc:
+        print(
+            f"UAA CI lane blocked: {exc.reason_ref}",
             file=sys.stderr,
         )
         return 1

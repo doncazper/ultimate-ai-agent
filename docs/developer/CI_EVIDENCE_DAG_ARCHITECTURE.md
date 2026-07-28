@@ -12,26 +12,42 @@ made the post-pytest critical path contain work with no proof dependency on
 pytest. Only five source receipts reached the Foundation prerequisite builder.
 
 The current
-`ci-architecture:exact-head-evidence-dag-v2-hosted` topology preserves all
-visible check contexts and commands while moving execution to fresh standard
-GitHub-hosted machines:
+`ci-architecture:exact-head-evidence-dag-v3-parallel-hosted` topology preserves
+all visible check contexts and commands while removing false dependencies
+between fresh GitHub-hosted machines. It uses dependency-aware parallelism
+under `ci-execution-policy:bounded-cost-parallel-v1`; cost is bounded rather
+than required to be zero.
 
 | Stage | Declared budget | Work |
 | --- | ---: | --- |
 | bootstrap | 1/4 | canonical manifest attestation |
-| pre-suite pool | at most 4/4 | lint, exact-base affected preflight, required backend release lanes |
-| pytest exclusive | 4/4 | eight logical shards, four workers, one installed environment |
-| post-suite pool | at most 4/4 | static 2/4, Control Center 2/4, then dependent frontend/visual/packaging lanes |
+| parallel validation | up to 4/4 per machine; exact cross-machine DAG width of 13 hosted jobs | lint, exact-base affected preflight, required backend lanes, complete pytest, static verification, and Control Center start as soon as their real dependencies are met |
+| pytest exclusive | 4/4 on its machine | eight logical shards, four workers, one installed environment |
+| frontend/static branches | up to 4/4 on each machine | static and Control Center run independently; frontend, visual, and packaging retain only their actual upstream edges |
 | performance exclusive | 4/4 | isolated latency measurement after functional work |
 | Foundation exclusive | 4/4 | terminal exact-evidence validation and Foundation report |
 
 The canonical inventory contains every job identity, display/check name,
 command lane, real prerequisite, resource class, resource stage, CPU and memory
 units, timeout, evidence posture, eight-shard count, four-worker count, four
-logical resource-budget units, hosted runner labels, and required check
-context. Static validation rejects an
+logical per-machine resource-budget units, permitted hosted runner classes,
+the proven 13-job DAG-width cap, the 870 job-minute worst-case timeout cap, superseded-run
+cancellation, hosted runner labels, and required check context. Static
+validation recomputes the graph's exact maximum antichain and rejects an
 unknown stage, an over-budget job, an under-declared exclusive job, or any
-declared concurrency set above the fixed machine budget.
+disagreement with the bounded-cost execution limits.
+
+The terminal Foundation command receives both the exact head SHA and the exact
+comparison-base SHA explicitly. It reconstructs the same plan and fails closed
+if either ref disagrees with the prerequisite manifest.
+
+The checked-in workflow currently selects standard hosted machines. The policy
+also permits a repository-configured larger hosted runner class when available
+and cost-capped. It does not authorize changing account billing, spending
+limits, credentials, branch protection, or repository policy. Independent
+implementation and review work may overlap in isolated worktrees; dependent
+merges, shared-state mutations, authority changes, migrations, releases, and
+tags remain ordered by their real dependency edges.
 
 ## Exact proof chain
 
@@ -55,12 +71,15 @@ The envelope binds:
   derived receipt spans and content-binds the complete transitive pre-suite
   dependency closure rather than only the final shard edge.
 
-The terminal validator accepts one ordered result and envelope per upstream
-job. It rejects arity or order drift, duplicate bindings, cross-operation or
-cross-head substitution, wrapper/content-fingerprint tampering, non-success job
-results, unexpected receipt status, dependency chronology drift, or an
-aggregate whose exact receipt bindings, dependency-span timestamps, duration,
-and missing-unit posture do not match its point in the DAG. The commandless
+The terminal runner accepts one uniquely bound envelope per upstream job,
+rejects missing, duplicate, or extra unit bindings, and canonicalizes the
+validated set into declared DAG order before aggregation. The validator still
+rejects arity or internal receipt-order drift, duplicate bindings,
+cross-operation or cross-head substitution, wrapper/content-fingerprint
+tampering, non-success job results, unexpected receipt status, dependency
+chronology drift, or an aggregate whose exact receipt bindings,
+dependency-span timestamps, duration, and missing-unit posture do not match its
+point in the DAG. The commandless
 pytest receipt is also bound to the exact dependency receipt refs from which it
 was derived. Typed-optional lanes always emit a v3 envelope. Their required
 contract commands remain exact executed evidence, while a declared optional
@@ -72,7 +91,7 @@ required command as optional nonexecution is rejected. The frontend release lane
 must reuse the exact passing `command:frontend.check` receipt emitted by its
 declared Control Center dependency; a fresh or substituted proof is rejected.
 After all upstream envelopes validate, the terminal validator constructs a
-formal whole-plan run manifest that binds every exact post-pytest receipt ref
+formal whole-plan run manifest that binds every exact terminal receipt ref
 (and therefore each receipt's output digest). The Foundation lane consumes the
 same complete ordered dependency envelope set, independently re-derives the
 pytest aggregate, adds its own receipt, requires a fully passing whole-plan run,
@@ -100,8 +119,10 @@ payload, or host identity is durable evidence.
   the incomplete set.
 - A superseding SHA cancels the prior workflow through the existing concurrency
   key. Receipts from that SHA cannot satisfy the replacement plan.
-- Missing required, duplicated, reordered, oversized, malformed, or cross-job envelopes
-  fail before Foundation starts.
+- Missing required, duplicated, extra, oversized, malformed, or cross-job
+  envelopes fail before Foundation starts. Valid command-line envelope
+  permutations are canonicalized to the declared DAG order; they cannot alter
+  proof membership or aggregation order.
 - A comparison-base, lockfile, manifest, checkout, or verifier change produces
   a different plan and rejects prior envelopes even if a wrapper hash is
   recomputed.
@@ -122,7 +143,7 @@ workflows. Compare:
 
 1. completion of `pytest / sharded suite`;
 2. completion of `foundation-gate-report`;
-3. overlap of static and Control Center jobs;
+3. overlap of pytest, static, Control Center, and independent release lanes;
 4. isolation of performance and Foundation;
 5. total queue delay separately from execution time.
 

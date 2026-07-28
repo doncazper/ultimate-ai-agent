@@ -197,15 +197,26 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     output_path = tmp_path / "gate_report.json"
     prerequisite_path = tmp_path / "prerequisite.json"
     prerequisite_ref = "foundation-prerequisite:" + "b" * 64
+    observed: dict[str, object] = {}
+
+    def fake_load(
+        path: Path,
+        repo: Path,
+        sha: str,
+        base_sha: str,
+    ) -> SimpleNamespace:
+        observed.update(
+            path=path,
+            repo=repo,
+            sha=sha,
+            base_sha=base_sha,
+        )
+        return SimpleNamespace(content_ref=prerequisite_ref)
+
     monkeypatch.setattr(
         run_foundation_gate,
         "load_foundation_prerequisite_manifest",
-        lambda path, repo, sha: SimpleNamespace(
-            content_ref=prerequisite_ref,
-            path_seen=path,
-            repo_seen=repo,
-            sha_seen=sha,
-        ),
+        fake_load,
     )
 
     exit_code = run_foundation_gate.main(
@@ -216,6 +227,8 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
             str(prerequisite_path),
             "--ci-prerequisite-sha",
             "a" * 40,
+            "--ci-prerequisite-base-sha",
+            "c" * 40,
             "--no-write-latest",
             "--output",
             str(output_path),
@@ -228,6 +241,7 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     assert payload["command_receipts"][0]["command_ref"] == "command:ci.parallel_verification"
     assert payload["command_receipts"][0]["status"] == "satisfied_by_exact_receipts"
     assert payload["command_receipts"][0]["satisfied_by"] == prerequisite_ref
+    assert observed["base_sha"] == "c" * 40
     assert "exact-SHA, exact-plan" in payload["command_receipts"][0]["safe_summary"]
     assert payload["latency_gate"]["foundation_gate_report_json"] is None
     assert payload["latency_gate"]["report_refs"] == {}

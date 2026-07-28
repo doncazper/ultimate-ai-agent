@@ -45,12 +45,14 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         job for job in manifest.CI_JOB_GRAPH if job.job_ref == "pytest-shards"
     )
     assert affected.needs == ("manifest-attestation",)
-    assert pytest_job.needs[:3] == (
+    assert pytest_job.needs == ("manifest-attestation",)
+    pytest_aggregate = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "pytest"
+    )
+    assert pytest_aggregate.needs == (
         "manifest-attestation",
         "lint",
         "affected-preflight",
-    )
-    assert set(pytest_job.needs[3:]) == {
         "release-lane-docs",
         "release-lane-openapi",
         "release-lane-api-safety",
@@ -58,7 +60,8 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         "release-lane-product-truth",
         "release-lane-local-model-e2e",
         "release-lane-durability",
-    }
+        "pytest-shards",
+    )
     assert pytest_job.command_refs == ("command:pytest.sharded-suite",)
     assert all(
         job.command_refs == manifest.lane_registry()[job.lane_ref].command_refs
@@ -91,6 +94,12 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
         "FOUNDATION_GATE_MAX_BEST_MS": "45000",
         "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
     }
+    foundation_gate = manifest.command_registry()[
+        "command:foundation-gate.ci-parallel"
+    ]
+    assert foundation_gate.argv[
+        foundation_gate.argv.index("--ci-prerequisite-base-sha") + 1
+    ] == "{base_sha}"
 
 
 def test_declared_runner_profile_is_stable_across_hosted_image_patch_drift(
@@ -127,20 +136,69 @@ def test_ci_architecture_inventory_binds_fixed_resource_and_evidence_budgets() -
     jobs = {job.job_ref: job for job in manifest.CI_JOB_GRAPH}
 
     assert inventory["current_profile_ref"] == (
-        "ci-architecture:exact-head-evidence-dag-v2-hosted"
+        "ci-architecture:exact-head-evidence-dag-v3-parallel-hosted"
     )
     assert inventory["runner_posture"] == "ephemeral_standard_github_hosted"
     assert inventory["runner_labels"] == ("macos-15", "ubuntu-24.04")
+    assert inventory["permitted_runner_class_refs"] == (
+        "runner-class:github-hosted-standard",
+        "runner-class:github-hosted-larger-bounded",
+    )
+    assert inventory["execution_policy_ref"] == (
+        "ci-execution-policy:bounded-cost-parallel-v1"
+    )
+    assert inventory["scheduling_posture"] == "dependency_aware_parallel"
+    assert inventory["strict_sequential_execution"] is False
+    assert inventory["incremental_cost_posture"] == "bounded_not_zero"
+    assert inventory["max_parallel_hosted_jobs"] == 13
+    assert manifest.maximum_parallel_job_width(manifest.CI_JOB_GRAPH) == 13
+    assert inventory["max_hosted_job_minutes_per_run"] == 870
+    assert sum(job.timeout_minutes for job in manifest.CI_JOB_GRAPH) <= (
+        inventory["max_hosted_job_minutes_per_run"]
+    )
+    assert inventory["superseded_run_cancellation"] is True
     assert inventory["pytest_shard_count"] == 8
     assert inventory["pytest_worker_count"] == 4
     assert inventory["required_check_contexts"] == tuple(
         job.display_name for job in manifest.CI_JOB_GRAPH
     )
-    for concurrent_refs in manifest.CI_RESOURCE_CONCURRENCY_SETS:
-        assert sum(jobs[ref].cpu_units for ref in concurrent_refs) <= 4
-        assert sum(jobs[ref].memory_units for ref in concurrent_refs) <= 4
     for ref in ("pytest-shards", "release-lane-performance", "foundation-gate-report"):
         assert jobs[ref].cpu_units == jobs[ref].memory_units == 4
+
+
+def test_parallel_width_calculation_scales_for_large_chain_and_antichain() -> None:
+    antichain = tuple(
+        manifest.JobSpec(
+            f"independent-{index}",
+            f"Independent {index}",
+            None,
+            (),
+        )
+        for index in range(64)
+    )
+    chain = tuple(
+        manifest.JobSpec(
+            f"chain-{index}",
+            f"Chain {index}",
+            None,
+            (() if index == 0 else (f"chain-{index - 1}",)),
+        )
+        for index in range(64)
+    )
+
+    assert manifest.maximum_parallel_job_width(antichain) == 64
+    assert manifest.maximum_parallel_job_width(chain) == 1
+
+
+def test_definition_rejects_a_parallel_cap_that_disagrees_with_dag_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(manifest, "CI_MAX_PARALLEL_HOSTED_JOBS", 12)
+
+    assert (
+        "hosted parallel job cap must equal the exact canonical DAG width"
+        in manifest.validate_definition()
+    )
 
 
 def test_definition_rejects_private_on_a_runtime_ineligible_unit(
@@ -312,11 +370,9 @@ def test_plan_binds_sha_locks_commands_shards_and_visual_scope() -> None:
     assert plan.schema_version == "uaa_ci_command_manifest.v4"
     assert plan.repository_sha == SHA
     assert len(plan.dependency_lock_fingerprints) == len(manifest.LOCKFILE_REFS)
-    assert plan.selected_command_refs[0:4] == (
+    assert plan.selected_command_refs[0:2] == (
         "command:ci.manifest-attestation",
-        "command:ci.ruff",
-        "command:ci.github-hosted-contract",
-        "command:affected.preflight",
+        "command:docs.integrity",
     )
     assert "command:pytest.sharded-suite" in plan.selected_command_refs
     assert "command:docs.integrity" in plan.selected_command_refs

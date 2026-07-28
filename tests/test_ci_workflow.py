@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from scripts.verify_github_hosted_ci import job_dependencies
 from scripts.verification.ci_command_manifest import (
     CANONICAL_PYTEST_SHARD_COUNT,
     CI_JOB_GRAPH,
@@ -27,6 +28,7 @@ def test_workflow_job_graph_and_lane_refs_match_canonical_manifest() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     for job in CI_JOB_GRAPH:
         section = _extract_job_block(workflow, job.job_ref)
+        assert job_dependencies(workflow, job.job_ref) == job.needs
         for dependency in job.needs:
             assert f"- {dependency}" in section
         if job.lane_ref is not None:
@@ -91,6 +93,31 @@ def test_foundation_gate_ci_report_depends_on_required_verification_jobs() -> No
     assert "if: always()" in section
     assert "uaa_foundation_prerequisite_manifest.json" in section
     assert '--github-output-file "$GITHUB_OUTPUT"' in section
+    dependency_envelopes = tuple(
+        line.strip().removeprefix('--dependency-envelope "$').removesuffix('" \\')
+        for line in section.splitlines()
+        if line.strip().startswith('--dependency-envelope "$')
+    )
+    assert dependency_envelopes == (
+        "MANIFEST_ENVELOPE",
+        "LINT_ENVELOPE",
+        "AFFECTED_ENVELOPE",
+        "DOCS_ENVELOPE",
+        "OPENAPI_ENVELOPE",
+        "API_SAFETY_ENVELOPE",
+        "SECURITY_REDACTION_ENVELOPE",
+        "PRODUCT_TRUTH_ENVELOPE",
+        "LOCAL_MODEL_ENVELOPE",
+        "DURABILITY_ENVELOPE",
+        "PYTEST_SHARDS_ENVELOPE",
+        "PYTEST_ENVELOPE",
+        "STATIC_ENVELOPE",
+        "CONTROL_CENTER_ENVELOPE",
+        "DESKTOP_ENVELOPE",
+        "FRONTEND_ENVELOPE",
+        "VISUAL_ENVELOPE",
+        "PERFORMANCE_ENVELOPE",
+    )
 
 
 def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggregate() -> None:
@@ -100,8 +127,9 @@ def test_pytest_ci_uses_one_installed_job_with_bounded_workers_and_stable_aggreg
     argv = command_registry()["command:pytest.sharded-suite"].argv
 
     assert "matrix:" not in shards
-    assert "- lint" in shards
-    assert "- affected-preflight" in shards
+    assert "- manifest-attestation" in shards
+    assert "- lint" not in shards
+    assert "- affected-preflight" not in shards
     assert argv[argv.index("--shards") + 1] == str(
         CANONICAL_PYTEST_SHARD_COUNT
     )
@@ -192,13 +220,17 @@ def test_frontend_exact_receipt_is_fenced_and_reused_by_release_lane() -> None:
     assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in visual
 
 
-def test_fast_affected_preflight_runs_parallel_with_lint_before_full_pytest() -> None:
+def test_independent_preflights_and_full_pytest_start_after_manifest() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     preflight = _extract_job_block(workflow, "affected-preflight")
     lint = _extract_job_block(workflow, "lint")
+    pytest_shards = _extract_job_block(workflow, "pytest-shards")
 
     assert "- manifest-attestation" in preflight
     assert "- manifest-attestation" in lint
+    assert "- manifest-attestation" in pytest_shards
+    assert "- lint" not in pytest_shards
+    assert "- affected-preflight" not in pytest_shards
     assert "--lane ci-affected-preflight" in preflight
     assert "fetch-depth: 0" in preflight
     assert "refs/uaa-ci/base-main" in preflight

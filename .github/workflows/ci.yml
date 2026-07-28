@@ -169,15 +169,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - lint
-      - affected-preflight
-      - release-lane-docs
-      - release-lane-openapi
-      - release-lane-api-safety
-      - release-lane-security-redaction
-      - release-lane-product-truth
-      - release-lane-local-model-e2e
-      - release-lane-durability
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
     steps:
@@ -336,7 +327,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
@@ -1049,9 +1039,6 @@ jobs:
             --dependency-envelope "$MANIFEST_ENVELOPE" \
             --dependency-envelope "$LINT_ENVELOPE" \
             --dependency-envelope "$AFFECTED_ENVELOPE" \
-            --dependency-envelope "$PYTEST_SHARDS_ENVELOPE" \
-            --dependency-envelope "$PYTEST_ENVELOPE" \
-            --dependency-envelope "$STATIC_ENVELOPE" \
             --dependency-envelope "$DOCS_ENVELOPE" \
             --dependency-envelope "$OPENAPI_ENVELOPE" \
             --dependency-envelope "$API_SAFETY_ENVELOPE" \
@@ -1059,11 +1046,14 @@ jobs:
             --dependency-envelope "$PRODUCT_TRUTH_ENVELOPE" \
             --dependency-envelope "$LOCAL_MODEL_ENVELOPE" \
             --dependency-envelope "$DURABILITY_ENVELOPE" \
+            --dependency-envelope "$PYTEST_SHARDS_ENVELOPE" \
+            --dependency-envelope "$PYTEST_ENVELOPE" \
+            --dependency-envelope "$STATIC_ENVELOPE" \
+            --dependency-envelope "$CONTROL_CENTER_ENVELOPE" \
+            --dependency-envelope "$DESKTOP_ENVELOPE" \
             --dependency-envelope "$FRONTEND_ENVELOPE" \
             --dependency-envelope "$VISUAL_ENVELOPE" \
-            --dependency-envelope "$DESKTOP_ENVELOPE" \
             --dependency-envelope "$PERFORMANCE_ENVELOPE" \
-            --dependency-envelope "$CONTROL_CENTER_ENVELOPE" \
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
@@ -1072,7 +1062,6 @@ jobs:
     runs-on: macos-15
     needs:
       - manifest-attestation
-      - pytest
     outputs:
       verification-envelope: ${{ steps.canonical.outputs.verification_envelope }}
 
