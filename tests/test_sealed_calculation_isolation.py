@@ -571,3 +571,63 @@ def test_ambiguous_create_timeout_requires_exact_container_inspection(
             "execution-ref:sealed-calculation:create-timeout"
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("post_remove_outcome", "cleanup_confirmed"),
+    [
+        ("absent", True),
+        ("present", False),
+        ("inspection-unavailable", False),
+    ],
+)
+def test_ambiguous_remove_failure_reconciles_exact_container_postcondition(
+    monkeypatch,
+    post_remove_outcome: str,
+    cleanup_confirmed: bool,
+) -> None:
+    backend = object.__new__(DockerSealedCalculationBackend)
+    backend.config = SimpleNamespace(image_id="sha256:" + ("a" * 64))
+    container_name = "uaa-sealed-calculation-reconciled"
+    execution_ref = "execution-ref:sealed-calculation:reconciled"
+    inspection = {
+        "Config": {
+            "Labels": {
+                "com.ultimate-ai-agent.execution": hash_text(execution_ref)[:24],
+                "com.ultimate-ai-agent.sealed-calculation": "v1",
+            }
+        },
+        "Image": backend.config.image_id,
+    }
+    inspection_calls = 0
+
+    def inspect_container(_container_name: str):
+        nonlocal inspection_calls
+        inspection_calls += 1
+        if inspection_calls == 1 or post_remove_outcome == "present":
+            return inspection
+        if post_remove_outcome == "absent":
+            return None
+        raise SealedCalculationCleanupUnconfirmedError(
+            "SEALED_CALCULATION_CONTAINER_INSPECTION_UNAVAILABLE"
+        )
+
+    monkeypatch.setattr(backend, "_inspect_container_or_none", inspect_container)
+    monkeypatch.setattr(
+        backend,
+        "_docker",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            SealedCalculationBackendError("SEALED_CALCULATION_DOCKER_UNAVAILABLE")
+        ),
+    )
+
+    if cleanup_confirmed:
+        backend._remove_owned_container(container_name, execution_ref)  # noqa: SLF001
+    else:
+        with pytest.raises(SealedCalculationCleanupUnconfirmedError):
+            backend._remove_owned_container(  # noqa: SLF001
+                container_name,
+                execution_ref,
+            )
+
+    assert inspection_calls == 2

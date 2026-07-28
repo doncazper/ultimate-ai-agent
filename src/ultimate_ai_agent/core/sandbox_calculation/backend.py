@@ -271,9 +271,7 @@ class SealedCalculationExecutionHandle:
 
     def settle(self) -> None:
         if self._settled or not self._committed:
-            raise SealedCalculationBackendError(
-                "SEALED_CALCULATION_SETTLEMENT_INVALID"
-            )
+            raise SealedCalculationBackendError("SEALED_CALCULATION_SETTLEMENT_INVALID")
         self._settled = True
 
     def _collect_result(self) -> SealedCalculationResult:
@@ -1391,6 +1389,8 @@ class DockerSealedCalculationBackend:
         try:
             self._docker(["rm", "--force", container_name], timeout=3.0)
         except SealedCalculationBackendError as exc:
+            if self._inspect_container_or_none(container_name) is None:
+                return
             raise SealedCalculationCleanupUnconfirmedError(
                 "SEALED_CALCULATION_CLEANUP_UNCONFIRMED"
             ) from exc
