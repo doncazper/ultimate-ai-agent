@@ -97,3 +97,23 @@ def test_unknown_line_budget_enforcement_fails_closed(enforcement: object) -> No
         f"verifier_modules has unsupported line budget enforcement {enforcement!r}"
     ]
     assert warnings == []
+
+
+def test_test_corpus_guard_failure_is_part_of_maintainability_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failures: list[str] = []
+    monkeypatch.setattr(
+        verifier,
+        "verify_test_corpus_guard",
+        lambda _root: (_ for _ in ()).throw(
+            verifier.TestCorpusGuardError("removed test is unaccounted")
+        ),
+    )
+
+    verifier._append_test_corpus_guard_failures(
+        failures,
+        {"test_corpus_guard": {}},
+    )
+
+    assert failures == ["test corpus guard failed: removed test is unaccounted"]

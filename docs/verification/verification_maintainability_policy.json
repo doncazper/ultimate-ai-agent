@@ -209,5 +209,17 @@
       "current_manifest()",
       "from ultimate_ai_agent.api.app import app"
     ]
+  },
+  "test_corpus_guard": {
+    "schema_version": "uaa.test_corpus_retirements.v1",
+    "retirement_ledger": "docs/verification/test_corpus_retirements.json",
+    "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+    "enforcement": "fail_closed_when_exact_base_is_available",
+    "required_evidence": [
+      "replacement_refs",
+      "assertion_equivalence_ref",
+      "evidence_ref",
+      "reason"
+    ]
   }
 }
