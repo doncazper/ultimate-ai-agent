@@ -72,11 +72,15 @@ outer private temporary-root cleanup, so no pathname scan or deletion is part
 of the security boundary. Each retained envelope is allowlisted to command
 refs, terminal states, byte counts, output digests, and validated safe failure
 refs. Retention pins and validates the owner-only root descriptor, locks that
-inode with a bounded deadline, and updates the single journal through its bound
-descriptor. It does not enumerate, timestamp-sort, prune, or delete individual
-paths. Before a ref is published, both the exact journal bytes and its named
-inode are revalidated while the lock is still held. Terminal diagnostics
-preserve timeout and cancellation causes.
+inode with a bounded deadline, and writes the next journal to a fixed
+owner-validated staging inode. Only after those bytes are synced and
+identity-validated is the staging inode atomically published over the committed
+journal and the root synced. A crash or interruption before publication leaves
+the previous journal intact, and a later attempt safely overwrites abandoned
+staging state. Retention does not enumerate, timestamp-sort, prune, or delete
+individual paths. Before a ref is published, both the exact committed journal
+bytes and its named inode are revalidated while the lock is still held.
+Terminal diagnostics preserve timeout and cancellation causes.
 
 Admission also validates the complete offline npm dependency trees for the
 Control Center and Matrix adapter with scripts disabled. Missing or invalid

@@ -65,6 +65,7 @@ MAX_DIAGNOSTIC_STORE_BYTES = (
     + 64 * 1024
 )
 DIAGNOSTIC_STORE_NAME = ".uaa-diagnostic-store.json"
+DIAGNOSTIC_STAGING_NAME = ".uaa-diagnostic-store.staging.json"
 DIAGNOSTIC_LOCK_TIMEOUT_SECONDS = 5.0
 DIAGNOSTIC_LOCK_POLL_SECONDS = 0.05
 SAFE_COMMAND_REF_PATTERN = re.compile(r"^command:[a-z0-9][a-z0-9._:-]{0,127}$")
@@ -361,15 +362,16 @@ def _validate_diagnostic_payload(payload: object) -> bytes:
     ).encode("utf-8")
 
 
-def _validate_published_diagnostic_store(
+def _validate_named_diagnostic_store(
     root_descriptor: int,
+    name: str,
     store_descriptor: int,
     store_metadata: os.stat_result,
     encoded_store: bytes,
 ) -> None:
     try:
         named = os.stat(
-            DIAGNOSTIC_STORE_NAME,
+            name,
             dir_fd=root_descriptor,
             follow_symlinks=False,
         )
@@ -485,75 +487,115 @@ def _retain_diagnostics(
             "local verification diagnostics cannot be bounded"
         )
     with _pinned_diagnostic_root(diagnostic_root) as root_descriptor:
+        current_descriptor: int | None = None
         store_descriptor: int | None = None
-        original_store = b""
-        store_write_attempted = False
         try:
             with _locked_diagnostic_root(root_descriptor):
                 try:
-                    store_descriptor = os.open(
+                    current_descriptor = os.open(
                         DIAGNOSTIC_STORE_NAME,
-                        os.O_RDWR
-                        | os.O_CREAT
-                        | getattr(os, "O_NOFOLLOW", 0),
-                        0o600,
+                        os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
                         dir_fd=root_descriptor,
                     )
-                    store_metadata = os.fstat(store_descriptor)
-                    original_store, entries = _read_diagnostic_store(
-                        store_descriptor
+                except FileNotFoundError:
+                    entries: list[dict[str, object]] = []
+                else:
+                    current_metadata = os.fstat(current_descriptor)
+                    current_encoded, entries = _read_diagnostic_store(
+                        current_descriptor
                     )
-                    entries.append({"token": token, "payload": payload})
-                    entries = entries[-MAX_RETAINED_DIAGNOSTIC_RUNS:]
-                    encoded_store = (
-                        json.dumps(
-                            {
-                                "schema_version": (
-                                    "uaa_local_diagnostic_store.v1"
-                                ),
-                                "entries": entries,
-                            },
-                            sort_keys=True,
-                            separators=(",", ":"),
+                    _validate_named_diagnostic_store(
+                        root_descriptor,
+                        DIAGNOSTIC_STORE_NAME,
+                        current_descriptor,
+                        current_metadata,
+                        current_encoded,
+                    )
+                store_descriptor = os.open(
+                    DIAGNOSTIC_STAGING_NAME,
+                    os.O_RDWR
+                    | os.O_CREAT
+                    | getattr(os, "O_NOFOLLOW", 0),
+                    0o600,
+                    dir_fd=root_descriptor,
+                )
+                store_metadata = os.fstat(store_descriptor)
+                if (
+                    not stat.S_ISREG(store_metadata.st_mode)
+                    or store_metadata.st_uid != os.getuid()
+                    or store_metadata.st_nlink != 1
+                    or store_metadata.st_mode & 0o077
+                ):
+                    raise LocalVerificationLaneError(
+                        "local verification diagnostics cannot be bounded"
+                    )
+                entries.append({"token": token, "payload": payload})
+                entries = entries[-MAX_RETAINED_DIAGNOSTIC_RUNS:]
+                encoded_store = (
+                    json.dumps(
+                        {
+                            "schema_version": (
+                                "uaa_local_diagnostic_store.v1"
+                            ),
+                            "entries": entries,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                ).encode("utf-8")
+                if len(encoded_store) > MAX_DIAGNOSTIC_STORE_BYTES:
+                    raise LocalVerificationLaneError(
+                        "local verification diagnostics cannot be bounded"
+                    )
+                _replace_descriptor_bytes(store_descriptor, encoded_store)
+                _validate_named_diagnostic_store(
+                    root_descriptor,
+                    DIAGNOSTIC_STAGING_NAME,
+                    store_descriptor,
+                    store_metadata,
+                    encoded_store,
+                )
+                if current_descriptor is None:
+                    try:
+                        os.stat(
+                            DIAGNOSTIC_STORE_NAME,
+                            dir_fd=root_descriptor,
+                            follow_symlinks=False,
                         )
-                        + "\n"
-                    ).encode("utf-8")
-                    if len(encoded_store) > MAX_DIAGNOSTIC_STORE_BYTES:
+                    except FileNotFoundError:
+                        pass
+                    else:
                         raise LocalVerificationLaneError(
                             "local verification diagnostics cannot be bounded"
                         )
-                    store_write_attempted = True
-                    _replace_descriptor_bytes(store_descriptor, encoded_store)
-                    _validate_published_diagnostic_store(
+                else:
+                    _validate_named_diagnostic_store(
                         root_descriptor,
-                        store_descriptor,
-                        store_metadata,
-                        encoded_store,
+                        DIAGNOSTIC_STORE_NAME,
+                        current_descriptor,
+                        current_metadata,
+                        current_encoded,
                     )
-                    os.fsync(root_descriptor)
-                    _validate_published_diagnostic_store(
-                        root_descriptor,
-                        store_descriptor,
-                        store_metadata,
-                        encoded_store,
-                    )
-                    _validate_pinned_diagnostic_root_path(
-                        diagnostic_root,
-                        root_descriptor,
-                    )
-                    return f"diagnostic-ref:local-verification:{token}"
-                except BaseException:
-                    if store_descriptor is not None and store_write_attempted:
-                        try:
-                            _replace_descriptor_bytes(
-                                store_descriptor,
-                                original_store,
-                            )
-                        except BaseException as rollback_exc:
-                            raise LocalVerificationLaneError(
-                                "local verification diagnostics cannot be bounded"
-                            ) from rollback_exc
-                    raise
+                os.replace(
+                    DIAGNOSTIC_STAGING_NAME,
+                    DIAGNOSTIC_STORE_NAME,
+                    src_dir_fd=root_descriptor,
+                    dst_dir_fd=root_descriptor,
+                )
+                os.fsync(root_descriptor)
+                _validate_named_diagnostic_store(
+                    root_descriptor,
+                    DIAGNOSTIC_STORE_NAME,
+                    store_descriptor,
+                    store_metadata,
+                    encoded_store,
+                )
+                _validate_pinned_diagnostic_root_path(
+                    diagnostic_root,
+                    root_descriptor,
+                )
+                return f"diagnostic-ref:local-verification:{token}"
         except BaseException as exc:
             if isinstance(exc, LocalVerificationLaneError):
                 raise
@@ -565,6 +607,8 @@ def _retain_diagnostics(
         finally:
             if store_descriptor is not None:
                 os.close(store_descriptor)
+            if current_descriptor is not None:
+                os.close(current_descriptor)
 
 
 def _safe_failed_shard_ref(value: object) -> str | None:

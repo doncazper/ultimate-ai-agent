@@ -480,8 +480,11 @@ def test_local_diagnostic_store_restores_previous_bytes_when_write_fails(
             repository_sha=SHA,
         )
 
-    assert calls == 2
+    assert calls == 1
     assert store.read_bytes() == original_store
+    assert (
+        root / local_lane.DIAGNOSTIC_STAGING_NAME
+    ).read_bytes() == b""
 
 
 def test_local_diagnostic_store_never_deletes_legacy_named_entries(
@@ -559,7 +562,8 @@ def test_local_diagnostic_retention_rejects_root_path_swap(
             root.unlink()
 
     moved_store = moved_root / local_lane.DIAGNOSTIC_STORE_NAME
-    assert moved_store.read_bytes() == b""
+    assert len(_diagnostic_entries(moved_root)) == 1
+    assert moved_store.is_file()
     assert sentinel.is_dir()
 
 
@@ -577,10 +581,11 @@ def test_local_diagnostic_store_rejects_named_inode_substitution(
         original_write(descriptor, encoded)
         if not substituted:
             substituted = True
-            store = root / local_lane.DIAGNOSTIC_STORE_NAME
+            store = root / local_lane.DIAGNOSTIC_STAGING_NAME
             store.rename(root / moved_name)
-            store.write_text("replacement", encoding="ascii")
-            store.chmod(0o600)
+            replacement = root / local_lane.DIAGNOSTIC_STAGING_NAME
+            replacement.write_text("replacement", encoding="ascii")
+            replacement.chmod(0o600)
 
     monkeypatch.setattr(
         local_lane,
@@ -599,10 +604,13 @@ def test_local_diagnostic_store_rejects_named_inode_substitution(
             repository_sha=SHA,
         )
 
-    assert (root / moved_name).read_bytes() == b""
+    assert b"uaa_local_diagnostic_store.v1" in (
+        root / moved_name
+    ).read_bytes()
     assert (
-        root / local_lane.DIAGNOSTIC_STORE_NAME
+        root / local_lane.DIAGNOSTIC_STAGING_NAME
     ).read_text(encoding="ascii") == "replacement"
+    assert not (root / local_lane.DIAGNOSTIC_STORE_NAME).exists()
 
 
 def test_local_diagnostic_store_rejects_payload_tampering(
@@ -639,14 +647,25 @@ def test_local_diagnostic_store_rejects_payload_tampering(
             repository_sha=SHA,
         )
 
-    assert (root / local_lane.DIAGNOSTIC_STORE_NAME).read_bytes() == b""
+    assert not (root / local_lane.DIAGNOSTIC_STORE_NAME).exists()
+    assert (
+        root / local_lane.DIAGNOSTIC_STAGING_NAME
+    ).read_bytes().startswith(b"X")
 
 
-def test_local_diagnostic_retention_rolls_back_on_unexpected_unwind(
+def test_local_diagnostic_retention_recovers_staging_after_unexpected_unwind(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "diagnostics"
+    local_lane._retain_diagnostics(
+        None,
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
+    )
+    committed = root / local_lane.DIAGNOSTIC_STORE_NAME
+    original_store = committed.read_bytes()
     original_write = local_lane._replace_descriptor_bytes
     interrupted = False
 
@@ -671,7 +690,24 @@ def test_local_diagnostic_retention_rolls_back_on_unexpected_unwind(
             repository_sha=SHA,
         )
 
-    assert (root / local_lane.DIAGNOSTIC_STORE_NAME).read_bytes() == b""
+    assert committed.read_bytes() == original_store
+    staged = root / local_lane.DIAGNOSTIC_STAGING_NAME
+    assert b"uaa_local_diagnostic_store.v1" in staged.read_bytes()
+
+    monkeypatch.setattr(
+        local_lane,
+        "_replace_descriptor_bytes",
+        original_write,
+    )
+    local_lane._retain_diagnostics(
+        None,
+        diagnostic_root=root,
+        lane_ref="ci-pytest-shards",
+        repository_sha=SHA,
+    )
+
+    assert len(_diagnostic_entries(root)) == 2
+    assert not staged.exists()
 
 
 @pytest.mark.parametrize("terminal_status", ("timed_out", "cancelled"))
