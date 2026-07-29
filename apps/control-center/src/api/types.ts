@@ -14087,15 +14087,59 @@ export interface RuntimeGoalMutationApprovalRequestSpec {
   expires_at: string;
 }
 
+export interface RuntimeGoalMutationApprovalGrant {
+  approval_ref: string;
+  approval_request_id: string;
+  run_id: string;
+  subject_type: "kernel_task";
+  subject_id: string;
+  granted_to_actor_id: string;
+  approved_by_actor_id: string;
+  approved_actions: string[];
+  approved_resource_refs: string[];
+  risk_level: "low";
+  data_classification: {
+    classification: "user_private";
+    source: "goal-runtime-exact-local-mutation";
+    reason: "Goal metadata remains local and redacted.";
+    allowed_sinks: ["local-goal-journal"];
+    forbidden_sinks: ["provider", "network", "runtime-execution"];
+    requires_redaction: true;
+  };
+  purpose: string;
+  status: "granted" | "revoked";
+  created_at: string;
+  expires_at: string;
+  revoked_at?: string | null;
+  event_ref: string;
+  trace_id: string;
+  metadata: { approval_mode: "local_dev" };
+}
+
 export interface RuntimeGoalMutationApprovalDecision {
   schema_version: "goal_mutation_approval_ledger.v2";
   spec: RuntimeGoalMutationApprovalRequestSpec;
   status: "pending" | "approved" | "denied" | "revoked";
+  approval_grant?: RuntimeGoalMutationApprovalGrant | null;
   decision_reason_ref?: string | null;
   decision_actor_ref?: string | null;
   decided_at?: string | null;
   previous_entry_hash_ref?: string | null;
   entry_hash_ref: string;
+}
+
+export interface RuntimeGoalMutationSubmissionApprovalRecovery {
+  schema_version: "goal_mutation_submission_approval_recovery.v1";
+  posture:
+    | "missing"
+    | "pending"
+    | "approved"
+    | "expired"
+    | "denied"
+    | "revoked";
+  authoritative_current: boolean;
+  approval_request?: RuntimeGoalMutationApprovalRequestSpec | null;
+  latest_decision?: RuntimeGoalMutationApprovalDecision | null;
 }
 
 export interface RuntimeGoalMutationResult {
@@ -14239,6 +14283,7 @@ export interface RuntimeGoalMutationSubmissionRecoveryRecord {
   committed_goal_ref?: string | null;
   rejection_reason_ref?: string | null;
   resolved_at?: string | null;
+  approval_recovery?: RuntimeGoalMutationSubmissionApprovalRecovery | null;
 }
 
 export interface RuntimeGoalMutationSubmissionRecoveryReadModel {

@@ -17,7 +17,9 @@ import { API_ENDPOINTS } from "./endpoints";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   RuntimeGoalCreateRequest,
+  RuntimeGoalMutationApprovalRequestSpec,
   RuntimeGoalMutationResult,
+  RuntimeGoalMutationSubmissionRecoveryRecord,
 } from "./types";
 
 const binding: BackendTruthReadBinding = {
@@ -48,6 +50,127 @@ const request: RuntimeGoalCreateRequest = {
   },
   evidence_refs: ["evidence-ref:goal-client-test"],
 };
+
+function pendingGoalRecoveryRecord(
+  posture: "pending" | "approved" | "expired" | "denied" | "revoked",
+): RuntimeGoalMutationSubmissionRecoveryRecord {
+  const submissionEvidenceRef =
+    `evidence-ref:control-center-goal-create-submission:sha256:${"a".repeat(64)}`;
+  const idempotencyRef = "idempotency-ref:goal-recovery-authoritative";
+  const approvalRequest: RuntimeGoalMutationApprovalRequestSpec = {
+    schema_version: "goal_mutation_approval_request.v2",
+    operation: "create",
+    subject_ref: "goal-ref:new",
+    idempotency_ref: idempotencyRef,
+    request_fingerprint_ref:
+      `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+    mutation_request_fingerprint_ref:
+      `request-fingerprint-ref:goal-create:sha256:${"2".repeat(64)}`,
+    exact_scope_ref:
+      `exact-scope-ref:goal-mutation:sha256:${"3".repeat(64)}`,
+    approval_request_ref:
+      `approval-request-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+    approval_ref:
+      `approval-ref:goal-mutation:sha256:${"5".repeat(64)}`,
+    operator_actor_ref: "operator-ref:local-user",
+    requested_at: "2026-07-28T00:00:00Z",
+    expires_at: "2026-07-28T00:30:00Z",
+  };
+  const decisionStatus = posture === "expired" ? "approved" : posture;
+  const decidedAt =
+    decisionStatus === "pending" ? null : "2026-07-28T00:01:00Z";
+  const decisionActor =
+    decisionStatus === "pending" ? null : "operator-ref:local-user";
+  const approvalGrant =
+    decisionStatus === "approved" || decisionStatus === "revoked"
+      ? {
+          approval_ref: approvalRequest.approval_ref,
+          approval_request_id: approvalRequest.approval_request_ref,
+          run_id:
+            `run-ref:goal-mutation:sha256:${"6".repeat(64)}`,
+          subject_type: "kernel_task" as const,
+          subject_id: approvalRequest.subject_ref,
+          granted_to_actor_id: approvalRequest.operator_actor_ref,
+          approved_by_actor_id: decisionActor as string,
+          approved_actions: ["goal_mutation_create"],
+          approved_resource_refs: [
+            approvalRequest.subject_ref,
+            approvalRequest.exact_scope_ref,
+            approvalRequest.request_fingerprint_ref,
+            approvalRequest.mutation_request_fingerprint_ref,
+            approvalRequest.idempotency_ref,
+          ],
+          risk_level: "low" as const,
+          data_classification: {
+            classification: "user_private" as const,
+            source: "goal-runtime-exact-local-mutation" as const,
+            reason: "Goal metadata remains local and redacted." as const,
+            allowed_sinks: ["local-goal-journal"] as ["local-goal-journal"],
+            forbidden_sinks: [
+              "provider",
+              "network",
+              "runtime-execution",
+            ] as ["provider", "network", "runtime-execution"],
+            requires_redaction: true as const,
+          },
+          purpose:
+            "Record one exact local proof-backed goal metadata mutation; runtime execution and standing authority remain disabled.",
+          status:
+            decisionStatus === "revoked"
+              ? ("revoked" as const)
+              : ("granted" as const),
+          created_at: decidedAt as string,
+          expires_at: approvalRequest.expires_at,
+          revoked_at:
+            decisionStatus === "revoked" ? "2026-07-28T00:02:00Z" : null,
+          event_ref:
+            `event-ref:goal-mutation-approval:sha256:${"7".repeat(64)}`,
+          trace_id: approvalRequest.approval_request_ref,
+          metadata: { approval_mode: "local_dev" as const },
+        }
+      : null;
+  return {
+    schema_version: "goal_mutation_submission_recovery.v1",
+    submission_ref: "submission-ref:goal-recovery-authoritative",
+    operation: "create",
+    goal_ref: null,
+    request_payload: {
+      ...request,
+      evidence_refs: [submissionEvidenceRef],
+    },
+    idempotency_ref: idempotencyRef,
+    submission_evidence_ref: submissionEvidenceRef,
+    request_fingerprint_ref:
+      `request-fingerprint-ref:goal-recovery:sha256:${"8".repeat(64)}`,
+    recorded_at: "2026-07-28T00:00:00Z",
+    status: "pending",
+    committed_goal_ref: null,
+    rejection_reason_ref: null,
+    resolved_at: null,
+    approval_recovery: {
+      schema_version: "goal_mutation_submission_approval_recovery.v1",
+      posture,
+      authoritative_current: true,
+      approval_request: approvalRequest,
+      latest_decision: {
+        schema_version: "goal_mutation_approval_ledger.v2",
+        spec: approvalRequest,
+        status: decisionStatus,
+        approval_grant: approvalGrant,
+        decision_reason_ref:
+          decisionStatus === "pending"
+            ? null
+            : "reason-ref:cli-goal-mutation-approval",
+        decision_actor_ref: decisionActor,
+        decided_at: decidedAt,
+        previous_entry_hash_ref:
+          `entry-hash-ref:goal-mutation-approval:sha256:${"9".repeat(64)}`,
+        entry_hash_ref:
+          `entry-hash-ref:goal-mutation-approval:sha256:${"b".repeat(64)}`,
+      },
+    },
+  };
+}
 
 const mutationResult: RuntimeGoalMutationResult = {
   goal: {
@@ -650,6 +773,111 @@ describe("proof-backed runtime goal mutations", () => {
     );
 
     await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it.each(["pending", "approved", "expired", "denied", "revoked"] as const)(
+    "accepts an exact authoritative %s approval recovery posture",
+    async (posture) => {
+      const record = pendingGoalRecoveryRecord(posture);
+      const data = {
+        ...mockControlCenterData.runtimeRunEvents,
+        goal_mutation_submissions: {
+          ...mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+          records: [record],
+          pending_count: 1,
+          committed_count: 0,
+          rejected_count: 0,
+        },
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(JSON.stringify({ success: true, data }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      );
+
+      await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+    },
+  );
+
+  it.each([
+    [
+      "non-authoritative state",
+      (record: RuntimeGoalMutationSubmissionRecoveryRecord) => {
+        if (record.approval_recovery) {
+          record.approval_recovery.authoritative_current = false;
+        }
+      },
+    ],
+    [
+      "cross-idempotency request",
+      (record: RuntimeGoalMutationSubmissionRecoveryRecord) => {
+        if (record.approval_recovery?.approval_request) {
+          record.approval_recovery.approval_request.idempotency_ref =
+            "idempotency-ref:goal-recovery-substituted";
+        }
+      },
+    ],
+    [
+      "cross-bound latest decision",
+      (record: RuntimeGoalMutationSubmissionRecoveryRecord) => {
+        if (record.approval_recovery?.latest_decision) {
+          record.approval_recovery.latest_decision.spec.approval_ref =
+            `approval-ref:goal-mutation:sha256:${"c".repeat(64)}`;
+        }
+      },
+    ],
+    [
+      "approved posture with denied decision",
+      (record: RuntimeGoalMutationSubmissionRecoveryRecord) => {
+        if (record.approval_recovery?.latest_decision) {
+          record.approval_recovery.latest_decision.status = "denied";
+          record.approval_recovery.latest_decision.approval_grant = null;
+        }
+      },
+    ],
+    [
+      "substituted approved resource scope",
+      (record: RuntimeGoalMutationSubmissionRecoveryRecord) => {
+        const grant =
+          record.approval_recovery?.latest_decision?.approval_grant;
+        if (grant) {
+          grant.approved_resource_refs = [
+            ...grant.approved_resource_refs.slice(0, -1),
+            "idempotency-ref:goal-recovery-substituted",
+          ];
+        }
+      },
+    ],
+  ])("fails closed for approval recovery with %s", async (_label, mutate) => {
+    const record = pendingGoalRecoveryRecord("approved");
+    mutate(record);
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_mutation_submissions: {
+        ...mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        records: [record],
+        pending_count: 1,
+        committed_count: 0,
+        rejected_count: 0,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
   });
 
   it.each([

@@ -9206,6 +9206,11 @@ function isSafeRuntimeGoalMutationSubmissions(
           : (record.rejection_reason_ref === null ||
               record.rejection_reason_ref === undefined) &&
             (record.resolved_at === null || record.resolved_at === undefined);
+    const approvalRecoveryValid =
+      record.status === "pending"
+        ? isSafeRuntimeGoalMutationSubmissionApprovalRecovery(record)
+        : record.approval_recovery === null ||
+          record.approval_recovery === undefined;
     return (
       record.schema_version === "goal_mutation_submission_recovery.v1" &&
       ["create", "edit", "transition"].includes(record.operation) &&
@@ -9224,9 +9229,229 @@ function isSafeRuntimeGoalMutationSubmissions(
       evidenceRefs.filter(
         (ref) => ref === record.submission_evidence_ref,
       ).length === 1 &&
-      evidenceRefs.every(isSafeTrustAuthorityRef)
+      evidenceRefs.every(isSafeTrustAuthorityRef) &&
+      approvalRecoveryValid
     );
   });
+}
+
+function goalMutationApprovalSpecsEqual(
+  left: RuntimeGoalMutationApprovalRequestSpec,
+  right: RuntimeGoalMutationApprovalRequestSpec,
+): boolean {
+  return (
+    left.schema_version === right.schema_version &&
+    left.operation === right.operation &&
+    left.subject_ref === right.subject_ref &&
+    left.idempotency_ref === right.idempotency_ref &&
+    left.request_fingerprint_ref === right.request_fingerprint_ref &&
+    left.mutation_request_fingerprint_ref ===
+      right.mutation_request_fingerprint_ref &&
+    left.exact_scope_ref === right.exact_scope_ref &&
+    left.approval_request_ref === right.approval_request_ref &&
+    left.approval_ref === right.approval_ref &&
+    left.operator_actor_ref === right.operator_actor_ref &&
+    left.requested_at === right.requested_at &&
+    left.expires_at === right.expires_at
+  );
+}
+
+function stringArraysEqual(left: unknown, right: string[]): boolean {
+  return (
+    Array.isArray(left) &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function isSafeRuntimeGoalMutationApprovalGrant(
+  value: unknown,
+  spec: RuntimeGoalMutationApprovalRequestSpec,
+  decisionActorRef: string,
+  expectedStatus: "granted" | "revoked",
+): boolean {
+  if (!isPlainRecord(value)) return false;
+  const classification = value.data_classification;
+  const metadata = value.metadata;
+  const allowedKeys = new Set([
+    "approval_ref",
+    "approval_request_id",
+    "run_id",
+    "subject_type",
+    "subject_id",
+    "granted_to_actor_id",
+    "approved_by_actor_id",
+    "approved_actions",
+    "approved_resource_refs",
+    "risk_level",
+    "data_classification",
+    "purpose",
+    "status",
+    "created_at",
+    "expires_at",
+    "revoked_at",
+    "event_ref",
+    "trace_id",
+    "metadata",
+  ]);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    value.approval_ref === spec.approval_ref &&
+    value.approval_request_id === spec.approval_request_ref &&
+    isSafeTrustAuthorityRef(value.run_id) &&
+    value.subject_type === "kernel_task" &&
+    value.subject_id === spec.subject_ref &&
+    value.granted_to_actor_id === spec.operator_actor_ref &&
+    value.approved_by_actor_id === decisionActorRef &&
+    stringArraysEqual(value.approved_actions, [
+      `goal_mutation_${spec.operation}`,
+    ]) &&
+    stringArraysEqual(value.approved_resource_refs, [
+      spec.subject_ref,
+      spec.exact_scope_ref,
+      spec.request_fingerprint_ref,
+      spec.mutation_request_fingerprint_ref,
+      spec.idempotency_ref,
+    ]) &&
+    value.risk_level === "low" &&
+    isPlainRecord(classification) &&
+    classification.classification === "user_private" &&
+    classification.source === "goal-runtime-exact-local-mutation" &&
+    classification.reason === "Goal metadata remains local and redacted." &&
+    stringArraysEqual(classification.allowed_sinks, ["local-goal-journal"]) &&
+    stringArraysEqual(classification.forbidden_sinks, [
+      "provider",
+      "network",
+      "runtime-execution",
+    ]) &&
+    classification.requires_redaction === true &&
+    value.purpose ===
+      "Record one exact local proof-backed goal metadata mutation; runtime execution and standing authority remain disabled." &&
+    value.status === expectedStatus &&
+    typeof value.created_at === "string" &&
+    Number.isFinite(Date.parse(value.created_at)) &&
+    value.expires_at === spec.expires_at &&
+    (expectedStatus === "revoked"
+      ? typeof value.revoked_at === "string" &&
+        Number.isFinite(Date.parse(value.revoked_at))
+      : value.revoked_at === null || value.revoked_at === undefined) &&
+    isSafeTrustAuthorityRef(value.event_ref) &&
+    value.trace_id === spec.approval_request_ref &&
+    isPlainRecord(metadata) &&
+    Object.keys(metadata).length === 1 &&
+    metadata.approval_mode === "local_dev"
+  );
+}
+
+function isSafeRuntimeGoalMutationSubmissionApprovalRecovery(
+  record: RuntimeRunEventsReadModel["goal_mutation_submissions"]["records"][number],
+): boolean {
+  const recovery = record.approval_recovery;
+  if (
+    !isPlainRecord(recovery) ||
+    recovery.schema_version !==
+      "goal_mutation_submission_approval_recovery.v1" ||
+    recovery.authoritative_current !== true ||
+    ![
+      "missing",
+      "pending",
+      "approved",
+      "expired",
+      "denied",
+      "revoked",
+    ].includes(String(recovery.posture))
+  ) {
+    return false;
+  }
+  const approvalRequest = recovery.approval_request;
+  const latestDecision = recovery.latest_decision;
+  if (recovery.posture === "missing") {
+    return (
+      (approvalRequest === null || approvalRequest === undefined) &&
+      (latestDecision === null || latestDecision === undefined)
+    );
+  }
+  if (
+    !isSafeRuntimeGoalMutationApprovalRequestSpec(approvalRequest) ||
+    !isSafeRuntimeGoalMutationApprovalDecision(latestDecision) ||
+    !goalMutationApprovalSpecsEqual(approvalRequest, latestDecision.spec)
+  ) {
+    return false;
+  }
+  const expectedOperation =
+    record.operation === "transition" && isPlainRecord(record.request_payload)
+      ? `transition-${String(record.request_payload.transition)}`
+      : record.operation;
+  const expectedSubject =
+    record.operation === "create" ? "goal-ref:new" : record.goal_ref;
+  if (
+    approvalRequest.operation !== expectedOperation ||
+    approvalRequest.subject_ref !== expectedSubject ||
+    approvalRequest.idempotency_ref !== record.idempotency_ref
+  ) {
+    return false;
+  }
+  const terminalDecisionBound =
+    isSafeTrustAuthorityRef(latestDecision.decision_reason_ref) &&
+    latestDecision.decision_actor_ref === "operator-ref:local-user" &&
+    typeof latestDecision.decided_at === "string" &&
+    Number.isFinite(Date.parse(latestDecision.decided_at));
+  if (recovery.posture === "pending") {
+    return (
+      latestDecision.status === "pending" &&
+      (latestDecision.approval_grant === null ||
+        latestDecision.approval_grant === undefined) &&
+      (latestDecision.decision_reason_ref === null ||
+        latestDecision.decision_reason_ref === undefined) &&
+      (latestDecision.decision_actor_ref === null ||
+        latestDecision.decision_actor_ref === undefined) &&
+      (latestDecision.decided_at === null ||
+        latestDecision.decided_at === undefined)
+    );
+  }
+  if (recovery.posture === "approved") {
+    return (
+      latestDecision.status === "approved" &&
+      terminalDecisionBound &&
+      isSafeRuntimeGoalMutationApprovalGrant(
+        latestDecision.approval_grant,
+        approvalRequest,
+        latestDecision.decision_actor_ref as string,
+        "granted",
+      )
+    );
+  }
+  if (recovery.posture === "expired") {
+    return (
+      latestDecision.status === "pending" ||
+      (latestDecision.status === "approved" &&
+        terminalDecisionBound &&
+        isSafeRuntimeGoalMutationApprovalGrant(
+          latestDecision.approval_grant,
+          approvalRequest,
+          latestDecision.decision_actor_ref as string,
+          "granted",
+        ))
+    );
+  }
+  if (recovery.posture === "denied") {
+    return (
+      latestDecision.status === "denied" &&
+      terminalDecisionBound &&
+      (latestDecision.approval_grant === null ||
+        latestDecision.approval_grant === undefined)
+    );
+  }
+  return (
+    latestDecision.status === "revoked" &&
+    terminalDecisionBound &&
+    isSafeRuntimeGoalMutationApprovalGrant(
+      latestDecision.approval_grant,
+      approvalRequest,
+      latestDecision.decision_actor_ref as string,
+      "revoked",
+    )
+  );
 }
 
 function isSafeRuntimeGoalRequestText(value: unknown): value is string {
