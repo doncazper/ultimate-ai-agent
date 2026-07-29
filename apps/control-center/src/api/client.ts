@@ -9164,7 +9164,8 @@ function isSafeRuntimeGoalMutationSubmissions(
           isSafeTrustAuthorityRef(record.committed_goal_ref) &&
           (record.rejection_reason_ref === null ||
             record.rejection_reason_ref === undefined) &&
-          (record.resolved_at === null || record.resolved_at === undefined)
+          typeof record.resolved_at === "string" &&
+          Number.isFinite(Date.parse(record.resolved_at))
         : record.committed_goal_ref === null ||
           record.committed_goal_ref === undefined;
     const rejectionBindingValid =
@@ -9173,9 +9174,12 @@ function isSafeRuntimeGoalMutationSubmissions(
           isSafeTrustAuthorityRef(record.rejection_reason_ref) &&
           typeof record.resolved_at === "string" &&
           Number.isFinite(Date.parse(record.resolved_at))
-        : (record.rejection_reason_ref === null ||
-            record.rejection_reason_ref === undefined) &&
-          (record.resolved_at === null || record.resolved_at === undefined);
+        : record.status === "committed"
+          ? record.rejection_reason_ref === null ||
+            record.rejection_reason_ref === undefined
+          : (record.rejection_reason_ref === null ||
+              record.rejection_reason_ref === undefined) &&
+            (record.resolved_at === null || record.resolved_at === undefined);
     return (
       record.schema_version === "goal_mutation_submission_recovery.v1" &&
       ["create", "edit", "transition"].includes(record.operation) &&

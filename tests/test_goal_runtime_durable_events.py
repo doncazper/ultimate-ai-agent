@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_module
+from ultimate_ai_agent.core.runtime_gateway.command import invoke_governed_command
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
     DurableCriterionVerifierBinding,
@@ -37,6 +38,9 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
 )
 from ultimate_ai_agent.core.runtime_gateway.run_events import (
     build_runtime_run_events_read_model,
+)
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationStorageError,
 )
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
@@ -395,6 +399,13 @@ def test_repeated_transitions_roll_up_evidence_and_pin_create_identity(
     )
     request = _create_request().model_copy(
         update={"evidence_refs": [create_submission_ref]}
+    )
+    service.record_goal_mutation_submission(
+        submission_ref="submission-ref:bounded-evidence:create",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:bounded-evidence:create",
     )
     current = _create_goal(
         service,
@@ -1952,6 +1963,125 @@ def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
         )
 
 
+def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
+    tmp_path: Path,
+) -> None:
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = RuntimeInvocationStore(
+        tmp_path / "runtime",
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    adapter = GovernedCommandRuntimeAdapter(
+        workspace_root=ROOT,
+        runner=runner,
+    )
+    legacy = invoke_governed_command(
+        store=store,
+        adapter=adapter,
+        request=RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref="goal-ref:sha256:" + "a" * 64,
+            safe_summary="A historical opaque goal mission completed locally.",
+        ),
+        idempotency_ref="idempotency-ref:legacy-goal-receipt",
+    ).record
+    current = invoke_governed_command(
+        store=store,
+        adapter=adapter,
+        request=RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref="mission-ref:current-bounded-inspection",
+            safe_summary="A current bounded inspection completed locally.",
+        ),
+        idempotency_ref="idempotency-ref:current-receipt",
+    ).record
+
+    service = GoalRuntimeService(tmp_path / "goals")
+    projected = service.sync_runtime_invocations(
+        [legacy, current],
+        invocation_store=store,
+    )
+    assert {event.run_ref for event in projected} == {current.invocation_ref}
+    incompatibilities = service.events.projection_incompatibilities()
+    assert len(incompatibilities) == 1
+    assert incompatibilities[0].invocation_ref == legacy.invocation_ref
+    quarantine_path = service.state_dir / "runtime_projection_incompatibilities.jsonl"
+    first_quarantine = quarantine_path.read_bytes()
+
+    restarted = GoalRuntimeService(tmp_path / "goals")
+    assert (
+        restarted.sync_runtime_invocations(
+            store.list_invocations(),
+            invocation_store=store,
+        )
+        == []
+    )
+    assert quarantine_path.read_bytes() == first_quarantine
+    assert restarted.events.projection_incompatibilities() == incompatibilities
+    assert len(restarted.events.replay(current.invocation_ref).events) == 2
+
+    substituted = legacy.model_copy(
+        update={
+            "payload_fingerprint_ref": ("runtime-payload-fingerprint-ref:substituted")
+        }
+    )
+    assert (
+        restarted.sync_runtime_invocations(
+            [substituted],
+            invocation_store=store,
+        )
+        == []
+    )
+
+    class _SubstitutingDurableStore:
+        def get_invocation(self, _invocation_ref: str) -> object:
+            return current
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_DURABLE_INVOCATION_REF_MISMATCH",
+    ):
+        restarted.sync_runtime_invocations(
+            [legacy],
+            invocation_store=_SubstitutingDurableStore(),  # type: ignore[arg-type]
+        )
+
+    class _SameRefSubstitutingDurableStore:
+        def get_invocation(self, _invocation_ref: str) -> object:
+            return substituted
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISMATCH",
+    ):
+        restarted.sync_runtime_invocations(
+            [legacy],
+            invocation_store=(  # type: ignore[arg-type]
+                _SameRefSubstitutingDurableStore()
+            ),
+        )
+
+    class _MissingDurableStore:
+        def get_invocation(self, _invocation_ref: str) -> object:
+            raise RuntimeInvocationStorageError("missing")
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_DURABLE_INVOCATION_NOT_FOUND",
+    ):
+        restarted.sync_runtime_invocations(
+            [legacy],
+            invocation_store=_MissingDurableStore(),  # type: ignore[arg-type]
+        )
+
+
 def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
     tmp_path: Path,
 ) -> None:
@@ -2111,6 +2241,64 @@ def test_atomic_storage_failure_is_normalized(
             _create_request(),
             idempotency_ref="idempotency-ref:storage-failure:create",
         )
+
+
+def test_atomic_storage_rejects_unsynced_parent_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "state.json"
+    original_open = goal_runtime_module.os.open
+
+    def fail_parent_directory_open(
+        path: str | bytes | Path,
+        flags: int,
+        mode: int = 0o777,
+    ) -> int:
+        if Path(path) == tmp_path:
+            raise OSError("directory fsync descriptor unavailable")
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(
+        goal_runtime_module.os,
+        "open",
+        fail_parent_directory_open,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        goal_runtime_module._atomic_write(target, "{}\n")  # noqa: SLF001
+
+
+def test_atomic_storage_rejects_parent_directory_fsync_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "state.json"
+    original_fsync = goal_runtime_module.os.fsync
+    file_fsync_completed = False
+
+    def fail_parent_directory_fsync(descriptor: int) -> None:
+        nonlocal file_fsync_completed
+        descriptor_mode = goal_runtime_module.os.fstat(descriptor).st_mode
+        if stat.S_ISDIR(descriptor_mode):
+            assert file_fsync_completed
+            raise OSError("directory fsync failed")
+        file_fsync_completed = True
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(
+        goal_runtime_module.os,
+        "fsync",
+        fail_parent_directory_fsync,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        goal_runtime_module._atomic_write(target, "{}\n")  # noqa: SLF001
+    assert file_fsync_completed
 
 
 def test_goal_runtime_files_are_private(tmp_path: Path) -> None:
@@ -4008,7 +4196,7 @@ def test_goal_mutation_submission_commit_requires_full_journal_binding(
 
     _create_goal(
         service,
-        request,
+        _create_request(),
         idempotency_ref="idempotency-ref:control-center-goal-create:other",
     )
     recovery = build_runtime_run_events_read_model(
@@ -4105,13 +4293,11 @@ def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
             request=substituted_request,
             idempotency_ref=exact_idempotency_ref,
         )
-        with pytest.raises(
-            GoalRuntimeCorruptionError,
-            match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
-        ):
-            request_store_service._submissions.recovery_read_model(  # noqa: SLF001
-                [create_entry]
-            )
+        substituted_recovery = request_store_service._submissions.recovery_read_model(  # noqa: SLF001
+            [create_entry]
+        )
+        assert substituted_recovery.pending_count == 1
+        assert substituted_recovery.committed_count == 0
 
     submission_store_service = GoalRuntimeService(tmp_path / "submission-substitution")
     submission_store_service.record_goal_mutation_submission(
@@ -4121,13 +4307,13 @@ def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
         request=exact_request,
         idempotency_ref=exact_idempotency_ref,
     )
-    with pytest.raises(
-        GoalRuntimeCorruptionError,
-        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
-    ):
+    substituted_submission_recovery = (
         submission_store_service._submissions.recovery_read_model(  # noqa: SLF001
             [create_entry]
         )
+    )
+    assert substituted_submission_recovery.pending_count == 1
+    assert substituted_submission_recovery.committed_count == 0
 
     edit_evidence_ref = (
         "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "3" * 64
@@ -4145,13 +4331,13 @@ def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
         ),
         idempotency_ref=exact_idempotency_ref,
     )
-    with pytest.raises(
-        GoalRuntimeCorruptionError,
-        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
-    ):
+    substituted_operation_recovery = (
         operation_store_service._submissions.recovery_read_model(  # noqa: SLF001
             [create_entry]
         )
+    )
+    assert substituted_operation_recovery.pending_count == 1
+    assert substituted_operation_recovery.committed_count == 0
 
     unrelated_store_service = GoalRuntimeService(tmp_path / "unrelated-idempotency")
     unrelated_store_service.record_goal_mutation_submission(
@@ -4174,6 +4360,13 @@ def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
         evidence_refs=[edit_evidence_ref],
     )
     edit_idempotency_ref = "idempotency-ref:goal-edit:journal-binding"
+    journal_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:edit-journal-binding",
+        operation="edit",
+        goal_ref=create_entry.goal_ref,
+        request=edit_request,
+        idempotency_ref=edit_idempotency_ref,
+    )
     _edit_goal(
         journal_service,
         create_entry.goal_ref,
@@ -4189,13 +4382,76 @@ def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
         request=edit_request,
         idempotency_ref=edit_idempotency_ref,
     )
+    substituted_goal_recovery = goal_store_service._submissions.recovery_read_model(  # noqa: SLF001
+        [edit_entry]
+    )
+    assert substituted_goal_recovery.pending_count == 1
+    assert substituted_goal_recovery.committed_count == 0
+
+
+def test_goal_mutation_submission_rejects_journal_idempotency_collision_before_write(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    original_request = _create_request()
+    idempotency_ref = "idempotency-ref:goal-submission:journal-collision"
+    _create_goal(
+        service,
+        original_request,
+        idempotency_ref=idempotency_ref,
+    )
+    colliding_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "7" * 64
+    )
+    colliding_request = original_request.model_copy(
+        update={
+            "objective": "A different bounded create must not reuse the journal key.",
+            "evidence_refs": [colliding_evidence_ref],
+        }
+    )
+
     with pytest.raises(
-        GoalRuntimeCorruptionError,
-        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
+        GoalIdempotencyConflictError,
+        match="GOAL_IDEMPOTENCY_CONFLICT",
     ):
-        goal_store_service._submissions.recovery_read_model(  # noqa: SLF001
-            [edit_entry]
+        service.record_goal_mutation_submission(
+            submission_ref="submission-ref:goal-submission:journal-collision",
+            operation="create",
+            goal_ref=None,
+            request=colliding_request,
+            idempotency_ref=idempotency_ref,
         )
+
+    assert not service._submissions.path.exists()  # noqa: SLF001
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.records == []
+
+
+def test_reserved_submission_evidence_requires_exact_durable_record(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request().model_copy(
+        update={
+            "evidence_refs": [
+                "evidence-ref:control-center-goal-create-submission:sha256:" + "8" * 64
+            ]
+        }
+    )
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_SUBMISSION_RECORD_REQUIRED",
+    ):
+        _create_goal(
+            service,
+            request,
+            idempotency_ref="idempotency-ref:reserved-evidence:missing",
+        )
+
+    assert service.goals._load_consistent_entries() == []  # noqa: SLF001
 
 
 def test_goal_mutation_submission_admission_reserves_terminal_bytes(

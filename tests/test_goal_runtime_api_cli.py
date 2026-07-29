@@ -610,12 +610,20 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
         criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
+    blocked_submission_ref = (
+        "submission-ref:control-center-goal-mutation:blocked-completion"
+    )
+    blocked_submission_evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:"
+        "transition:sha256:" + "9" * 64
+    )
     blocked_completion = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",
         json={
             "expected_version": 2,
             "transition": "verify_completion",
             "reason_ref": "reason-ref:api-goal-verifier",
+            "evidence_refs": [blocked_submission_evidence_ref],
             "completion_evidence": {
                 "goal_ref": goal["goal_ref"],
                 "goal_version": 2,
@@ -627,13 +635,22 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
                 "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
             },
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:api-goal-verify"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:api-goal-verify",
+            "x-uaa-goal-submission-ref": blocked_submission_ref,
+        },
     ).json()
     assert blocked_completion["success"] is False
     assert blocked_completion["error"]["code"] == (
         "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
     )
     assert service.goals.get(goal["goal_ref"]).state == "complete_requested"
+    blocked_recovery = client.get("/api/runtime/run-events").json()["data"][
+        "goal_mutation_submissions"
+    ]
+    assert blocked_recovery["rejected_count"] == 1
+    assert blocked_recovery["records"][0]["submission_ref"] == (blocked_submission_ref)
+    assert blocked_recovery["records"][0]["status"] == "rejected"
 
     transition_request = runtime_pilot_service.GoalTransitionRequest.model_validate(
         {

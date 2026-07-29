@@ -257,16 +257,21 @@ export function RuntimeReadinessPanel({
           (record) =>
             record.status === "committed" || record.status === "rejected",
         )
+        .sort((left, right) => {
+          const resolvedOrder =
+            Date.parse(left.resolved_at ?? "") -
+            Date.parse(right.resolved_at ?? "");
+          return resolvedOrder !== 0
+            ? resolvedOrder
+            : left.submission_ref.localeCompare(right.submission_ref);
+        })
         .at(-1);
       const latestCommittedGoal =
         latestTerminal?.status !== "committed"
           ? undefined
           : runEvents.goal_lifecycle.goals.find(
               (goal) =>
-                goal.goal_ref === latestTerminal.committed_goal_ref &&
-                goal.evidence_refs.includes(
-                  latestTerminal.submission_evidence_ref,
-                ),
+                goal.goal_ref === latestTerminal.committed_goal_ref,
             );
       if (
         latestTerminal?.status === "committed" &&
@@ -305,10 +310,7 @@ export function RuntimeReadinessPanel({
               runEvents.goal_lifecycle.goals.some(
                 (goal) =>
                   goal.goal_ref ===
-                    matchingRefRecords[0].committed_goal_ref &&
-                  goal.evidence_refs.includes(
-                    matchingRefRecords[0].submission_evidence_ref,
-                  ),
+                  matchingRefRecords[0].committed_goal_ref,
               ))
           ) {
             return null;
@@ -400,10 +402,7 @@ export function RuntimeReadinessPanel({
           ? undefined
           : refreshed.goal_lifecycle.goals.find(
               (goal) =>
-                goal.goal_ref === terminalSubmission.committed_goal_ref &&
-                goal.evidence_refs.includes(
-                  terminalSubmission.submission_evidence_ref,
-                ),
+                goal.goal_ref === terminalSubmission.committed_goal_ref,
             );
       if (
         terminalSubmission?.status === "committed" &&

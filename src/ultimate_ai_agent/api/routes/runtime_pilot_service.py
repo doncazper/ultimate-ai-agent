@@ -1368,10 +1368,6 @@ def post_api_runtime_goal_transition(
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
     try:
-        if request.transition == GoalTransitionKind.verify_completion.value:
-            raise GoalTransitionDeniedError(
-                "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
-            )
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
             ref.startswith(CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX)
@@ -1386,6 +1382,10 @@ def post_api_runtime_goal_transition(
                 goal_ref=goal_ref,
                 request=request,
                 idempotency_ref=idempotency_ref,
+            )
+        if request.transition == GoalTransitionKind.verify_completion.value:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
             )
         approval = capture_exact_goal_mutation_approval(
             operation=f"transition-{request.transition}",

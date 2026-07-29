@@ -64,6 +64,10 @@ pending envelope to become a maximum-sized terminal rejection after a restart.
 The bounded goal-mutation provenance projection carries that safe submission
 fingerprint for create, edit, and transition entries without exposing request
 content.
+Reserved Control Center submission evidence is rejected unless the exact
+backend-owned recovery envelope exists. Terminal recovery records carry a
+durable resolution timestamp for deterministic UI ordering; committed recovery
+remains authoritative after bounded goal-evidence compaction.
 Terminal deterministic mutation failures are
 durably bound to a safe rejection-reason ref before the response is returned;
 the rejected identity cannot be replayed, while Control Center releases its
@@ -122,6 +126,10 @@ streams are terminal and late success events are rejected.
 An invocation that claims a `goal-ref:` mission is rejected before either the
 command or local-model adapter runs unless that exact ref exists in the durable
 goal journal. Non-goal mission refs retain their existing governed behavior.
+Historically accepted receipts with opaque goal-shaped missions are left
+unprojected and recorded once in a bounded, content-bound incompatibility
+quarantine so they cannot block or repeatedly retry during unrelated current
+receipt synchronization.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate

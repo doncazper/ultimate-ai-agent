@@ -9477,7 +9477,14 @@ describe("Web Control Center shell", () => {
             ? mutationKind === "create"
               ? []
               : [initialGoal]
-            : [committedGoal];
+            : [
+                {
+                  ...committedGoal,
+                  evidence_refs: committedGoal.evidence_refs.filter(
+                    (ref) => !ref.includes("submission"),
+                  ),
+                },
+              ];
         return {
           ...cloneForTest(mockControlCenterData.runtimeRunEvents),
           goal_lifecycle: {
@@ -9523,6 +9530,7 @@ describe("Web Control Center shell", () => {
                       recorded_at: "2026-07-28T00:00:00Z",
                       status: "committed",
                       committed_goal_ref: committedGoal.goal_ref,
+                      resolved_at: "2026-07-28T00:00:01Z",
                     },
                   ],
             pending_count: 0,
@@ -9980,15 +9988,16 @@ describe("Web Control Center shell", () => {
   });
 
   it.each([
-    ["committed", "rejected", "The backend durably rejected"],
-    ["rejected", "committed", "A backend-owned goal submission is durably committed"],
+    ["committed", "rejected", "A backend-owned goal submission is durably committed"],
+    ["rejected", "committed", "The backend durably rejected"],
   ] as const)(
-    "reports the last terminal goal submission for %s then %s history",
+    "reports the latest resolved goal submission for %s then %s admission order",
     async (firstStatus, lastStatus, expectedNotice) => {
       const goalRef = `goal-ref:sha256:${"6".repeat(64)}`;
       const record = (
         status: "committed" | "rejected",
         index: number,
+        resolvedAt: string,
       ) => ({
         schema_version:
           "goal_mutation_submission_recovery.v1" as const,
@@ -10036,10 +10045,7 @@ describe("Web Control Center shell", () => {
           status === "rejected"
             ? "reason-ref:goal-mutation-rejected:test"
             : null,
-        resolved_at:
-          status === "rejected"
-            ? `2026-07-28T00:00:1${index}Z`
-            : null,
+        resolved_at: resolvedAt,
       });
       const runEvents = {
         ...cloneForTest(mockControlCenterData.runtimeRunEvents),
@@ -10094,7 +10100,10 @@ describe("Web Control Center shell", () => {
             mockControlCenterData.runtimeRunEvents
               .goal_mutation_submissions,
           ),
-          records: [record(firstStatus, 1), record(lastStatus, 2)],
+          records: [
+            record(firstStatus, 1, "2026-07-28T00:00:20Z"),
+            record(lastStatus, 2, "2026-07-28T00:00:10Z"),
+          ],
           pending_count: 0,
           committed_count:
             Number(firstStatus === "committed") +

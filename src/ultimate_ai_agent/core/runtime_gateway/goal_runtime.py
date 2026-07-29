@@ -79,6 +79,8 @@ MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
 MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES = 16 * 1024 * 1024
+MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES = 4096
+MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES = 4 * 1024 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
 RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 GOAL_TEXT_REDACTION_POSTURE = "operator_authored_redacted_summary_only"
@@ -1022,7 +1024,7 @@ class GoalMutationSubmissionRecoveryRecord(BaseModel):
                 self.committed_goal_ref,
                 "committed_goal_ref",
             )
-            if self.rejection_reason_ref is not None or self.resolved_at is not None:
+            if self.rejection_reason_ref is not None or self.resolved_at is None:
                 raise ValueError("GOAL_SUBMISSION_COMMITTED_REJECTION_BINDING_DENIED")
         elif self.status == "rejected":
             if self.committed_goal_ref is not None:
@@ -1486,6 +1488,49 @@ class RunEventProjectionReservation(BaseModel):
                 raise ValueError("RUN_EVENT_RESERVATION_ARITY_MISMATCH")
         if self.expires_at <= self.reserved_at:
             raise ValueError("RUN_EVENT_RESERVATION_EXPIRY_INVALID")
+        return self
+
+
+class RuntimeProjectionIncompatibilityRecord(BaseModel):
+    schema_version: Literal["runtime_projection_incompatibility.v1"] = (
+        "runtime_projection_incompatibility.v1"
+    )
+    invocation_ref: str
+    mission_ref: str
+    payload_fingerprint_ref: str
+    receipt_ref: str
+    reason_ref: Literal[
+        "reason-ref:runtime-projection-incompatible:missing-durable-goal"
+    ] = "reason-ref:runtime-projection-incompatible:missing-durable-goal"
+    recorded_at: datetime
+    record_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_record(self) -> "RuntimeProjectionIncompatibilityRecord":
+        for value, field_name in (
+            (self.invocation_ref, "invocation_ref"),
+            (self.mission_ref, "mission_ref"),
+            (self.payload_fingerprint_ref, "payload_fingerprint_ref"),
+            (self.receipt_ref, "receipt_ref"),
+            (self.reason_ref, "reason_ref"),
+            (self.record_hash_ref, "record_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        expected_hash = _sha256_ref(
+            "record-hash-ref:runtime-projection-incompatibility",
+            {
+                "invocation_ref": self.invocation_ref,
+                "mission_ref": self.mission_ref,
+                "payload_fingerprint_ref": self.payload_fingerprint_ref,
+                "receipt_ref": self.receipt_ref,
+                "reason_ref": self.reason_ref,
+                "recorded_at": self.recorded_at.isoformat(),
+            },
+        )
+        if self.record_hash_ref != expected_hash:
+            raise ValueError("RUNTIME_PROJECTION_INCOMPATIBILITY_HASH_MISMATCH")
         return self
 
 
@@ -2882,6 +2927,20 @@ class _GoalMutationSubmissionStore:
                 "submission_evidence_ref": submission_evidence_ref,
             },
         )
+        existing_journal_entry = next(
+            (
+                entry
+                for entry in journal_entries
+                if entry.idempotency_ref == idempotency_ref
+            ),
+            None,
+        )
+        if (
+            existing_journal_entry is not None
+            and existing_journal_entry.goal_submission_fingerprint_ref
+            != request_fingerprint_ref
+        ):
+            raise GoalIdempotencyConflictError("GOAL_IDEMPOTENCY_CONFLICT")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
             records = self._load()
@@ -3029,6 +3088,16 @@ class _GoalMutationSubmissionStore:
             record for record in records if record.idempotency_ref == idempotency_ref
         ]
         if not matches:
+            if any(
+                ref.startswith(
+                    (
+                        CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX,
+                        CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX,
+                    )
+                )
+                for ref in (validated.evidence_refs or [])
+            ):
+                raise GoalRuntimeError("GOAL_SUBMISSION_RECORD_REQUIRED")
             return None
         if len(matches) != 1:
             raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_BINDING_DUPLICATE")
@@ -3077,10 +3146,14 @@ class _GoalMutationSubmissionStore:
         entries: list[GoalJournalEntry],
     ) -> GoalMutationSubmissionRecoveryReadModel:
         entries_by_idempotency = {entry.idempotency_ref: entry for entry in entries}
-        committed_goal_refs: dict[str, str] = {}
+        committed_bindings: dict[str, tuple[str, datetime]] = {}
         for record in records:
             entry = entries_by_idempotency.get(record.idempotency_ref)
-            if entry is None:
+            if (
+                entry is None
+                or entry.goal_submission_fingerprint_ref
+                != record.request_fingerprint_ref
+            ):
                 continue
             expected_fingerprint = cls._goal_journal_request_fingerprint(record)
             expected_goal_ref = (
@@ -3091,8 +3164,6 @@ class _GoalMutationSubmissionStore:
                 or entry.goal_ref != expected_goal_ref
                 or entry.request_fingerprint_ref != expected_fingerprint
                 or record.submission_evidence_ref not in entry.goal.evidence_refs
-                or entry.goal_submission_fingerprint_ref
-                != record.request_fingerprint_ref
             ):
                 raise GoalRuntimeCorruptionError(
                     "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
@@ -3101,7 +3172,10 @@ class _GoalMutationSubmissionStore:
                 raise GoalRuntimeCorruptionError(
                     "GOAL_SUBMISSION_REJECTION_COMMIT_CONFLICT"
                 )
-            committed_goal_refs[record.submission_ref] = entry.goal_ref
+            committed_bindings[record.submission_ref] = (
+                entry.goal_ref,
+                entry.recorded_at,
+            )
         recovery_records = [
             GoalMutationSubmissionRecoveryRecord(
                 submission_ref=record.submission_ref,
@@ -3114,12 +3188,20 @@ class _GoalMutationSubmissionStore:
                 recorded_at=record.recorded_at,
                 status=(
                     "committed"
-                    if record.submission_ref in committed_goal_refs
+                    if record.submission_ref in committed_bindings
                     else record.resolution_status
                 ),
-                committed_goal_ref=committed_goal_refs.get(record.submission_ref),
+                committed_goal_ref=(
+                    committed_bindings[record.submission_ref][0]
+                    if record.submission_ref in committed_bindings
+                    else None
+                ),
                 rejection_reason_ref=record.rejection_reason_ref,
-                resolved_at=record.resolved_at,
+                resolved_at=(
+                    committed_bindings[record.submission_ref][1]
+                    if record.submission_ref in committed_bindings
+                    else record.resolved_at
+                ),
             )
             for record in records
         ]
@@ -3151,6 +3233,9 @@ class _DurableRunEventStore:
         self.idempotency_path = self.state_dir / "run_event_idempotency.jsonl"
         self.reservations_path = (
             self.state_dir / "run_event_projection_reservations.jsonl"
+        )
+        self.incompatibilities_path = (
+            self.state_dir / "runtime_projection_incompatibilities.jsonl"
         )
         self.retention_limit = retention_limit
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
@@ -3924,6 +4009,120 @@ class _DurableRunEventStore:
             )
         _atomic_write(self.reservations_path, content)
 
+    def projection_incompatibilities(
+        self,
+    ) -> list[RuntimeProjectionIncompatibilityRecord]:
+        with _nonmutating_goal_runtime_read_lock(
+            self.state_dir / ".locks",
+            "runtime-projection-incompatibilities",
+            generation_paths=(self.incompatibilities_path,),
+        ):
+            return self._load_projection_incompatibilities()
+
+    def quarantine_projection_incompatibility(
+        self,
+        record: RuntimeInvocationRecord,
+    ) -> RuntimeProjectionIncompatibilityRecord:
+        receipt = record.receipt
+        mission_ref = record.request.mission_ref
+        if receipt is None or mission_ref is None:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISSING"
+            )
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self._locks,
+            "runtime-projection-incompatibilities",
+        ):
+            records = self._load_projection_incompatibilities()
+            existing = next(
+                (
+                    item
+                    for item in records
+                    if item.invocation_ref == record.invocation_ref
+                ),
+                None,
+            )
+            if existing is not None:
+                if (
+                    existing.mission_ref != mission_ref
+                    or existing.payload_fingerprint_ref
+                    != record.payload_fingerprint_ref
+                    or existing.receipt_ref != receipt.receipt_ref
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISMATCH"
+                    )
+                return existing.model_copy(deep=True)
+            if len(records) >= MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES:
+                raise GoalRuntimeError(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"
+                )
+            recorded_at = utc_now()
+            payload = {
+                "invocation_ref": record.invocation_ref,
+                "mission_ref": mission_ref,
+                "payload_fingerprint_ref": record.payload_fingerprint_ref,
+                "receipt_ref": receipt.receipt_ref,
+                "reason_ref": (
+                    "reason-ref:runtime-projection-incompatible:missing-durable-goal"
+                ),
+                "recorded_at": recorded_at.isoformat(),
+            }
+            incompatibility = RuntimeProjectionIncompatibilityRecord(
+                **payload,
+                record_hash_ref=_sha256_ref(
+                    "record-hash-ref:runtime-projection-incompatibility",
+                    payload,
+                ),
+            )
+            records.append(incompatibility)
+            self._write_projection_incompatibilities(records)
+            return incompatibility.model_copy(deep=True)
+
+    def _load_projection_incompatibilities(
+        self,
+    ) -> list[RuntimeProjectionIncompatibilityRecord]:
+        raw_content = _read_bounded_regular_utf8(
+            self.incompatibilities_path,
+            max_bytes=MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES,
+            missing_ok=True,
+            capacity_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"),
+            corruption_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_STORE_CORRUPT"),
+        )
+        if raw_content is None:
+            return []
+        try:
+            records = [
+                RuntimeProjectionIncompatibilityRecord.model_validate_json(line)
+                for line in raw_content.splitlines()
+                if line.strip()
+            ]
+        except (TypeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_STORE_CORRUPT"
+            ) from exc
+        if len(records) > MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_COUNT_EXCEEDED"
+            )
+        if len({record.invocation_ref for record in records}) != len(records):
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_DUPLICATE"
+            )
+        return records
+
+    def _write_projection_incompatibilities(
+        self,
+        records: list[RuntimeProjectionIncompatibilityRecord],
+    ) -> None:
+        content = "".join(record.model_dump_json() + "\n" for record in records)
+        if len(content.encode("utf-8")) > MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES:
+            raise GoalRuntimeError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"
+            )
+        _atomic_write(self.incompatibilities_path, content)
+
     def _build_idempotency_tombstone(
         self,
         event: DurableRunEvent,
@@ -4342,6 +4541,11 @@ class DurableRunEventReader:
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
         return self.__store.run_type(run_ref)
+
+    def projection_incompatibilities(
+        self,
+    ) -> list[RuntimeProjectionIncompatibilityRecord]:
+        return self.__store.projection_incompatibilities()
 
 
 class GoalRuntimeService:
@@ -4882,34 +5086,14 @@ class GoalRuntimeService:
 
         from ultimate_ai_agent.core.runtime_gateway.contracts import (
             RuntimeAuthority,
-            RuntimeInvocationRecord,
             RuntimeInvocationStatus,
         )
-        from ultimate_ai_agent.core.runtime_gateway.storage import (
-            RuntimeInvocationStorageError,
-        )
 
-        validated = RuntimeInvocationRecord.model_validate(record.model_dump())
+        validated = self._durable_runtime_invocation(
+            record,
+            invocation_store=invocation_store,
+        )
         self.assert_runtime_mission_goal_exists(validated.request.mission_ref)
-        try:
-            stored_record = invocation_store.get_invocation(validated.invocation_ref)
-        except RuntimeInvocationStorageError as exc:
-            raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_DURABLE_INVOCATION_NOT_FOUND"
-            ) from exc
-        try:
-            durable_record = RuntimeInvocationRecord.model_validate(
-                stored_record.model_dump()
-            )
-        except (AttributeError, ValueError) as exc:
-            raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_DURABLE_INVOCATION_INVALID"
-            ) from exc
-        if durable_record.invocation_ref != validated.invocation_ref:
-            raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_DURABLE_INVOCATION_REF_MISMATCH"
-            )
-        validated = durable_record
         receipt = validated.receipt
         if (
             receipt is None
@@ -5030,6 +5214,40 @@ class GoalRuntimeService:
             )
         return [started, recorded]
 
+    @staticmethod
+    def _durable_runtime_invocation(
+        record: RuntimeInvocationRecord,
+        *,
+        invocation_store: RuntimeInvocationStore,
+    ) -> RuntimeInvocationRecord:
+        from ultimate_ai_agent.core.runtime_gateway.contracts import (
+            RuntimeInvocationRecord,
+        )
+        from ultimate_ai_agent.core.runtime_gateway.storage import (
+            RuntimeInvocationStorageError,
+        )
+
+        candidate = RuntimeInvocationRecord.model_validate(record.model_dump())
+        try:
+            stored_record = invocation_store.get_invocation(candidate.invocation_ref)
+        except RuntimeInvocationStorageError as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_DURABLE_INVOCATION_NOT_FOUND"
+            ) from exc
+        try:
+            durable_record = RuntimeInvocationRecord.model_validate(
+                stored_record.model_dump()
+            )
+        except (AttributeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_DURABLE_INVOCATION_INVALID"
+            ) from exc
+        if durable_record.invocation_ref != candidate.invocation_ref:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_DURABLE_INVOCATION_REF_MISMATCH"
+            )
+        return durable_record
+
     def sync_runtime_invocations(
         self,
         records: Iterable[RuntimeInvocationRecord],
@@ -5038,13 +5256,31 @@ class GoalRuntimeService:
     ) -> list[DurableRunEvent]:
         self.reconcile_durable_events()
         projected: list[DurableRunEvent] = []
+        quarantined_invocation_refs = {
+            record.invocation_ref
+            for record in self._events.projection_incompatibilities()
+        }
         for record in self._events.unprojected_runtime_invocations(records):
-            projected.extend(
-                self.record_accepted_runtime_invocation(
-                    record,
-                    invocation_store=invocation_store,
-                )
+            durable_record = self._durable_runtime_invocation(
+                record,
+                invocation_store=invocation_store,
             )
+            if record.invocation_ref in quarantined_invocation_refs:
+                self._events.quarantine_projection_incompatibility(durable_record)
+                continue
+            try:
+                projected.extend(
+                    self.record_accepted_runtime_invocation(
+                        durable_record,
+                        invocation_store=invocation_store,
+                    )
+                )
+            except GoalNotFoundError:
+                # Historical opaque goal-shaped missions predate the durable goal
+                # journal. Quarantine their exact durable receipt so later syncs do
+                # not retry silently; new executions retain the strict preflight.
+                self._events.quarantine_projection_incompatibility(durable_record)
+                continue
         return projected
 
 
@@ -5412,10 +5648,7 @@ def _atomic_write(path: Path, content: str) -> None:
             os.fsync(handle.fileno())
         os.replace(temp_path, path)
         os.chmod(path, 0o600)
-        try:
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-        except OSError:
-            return
+        directory_fd = os.open(path.parent, os.O_RDONLY)
         try:
             os.fsync(directory_fd)
         finally:
