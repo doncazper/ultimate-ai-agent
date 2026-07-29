@@ -724,17 +724,22 @@ class FullSuiteLock:
             os.close(descriptor)
 
     def _assert_attempt_available(self, records: list[dict[str, str]]) -> None:
-        key = (self.repository_sha, self.resource_attempt_fingerprint)
+        key = (
+            self.repository_sha,
+            self.attempt_scope,
+            self.resource_attempt_fingerprint,
+        )
         if any(
             (
                 record.get("repository_sha"),
+                record.get("attempt_scope"),
                 record.get("resource_attempt_fingerprint"),
             )
             == key
             for record in records
         ):
             raise FullSuiteAttemptAlreadyRecordedError(
-                "full suite resource was already attempted for this exact state"
+                "full suite resource was already attempted for this exact scoped state"
             )
 
     def ensure_start_available(self) -> None:

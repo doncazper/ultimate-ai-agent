@@ -1152,7 +1152,7 @@ def test_full_suite_attempt_bound_is_shared_across_local_accounts(
     assert attempts.stat().st_mode & 0o777 == 0o660
 
 
-def test_full_suite_attempts_are_bounded_across_execution_planes(
+def test_full_suite_attempts_are_bounded_within_each_execution_plane(
     tmp_path: Path,
 ) -> None:
     lock_path = tmp_path / "full-suite.lock"
@@ -1177,26 +1177,27 @@ def test_full_suite_attempts_are_bounded_across_execution_planes(
         )
         with lock:
             lock.ensure_start_available()
-    with pytest.raises(
-        FullSuiteAttemptAlreadyRecordedError, match="already attempted"
-    ):
+    for attempt_scope in ("github", "local"):
         with FullSuiteLock(
             lock_path,
             repository_sha=SHA_A,
-            attempt_scope="github",
+            attempt_scope=attempt_scope,
             resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
             attempt_path=attempts,
         ) as lock:
             lock.ensure_start_available()
-    with pytest.raises(FullSuiteAttemptAlreadyRecordedError, match="already attempted"):
-        with FullSuiteLock(
-            lock_path,
-            repository_sha=SHA_A,
-            attempt_scope="local",
-            resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
-            attempt_path=attempts,
-        ) as lock:
-            lock.ensure_start_available()
+            lock.record_start()
+        with pytest.raises(
+            FullSuiteAttemptAlreadyRecordedError, match="already attempted"
+        ):
+            with FullSuiteLock(
+                lock_path,
+                repository_sha=SHA_A,
+                attempt_scope=attempt_scope,
+                resource_attempt_fingerprint=RESOURCE_ATTEMPT_A,
+                attempt_path=attempts,
+            ) as lock:
+                lock.ensure_start_available()
 
     with FullSuiteLock(
         lock_path,
@@ -1206,6 +1207,20 @@ def test_full_suite_attempts_are_bounded_across_execution_planes(
         attempt_path=attempts,
     ) as lock:
         lock.record_start()
+
+    records = json.loads(attempts.read_text(encoding="utf-8"))
+    assert [
+        (
+            record["attempt_scope"],
+            record["resource_attempt_fingerprint"],
+        )
+        for record in records
+    ] == [
+        ("private", RESOURCE_ATTEMPT_A),
+        ("github", RESOURCE_ATTEMPT_A),
+        ("local", RESOURCE_ATTEMPT_A),
+        ("github", RESOURCE_ATTEMPT_B),
+    ]
 
 
 def test_private_process_timeout_reaps_child_process_group(tmp_path: Path) -> None:

@@ -417,33 +417,38 @@ governed memory/provider/extension contracts, and unknown or unsafe path
 postures fail closed to Tier 3. The frozen legacy baseline passed all eleven
 bounded comparison cases before cutover.
 
-Exact resource-attempt identity is now global across execution surfaces for the
-two exclusive resources: complete pytest and the matching TypeScript
-declaration. The key binds the repository SHA, dependency state, canonical
-resource ref, and TypeScript runtime/version where applicable. A second plan or
-surface cannot start the same resource attempt; execution scope is audit
-metadata rather than part of the availability key. The host-wide attempt ledger
-enforces that cross-surface rule, while the separate owner-only execution fence
-binds exact pre-start and terminal settlement. A changed dependency state
-creates a distinct attempt; an unsettled exact attempt remains recovery
-required. The execution fence store uses the versioned
+Exact resource-attempt identity is scoped to one execution plane for each of
+the two exclusive resources: complete pytest and TypeScript typecheck. The key
+binds the repository SHA, execution plane, dependency state, canonical resource
+ref, and TypeScript runtime/version where applicable. A second plan in the same
+plane cannot start the same resource attempt. Local, private-diagnostic, and
+GitHub planes may each produce one independently bound attempt for an identical
+tree, allowing proportional local qualification and authoritative hosted
+evidence to retain the same SHA. The shared resource locks still prevent
+conflicting physical use across all planes. The host-wide attempt ledger
+enforces same-plane duplicate prevention, while the separate owner-only
+execution fence binds exact pre-start and terminal settlement. A changed
+dependency state creates a distinct attempt; an unsettled exact scoped attempt
+remains recovery required. The execution fence store uses the versioned
 `/private/tmp/uaa-verification-execution-fence-v2` boundary for the
 repository-scoped runner and an owner-scoped
 `/private/tmp/uaa-verification-execution-fence-v2-<uid>` boundary for local
 entry points. Cross-account duplicate prevention remains in the shared attempt
-ledger rather than either owner-only store. Private diagnosis still cannot
-execute either exclusive merge-gate resource.
+ledger for each exact plane rather than either owner-only store. Private
+diagnosis still cannot execute either exclusive merge-gate resource; recognizing
+the private attempt scope grants no execution authority.
 
 The stable `make test-sharded`, `make test-sharded-profile`, and
 `make frontend-check` entry points now invoke the same canonical lane runner
 with the `local` execution surface. They validate a clean exact SHA and consume
-that SHA and dependency state's one durable resource attempt before process
-spawn. A local complete run therefore cannot be repeated by GitHub for the same
-state. Normal pull-request work uses `verify-fast`, `verify-affected`, and
-focused tests locally, then reserves the complete pytest and TypeScript
-attempts for the authoritative repository-scoped GitHub run. The profile target
-may publish only the bounded content-free pytest timing artifact after the
-canonical run succeeds.
+that SHA and dependency state's one durable local-plane resource attempt before
+process spawn. GitHub may still perform its separately bound authoritative
+attempt for the same exact candidate, but neither plane may repeat its own
+attempt. Normal pull-request work uses `verify-fast`, `verify-affected`, and
+focused tests while coding; when policy requires a final local complete run,
+that run no longer forces a content-free SHA rotation before hosted CI. The
+profile target may publish only the bounded content-free pytest timing artifact
+after the canonical run succeeds.
 
 Canonical affected execution also distinguishes an exact committed tree from a
 changing worktree. On a clean exact SHA it defers the matching TypeScript
