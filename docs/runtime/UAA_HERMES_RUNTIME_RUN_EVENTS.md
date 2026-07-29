@@ -162,10 +162,18 @@ idempotently after a process interruption. Reconciliation reads the tombstone
 index once and selects only records whose exact projection keys remain absent;
 already-projected history is not rewritten for every new invocation.
 `GET /api/runtime/run-events` and CLI inspection remain strictly read-only.
-Their aggregate event, summary, replay, and goal-lifecycle response is built
-from one canonical event-then-goal snapshot boundary; mutation paths use the
-same lock order, and absent-lock reads use bounded generation validation rather
-than creating or changing lock state.
+Their aggregate event, summary, replay, goal-lifecycle, and submission response
+is built from one canonical approval-ledger, event, goal-journal, then
+submission snapshot boundary. Goal list, detail, mission preflight, and durable
+event readers use the same approval-first order and validate every
+approval-bearing journal/event record against the exact durable approval
+decision before presenting it as authoritative truth. Mutation paths preserve
+the same dependency order, and absent-lock reads use bounded generation
+validation rather than creating or changing lock state.
+Goal commit and terminal submission rejection both hold the goal-journal lock
+before the submission lock. The submission state is rechecked while both are
+held, so concurrent exact retries choose one terminal committed-or-rejected
+result and cannot leave a journal entry paired with a rejected submission.
 Blocked or approval-pending invocations are not projected as accepted runs.
 Projection-capacity or corruption failures are returned through redacted API
 and CLI error envelopes rather than escaping as unstructured failures. Local
@@ -184,9 +192,12 @@ Retention is bounded per run. Cursor replay returns explicit `ok`,
 anchor, next cursor, and gap posture. Replay never returns duplicates. Atomic
 receipt persistence is independent of consumers, so a slow or disconnected
 reader cannot block the writer or create an unbounded in-memory queue.
-The goal journal, goal-submission recovery store, run events, idempotency index,
-and projection reservations use a private `0700` state directory and `0600`
-files. The public service
+The approval ledger, goal journal, goal-submission recovery store, run events,
+idempotency index, and projection reservations use a private `0700` state
+directory and `0600` files. Approval admission reserves the exact count and
+encoded-byte capacity needed to append a worst-case revocation for every usable
+grant, so the rollback path cannot be consumed by a later ledger append. The
+public service
 exposes a read-only event facade; metadata event writes require one exact
 request-scoped local approval, while receipt and completion events remain
 trusted Core producer paths.

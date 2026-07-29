@@ -52,8 +52,8 @@ if TYPE_CHECKING:
 
 GOAL_RUNTIME_STATE_DIR_ENV = "UAA_GOAL_RUNTIME_STATE_DIR"
 DEFAULT_GOAL_RUNTIME_STATE_DIR = Path(".uaa") / "goal_runtime"
-GOAL_JOURNAL_SCHEMA_VERSION = "goal_journal.v1"
-RUN_EVENT_SCHEMA_VERSION = "durable_run_event.v1"
+GOAL_JOURNAL_SCHEMA_VERSION = "goal_journal.v2"
+RUN_EVENT_SCHEMA_VERSION = "durable_run_event.v2"
 GOAL_RUNTIME_CONTRACT_REF = "contract-ref:proof-backed-goals-durable-events:v1"
 GOAL_RUNTIME_REDACTIONS = (
     "raw_prompt_omitted",
@@ -1228,7 +1228,9 @@ class GoalMutationSubmissionRecoveryReadModel(BaseModel):
 
 
 class GoalJournalEntry(BaseModel):
-    schema_version: Literal["goal_journal.v1"] = GOAL_JOURNAL_SCHEMA_VERSION
+    schema_version: Literal["goal_journal.v1", "goal_journal.v2"] = (
+        GOAL_JOURNAL_SCHEMA_VERSION
+    )
     entry_ref: str
     operation: GoalJournalOperation
     goal_ref: str
@@ -1239,6 +1241,8 @@ class GoalJournalEntry(BaseModel):
     approval_ref: str
     approval_decision_ref: str
     approval_ledger_entry_hash_ref: str | None = None
+    approval_request_fingerprint_ref: str | None = None
+    approval_exact_scope_ref: str | None = None
     transition_reason_ref: str | None = None
     recorded_at: datetime
     goal: PersistentGoal
@@ -1264,6 +1268,26 @@ class GoalJournalEntry(BaseModel):
                 self.approval_ledger_entry_hash_ref,
                 "approval_ledger_entry_hash_ref",
             )
+        if self.approval_request_fingerprint_ref is not None:
+            validate_execution_ref(
+                self.approval_request_fingerprint_ref,
+                "approval_request_fingerprint_ref",
+            )
+        if self.approval_exact_scope_ref is not None:
+            validate_execution_ref(
+                self.approval_exact_scope_ref,
+                "approval_exact_scope_ref",
+            )
+        approval_ledger_provenance = (
+            self.approval_ledger_entry_hash_ref,
+            self.approval_request_fingerprint_ref,
+            self.approval_exact_scope_ref,
+        )
+        if self.schema_version == GOAL_JOURNAL_SCHEMA_VERSION:
+            if not all(value is not None for value in approval_ledger_provenance):
+                raise ValueError("GOAL_JOURNAL_APPROVAL_PROVENANCE_INCOMPLETE")
+        elif any(value is not None for value in approval_ledger_provenance):
+            raise ValueError("GOAL_JOURNAL_V1_APPROVAL_PROVENANCE_UNSUPPORTED")
         if self.previous_entry_hash_ref is not None:
             validate_execution_ref(
                 self.previous_entry_hash_ref, "previous_entry_hash_ref"
@@ -1295,6 +1319,8 @@ class GoalMutationProvenanceEntry(BaseModel):
     approval_ref: str
     approval_decision_ref: str
     approval_ledger_entry_hash_ref: str | None = None
+    approval_request_fingerprint_ref: str | None = None
+    approval_exact_scope_ref: str | None = None
     transition_reason_ref: str | None = None
     recorded_at: datetime
     previous_entry_hash_ref: str | None = None
@@ -1485,7 +1511,10 @@ class DurableRunEventAppendRequest(BaseModel):
 
 
 class DurableRunEvent(BaseModel):
-    schema_version: Literal["durable_run_event.v1"] = RUN_EVENT_SCHEMA_VERSION
+    schema_version: Literal["durable_run_event.v1", "durable_run_event.v2"] = (
+        RUN_EVENT_SCHEMA_VERSION
+    )
+    producer_class: Literal["trusted_core", "operator_public_metadata"] | None = None
     event_ref: str
     run_ref: str
     run_type: AcceptedLocalRunType
@@ -1543,10 +1572,19 @@ class DurableRunEvent(BaseModel):
             self.goal_mutation_approval_decision_ref,
             self.goal_mutation_approval_ledger_entry_hash_ref,
         )
-        if any(value is not None for value in approval_provenance) and not all(
-            value is not None for value in approval_provenance
-        ):
-            raise ValueError("RUN_EVENT_APPROVAL_PROVENANCE_INCOMPLETE")
+        if self.schema_version == "durable_run_event.v1":
+            if self.producer_class is not None or any(
+                value is not None for value in approval_provenance
+            ):
+                raise ValueError("RUN_EVENT_V1_PRODUCER_PROVENANCE_UNSUPPORTED")
+        elif self.producer_class == "operator_public_metadata":
+            if not all(value is not None for value in approval_provenance):
+                raise ValueError("RUN_EVENT_APPROVAL_PROVENANCE_INCOMPLETE")
+        elif self.producer_class == "trusted_core":
+            if any(value is not None for value in approval_provenance):
+                raise ValueError("RUN_EVENT_TRUSTED_PRODUCER_PROVENANCE_INVALID")
+        else:
+            raise ValueError("RUN_EVENT_PRODUCER_CLASS_REQUIRED")
         self.safe_summary = _bounded_redacted_summary(
             self.safe_summary,
             "safe_summary",
@@ -1801,6 +1839,14 @@ def _maximum_goal_genesis_intent() -> GoalJournalGenesisIntent:
             "entry-hash-ref:goal-mutation-approval:max-envelope",
             0,
         ),
+        approval_request_fingerprint_ref=_maximum_typed_ref(
+            "request-fingerprint-ref:goal-mutation-approval:max-envelope",
+            0,
+        ),
+        approval_exact_scope_ref=_maximum_typed_ref(
+            "exact-scope-ref:goal-mutation:max-envelope",
+            0,
+        ),
         recorded_at=now,
         goal=goal,
         entry_hash_ref=entry_hash_ref,
@@ -1849,6 +1895,7 @@ def _maximum_run_event_envelopes() -> tuple[
         event_ref=_maximum_typed_ref("run-event-ref:max-envelope", 0),
         run_ref=_maximum_typed_ref("run-ref:max-envelope", 0),
         run_type=AcceptedLocalRunType.local_metadata_action,
+        producer_class="operator_public_metadata",
         sequence=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS,
         recorded_at=now,
         event_kind=DurableRunEventKind.receipt_recorded,
@@ -2005,6 +2052,7 @@ class _GoalJournalStore:
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
         goal_submission_fingerprint_ref: str | None = None,
+        submission_terminal_guard: Any = None,
     ) -> PersistentGoal:
         validated = GoalCreateRequest.model_validate(request.model_dump())
         validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -2022,58 +2070,68 @@ class _GoalJournalStore:
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             entries = self._load_entries(repair_manifest=True)
-            replay = self._idempotent_replay(
-                entries,
-                idempotency_ref,
-                fingerprint,
-                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            guard = (
+                submission_terminal_guard(entries)
+                if submission_terminal_guard is not None
+                else nullcontext()
             )
-            if replay is not None:
-                return replay
-            latest = self._latest_by_goal(entries)
-            if len(latest) >= MAX_GOALS:
-                raise GoalRuntimeError("GOAL_STORE_CAPACITY_EXCEEDED")
-            goal_ref = _sha256_ref(
-                "goal-ref",
-                {
-                    "idempotency_ref": idempotency_ref,
-                    "objective": validated.objective,
-                },
-            )
-            if goal_ref in latest:
-                raise GoalIdempotencyConflictError("GOAL_REF_COLLISION")
-            now = utc_now()
-            goal = PersistentGoal(
-                goal_ref=goal_ref,
-                text_redaction_posture=validated.text_redaction_posture,
-                objective=validated.objective,
-                desired_outcome=validated.desired_outcome,
-                success_criteria=validated.success_criteria,
-                constraints=validated.constraints,
-                in_scope_resource_refs=validated.in_scope_resource_refs,
-                stop_condition=validated.stop_condition,
-                state=GoalState.active,
-                budget=validated.budget,
-                links=validated.links,
-                version=1,
-                created_at=now,
-                updated_at=now,
-                evidence_refs=validated.evidence_refs,
-            )
-            self._append(
-                entries,
-                operation=GoalJournalOperation.create,
-                goal=goal,
-                idempotency_ref=idempotency_ref,
-                request_fingerprint_ref=fingerprint,
-                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
-                approval_ref=approval_binding.approval_ref,
-                approval_decision_ref=approval_binding.approval_decision_ref,
-                approval_ledger_entry_hash_ref=(
-                    approval_binding.approval_ledger_entry_hash_ref
-                ),
-            )
-            return goal.model_copy(deep=True)
+            with guard:
+                replay = self._idempotent_replay(
+                    entries,
+                    idempotency_ref,
+                    fingerprint,
+                    goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+                )
+                if replay is not None:
+                    return replay
+                latest = self._latest_by_goal(entries)
+                if len(latest) >= MAX_GOALS:
+                    raise GoalRuntimeError("GOAL_STORE_CAPACITY_EXCEEDED")
+                goal_ref = _sha256_ref(
+                    "goal-ref",
+                    {
+                        "idempotency_ref": idempotency_ref,
+                        "objective": validated.objective,
+                    },
+                )
+                if goal_ref in latest:
+                    raise GoalIdempotencyConflictError("GOAL_REF_COLLISION")
+                now = utc_now()
+                goal = PersistentGoal(
+                    goal_ref=goal_ref,
+                    text_redaction_posture=validated.text_redaction_posture,
+                    objective=validated.objective,
+                    desired_outcome=validated.desired_outcome,
+                    success_criteria=validated.success_criteria,
+                    constraints=validated.constraints,
+                    in_scope_resource_refs=validated.in_scope_resource_refs,
+                    stop_condition=validated.stop_condition,
+                    state=GoalState.active,
+                    budget=validated.budget,
+                    links=validated.links,
+                    version=1,
+                    created_at=now,
+                    updated_at=now,
+                    evidence_refs=validated.evidence_refs,
+                )
+                self._append(
+                    entries,
+                    operation=GoalJournalOperation.create,
+                    goal=goal,
+                    idempotency_ref=idempotency_ref,
+                    request_fingerprint_ref=fingerprint,
+                    goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+                    approval_ref=approval_binding.approval_ref,
+                    approval_decision_ref=approval_binding.approval_decision_ref,
+                    approval_ledger_entry_hash_ref=(
+                        approval_binding.approval_ledger_entry_hash_ref
+                    ),
+                    approval_request_fingerprint_ref=(
+                        approval_binding.request_fingerprint_ref
+                    ),
+                    approval_exact_scope_ref=approval_binding.exact_scope_ref,
+                )
+                return goal.model_copy(deep=True)
 
     def edit(
         self,
@@ -2083,6 +2141,7 @@ class _GoalJournalStore:
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
         goal_submission_fingerprint_ref: str | None = None,
+        submission_terminal_guard: Any = None,
     ) -> PersistentGoal:
         validated = GoalEditRequest.model_validate(request.model_dump())
         _validate_goal_mutation_approval_binding(
@@ -2100,6 +2159,7 @@ class _GoalJournalStore:
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
             goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            submission_terminal_guard=submission_terminal_guard,
             mutate=lambda current, _entries: self._edited_goal(
                 current,
                 validated,
@@ -2114,6 +2174,7 @@ class _GoalJournalStore:
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
         goal_submission_fingerprint_ref: str | None = None,
+        submission_terminal_guard: Any = None,
         completion_verified: bool = False,
         completion_plan_ref: str | None = None,
         completion_criterion_verifier_bindings: list[
@@ -2137,6 +2198,7 @@ class _GoalJournalStore:
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
             goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            submission_terminal_guard=submission_terminal_guard,
             transition_reason_ref=validated.reason_ref,
             mutate=lambda current, entries: self._transitioned_goal(
                 current,
@@ -2391,6 +2453,7 @@ class _GoalJournalStore:
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
         goal_submission_fingerprint_ref: str | None = None,
+        submission_terminal_guard: Any = None,
         transition_reason_ref: str | None = None,
         mutate: Any,
     ) -> PersistentGoal:
@@ -2403,36 +2466,46 @@ class _GoalJournalStore:
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             entries = self._load_entries(repair_manifest=True)
-            replay = self._idempotent_replay(
-                entries,
-                idempotency_ref,
-                fingerprint,
-                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            guard = (
+                submission_terminal_guard(entries)
+                if submission_terminal_guard is not None
+                else nullcontext()
             )
-            if replay is not None:
-                return replay
-            latest = self._latest_by_goal(entries)
-            current = latest.get(goal_ref)
-            if current is None:
-                raise GoalNotFoundError("GOAL_NOT_FOUND")
-            if current.version != expected_version:
-                raise GoalVersionConflictError("GOAL_VERSION_CONFLICT")
-            updated = mutate(current.model_copy(deep=True), entries)
-            self._append(
-                entries,
-                operation=operation,
-                goal=updated,
-                idempotency_ref=idempotency_ref,
-                request_fingerprint_ref=fingerprint,
-                approval_ref=approval_binding.approval_ref,
-                approval_decision_ref=approval_binding.approval_decision_ref,
-                approval_ledger_entry_hash_ref=(
-                    approval_binding.approval_ledger_entry_hash_ref
-                ),
-                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
-                transition_reason_ref=transition_reason_ref,
-            )
-            return updated.model_copy(deep=True)
+            with guard:
+                replay = self._idempotent_replay(
+                    entries,
+                    idempotency_ref,
+                    fingerprint,
+                    goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+                )
+                if replay is not None:
+                    return replay
+                latest = self._latest_by_goal(entries)
+                current = latest.get(goal_ref)
+                if current is None:
+                    raise GoalNotFoundError("GOAL_NOT_FOUND")
+                if current.version != expected_version:
+                    raise GoalVersionConflictError("GOAL_VERSION_CONFLICT")
+                updated = mutate(current.model_copy(deep=True), entries)
+                self._append(
+                    entries,
+                    operation=operation,
+                    goal=updated,
+                    idempotency_ref=idempotency_ref,
+                    request_fingerprint_ref=fingerprint,
+                    approval_ref=approval_binding.approval_ref,
+                    approval_decision_ref=approval_binding.approval_decision_ref,
+                    approval_ledger_entry_hash_ref=(
+                        approval_binding.approval_ledger_entry_hash_ref
+                    ),
+                    approval_request_fingerprint_ref=(
+                        approval_binding.request_fingerprint_ref
+                    ),
+                    approval_exact_scope_ref=approval_binding.exact_scope_ref,
+                    goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+                    transition_reason_ref=transition_reason_ref,
+                )
+                return updated.model_copy(deep=True)
 
     @staticmethod
     def _edited_goal(
@@ -2632,6 +2705,8 @@ class _GoalJournalStore:
         approval_ref: str,
         approval_decision_ref: str,
         approval_ledger_entry_hash_ref: str,
+        approval_request_fingerprint_ref: str,
+        approval_exact_scope_ref: str,
         goal_submission_fingerprint_ref: str | None = None,
         transition_reason_ref: str | None = None,
     ) -> None:
@@ -2656,6 +2731,8 @@ class _GoalJournalStore:
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
             approval_ledger_entry_hash_ref=approval_ledger_entry_hash_ref,
+            approval_request_fingerprint_ref=approval_request_fingerprint_ref,
+            approval_exact_scope_ref=approval_exact_scope_ref,
             transition_reason_ref=transition_reason_ref,
             recorded_at=utc_now(),
             goal=goal,
@@ -2675,6 +2752,10 @@ class _GoalJournalStore:
             payload.pop("goal_submission_fingerprint_ref", None)
         if payload.get("approval_ledger_entry_hash_ref") is None:
             payload.pop("approval_ledger_entry_hash_ref", None)
+        if payload.get("approval_request_fingerprint_ref") is None:
+            payload.pop("approval_request_fingerprint_ref", None)
+        if payload.get("approval_exact_scope_ref") is None:
+            payload.pop("approval_exact_scope_ref", None)
         return _sha256_ref("entry-hash-ref:goal-journal", payload)
 
     def _load_entries(
@@ -2944,6 +3025,14 @@ class _GoalJournalStore:
                         (
                             "approval_ledger_entry_hash_ref",
                             entry.approval_ledger_entry_hash_ref,
+                        ),
+                        (
+                            "approval_request_fingerprint_ref",
+                            entry.approval_request_fingerprint_ref,
+                        ),
+                        (
+                            "approval_exact_scope_ref",
+                            entry.approval_exact_scope_ref,
                         ),
                     )
                     if field_value is None
@@ -3430,6 +3519,58 @@ class _GoalMutationSubmissionStore:
             self._write(records, rejection_tombstones)
             return rejected.model_copy(deep=True)
 
+    @contextmanager
+    def terminal_commit_guard(
+        self,
+        *,
+        request_fingerprint_ref: str | None,
+        idempotency_ref: str,
+        journal_entries: list[GoalJournalEntry],
+    ) -> Iterator[None]:
+        """Hold one prepared submission terminal state stable through commit."""
+
+        if request_fingerprint_ref is None:
+            yield
+            return
+        validate_execution_ref(request_fingerprint_ref, "request_fingerprint_ref")
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
+            records = self._load()
+            matching = [
+                record
+                for record in records
+                if record.idempotency_ref == idempotency_ref
+                or record.request_fingerprint_ref == request_fingerprint_ref
+            ]
+            if len(matching) != 1:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_COMMIT_RECORD_MISSING"
+                    if not matching
+                    else "GOAL_SUBMISSION_COMMIT_BINDING_DUPLICATE"
+                )
+            record = matching[0]
+            if (
+                record.idempotency_ref != idempotency_ref
+                or record.request_fingerprint_ref != request_fingerprint_ref
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
+                )
+            recovery = self.recovery_read_model_from_records(
+                records,
+                journal_entries,
+            )
+            exact_recovery = next(
+                item
+                for item in recovery.records
+                if item.submission_ref == record.submission_ref
+            )
+            if exact_recovery.status == "rejected":
+                raise GoalTransitionDeniedError(
+                    "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+                )
+            yield
+
     def mutation_binding_record(
         self,
         *,
@@ -3901,6 +4042,11 @@ class _DurableRunEventStore:
             ),
             run_ref=validated.run_ref,
             run_type=validated.run_type,
+            producer_class=(
+                "operator_public_metadata"
+                if approval_binding is not None
+                else "trusted_core"
+            ),
             sequence=sequence,
             recorded_at=utc_now(),
             event_kind=validated.event_kind,
@@ -4253,6 +4399,8 @@ class _DurableRunEventStore:
     def _event_hash(event: DurableRunEvent) -> str:
         payload = event.model_dump(mode="json")
         payload.pop("event_hash_ref", None)
+        if payload.get("producer_class") is None:
+            payload.pop("producer_class", None)
         if payload.get("goal_mutation_approval_ref") is None:
             payload.pop("goal_mutation_approval_ref", None)
         if payload.get("goal_mutation_approval_decision_ref") is None:
@@ -4266,6 +4414,8 @@ class _DurableRunEventStore:
         payload = tombstone.model_dump(mode="json")
         payload.pop("tombstone_hash_ref", None)
         event_payload = payload["event"]
+        if event_payload.get("producer_class") is None:
+            event_payload.pop("producer_class", None)
         if event_payload.get("goal_mutation_approval_ref") is None:
             event_payload.pop("goal_mutation_approval_ref", None)
         if event_payload.get("goal_mutation_approval_decision_ref") is None:
@@ -4282,6 +4432,7 @@ class _DurableRunEventStore:
         return {
             field_name
             for field_name, field_value in (
+                ("producer_class", event.producer_class),
                 ("goal_mutation_approval_ref", event.goal_mutation_approval_ref),
                 (
                     "goal_mutation_approval_decision_ref",
@@ -4979,8 +5130,42 @@ class _DurableRunEventStore:
 class DurableRunEventReader:
     """Read-only facade for durable run evidence."""
 
-    def __init__(self, store: _DurableRunEventStore) -> None:
+    def __init__(
+        self,
+        store: _DurableRunEventStore,
+        approvals: _GoalMutationApprovalStore,
+    ) -> None:
         self.__store = store
+        self.__approvals = approvals
+
+    def _validated_generation(
+        self,
+    ) -> tuple[
+        list[DurableRunEvent],
+        dict[tuple[str, str], RunEventIdempotencyTombstone],
+    ]:
+        for _attempt in range(3):
+            try:
+                with self.__approvals.consistent_read():
+                    with self.__store.consistent_read():
+                        approval_entries = self.__approvals._load_entries()
+                        events = self.__store._load_events()
+                        tombstones = self.__store._load_idempotency_tombstones(
+                            events
+                        )
+                        self.__approvals.validate_event_provenance(
+                            approval_entries,
+                            [
+                                *events,
+                                *(item.event for item in tombstones.values()),
+                            ],
+                        )
+                        return events, tombstones
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError(
+            "RUN_EVENT_APPROVAL_GENERATION_UNSTABLE"
+        )
 
     def replay(
         self,
@@ -4989,14 +5174,21 @@ class DurableRunEventReader:
         after_sequence: int = 0,
         limit: int = MAX_REPLAY_EVENTS,
     ) -> RunEventReplayReadModel:
-        return self.__store.replay(
-            run_ref,
+        validate_execution_ref(run_ref, "run_ref")
+        if after_sequence < 0:
+            raise ValueError("RUN_EVENT_CURSOR_INVALID")
+        bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
+        events, _tombstones = self._validated_generation()
+        return self.__store._replay_from_events(
+            events,
+            run_ref=run_ref,
             after_sequence=after_sequence,
-            limit=limit,
+            limit=bounded_limit,
         )
 
     def summaries(self) -> list[RunEventStreamSummary]:
-        return self.__store.summaries()
+        events, tombstones = self._validated_generation()
+        return self.__store._summaries_from_events(events, tombstones)
 
     def retained_events(
         self,
@@ -5004,7 +5196,15 @@ class DurableRunEventReader:
         run_ref: str | None = None,
         limit: int = MAX_REPLAY_EVENTS,
     ) -> list[DurableRunEvent]:
-        return self.__store.retained_events(run_ref=run_ref, limit=limit)
+        if run_ref is not None:
+            validate_execution_ref(run_ref, "run_ref")
+        bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
+        events, _tombstones = self._validated_generation()
+        return self.__store._retained_from_events(
+            events,
+            run_ref=run_ref,
+            limit=bounded_limit,
+        )
 
     def has_completion_evidence(
         self,
@@ -5014,15 +5214,27 @@ class DurableRunEventReader:
         proof_ref: str,
         goal_ref: str,
     ) -> bool:
-        return self.__store.has_completion_evidence(
-            run_ref=run_ref,
-            receipt_ref=receipt_ref,
-            proof_ref=proof_ref,
-            goal_ref=goal_ref,
+        validate_execution_ref(run_ref, "run_ref")
+        events, tombstones = self._validated_generation()
+        return (
+            self.__store._completion_receipt_event(
+                events,
+                tombstones,
+                run_ref=run_ref,
+                receipt_ref=receipt_ref,
+                proof_ref=proof_ref,
+                goal_ref=goal_ref,
+            )
+            is not None
         )
 
     def run_type(self, run_ref: str) -> AcceptedLocalRunType:
-        return self.__store.run_type(run_ref)
+        validate_execution_ref(run_ref, "run_ref")
+        events, _tombstones = self._validated_generation()
+        for event in events:
+            if event.run_ref == run_ref:
+                return AcceptedLocalRunType(event.run_type)
+        raise RunEventNotFoundError("RUN_EVENT_STREAM_NOT_FOUND")
 
     def projection_incompatibilities(
         self,
@@ -5045,7 +5257,7 @@ class GoalRuntimeService:
         self._events = _DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
         )
-        self.events = DurableRunEventReader(self._events)
+        self.events = DurableRunEventReader(self._events, self._approvals)
 
     @classmethod
     def from_env(cls) -> "GoalRuntimeService":
@@ -5081,10 +5293,10 @@ class GoalRuntimeService:
     ]:
         """Read the event and goal projections from one canonical generation.
 
-        The lock order is always run-events then goal-journal, matching the
-        only mutation that spans both stores. Missing first-generation lock
-        files retain the bounded optimistic-generation checks implemented by
-        the non-mutating read lock.
+        The lock order is always approvals, run-events, goal-journal, then
+        submissions, matching the canonical writer dependency order. Missing
+        first-generation lock files retain bounded optimistic-generation
+        checks implemented by the non-mutating read lock.
         """
 
         if run_ref is not None:
@@ -5094,56 +5306,146 @@ class GoalRuntimeService:
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
         for _attempt in range(3):
             try:
-                with self._events.consistent_read():
-                    with self.goals.consistent_read():
-                        with self._submissions.consistent_read():
-                            events = self._events._load_events()
-                            tombstones = self._events._load_idempotency_tombstones(
-                                events
-                            )
-                            entries = self.goals._load_entries()
-                            submission_records = self._submissions._load()
-                            replay = (
-                                self._events._replay_from_events(
-                                    events,
-                                    run_ref=run_ref,
-                                    after_sequence=after_sequence,
-                                    limit=bounded_limit,
-                                )
-                                if run_ref is not None
-                                else None
-                            )
-                            retained = (
-                                replay.events
-                                if replay is not None
-                                else self._events._retained_from_events(
-                                    events,
-                                    run_ref=None,
-                                    limit=bounded_limit,
-                                )
-                            )
-                            goal_lifecycle = self.goals._read_model_from_entries(
-                                entries,
-                                include_cleared=True,
-                            )
-                            return (
-                                replay,
-                                retained,
-                                self._events._summaries_from_events(
-                                    events,
-                                    tombstones,
-                                ),
-                                goal_lifecycle,
-                                (
-                                    self._submissions.recovery_read_model_from_records(
-                                        submission_records,
-                                        entries,
+                with self._approvals.consistent_read():
+                    with self._events.consistent_read():
+                        with self.goals.consistent_read():
+                            with self._submissions.consistent_read():
+                                approval_entries = self._approvals._load_entries()
+                                events = self._events._load_events()
+                                tombstones = (
+                                    self._events._load_idempotency_tombstones(
+                                        events
                                     )
-                                ),
-                            )
+                                )
+                                entries = self.goals._load_entries()
+                                submission_records = self._submissions._load()
+                                self._approvals.validate_goal_provenance(
+                                    approval_entries,
+                                    entries,
+                                )
+                                self._approvals.validate_event_provenance(
+                                    approval_entries,
+                                    [
+                                        *events,
+                                        *(
+                                            item.event
+                                            for item in tombstones.values()
+                                        ),
+                                    ],
+                                )
+                                replay = (
+                                    self._events._replay_from_events(
+                                        events,
+                                        run_ref=run_ref,
+                                        after_sequence=after_sequence,
+                                        limit=bounded_limit,
+                                    )
+                                    if run_ref is not None
+                                    else None
+                                )
+                                retained = (
+                                    replay.events
+                                    if replay is not None
+                                    else self._events._retained_from_events(
+                                        events,
+                                        run_ref=None,
+                                        limit=bounded_limit,
+                                    )
+                                )
+                                goal_lifecycle = self.goals._read_model_from_entries(
+                                    entries,
+                                    include_cleared=True,
+                                )
+                                return (
+                                    replay,
+                                    retained,
+                                    self._events._summaries_from_events(
+                                        events,
+                                        tombstones,
+                                    ),
+                                    goal_lifecycle,
+                                    (
+                                        self._submissions.recovery_read_model_from_records(
+                                            submission_records,
+                                            entries,
+                                        )
+                                    ),
+                                )
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_RUNTIME_AGGREGATE_GENERATION_UNSTABLE")
+
+    def goal_lifecycle_read_model(
+        self,
+        *,
+        include_cleared: bool = False,
+    ) -> GoalLifecycleReadModel:
+        """Read goals with the exact approval ledger generation validated."""
+
+        for _attempt in range(3):
+            try:
+                with self._approvals.consistent_read():
+                    with self.goals.consistent_read():
+                        approval_entries = self._approvals._load_entries()
+                        journal_entries = self.goals._load_entries()
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            journal_entries,
+                        )
+                        return self.goals._read_model_from_entries(
+                            journal_entries,
+                            include_cleared=include_cleared,
+                        )
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError(
+            "GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE"
+        )
+
+    def goal_with_provenance(
+        self,
+        goal_ref: str,
+        *,
+        limit: int = MAX_GOAL_PROVENANCE_ENTRIES,
+    ) -> tuple[PersistentGoal, GoalMutationProvenanceReadModel]:
+        """Read one goal and its mutation history with approval provenance."""
+
+        validate_execution_ref(goal_ref, "goal_ref")
+        bounded_limit = max(1, min(int(limit), MAX_GOAL_PROVENANCE_ENTRIES))
+        for _attempt in range(3):
+            try:
+                with self._approvals.consistent_read():
+                    with self.goals.consistent_read():
+                        approval_entries = self._approvals._load_entries()
+                        journal_entries = self.goals._load_entries()
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            journal_entries,
+                        )
+                        matching = [
+                            entry
+                            for entry in journal_entries
+                            if entry.goal_ref == goal_ref
+                        ]
+                        if not matching:
+                            raise GoalNotFoundError("GOAL_NOT_FOUND")
+                        provenance_entries = [
+                            GoalMutationProvenanceEntry.from_journal_entry(entry)
+                            for entry in matching[-bounded_limit:]
+                        ]
+                        return (
+                            matching[-1].goal.model_copy(deep=True),
+                            GoalMutationProvenanceReadModel(
+                                goal_ref=goal_ref,
+                                entries=provenance_entries,
+                                entry_count=len(provenance_entries),
+                            ),
+                        )
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError(
+            "GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE"
+        )
 
     def record_goal_mutation_submission(
         self,
@@ -5305,9 +5607,26 @@ class GoalRuntimeService:
         if mission_ref is None or not mission_ref.startswith("goal-ref:"):
             return
         validate_execution_ref(mission_ref, "mission_ref")
-        entries = self.goals._load_consistent_entries()
-        if mission_ref not in self.goals._latest_by_goal(entries):
-            raise GoalNotFoundError("GOAL_NOT_FOUND")
+        for _attempt in range(3):
+            try:
+                with self._approvals.consistent_read():
+                    with self.goals.consistent_read():
+                        approval_entries = self._approvals._load_entries()
+                        journal_entries = self.goals._load_entries()
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            journal_entries,
+                        )
+                        if mission_ref not in self.goals._latest_by_goal(
+                            journal_entries
+                        ):
+                            raise GoalNotFoundError("GOAL_NOT_FOUND")
+                        return
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError(
+            "GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE"
+        )
 
     def create_goal(
         self,
@@ -5346,6 +5665,13 @@ class GoalRuntimeService:
                 idempotency_ref=idempotency_ref,
                 approval_binding=approval_binding,
                 goal_submission_fingerprint_ref=submission_fingerprint_ref,
+                submission_terminal_guard=lambda entries: (
+                    self._submissions.terminal_commit_guard(
+                        request_fingerprint_ref=submission_fingerprint_ref,
+                        idempotency_ref=idempotency_ref,
+                        journal_entries=entries,
+                    )
+                ),
             )
             return goal, approval_binding
 
@@ -5388,6 +5714,13 @@ class GoalRuntimeService:
                 idempotency_ref=idempotency_ref,
                 approval_binding=approval_binding,
                 goal_submission_fingerprint_ref=submission_fingerprint_ref,
+                submission_terminal_guard=lambda entries: (
+                    self._submissions.terminal_commit_guard(
+                        request_fingerprint_ref=submission_fingerprint_ref,
+                        idempotency_ref=idempotency_ref,
+                        journal_entries=entries,
+                    )
+                ),
             )
             return goal, approval_binding
 
@@ -5578,6 +5911,13 @@ class GoalRuntimeService:
                         completion_criterion_verifier_bindings
                     ),
                     goal_submission_fingerprint_ref=submission_fingerprint_ref,
+                    submission_terminal_guard=lambda entries: (
+                        self._submissions.terminal_commit_guard(
+                            request_fingerprint_ref=submission_fingerprint_ref,
+                            idempotency_ref=idempotency_ref,
+                            journal_entries=entries,
+                        )
+                    ),
                 )
                 if (
                     validated.transition
@@ -6016,13 +6356,14 @@ class GoalMutationApprovalBinding(BaseModel):
 class GoalMutationApprovalRequestSpec(BaseModel):
     """Deterministic, non-authorizing description of one exact mutation."""
 
-    schema_version: Literal["goal_mutation_approval_request.v1"] = (
-        "goal_mutation_approval_request.v1"
+    schema_version: Literal["goal_mutation_approval_request.v2"] = (
+        "goal_mutation_approval_request.v2"
     )
     operation: str
     subject_ref: str
     idempotency_ref: str
     request_fingerprint_ref: str
+    mutation_request_fingerprint_ref: str
     exact_scope_ref: str
     approval_request_ref: str
     approval_ref: str
@@ -6039,6 +6380,10 @@ class GoalMutationApprovalRequestSpec(BaseModel):
             (self.subject_ref, "subject_ref"),
             (self.idempotency_ref, "idempotency_ref"),
             (self.request_fingerprint_ref, "request_fingerprint_ref"),
+            (
+                self.mutation_request_fingerprint_ref,
+                "mutation_request_fingerprint_ref",
+            ),
             (self.exact_scope_ref, "exact_scope_ref"),
             (self.approval_request_ref, "approval_request_ref"),
             (self.approval_ref, "approval_ref"),
@@ -6082,8 +6427,8 @@ def build_goal_mutation_approval_revoke_idempotency_ref(
 class GoalMutationApprovalLedgerEntry(BaseModel):
     """One append-only, hash-chained approval request or decision."""
 
-    schema_version: Literal["goal_mutation_approval_ledger.v1"] = (
-        "goal_mutation_approval_ledger.v1"
+    schema_version: Literal["goal_mutation_approval_ledger.v2"] = (
+        "goal_mutation_approval_ledger.v2"
     )
     spec: GoalMutationApprovalRequestSpec
     status: GoalMutationApprovalDecisionStatus
@@ -6204,6 +6549,37 @@ def _goal_mutation_approval_request_fingerprint_ref(
     )
 
 
+def _mutation_request_fingerprint_ref(
+    *,
+    operation: str,
+    subject_ref: str,
+    request_payload: dict[str, Any],
+) -> str:
+    """Bind the approval ledger to the exact durable mutation fingerprint."""
+
+    if operation == "create":
+        return _sha256_ref(
+            "request-fingerprint-ref:goal-create",
+            request_payload,
+        )
+    if operation == "edit":
+        return _sha256_ref(
+            "request-fingerprint-ref:goal-edit",
+            {"goal_ref": subject_ref, "request": request_payload},
+        )
+    if operation.startswith("transition-"):
+        return _sha256_ref(
+            "request-fingerprint-ref:goal-transition",
+            {"goal_ref": subject_ref, "request": request_payload},
+        )
+    if operation == "append-run-event":
+        return _sha256_ref(
+            "request-fingerprint-ref:run-event",
+            request_payload,
+        )
+    raise ValueError("GOAL_MUTATION_APPROVAL_OPERATION_INVALID")
+
+
 def build_exact_goal_mutation_approval_request_spec(
     *,
     operation: str,
@@ -6220,6 +6596,11 @@ def build_exact_goal_mutation_approval_request_spec(
         subject_ref=subject_ref,
         request_payload=request_payload,
         idempotency_ref=idempotency_ref,
+    )
+    mutation_request_fingerprint_ref = _mutation_request_fingerprint_ref(
+        operation=operation,
+        subject_ref=subject_ref,
+        request_payload=request_payload,
     )
     exact_scope_ref = _sha256_ref(
         "exact-scope-ref:goal-mutation",
@@ -6248,6 +6629,7 @@ def build_exact_goal_mutation_approval_request_spec(
         subject_ref=subject_ref,
         idempotency_ref=idempotency_ref,
         request_fingerprint_ref=request_fingerprint_ref,
+        mutation_request_fingerprint_ref=mutation_request_fingerprint_ref,
         exact_scope_ref=exact_scope_ref,
         approval_request_ref=approval_request_ref,
         approval_ref=approval_ref,
@@ -6292,6 +6674,7 @@ def build_exact_goal_mutation_approval_request(
             spec.subject_ref,
             spec.exact_scope_ref,
             spec.request_fingerprint_ref,
+            spec.mutation_request_fingerprint_ref,
             spec.idempotency_ref,
         ],
         event_ref=_sha256_ref(
@@ -6443,7 +6826,28 @@ class _GoalMutationApprovalStore:
             raise GoalRuntimeCorruptionError(
                 "GOAL_MUTATION_APPROVAL_LEDGER_CORRUPT"
             ) from exc
+        self._assert_revocation_capacity(entries)
         return entries
+
+    @contextmanager
+    def consistent_read(self) -> Iterator[None]:
+        with _nonmutating_goal_runtime_read_lock(
+            self.state_dir / ".locks",
+            "goal-approvals",
+            generation_paths=(self.path,),
+        ):
+            yield
+
+    def _load_consistent_entries(self) -> list[GoalMutationApprovalLedgerEntry]:
+        for _attempt in range(3):
+            try:
+                with self.consistent_read():
+                    return self._load_entries()
+            except _GoalRuntimeGenerationChanged:
+                continue
+        raise GoalRuntimeCorruptionError(
+            "GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE"
+        )
 
     def _append(
         self,
@@ -6456,8 +6860,6 @@ class _GoalMutationApprovalStore:
         decision_actor_ref: str | None = None,
         decided_at: datetime | None = None,
     ) -> GoalMutationApprovalLedgerEntry:
-        if len(entries) >= MAX_GOAL_MUTATION_APPROVAL_ENTRIES:
-            raise GoalRuntimeError("GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED")
         draft = GoalMutationApprovalLedgerEntry(
             spec=spec,
             status=status,
@@ -6471,13 +6873,88 @@ class _GoalMutationApprovalStore:
             entry_hash_ref="entry-hash-ref:pending",
         )
         entry = draft.model_copy(update={"entry_hash_ref": self._entry_hash(draft)})
-        content = "".join(
-            item.model_dump_json() + "\n" for item in [*entries, entry]
-        )
-        if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES:
-            raise GoalRuntimeError("GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED")
+        next_entries = [*entries, entry]
+        self._assert_revocation_capacity(next_entries)
+        content = self._ledger_content(next_entries)
         _atomic_write(self.path, content)
         return entry.model_copy(deep=True)
+
+    @staticmethod
+    def _ledger_content(
+        entries: Iterable[GoalMutationApprovalLedgerEntry],
+    ) -> str:
+        return "".join(entry.model_dump_json() + "\n" for entry in entries)
+
+    @classmethod
+    def _maximum_revocation_entry(
+        cls,
+        approved: GoalMutationApprovalLedgerEntry,
+        *,
+        previous_entry_hash_ref: str,
+        index: int,
+    ) -> GoalMutationApprovalLedgerEntry:
+        if approved.status != "approved" or approved.approval_grant is None:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_PROVENANCE_INVALID"
+            )
+        decision_reason_ref = _maximum_typed_ref(
+            "reason-ref:goal-approval-revocation",
+            index,
+        )
+        decision_actor_ref = approved.approval_grant.approved_by_actor_id
+        decided_at = datetime.max.replace(tzinfo=utc_now().tzinfo)
+        revoked_grant = ApprovalGrant.model_validate(
+            {
+                **approved.approval_grant.model_dump(mode="python"),
+                "status": "revoked",
+                "revoked_at": decided_at,
+                "metadata": {
+                    **approved.approval_grant.metadata,
+                    "revocation_reason_ref": decision_reason_ref,
+                },
+            }
+        )
+        draft = GoalMutationApprovalLedgerEntry(
+            spec=approved.spec,
+            status="revoked",
+            approval_grant=revoked_grant,
+            decision_reason_ref=decision_reason_ref,
+            decision_actor_ref=decision_actor_ref,
+            decided_at=decided_at,
+            previous_entry_hash_ref=previous_entry_hash_ref,
+            entry_hash_ref="entry-hash-ref:pending",
+        )
+        return draft.model_copy(
+            update={"entry_hash_ref": cls._entry_hash(draft)}
+        )
+
+    @classmethod
+    def _assert_revocation_capacity(
+        cls,
+        entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> None:
+        latest: dict[str, GoalMutationApprovalLedgerEntry] = {}
+        for entry in entries:
+            latest[entry.spec.approval_request_ref] = entry
+        projected = list(entries)
+        for index, approved in enumerate(
+            entry for entry in latest.values() if entry.status == "approved"
+        ):
+            projected.append(
+                cls._maximum_revocation_entry(
+                    approved,
+                    previous_entry_hash_ref=projected[-1].entry_hash_ref,
+                    index=index,
+                )
+            )
+        if (
+            len(projected) > MAX_GOAL_MUTATION_APPROVAL_ENTRIES
+            or len(cls._ledger_content(projected).encode("utf-8"))
+            > MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES
+        ):
+            raise GoalRuntimeError(
+                "GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED"
+            )
 
     @staticmethod
     def _latest(
@@ -6603,6 +7080,8 @@ class _GoalMutationApprovalStore:
             journal_entry.approval_ref != binding.approval_ref
             or journal_entry.approval_decision_ref
             != binding.approval_decision_ref
+            or approval_entry.spec.mutation_request_fingerprint_ref
+            != journal_entry.request_fingerprint_ref
         ):
             raise GoalRuntimeCorruptionError(
                 "GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH"
@@ -6652,11 +7131,136 @@ class _GoalMutationApprovalStore:
             event.goal_mutation_approval_ref != binding.approval_ref
             or event.goal_mutation_approval_decision_ref
             != binding.approval_decision_ref
+            or approval_entry.spec.mutation_request_fingerprint_ref
+            != _mutation_request_fingerprint_ref(
+                operation=operation,
+                subject_ref=subject_ref,
+                request_payload=request_payload,
+            )
         ):
             raise GoalRuntimeCorruptionError(
                 "RUN_EVENT_APPROVAL_PROVENANCE_MISMATCH"
             )
         return binding
+
+    def validate_goal_provenance(
+        self,
+        entries: list[GoalMutationApprovalLedgerEntry],
+        journal_entries: Iterable[GoalJournalEntry],
+    ) -> None:
+        """Validate every committed goal against its exact approval decision."""
+
+        by_hash = {entry.entry_hash_ref: entry for entry in entries}
+        for journal_entry in journal_entries:
+            ledger_hash_ref = journal_entry.approval_ledger_entry_hash_ref
+            if ledger_hash_ref is None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING"
+                )
+            approval_entry = by_hash.get(ledger_hash_ref)
+            if approval_entry is None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING"
+                )
+            binding = self._binding_from_approved_entry(approval_entry)
+            expected_operation = {
+                GoalJournalOperation.create.value: "create",
+                GoalJournalOperation.edit.value: "edit",
+            }.get(journal_entry.operation)
+            operation_matches = (
+                approval_entry.spec.operation == expected_operation
+                if expected_operation is not None
+                else approval_entry.spec.operation.startswith("transition-")
+            )
+            expected_subject = (
+                "goal-ref:new"
+                if journal_entry.operation == GoalJournalOperation.create.value
+                else journal_entry.goal_ref
+            )
+            if (
+                not operation_matches
+                or approval_entry.spec.subject_ref != expected_subject
+                or approval_entry.spec.idempotency_ref
+                != journal_entry.idempotency_ref
+                or approval_entry.spec.mutation_request_fingerprint_ref
+                != journal_entry.request_fingerprint_ref
+                or journal_entry.approval_request_fingerprint_ref
+                != approval_entry.spec.request_fingerprint_ref
+                or journal_entry.approval_exact_scope_ref
+                != approval_entry.spec.exact_scope_ref
+                or journal_entry.approval_ref != binding.approval_ref
+                or journal_entry.approval_decision_ref
+                != binding.approval_decision_ref
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH"
+                )
+
+    def validate_event_provenance(
+        self,
+        entries: list[GoalMutationApprovalLedgerEntry],
+        events: Iterable[DurableRunEvent],
+    ) -> None:
+        """Validate the durable producer class and exact public approval proof."""
+
+        seen: set[str] = set()
+        for event in events:
+            if event.event_ref in seen:
+                continue
+            seen.add(event.event_ref)
+            request_payload = _DurableRunEventStore._event_request_payload(event)
+            expected_fingerprint = _goal_mutation_approval_request_fingerprint_ref(
+                operation="append-run-event",
+                subject_ref=event.run_ref,
+                request_payload=request_payload,
+                idempotency_ref=event.idempotency_ref,
+            )
+            exact_approved_entries = [
+                entry
+                for entry in entries
+                if entry.status == "approved"
+                and entry.spec.operation == "append-run-event"
+                and entry.spec.subject_ref == event.run_ref
+                and entry.spec.idempotency_ref == event.idempotency_ref
+                and entry.spec.request_fingerprint_ref == expected_fingerprint
+                and entry.spec.mutation_request_fingerprint_ref
+                == _mutation_request_fingerprint_ref(
+                    operation="append-run-event",
+                    subject_ref=event.run_ref,
+                    request_payload=request_payload,
+                )
+            ]
+            if event.schema_version == "durable_run_event.v1":
+                # Public metadata append did not exist in the v1 event epoch.
+                # The model rejects producer/approval fields on this legacy
+                # schema, so it remains a bounded trusted-Core compatibility
+                # record rather than an authority-bearing public event.
+                continue
+            if event.producer_class == "trusted_core":
+                if exact_approved_entries:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION"
+                    )
+                continue
+            if event.producer_class != "operator_public_metadata":
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_PRODUCER_CLASS_INVALID"
+                )
+            if event.event_kind in {
+                DurableRunEventKind.receipt_recorded.value,
+                *TERMINAL_RUN_EVENT_KINDS,
+            }:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_PUBLIC_PRODUCER_KIND_INVALID"
+                )
+            self._validated_committed_event_binding(
+                entries,
+                event,
+                operation="append-run-event",
+                subject_ref=event.run_ref,
+                request_payload=request_payload,
+                idempotency_ref=event.idempotency_ref,
+            )
 
     def _validated_current_binding(
         self,

@@ -101,12 +101,14 @@ describe("proof-backed runtime goal mutations", () => {
 
   it("keeps prepare, decision, and mutation as distinct exact authority steps", async () => {
     const approvalRequest = {
-      schema_version: "goal_mutation_approval_request.v1" as const,
+      schema_version: "goal_mutation_approval_request.v2" as const,
       operation: "create",
       subject_ref: "goal-ref:new",
       idempotency_ref: "idempotency-ref:goal-client-create",
       request_fingerprint_ref:
         `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+      mutation_request_fingerprint_ref:
+        `request-fingerprint-ref:goal-create:sha256:${"3".repeat(64)}`,
       exact_scope_ref:
         `exact-scope-ref:goal-mutation:sha256:${"2".repeat(64)}`,
       approval_request_ref:
@@ -117,7 +119,7 @@ describe("proof-backed runtime goal mutations", () => {
       expires_at: "2026-07-25T00:30:00Z",
     };
     const decision = {
-      schema_version: "goal_mutation_approval_ledger.v1" as const,
+      schema_version: "goal_mutation_approval_ledger.v2" as const,
       spec: approvalRequest,
       status: "approved" as const,
       approval_grant: {},

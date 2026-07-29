@@ -40,6 +40,8 @@ import type {
   RuntimeGoalTransitionKind,
   RuntimeGoalCreateRequest,
   RuntimeGoalEditRequest,
+  RuntimeGoalMutationApprovalDecision,
+  RuntimeGoalMutationApprovalRequestSpec,
   RuntimeGoalMutationSubmissionRecoveryRecord,
   RuntimeGoalTransitionRequest,
 } from "../api/types";
@@ -59,16 +61,26 @@ import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
-type PendingGoalMutation =
+type PendingGoalMutationApprovalState = {
+  approvalSpec: RuntimeGoalMutationApprovalRequestSpec | null;
+  approvalRequestRef: string | null;
+  approvalRef: string | null;
+  approvalStatus:
+    | "pending"
+    | "approved"
+    | "approval_uncertain"
+    | "denial_uncertain"
+    | "revocation_uncertain"
+    | null;
+};
+
+type PendingGoalMutation = (
   | {
       operation: "create";
       request: RuntimeGoalCreateRequest;
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
-      approvalRequestRef: string | null;
-      approvalRef: string | null;
-      approvalStatus: "pending" | "approved" | null;
     }
   | {
       operation: "edit";
@@ -77,9 +89,6 @@ type PendingGoalMutation =
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
-      approvalRequestRef: string | null;
-      approvalRef: string | null;
-      approvalStatus: "pending" | "approved" | null;
     }
   | {
       operation: "transition";
@@ -88,10 +97,34 @@ type PendingGoalMutation =
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
-      approvalRequestRef: string | null;
-      approvalRef: string | null;
-      approvalStatus: "pending" | "approved" | null;
-    };
+    }
+) & PendingGoalMutationApprovalState;
+
+function approvalDecisionMatchesPending(
+  decision: RuntimeGoalMutationApprovalDecision,
+  pending: PendingGoalMutation,
+  expectedStatus: "approved" | "denied" | "revoked",
+): boolean {
+  const expected = pending.approvalSpec;
+  const actual = decision.spec;
+  return (
+    expected !== null &&
+    decision.status === expectedStatus &&
+    actual.schema_version === expected.schema_version &&
+    actual.operation === expected.operation &&
+    actual.subject_ref === expected.subject_ref &&
+    actual.idempotency_ref === expected.idempotency_ref &&
+    actual.request_fingerprint_ref === expected.request_fingerprint_ref &&
+    actual.mutation_request_fingerprint_ref ===
+      expected.mutation_request_fingerprint_ref &&
+    actual.exact_scope_ref === expected.exact_scope_ref &&
+    actual.approval_request_ref === expected.approval_request_ref &&
+    actual.approval_ref === expected.approval_ref &&
+    actual.operator_actor_ref === expected.operator_actor_ref &&
+    actual.requested_at === expected.requested_at &&
+    actual.expires_at === expected.expires_at
+  );
+}
 
 function terminalSubmissionMatchesPending(
   record: RuntimeGoalMutationSubmissionRecoveryRecord,
@@ -227,6 +260,7 @@ export function RuntimeReadinessPanel({
               idempotencyRef: record.idempotency_ref,
               submissionEvidenceRef: record.submission_evidence_ref,
               submissionRef: record.submission_ref,
+              approvalSpec: null,
               approvalRequestRef: null,
               approvalRef: null,
               approvalStatus: null,
@@ -239,6 +273,7 @@ export function RuntimeReadinessPanel({
                 idempotencyRef: record.idempotency_ref,
                 submissionEvidenceRef: record.submission_evidence_ref,
                 submissionRef: record.submission_ref,
+                approvalSpec: null,
                 approvalRequestRef: null,
                 approvalRef: null,
                 approvalStatus: null,
@@ -251,6 +286,7 @@ export function RuntimeReadinessPanel({
                 idempotencyRef: record.idempotency_ref,
                 submissionEvidenceRef: record.submission_evidence_ref,
                 submissionRef: record.submission_ref,
+                approvalSpec: null,
                 approvalRequestRef: null,
                 approvalRef: null,
                 approvalStatus: null,
@@ -559,6 +595,7 @@ export function RuntimeReadinessPanel({
     );
     return {
       ...pending,
+      approvalSpec: spec,
       approvalRequestRef: spec.approval_request_ref,
       approvalRef: spec.approval_ref,
       approvalStatus: "pending",
@@ -607,6 +644,7 @@ export function RuntimeReadinessPanel({
       const staged = await stageGoalMutationApproval({
         operation: "create",
         ...submission,
+        approvalSpec: null,
         approvalRequestRef: null,
         approvalRef: null,
         approvalStatus: null,
@@ -663,6 +701,7 @@ export function RuntimeReadinessPanel({
         operation: "edit",
         goalRef: selectedGoal.goal_ref,
         ...submission,
+        approvalSpec: null,
         approvalRequestRef: null,
         approvalRef: null,
         approvalStatus: null,
@@ -726,6 +765,7 @@ export function RuntimeReadinessPanel({
         operation: "transition",
         goalRef: selectedGoal.goal_ref,
         ...submission,
+        approvalSpec: null,
         approvalRequestRef: null,
         approvalRef: null,
         approvalStatus: null,
@@ -763,21 +803,38 @@ export function RuntimeReadinessPanel({
       );
       return;
     }
+    const approvalRequestRef = pendingGoalMutation.approvalRequestRef;
     setGoalMutationBusy(true);
-    const approvedPending: PendingGoalMutation = {
-      ...pendingGoalMutation,
-      approvalStatus: "approved",
-    };
+    const preparedPending = pendingGoalMutation;
+    let approvedPending =
+      preparedPending.approvalStatus === "approved"
+        ? preparedPending
+        : null;
     try {
-      if (pendingGoalMutation.approvalStatus !== "approved") {
-        await decideRuntimeGoalMutationApproval(
-          pendingGoalMutation.approvalRequestRef,
+      if (approvedPending === null) {
+        const decision = await decideRuntimeGoalMutationApproval(
+          approvalRequestRef,
           "approve",
           "reason-ref:control-center-goal-mutation-explicit-approval",
           mutationBinding,
         );
+        if (
+          !approvalDecisionMatchesPending(
+            decision,
+            preparedPending,
+            "approved",
+          )
+        ) {
+          throw new Error(
+            "The exact goal mutation approval decision binding mismatched and remains uncertain.",
+          );
+        }
+        approvedPending = {
+          ...preparedPending,
+          approvalStatus: "approved",
+        };
+        setPendingGoalMutation(approvedPending);
       }
-      setPendingGoalMutation(approvedPending);
       const result =
         approvedPending.operation === "create"
           ? await createRuntimeGoal(
@@ -830,6 +887,11 @@ export function RuntimeReadinessPanel({
       if (isRuntimeGoalMutationValidationError(error)) {
         setPendingGoalMutation(null);
         setGoalReadCurrent(true);
+      } else if (approvedPending === null) {
+        setPendingGoalMutation({
+          ...preparedPending,
+          approvalStatus: "approval_uncertain",
+        });
       } else {
         setPendingGoalMutation(approvedPending);
         setGoalReadCurrent(false);
@@ -853,20 +915,36 @@ export function RuntimeReadinessPanel({
       setGoalNotice("No exact prepared goal mutation is available to deny.");
       return;
     }
+    const approvalRequestRef = pendingGoalMutation.approvalRequestRef;
     setGoalMutationBusy(true);
+    const preparedPending = pendingGoalMutation;
     try {
-      await decideRuntimeGoalMutationApproval(
-        pendingGoalMutation.approvalRequestRef,
+      const decision = await decideRuntimeGoalMutationApproval(
+        approvalRequestRef,
         "deny",
         "reason-ref:control-center-goal-mutation-explicit-denial",
         mutationBinding,
       );
+      if (
+        !approvalDecisionMatchesPending(
+          decision,
+          preparedPending,
+          "denied",
+        )
+      ) {
+        throw new Error(
+          "The exact goal mutation denial decision binding mismatched and remains uncertain.",
+        );
+      }
       setPendingGoalMutation(null);
       setGoalNotice(
         "The exact goal mutation approval was denied; no goal mutation ran.",
       );
     } catch (error) {
-      setGoalReadCurrent(false);
+      setPendingGoalMutation({
+        ...preparedPending,
+        approvalStatus: "denial_uncertain",
+      });
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -879,27 +957,44 @@ export function RuntimeReadinessPanel({
 
   async function revokePendingGoalMutationApproval() {
     if (
-      pendingGoalMutation?.approvalStatus !== "approved" ||
+      (pendingGoalMutation?.approvalStatus !== "approved" &&
+        pendingGoalMutation?.approvalStatus !== "revocation_uncertain") ||
       pendingGoalMutation.approvalRef === null ||
       mutationBinding === null
     ) {
       setGoalNotice("No exact approved goal mutation is available to revoke.");
       return;
     }
+    const approvalRef = pendingGoalMutation.approvalRef;
     setGoalMutationBusy(true);
+    const approvedPending = pendingGoalMutation;
     try {
-      await revokeRuntimeGoalMutationApproval(
-        pendingGoalMutation.approvalRef,
+      const decision = await revokeRuntimeGoalMutationApproval(
+        approvalRef,
         "reason-ref:control-center-goal-mutation-explicit-revocation",
         mutationBinding,
       );
+      if (
+        !approvalDecisionMatchesPending(
+          decision,
+          approvedPending,
+          "revoked",
+        )
+      ) {
+        throw new Error(
+          "The exact goal mutation revocation decision binding mismatched and remains uncertain.",
+        );
+      }
       setPendingGoalMutation(null);
       setGoalReadCurrent(false);
       setGoalNotice(
         "The exact goal mutation approval was revoked. Refresh durable goal state before preparing another mutation.",
       );
     } catch (error) {
-      setGoalReadCurrent(false);
+      setPendingGoalMutation({
+        ...approvedPending,
+        approvalStatus: "revocation_uncertain",
+      });
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -4789,6 +4884,37 @@ export function RuntimeReadinessPanel({
             </button>
           </div>
         ) : null}
+        {pendingGoalMutation?.approvalStatus === "approval_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact approval decision outcome is uncertain. No mutation can
+              run until the same idempotent decision is durably confirmed by
+              Python Core.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Retry exact approval decision
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "denial_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact denial decision outcome is uncertain. No mutation can
+              run while the durable denial remains unconfirmed.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={denyPendingGoalMutation}
+            >
+              Retry exact denial decision
+            </button>
+          </div>
+        ) : null}
         {pendingGoalMutation?.approvalStatus === "approved" ? (
           <div className="preview-form">
             <p className="section-copy">
@@ -4809,6 +4935,21 @@ export function RuntimeReadinessPanel({
               onClick={revokePendingGoalMutationApproval}
             >
               Revoke exact mutation approval
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "revocation_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact revocation outcome is uncertain. Mutation retry remains
+              blocked until Python Core durably confirms the same revocation.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={revokePendingGoalMutationApproval}
+            >
+              Retry exact revocation
             </button>
           </div>
         ) : null}

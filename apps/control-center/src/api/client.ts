@@ -9955,13 +9955,14 @@ function isSafeRuntimeGoalMutationApprovalRequestSpec(
 ): value is RuntimeGoalMutationApprovalRequestSpec {
   if (!isPlainRecord(value)) return false;
   return (
-    value.schema_version === "goal_mutation_approval_request.v1" &&
+    value.schema_version === "goal_mutation_approval_request.v2" &&
     typeof value.operation === "string" &&
     value.operation.length > 0 &&
     value.operation.length <= 80 &&
     isSafeTrustAuthorityRef(value.subject_ref) &&
     isSafeTrustAuthorityRef(value.idempotency_ref) &&
     isSafeTrustAuthorityRef(value.request_fingerprint_ref) &&
+    isSafeTrustAuthorityRef(value.mutation_request_fingerprint_ref) &&
     isSafeTrustAuthorityRef(value.exact_scope_ref) &&
     isSafeTrustAuthorityRef(value.approval_request_ref) &&
     isSafeTrustAuthorityRef(value.approval_ref) &&
@@ -9979,7 +9980,7 @@ function isSafeRuntimeGoalMutationApprovalDecision(
 ): value is RuntimeGoalMutationApprovalDecision {
   if (!isPlainRecord(value)) return false;
   return (
-    value.schema_version === "goal_mutation_approval_ledger.v1" &&
+    value.schema_version === "goal_mutation_approval_ledger.v2" &&
     isSafeRuntimeGoalMutationApprovalRequestSpec(value.spec) &&
     ["pending", "approved", "denied", "revoked"].includes(
       String(value.status),

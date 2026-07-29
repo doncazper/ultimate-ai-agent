@@ -14073,11 +14073,12 @@ export interface RuntimeGoalMutationApprovalBinding {
 }
 
 export interface RuntimeGoalMutationApprovalRequestSpec {
-  schema_version: "goal_mutation_approval_request.v1";
+  schema_version: "goal_mutation_approval_request.v2";
   operation: string;
   subject_ref: string;
   idempotency_ref: string;
   request_fingerprint_ref: string;
+  mutation_request_fingerprint_ref: string;
   exact_scope_ref: string;
   approval_request_ref: string;
   approval_ref: string;
@@ -14087,7 +14088,7 @@ export interface RuntimeGoalMutationApprovalRequestSpec {
 }
 
 export interface RuntimeGoalMutationApprovalDecision {
-  schema_version: "goal_mutation_approval_ledger.v1";
+  schema_version: "goal_mutation_approval_ledger.v2";
   spec: RuntimeGoalMutationApprovalRequestSpec;
   status: "pending" | "approved" | "denied" | "revoked";
   decision_reason_ref?: string | null;

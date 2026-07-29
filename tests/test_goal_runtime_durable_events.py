@@ -916,7 +916,10 @@ def test_pre_ledger_goal_replay_fails_closed(
     [entry] = service.goals._load_consistent_entries()  # noqa: SLF001
     legacy_draft = entry.model_copy(
         update={
+            "schema_version": "goal_journal.v1",
             "approval_ledger_entry_hash_ref": None,
+            "approval_request_fingerprint_ref": None,
+            "approval_exact_scope_ref": None,
             "entry_hash_ref": "entry-hash-ref:pending",
         }
     )
@@ -5223,6 +5226,506 @@ def test_concurrent_stale_rejection_waits_for_exact_journal_commit(
     ).goal_mutation_submissions
     assert recovery.committed_count == 1
     assert recovery.rejected_count == 0
+
+
+def test_concurrent_exact_rejection_blocks_and_prevents_goal_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "e" * 64
+    )
+    request = _create_request().model_copy(update={"evidence_refs": [evidence_ref]})
+    idempotency_ref = "idempotency-ref:goal-mutation:concurrent-rejection"
+    prepared = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:concurrent-rejection",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    rejection_holds_submission = threading.Event()
+    release_rejection = threading.Event()
+    original_write = service._submissions._write  # noqa: SLF001
+    results: dict[str, object] = {}
+    errors: dict[str, BaseException] = {}
+
+    def paused_write(*args: object, **kwargs: object) -> None:
+        rejection_holds_submission.set()
+        assert release_rejection.wait(timeout=5)
+        original_write(*args, **kwargs)
+
+    monkeypatch.setattr(service._submissions, "_write", paused_write)  # noqa: SLF001
+
+    def reject_exact_submission() -> None:
+        try:
+            results["rejection"] = service.reject_goal_mutation_submission(
+                submission_ref=prepared.submission_ref,
+                request_fingerprint_ref=prepared.request_fingerprint_ref,
+                rejection_reason_ref=(
+                    "reason-ref:goal-mutation-rejected:exact-concurrent-failure"
+                ),
+            )
+        except BaseException as exc:  # pragma: no cover - asserted below
+            errors["rejection"] = exc
+
+    def commit_exact_mutation() -> None:
+        try:
+            results["goal"] = _create_goal(
+                service,
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+        except BaseException as exc:  # pragma: no cover - asserted below
+            errors["mutation"] = exc
+
+    rejection_thread = threading.Thread(target=reject_exact_submission)
+    rejection_thread.start()
+    assert rejection_holds_submission.wait(timeout=5)
+    mutation_thread = threading.Thread(target=commit_exact_mutation)
+    mutation_thread.start()
+    assert mutation_thread.is_alive()
+    release_rejection.set()
+    rejection_thread.join(timeout=5)
+    mutation_thread.join(timeout=5)
+
+    assert not rejection_thread.is_alive()
+    assert not mutation_thread.is_alive()
+    assert "rejection" not in errors
+    assert results["rejection"].resolution_status == "rejected"
+    assert isinstance(errors["mutation"], GoalRuntimeError)
+    assert "GOAL_SUBMISSION_PREVIOUSLY_REJECTED" in str(errors["mutation"])
+    restarted = GoalRuntimeService(tmp_path)
+    recovery = build_runtime_run_events_read_model(
+        service=restarted
+    ).goal_mutation_submissions
+    assert recovery.rejected_count == 1
+    assert recovery.committed_count == 0
+    assert restarted.goals.read_model().goals == []
+
+
+def test_approval_admission_reserves_exact_revocation_count_capacity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_APPROVAL_ENTRIES",
+        2,
+    )
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:approval-reserve-count",
+    )
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED",
+    ):
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:approval-reserve-count",
+        )
+
+    restarted = GoalRuntimeService(tmp_path)
+    [pending] = restarted._approvals._load_entries()  # noqa: SLF001
+    assert pending.status == "pending"
+
+
+def test_goal_reads_fail_closed_when_approval_ledger_is_missing(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-read-missing-approval-ledger",
+    )
+    service._approvals.path.unlink()  # noqa: SLF001
+    restarted = GoalRuntimeService(tmp_path)
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING",
+    ):
+        restarted.goal_lifecycle_read_model()
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING",
+    ):
+        restarted.goal_with_provenance(goal.goal_ref)
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING",
+    ):
+        restarted.aggregate_read_snapshot(
+            run_ref="run-ref:accepted-local:one",
+            after_sequence=0,
+            limit=10,
+        )
+
+
+def test_public_event_producer_class_survives_recomputed_wrapper_tampering(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:public-producer-strip",
+        run_type=AcceptedLocalRunType.local_metadata_action,
+        event_kind=DurableRunEventKind.evidence_linked,
+        safe_summary="Operator metadata retained one bounded evidence link.",
+        proof_refs=["proof-ref:public-producer-strip"],
+        idempotency_ref="idempotency-ref:public-producer-strip",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event = _append_event(service, request)
+    assert event.producer_class == "operator_public_metadata"
+    tombstones = service._events._load_idempotency_tombstones([event])  # noqa: SLF001
+    tombstone = tombstones[(event.run_ref, event.idempotency_ref)]
+
+    stripped_draft = event.model_copy(
+        update={
+            "goal_mutation_approval_ref": None,
+            "goal_mutation_approval_decision_ref": None,
+            "goal_mutation_approval_ledger_entry_hash_ref": None,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    stripped = stripped_draft.model_copy(
+        update={"event_hash_ref": service._events._event_hash(stripped_draft)}  # noqa: SLF001
+    )
+    recomputed_tombstone = tombstone.model_copy(
+        update={
+            "event": stripped,
+            "tombstone_hash_ref": "tombstone-hash-ref:pending",
+        }
+    )
+    recomputed_tombstone = recomputed_tombstone.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                recomputed_tombstone
+            )
+        }
+    )
+    service._events._write_events([stripped])  # noqa: SLF001
+    service._events._write_idempotency_tombstones(  # noqa: SLF001
+        [recomputed_tombstone]
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_STORE_CORRUPT",
+    ):
+        GoalRuntimeService(tmp_path).events.replay(event.run_ref)
+
+
+def test_public_event_cannot_be_reclassified_as_trusted_core(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:public-producer-substitution",
+        run_type=AcceptedLocalRunType.local_metadata_action,
+        event_kind=DurableRunEventKind.evidence_linked,
+        safe_summary="Operator metadata retained one bounded evidence link.",
+        proof_refs=["proof-ref:public-producer-substitution"],
+        idempotency_ref="idempotency-ref:public-producer-substitution",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event = _append_event(service, request)
+    tombstone = service._events._load_idempotency_tombstones([event])[  # noqa: SLF001
+        (event.run_ref, event.idempotency_ref)
+    ]
+    substituted_draft = event.model_copy(
+        update={
+            "producer_class": "trusted_core",
+            "goal_mutation_approval_ref": None,
+            "goal_mutation_approval_decision_ref": None,
+            "goal_mutation_approval_ledger_entry_hash_ref": None,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    substituted = substituted_draft.model_copy(
+        update={
+            "event_hash_ref": service._events._event_hash(  # noqa: SLF001
+                substituted_draft
+            )
+        }
+    )
+    recomputed_tombstone = tombstone.model_copy(
+        update={
+            "event": substituted,
+            "tombstone_hash_ref": "tombstone-hash-ref:pending",
+        }
+    )
+    recomputed_tombstone = recomputed_tombstone.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                recomputed_tombstone
+            )
+        }
+    )
+    service._events._write_events([substituted])  # noqa: SLF001
+    service._events._write_idempotency_tombstones(  # noqa: SLF001
+        [recomputed_tombstone]
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION",
+    ):
+        GoalRuntimeService(tmp_path).events.replay(event.run_ref)
+
+
+def test_public_event_read_fails_when_exact_approval_ledger_is_missing(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:public-producer-missing-ledger",
+        run_type=AcceptedLocalRunType.local_metadata_action,
+        event_kind=DurableRunEventKind.evidence_linked,
+        safe_summary="Operator metadata retained one bounded evidence link.",
+        proof_refs=["proof-ref:public-producer-missing-ledger"],
+        idempotency_ref="idempotency-ref:public-producer-missing-ledger",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event = _append_event(service, request)
+    service._approvals.path.unlink()  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_APPROVAL_PROVENANCE_MISSING",
+    ):
+        GoalRuntimeService(tmp_path).events.replay(event.run_ref)
+
+
+def test_trusted_and_legacy_event_epochs_remain_readable_without_approval_ledger(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:trusted-producer-legacy",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="Trusted Core retained one bounded run start.",
+        idempotency_ref="idempotency-ref:trusted-producer-legacy",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event = service._events.append(request)  # noqa: SLF001
+    assert event.producer_class == "trusted_core"
+    assert service.events.replay(event.run_ref).events == [event]
+
+    tombstone = service._events._load_idempotency_tombstones([event])[  # noqa: SLF001
+        (event.run_ref, event.idempotency_ref)
+    ]
+    legacy_draft = event.model_copy(
+        update={
+            "schema_version": "durable_run_event.v1",
+            "producer_class": None,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    legacy = legacy_draft.model_copy(
+        update={"event_hash_ref": service._events._event_hash(legacy_draft)}  # noqa: SLF001
+    )
+    legacy_tombstone = tombstone.model_copy(
+        update={"event": legacy, "tombstone_hash_ref": "tombstone-hash-ref:pending"}
+    )
+    legacy_tombstone = legacy_tombstone.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                legacy_tombstone
+            )
+        }
+    )
+    service._events._write_events([legacy])  # noqa: SLF001
+    service._events._write_idempotency_tombstones([legacy_tombstone])  # noqa: SLF001
+
+    replayed = GoalRuntimeService(tmp_path).events.replay(event.run_ref).events
+    assert replayed[0].schema_version == "durable_run_event.v1"
+    assert replayed[0].producer_class is None
+
+
+def test_goal_read_rejects_same_idempotency_cross_request_approval_substitution(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    idempotency_ref = "idempotency-ref:goal-read-cross-request-substitution"
+    original = _create_request()
+    original_approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=original,
+        idempotency_ref=idempotency_ref,
+    )
+    service.create_goal(
+        original,
+        idempotency_ref=idempotency_ref,
+        approval_ref=original_approval_ref,
+    )
+    substituted_request = original.model_copy(
+        update={"objective": "A different bounded approval request."}
+    )
+    substituted_approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=substituted_request,
+        idempotency_ref=idempotency_ref,
+    )
+    approval_entries = service._approvals._load_entries()  # noqa: SLF001
+    substituted_approval = next(
+        entry
+        for entry in reversed(approval_entries)
+        if entry.status == "approved"
+        and entry.spec.approval_ref == substituted_approval_ref
+    )
+    substituted_binding = service._approvals._binding_from_approved_entry(  # noqa: SLF001
+        substituted_approval
+    )
+    [journal_entry] = service.goals._load_consistent_entries()  # noqa: SLF001
+    tampered_draft = journal_entry.model_copy(
+        update={
+            "approval_ref": substituted_binding.approval_ref,
+            "approval_decision_ref": substituted_binding.approval_decision_ref,
+            "approval_ledger_entry_hash_ref": (
+                substituted_binding.approval_ledger_entry_hash_ref
+            ),
+            "approval_request_fingerprint_ref": (
+                substituted_binding.request_fingerprint_ref
+            ),
+            "approval_exact_scope_ref": substituted_binding.exact_scope_ref,
+            "entry_hash_ref": "entry-hash-ref:pending",
+        }
+    )
+    tampered = tampered_draft.model_copy(
+        update={"entry_hash_ref": service.goals._entry_hash(tampered_draft)}  # noqa: SLF001
+    )
+    service.goals._write_entries([tampered])  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).goal_lifecycle_read_model()
+
+
+def test_approval_admission_reserves_encoded_revocation_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    probe = GoalRuntimeService(tmp_path / "probe")
+    request = _create_request().model_copy(
+        update={"objective": "é" * goal_runtime_module.MAX_GOAL_TEXT}
+    )
+    probe_spec = probe.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:approval-reserve-bytes",
+    )
+    probe.decide_goal_mutation_approval(
+        approval_request_ref=probe_spec.approval_request_ref,
+        decision="approve",
+        decision_reason_ref="reason-ref:approval-reserve-bytes",
+    )
+    approved_entries = probe._approvals._load_entries()  # noqa: SLF001
+    approved_bytes = len(
+        probe._approvals._ledger_content(approved_entries).encode("utf-8")  # noqa: SLF001
+    )
+    projected = [
+        *approved_entries,
+        probe._approvals._maximum_revocation_entry(  # noqa: SLF001
+            approved_entries[-1],
+            previous_entry_hash_ref=approved_entries[-1].entry_hash_ref,
+            index=0,
+        ),
+    ]
+    projected_bytes = len(
+        probe._approvals._ledger_content(projected).encode("utf-8")  # noqa: SLF001
+    )
+    assert projected_bytes > approved_bytes
+
+    service = GoalRuntimeService(tmp_path / "subject")
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:approval-reserve-bytes",
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES",
+        approved_bytes,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED",
+    ):
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:approval-reserve-bytes",
+        )
+    [pending] = service._approvals._load_entries()  # noqa: SLF001
+    assert pending.status == "pending"
+
+
+def test_multiple_approved_requests_retain_independent_revocation_slots(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_APPROVAL_ENTRIES",
+        6,
+    )
+    service = GoalRuntimeService(tmp_path)
+    approvals: list[str] = []
+    for index in range(2):
+        request = _create_request().model_copy(
+            update={"objective": f"Bounded approval request {index}."}
+        )
+        spec = service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=f"idempotency-ref:approval-reserve-multiple:{index}",
+        )
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref=f"reason-ref:approval-reserve-multiple:{index}",
+        )
+        approvals.append(spec.approval_ref)
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED",
+    ):
+        service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=_create_request().model_copy(
+                update={"objective": "A third request must not consume rollback."}
+            ),
+            idempotency_ref="idempotency-ref:approval-reserve-multiple:third",
+        )
+    for index, approval_ref in enumerate(approvals):
+        revoked = service.revoke_goal_mutation_approval(
+            approval_ref=approval_ref,
+            decision_reason_ref=f"reason-ref:approval-reserve-multiple:revoke:{index}",
+        )
+        assert revoked.status == "revoked"
+    assert len(service._approvals._load_entries()) == 6  # noqa: SLF001
 
 
 def test_compacted_rejection_identity_remains_terminal_after_restart(

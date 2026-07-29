@@ -4296,7 +4296,7 @@ def _persist_terminal_goal_cli_submission_rejection(
 
 def _goals_list(args: argparse.Namespace) -> int:
     try:
-        read_model = _goal_runtime_service(args).goals.read_model(
+        read_model = _goal_runtime_service(args).goal_lifecycle_read_model(
             include_cleared=args.include_cleared
         )
     except (GoalRuntimeError, OSError) as exc:
@@ -4324,8 +4324,9 @@ def _goals_list(args: argparse.Namespace) -> int:
 
 def _goal_show(args: argparse.Namespace) -> int:
     try:
-        goal_store = _goal_runtime_service(args).goals
-        goal, mutation_provenance = goal_store.goal_with_provenance(args.goal_ref)
+        goal, mutation_provenance = _goal_runtime_service(
+            args
+        ).goal_with_provenance(args.goal_ref)
     except (GoalRuntimeError, OSError, ValueError) as exc:
         return _goal_cli_failure(
             args,

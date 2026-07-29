@@ -1122,7 +1122,7 @@ def get_api_runtime_goals(
     include_cleared: bool = Query(default=False),
 ) -> ResultEnvelope:
     try:
-        read_model = _goal_runtime_service().goals.read_model(
+        read_model = _goal_runtime_service().goal_lifecycle_read_model(
             include_cleared=include_cleared
         )
     except GoalRuntimeError as exc:
@@ -1145,8 +1145,9 @@ def get_api_runtime_goals(
 @router.get("/goals/{goal_ref}", response_model=ResultEnvelope)
 def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
     try:
-        goal_store = _goal_runtime_service().goals
-        goal, mutation_provenance = goal_store.goal_with_provenance(goal_ref)
+        goal, mutation_provenance = _goal_runtime_service().goal_with_provenance(
+            goal_ref
+        )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
             exc
