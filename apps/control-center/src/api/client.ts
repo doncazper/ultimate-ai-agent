@@ -9007,6 +9007,10 @@ function isBoundedDisplayText(value: unknown, maxLength: number): value is strin
   return codePointLength > 0 && codePointLength <= maxLength;
 }
 
+function containsTerminalControlCharacters(value: string): boolean {
+  return /[\u0000-\u001f\u007f-\u009f]/u.test(value);
+}
+
 function isSafeRuntimeRunEvents(
   value: RuntimeRunEventsReadModel | undefined,
 ): value is RuntimeRunEventsReadModel {
@@ -9074,8 +9078,20 @@ function isSafeRuntimeRunEvents(
       ).length &&
     value.completed_run_count ===
       value.stream_summaries.filter(
-        (stream) => stream.terminal_event_kind === "completion_verified",
+        (stream) =>
+          stream.successful_receipt_recorded ||
+          stream.terminal_event_kind === "completion_verified",
       ).length &&
+    value.stream_summaries.every(
+      (stream) =>
+        Number.isSafeInteger(stream.first_retained_sequence) &&
+        stream.first_retained_sequence >= 1 &&
+        Number.isSafeInteger(stream.last_sequence) &&
+        stream.last_sequence >= stream.first_retained_sequence &&
+        Number.isSafeInteger(stream.retained_event_count) &&
+        stream.retained_event_count >= 1 &&
+        typeof stream.successful_receipt_recorded === "boolean",
+    ) &&
     value.stream_count === value.stream_summaries.length &&
     value.retained_event_count ===
       value.stream_summaries.reduce(
@@ -9292,6 +9308,7 @@ function isSafeRuntimeRunEventPreview(
     safeRef(event.uaa_durable_run_ref) &&
     safeRef(event.proof_ref) &&
     isBoundedDisplayText(event.safe_summary, 1200) &&
+    !containsTerminalControlCharacters(event.safe_summary) &&
     !containsSecretLike(event.safe_summary) &&
     !containsAbsoluteLocalPath(event.safe_summary) &&
     event.redaction_status === "redacted_safe_ref_only" &&
@@ -9336,6 +9353,7 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
   ]);
   const safeText = (value: unknown) =>
     isBoundedDisplayText(value, 1200) &&
+    !containsTerminalControlCharacters(String(value)) &&
     !containsSecretLike(value) &&
     !containsAbsoluteLocalPath(String(value));
   const safeRefs = (value: unknown) =>

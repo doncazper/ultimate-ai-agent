@@ -63,6 +63,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     GoalTransitionKind,
     GoalTransitionRequest,
     capture_exact_goal_mutation_approval,
+    terminal_goal_submission_rejection_reason_ref,
     active_runtime_authority_leases,
     HermesChatRequest,
     HermesCliAdapter,
@@ -1766,6 +1767,45 @@ def _print_run_events(read_model: dict[str, Any]) -> None:
         print(
             f"- {mapping['runtime_state']} -> "
             f"{mapping['uaa_durable_run_state']}: {mapping['operator_label']}"
+        )
+    goal_lifecycle = read_model["goal_lifecycle"]
+    print(f"Durable goals: {goal_lifecycle['goal_count']}")
+    for goal in goal_lifecycle["goals"]:
+        print(f"- {goal['goal_ref']} state={goal['state']} version={goal['version']}")
+        print(f"  objective: {goal['objective']}")
+    submissions = read_model["goal_mutation_submissions"]
+    print(
+        "Goal mutation submissions: "
+        f"pending={submissions['pending_count']} "
+        f"committed={submissions['committed_count']} "
+        f"rejected={submissions['rejected_count']}"
+    )
+    for submission in submissions["records"]:
+        print(
+            f"- {submission['submission_ref']} "
+            f"operation={submission['operation']} status={submission['status']}"
+        )
+        print(
+            f"  goal={submission['goal_ref']} "
+            f"idempotency={submission['idempotency_ref']}"
+        )
+        if submission["rejection_reason_ref"] is not None:
+            print(f"  rejection={submission['rejection_reason_ref']}")
+        if submission["committed_goal_ref"] is not None:
+            print(f"  committed_goal={submission['committed_goal_ref']}")
+    print(f"Durable retained events: {read_model['retained_event_count']}")
+    for event in read_model["event_previews"]:
+        print(
+            f"- {event['event_ref']} kind={event['event_kind']} "
+            f"sequence={event['sequence']}"
+        )
+        print(f"  run={event['uaa_durable_run_ref']}")
+        print(f"  summary: {event['safe_summary']}")
+    if read_model["replay"] is not None:
+        replay = read_model["replay"]
+        print(
+            f"Replay: status={replay['status']} run={replay['run_ref']} "
+            f"next_cursor={replay['next_cursor']}"
         )
     print("Run proposals:")
     for proposal in read_model["run_proposals"]:
@@ -4223,6 +4263,28 @@ def _goal_cli_failure(
     )
 
 
+def _persist_terminal_goal_cli_submission_rejection(
+    *,
+    service: GoalRuntimeService | None,
+    submission: Any | None,
+    exc: Exception,
+) -> Exception:
+    if service is None or submission is None or not isinstance(exc, GoalRuntimeError):
+        return exc
+    reason_ref = terminal_goal_submission_rejection_reason_ref(exc)
+    if reason_ref is None:
+        return exc
+    try:
+        service.reject_goal_mutation_submission(
+            submission_ref=submission.submission_ref,
+            request_fingerprint_ref=submission.request_fingerprint_ref,
+            rejection_reason_ref=reason_ref,
+        )
+    except (GoalRuntimeError, OSError, ValueError):
+        return GoalRuntimeError("GOAL_SUBMISSION_REJECTION_PERSISTENCE_FAILED")
+    return exc
+
+
 def _goals_list(args: argparse.Namespace) -> int:
     try:
         read_model = _goal_runtime_service(args).goals.read_model(
@@ -4281,9 +4343,18 @@ def _goal_show(args: argparse.Namespace) -> int:
 
 
 def _goal_create(args: argparse.Namespace) -> int:
+    service: GoalRuntimeService | None = None
+    submission: Any | None = None
     try:
         request = GoalCreateRequest.model_validate(
             _goal_request_payload(args.request_json)
+        )
+        service = _goal_runtime_service(args)
+        submission = service.goal_mutation_submission_record_for_request(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=args.idempotency_ref,
         )
         approval = capture_exact_goal_mutation_approval(
             operation="create",
@@ -4291,16 +4362,21 @@ def _goal_create(args: argparse.Namespace) -> int:
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=args.idempotency_ref,
         )
-        goal = _goal_runtime_service(args).create_goal(
+        goal = service.create_goal(
             request,
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        failure = _persist_terminal_goal_cli_submission_rejection(
+            service=service,
+            submission=submission,
+            exc=exc,
+        )
         return _goal_cli_failure(
             args,
             command_ref="repo-local-command:uaa-runtime-goal-create",
-            exc=exc,
+            exc=failure,
             safe_summary="Goal creation failed safely.",
         )
     payload = _goal_mutation_result(
@@ -4318,9 +4394,18 @@ def _goal_create(args: argparse.Namespace) -> int:
 
 
 def _goal_edit(args: argparse.Namespace) -> int:
+    service: GoalRuntimeService | None = None
+    submission: Any | None = None
     try:
         request = GoalEditRequest.model_validate(
             _goal_request_payload(args.request_json)
+        )
+        service = _goal_runtime_service(args)
+        submission = service.goal_mutation_submission_record_for_request(
+            operation="edit",
+            goal_ref=args.goal_ref,
+            request=request,
+            idempotency_ref=args.idempotency_ref,
         )
         approval = capture_exact_goal_mutation_approval(
             operation="edit",
@@ -4328,17 +4413,22 @@ def _goal_edit(args: argparse.Namespace) -> int:
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=args.idempotency_ref,
         )
-        goal = _goal_runtime_service(args).edit_goal(
+        goal = service.edit_goal(
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        failure = _persist_terminal_goal_cli_submission_rejection(
+            service=service,
+            submission=submission,
+            exc=exc,
+        )
         return _goal_cli_failure(
             args,
             command_ref="repo-local-command:uaa-runtime-goal-edit",
-            exc=exc,
+            exc=failure,
             safe_summary="Goal edit failed safely.",
         )
     payload = _goal_mutation_result(
@@ -4356,9 +4446,18 @@ def _goal_edit(args: argparse.Namespace) -> int:
 
 
 def _goal_transition(args: argparse.Namespace) -> int:
+    service: GoalRuntimeService | None = None
+    submission: Any | None = None
     try:
         request = GoalTransitionRequest.model_validate(
             _goal_request_payload(args.request_json)
+        )
+        service = _goal_runtime_service(args)
+        submission = service.goal_mutation_submission_record_for_request(
+            operation="transition",
+            goal_ref=args.goal_ref,
+            request=request,
+            idempotency_ref=args.idempotency_ref,
         )
         if request.transition == GoalTransitionKind.verify_completion.value:
             raise GoalRuntimeError("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
@@ -4368,17 +4467,22 @@ def _goal_transition(args: argparse.Namespace) -> int:
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=args.idempotency_ref,
         )
-        goal = _goal_runtime_service(args).transition_goal(
+        goal = service.transition_goal(
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
             approval_binding=approval,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        failure = _persist_terminal_goal_cli_submission_rejection(
+            service=service,
+            submission=submission,
+            exc=exc,
+        )
         return _goal_cli_failure(
             args,
             command_ref="repo-local-command:uaa-runtime-goal-transition",
-            exc=exc,
+            exc=failure,
             safe_summary="Goal transition failed safely.",
         )
     payload = _goal_mutation_result(

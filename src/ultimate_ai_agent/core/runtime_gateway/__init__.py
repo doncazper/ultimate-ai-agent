@@ -139,6 +139,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     RunEventReplayStatus,
     RunEventStreamSummary,
     capture_exact_goal_mutation_approval,
+    terminal_goal_submission_rejection_reason_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.approval_bridge import (
     RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF,

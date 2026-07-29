@@ -14068,6 +14068,7 @@ export interface RuntimeRunEventStreamSummary {
   last_sequence: number;
   retained_event_count: number;
   retention_anchor_hash_ref?: string | null;
+  successful_receipt_recorded: boolean;
   terminal_event_kind?: RuntimeRunEventPreview["event_kind"] | null;
 }
 

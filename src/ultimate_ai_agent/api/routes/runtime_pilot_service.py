@@ -152,6 +152,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalTransitionRequest,
     GoalVersionConflictError,
     capture_exact_goal_mutation_approval,
+    terminal_goal_submission_rejection_reason_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import (
     RuntimeInvocationStorageError,
@@ -1018,44 +1019,13 @@ def _goal_runtime_failure(
     )
 
 
-_TERMINAL_GOAL_SUBMISSION_REJECTION_CODES = frozenset(
-    {
-        "GOAL_REQUEST_REF_INVALID",
-        "GOAL_STORE_CAPACITY_EXCEEDED",
-        "GOAL_JOURNAL_CAPACITY_EXCEEDED",
-        "GOAL_MUTATION_APPROVAL_DENIED",
-        "GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
-    }
-)
-
-
-def _terminal_goal_submission_rejection_reason_ref(
-    exc: GoalRuntimeError,
-) -> str | None:
-    code = str(exc) or "GOAL_RUNTIME_VALIDATION_FAILED"
-    if (
-        not isinstance(
-            exc,
-            (
-                GoalNotFoundError,
-                GoalVersionConflictError,
-                GoalIdempotencyConflictError,
-                GoalTransitionDeniedError,
-            ),
-        )
-        and code not in _TERMINAL_GOAL_SUBMISSION_REJECTION_CODES
-    ):
-        return None
-    return f"reason-ref:goal-mutation-rejected:{code.lower().replace('_', '-')}"
-
-
 def _persist_terminal_goal_submission_rejection(
     *,
     service: GoalRuntimeService | None,
     submission: GoalMutationSubmissionRecord | None,
     failure: GoalRuntimeError,
 ) -> GoalRuntimeError:
-    reason_ref = _terminal_goal_submission_rejection_reason_ref(failure)
+    reason_ref = terminal_goal_submission_rejection_reason_ref(failure)
     if service is None or submission is None or reason_ref is None:
         return failure
     try:

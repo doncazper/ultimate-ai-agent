@@ -4527,3 +4527,421 @@ def test_goal_mutation_submission_state_rejects_symlink_substitution(
         match="GOAL_SUBMISSION_STATE_CORRUPT",
     ):
         build_runtime_run_events_read_model(service=GoalRuntimeService(state_dir))
+
+
+def test_exact_submission_retry_repairs_bound_genesis_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "9" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    kwargs = {
+        "submission_ref": "submission-ref:goal-mutation:genesis-retry",
+        "operation": "create",
+        "goal_ref": None,
+        "request": request,
+        "idempotency_ref": "idempotency-ref:goal-mutation:genesis-retry",
+    }
+    prepared = service.record_goal_mutation_submission(**kwargs)
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def fail_journal_install_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goals.jsonl":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        fail_journal_install_once,
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _create_goal(
+            service,
+            request,
+            idempotency_ref=kwargs["idempotency_ref"],
+        )
+    assert (tmp_path / "goal_journal_genesis_intent.json").is_file()
+    assert not (tmp_path / "goals.jsonl").exists()
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        original_atomic_write,
+    )
+    assert (
+        GoalRuntimeService(tmp_path).record_goal_mutation_submission(**kwargs)
+        == prepared
+    )
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.committed_count == 1
+    assert (tmp_path / "goals.jsonl").is_file()
+    assert (tmp_path / "goal_journal_head.json").is_file()
+    assert not (tmp_path / "goal_journal_genesis_intent.json").exists()
+
+
+def test_submission_rejection_prefers_an_exact_committed_journal_entry(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "a" * 64
+    )
+    request = _create_request().model_copy(update={"evidence_refs": [evidence_ref]})
+    idempotency_ref = "idempotency-ref:goal-mutation:commit-wins"
+    prepared = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:commit-wins",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    _create_goal(service, request, idempotency_ref=idempotency_ref)
+
+    unchanged = service.reject_goal_mutation_submission(
+        submission_ref=prepared.submission_ref,
+        request_fingerprint_ref=prepared.request_fingerprint_ref,
+        rejection_reason_ref="reason-ref:goal-mutation-rejected:stale-failure",
+    )
+    assert unchanged.resolution_status == "pending"
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.committed_count == 1
+    assert recovery.rejected_count == 0
+
+
+def test_concurrent_stale_rejection_waits_for_exact_journal_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "f" * 64
+    )
+    request = _create_request().model_copy(update={"evidence_refs": [evidence_ref]})
+    idempotency_ref = "idempotency-ref:goal-mutation:concurrent-commit"
+    prepared = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:concurrent-commit",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    stale_rejection_ready = threading.Event()
+    admit_stale_rejection = threading.Event()
+    rejection_attempting_lock = threading.Event()
+    mutation_holds_journal = threading.Event()
+    original_write_entries = service.goals._write_entries  # noqa: SLF001
+    results: dict[str, object] = {}
+    errors: list[BaseException] = []
+
+    def paused_write(entries: list[goal_runtime_module.GoalJournalEntry]) -> None:
+        mutation_holds_journal.set()
+        admit_stale_rejection.set()
+        assert rejection_attempting_lock.wait(timeout=5)
+        original_write_entries(entries)
+
+    monkeypatch.setattr(service.goals, "_write_entries", paused_write)
+
+    def commit_exact_mutation() -> None:
+        try:
+            results["goal"] = _create_goal(
+                service,
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+        except BaseException as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+
+    def reject_stale_failure() -> None:
+        try:
+            stale_rejection_ready.set()
+            assert admit_stale_rejection.wait(timeout=5)
+            rejection_attempting_lock.set()
+            results["rejection"] = service.reject_goal_mutation_submission(
+                submission_ref=prepared.submission_ref,
+                request_fingerprint_ref=prepared.request_fingerprint_ref,
+                rejection_reason_ref=(
+                    "reason-ref:goal-mutation-rejected:stale-concurrent-failure"
+                ),
+            )
+        except BaseException as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+
+    rejection_thread = threading.Thread(target=reject_stale_failure)
+    rejection_thread.start()
+    assert stale_rejection_ready.wait(timeout=5)
+    mutation_thread = threading.Thread(target=commit_exact_mutation)
+    mutation_thread.start()
+    assert mutation_holds_journal.wait(timeout=5)
+    mutation_thread.join(timeout=5)
+    rejection_thread.join(timeout=5)
+
+    assert not mutation_thread.is_alive()
+    assert not rejection_thread.is_alive()
+    assert errors == []
+    assert isinstance(results["goal"], PersistentGoal)
+    assert results["rejection"].resolution_status == "pending"
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.committed_count == 1
+    assert recovery.rejected_count == 0
+
+
+def test_compacted_rejection_identity_remains_terminal_after_restart(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    first_kwargs: dict[str, object] | None = None
+    for index in range(65):
+        suffix = f"{index:064x}"
+        kwargs: dict[str, object] = {
+            "submission_ref": f"submission-ref:goal-mutation:rejected:{index}",
+            "operation": "create",
+            "goal_ref": None,
+            "request": _create_request().model_copy(
+                update={
+                    "evidence_refs": [
+                        (
+                            "evidence-ref:control-center-goal-create-submission:"
+                            f"sha256:{suffix}"
+                        )
+                    ]
+                }
+            ),
+            "idempotency_ref": f"idempotency-ref:goal-mutation:rejected:{index}",
+        }
+        prepared = service.record_goal_mutation_submission(**kwargs)
+        service.reject_goal_mutation_submission(
+            submission_ref=prepared.submission_ref,
+            request_fingerprint_ref=prepared.request_fingerprint_ref,
+            rejection_reason_ref=f"reason-ref:goal-mutation-rejected:{index}",
+        )
+        if index == 0:
+            first_kwargs = kwargs
+
+    assert first_kwargs is not None
+    state = json.loads(
+        (tmp_path / "goal_mutation_submissions.json").read_text(encoding="utf-8")
+    )
+    assert any(
+        tombstone["submission_ref"] == first_kwargs["submission_ref"]
+        for tombstone in state["rejection_tombstones"]
+    )
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_SUBMISSION_PREVIOUSLY_REJECTED",
+    ):
+        GoalRuntimeService(tmp_path).record_goal_mutation_submission(**first_kwargs)
+
+
+@pytest.mark.parametrize(
+    "reserved_refs",
+    [
+        [
+            (
+                "evidence-ref:control-center-goal-update-submission:"
+                "edit:sha256:" + "b" * 64
+            )
+        ],
+        [
+            ("evidence-ref:control-center-goal-create-submission:sha256:" + "c" * 64),
+            (
+                "evidence-ref:control-center-goal-update-submission:"
+                "transition:sha256:" + "d" * 64
+            ),
+        ],
+    ],
+)
+def test_submission_rejects_cross_operation_reserved_evidence_on_prepare_and_reload(
+    tmp_path: Path,
+    reserved_refs: list[str],
+) -> None:
+    request = _create_request().model_copy(update={"evidence_refs": reserved_refs})
+    with pytest.raises(
+        ValueError,
+        match="GOAL_SUBMISSION_EVIDENCE_BINDING_REQUIRED",
+    ):
+        GoalRuntimeService(tmp_path / "prepare").record_goal_mutation_submission(
+            submission_ref="submission-ref:goal-mutation:cross-operation",
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref="idempotency-ref:goal-mutation:cross-operation",
+        )
+
+    state_dir = tmp_path / "reload"
+    service = GoalRuntimeService(state_dir)
+    valid_ref = "evidence-ref:control-center-goal-create-submission:sha256:" + "e" * 64
+    valid_request = _create_request().model_copy(update={"evidence_refs": [valid_ref]})
+    service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:reload",
+        operation="create",
+        goal_ref=None,
+        request=valid_request,
+        idempotency_ref="idempotency-ref:goal-mutation:reload",
+    )
+    state_path = state_dir / "goal_mutation_submissions.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["records"][0]["request_payload"]["evidence_refs"] = reserved_refs
+    state_path.write_text(json.dumps(state) + "\n", encoding="utf-8")
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_STATE_CORRUPT",
+    ):
+        build_runtime_run_events_read_model(service=GoalRuntimeService(state_dir))
+
+
+@pytest.mark.parametrize("control_character", ["\x1b", "\b", "\x7f", "\x9b"])
+def test_durable_goal_and_event_summaries_reject_terminal_controls(
+    control_character: str,
+) -> None:
+    create_payload = _create_request().model_dump(mode="json")
+    create_payload["objective"] = f"Bounded{control_character}operator summary."
+    with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
+        GoalCreateRequest.model_validate(create_payload)
+    with pytest.raises(ValueError, match="GOAL_RAW_CONTENT_PERSISTENCE_DENIED"):
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:terminal-control",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary=f"Bounded{control_character}event summary.",
+            idempotency_ref="idempotency-ref:terminal-control",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        )
+
+
+def test_successful_receipt_summary_survives_later_events_and_compaction(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path, retention_limit=2)
+    run_ref = "run-ref:receipt-summary:compacted"
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref=run_ref,
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="The bounded local run started.",
+            idempotency_ref="idempotency-ref:receipt-summary:started",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref=run_ref,
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="The successful local receipt was recorded.",
+            proof_refs=["proof-ref:receipt-summary:success"],
+            receipt_refs=["receipt-ref:receipt-summary:success"],
+            idempotency_ref="idempotency-ref:receipt-summary:receipt",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    for index in range(2):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref=run_ref,
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.evidence_linked,
+                safe_summary="Additional bounded evidence metadata was linked.",
+                proof_refs=[f"proof-ref:receipt-summary:later:{index}"],
+                idempotency_ref=f"idempotency-ref:receipt-summary:later:{index}",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+
+    read_model = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path, retention_limit=2)
+    )
+    summary = next(
+        item for item in read_model.stream_summaries if item.run_ref == run_ref
+    )
+    assert summary.successful_receipt_recorded is True
+    assert summary.terminal_event_kind is None
+    assert summary.first_retained_sequence == 3
+    assert summary.last_sequence == 4
+    assert summary.retained_event_count == 2
+    assert read_model.retained_event_count == 2
+    assert read_model.completed_run_count == 1
+
+
+def test_quarantine_capacity_does_not_block_later_current_receipt_sync(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = RuntimeInvocationStore(
+        tmp_path / "runtime",
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    adapter = GovernedCommandRuntimeAdapter(
+        workspace_root=ROOT,
+        runner=runner,
+    )
+    records = [
+        invoke_governed_command(
+            store=store,
+            adapter=adapter,
+            request=RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref=mission_ref,
+                safe_summary="A bounded historical or current inspection completed.",
+            ),
+            idempotency_ref=f"idempotency-ref:quarantine-capacity:{index}",
+        ).record
+        for index, mission_ref in enumerate(
+            (
+                "goal-ref:sha256:" + "1" * 64,
+                "goal-ref:sha256:" + "2" * 64,
+                "mission-ref:current-after-quarantine-capacity",
+            )
+        )
+    ]
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES",
+        1,
+    )
+    service = GoalRuntimeService(tmp_path / "goals")
+    projected = service.sync_runtime_invocations(
+        records,
+        invocation_store=store,
+    )
+
+    assert {event.run_ref for event in projected} == {records[-1].invocation_ref}
+    incompatibilities = service.events.projection_incompatibilities()
+    assert [item.invocation_ref for item in incompatibilities] == [
+        records[0].invocation_ref
+    ]
+    restarted = GoalRuntimeService(tmp_path / "goals")
+    assert (
+        restarted.sync_runtime_invocations(
+            records,
+            invocation_store=store,
+        )
+        == []
+    )
+    assert len(restarted.events.replay(records[-1].invocation_ref).events) == 2

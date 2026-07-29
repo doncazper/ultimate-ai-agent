@@ -706,6 +706,35 @@ describe("proof-backed runtime goal mutations", () => {
     );
   });
 
+  it("rejects terminal controls from durable goal summaries", async () => {
+    const invalidGoal = {
+      ...mutationResult.goal,
+      objective: "Bounded\u001bforged operator summary.",
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [invalidGoal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
   it("accepts the backend synthesized presence proof for a valid nonterminal durable event", async () => {
     const event = {
       event_ref: "runtime-run-event-ref:goal-client:started",
@@ -740,11 +769,80 @@ describe("proof-backed runtime goal mutations", () => {
           last_sequence: 1,
           retained_event_count: 1,
           retention_anchor_hash_ref: null,
+          successful_receipt_recorded: false,
           terminal_event_kind: null,
         },
       ],
       stream_count: 1,
       retained_event_count: 1,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it("preserves receipt-backed completion after later evidence metadata", async () => {
+    const receipt = {
+      event_ref: "runtime-run-event-ref:goal-client:receipt",
+      event_kind: "receipt_recorded" as const,
+      runtime_run_ref: "runtime-run-ref:goal-client:receipt",
+      uaa_durable_run_ref: "runtime-run-ref:goal-client:receipt",
+      proof_ref: "proof-ref:goal-client:receipt",
+      redaction_status: "redacted_safe_ref_only" as const,
+      safe_summary: "A successful bounded local receipt was recorded.",
+      sequence: 1,
+      recorded_at: "2026-07-25T00:00:00Z",
+      predecessor_hash_ref: null,
+      event_hash_ref: "event-hash-ref:goal-client:receipt",
+      proof_refs: ["proof-ref:goal-client:receipt"],
+      receipt_refs: ["receipt-ref:goal-client:receipt"],
+      criterion_verifier_bindings: [],
+      goal_ref: null,
+      plan_ref: null,
+      runtime_payload_persisted: false,
+      raw_log_persisted: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+    };
+    const evidence = {
+      ...receipt,
+      event_ref: "runtime-run-event-ref:goal-client:evidence",
+      event_kind: "evidence_linked" as const,
+      proof_ref: "proof-ref:goal-client:evidence",
+      safe_summary: "Later bounded evidence metadata was linked.",
+      sequence: 2,
+      recorded_at: "2026-07-25T00:00:01Z",
+      predecessor_hash_ref: receipt.event_hash_ref,
+      event_hash_ref: "event-hash-ref:goal-client:evidence",
+      proof_refs: ["proof-ref:goal-client:evidence"],
+      receipt_refs: [],
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      event_previews: [receipt, evidence],
+      stream_summaries: [
+        {
+          run_ref: receipt.runtime_run_ref,
+          run_type: "local_read_task" as const,
+          first_retained_sequence: 1,
+          last_sequence: 2,
+          retained_event_count: 2,
+          retention_anchor_hash_ref: null,
+          successful_receipt_recorded: true,
+          terminal_event_kind: null,
+        },
+      ],
+      stream_count: 1,
+      retained_event_count: 2,
+      completed_run_count: 1,
     };
     vi.stubGlobal(
       "fetch",
@@ -798,6 +896,7 @@ describe("proof-backed runtime goal mutations", () => {
             last_sequence: 1,
             retained_event_count: 1,
             retention_anchor_hash_ref: null,
+            successful_receipt_recorded: false,
             terminal_event_kind: null,
           },
         ],
@@ -827,6 +926,7 @@ describe("proof-backed runtime goal mutations", () => {
     ["proof_ref", "unsafe"],
     ["proof_ref", "proof-ref:goal-client:substituted"],
     ["safe_summary", ["token", "raw-secret"].join("=")],
+    ["safe_summary", "Bounded\u001bforged event summary."],
     ["redaction_status", "raw"],
     ["redaction_status", "redacted_safe_refs_only"],
     ["sequence", 0],
@@ -872,11 +972,13 @@ describe("proof-backed runtime goal mutations", () => {
           last_sequence: 1,
           retained_event_count: 1,
           retention_anchor_hash_ref: null,
+          successful_receipt_recorded: true,
           terminal_event_kind: null,
         },
       ],
       stream_count: 1,
       retained_event_count: 1,
+      completed_run_count: 1,
     };
     vi.stubGlobal(
       "fetch",

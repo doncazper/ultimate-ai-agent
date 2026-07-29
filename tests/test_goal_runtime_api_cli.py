@@ -23,6 +23,8 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     DurableRunEventAppendRequest,
     DurableRunEventKind,
     GOAL_COMPLETION_VERIFIER_REF,
+    GoalCreateRequest,
+    GoalEditRequest,
     GoalRuntimeError,
     GoalRuntimeService,
     GoalTransitionRequest,
@@ -1037,6 +1039,159 @@ def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> N
     assert payload["approval_binding"]["approval_validated"] is True
     assert payload["standing_authority_granted"] is False
     assert payload["runtime_execution_performed"] is False
+
+
+@pytest.mark.parametrize("operation", ["create", "edit", "transition"])
+def test_goal_cli_exact_retry_persists_terminal_submission_rejection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    operation: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    goal_ref = "goal-ref:cli-terminal-rejection:missing"
+    idempotency_ref = f"idempotency-ref:cli-terminal-rejection:{operation}"
+    if operation == "create":
+        evidence_ref = (
+            "evidence-ref:control-center-goal-create-submission:sha256:" + "1" * 64
+        )
+        payload = {**_create_payload(), "evidence_refs": [evidence_ref]}
+        request = GoalCreateRequest.model_validate(payload)
+        goal_binding = None
+    elif operation == "edit":
+        evidence_ref = (
+            "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "2" * 64
+        )
+        payload = {
+            "expected_version": 1,
+            "text_redaction_posture": "operator_authored_redacted_summary_only",
+            "objective": "A bounded CLI retry edit.",
+            "evidence_refs": [evidence_ref],
+        }
+        request = GoalEditRequest.model_validate(payload)
+        goal_binding = goal_ref
+    else:
+        evidence_ref = (
+            "evidence-ref:control-center-goal-update-submission:"
+            "transition:sha256:" + "3" * 64
+        )
+        payload = {
+            "expected_version": 1,
+            "transition": "pause",
+            "reason_ref": "reason-ref:cli-terminal-rejection",
+            "evidence_refs": [evidence_ref],
+        }
+        request = GoalTransitionRequest.model_validate(payload)
+        goal_binding = goal_ref
+    prepared = service.record_goal_mutation_submission(
+        submission_ref=f"submission-ref:cli-terminal-rejection:{operation}",
+        operation=operation,
+        goal_ref=goal_binding,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    monkeypatch.setattr(uaa_runtime, "_goal_runtime_service", lambda _args: service)
+    if operation == "create":
+        monkeypatch.setattr(
+            uaa_runtime,
+            "capture_exact_goal_mutation_approval",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                GoalRuntimeError("GOAL_MUTATION_APPROVAL_DENIED")
+            ),
+        )
+    args = argparse.Namespace(
+        request_json=json.dumps(payload),
+        idempotency_ref=idempotency_ref,
+        goal_ref=goal_ref,
+        json=True,
+    )
+    handler = {
+        "create": uaa_runtime._goal_create,
+        "edit": uaa_runtime._goal_edit,
+        "transition": uaa_runtime._goal_transition,
+    }[operation]
+
+    assert handler(args) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["success"] is False
+    recovery = GoalRuntimeService(tmp_path)._submissions.recovery_read_model(  # noqa: SLF001
+        GoalRuntimeService(tmp_path).goals._load_consistent_entries()  # noqa: SLF001
+    )
+    exact = next(
+        item
+        for item in recovery.records
+        if item.submission_ref == prepared.submission_ref
+    )
+    assert exact.status == "rejected"
+    assert exact.rejection_reason_ref is not None
+
+
+def test_plain_run_event_cli_renders_durable_goal_submission_and_event_sections(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService.for_runtime_store(tmp_path)
+    create_request = GoalCreateRequest.model_validate(_create_payload())
+    approval = capture_exact_goal_mutation_approval(
+        operation="create",
+        subject_ref="goal-ref:new",
+        request_payload=create_request.model_dump(mode="json"),
+        idempotency_ref="idempotency-ref:plain-cli:create",
+    )
+    goal = service.create_goal(
+        create_request,
+        idempotency_ref="idempotency-ref:plain-cli:create",
+        approval_binding=approval,
+    )
+    evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "4" * 64
+    )
+    edit_request = GoalEditRequest(
+        expected_version=goal.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="A pending bounded edit remains inspectable.",
+        evidence_refs=[evidence_ref],
+    )
+    submission = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:plain-cli:pending-edit",
+        operation="edit",
+        goal_ref=goal.goal_ref,
+        request=edit_request,
+        idempotency_ref="idempotency-ref:plain-cli:pending-edit",
+    )
+    _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:plain-cli:visible",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary="A bounded local run is visible to the operator.",
+            idempotency_ref="idempotency-ref:plain-cli:event",
+            authority_decision_ref="authority-decision-ref:plain-cli:event",
+        ),
+    )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "inspect-run-events",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert "Durable goals: 1" in cli.stdout
+    assert goal.goal_ref in cli.stdout
+    assert "Goal mutation submissions: pending=1 committed=0 rejected=0" in (cli.stdout)
+    assert submission.submission_ref in cli.stdout
+    assert "Durable retained events: 1" in cli.stdout
+    assert "runtime-run-event-ref:" in cli.stdout
+    assert "A bounded local run is visible to the operator." in cli.stdout
 
 
 def test_goal_cli_uses_effective_runtime_gateway_state_dir(

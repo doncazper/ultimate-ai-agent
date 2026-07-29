@@ -406,7 +406,9 @@ class RuntimeRunEventsReadModel(BaseModel):
         if self.approval_wait_count != expected_approval_wait:
             raise ValueError("RUNTIME_RUN_EVENT_APPROVAL_WAIT_COUNT_DRIFT")
         expected_completed = sum(
-            stream.terminal_event_kind == RuntimeRunEventKind.completion_verified.value
+            stream.successful_receipt_recorded
+            or stream.terminal_event_kind
+            == RuntimeRunEventKind.completion_verified.value
             for stream in self.stream_summaries
         )
         if self.completed_run_count != expected_completed:
@@ -608,7 +610,9 @@ def build_runtime_run_events_read_model_from_authority_catalog(
             for event in events
         ),
         completed_run_count=sum(
-            stream.terminal_event_kind == RuntimeRunEventKind.completion_verified.value
+            stream.successful_receipt_recorded
+            or stream.terminal_event_kind
+            == RuntimeRunEventKind.completion_verified.value
             for stream in stream_summaries
         ),
         blocked_authority_refs=[
