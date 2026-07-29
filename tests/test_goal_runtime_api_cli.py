@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
@@ -60,7 +62,7 @@ def _criterion_bindings(
 def goal_runtime_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[TestClient, GoalRuntimeService]:
+) -> Iterator[tuple[TestClient, GoalRuntimeService]]:
     service = GoalRuntimeService.for_runtime_store(tmp_path)
     monkeypatch.setattr(
         runtime_pilot_service,
@@ -68,7 +70,13 @@ def goal_runtime_client(
         lambda: service,
     )
     monkeypatch.setenv("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")
-    return TestClient(app), service
+    reset_api_rate_limit_state()
+    client = TestClient(app)
+    try:
+        yield client, service
+    finally:
+        client.close()
+        reset_api_rate_limit_state()
 
 
 def _create_payload() -> dict[str, object]:
@@ -1098,7 +1106,7 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         ),
     )
 
-    requested = client.post(
+    requested_http_response = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
         json={
             "expected_version": 1,
@@ -1106,7 +1114,11 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             "reason_ref": "reason-ref:e2e:completion-request",
         },
         headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:completion-request"},
-    ).json()["data"]["goal"]
+    )
+    assert requested_http_response.status_code == 200, requested_http_response.text
+    requested_response = requested_http_response.json()
+    assert requested_response["success"] is True, requested_response
+    requested = requested_response["data"]["goal"]
     requested_goal = restored.goals.get(created["goal_ref"])
     criterion_bindings = _criterion_bindings(
         requested_goal,
