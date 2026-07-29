@@ -807,6 +807,38 @@ describe("proof-backed runtime goal mutations", () => {
     },
   );
 
+  it("accepts the exact backend expiration-recovery actor", async () => {
+    const record = pendingGoalRecoveryRecord("expired");
+    if (!record.approval_recovery?.latest_decision) {
+      throw new Error("expected an approval decision fixture");
+    }
+    record.approval_recovery.latest_decision.status = "expired";
+    record.approval_recovery.latest_decision.approval_grant = null;
+    record.approval_recovery.latest_decision.decision_actor_ref =
+      "operator-ref:goal-runtime-expiration-recovery";
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_mutation_submissions: {
+        ...mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        records: [record],
+        pending_count: 1,
+        committed_count: 0,
+        rejected_count: 0,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
   it.each([
     [
       "non-authoritative state",

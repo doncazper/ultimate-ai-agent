@@ -10,6 +10,7 @@ import pytest
 
 import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_module
 from ultimate_ai_agent.core.runtime_gateway.command import invoke_governed_command
+from ultimate_ai_agent.core.runtime_gateway.contracts import RuntimeInvocationRecord
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
     DurableCriterionVerifierBinding,
@@ -1827,6 +1828,229 @@ def test_trusted_event_tombstone_requires_independent_source_provenance(
         GoalRuntimeService(tmp_path).events.summaries()
 
 
+def test_runtime_trusted_event_must_equal_canonical_producer_projection(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    result = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref="mission-ref:trusted-projection-binding",
+            safe_summary="Inspect bounded status for canonical projection binding.",
+        ),
+        idempotency_ref="idempotency-ref:trusted-projection-binding",
+    )
+    events = service._events._load_events()  # noqa: SLF001
+    terminal = next(
+        event
+        for event in events
+        if event.run_ref == result.record.invocation_ref
+        and event.event_kind == DurableRunEventKind.receipt_recorded.value
+    )
+    key = (terminal.run_ref, terminal.idempotency_ref)
+    event_key_ref = service._events._event_key_ref(*key)  # noqa: SLF001
+    trusted_sources = service._events._load_trusted_sources()  # noqa: SLF001
+    original_source = trusted_sources[event_key_ref]
+    substituted_request = DurableRunEventAppendRequest.model_validate(
+        {
+            **service._events._event_request_payload(terminal),  # noqa: SLF001
+            "safe_summary": (
+                "A recomputed wrapper claims a different accepted projection."
+            ),
+        }
+    )
+    substituted_fingerprint = service._events._request_fingerprint(  # noqa: SLF001
+        substituted_request
+    )
+    substituted_source = service._events._trusted_source_record(  # noqa: SLF001
+        event_key_ref=event_key_ref,
+        request_fingerprint_ref=substituted_fingerprint,
+        binding=goal_runtime_module.TrustedRunEventSourceBinding(
+            source_kind=original_source.source_kind,
+            source_ref=original_source.source_ref,
+            source_fingerprint_ref=original_source.source_fingerprint_ref,
+        ),
+    )
+    substituted_draft = terminal.model_copy(
+        update={
+            "safe_summary": substituted_request.safe_summary,
+            "trusted_source_record_hash_ref": substituted_source.record_hash_ref,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    substituted = substituted_draft.model_copy(
+        update={
+            "event_hash_ref": service._events._event_hash(  # noqa: SLF001
+                substituted_draft
+            )
+        }
+    )
+    tombstones = service._events._load_idempotency_tombstones(events)  # noqa: SLF001
+    tombstone_draft = tombstones[key].model_copy(
+        update={
+            "request_fingerprint_ref": substituted_fingerprint,
+            "event": substituted,
+            "tombstone_hash_ref": "tombstone-hash-ref:pending",
+        }
+    )
+    tombstones[key] = tombstone_draft.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                tombstone_draft
+            )
+        }
+    )
+    service._events._write_events(  # noqa: SLF001
+        [substituted if event.event_ref == terminal.event_ref else event for event in events]
+    )
+    service._events._write_idempotency_tombstones(  # noqa: SLF001
+        tombstones.values()
+    )
+    trusted_sources[event_key_ref] = substituted_source
+    service._events._write_trusted_sources(trusted_sources.values())  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+    ):
+        service.aggregate_read_snapshot(
+            run_ref=result.record.invocation_ref,
+            after_sequence=0,
+            limit=10,
+        )
+
+
+def test_completion_event_must_equal_canonical_journal_projection(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:completion-projection:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:completion-projection:request",
+        ),
+        idempotency_ref="idempotency-ref:completion-projection:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=requested.version,
+            transition=GoalTransitionKind.verify_completion,
+            reason_ref="reason-ref:completion-projection:verify",
+            completion_evidence=_completion_evidence(requested),
+        ),
+        idempotency_ref="idempotency-ref:completion-projection:verify",
+    )
+    events = service._events._load_events()  # noqa: SLF001
+    completion = next(
+        event
+        for event in events
+        if event.event_kind == DurableRunEventKind.completion_verified.value
+    )
+    key = (completion.run_ref, completion.idempotency_ref)
+    event_key_ref = service._events._event_key_ref(*key)  # noqa: SLF001
+    sources = service._events._load_trusted_sources()  # noqa: SLF001
+    original_source = sources[event_key_ref]
+    substituted_request = DurableRunEventAppendRequest.model_validate(
+        {
+            **service._events._event_request_payload(completion),  # noqa: SLF001
+            "goal_ref": "goal-ref:sha256:" + "f" * 64,
+        }
+    )
+    substituted_fingerprint = service._events._request_fingerprint(  # noqa: SLF001
+        substituted_request
+    )
+    substituted_source = service._events._trusted_source_record(  # noqa: SLF001
+        event_key_ref=event_key_ref,
+        request_fingerprint_ref=substituted_fingerprint,
+        binding=goal_runtime_module.TrustedRunEventSourceBinding(
+            source_kind=original_source.source_kind,
+            source_ref=original_source.source_ref,
+            source_fingerprint_ref=original_source.source_fingerprint_ref,
+        ),
+    )
+    substituted_draft = completion.model_copy(
+        update={
+            "goal_ref": substituted_request.goal_ref,
+            "trusted_source_record_hash_ref": substituted_source.record_hash_ref,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    substituted = substituted_draft.model_copy(
+        update={
+            "event_hash_ref": service._events._event_hash(  # noqa: SLF001
+                substituted_draft
+            )
+        }
+    )
+    tombstones = service._events._load_idempotency_tombstones(events)  # noqa: SLF001
+    tombstone_draft = tombstones[key].model_copy(
+        update={
+            "request_fingerprint_ref": substituted_fingerprint,
+            "event": substituted,
+            "tombstone_hash_ref": "tombstone-hash-ref:pending",
+        }
+    )
+    tombstones[key] = tombstone_draft.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                tombstone_draft
+            )
+        }
+    )
+    service._events._write_events(  # noqa: SLF001
+        [
+            substituted if event.event_ref == completion.event_ref else event
+            for event in events
+        ]
+    )
+    service._events._write_idempotency_tombstones(  # noqa: SLF001
+        tombstones.values()
+    )
+    sources[event_key_ref] = substituted_source
+    service._events._write_trusted_sources(sources.values())  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+    ):
+        service.aggregate_read_snapshot(
+            run_ref=completion.run_ref,
+            after_sequence=0,
+            limit=10,
+        )
+
+
 @pytest.mark.parametrize(
     "entry_point",
     ["reconcile", "runtime_projection_guard", "sync_runtime_invocations"],
@@ -3410,6 +3634,85 @@ def test_runtime_goal_state_is_pinned_across_adapter_dispatch(
     )
     assert replay.record.invocation_ref == results[0].record.invocation_ref
     assert replay.record.receipt == results[0].record.receipt
+    assert runner_call_count == 1
+
+
+def test_runtime_gateway_rechecks_committed_replay_at_mission_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:mission-stale-replay-create",
+    )
+    runner_call_count = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_call_count
+        runner_call_count += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        mission_ref=goal.goal_ref,
+        safe_summary="Inspect bounded status for exact committed replay.",
+    )
+    idempotency_ref = "idempotency-ref:mission-stale-replay-invoke"
+    committed = gateway.invoke_command(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    cancelled = _transition_goal(
+        service,
+        goal.goal_ref,
+        GoalTransitionRequest(
+            expected_version=goal.version,
+            transition=GoalTransitionKind.cancel,
+            reason_ref="reason-ref:mission-stale-replay-cancel",
+        ),
+        idempotency_ref="idempotency-ref:mission-stale-replay-cancel",
+    )
+    assert cancelled.state == GoalState.cancelled.value
+
+    original_lookup = gateway.store.get_invocation_for_idempotency
+    lookup_count = 0
+
+    def stale_then_current(value: str) -> RuntimeInvocationRecord | None:
+        nonlocal lookup_count
+        lookup_count += 1
+        if lookup_count == 1:
+            return None
+        return original_lookup(value)
+
+    monkeypatch.setattr(
+        gateway.store,
+        "get_invocation_for_idempotency",
+        stale_then_current,
+    )
+
+    replay = gateway.invoke_command(request, idempotency_ref=idempotency_ref)
+
+    assert replay.record.invocation_ref == committed.record.invocation_ref
+    assert replay.record.receipt == committed.record.receipt
+    assert lookup_count >= 2
     assert runner_call_count == 1
 
 
@@ -6162,9 +6465,59 @@ def test_submission_state_loss_with_head_fails_closed(
         )
 
 
+def test_aggregate_read_repairs_exact_submission_write_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "d" * 64
+    )
+    record = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-aggregate-write-repair",
+        operation="create",
+        goal_ref=None,
+        request=_create_request().model_copy(
+            update={"evidence_refs": [evidence_ref]}
+        ),
+        idempotency_ref="idempotency-ref:goal-aggregate-write-repair",
+    )
+    original_atomic_write = goal_runtime_module._atomic_write  # noqa: SLF001
+    failed = False
+
+    def fail_head_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goal_mutation_submissions_head.json":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_head_once)
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        service.reject_goal_mutation_submission(
+            submission_ref=record.submission_ref,
+            request_fingerprint_ref=record.request_fingerprint_ref,
+            rejection_reason_ref="reason-ref:goal-aggregate-write-repair",
+        )
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+
+    recovery = GoalRuntimeService(tmp_path).aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=10,
+    )[4]
+
+    assert recovery.pending_count == 0
+    assert recovery.rejected_count == 1
+    assert recovery.records[0].submission_ref == record.submission_ref
+    assert not service._submissions.write_intent_path.exists()  # noqa: SLF001
+
+
+@pytest.mark.parametrize("approved_before_expiry", [False, True])
 def test_expired_approval_durably_rejects_linked_submission(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    approved_before_expiry: bool,
 ) -> None:
     service = GoalRuntimeService(tmp_path)
     submission_evidence_ref = (
@@ -6187,6 +6540,12 @@ def test_expired_approval_durably_rejects_linked_submission(
         idempotency_ref=submission.idempotency_ref,
         ttl_minutes=5,
     )
+    if approved_before_expiry:
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:goal-approval-before-expiration",
+        )
     monkeypatch.setattr(
         goal_runtime_module,
         "utc_now",

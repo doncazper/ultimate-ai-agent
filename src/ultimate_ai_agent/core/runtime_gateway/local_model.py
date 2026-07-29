@@ -346,6 +346,14 @@ class RuntimeGateway:
         )
         self.goal_runtime_service.bind_runtime_invocation_store(self.store)
 
+    def _committed_replay_available(self, idempotency_ref: str) -> bool:
+        record = self.store.get_invocation_for_idempotency(idempotency_ref)
+        return (
+            record is not None
+            and record.receipt is not None
+            and record.status == RuntimeInvocationStatus.receipt_recorded.value
+        )
+
     def invoke_command(
         self,
         request: RuntimeCommandExecutionRequest,
@@ -364,6 +372,9 @@ class RuntimeGateway:
                     and existing.receipt is not None
                     and existing.status
                     == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
                 ),
             ):
                 result = invoke_governed_command(
@@ -403,6 +414,9 @@ class RuntimeGateway:
                 allow_committed_replay=(
                     record.receipt is not None
                     and record.status == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
                 ),
             ):
                 result = invoke_approved_governed_command(
@@ -459,6 +473,9 @@ class RuntimeGateway:
                     and existing.receipt is not None
                     and existing.status
                     == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
                 ),
             ):
                 result = self._invoke_local_model(

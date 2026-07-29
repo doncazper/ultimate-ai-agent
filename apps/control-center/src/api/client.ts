@@ -9398,9 +9398,14 @@ function isSafeRuntimeGoalMutationSubmissionApprovalRecovery(
   ) {
     return false;
   }
+  const terminalDecisionActorBound =
+    latestDecision.status === "expired"
+      ? latestDecision.decision_actor_ref ===
+        "operator-ref:goal-runtime-expiration-recovery"
+      : latestDecision.decision_actor_ref === "operator-ref:local-user";
   const terminalDecisionBound =
     isSafeTrustAuthorityRef(latestDecision.decision_reason_ref) &&
-    latestDecision.decision_actor_ref === "operator-ref:local-user" &&
+    terminalDecisionActorBound &&
     typeof latestDecision.decided_at === "string" &&
     Number.isFinite(Date.parse(latestDecision.decided_at));
   if (recovery.posture === "approved") {

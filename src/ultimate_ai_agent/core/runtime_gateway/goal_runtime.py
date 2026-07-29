@@ -3630,6 +3630,23 @@ class _GoalMutationSubmissionStore:
         state = self._load_state()
         return [record.model_copy(deep=True) for record in state.records]
 
+    def repair_recoverable_write(self) -> None:
+        """Finish only an exactly precommitted submission write, if present."""
+
+        try:
+            intent_metadata = os.lstat(self.write_intent_path)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+        if not stat.S_ISREG(intent_metadata.st_mode):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_WRITE_INTENT_CORRUPT"
+            )
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
+            self._load_state(repair_head=True)
+
     def _write(
         self,
         records: list[GoalMutationSubmissionRecord],
@@ -5006,6 +5023,183 @@ class _DurableRunEventStore:
         }
 
     @staticmethod
+    def _runtime_projection_requests(
+        record: RuntimeInvocationRecord,
+    ) -> tuple[DurableRunEventAppendRequest, DurableRunEventAppendRequest]:
+        """Derive the only two accepted event projections for a runtime receipt."""
+
+        from ultimate_ai_agent.core.runtime_gateway.contracts import RuntimeAuthority
+
+        receipt = record.receipt
+        if receipt is None:
+            raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_RECEIPT_REQUIRED")
+        run_type = (
+            AcceptedLocalRunType.local_read_task
+            if record.request.requested_authority == RuntimeAuthority.local_model.value
+            else AcceptedLocalRunType.local_metadata_action
+        )
+        goal_ref = (
+            record.request.mission_ref
+            if (record.request.mission_ref or "").startswith("goal-ref:")
+            else None
+        )
+        plan_ref = (
+            record.request.action_ref
+            if (record.request.action_ref or "").startswith("plan-ref:")
+            else None
+        )
+        proof_refs = list(
+            dict.fromkeys(
+                [
+                    receipt.policy_decision_ref,
+                    *receipt.evidence_refs,
+                    *(
+                        binding.proof_ref
+                        for binding in receipt.criterion_verification_bindings
+                    ),
+                    *(
+                        binding.evaluator_receipt_ref
+                        for binding in receipt.criterion_verification_bindings
+                    ),
+                ]
+            )
+        )
+        projection_kind = _runtime_receipt_projection_kind(record)
+        projection_idempotency_prefix = (
+            TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[2]
+            if projection_kind == DurableRunEventKind.receipt_recorded
+            else TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[3]
+        )
+        return (
+            DurableRunEventAppendRequest(
+                run_ref=record.invocation_ref,
+                run_type=run_type,
+                event_kind=DurableRunEventKind.run_started,
+                safe_summary=(
+                    "RuntimeGateway accepted the exact local invocation under "
+                    "the recorded policy decision."
+                ),
+                proof_refs=[receipt.policy_decision_ref],
+                goal_ref=goal_ref,
+                plan_ref=plan_ref,
+                idempotency_ref=_sha256_ref(
+                    TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[1],
+                    {"invocation_ref": record.invocation_ref},
+                ),
+                authority_decision_ref=receipt.policy_decision_ref,
+            ),
+            DurableRunEventAppendRequest(
+                run_ref=record.invocation_ref,
+                run_type=run_type,
+                event_kind=projection_kind,
+                safe_summary=(
+                    "RuntimeGateway recorded the successful accepted local "
+                    "invocation receipt with redacted evidence refs."
+                    if projection_kind == DurableRunEventKind.receipt_recorded
+                    else (
+                        "RuntimeGateway recorded the unsuccessful local "
+                        "invocation as a proof-backed terminal failure."
+                    )
+                ),
+                proof_refs=proof_refs,
+                receipt_refs=[receipt.receipt_ref],
+                criterion_verifier_bindings=[
+                    DurableCriterionVerifierBinding.model_validate(
+                        binding.model_dump(mode="json")
+                    )
+                    for binding in receipt.criterion_verification_bindings
+                ],
+                goal_ref=goal_ref,
+                plan_ref=plan_ref,
+                idempotency_ref=_sha256_ref(
+                    projection_idempotency_prefix,
+                    {
+                        "invocation_ref": record.invocation_ref,
+                        "receipt_ref": receipt.receipt_ref,
+                    },
+                ),
+                authority_decision_ref=receipt.policy_decision_ref,
+            ),
+        )
+
+    @staticmethod
+    def _completion_projection_request(
+        entry: GoalJournalEntry,
+        *,
+        run_type: AcceptedLocalRunType,
+    ) -> DurableRunEventAppendRequest:
+        """Derive the only accepted completion event for a journal entry."""
+
+        goal = entry.goal
+        if (
+            goal.state
+            not in {
+                GoalState.verified_complete.value,
+                GoalState.cleared.value,
+            }
+            or goal.completion_run_ref is None
+            or goal.completion_receipt_ref is None
+            or goal.completion_proof_ref is None
+            or goal.completion_evidence_ref is None
+            or goal.completion_verifier_ref is None
+            or goal.completion_source_goal_version is None
+            or not (
+                len(goal.completion_criterion_proof_refs)
+                == len(goal.success_criteria)
+                == len(goal.completion_criterion_verifier_bindings)
+            )
+        ):
+            raise GoalRuntimeCorruptionError("GOAL_COMPLETION_EVENT_BINDING_INCOMPLETE")
+        return DurableRunEventAppendRequest(
+            run_ref=goal.completion_run_ref,
+            run_type=run_type,
+            event_kind=DurableRunEventKind.completion_verified,
+            safe_summary=(
+                "Deterministic receipt evidence verified the linked goal completion."
+            ),
+            proof_refs=list(
+                dict.fromkeys(
+                    [
+                        goal.completion_proof_ref,
+                        goal.completion_evidence_ref,
+                        *goal.completion_criterion_proof_refs,
+                        *(
+                            binding.evaluator_receipt_ref
+                            for binding in goal.completion_criterion_verifier_bindings
+                        ),
+                    ]
+                )
+            ),
+            receipt_refs=list(
+                dict.fromkeys(
+                    [
+                        goal.completion_receipt_ref,
+                        *(
+                            binding.evaluator_receipt_ref
+                            for binding in goal.completion_criterion_verifier_bindings
+                        ),
+                    ]
+                )
+            ),
+            criterion_verifier_bindings=[
+                DurableCriterionVerifierBinding.model_validate(
+                    binding.model_dump(mode="json")
+                )
+                for binding in goal.completion_criterion_verifier_bindings
+            ],
+            goal_ref=goal.goal_ref,
+            plan_ref=goal.completion_plan_ref,
+            idempotency_ref=_sha256_ref(
+                TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[0],
+                {
+                    "goal_ref": goal.goal_ref,
+                    "goal_version": goal.version,
+                },
+            ),
+            authority_decision_ref=entry.approval_decision_ref,
+        )
+
+    @staticmethod
     def _event_hash(event: DurableRunEvent) -> str:
         payload = event.model_dump(mode="json")
         payload.pop("event_hash_ref", None)
@@ -5171,11 +5365,12 @@ class _DurableRunEventStore:
         runtime_invocation_state_dir: Path | None = None,
     ) -> None:
         sources = self._load_trusted_sources()
+        event_list = list(events)
         journal_by_ref = {
             entry.entry_ref: entry for entry in journal_entries
         }
         runtime_store: RuntimeInvocationStore | None = None
-        for event in events:
+        for event in event_list:
             if event.producer_class != "trusted_core":
                 continue
             if event.schema_version != "durable_run_event.v3":
@@ -5205,6 +5400,37 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
                     )
+                receipt_events = {
+                    candidate.event_ref: candidate
+                    for candidate in event_list
+                    if (
+                        candidate.run_ref
+                        == journal_entry.goal.completion_run_ref
+                        and candidate.event_kind
+                        == DurableRunEventKind.receipt_recorded.value
+                        and journal_entry.goal.completion_receipt_ref
+                        in candidate.receipt_refs
+                    )
+                }
+                if len(receipt_events) != 1:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
+                    )
+                expected_request = self._completion_projection_request(
+                    journal_entry,
+                    run_type=AcceptedLocalRunType(
+                        next(iter(receipt_events.values())).run_type
+                    ),
+                )
+                if (
+                    self._request_fingerprint(expected_request)
+                    != source.request_fingerprint_ref
+                    or expected_request.model_dump(mode="json")
+                    != self._event_request_payload(event)
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
+                    )
             elif source.source_kind == "runtime_invocation":
                 if runtime_invocation_state_dir is None:
                     raise GoalRuntimeCorruptionError(
@@ -5230,6 +5456,22 @@ class _DurableRunEventStore:
                     _runtime_invocation_source_payload(runtime_record),
                 )
                 if expected_source_fingerprint != source.source_fingerprint_ref:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
+                    )
+                expected_requests = self._runtime_projection_requests(runtime_record)
+                matching_requests = [
+                    request
+                    for request in expected_requests
+                    if request.idempotency_ref == event.idempotency_ref
+                ]
+                if (
+                    len(matching_requests) != 1
+                    or self._request_fingerprint(matching_requests[0])
+                    != source.request_fingerprint_ref
+                    or matching_requests[0].model_dump(mode="json")
+                    != self._event_request_payload(event)
+                ):
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
                     )
@@ -6122,6 +6364,7 @@ class GoalRuntimeService:
         if after_sequence < 0:
             raise ValueError("RUN_EVENT_CURSOR_INVALID")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
+        self._submissions.repair_recoverable_write()
         self._approvals.repair_recoverable_append()
         self._converge_expired_goal_mutation_approvals()
         for _attempt in range(3):
@@ -6506,6 +6749,7 @@ class GoalRuntimeService:
         mission_ref: str | None,
         *,
         allow_committed_replay: bool = False,
+        committed_replay_lookup: Callable[[], bool] | None = None,
     ) -> Iterator[None]:
         """Pin one runnable goal generation across an adapter dispatch.
 
@@ -6539,8 +6783,14 @@ class GoalRuntimeService:
                 current = self.goals._latest_by_goal(journal_entries).get(mission_ref)
                 if current is None:
                     raise GoalNotFoundError("GOAL_NOT_FOUND")
+                committed_replay_available = allow_committed_replay
                 if (
-                    not allow_committed_replay
+                    not committed_replay_available
+                    and committed_replay_lookup is not None
+                ):
+                    committed_replay_available = committed_replay_lookup()
+                if (
+                    not committed_replay_available
                     and current.state != GoalState.active.value
                 ):
                     raise GoalTransitionDeniedError("GOAL_MISSION_NOT_RUNNABLE")
@@ -7003,6 +7253,10 @@ class GoalRuntimeService:
             if len(source_matches) != 1:
                 raise GoalRuntimeCorruptionError("GOAL_COMPLETION_SOURCE_ENTRY_MISSING")
             source_entry = source_matches[0]
+        if approval_decision_ref != source_entry.approval_decision_ref:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_COMPLETION_APPROVAL_PROVENANCE_MISMATCH"
+            )
         if (
             goal.state
             not in {
@@ -7031,60 +7285,9 @@ class GoalRuntimeService:
             raise GoalRuntimeCorruptionError("RUN_EVENT_STREAM_NOT_FOUND")
         run_type = AcceptedLocalRunType(retained_run_events[-1].run_type)
         return self._events._append_locked(
-            DurableRunEventAppendRequest.model_validate(
-                {
-                    "run_ref": goal.completion_run_ref,
-                    "run_type": run_type,
-                    "event_kind": DurableRunEventKind.completion_verified,
-                    "safe_summary": (
-                        "Deterministic receipt evidence verified the linked "
-                        "goal completion."
-                    ),
-                    "proof_refs": list(
-                        dict.fromkeys(
-                            [
-                                goal.completion_proof_ref,
-                                goal.completion_evidence_ref,
-                                *goal.completion_criterion_proof_refs,
-                                *(
-                                    binding.evaluator_receipt_ref
-                                    for binding in (
-                                        goal.completion_criterion_verifier_bindings
-                                    )
-                                ),
-                            ]
-                        )
-                    ),
-                    "receipt_refs": list(
-                        dict.fromkeys(
-                            [
-                                goal.completion_receipt_ref,
-                                *(
-                                    binding.evaluator_receipt_ref
-                                    for binding in (
-                                        goal.completion_criterion_verifier_bindings
-                                    )
-                                ),
-                            ]
-                        )
-                    ),
-                    "criterion_verifier_bindings": [
-                        DurableCriterionVerifierBinding.model_validate(
-                            binding.model_dump(mode="json")
-                        )
-                        for binding in goal.completion_criterion_verifier_bindings
-                    ],
-                    "goal_ref": goal.goal_ref,
-                    "plan_ref": goal.completion_plan_ref,
-                    "idempotency_ref": _sha256_ref(
-                        TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[0],
-                        {
-                            "goal_ref": goal.goal_ref,
-                            "goal_version": goal.version,
-                        },
-                    ),
-                    "authority_decision_ref": approval_decision_ref,
-                }
+            self._events._completion_projection_request(
+                source_entry,
+                run_type=run_type,
             ),
             trusted_source=TrustedRunEventSourceBinding(
                 source_kind="goal_journal_completion",
@@ -7150,7 +7353,6 @@ class GoalRuntimeService:
         """Project one accepted RuntimeGateway receipt into durable run events."""
 
         from ultimate_ai_agent.core.runtime_gateway.contracts import (
-            RuntimeAuthority,
             RuntimeInvocationStatus,
         )
 
@@ -7179,44 +7381,8 @@ class GoalRuntimeService:
                     invocation_store=invocation_store,
                     reservation_ref=created_reservation_ref,
                 )
-        run_type = (
-            AcceptedLocalRunType.local_read_task
-            if validated.request.requested_authority
-            == RuntimeAuthority.local_model.value
-            else AcceptedLocalRunType.local_metadata_action
-        )
-        authority_decision_ref = receipt.policy_decision_ref
-        goal_ref = (
-            validated.request.mission_ref
-            if (validated.request.mission_ref or "").startswith("goal-ref:")
-            else None
-        )
-        plan_ref = (
-            validated.request.action_ref
-            if (validated.request.action_ref or "").startswith("plan-ref:")
-            else None
-        )
-        proof_refs = list(
-            dict.fromkeys(
-                [
-                    receipt.policy_decision_ref,
-                    *receipt.evidence_refs,
-                    *(
-                        binding.proof_ref
-                        for binding in receipt.criterion_verification_bindings
-                    ),
-                    *(
-                        binding.evaluator_receipt_ref
-                        for binding in receipt.criterion_verification_bindings
-                    ),
-                ]
-            )
-        )
-        projection_kind = _runtime_receipt_projection_kind(validated)
-        projection_idempotency_prefix = (
-            TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[2]
-            if projection_kind == DurableRunEventKind.receipt_recorded
-            else TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[3]
+        started_request, recorded_request = (
+            self._events._runtime_projection_requests(validated)
         )
         trusted_source = TrustedRunEventSourceBinding(
             source_kind="runtime_invocation",
@@ -7232,59 +7398,12 @@ class GoalRuntimeService:
                 validated,
             )
             started = self._events._append_locked(
-                DurableRunEventAppendRequest(
-                    run_ref=validated.invocation_ref,
-                    run_type=run_type,
-                    event_kind=DurableRunEventKind.run_started,
-                    safe_summary=(
-                        "RuntimeGateway accepted the exact local invocation under "
-                        "the recorded policy decision."
-                    ),
-                    proof_refs=[receipt.policy_decision_ref],
-                    goal_ref=goal_ref,
-                    plan_ref=plan_ref,
-                    idempotency_ref=_sha256_ref(
-                        TRUSTED_CORE_RUN_EVENT_IDEMPOTENCY_PREFIXES[1],
-                        {"invocation_ref": validated.invocation_ref},
-                    ),
-                    authority_decision_ref=authority_decision_ref,
-                ),
+                started_request,
                 reservation_ref=reservation_ref,
                 trusted_source=trusted_source,
             )
             recorded = self._events._append_locked(
-                DurableRunEventAppendRequest(
-                    run_ref=validated.invocation_ref,
-                    run_type=run_type,
-                    event_kind=projection_kind,
-                    safe_summary=(
-                        "RuntimeGateway recorded the successful accepted local "
-                        "invocation receipt with redacted evidence refs."
-                        if projection_kind == DurableRunEventKind.receipt_recorded
-                        else (
-                            "RuntimeGateway recorded the unsuccessful local "
-                            "invocation as a proof-backed terminal failure."
-                        )
-                    ),
-                    proof_refs=proof_refs,
-                    receipt_refs=[receipt.receipt_ref],
-                    criterion_verifier_bindings=[
-                        DurableCriterionVerifierBinding.model_validate(
-                            binding.model_dump(mode="json")
-                        )
-                        for binding in receipt.criterion_verification_bindings
-                    ],
-                    goal_ref=goal_ref,
-                    plan_ref=plan_ref,
-                    idempotency_ref=_sha256_ref(
-                        projection_idempotency_prefix,
-                        {
-                            "invocation_ref": validated.invocation_ref,
-                            "receipt_ref": receipt.receipt_ref,
-                        },
-                    ),
-                    authority_decision_ref=authority_decision_ref,
-                ),
+                recorded_request,
                 reservation_ref=reservation_ref,
                 trusted_source=trusted_source,
             )
@@ -7947,7 +8066,7 @@ class _GoalMutationApprovalStore:
                         )
                     allowed = {
                         "pending": {"approved", "denied", "expired"},
-                        "approved": {"revoked"},
+                        "approved": {"revoked", "expired"},
                         "denied": set(),
                         "revoked": set(),
                         "expired": set(),
@@ -9004,7 +9123,8 @@ class _GoalMutationApprovalStore:
             expired = [
                 entry
                 for entry in latest.values()
-                if entry.status == "pending" and now >= entry.spec.expires_at
+                if entry.status in {"pending", "approved"}
+                and now >= entry.spec.expires_at
             ]
             for current in expired:
                 before_terminal_append(current.spec, reason_ref)
