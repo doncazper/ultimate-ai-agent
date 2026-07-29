@@ -938,6 +938,14 @@ class GoalMutationSubmissionState(BaseModel):
         validate_execution_ref(self.state_hash_ref, "state_hash_ref")
         if len({record.submission_ref for record in self.records}) != len(self.records):
             raise ValueError("GOAL_SUBMISSION_REF_DUPLICATE")
+        if len({record.idempotency_ref for record in self.records}) != len(
+            self.records
+        ):
+            raise ValueError("GOAL_SUBMISSION_IDEMPOTENCY_REF_DUPLICATE")
+        if len({record.submission_evidence_ref for record in self.records}) != len(
+            self.records
+        ):
+            raise ValueError("GOAL_SUBMISSION_EVIDENCE_REF_DUPLICATE")
         expected_hash = _sha256_ref(
             "state-hash-ref:goal-mutation-submissions",
             [record.model_dump(mode="json") for record in self.records],
@@ -1084,6 +1092,7 @@ class GoalJournalEntry(BaseModel):
     goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     idempotency_ref: str
     request_fingerprint_ref: str
+    goal_submission_fingerprint_ref: str | None = None
     approval_ref: str
     approval_decision_ref: str
     transition_reason_ref: str | None = None
@@ -1110,6 +1119,11 @@ class GoalJournalEntry(BaseModel):
             validate_execution_ref(
                 self.previous_entry_hash_ref, "previous_entry_hash_ref"
             )
+        if self.goal_submission_fingerprint_ref is not None:
+            validate_execution_ref(
+                self.goal_submission_fingerprint_ref,
+                "goal_submission_fingerprint_ref",
+            )
         if self.transition_reason_ref is not None:
             validate_execution_ref(self.transition_reason_ref, "transition_reason_ref")
         if (
@@ -1128,6 +1142,7 @@ class GoalMutationProvenanceEntry(BaseModel):
     goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     idempotency_ref: str
     request_fingerprint_ref: str
+    goal_submission_fingerprint_ref: str | None = None
     approval_ref: str
     approval_decision_ref: str
     transition_reason_ref: str | None = None
@@ -1136,6 +1151,17 @@ class GoalMutationProvenanceEntry(BaseModel):
     entry_hash_ref: str
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_submission_fingerprint(
+        self,
+    ) -> "GoalMutationProvenanceEntry":
+        if self.goal_submission_fingerprint_ref is not None:
+            validate_execution_ref(
+                self.goal_submission_fingerprint_ref,
+                "goal_submission_fingerprint_ref",
+            )
+        return self
 
     @classmethod
     def from_journal_entry(
@@ -1549,6 +1575,10 @@ def _maximum_goal_genesis_intent() -> GoalJournalGenesisIntent:
             "request-fingerprint-ref:max-envelope",
             0,
         ),
+        goal_submission_fingerprint_ref=_maximum_typed_ref(
+            "request-fingerprint-ref:goal-mutation-submission:max-envelope",
+            0,
+        ),
         approval_ref=_maximum_typed_ref("approval-ref:max-envelope", 0),
         approval_decision_ref=_maximum_typed_ref(
             "approval-decision-ref:max-envelope",
@@ -1744,6 +1774,7 @@ class _GoalJournalStore:
         *,
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
+        goal_submission_fingerprint_ref: str | None = None,
     ) -> PersistentGoal:
         validated = GoalCreateRequest.model_validate(request.model_dump())
         validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -1761,7 +1792,12 @@ class _GoalJournalStore:
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             entries = self._load_entries(repair_manifest=True)
-            replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
+            replay = self._idempotent_replay(
+                entries,
+                idempotency_ref,
+                fingerprint,
+                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            )
             if replay is not None:
                 return replay
             latest = self._latest_by_goal(entries)
@@ -1800,6 +1836,7 @@ class _GoalJournalStore:
                 goal=goal,
                 idempotency_ref=idempotency_ref,
                 request_fingerprint_ref=fingerprint,
+                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
                 approval_ref=approval_binding.approval_ref,
                 approval_decision_ref=approval_binding.approval_decision_ref,
             )
@@ -1812,6 +1849,7 @@ class _GoalJournalStore:
         *,
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
+        goal_submission_fingerprint_ref: str | None = None,
     ) -> PersistentGoal:
         validated = GoalEditRequest.model_validate(request.model_dump())
         _validate_goal_mutation_approval_binding(
@@ -1828,6 +1866,7 @@ class _GoalJournalStore:
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
+            goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
             mutate=lambda current, _entries: self._edited_goal(
                 current,
                 validated,
@@ -1841,6 +1880,7 @@ class _GoalJournalStore:
         *,
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
+        goal_submission_fingerprint_ref: str | None = None,
         completion_verified: bool = False,
         completion_plan_ref: str | None = None,
         completion_criterion_verifier_bindings: list[
@@ -1863,6 +1903,7 @@ class _GoalJournalStore:
             expected_version=validated.expected_version,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
+            goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
             transition_reason_ref=validated.reason_ref,
             mutate=lambda current, entries: self._transitioned_goal(
                 current,
@@ -1886,6 +1927,7 @@ class _GoalJournalStore:
         request: GoalTransitionRequest,
         *,
         idempotency_ref: str,
+        goal_submission_fingerprint_ref: str | None = None,
     ) -> PersistentGoal | None:
         """Return an exact prior transition before version-sensitive revalidation."""
 
@@ -1904,6 +1946,7 @@ class _GoalJournalStore:
                 self._load_entries(repair_manifest=True),
                 idempotency_ref,
                 fingerprint,
+                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
             )
 
     def transition_entry(
@@ -2072,6 +2115,7 @@ class _GoalJournalStore:
         expected_version: int,
         idempotency_ref: str,
         approval_binding: GoalMutationApprovalBinding,
+        goal_submission_fingerprint_ref: str | None = None,
         transition_reason_ref: str | None = None,
         mutate: Any,
     ) -> PersistentGoal:
@@ -2084,7 +2128,12 @@ class _GoalJournalStore:
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
             entries = self._load_entries(repair_manifest=True)
-            replay = self._idempotent_replay(entries, idempotency_ref, fingerprint)
+            replay = self._idempotent_replay(
+                entries,
+                idempotency_ref,
+                fingerprint,
+                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
+            )
             if replay is not None:
                 return replay
             latest = self._latest_by_goal(entries)
@@ -2102,6 +2151,7 @@ class _GoalJournalStore:
                 request_fingerprint_ref=fingerprint,
                 approval_ref=approval_binding.approval_ref,
                 approval_decision_ref=approval_binding.approval_decision_ref,
+                goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
                 transition_reason_ref=transition_reason_ref,
             )
             return updated.model_copy(deep=True)
@@ -2269,12 +2319,18 @@ class _GoalJournalStore:
         entries: list[GoalJournalEntry],
         idempotency_ref: str,
         request_fingerprint_ref: str,
+        *,
+        goal_submission_fingerprint_ref: str | None = None,
     ) -> PersistentGoal | None:
         for entry in entries:
             if entry.idempotency_ref != idempotency_ref:
                 continue
             if entry.request_fingerprint_ref != request_fingerprint_ref:
                 raise GoalIdempotencyConflictError("GOAL_IDEMPOTENCY_CONFLICT")
+            if entry.goal_submission_fingerprint_ref != goal_submission_fingerprint_ref:
+                raise GoalIdempotencyConflictError(
+                    "GOAL_SUBMISSION_MUTATION_BINDING_MISMATCH"
+                )
             return entry.goal.model_copy(deep=True)
         return None
 
@@ -2297,6 +2353,7 @@ class _GoalJournalStore:
         request_fingerprint_ref: str,
         approval_ref: str,
         approval_decision_ref: str,
+        goal_submission_fingerprint_ref: str | None = None,
         transition_reason_ref: str | None = None,
     ) -> None:
         if len(entries) >= MAX_GOAL_JOURNAL_ENTRIES:
@@ -2316,6 +2373,7 @@ class _GoalJournalStore:
             goal_version=goal.version,
             idempotency_ref=idempotency_ref,
             request_fingerprint_ref=request_fingerprint_ref,
+            goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
             transition_reason_ref=transition_reason_ref,
@@ -2333,6 +2391,8 @@ class _GoalJournalStore:
         payload.pop("entry_hash_ref", None)
         if payload.get("transition_reason_ref") is None:
             payload.pop("transition_reason_ref", None)
+        if payload.get("goal_submission_fingerprint_ref") is None:
+            payload.pop("goal_submission_fingerprint_ref", None)
         return _sha256_ref("entry-hash-ref:goal-journal", payload)
 
     def _load_entries(
@@ -2582,7 +2642,17 @@ class _GoalJournalStore:
 
     @staticmethod
     def _journal_content(entries: list[GoalJournalEntry]) -> str:
-        return "".join(entry.model_dump_json() + "\n" for entry in entries)
+        return "".join(
+            entry.model_dump_json(
+                exclude=(
+                    {"goal_submission_fingerprint_ref"}
+                    if entry.goal_submission_fingerprint_ref is None
+                    else None
+                )
+            )
+            + "\n"
+            for entry in entries
+        )
 
     @classmethod
     def _journal_content_hash(cls, entries: list[GoalJournalEntry]) -> str:
@@ -2655,6 +2725,65 @@ class _GoalMutationSubmissionStore:
             state_hash_ref=state_hash_ref,
         )
 
+    @classmethod
+    def _state_content(
+        cls,
+        records: list[GoalMutationSubmissionRecord],
+    ) -> str:
+        return cls._state(records).model_dump_json() + "\n"
+
+    @staticmethod
+    def _rejected_record(
+        record: GoalMutationSubmissionRecord,
+        *,
+        rejection_reason_ref: str,
+        resolved_at: datetime,
+    ) -> GoalMutationSubmissionRecord:
+        record_hash_ref = _sha256_ref(
+            "record-hash-ref:goal-mutation-submission",
+            {
+                "request_fingerprint_ref": record.request_fingerprint_ref,
+                "recorded_at": record.recorded_at.isoformat(),
+                "resolution_status": "rejected",
+                "rejection_reason_ref": rejection_reason_ref,
+                "resolved_at": resolved_at.isoformat(),
+            },
+        )
+        rejected = record.model_copy(
+            update={
+                "resolution_status": "rejected",
+                "rejection_reason_ref": rejection_reason_ref,
+                "resolved_at": resolved_at,
+                "record_hash_ref": record_hash_ref,
+            }
+        )
+        return GoalMutationSubmissionRecord.model_validate(
+            rejected.model_dump(mode="json")
+        )
+
+    @classmethod
+    def _worst_case_terminal_records(
+        cls,
+        records: list[GoalMutationSubmissionRecord],
+    ) -> list[GoalMutationSubmissionRecord]:
+        maximum_reason_ref = _maximum_typed_ref(
+            "reason-ref:goal-mutation-rejected",
+            0,
+        )
+        maximum_resolved_at = datetime.max.replace(tzinfo=utc_now().tzinfo)
+        return [
+            (
+                cls._rejected_record(
+                    record,
+                    rejection_reason_ref=maximum_reason_ref,
+                    resolved_at=maximum_resolved_at,
+                )
+                if record.resolution_status == "pending"
+                else record
+            )
+            for record in records
+        ]
+
     def _load(self) -> list[GoalMutationSubmissionRecord]:
         raw_content = _read_bounded_regular_utf8(
             self.path,
@@ -2672,9 +2801,16 @@ class _GoalMutationSubmissionStore:
         return [record.model_copy(deep=True) for record in state.records]
 
     def _write(self, records: list[GoalMutationSubmissionRecord]) -> None:
-        state = self._state(records)
-        content = state.model_dump_json() + "\n"
+        content = self._state_content(records)
         if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
+            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+        terminal_content = self._state_content(
+            self._worst_case_terminal_records(records)
+        )
+        if (
+            len(terminal_content.encode("utf-8"))
+            > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES
+        ):
             raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
         _atomic_write(self.path, content)
 
@@ -2706,7 +2842,7 @@ class _GoalMutationSubmissionStore:
         goal_ref: str | None,
         request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
         idempotency_ref: str,
-        committed_evidence_refs: set[str],
+        journal_entries: list[GoalJournalEntry],
     ) -> GoalMutationSubmissionRecord:
         validate_execution_ref(submission_ref, "submission_ref")
         validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -2749,34 +2885,48 @@ class _GoalMutationSubmissionStore:
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
             records = self._load()
+            committed_submission_refs = {
+                recovery.submission_ref
+                for recovery in self.recovery_read_model_from_records(
+                    records,
+                    journal_entries,
+                ).records
+                if recovery.status == "committed"
+            }
             for record in records:
-                if record.submission_ref != submission_ref:
-                    continue
+                if record.submission_ref == submission_ref:
+                    if (
+                        record.request_fingerprint_ref != request_fingerprint_ref
+                        or record.idempotency_ref != idempotency_ref
+                    ):
+                        raise GoalIdempotencyConflictError(
+                            "GOAL_SUBMISSION_IDEMPOTENCY_CONFLICT"
+                        )
+                    if record.resolution_status == "rejected":
+                        raise GoalTransitionDeniedError(
+                            "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+                        )
+                    return record.model_copy(deep=True)
                 if (
-                    record.request_fingerprint_ref != request_fingerprint_ref
-                    or record.idempotency_ref != idempotency_ref
+                    record.idempotency_ref == idempotency_ref
+                    or record.submission_evidence_ref == submission_evidence_ref
                 ):
                     raise GoalIdempotencyConflictError(
-                        "GOAL_SUBMISSION_IDEMPOTENCY_CONFLICT"
+                        "GOAL_SUBMISSION_BINDING_CONFLICT"
                     )
-                if record.resolution_status == "rejected":
-                    raise GoalTransitionDeniedError(
-                        "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
-                    )
-                return record.model_copy(deep=True)
             if len(records) >= MAX_GOAL_MUTATION_SUBMISSIONS:
                 pending_records = [
                     record
                     for record in records
                     if record.resolution_status == "pending"
-                    and record.submission_evidence_ref not in committed_evidence_refs
+                    and record.submission_ref not in committed_submission_refs
                 ]
                 terminal_records = [
                     record
                     for record in records
                     if (
                         record.resolution_status == "rejected"
-                        or record.submission_evidence_ref in committed_evidence_refs
+                        or record.submission_ref in committed_submission_refs
                     )
                 ]
                 records = [
@@ -2852,58 +3002,106 @@ class _GoalMutationSubmissionStore:
                         "GOAL_SUBMISSION_REJECTION_REASON_CONFLICT"
                     )
                 return record.model_copy(deep=True)
-            resolved_at = utc_now()
-            record_hash_ref = _sha256_ref(
-                "record-hash-ref:goal-mutation-submission",
-                {
-                    "request_fingerprint_ref": record.request_fingerprint_ref,
-                    "recorded_at": record.recorded_at.isoformat(),
-                    "resolution_status": "rejected",
-                    "rejection_reason_ref": rejection_reason_ref,
-                    "resolved_at": resolved_at.isoformat(),
-                },
-            )
-            rejected = record.model_copy(
-                update={
-                    "resolution_status": "rejected",
-                    "rejection_reason_ref": rejection_reason_ref,
-                    "resolved_at": resolved_at,
-                    "record_hash_ref": record_hash_ref,
-                }
-            )
-            GoalMutationSubmissionRecord.model_validate(
-                rejected.model_dump(mode="json")
+            rejected = self._rejected_record(
+                record,
+                rejection_reason_ref=rejection_reason_ref,
+                resolved_at=utc_now(),
             )
             records[matching_index] = rejected
             self._write(records)
             return rejected.model_copy(deep=True)
 
+    def mutation_binding_fingerprint(
+        self,
+        *,
+        operation: GoalMutationSubmissionOperation,
+        goal_ref: str | None,
+        request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+        idempotency_ref: str,
+    ) -> str | None:
+        """Return the exact prepared envelope binding for one mutation."""
+
+        validated = self._validated_request(operation, request)
+        request_payload = validated.model_dump(mode="json")
+        with self.consistent_read():
+            records = self._load()
+        matches = [
+            record for record in records if record.idempotency_ref == idempotency_ref
+        ]
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_BINDING_DUPLICATE")
+        record = matches[0]
+        if (
+            record.operation != operation
+            or record.goal_ref != goal_ref
+            or record.request_payload != request_payload
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_MUTATION_BINDING_MISMATCH"
+            )
+        if record.resolution_status == "rejected":
+            raise GoalTransitionDeniedError("GOAL_SUBMISSION_PREVIOUSLY_REJECTED")
+        return record.request_fingerprint_ref
+
     def recovery_read_model(
         self,
-        goals: list[PersistentGoal],
+        entries: list[GoalJournalEntry],
     ) -> GoalMutationSubmissionRecoveryReadModel:
         with self.consistent_read():
             records = self._load()
-        return self.recovery_read_model_from_records(records, goals)
+        return self.recovery_read_model_from_records(records, entries)
 
     @staticmethod
-    def recovery_read_model_from_records(
-        records: list[GoalMutationSubmissionRecord],
-        goals: list[PersistentGoal],
-    ) -> GoalMutationSubmissionRecoveryReadModel:
-        committed_by_evidence = {
-            evidence_ref: goal.goal_ref
-            for goal in goals
-            for evidence_ref in goal.evidence_refs
-        }
-        if any(
-            record.resolution_status == "rejected"
-            and record.submission_evidence_ref in committed_by_evidence
-            for record in records
-        ):
-            raise GoalRuntimeCorruptionError(
-                "GOAL_SUBMISSION_REJECTION_COMMIT_CONFLICT"
+    def _goal_journal_request_fingerprint(
+        record: GoalMutationSubmissionRecord,
+    ) -> str:
+        if record.operation == "create":
+            return _sha256_ref(
+                "request-fingerprint-ref:goal-create",
+                record.request_payload,
             )
+        return _sha256_ref(
+            f"request-fingerprint-ref:goal-{record.operation}",
+            {
+                "goal_ref": record.goal_ref,
+                "request": record.request_payload,
+            },
+        )
+
+    @classmethod
+    def recovery_read_model_from_records(
+        cls,
+        records: list[GoalMutationSubmissionRecord],
+        entries: list[GoalJournalEntry],
+    ) -> GoalMutationSubmissionRecoveryReadModel:
+        entries_by_idempotency = {entry.idempotency_ref: entry for entry in entries}
+        committed_goal_refs: dict[str, str] = {}
+        for record in records:
+            entry = entries_by_idempotency.get(record.idempotency_ref)
+            if entry is None:
+                continue
+            expected_fingerprint = cls._goal_journal_request_fingerprint(record)
+            expected_goal_ref = (
+                entry.goal_ref if record.operation == "create" else record.goal_ref
+            )
+            if (
+                entry.operation != record.operation
+                or entry.goal_ref != expected_goal_ref
+                or entry.request_fingerprint_ref != expected_fingerprint
+                or record.submission_evidence_ref not in entry.goal.evidence_refs
+                or entry.goal_submission_fingerprint_ref
+                != record.request_fingerprint_ref
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
+                )
+            if record.resolution_status == "rejected":
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_REJECTION_COMMIT_CONFLICT"
+                )
+            committed_goal_refs[record.submission_ref] = entry.goal_ref
         recovery_records = [
             GoalMutationSubmissionRecoveryRecord(
                 submission_ref=record.submission_ref,
@@ -2916,12 +3114,10 @@ class _GoalMutationSubmissionStore:
                 recorded_at=record.recorded_at,
                 status=(
                     "committed"
-                    if record.submission_evidence_ref in committed_by_evidence
+                    if record.submission_ref in committed_goal_refs
                     else record.resolution_status
                 ),
-                committed_goal_ref=committed_by_evidence.get(
-                    record.submission_evidence_ref
-                ),
+                committed_goal_ref=committed_goal_refs.get(record.submission_ref),
                 rejection_reason_ref=record.rejection_reason_ref,
                 resolved_at=record.resolved_at,
             )
@@ -4249,7 +4445,7 @@ class GoalRuntimeService:
                                 (
                                     self._submissions.recovery_read_model_from_records(
                                         submission_records,
-                                        [entry.goal for entry in entries],
+                                        entries,
                                     )
                                 ),
                             )
@@ -4266,18 +4462,14 @@ class GoalRuntimeService:
         request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
         idempotency_ref: str,
     ) -> GoalMutationSubmissionRecord:
-        committed_evidence_refs = {
-            evidence_ref
-            for entry in self.goals._load_consistent_entries()
-            for evidence_ref in entry.goal.evidence_refs
-        }
+        journal_entries = self.goals._load_consistent_entries()
         return self._submissions.prepare(
             submission_ref=submission_ref,
             operation=operation,
             goal_ref=goal_ref,
             request=request,
             idempotency_ref=idempotency_ref,
-            committed_evidence_refs=committed_evidence_refs,
+            journal_entries=journal_entries,
         )
 
     def reject_goal_mutation_submission(
@@ -4293,6 +4485,16 @@ class GoalRuntimeService:
             rejection_reason_ref=rejection_reason_ref,
         )
 
+    def assert_runtime_mission_goal_exists(self, mission_ref: str | None) -> None:
+        """Fail closed before execution when a mission claims a durable goal."""
+
+        if mission_ref is None or not mission_ref.startswith("goal-ref:"):
+            return
+        validate_execution_ref(mission_ref, "mission_ref")
+        entries = self.goals._load_consistent_entries()
+        if mission_ref not in self.goals._latest_by_goal(entries):
+            raise GoalNotFoundError("GOAL_NOT_FOUND")
+
     def create_goal(
         self,
         request: GoalCreateRequest,
@@ -4301,10 +4503,17 @@ class GoalRuntimeService:
         approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
         self.reconcile_durable_events()
+        submission_fingerprint_ref = self._submissions.mutation_binding_fingerprint(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
         return self.goals.create(
             request,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
+            goal_submission_fingerprint_ref=submission_fingerprint_ref,
         )
 
     def edit_goal(
@@ -4316,11 +4525,18 @@ class GoalRuntimeService:
         approval_binding: GoalMutationApprovalBinding,
     ) -> PersistentGoal:
         self.reconcile_durable_events()
+        submission_fingerprint_ref = self._submissions.mutation_binding_fingerprint(
+            operation="edit",
+            goal_ref=goal_ref,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
         return self.goals.edit(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
             approval_binding=approval_binding,
+            goal_submission_fingerprint_ref=submission_fingerprint_ref,
         )
 
     def transition_goal(
@@ -4340,10 +4556,17 @@ class GoalRuntimeService:
             idempotency_ref=idempotency_ref,
         )
         self.reconcile_durable_events()
+        submission_fingerprint_ref = self._submissions.mutation_binding_fingerprint(
+            operation="transition",
+            goal_ref=goal_ref,
+            request=validated,
+            idempotency_ref=idempotency_ref,
+        )
         replayed = self.goals.replay_transition(
             goal_ref,
             validated,
             idempotency_ref=idempotency_ref,
+            goal_submission_fingerprint_ref=submission_fingerprint_ref,
         )
         if replayed is not None:
             if (
@@ -4468,6 +4691,7 @@ class GoalRuntimeService:
                 completion_criterion_verifier_bindings=(
                     completion_criterion_verifier_bindings
                 ),
+                goal_submission_fingerprint_ref=submission_fingerprint_ref,
             )
             if (
                 validated.transition == GoalTransitionKind.verify_completion.value
@@ -4666,6 +4890,7 @@ class GoalRuntimeService:
         )
 
         validated = RuntimeInvocationRecord.model_validate(record.model_dump())
+        self.assert_runtime_mission_goal_exists(validated.request.mission_ref)
         try:
             stored_record = invocation_store.get_invocation(validated.invocation_ref)
         except RuntimeInvocationStorageError as exc:

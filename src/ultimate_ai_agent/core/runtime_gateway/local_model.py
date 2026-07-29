@@ -350,6 +350,9 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
+        self.goal_runtime_service.assert_runtime_mission_goal_exists(
+            request.mission_ref
+        )
         existing = self.store.get_invocation_for_idempotency(idempotency_ref)
         with self.goal_runtime_service.runtime_projection_guard(
             existing,
@@ -376,6 +379,9 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
+        self.goal_runtime_service.assert_runtime_mission_goal_exists(
+            request.mission_ref
+        )
         record = self.store.get_invocation(invocation_ref)
         with self.goal_runtime_service.runtime_projection_guard(
             record,
@@ -423,6 +429,9 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeLocalModelGatewayResult:
+        self.goal_runtime_service.assert_runtime_mission_goal_exists(
+            request.mission_ref
+        )
         existing = self.store.get_invocation_for_idempotency(idempotency_ref)
         with self.goal_runtime_service.runtime_projection_guard(
             existing,

@@ -40,10 +40,14 @@ from ultimate_ai_agent.core.runtime_gateway.run_events import (
 )
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
+    LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
     RuntimeCommandRunResult,
+    RuntimeExecuteRequest,
     RuntimeGateway,
     RuntimeInvocationStore,
+    RuntimeLocalModelCallRequest,
+    RuntimeLocalModelMessage,
 )
 from tests.authority_helpers import workspace_execute_authority_lease
 
@@ -461,6 +465,61 @@ def test_goal_snapshot_and_provenance_share_one_journal_generation(
     assert load_count == 1
     assert goal.version == provenance.entries[-1].goal_version
     assert goal.goal_ref == provenance.goal_ref
+
+
+def test_goal_mutation_provenance_preserves_submission_fingerprints(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    create_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "1" * 64
+    )
+    create_request = _create_request().model_copy(
+        update={"evidence_refs": [create_evidence_ref]}
+    )
+    create_idempotency_ref = "idempotency-ref:goal-provenance:create"
+    create_submission = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-provenance:create",
+        operation="create",
+        goal_ref=None,
+        request=create_request,
+        idempotency_ref=create_idempotency_ref,
+    )
+    created = _create_goal(
+        service,
+        create_request,
+        idempotency_ref=create_idempotency_ref,
+    )
+
+    edit_evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "2" * 64
+    )
+    edit_request = GoalEditRequest(
+        expected_version=created.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Preserve the exact durable edit provenance.",
+        evidence_refs=[edit_evidence_ref],
+    )
+    edit_idempotency_ref = "idempotency-ref:goal-provenance:edit"
+    edit_submission = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-provenance:edit",
+        operation="edit",
+        goal_ref=created.goal_ref,
+        request=edit_request,
+        idempotency_ref=edit_idempotency_ref,
+    )
+    _edit_goal(
+        service,
+        created.goal_ref,
+        edit_request,
+        idempotency_ref=edit_idempotency_ref,
+    )
+
+    provenance = service.goals.mutation_provenance(created.goal_ref)
+    assert [entry.goal_submission_fingerprint_ref for entry in provenance.entries] == [
+        create_submission.request_fingerprint_ref,
+        edit_submission.request_fingerprint_ref,
+    ]
 
 
 def test_goal_store_rejects_fabricated_approval_binding(
@@ -1789,6 +1848,108 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     )
     assert tombstone_write_calls == 0
     assert len(restored.events.replay(result.record.invocation_ref).events) == 2
+
+
+def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
+    tmp_path: Path,
+) -> None:
+    runner_called = False
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_called
+        runner_called = True
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=GoalRuntimeService(tmp_path / "goals"),
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_NOT_FOUND"):
+        gateway.invoke_command(
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref="goal-ref:sha256:" + "f" * 64,
+                safe_summary=(
+                    "Inspect current repository status with redacted output."
+                ),
+            ),
+            idempotency_ref="idempotency-ref:unknown-goal-mission",
+        )
+    assert not runner_called
+    assert gateway.store.list_invocations() == []
+
+    with pytest.raises(GoalRuntimeError, match="GOAL_NOT_FOUND"):
+        gateway.execute_approved_command(
+            "invocation-ref:unknown-goal-retry",
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref="goal-ref:sha256:" + "f" * 64,
+                safe_summary=("Retry a bounded inspection only for a durable goal."),
+            ),
+            RuntimeExecuteRequest(),
+            idempotency_ref="idempotency-ref:unknown-goal-retry",
+        )
+    assert not runner_called
+    assert gateway.store.list_invocations() == []
+
+    local_store = RuntimeInvocationStore(tmp_path / "local-runtime")
+    local_gateway = RuntimeGateway(
+        store=local_store,
+        local_model_adapter=LocalModelRuntimeAdapter(),
+        local_model_runtime_enabled=True,
+        goal_runtime_service=GoalRuntimeService(tmp_path / "local-goals"),
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_NOT_FOUND"):
+        local_gateway.invoke_local_model(
+            RuntimeLocalModelCallRequest(
+                base_url="http://127.0.0.1:8080",
+                model_ref="uaa-local-runtime",
+                messages=[
+                    RuntimeLocalModelMessage(
+                        role="user",
+                        content="[redacted-test-input]",
+                    )
+                ],
+                mission_ref="goal-ref:sha256:" + "e" * 64,
+                safe_summary="Run a bounded local model proposal.",
+            ),
+            idempotency_ref="idempotency-ref:unknown-local-goal-mission",
+        )
+    assert local_store.list_invocations() == []
+
+    allowed = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref="mission-ref:bounded-local-inspection",
+            safe_summary="Inspect current repository status with redacted output.",
+        ),
+        idempotency_ref="idempotency-ref:non-goal-mission",
+    )
+    assert allowed.record.status == "receipt_recorded"
+    assert runner_called
+    with pytest.raises(GoalRuntimeError, match="GOAL_NOT_FOUND"):
+        gateway.invoke_command(
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref="goal-ref:sha256:" + "d" * 64,
+                safe_summary=(
+                    "Inspect current repository status with redacted output."
+                ),
+            ),
+            idempotency_ref="idempotency-ref:non-goal-mission",
+        )
 
 
 def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
@@ -3825,6 +3986,275 @@ def test_goal_mutation_submission_exact_replay_rejects_substitution(
                 ),
             }
         )
+
+
+def test_goal_mutation_submission_commit_requires_full_journal_binding(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "d" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    prepared = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:control-center-goal-mutation:binding",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:control-center-goal-create:binding",
+    )
+
+    _create_goal(
+        service,
+        request,
+        idempotency_ref="idempotency-ref:control-center-goal-create:other",
+    )
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.pending_count == 1
+    assert recovery.records[0].status == "pending"
+
+    with pytest.raises(
+        GoalIdempotencyConflictError,
+        match="GOAL_SUBMISSION_BINDING_CONFLICT",
+    ):
+        service.record_goal_mutation_submission(
+            submission_ref=("submission-ref:control-center-goal-mutation:substituted"),
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=prepared.idempotency_ref,
+        )
+    with pytest.raises(
+        GoalIdempotencyConflictError,
+        match="GOAL_SUBMISSION_BINDING_CONFLICT",
+    ):
+        service.record_goal_mutation_submission(
+            submission_ref=(
+                "submission-ref:control-center-goal-mutation:reused-evidence"
+            ),
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=(
+                "idempotency-ref:control-center-goal-create:other-binding"
+            ),
+        )
+
+
+def test_goal_mutation_submission_recovery_rejects_envelope_substitution(
+    tmp_path: Path,
+) -> None:
+    journal_service = GoalRuntimeService(tmp_path / "journal")
+    exact_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "1" * 64
+    )
+    exact_request = _create_request().model_copy(
+        update={"evidence_refs": [exact_evidence_ref]}
+    )
+    exact_idempotency_ref = "idempotency-ref:control-center-goal-create:journal-binding"
+    exact_record = journal_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:journal-binding",
+        operation="create",
+        goal_ref=None,
+        request=exact_request,
+        idempotency_ref=exact_idempotency_ref,
+    )
+    _create_goal(
+        journal_service,
+        exact_request,
+        idempotency_ref=exact_idempotency_ref,
+    )
+    create_entry = journal_service.goals._load_consistent_entries()[0]  # noqa: SLF001
+    assert (
+        create_entry.goal_submission_fingerprint_ref
+        == exact_record.request_fingerprint_ref
+    )
+    exact_recovery = journal_service._submissions.recovery_read_model(  # noqa: SLF001
+        [create_entry]
+    )
+    assert exact_recovery.committed_count == 1
+
+    for label, substituted_request in (
+        (
+            "request",
+            exact_request.model_copy(
+                update={"objective": "Substitute the caller-controlled request."}
+            ),
+        ),
+        (
+            "evidence",
+            exact_request.model_copy(
+                update={
+                    "evidence_refs": [
+                        "evidence-ref:control-center-goal-create-submission:"
+                        "sha256:" + "2" * 64
+                    ]
+                }
+            ),
+        ),
+    ):
+        request_store_service = GoalRuntimeService(tmp_path / f"{label}-substitution")
+        request_store_service.record_goal_mutation_submission(
+            submission_ref=f"submission-ref:goal-mutation:{label}-substitution",
+            operation="create",
+            goal_ref=None,
+            request=substituted_request,
+            idempotency_ref=exact_idempotency_ref,
+        )
+        with pytest.raises(
+            GoalRuntimeCorruptionError,
+            match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
+        ):
+            request_store_service._submissions.recovery_read_model(  # noqa: SLF001
+                [create_entry]
+            )
+
+    submission_store_service = GoalRuntimeService(tmp_path / "submission-substitution")
+    submission_store_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:substituted-envelope",
+        operation="create",
+        goal_ref=None,
+        request=exact_request,
+        idempotency_ref=exact_idempotency_ref,
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
+    ):
+        submission_store_service._submissions.recovery_read_model(  # noqa: SLF001
+            [create_entry]
+        )
+
+    edit_evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "3" * 64
+    )
+    operation_store_service = GoalRuntimeService(tmp_path / "operation-substitution")
+    operation_store_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:operation-substitution",
+        operation="edit",
+        goal_ref=create_entry.goal_ref,
+        request=GoalEditRequest(
+            expected_version=1,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="Substitute the operation envelope.",
+            evidence_refs=[edit_evidence_ref],
+        ),
+        idempotency_ref=exact_idempotency_ref,
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
+    ):
+        operation_store_service._submissions.recovery_read_model(  # noqa: SLF001
+            [create_entry]
+        )
+
+    unrelated_store_service = GoalRuntimeService(tmp_path / "unrelated-idempotency")
+    unrelated_store_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:unrelated-idempotency",
+        operation="create",
+        goal_ref=None,
+        request=exact_request,
+        idempotency_ref="idempotency-ref:goal-create:unrelated",
+    )
+    unrelated = unrelated_store_service._submissions.recovery_read_model(  # noqa: SLF001
+        [create_entry]
+    )
+    assert unrelated.pending_count == 1
+    assert unrelated.committed_count == 0
+
+    edit_request = GoalEditRequest(
+        expected_version=1,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Record the exact durable edit.",
+        evidence_refs=[edit_evidence_ref],
+    )
+    edit_idempotency_ref = "idempotency-ref:goal-edit:journal-binding"
+    _edit_goal(
+        journal_service,
+        create_entry.goal_ref,
+        edit_request,
+        idempotency_ref=edit_idempotency_ref,
+    )
+    edit_entry = journal_service.goals._load_consistent_entries()[-1]  # noqa: SLF001
+    goal_store_service = GoalRuntimeService(tmp_path / "goal-substitution")
+    goal_store_service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-mutation:goal-substitution",
+        operation="edit",
+        goal_ref="goal-ref:sha256:" + "4" * 64,
+        request=edit_request,
+        idempotency_ref=edit_idempotency_ref,
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH",
+    ):
+        goal_store_service._submissions.recovery_read_model(  # noqa: SLF001
+            [edit_entry]
+        )
+
+
+def test_goal_mutation_submission_admission_reserves_terminal_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "e" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    kwargs = {
+        "submission_ref": "submission-ref:control-center-goal-mutation:bytes",
+        "operation": "create",
+        "goal_ref": None,
+        "request": request,
+        "idempotency_ref": "idempotency-ref:control-center-goal-create:bytes",
+    }
+    record = service.record_goal_mutation_submission(**kwargs)
+    store = service._submissions  # noqa: SLF001
+    exact_terminal_bytes = len(
+        store._state_content(  # noqa: SLF001
+            store._worst_case_terminal_records([record])  # noqa: SLF001
+        ).encode("utf-8")
+    )
+    store.path.unlink()
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES",
+        exact_terminal_bytes - 1,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED",
+    ):
+        service.record_goal_mutation_submission(**kwargs)
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES",
+        exact_terminal_bytes,
+    )
+    accepted = service.record_goal_mutation_submission(**kwargs)
+    rejected = service.reject_goal_mutation_submission(
+        submission_ref=accepted.submission_ref,
+        request_fingerprint_ref=accepted.request_fingerprint_ref,
+        rejection_reason_ref=goal_runtime_module._maximum_typed_ref(  # noqa: SLF001
+            "reason-ref:goal-mutation-rejected",
+            0,
+        ),
+    )
+    assert rejected.resolution_status == "rejected"
+    restarted = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert restarted.rejected_count == 1
+    assert restarted.records[0].status == "rejected"
 
 
 def test_goal_mutation_submission_state_rejects_symlink_substitution(

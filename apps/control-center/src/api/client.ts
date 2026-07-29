@@ -9701,21 +9701,41 @@ async function postRuntimeGoalMutation(
   )) as ResultEnvelope<RuntimeGoalMutationResult>;
   const result = data.result ?? data.data;
   const success = data.ok ?? data.success;
+  const safeFailureMessage = sanitizeForDisplay(
+    extractErrorMessage(
+      data,
+      "The proof-backed goal mutation failed safely.",
+    ),
+  );
   if (
     !response.ok ||
     success !== true ||
     !isSafeRuntimeGoalMutationResult(result)
   ) {
-    throw new Error(
-      sanitizeForDisplay(
-        extractErrorMessage(
-          data,
-          "The proof-backed goal mutation failed safely.",
-        ),
-      ),
-    );
+    if (response.status === 422) {
+      throw new RuntimeGoalMutationValidationError(safeFailureMessage);
+    }
+    throw new Error(safeFailureMessage);
   }
   return result;
+}
+
+export class RuntimeGoalMutationValidationError extends Error {
+  readonly deterministicClientOnlyRejection = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "RuntimeGoalMutationValidationError";
+  }
+}
+
+export function isRuntimeGoalMutationValidationError(
+  error: unknown,
+): error is RuntimeGoalMutationValidationError {
+  return (
+    error instanceof RuntimeGoalMutationValidationError &&
+    error.deterministicClientOnlyRejection
+  );
 }
 
 export async function createRuntimeGoal(

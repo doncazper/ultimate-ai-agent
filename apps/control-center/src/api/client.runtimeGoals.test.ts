@@ -3,6 +3,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  isRuntimeGoalMutationValidationError,
   prepareRuntimeGoalCreateSubmission,
   prepareRuntimeGoalUpdateSubmission,
   runtimeGoalMutationIdempotencyRef,
@@ -257,6 +258,85 @@ describe("proof-backed runtime goal mutations", () => {
         null,
       ),
     ).rejects.toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
+  });
+
+  it("classifies only HTTP 422 as a deterministic client-only rejection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { message: "Request validation failed safely." },
+          }),
+          {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+    const error = await createRuntimeGoal(
+      request,
+      "idempotency-ref:goal-client-validation",
+      binding,
+    ).catch((caught: unknown) => caught);
+    expect(isRuntimeGoalMutationValidationError(error)).toBe(true);
+  });
+
+  it.each([409, 429, 500])(
+    "keeps HTTP %s goal failures ambiguous for durable recovery",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(
+            JSON.stringify({
+              ok: false,
+              error: { message: "Goal mutation outcome requires recovery." },
+            }),
+            {
+              status,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      );
+      const error = await createRuntimeGoal(
+        request,
+        `idempotency-ref:goal-client-ambiguous-${status}`,
+        binding,
+      ).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(isRuntimeGoalMutationValidationError(error)).toBe(false);
+    },
+  );
+
+  it.each([
+    [
+      "network failure",
+      vi.fn(async () => {
+        throw new Error("network outcome unknown");
+      }),
+    ],
+    [
+      "invalid success envelope",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ ok: true, result: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    ],
+  ])("keeps a %s ambiguous for durable recovery", async (_label, fetcher) => {
+    vi.stubGlobal("fetch", fetcher);
+    const error = await createRuntimeGoal(
+      request,
+      "idempotency-ref:goal-client-ambiguous-envelope",
+      binding,
+    ).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(Error);
+    expect(isRuntimeGoalMutationValidationError(error)).toBe(false);
   });
 
   it.each([

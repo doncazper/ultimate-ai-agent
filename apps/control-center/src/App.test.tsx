@@ -9893,6 +9893,225 @@ describe("Web Control Center shell", () => {
     ).not.toEqual(postCalls[0]?.headers.get("X-UAA-Idempotency-Key"));
   });
 
+  it("releases only a client-only 422 submission identity so a revised create can submit", async () => {
+    const postCalls: Array<{ body: string; headers: Headers }> = [];
+    const fetchMock = vi.fn(
+      async (url: string | URL | Request, options?: RequestInit) => {
+        const urlText = String(url);
+        if (options?.method === "POST") {
+          postCalls.push({
+            body: String(options.body),
+            headers: new Headers(options.headers),
+          });
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { message: "Request validation failed safely." },
+            }),
+            {
+              status: 422,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        const endpoint = READ_ENDPOINTS.find((candidate) =>
+          urlText.endsWith(candidate),
+        );
+        if (endpoint === undefined) {
+          throw new Error(`unexpected request ${urlText}`);
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: envelopeForReadEndpoint(urlText).result,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderRuntimeGoalRecoveryPanel(
+      cloneForTest(mockControlCenterData.runtimeRunEvents),
+    );
+
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Create one invalid durable goal." },
+    });
+    fireEvent.change(screen.getByLabelText("Desired outcome"), {
+      target: { value: "A proof-backed local goal exists." },
+    });
+    fireEvent.change(screen.getByLabelText("Success criterion"), {
+      target: { value: "The durable goal can be inspected." },
+    });
+    fireEvent.change(screen.getByLabelText("Stop condition"), {
+      target: { value: "Stop if persistence is unavailable." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    await waitFor(() => expect(postCalls).toHaveLength(1));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create local goal" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.getByLabelText("Objective")).toHaveValue(
+      "Create one invalid durable goal.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Create one revised durable goal." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    await waitFor(() => expect(postCalls).toHaveLength(2));
+    expect(
+      postCalls[1]?.headers.get("X-UAA-Goal-Submission-Ref"),
+    ).not.toEqual(
+      postCalls[0]?.headers.get("X-UAA-Goal-Submission-Ref"),
+    );
+    expect(
+      postCalls[1]?.headers.get("X-UAA-Idempotency-Key"),
+    ).not.toEqual(postCalls[0]?.headers.get("X-UAA-Idempotency-Key"));
+  });
+
+  it.each([
+    ["committed", "rejected", "The backend durably rejected"],
+    ["rejected", "committed", "A backend-owned goal submission is durably committed"],
+  ] as const)(
+    "reports the last terminal goal submission for %s then %s history",
+    async (firstStatus, lastStatus, expectedNotice) => {
+      const goalRef = `goal-ref:sha256:${"6".repeat(64)}`;
+      const record = (
+        status: "committed" | "rejected",
+        index: number,
+      ) => ({
+        schema_version:
+          "goal_mutation_submission_recovery.v1" as const,
+        submission_ref: `submission-ref:goal-terminal:${index}`,
+        operation: "create" as const,
+        goal_ref: null,
+        request_payload: {
+          text_redaction_posture:
+            "operator_authored_redacted_summary_only",
+          objective: "Track the bounded terminal ordering.",
+          desired_outcome: "The latest terminal status is visible.",
+          success_criteria: ["The latest durable record wins."],
+          constraints: ["No external execution."],
+          in_scope_resource_refs: [],
+          stop_condition: "Stop after the terminal record.",
+          budget: {
+            operation_limit: 25,
+            cost_budget_microusd: 0,
+          },
+          links: {
+            plan_refs: [],
+            run_refs: [],
+            action_inbox_refs: [],
+            work_board_refs: [],
+          },
+          evidence_refs: [
+            `evidence-ref:control-center-goal-create-submission:sha256:${String(
+              index,
+            ).repeat(64)}`,
+          ],
+        },
+        idempotency_ref: `idempotency-ref:goal-terminal:${index}`,
+        submission_evidence_ref:
+          `evidence-ref:control-center-goal-create-submission:sha256:${String(
+            index,
+          ).repeat(64)}`,
+        request_fingerprint_ref:
+          `request-fingerprint-ref:goal-mutation-submission:sha256:${String(
+            index,
+          ).repeat(64)}`,
+        recorded_at: `2026-07-28T00:00:0${index}Z`,
+        status,
+        committed_goal_ref: status === "committed" ? goalRef : null,
+        rejection_reason_ref:
+          status === "rejected"
+            ? "reason-ref:goal-mutation-rejected:test"
+            : null,
+        resolved_at:
+          status === "rejected"
+            ? `2026-07-28T00:00:1${index}Z`
+            : null,
+      });
+      const runEvents = {
+        ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+        goal_lifecycle: {
+          ...cloneForTest(
+            mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+          ),
+          goals: [
+            {
+              schema_version: "persistent_goal.v1",
+              contract_ref:
+                "contract-ref:proof-backed-goals-durable-events:v1",
+              goal_ref: goalRef,
+              text_redaction_posture:
+                "operator_authored_redacted_summary_only",
+              objective: "Track the bounded terminal ordering.",
+              desired_outcome: "The latest terminal status is visible.",
+              success_criteria: ["The latest durable record wins."],
+              constraints: ["No external execution."],
+              in_scope_resource_refs: [],
+              stop_condition: "Stop after the terminal record.",
+              state: "active",
+              budget: {
+                operation_limit: 25,
+                cost_budget_microusd: 0,
+              },
+              links: {
+                plan_refs: [],
+                run_refs: [],
+                action_inbox_refs: [],
+                work_board_refs: [],
+              },
+              version: 1,
+              created_at: "2026-07-28T00:00:00Z",
+              updated_at: "2026-07-28T00:00:00Z",
+              evidence_refs: [
+                `evidence-ref:control-center-goal-create-submission:sha256:${"1".repeat(64)}`,
+                `evidence-ref:control-center-goal-create-submission:sha256:${"2".repeat(64)}`,
+              ],
+              completion_criterion_proof_refs: [],
+              completion_source_goal_version: null,
+              completion_criterion_verifier_bindings: [],
+              safe_refs_only: true,
+              model_output_authoritative: false,
+            },
+          ],
+          goal_count: 1,
+          active_count: 1,
+        },
+        goal_mutation_submissions: {
+          ...cloneForTest(
+            mockControlCenterData.runtimeRunEvents
+              .goal_mutation_submissions,
+          ),
+          records: [record(firstStatus, 1), record(lastStatus, 2)],
+          pending_count: 0,
+          committed_count:
+            Number(firstStatus === "committed") +
+            Number(lastStatus === "committed"),
+          rejected_count:
+            Number(firstStatus === "rejected") +
+            Number(lastStatus === "rejected"),
+        },
+      };
+      const view = renderRuntimeGoalRecoveryPanel(
+        runEvents as unknown as typeof mockControlCenterData.runtimeRunEvents,
+      );
+      expect(await screen.findByText(new RegExp(expectedNotice))).toBeInTheDocument();
+      view.unmount();
+    },
+  );
+
   it("renders API route classification posture", async () => {
     window.history.pushState({}, "", "/api-routes");
     render(<App />);

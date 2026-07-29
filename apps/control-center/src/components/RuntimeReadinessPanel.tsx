@@ -47,6 +47,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  isRuntimeGoalMutationValidationError,
   prepareRuntimeGoalCreateSubmission,
   prepareRuntimeGoalUpdateSubmission,
   transitionRuntimeGoal,
@@ -80,14 +81,14 @@ type PendingGoalMutation =
       submissionRef: string;
     };
 
-function rejectedSubmissionMatchesPending(
+function terminalSubmissionMatchesPending(
   record: RuntimeGoalMutationSubmissionRecoveryRecord,
   pending: PendingGoalMutation,
 ): boolean {
   const pendingGoalRef =
     pending.operation === "create" ? null : pending.goalRef;
   return (
-    record.status === "rejected" &&
+    (record.status === "committed" || record.status === "rejected") &&
     record.submission_ref === pending.submissionRef &&
     record.operation === pending.operation &&
     (record.goal_ref ?? null) === pendingGoalRef &&
@@ -251,33 +252,73 @@ export function RuntimeReadinessPanel({
       );
     } else {
       setGoalReadCurrent((current) => runEventsBackendOwned && current);
-      const latestCommitted = runEvents.goal_mutation_submissions.records
-        .filter((record) => record.status === "committed")
+      const latestTerminal = runEvents.goal_mutation_submissions.records
+        .filter(
+          (record) =>
+            record.status === "committed" || record.status === "rejected",
+        )
         .at(-1);
-      const latestRejected = runEvents.goal_mutation_submissions.records
-        .filter((record) => record.status === "rejected")
-        .at(-1);
-      if (latestCommitted?.committed_goal_ref) {
-        setSelectedGoalRef(latestCommitted.committed_goal_ref);
+      const latestCommittedGoal =
+        latestTerminal?.status !== "committed"
+          ? undefined
+          : runEvents.goal_lifecycle.goals.find(
+              (goal) =>
+                goal.goal_ref === latestTerminal.committed_goal_ref &&
+                goal.evidence_refs.includes(
+                  latestTerminal.submission_evidence_ref,
+                ),
+            );
+      if (
+        latestTerminal?.status === "committed" &&
+        latestCommittedGoal !== undefined
+      ) {
+        setSelectedGoalRef(latestCommittedGoal.goal_ref);
         setGoalNotice(
           "A backend-owned goal submission is durably committed; no retry is required.",
         );
-      } else if (latestRejected) {
+      } else if (latestTerminal?.status === "committed") {
+        setGoalReadCurrent(false);
+        setGoalNotice(
+          "Goal submission recovery state is inconsistent and remains blocked.",
+        );
+      } else if (latestTerminal?.status === "rejected") {
         setGoalNotice(
           "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
         );
       }
       setPendingGoalMutation((current) => {
-        if (
-          current !== null &&
-          runEvents.goal_mutation_submissions.records.some(
-            (record) =>
-              (record.status === "committed" ||
-                record.status === "rejected") &&
-              record.submission_ref === current.submissionRef,
-          )
-        ) {
-          return null;
+        if (current !== null) {
+          const matchingRefRecords =
+            runEvents.goal_mutation_submissions.records.filter(
+              (record) =>
+                (record.status === "committed" ||
+                  record.status === "rejected") &&
+                record.submission_ref === current.submissionRef,
+            );
+          if (
+            matchingRefRecords.length === 1 &&
+            terminalSubmissionMatchesPending(
+              matchingRefRecords[0],
+              current,
+            ) &&
+            (matchingRefRecords[0].status === "rejected" ||
+              runEvents.goal_lifecycle.goals.some(
+                (goal) =>
+                  goal.goal_ref ===
+                    matchingRefRecords[0].committed_goal_ref &&
+                  goal.evidence_refs.includes(
+                    matchingRefRecords[0].submission_evidence_ref,
+                  ),
+              ))
+          ) {
+            return null;
+          }
+          if (matchingRefRecords.length > 0) {
+            setGoalReadCurrent(false);
+            setGoalNotice(
+              "Goal submission recovery binding is inconsistent and remains blocked.",
+            );
+          }
         }
         return current;
       });
@@ -331,28 +372,21 @@ export function RuntimeReadinessPanel({
     try {
       const refreshed = await fetchRuntimeRunEvents(mutationBinding);
       setRuntimeGoalEvents(refreshed);
-      const committedGoal =
-        pendingMutation === null
-          ? undefined
-          : refreshed.goal_lifecycle.goals.find((goal) =>
-              goal.evidence_refs.includes(
-                pendingMutation.submissionEvidenceRef,
-              ),
-            );
-      const rejectedCandidates =
+      const terminalCandidates =
         pendingMutation === null
           ? []
           : refreshed.goal_mutation_submissions.records.filter(
               (record) =>
-                record.status === "rejected" &&
+                (record.status === "committed" ||
+                  record.status === "rejected") &&
                 record.submission_ref === pendingMutation.submissionRef,
             );
       if (
         pendingMutation !== null &&
-        (rejectedCandidates.length > 1 ||
-          (rejectedCandidates.length === 1 &&
-            !rejectedSubmissionMatchesPending(
-              rejectedCandidates[0],
+        (terminalCandidates.length > 1 ||
+          (terminalCandidates.length === 1 &&
+            !terminalSubmissionMatchesPending(
+              terminalCandidates[0],
               pendingMutation,
             )))
       ) {
@@ -360,15 +394,29 @@ export function RuntimeReadinessPanel({
           "Goal submission recovery binding is inconsistent and remains blocked.",
         );
       }
-      const rejectedSubmission = rejectedCandidates[0];
+      const terminalSubmission = terminalCandidates[0];
+      const committedGoal =
+        terminalSubmission?.status !== "committed"
+          ? undefined
+          : refreshed.goal_lifecycle.goals.find(
+              (goal) =>
+                goal.goal_ref === terminalSubmission.committed_goal_ref &&
+                goal.evidence_refs.includes(
+                  terminalSubmission.submission_evidence_ref,
+                ),
+            );
       if (
-        committedGoal !== undefined &&
-        rejectedSubmission !== undefined
+        terminalSubmission?.status === "committed" &&
+        committedGoal === undefined
       ) {
         throw new Error(
           "Goal submission recovery state is inconsistent and remains blocked.",
         );
       }
+      const rejectedSubmission =
+        terminalSubmission?.status === "rejected"
+          ? terminalSubmission
+          : undefined;
       if (committedGoal !== undefined) {
         setPendingGoalMutation(null);
         setSelectedGoalRef(committedGoal.goal_ref);
@@ -531,7 +579,12 @@ export function RuntimeReadinessPanel({
         `Goal created at version ${result.goal.version}; no runtime work was started.`,
       );
     } catch (error) {
-      setGoalReadCurrent(false);
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -595,7 +648,12 @@ export function RuntimeReadinessPanel({
       }
       setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
     } catch (error) {
-      setGoalReadCurrent(false);
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
       setGoalNotice(
         error instanceof Error ? error.message : "Goal edit failed safely.",
       );
@@ -667,7 +725,12 @@ export function RuntimeReadinessPanel({
         `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
       );
     } catch (error) {
-      setGoalReadCurrent(false);
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
       setGoalNotice(
         error instanceof Error
           ? error.message

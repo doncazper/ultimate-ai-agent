@@ -55,7 +55,16 @@ request, idempotency ref, and submission-evidence ref in a bounded,
 integrity-checked local recovery store. `GET /api/runtime/run-events` reports
 each retained submission as pending, committed, or terminally rejected by
 reconciling it against the same locked goal-journal generation, including
-bounded historical snapshots. Terminal deterministic mutation failures are
+bounded historical snapshots. A commit is recognized only when the journal
+entry binds the same operation, goal posture, idempotency ref, typed request
+fingerprint, submission evidence, and full submission-record fingerprint;
+safe-shaped evidence refs alone cannot prove a commit. Pending records are
+admitted only when the encoded store still has enough reserved space for every
+pending envelope to become a maximum-sized terminal rejection after a restart.
+The bounded goal-mutation provenance projection carries that safe submission
+fingerprint for create, edit, and transition entries without exposing request
+content.
+Terminal deterministic mutation failures are
 durably bound to a safe rejection-reason ref before the response is returned;
 the rejected identity cannot be replayed, while Control Center releases its
 pending state so the operator can revise the request and submit a new identity.
@@ -110,6 +119,9 @@ the replay payload itself is evicted. Completion events require matching prior
 receipt evidence. Cancelled, verified-complete,
 terminal-failure, and dead-letter events require receipt and proof refs; those
 streams are terminal and late success events are rejected.
+An invocation that claims a `goal-ref:` mission is rejected before either the
+command or local-model adapter runs unless that exact ref exists in the durable
+goal journal. Non-goal mission refs retain their existing governed behavior.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
