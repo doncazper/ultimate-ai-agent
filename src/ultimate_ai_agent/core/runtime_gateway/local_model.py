@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway.command import (
 )
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import GoalRuntimeService
 from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationNotFoundError,
     RuntimeInvocationStorageError,
     RuntimeInvocationStore,
     active_runtime_authority_leases,
@@ -350,20 +351,26 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        self.goal_runtime_service.assert_runtime_mission_goal_exists(
-            request.mission_ref
-        )
         existing = self.store.get_invocation_for_idempotency(idempotency_ref)
         with self.goal_runtime_service.runtime_projection_guard(
             existing,
             operation_idempotency_ref=idempotency_ref,
         ) as reservation_ref:
-            result = invoke_governed_command(
-                store=self.store,
-                adapter=self.command_adapter,
-                request=request,
-                idempotency_ref=idempotency_ref,
-            )
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    existing is not None
+                    and existing.receipt is not None
+                    and existing.status
+                    == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+            ):
+                result = invoke_governed_command(
+                    store=self.store,
+                    adapter=self.command_adapter,
+                    request=request,
+                    idempotency_ref=idempotency_ref,
+                )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
                 invocation_store=self.store,
@@ -379,22 +386,32 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        self.goal_runtime_service.assert_runtime_mission_goal_exists(
-            request.mission_ref
-        )
-        record = self.store.get_invocation(invocation_ref)
+        try:
+            record = self.store.get_invocation(invocation_ref)
+        except RuntimeInvocationNotFoundError:
+            self.goal_runtime_service.assert_runtime_mission_goal_exists(
+                request.mission_ref
+            )
+            raise
         with self.goal_runtime_service.runtime_projection_guard(
             record,
             operation_idempotency_ref=idempotency_ref,
         ) as reservation_ref:
-            result = invoke_approved_governed_command(
-                store=self.store,
-                adapter=self.command_adapter,
-                record=record,
-                request=request,
-                execute_request=execute_request,
-                idempotency_ref=idempotency_ref,
-            )
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    record.receipt is not None
+                    and record.status == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+            ):
+                result = invoke_approved_governed_command(
+                    store=self.store,
+                    adapter=self.command_adapter,
+                    record=record,
+                    request=request,
+                    execute_request=execute_request,
+                    idempotency_ref=idempotency_ref,
+                )
             if result.record.action_inbox_envelope is not None:
                 updated = self.store.mark_action_inbox_execution_receipt(
                     result.record.invocation_ref,
@@ -429,18 +446,24 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeLocalModelGatewayResult:
-        self.goal_runtime_service.assert_runtime_mission_goal_exists(
-            request.mission_ref
-        )
         existing = self.store.get_invocation_for_idempotency(idempotency_ref)
         with self.goal_runtime_service.runtime_projection_guard(
             existing,
             operation_idempotency_ref=idempotency_ref,
         ) as reservation_ref:
-            result = self._invoke_local_model(
-                request,
-                idempotency_ref=idempotency_ref,
-            )
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    existing is not None
+                    and existing.receipt is not None
+                    and existing.status
+                    == RuntimeInvocationStatus.receipt_recorded.value
+                ),
+            ):
+                result = self._invoke_local_model(
+                    request,
+                    idempotency_ref=idempotency_ref,
+                )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
                 invocation_store=self.store,

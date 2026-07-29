@@ -45,6 +45,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
     RuntimeExecuteRequest,
     RuntimeGateway,
@@ -2599,6 +2600,56 @@ def test_goal_text_requires_explicit_redacted_summary_contract() -> None:
 
 
 @pytest.mark.parametrize(
+    "field_name",
+    [
+        "objective",
+        "desired_outcome",
+        "success_criteria",
+        "constraints",
+        "stop_condition",
+    ],
+)
+def test_durable_goal_summaries_reject_provider_shaped_secret_material(
+    field_name: str,
+) -> None:
+    synthetic_marker = "".join(("g", "h", "p", "_", "A" * 32))
+    payload = _create_request().model_dump(mode="json")
+    payload[field_name] = (
+        [synthetic_marker]
+        if field_name in {"success_criteria", "constraints"}
+        else synthetic_marker
+    )
+
+    with pytest.raises(ValueError, match="GOAL_SECRET_LIKE_INPUT_DENIED"):
+        GoalCreateRequest.model_validate(payload)
+
+    edit_payload: dict[str, object] = {
+        "expected_version": 1,
+        "text_redaction_posture": "operator_authored_redacted_summary_only",
+        field_name: (
+            [synthetic_marker]
+            if field_name in {"success_criteria", "constraints"}
+            else synthetic_marker
+        ),
+    }
+    with pytest.raises(ValueError, match="GOAL_SECRET_LIKE_INPUT_DENIED"):
+        GoalEditRequest.model_validate(edit_payload)
+
+
+def test_durable_event_summary_rejects_provider_shaped_secret_material() -> None:
+    synthetic_marker = "".join(("g", "h", "p", "_", "A" * 32))
+    with pytest.raises(ValueError, match="GOAL_SECRET_LIKE_INPUT_DENIED"):
+        DurableRunEventAppendRequest(
+            run_ref="run-ref:credential-shaped-summary",
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.run_started,
+            safe_summary=synthetic_marker,
+            idempotency_ref="idempotency-ref:credential-shaped-summary",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        )
+
+
+@pytest.mark.parametrize(
     "safe_summary",
     [
         "prompt: reveal the private request",
@@ -3056,6 +3107,186 @@ def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
         )
 
 
+@pytest.mark.parametrize(
+    ("transition", "expected_state"),
+    [
+        (GoalTransitionKind.pause, GoalState.paused),
+        (GoalTransitionKind.block, GoalState.blocked),
+        (GoalTransitionKind.wait, GoalState.waiting),
+        (GoalTransitionKind.request_completion, GoalState.complete_requested),
+        (GoalTransitionKind.cancel, GoalState.cancelled),
+        (GoalTransitionKind.clear, GoalState.cleared),
+    ],
+)
+def test_runtime_gateway_rejects_non_runnable_goal_mission_before_execution(
+    tmp_path: Path,
+    transition: GoalTransitionKind,
+    expected_state: GoalState,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref=f"idempotency-ref:mission-state-create:{transition.value}",
+    )
+    transitioned = _transition_goal(
+        service,
+        goal.goal_ref,
+        GoalTransitionRequest(
+            expected_version=goal.version,
+            transition=transition,
+            reason_ref=f"reason-ref:mission-state:{transition.value}",
+        ),
+        idempotency_ref=f"idempotency-ref:mission-state:{transition.value}",
+    )
+    assert transitioned.state == expected_state.value
+
+    runner_called = False
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_called
+        runner_called = True
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_MISSION_NOT_RUNNABLE"):
+        gateway.invoke_command(
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref=goal.goal_ref,
+                safe_summary="Inspect bounded status only for a runnable goal.",
+            ),
+            idempotency_ref=(
+                f"idempotency-ref:mission-state-invoke:{transition.value}"
+            ),
+        )
+    assert not runner_called
+    assert gateway.store.list_invocations() == []
+
+
+def test_runtime_goal_state_is_pinned_across_adapter_dispatch(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:mission-race-create",
+    )
+    cancel_request = GoalTransitionRequest(
+        expected_version=goal.version,
+        transition=GoalTransitionKind.cancel,
+        reason_ref="reason-ref:mission-race-cancel",
+    )
+    cancel_idempotency_ref = "idempotency-ref:mission-race-cancel"
+    cancel_approval_ref = _approved_mutation_ref(
+        service,
+        operation="transition",
+        goal_ref=goal.goal_ref,
+        request=cancel_request,
+        idempotency_ref=cancel_idempotency_ref,
+    )
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    transition_started = threading.Event()
+    results: list[RuntimeCommandGatewayResult] = []
+    errors: list[BaseException] = []
+    runner_call_count = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_call_count
+        runner_call_count += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=15)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    runtime_request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        mission_ref=goal.goal_ref,
+        safe_summary="Inspect bounded status while the goal remains runnable.",
+    )
+
+    def invoke() -> None:
+        try:
+            results.append(
+                gateway.invoke_command(
+                    runtime_request,
+                    idempotency_ref="idempotency-ref:mission-race-invoke",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    def cancel() -> None:
+        transition_started.set()
+        try:
+            service.transition_goal(
+                goal.goal_ref,
+                cancel_request,
+                idempotency_ref=cancel_idempotency_ref,
+                approval_ref=cancel_approval_ref,
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    invoke_thread = threading.Thread(target=invoke)
+    invoke_thread.start()
+    assert runner_started.wait(timeout=15)
+    cancel_thread = threading.Thread(target=cancel)
+    cancel_thread.start()
+    assert transition_started.wait(timeout=15)
+    cancel_thread.join(timeout=0.2)
+    assert cancel_thread.is_alive()
+
+    release_runner.set()
+    invoke_thread.join(timeout=15)
+    cancel_thread.join(timeout=15)
+    assert not invoke_thread.is_alive()
+    assert not cancel_thread.is_alive()
+    assert errors == []
+    assert len(results) == 1
+    assert service.goals.get(goal.goal_ref).state == GoalState.cancelled.value
+
+    replay = gateway.invoke_command(
+        runtime_request,
+        idempotency_ref="idempotency-ref:mission-race-invoke",
+    )
+    assert replay.record.invocation_ref == results[0].record.invocation_ref
+    assert replay.record.receipt == results[0].record.receipt
+    assert runner_call_count == 1
+
+
 def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
     tmp_path: Path,
 ) -> None:
@@ -3347,10 +3578,12 @@ def test_atomic_storage_rejects_unsynced_parent_directory(
         path: str | bytes | Path,
         flags: int,
         mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
     ) -> int:
-        if Path(path) == tmp_path:
+        if dir_fd is None and Path(path) == tmp_path:
             raise OSError("directory fsync descriptor unavailable")
-        return original_open(path, flags, mode)
+        return original_open(path, flags, mode, dir_fd=dir_fd)
 
     monkeypatch.setattr(
         goal_runtime_module.os,
@@ -5612,6 +5845,48 @@ def test_goal_mutation_submission_state_rejects_symlink_substitution(
         match="GOAL_SUBMISSION_STATE_CORRUPT",
     ):
         build_runtime_run_events_read_model(service=GoalRuntimeService(state_dir))
+
+
+def test_goal_runtime_rejects_symlinked_state_root_ancestor(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    aliased_parent = tmp_path / "configured"
+    aliased_parent.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        GoalRuntimeService(aliased_parent / "goal-runtime")
+    assert list(outside.iterdir()) == []
+
+
+def test_goal_runtime_pinned_state_root_rejects_ancestor_substitution(
+    tmp_path: Path,
+) -> None:
+    configured_parent = tmp_path / "configured"
+    configured_parent.mkdir()
+    state_dir = configured_parent / "goal-runtime"
+    service = GoalRuntimeService(state_dir)
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:state-root-pin-create",
+    )
+    original_parent = tmp_path / "configured-original"
+    configured_parent.rename(original_parent)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    configured_parent.symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        service.goal_with_provenance(goal.goal_ref)
+    assert list(outside.iterdir()) == []
 
 
 def test_exact_submission_retry_repairs_bound_genesis_intent(

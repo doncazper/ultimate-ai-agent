@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
 )
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS,
     MAX_RUNTIME_GOAL_VERSION,
@@ -369,6 +370,8 @@ def _bounded_redacted_summary(value: str, field_name: str) -> str:
     if isinstance(value, str) and contains_absolute_local_path(value.strip()):
         raise ValueError("GOAL_RAW_CONTENT_PERSISTENCE_DENIED")
     candidate = _bounded_safe_text(value, field_name)
+    if contains_obvious_secret(candidate):
+        raise ValueError("GOAL_SECRET_LIKE_INPUT_DENIED")
     lowered = candidate.casefold()
     if (
         "\n" in candidate
@@ -5630,6 +5633,56 @@ class GoalRuntimeService:
             "GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE"
         )
 
+    @contextmanager
+    def runtime_mission_execution_guard(
+        self,
+        mission_ref: str | None,
+        *,
+        allow_committed_replay: bool = False,
+    ) -> Iterator[None]:
+        """Pin one runnable goal generation across an adapter dispatch.
+
+        Exact committed runtime replays may outlive the goal's runnable state,
+        but a new adapter dispatch is admitted only while the durable goal is
+        active. The caller must complete projection reconciliation and capacity
+        reservation before entering this context. Canonical exclusive approval
+        then journal locks preserve the admission decision through adapter
+        execution without a shared-to-exclusive lock upgrade.
+        """
+
+        if mission_ref is None or not mission_ref.startswith("goal-ref:"):
+            yield
+            return
+        validate_execution_ref(mission_ref, "mission_ref")
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self._approvals._locks,  # noqa: SLF001
+            "goal-approvals",
+        ):
+            with _normalized_goal_runtime_lock(
+                self.goals._locks,  # noqa: SLF001
+                "goal-journal",
+            ):
+                approval_entries = self._approvals._load_entries(
+                    repair_manifest=True
+                )
+                journal_entries = self.goals._load_entries(repair_manifest=True)
+                self._approvals.validate_goal_provenance(
+                    approval_entries,
+                    journal_entries,
+                )
+                current = self.goals._latest_by_goal(journal_entries).get(
+                    mission_ref
+                )
+                if current is None:
+                    raise GoalNotFoundError("GOAL_NOT_FOUND")
+                if (
+                    not allow_committed_replay
+                    and current.state != GoalState.active.value
+                ):
+                    raise GoalTransitionDeniedError("GOAL_MISSION_NOT_RUNNABLE")
+                yield
+
     def create_goal(
         self,
         request: GoalCreateRequest,
@@ -7998,24 +8051,96 @@ class _GoalMutationApprovalStore:
 
 def _initialize_goal_runtime_state_dir(state_dir: Path) -> None:
     try:
-        state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        state_metadata = os.lstat(state_dir)
-        if not stat.S_ISDIR(state_metadata.st_mode):
-            raise OSError("goal runtime state directory must be a real directory")
-        os.chmod(state_dir, 0o700)
+        identity = _goal_runtime_state_dir_chain_identity(state_dir, create=True)
+        if identity is None:
+            raise OSError("goal runtime state directory was not created")
+        _bind_goal_runtime_state_dir_identity(state_dir, identity)
     except OSError as exc:
         raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
 
 
 def _validate_goal_runtime_state_dir_for_read(state_dir: Path) -> None:
     try:
-        state_metadata = os.lstat(state_dir)
-    except FileNotFoundError:
-        return
+        identity = _goal_runtime_state_dir_chain_identity(state_dir, create=False)
+        _bind_goal_runtime_state_dir_identity(state_dir, identity)
     except OSError as exc:
         raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
-    if not stat.S_ISDIR(state_metadata.st_mode):
-        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+
+
+_GOAL_RUNTIME_STATE_DIR_IDENTITIES: dict[str, tuple[int, int]] = {}
+_GOAL_RUNTIME_STATE_DIR_IDENTITIES_LOCK = threading.RLock()
+
+
+def _goal_runtime_state_dir_key(state_dir: Path) -> str:
+    return os.path.abspath(os.fspath(state_dir))
+
+
+def _goal_runtime_state_dir_chain_identity(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> tuple[int, int] | None:
+    """Open every state-root component without following ancestor links."""
+
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        raise OSError("goal runtime state directory guard unavailable")
+    absolute = Path(_goal_runtime_state_dir_key(state_dir))
+    if absolute == Path(absolute.anchor):
+        raise OSError("goal runtime state directory cannot be a filesystem root")
+    flags = (
+        os.O_RDONLY
+        | os.O_DIRECTORY
+        | os.O_NOFOLLOW
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise OSError("goal runtime state directory component is invalid")
+            try:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create:
+                    return None
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        opened = os.fstat(descriptor)
+        linked = os.lstat(absolute)
+        identity = (opened.st_dev, opened.st_ino)
+        if (
+            not stat.S_ISDIR(opened.st_mode)
+            or not stat.S_ISDIR(linked.st_mode)
+            or stat.S_ISLNK(linked.st_mode)
+            or identity != (linked.st_dev, linked.st_ino)
+        ):
+            raise OSError("goal runtime state directory identity mismatch")
+        if create:
+            os.fchmod(descriptor, 0o700)
+        return identity
+    finally:
+        os.close(descriptor)
+
+
+def _bind_goal_runtime_state_dir_identity(
+    state_dir: Path,
+    identity: tuple[int, int] | None,
+) -> None:
+    key = _goal_runtime_state_dir_key(state_dir)
+    with _GOAL_RUNTIME_STATE_DIR_IDENTITIES_LOCK:
+        expected = _GOAL_RUNTIME_STATE_DIR_IDENTITIES.get(key)
+        if identity is None:
+            if expected is not None:
+                raise OSError("goal runtime state directory disappeared")
+            return
+        if expected is not None and expected != identity:
+            raise OSError("goal runtime state directory identity changed")
+        _GOAL_RUNTIME_STATE_DIR_IDENTITIES.setdefault(key, identity)
 
 
 @contextmanager
@@ -8025,6 +8150,7 @@ def _normalized_goal_runtime_lock(
 ) -> Iterator[None]:
     entered = False
     try:
+        _validate_goal_runtime_state_dir_for_read(manager.lock_dir.parent)
         with manager.acquire(writer_key):
             entered = True
             yield
@@ -8041,6 +8167,7 @@ def _nonmutating_goal_runtime_read_lock(
     *,
     generation_paths: tuple[Path, ...] = (),
 ) -> Iterator[None]:
+    _validate_goal_runtime_state_dir_for_read(lock_dir.parent)
     safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in writer_key)
     lock_path = lock_dir / f"{safe_name}.lock"
     if not _path_generation(lock_path)[0]:
@@ -8099,6 +8226,7 @@ def _read_bounded_regular_utf8(
 ) -> str | None:
     """Read one immutable regular-file identity without following links."""
 
+    _validate_goal_runtime_state_dir_for_read(path.parent)
     descriptor: int | None = None
     try:
         descriptor = os.open(
@@ -8182,14 +8310,24 @@ def _path_generation(path: Path) -> tuple[bool, int, int, int, int]:
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    temp_path: Path | None = None
+    temporary_name: str | None = None
+    directory_fd: int | None = None
+    descriptor: int | None = None
     try:
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        parent_metadata = os.lstat(path.parent)
-        if not stat.S_ISDIR(parent_metadata.st_mode):
-            raise OSError("goal runtime state directory must be a real directory")
-        os.chmod(path.parent, 0o700)
-        temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        _initialize_goal_runtime_state_dir(path.parent)
+        directory_fd = os.open(
+            _goal_runtime_state_dir_key(path.parent),
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+        )
+        opened_parent = os.fstat(directory_fd)
+        _bind_goal_runtime_state_dir_identity(
+            path.parent,
+            (opened_parent.st_dev, opened_parent.st_ino),
+        )
+        temporary_name = f".{path.name}.{uuid.uuid4().hex}.tmp"
         flags = (
             os.O_WRONLY
             | os.O_CREAT
@@ -8197,29 +8335,50 @@ def _atomic_write(path: Path, content: str) -> None:
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
-        descriptor = os.open(temp_path, flags, 0o600)
+        descriptor = os.open(
+            temporary_name,
+            flags,
+            0o600,
+            dir_fd=directory_fd,
+        )
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            descriptor = None
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-        os.chmod(path, 0o600)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
+        os.replace(
+            temporary_name,
+            path.name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+        temporary_name = None
+        installed_fd = os.open(
+            path.name,
+            os.O_RDONLY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=directory_fd,
+        )
         try:
-            os.fsync(directory_fd)
+            os.fchmod(installed_fd, 0o600)
         finally:
-            os.close(directory_fd)
+            os.close(installed_fd)
+        _validate_goal_runtime_state_dir_for_read(path.parent)
+        os.fsync(directory_fd)
     except OSError as exc:
-        if temp_path is not None:
-            try:
-                temp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
         raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
-    except Exception:
-        if temp_path is not None:
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_name is not None and directory_fd is not None:
             try:
-                temp_path.unlink(missing_ok=True)
+                os.unlink(temporary_name, dir_fd=directory_fd)
             except OSError:
                 pass
-        raise
+        if directory_fd is not None:
+            try:
+                os.fsync(directory_fd)
+            except OSError:
+                pass
+            os.close(directory_fd)
