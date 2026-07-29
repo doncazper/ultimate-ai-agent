@@ -166,6 +166,7 @@ describe("proof-backed runtime goal mutations", () => {
     const prepared = await prepareRuntimeGoalMutationApproval(
       { operation: "create", goalRef: null, request },
       approvalRequest.idempotency_ref,
+      "submission-ref:goal-client-create",
       binding,
     );
     expect(prepared).toEqual(approvalRequest);
@@ -190,6 +191,9 @@ describe("proof-backed runtime goal mutations", () => {
     expect(prepareHeaders["X-UAA-Idempotency-Key"]).toBe(
       approvalRequest.idempotency_ref,
     );
+    expect(prepareHeaders["X-UAA-Goal-Submission-Ref"]).toBe(
+      "submission-ref:goal-client-create",
+    );
     expect(decisionHeaders["X-UAA-Idempotency-Key"]).toBe(
       `idempotency-ref:goal-approval-decision:${approvalRequest.approval_request_ref}`,
     );
@@ -213,6 +217,7 @@ describe("proof-backed runtime goal mutations", () => {
         () => blockedClient.prepareRuntimeGoalMutationApproval(
           { operation: "create", goalRef: null, request },
           "idempotency-ref:goal-client-create",
+          "submission-ref:goal-client-create",
           binding,
         ),
         () => blockedClient.decideRuntimeGoalMutationApproval(

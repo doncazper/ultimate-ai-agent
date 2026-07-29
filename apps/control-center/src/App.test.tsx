@@ -68,6 +68,7 @@ import type {
   AuthorityLease,
   AuthorityLeaseReceipt,
   AuthorityMissionPlan,
+  RuntimeGoalCreateRequest,
   RuntimeGoalMutationApprovalRequestSpec,
   TrustAuthorityDomainCoverage,
 } from "./api/types";
@@ -9295,6 +9296,147 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
     },
   );
+
+  it("recovers the exact submission after approval prepare response loss and remount", async () => {
+    const prepareCalls: Array<{ body: string; headers: Headers }> = [];
+    let pendingRecovery:
+      | {
+          submissionRef: string;
+          idempotencyRef: string;
+          submissionEvidenceRef: string;
+          requestPayload: RuntimeGoalCreateRequest;
+        }
+      | null = null;
+    const runtimeRunEvents = () => ({
+      ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+      goal_mutation_submissions: {
+        ...cloneForTest(
+          mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        ),
+        records:
+          pendingRecovery === null
+            ? []
+            : [
+                {
+                  schema_version:
+                    "goal_mutation_submission_recovery.v1" as const,
+                  submission_ref: pendingRecovery.submissionRef,
+                  operation: "create" as const,
+                  goal_ref: null,
+                  request_payload: pendingRecovery.requestPayload,
+                  idempotency_ref: pendingRecovery.idempotencyRef,
+                  submission_evidence_ref:
+                    pendingRecovery.submissionEvidenceRef,
+                  request_fingerprint_ref:
+                    "request-fingerprint-ref:goal-mutation-submission:prepare-loss",
+                  recorded_at: "2026-07-28T00:00:00Z",
+                  status: "pending" as const,
+                  committed_goal_ref: null,
+                },
+              ],
+        pending_count: pendingRecovery === null ? 0 : 1,
+        committed_count: 0,
+      },
+    });
+    const fetchMock = vi.fn(
+      async (url: string | URL | Request, options?: RequestInit) => {
+        const urlText = String(url);
+        if (
+          options?.method === "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalPrepareCreate)
+        ) {
+          const headers = new Headers(options.headers);
+          const requestPayload = JSON.parse(
+            String(options.body),
+          ) as RuntimeGoalCreateRequest;
+          prepareCalls.push({
+            body: String(options.body),
+            headers,
+          });
+          pendingRecovery = {
+            submissionRef:
+              headers.get("X-UAA-Goal-Submission-Ref") ?? "",
+            idempotencyRef:
+              headers.get("X-UAA-Idempotency-Key") ?? "",
+            submissionEvidenceRef:
+              requestPayload.evidence_refs.find((ref) =>
+                ref.includes("goal-create-submission"),
+              ) ?? "",
+            requestPayload,
+          };
+          const response = runtimeGoalApprovalTestResponse(
+            urlText,
+            options,
+          );
+          expect(response).not.toBeNull();
+          if (prepareCalls.length === 1) {
+            throw new Error(
+              "approval prepare response was lost after durable submission",
+            );
+          }
+          return response as Response;
+        }
+        throw new Error(`unexpected request ${urlText}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const firstView = renderRuntimeGoalRecoveryPanel(
+      runtimeRunEvents() as typeof mockControlCenterData.runtimeRunEvents,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Objective")).toBeEnabled(),
+    );
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Create one durable goal." },
+    });
+    fireEvent.change(screen.getByLabelText("Desired outcome"), {
+      target: { value: "A proof-backed local goal exists." },
+    });
+    fireEvent.change(screen.getByLabelText("Success criterion"), {
+      target: { value: "The durable goal can be inspected." },
+    });
+    fireEvent.change(screen.getByLabelText("Stop condition"), {
+      target: { value: "Stop if persistence is unavailable." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    expect(
+      await screen.findByText(
+        "approval prepare response was lost after durable submission",
+      ),
+    ).toBeInTheDocument();
+    expect(prepareCalls).toHaveLength(1);
+    firstView.unmount();
+
+    renderRuntimeGoalRecoveryPanel(
+      runtimeRunEvents() as typeof mockControlCenterData.runtimeRunEvents,
+    );
+    expect(
+      await screen.findByText(
+        "Recovered an exact backend-owned pending goal submission; retry reuses its original request and identity.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Objective")).toHaveValue(
+      "Create one durable goal.",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    expect(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    ).toBeInTheDocument();
+    expect(prepareCalls).toHaveLength(2);
+    expect(prepareCalls[1]?.body).toBe(prepareCalls[0]?.body);
+    expect(
+      prepareCalls[1]?.headers.get("X-UAA-Idempotency-Key"),
+    ).toBe(prepareCalls[0]?.headers.get("X-UAA-Idempotency-Key"));
+    expect(
+      prepareCalls[1]?.headers.get("X-UAA-Goal-Submission-Ref"),
+    ).toBe(prepareCalls[0]?.headers.get("X-UAA-Goal-Submission-Ref"));
+  });
 
   it("keeps a mismatched denial uncertain and retries the exact durable decision", async () => {
     let decisionCallCount = 0;

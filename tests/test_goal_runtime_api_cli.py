@@ -129,16 +129,20 @@ def _api_approval_ref(
     request: dict[str, object],
     idempotency_ref: str,
     goal_ref: str | None = None,
+    submission_ref: str | None = None,
 ) -> str:
     endpoint = (
         "/api/runtime/goals/approval-requests/create"
         if operation == "create"
         else f"/api/runtime/goals/{goal_ref}/approval-requests/{operation}"
     )
+    headers = {"x-uaa-idempotency-key": idempotency_ref}
+    if submission_ref is not None:
+        headers["x-uaa-goal-submission-ref"] = submission_ref
     prepared = client.post(
         endpoint,
         json=request,
-        headers={"x-uaa-idempotency-key": idempotency_ref},
+        headers=headers,
     ).json()
     spec = prepared["data"]["approval_request"]
     decided = client.post(
@@ -244,6 +248,81 @@ def test_goal_approval_decision_and_revoke_bind_exact_idempotency_headers(
     assert revoked["data"]["approval_decision"]["status"] == "revoked"
 
 
+def test_goal_approval_prepare_persists_exact_submission_before_response(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, service = goal_runtime_client
+    submission_ref = (
+        "submission-ref:control-center-goal-mutation:prepare-response-loss"
+    )
+    idempotency_ref = "idempotency-ref:approval-prepare-response-loss"
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:"
+        + "a" * 64
+    )
+    payload = {
+        **_create_payload(),
+        "evidence_refs": [submission_evidence_ref],
+    }
+    headers = {
+        "x-uaa-idempotency-key": idempotency_ref,
+        "x-uaa-goal-submission-ref": submission_ref,
+    }
+
+    first = client.post(
+        "/api/runtime/goals/approval-requests/create",
+        json=payload,
+        headers=headers,
+    ).json()
+    assert first["success"] is True, json.dumps(first, sort_keys=True)
+    recovery = first["data"]["submission_recovery"]
+    assert recovery["submission_ref"] == submission_ref
+    assert recovery["idempotency_ref"] == idempotency_ref
+    assert recovery["submission_evidence_ref"] == submission_evidence_ref
+    assert recovery["request_payload"] == GoalCreateRequest.model_validate(
+        payload
+    ).model_dump(mode="json")
+
+    restarted = GoalRuntimeService(service.state_dir)
+    aggregate = restarted.aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=50,
+    )
+    [durable_recovery] = aggregate[4].records
+    assert durable_recovery.submission_ref == recovery["submission_ref"]
+    assert durable_recovery.operation == recovery["operation"]
+    assert durable_recovery.goal_ref == recovery["goal_ref"]
+    assert durable_recovery.request_payload == recovery["request_payload"]
+    assert durable_recovery.idempotency_ref == recovery["idempotency_ref"]
+    assert (
+        durable_recovery.submission_evidence_ref
+        == recovery["submission_evidence_ref"]
+    )
+    assert (
+        durable_recovery.request_fingerprint_ref
+        == recovery["request_fingerprint_ref"]
+    )
+    assert durable_recovery.status == "pending"
+
+    retried = client.post(
+        "/api/runtime/goals/approval-requests/create",
+        json=payload,
+        headers=headers,
+    ).json()
+    assert retried["success"] is True
+    assert (
+        retried["data"]["approval_request"]
+        == first["data"]["approval_request"]
+    )
+    assert retried["data"]["submission_recovery"] == recovery
+    assert GoalRuntimeService(service.state_dir).aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=50,
+    )[4].pending_count == 1
+
+
 def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
 ) -> None:
@@ -281,6 +360,7 @@ def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
         goal_ref=created["goal_ref"],
         request=edit_payload,
         idempotency_ref=edit_idempotency_ref,
+        submission_ref=submission_ref,
     )
     response = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/edit",
@@ -336,6 +416,9 @@ def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
         goal_ref=created["goal_ref"],
         request=corrected_payload,
         idempotency_ref=corrected_idempotency_ref,
+        submission_ref=(
+            "submission-ref:control-center-goal-mutation:api-corrected"
+        ),
     )
     corrected = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/edit",
@@ -899,6 +982,7 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
         goal_ref=goal["goal_ref"],
         request=blocked_completion_payload,
         idempotency_ref=blocked_completion_idempotency_ref,
+        submission_ref=blocked_submission_ref,
     )
     blocked_completion = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",

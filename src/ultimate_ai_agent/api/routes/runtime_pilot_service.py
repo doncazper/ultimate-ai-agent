@@ -144,6 +144,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalIdempotencyConflictError,
     GoalMutationApprovalDecisionRequest,
     GoalMutationApprovalRevokeRequest,
+    GoalMutationSubmissionOperation,
     GoalMutationSubmissionRecord,
     GoalNotFoundError,
     GoalRuntimeCorruptionError,
@@ -1175,13 +1176,34 @@ def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
 
 def _goal_mutation_approval_prepare_result(
     *,
-    operation: str,
+    operation: GoalMutationSubmissionOperation,
     goal_ref: str | None,
     request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
     idempotency_ref: str,
+    submission_ref: str | None,
 ) -> ResultEnvelope:
+    submission: GoalMutationSubmissionRecord | None = None
     try:
-        spec = _goal_runtime_service().prepare_goal_mutation_approval(
+        reserved_prefix = (
+            CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX
+            if operation == "create"
+            else CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX
+        )
+        if submission_ref is None and any(
+            ref.startswith(reserved_prefix)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        service = _goal_runtime_service()
+        if submission_ref is not None:
+            submission = service.record_goal_mutation_submission(
+                submission_ref=submission_ref,
+                operation=operation,
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        spec = service.prepare_goal_mutation_approval(
             operation=operation,
             goal_ref=goal_ref,
             request=request,
@@ -1205,6 +1227,11 @@ def _goal_mutation_approval_prepare_result(
         trace_id=spec.approval_request_ref,
         data={
             "approval_request": spec.model_dump(mode="json"),
+            "submission_recovery": (
+                submission.model_dump(mode="json")
+                if submission is not None
+                else None
+            ),
             "mutation_performed": False,
             "approval_granted": False,
         },
@@ -1224,6 +1251,9 @@ def post_api_runtime_goal_approval_prepare_create(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     return _goal_mutation_approval_prepare_result(
         operation="create",
@@ -1232,6 +1262,7 @@ def post_api_runtime_goal_approval_prepare_create(
         idempotency_ref=_idempotency_ref(
             x_uaa_idempotency_key, x_uaa_idempotency_ref
         ),
+        submission_ref=x_uaa_goal_submission_ref,
     )
 
 
@@ -1248,6 +1279,9 @@ def post_api_runtime_goal_approval_prepare_edit(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     return _goal_mutation_approval_prepare_result(
         operation="edit",
@@ -1256,6 +1290,7 @@ def post_api_runtime_goal_approval_prepare_edit(
         idempotency_ref=_idempotency_ref(
             x_uaa_idempotency_key, x_uaa_idempotency_ref
         ),
+        submission_ref=x_uaa_goal_submission_ref,
     )
 
 
@@ -1272,6 +1307,9 @@ def post_api_runtime_goal_approval_prepare_transition(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     return _goal_mutation_approval_prepare_result(
         operation="transition",
@@ -1280,6 +1318,7 @@ def post_api_runtime_goal_approval_prepare_transition(
         idempotency_ref=_idempotency_ref(
             x_uaa_idempotency_key, x_uaa_idempotency_ref
         ),
+        submission_ref=x_uaa_goal_submission_ref,
     )
 
 

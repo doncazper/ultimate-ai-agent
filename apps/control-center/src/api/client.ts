@@ -10005,10 +10005,17 @@ function isSafeRuntimeGoalMutationApprovalDecision(
 export async function prepareRuntimeGoalMutationApproval(
   material: RuntimeGoalMutationIdentityMaterial,
   idempotencyRef: string,
+  submissionRef: string,
   binding: BackendTruthReadBinding | null,
 ): Promise<RuntimeGoalMutationApprovalRequestSpec> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  if (
+    !isSafeTrustAuthorityRef(idempotencyRef) ||
+    !isSafeTrustAuthorityRef(submissionRef)
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_SUBMISSION_REF_INVALID");
   }
   const endpoint =
     material.operation === "create"
@@ -10025,6 +10032,7 @@ export async function prepareRuntimeGoalMutationApproval(
           Accept: "application/json",
           "Content-Type": "application/json",
           "X-UAA-Idempotency-Key": idempotencyRef,
+          "X-UAA-Goal-Submission-Ref": submissionRef,
         },
         binding,
       ),

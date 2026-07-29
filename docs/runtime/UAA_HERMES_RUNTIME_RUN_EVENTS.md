@@ -197,7 +197,24 @@ idempotency index, and projection reservations use a private `0700` state
 directory and `0600` files. Approval admission reserves the exact count and
 encoded-byte capacity needed to append a worst-case revocation for every usable
 grant, so the rollback path cannot be consumed by a later ledger append. The
-public service
+approval ledger has its own independently replaced head manifest binding the
+exact entry count, terminal entry hash, and current request-state set. Every
+approval append first installs a generic durable intent binding the old head,
+exact next entry, full next ledger image hash, and next head. Read-only
+surfaces fail closed while that intent is present; the next controlled
+mutation may finish only that exact precommitted generation. Unanchored
+one-entry-ahead ledgers, prefix rollback after revocation, mismatched intents,
+and replay of an intent against a later head are rejected.
+Control Center approval preparation supplies the exact submission ref and
+durably records the complete typed submission envelope before returning the
+approval request. A lost prepare response or process restart can therefore
+recover and retry the same request, idempotency ref, evidence ref, and
+submission ref; React state is not the recovery authority.
+Completion verification and deterministic completion-event reconciliation use
+the canonical approval, goal-journal, then run-event lock order. They validate
+the exact approval generation, goal-journal approval binding, and every
+retained or tombstoned event producer binding before consuming receipt evidence
+or recreating a completion projection. The public service
 exposes a read-only event facade; metadata event writes require one exact
 request-scoped local approval, while receipt and completion events remain
 trusted Core producer paths.
@@ -298,6 +315,11 @@ controlled worker-restart evidence, a second cancelled run, first-commit
 failure at every genesis persistence boundary, unanchored-journal rejection,
 one-ahead tombstone repair, cross-store snapshot serialization, absolute-path
 family rejection, criterion/cross-transaction provenance substitution, and
+approval-ledger append-intent crash recovery for first and later generations,
+unanchored approval-head rollback rejection, public-event producer
+reclassification rejection, approval-bound completion reconciliation across
+direct/runtime-projection/sync entry points, approval-prepare response-loss
+restart recovery,
 behavioral UI mutation lockout until authoritative refresh. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly

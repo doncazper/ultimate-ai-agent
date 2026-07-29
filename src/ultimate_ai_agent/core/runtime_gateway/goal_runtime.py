@@ -79,6 +79,8 @@ MAX_GOAL_MUTATION_REJECTION_TOMBSTONES = MAX_GOAL_JOURNAL_ENTRIES
 MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES = 16 * 1024 * 1024
 MAX_GOAL_MUTATION_APPROVAL_ENTRIES = 4096
 MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES = 16 * 1024 * 1024
+MAX_GOAL_MUTATION_APPROVAL_HEAD_BYTES = 64 * 1024
+MAX_GOAL_MUTATION_APPROVAL_APPEND_INTENT_BYTES = 128 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
@@ -5293,7 +5295,7 @@ class GoalRuntimeService:
     ]:
         """Read the event and goal projections from one canonical generation.
 
-        The lock order is always approvals, run-events, goal-journal, then
+        The lock order is always approvals, goal-journal, run-events, then
         submissions, matching the canonical writer dependency order. Missing
         first-generation lock files retain bounded optimistic-generation
         checks implemented by the non-mutating read lock.
@@ -5307,8 +5309,8 @@ class GoalRuntimeService:
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
-                    with self._events.consistent_read():
-                        with self.goals.consistent_read():
+                    with self.goals.consistent_read():
+                        with self._events.consistent_read():
                             with self._submissions.consistent_read():
                                 approval_entries = self._approvals._load_entries()
                                 events = self._events._load_events()
@@ -5762,13 +5764,7 @@ class GoalRuntimeService:
                     == GoalTransitionKind.verify_completion.value
                     and replayed.state == GoalState.verified_complete.value
                 ):
-                    with self._events.exclusive():
-                        self._append_verified_completion_event(
-                            replayed,
-                            approval_decision_ref=(
-                                committed_entry.approval_decision_ref
-                            ),
-                        )
+                    self.reconcile_durable_events()
                 return replayed, approval_binding
             self.reconcile_durable_events()
             replayed = self.goals.replay_transition(
@@ -5792,14 +5788,18 @@ class GoalRuntimeService:
                         raise GoalRuntimeCorruptionError(
                             "GOAL_TRANSITION_REPLAY_ENTRY_MISSING"
                         )
-                    with self._events.exclusive():
-                        self._append_verified_completion_event(
-                            replayed,
-                            approval_decision_ref=entry.approval_decision_ref,
-                        )
+                    self.reconcile_durable_events()
                 return replayed, approval_binding
             completion_verified = False
             evidence = validated.completion_evidence
+            journal_lock = (
+                _normalized_goal_runtime_lock(
+                    self.goals._locks,
+                    "goal-journal",
+                )
+                if evidence is not None
+                else nullcontext()
+            )
             event_lock = (
                 self._events.exclusive() if evidence is not None else nullcontext()
             )
@@ -5807,9 +5807,13 @@ class GoalRuntimeService:
             completion_criterion_verifier_bindings: list[
                 RuntimeCriterionVerificationBinding
             ] = []
-            with event_lock:
+            with journal_lock, event_lock:
                 if evidence is not None:
-                    current = self.goals.get(goal_ref)
+                    current = self.goals._latest_by_goal(  # noqa: SLF001
+                        self.goals._load_entries(repair_manifest=True)
+                    ).get(goal_ref)
+                    if current is None:
+                        raise GoalNotFoundError("GOAL_NOT_FOUND")
                     if evidence.goal_ref != goal_ref:
                         raise GoalTransitionDeniedError(
                             "GOAL_COMPLETION_GOAL_REF_MISMATCH"
@@ -5822,6 +5826,23 @@ class GoalRuntimeService:
                         raise GoalTransitionDeniedError(
                             "GOAL_COMPLETION_RUN_NOT_LINKED"
                         )
+                    approval_entries = self._approvals._load_entries()
+                    retained_events = self._events._load_events()
+                    retained_tombstones = (
+                        self._events._load_idempotency_tombstones(
+                            retained_events
+                        )
+                    )
+                    self._approvals.validate_event_provenance(
+                        approval_entries,
+                        [
+                            *retained_events,
+                            *(
+                                tombstone.event
+                                for tombstone in retained_tombstones.values()
+                            ),
+                        ],
+                    )
                     receipt_event = self._events.assert_completion_appendable(
                         run_ref=evidence.run_ref,
                         receipt_ref=evidence.receipt_ref,
@@ -5932,47 +5953,91 @@ class GoalRuntimeService:
                     )
             return goal, approval_binding
 
-    def _reconcile_verified_completion_events(self) -> None:
-        with self._events.exclusive():
-            for goal in self.goals.list(include_cleared=True):
-                completion_bound = all(
-                    value is not None
-                    for value in (
-                        goal.completion_run_ref,
-                        goal.completion_receipt_ref,
-                        goal.completion_proof_ref,
-                        goal.completion_evidence_ref,
-                        goal.completion_verifier_ref,
-                        goal.completion_source_goal_version,
-                    )
-                ) and (
-                    len(goal.completion_criterion_proof_refs)
-                    == len(goal.success_criteria)
-                    == len(goal.completion_criterion_verifier_bindings)
-                )
-                if (
-                    goal.state
-                    not in {
-                        GoalState.verified_complete.value,
-                        GoalState.cleared.value,
-                    }
-                    or not completion_bound
-                ):
-                    continue
-                verified_entry = self.goals.latest_verified_completion_entry(
-                    goal.goal_ref
-                )
-                self._append_verified_completion_event(
-                    verified_entry.goal,
-                    approval_decision_ref=verified_entry.approval_decision_ref,
-                )
-
-    def reconcile_durable_events(self) -> None:
-        """Repair deterministic journal-to-event projections on a mutating path."""
+    def _reconcile_verified_completion_events_approval_held(
+        self,
+        approval_entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> None:
+        """Repair completion projections under approval -> journal -> event locks."""
 
         with _normalized_goal_runtime_lock(self.goals._locks, "goal-journal"):
-            self.goals._load_entries(repair_manifest=True)
-        self._reconcile_verified_completion_events()
+            journal_entries = self.goals._load_entries(repair_manifest=True)
+            self._approvals.validate_goal_provenance(
+                approval_entries,
+                journal_entries,
+            )
+            latest_goals = self.goals._latest_by_goal(journal_entries)  # noqa: SLF001
+            previous_states: dict[str, str] = {}
+            verified_entries: dict[str, GoalJournalEntry] = {}
+            for entry in journal_entries:
+                if (
+                    previous_states.get(entry.goal_ref)
+                    == GoalState.complete_requested.value
+                    and entry.goal.state == GoalState.verified_complete.value
+                ):
+                    verified_entries[entry.goal_ref] = entry
+                previous_states[entry.goal_ref] = entry.goal.state
+
+            with self._events.exclusive():
+                events = self._events._load_events()
+                tombstones = self._events._load_idempotency_tombstones(events)
+                self._approvals.validate_event_provenance(
+                    approval_entries,
+                    [
+                        *events,
+                        *(item.event for item in tombstones.values()),
+                    ],
+                )
+                for goal in latest_goals.values():
+                    completion_bound = all(
+                        value is not None
+                        for value in (
+                            goal.completion_run_ref,
+                            goal.completion_receipt_ref,
+                            goal.completion_proof_ref,
+                            goal.completion_evidence_ref,
+                            goal.completion_verifier_ref,
+                            goal.completion_source_goal_version,
+                        )
+                    ) and (
+                        len(goal.completion_criterion_proof_refs)
+                        == len(goal.success_criteria)
+                        == len(goal.completion_criterion_verifier_bindings)
+                    )
+                    if (
+                        goal.state
+                        not in {
+                            GoalState.verified_complete.value,
+                            GoalState.cleared.value,
+                        }
+                        or not completion_bound
+                    ):
+                        continue
+                    verified_entry = verified_entries.get(goal.goal_ref)
+                    if verified_entry is None:
+                        raise GoalRuntimeCorruptionError(
+                            "GOAL_VERIFIED_COMPLETION_ENTRY_MISSING"
+                        )
+                    self._append_verified_completion_event(
+                        verified_entry.goal,
+                        approval_decision_ref=(
+                            verified_entry.approval_decision_ref
+                        ),
+                    )
+
+    def reconcile_durable_events(self) -> None:
+        """Repair journal projections under the canonical approval lock order."""
+
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self._approvals._locks,
+            "goal-approvals",
+        ):
+            approval_entries = self._approvals._load_entries(
+                repair_manifest=True
+            )
+            self._reconcile_verified_completion_events_approval_held(
+                approval_entries
+            )
 
     def _append_verified_completion_event(
         self,
@@ -6503,6 +6568,75 @@ class GoalMutationApprovalLedgerEntry(BaseModel):
         return self
 
 
+class GoalMutationApprovalHeadManifest(BaseModel):
+    """Independent anchor for the exact terminal approval-ledger generation."""
+
+    schema_version: Literal["goal_mutation_approval_head.v1"] = (
+        "goal_mutation_approval_head.v1"
+    )
+    entry_count: StrictInt = Field(
+        ge=1,
+        le=MAX_GOAL_MUTATION_APPROVAL_ENTRIES,
+    )
+    head_entry_hash_ref: str
+    request_state_set_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> "GoalMutationApprovalHeadManifest":
+        validate_execution_ref(self.head_entry_hash_ref, "head_entry_hash_ref")
+        validate_execution_ref(
+            self.request_state_set_hash_ref,
+            "request_state_set_hash_ref",
+        )
+        return self
+
+
+class GoalMutationApprovalAppendIntent(BaseModel):
+    """Durable precommit binding for one exact approval-ledger append."""
+
+    schema_version: Literal["goal_mutation_approval_append_intent.v1"] = (
+        "goal_mutation_approval_append_intent.v1"
+    )
+    previous_head_manifest: GoalMutationApprovalHeadManifest | None = None
+    next_entry: GoalMutationApprovalLedgerEntry
+    next_head_manifest: GoalMutationApprovalHeadManifest
+    ledger_content_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "GoalMutationApprovalAppendIntent":
+        validate_execution_ref(
+            self.ledger_content_hash_ref,
+            "ledger_content_hash_ref",
+        )
+        previous_count = (
+            self.previous_head_manifest.entry_count
+            if self.previous_head_manifest is not None
+            else 0
+        )
+        previous_hash = (
+            self.previous_head_manifest.head_entry_hash_ref
+            if self.previous_head_manifest is not None
+            else None
+        )
+        if (
+            self.next_entry.previous_entry_hash_ref != previous_hash
+            or self.next_head_manifest.entry_count != previous_count + 1
+            or self.next_head_manifest.head_entry_hash_ref
+            != self.next_entry.entry_hash_ref
+        ):
+            raise ValueError("GOAL_MUTATION_APPROVAL_APPEND_INTENT_INVALID")
+        if (
+            self.previous_head_manifest is None
+            and self.next_entry.status != "pending"
+        ):
+            raise ValueError("GOAL_MUTATION_APPROVAL_APPEND_INTENT_INVALID")
+        return self
+
+
 class GoalMutationApprovalDecisionRequest(BaseModel):
     decision: Literal["approve", "deny"]
     decision_reason_ref: str
@@ -6750,6 +6884,10 @@ class _GoalMutationApprovalStore:
     def __init__(self, state_dir: str | Path) -> None:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goal_mutation_approvals.jsonl"
+        self.head_path = self.state_dir / "goal_mutation_approvals_head.json"
+        self.append_intent_path = (
+            self.state_dir / "goal_mutation_approvals_append_intent.json"
+        )
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     @staticmethod
@@ -6758,7 +6896,12 @@ class _GoalMutationApprovalStore:
         payload.pop("entry_hash_ref", None)
         return _sha256_ref("entry-hash-ref:goal-mutation-approval", payload)
 
-    def _load_entries(self) -> list[GoalMutationApprovalLedgerEntry]:
+    def _load_entries(
+        self,
+        *,
+        repair_manifest: bool = False,
+    ) -> list[GoalMutationApprovalLedgerEntry]:
+        append_intent = self._load_append_intent()
         raw_content = _read_bounded_regular_utf8(
             self.path,
             max_bytes=MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES,
@@ -6767,7 +6910,30 @@ class _GoalMutationApprovalStore:
             corruption_error="GOAL_MUTATION_APPROVAL_LEDGER_CORRUPT",
         )
         if raw_content is None:
+            manifest = self._load_head_manifest()
+            if append_intent is not None:
+                if (
+                    append_intent.previous_head_manifest is not None
+                    or manifest is not None
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_MUTATION_APPROVAL_APPEND_INTENT_STATE_MISMATCH"
+                    )
+                if not repair_manifest:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_MUTATION_APPROVAL_APPEND_RECOVERY_REQUIRED"
+                    )
+                self._install_append_intent(append_intent)
+                return [append_intent.next_entry.model_copy(deep=True)]
+            if manifest is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_LEDGER_MISSING_WITH_HEAD"
+                )
             return []
+        if not raw_content.strip():
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_LEDGER_EMPTY_ROLLBACK"
+            )
         entries: list[GoalMutationApprovalLedgerEntry] = []
         previous: str | None = None
         latest: dict[str, GoalMutationApprovalLedgerEntry] = {}
@@ -6827,14 +6993,78 @@ class _GoalMutationApprovalStore:
                 "GOAL_MUTATION_APPROVAL_LEDGER_CORRUPT"
             ) from exc
         self._assert_revocation_capacity(entries)
-        return entries
+        manifest = self._load_head_manifest()
+        exact_manifest = self._build_head_manifest(entries)
+        if append_intent is None:
+            if manifest == exact_manifest:
+                return entries
+            code = (
+                "GOAL_MUTATION_APPROVAL_HEAD_MANIFEST_MISSING"
+                if manifest is None
+                else "GOAL_MUTATION_APPROVAL_HEAD_MANIFEST_MISMATCH"
+            )
+            raise GoalRuntimeCorruptionError(code)
+        if not repair_manifest:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_RECOVERY_REQUIRED"
+            )
+        previous_manifest = append_intent.previous_head_manifest
+        next_entries: list[GoalMutationApprovalLedgerEntry]
+        if manifest == previous_manifest and exact_manifest == previous_manifest:
+            next_entries = [*entries, append_intent.next_entry]
+        elif (
+            manifest == previous_manifest
+            and len(entries)
+            == (
+                previous_manifest.entry_count + 1
+                if previous_manifest is not None
+                else 1
+            )
+            and entries[-1] == append_intent.next_entry
+        ):
+            next_entries = entries
+        elif (
+            manifest == append_intent.next_head_manifest
+            and exact_manifest == append_intent.next_head_manifest
+            and entries[-1] == append_intent.next_entry
+        ):
+            next_entries = entries
+        elif (
+            manifest is None
+            and previous_manifest is None
+            and entries == [append_intent.next_entry]
+        ):
+            next_entries = entries
+        else:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_STATE_MISMATCH"
+            )
+        self._assert_revocation_capacity(next_entries)
+        if (
+            self._build_head_manifest(next_entries)
+            != append_intent.next_head_manifest
+            or self._ledger_content_hash(next_entries)
+            != append_intent.ledger_content_hash_ref
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_STATE_MISMATCH"
+            )
+        if entries != next_entries:
+            _atomic_write(self.path, self._ledger_content(next_entries))
+        self._write_head_manifest(append_intent.next_head_manifest)
+        self._delete_append_intent()
+        return [entry.model_copy(deep=True) for entry in next_entries]
 
     @contextmanager
     def consistent_read(self) -> Iterator[None]:
         with _nonmutating_goal_runtime_read_lock(
             self.state_dir / ".locks",
             "goal-approvals",
-            generation_paths=(self.path,),
+            generation_paths=(
+                self.path,
+                self.head_path,
+                self.append_intent_path,
+            ),
         ):
             yield
 
@@ -6875,8 +7105,7 @@ class _GoalMutationApprovalStore:
         entry = draft.model_copy(update={"entry_hash_ref": self._entry_hash(draft)})
         next_entries = [*entries, entry]
         self._assert_revocation_capacity(next_entries)
-        content = self._ledger_content(next_entries)
-        _atomic_write(self.path, content)
+        self._write_entries(next_entries)
         return entry.model_copy(deep=True)
 
     @staticmethod
@@ -6884,6 +7113,192 @@ class _GoalMutationApprovalStore:
         entries: Iterable[GoalMutationApprovalLedgerEntry],
     ) -> str:
         return "".join(entry.model_dump_json() + "\n" for entry in entries)
+
+    @classmethod
+    def _ledger_content_hash(
+        cls,
+        entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> str:
+        return _sha256_ref(
+            "ledger-content-hash-ref:goal-mutation-approvals",
+            cls._ledger_content(entries),
+        )
+
+    @staticmethod
+    def _build_head_manifest(
+        entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> GoalMutationApprovalHeadManifest:
+        if not entries:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_HEAD_MANIFEST_EMPTY"
+            )
+        latest: dict[str, GoalMutationApprovalLedgerEntry] = {}
+        for entry in entries:
+            latest[entry.spec.approval_request_ref] = entry
+        return GoalMutationApprovalHeadManifest(
+            entry_count=len(entries),
+            head_entry_hash_ref=entries[-1].entry_hash_ref,
+            request_state_set_hash_ref=_sha256_ref(
+                "request-state-set-hash-ref:goal-mutation-approvals",
+                sorted(
+                    (
+                        request_ref,
+                        entry.status,
+                        entry.entry_hash_ref,
+                    )
+                    for request_ref, entry in latest.items()
+                ),
+            ),
+        )
+
+    def _load_head_manifest(
+        self,
+    ) -> GoalMutationApprovalHeadManifest | None:
+        raw_content = _read_bounded_regular_utf8(
+            self.head_path,
+            max_bytes=MAX_GOAL_MUTATION_APPROVAL_HEAD_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_MUTATION_APPROVAL_HEAD_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_MUTATION_APPROVAL_HEAD_CORRUPT",
+        )
+        if raw_content is None:
+            return None
+        try:
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_HEAD_EMPTY"
+                )
+            return GoalMutationApprovalHeadManifest.model_validate_json(
+                raw_content
+            )
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_HEAD_CORRUPT"
+            ) from exc
+
+    def _load_append_intent(
+        self,
+    ) -> GoalMutationApprovalAppendIntent | None:
+        raw_content = _read_bounded_regular_utf8(
+            self.append_intent_path,
+            max_bytes=MAX_GOAL_MUTATION_APPROVAL_APPEND_INTENT_BYTES,
+            missing_ok=True,
+            capacity_error=(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_CAPACITY_EXCEEDED"
+            ),
+            corruption_error="GOAL_MUTATION_APPROVAL_APPEND_INTENT_CORRUPT",
+        )
+        if raw_content is None:
+            return None
+        try:
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_APPEND_INTENT_EMPTY"
+                )
+            intent = GoalMutationApprovalAppendIntent.model_validate_json(
+                raw_content
+            )
+            if intent.next_entry.entry_hash_ref != self._entry_hash(
+                intent.next_entry
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_MUTATION_APPROVAL_APPEND_INTENT_MISMATCH"
+                )
+            return intent
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_CORRUPT"
+            ) from exc
+
+    def _write_head_manifest(
+        self,
+        manifest: GoalMutationApprovalHeadManifest,
+    ) -> None:
+        content = manifest.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_APPROVAL_HEAD_BYTES:
+            raise GoalRuntimeError(
+                "GOAL_MUTATION_APPROVAL_HEAD_CAPACITY_EXCEEDED"
+            )
+        _atomic_write(self.head_path, content)
+
+    def _write_append_intent(
+        self,
+        intent: GoalMutationApprovalAppendIntent,
+    ) -> None:
+        content = intent.model_dump_json() + "\n"
+        if (
+            len(content.encode("utf-8"))
+            > MAX_GOAL_MUTATION_APPROVAL_APPEND_INTENT_BYTES
+        ):
+            raise GoalRuntimeError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_CAPACITY_EXCEEDED"
+            )
+        _atomic_write(self.append_intent_path, content)
+
+    def _delete_append_intent(self) -> None:
+        try:
+            self.append_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+    def _install_append_intent(
+        self,
+        intent: GoalMutationApprovalAppendIntent,
+    ) -> None:
+        if intent.previous_head_manifest is not None:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_STATE_MISMATCH"
+            )
+        entries = [intent.next_entry]
+        if (
+            self._build_head_manifest(entries) != intent.next_head_manifest
+            or self._ledger_content_hash(entries)
+            != intent.ledger_content_hash_ref
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_STATE_MISMATCH"
+            )
+        _atomic_write(self.path, self._ledger_content(entries))
+        self._write_head_manifest(intent.next_head_manifest)
+        self._delete_append_intent()
+
+    def _write_entries(
+        self,
+        entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> None:
+        content = self._ledger_content(entries)
+        if (
+            len(entries) > MAX_GOAL_MUTATION_APPROVAL_ENTRIES
+            or len(content.encode("utf-8"))
+            > MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES
+        ):
+            raise GoalRuntimeError(
+                "GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED"
+            )
+        if not entries:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_LEDGER_EMPTY"
+            )
+        previous_entries = entries[:-1]
+        previous_manifest = (
+            self._build_head_manifest(previous_entries)
+            if previous_entries
+            else None
+        )
+        intent = GoalMutationApprovalAppendIntent(
+            previous_head_manifest=previous_manifest,
+            next_entry=entries[-1],
+            next_head_manifest=self._build_head_manifest(entries),
+            ledger_content_hash_ref=self._ledger_content_hash(entries),
+        )
+        self._write_append_intent(intent)
+        _atomic_write(self.path, content)
+        self._write_head_manifest(intent.next_head_manifest)
+        self._delete_append_intent()
 
     @classmethod
     def _maximum_revocation_entry(
@@ -7209,35 +7624,26 @@ class _GoalMutationApprovalStore:
                 continue
             seen.add(event.event_ref)
             request_payload = _DurableRunEventStore._event_request_payload(event)
-            expected_fingerprint = _goal_mutation_approval_request_fingerprint_ref(
-                operation="append-run-event",
-                subject_ref=event.run_ref,
-                request_payload=request_payload,
-                idempotency_ref=event.idempotency_ref,
-            )
-            exact_approved_entries = [
+            scoped_approval_entries = [
                 entry
                 for entry in entries
                 if entry.status == "approved"
                 and entry.spec.operation == "append-run-event"
                 and entry.spec.subject_ref == event.run_ref
                 and entry.spec.idempotency_ref == event.idempotency_ref
-                and entry.spec.request_fingerprint_ref == expected_fingerprint
-                and entry.spec.mutation_request_fingerprint_ref
-                == _mutation_request_fingerprint_ref(
-                    operation="append-run-event",
-                    subject_ref=event.run_ref,
-                    request_payload=request_payload,
-                )
             ]
             if event.schema_version == "durable_run_event.v1":
                 # Public metadata append did not exist in the v1 event epoch.
                 # The model rejects producer/approval fields on this legacy
                 # schema, so it remains a bounded trusted-Core compatibility
                 # record rather than an authority-bearing public event.
+                if scoped_approval_entries:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION"
+                    )
                 continue
             if event.producer_class == "trusted_core":
-                if exact_approved_entries:
+                if scoped_approval_entries:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION"
                     )
@@ -7329,7 +7735,7 @@ class _GoalMutationApprovalStore:
         validate_execution_ref(approval_ref, "approval_ref")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             committed_entry = committed_lookup()
             if committed_entry is not None:
                 binding = self._validated_committed_goal_binding(
@@ -7370,7 +7776,7 @@ class _GoalMutationApprovalStore:
         request_payload = request.model_dump(mode="json")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             committed_event = committed_lookup()
             if committed_event is not None:
                 binding = self._validated_committed_event_binding(
@@ -7410,7 +7816,7 @@ class _GoalMutationApprovalStore:
             raise ValueError("GOAL_MUTATION_APPROVAL_TTL_INVALID")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             now = utc_now()
             provisional = build_exact_goal_mutation_approval_request_spec(
                 operation=operation,
@@ -7462,7 +7868,7 @@ class _GoalMutationApprovalStore:
         validate_execution_ref(actor_ref, "actor_ref")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             current = self._latest(
                 entries,
                 approval_request_ref=approval_request_ref,
@@ -7529,7 +7935,7 @@ class _GoalMutationApprovalStore:
         validate_execution_ref(actor_ref, "actor_ref")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             current = self._latest(entries, approval_ref=approval_ref)
             if current is None:
                 raise GoalNotFoundError("GOAL_MUTATION_APPROVAL_REQUEST_NOT_FOUND")
@@ -7579,7 +7985,7 @@ class _GoalMutationApprovalStore:
         validate_execution_ref(approval_ref, "approval_ref")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
-            entries = self._load_entries()
+            entries = self._load_entries(repair_manifest=True)
             yield self._validated_current_binding(
                 entries,
                 approval_ref=approval_ref,

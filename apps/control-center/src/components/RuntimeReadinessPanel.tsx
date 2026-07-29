@@ -591,6 +591,7 @@ export function RuntimeReadinessPanel({
               request: pending.request,
             },
       pending.idempotencyRef,
+      pending.submissionRef,
       mutationBinding,
     );
     return {
