@@ -94,6 +94,10 @@ export const API_ENDPOINTS = {
   runtimeCapabilityDiscovery: "/api/runtime/capability-discovery",
   runtimeRunEvents: "/api/runtime/run-events",
   runtimeGoals: "/api/runtime/goals",
+  runtimeGoalApprovalPrepareCreate:
+    "/api/runtime/goals/approval-requests/create",
+  runtimeGoalApprovalRevoke:
+    "/api/runtime/goals/approval-requests/revoke",
   runtimeApprovalBridge: "/api/runtime/approval-bridge",
   runtimeStreamingProgress: "/api/runtime/streaming-progress",
   runtimeProfiles: "/api/runtime/profiles",
@@ -218,6 +222,19 @@ export function runtimeGoalTransitionEndpoint(goalRef: string): string {
   return `${runtimeGoalEndpoint(goalRef)}/transition`;
 }
 
+export function runtimeGoalApprovalPrepareEndpoint(
+  operation: "edit" | "transition",
+  goalRef: string,
+): string {
+  return `${runtimeGoalEndpoint(goalRef)}/approval-requests/${operation}`;
+}
+
+export function runtimeGoalApprovalDecisionEndpoint(
+  approvalRequestRef: string,
+): string {
+  return `/api/runtime/goals/approval-requests/${encodeURIComponent(approvalRequestRef)}/decision`;
+}
+
 export function isActionDecisionEndpoint(endpoint: string): boolean {
   return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
     endpoint,
@@ -304,6 +321,8 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeCapabilityDiscovery,
   API_ENDPOINTS.runtimeRunEvents,
   API_ENDPOINTS.runtimeGoals,
+  API_ENDPOINTS.runtimeGoalApprovalPrepareCreate,
+  API_ENDPOINTS.runtimeGoalApprovalRevoke,
   API_ENDPOINTS.runtimeApprovalBridge,
   API_ENDPOINTS.runtimeStreamingProgress,
   API_ENDPOINTS.runtimeProfiles,

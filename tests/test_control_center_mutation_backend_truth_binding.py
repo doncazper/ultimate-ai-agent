@@ -13,6 +13,9 @@ from ultimate_ai_agent.core.control_center.backend_truth import (
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 from ultimate_ai_agent.core.time import utc_now
+from ultimate_ai_agent.core.runtime_gateway import (
+    build_goal_mutation_approval_decision_idempotency_ref,
+)
 
 
 SHA = "7" * 40
@@ -110,21 +113,53 @@ def test_exact_browser_goal_binding_reaches_goal_route(
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
     monkeypatch.setenv("UAA_GOAL_RUNTIME_STATE_DIR", str(tmp_path / "goals"))
 
-    response = TestClient(app).post(
-        "/api/runtime/goals",
+    client = TestClient(app)
+    payload = {
+        "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+        "objective": "Verify exact browser provenance.",
+        "desired_outcome": "One bounded local goal record.",
+        "success_criteria": ["The exact provenance binding is current."],
+        "constraints": ["No runtime execution."],
+        "in_scope_resource_refs": ["resource-ref:browser-goal-binding"],
+        "stop_condition": "Stop on provenance disagreement.",
+    }
+    mutation_headers = {
+        **_bound_headers(tmp_path),
+        "X-UAA-Idempotency-Key": "idempotency-ref:browser-goal-binding",
+    }
+    prepared = client.post(
+        "/api/runtime/goals/approval-requests/create",
+        headers=mutation_headers,
+        json=payload,
+    ).json()
+    spec = prepared["data"]["approval_request"]
+    decided = client.post(
+        (
+            "/api/runtime/goals/approval-requests/"
+            f"{spec['approval_request_ref']}/decision"
+        ),
         headers={
             **_bound_headers(tmp_path),
-            "X-UAA-Idempotency-Key": "idempotency-ref:browser-goal-binding",
+            "X-UAA-Idempotency-Key": (
+                build_goal_mutation_approval_decision_idempotency_ref(
+                    spec["approval_request_ref"]
+                )
+            ),
         },
         json={
-            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
-            "objective": "Verify exact browser provenance.",
-            "desired_outcome": "One bounded local goal record.",
-            "success_criteria": ["The exact provenance binding is current."],
-            "constraints": ["No runtime execution."],
-            "in_scope_resource_refs": ["resource-ref:browser-goal-binding"],
-            "stop_condition": "Stop on provenance disagreement.",
+            "decision": "approve",
+            "decision_reason_ref": "reason-ref:browser-goal-binding",
         },
+    )
+    assert decided.status_code != 409
+    assert decided.json()["success"] is True
+    response = client.post(
+        "/api/runtime/goals",
+        headers={
+            **mutation_headers,
+            "X-UAA-Goal-Approval-Ref": spec["approval_ref"],
+        },
+        json=payload,
     )
 
     assert response.status_code != 409
@@ -206,6 +241,14 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/memory/review/candidate-ref/forget-request",
         "/control-center/memory/context-packs/context-pack-ref/action-proposal",
         "/api/runtime/goals",
+        "/api/runtime/goals/approval-requests/create",
+        "/api/runtime/goals/approval-requests/revoke",
+        (
+            "/api/runtime/goals/approval-requests/"
+            "approval-request-ref:browser/decision"
+        ),
+        "/api/runtime/goals/goal-ref/approval-requests/edit",
+        "/api/runtime/goals/goal-ref/approval-requests/transition",
         "/api/runtime/goals/goal-ref/edit",
         "/api/runtime/goals/goal-ref/transition",
     ],

@@ -14015,16 +14015,18 @@ export interface RuntimeGoalCreateRequest {
 
 export interface RuntimeGoalEditRequest {
   expected_version: number;
-  text_redaction_posture?: "operator_authored_redacted_summary_only";
-  objective?: string;
-  desired_outcome?: string;
-  success_criteria?: string[];
-  constraints?: string[];
-  in_scope_resource_refs?: string[];
-  stop_condition?: string;
-  budget?: RuntimePersistentGoal["budget"];
-  links?: RuntimePersistentGoal["links"];
-  evidence_refs?: string[];
+  text_redaction_posture?:
+    | "operator_authored_redacted_summary_only"
+    | null;
+  objective?: string | null;
+  desired_outcome?: string | null;
+  success_criteria?: string[] | null;
+  constraints?: string[] | null;
+  in_scope_resource_refs?: string[] | null;
+  stop_condition?: string | null;
+  budget?: RuntimePersistentGoal["budget"] | null;
+  links?: RuntimePersistentGoal["links"] | null;
+  evidence_refs?: string[] | null;
 }
 
 export type RuntimeGoalTransitionKind =
@@ -14035,13 +14037,26 @@ export type RuntimeGoalTransitionKind =
   | "cancel"
   | "clear"
   | "restore"
-  | "request_completion";
+  | "request_completion"
+  | "verify_completion";
+
+export interface RuntimeGoalCompletionEvidence {
+  goal_ref: string;
+  goal_version: number;
+  run_ref: string;
+  receipt_ref: string;
+  proof_ref: string;
+  criterion_proof_refs: string[];
+  evidence_ref: string;
+  verifier_ref: string;
+}
 
 export interface RuntimeGoalTransitionRequest {
   expected_version: number;
   transition: RuntimeGoalTransitionKind;
   reason_ref: string;
-  evidence_refs?: string[];
+  evidence_refs?: string[] | null;
+  completion_evidence?: RuntimeGoalCompletionEvidence | null;
 }
 
 export interface RuntimeGoalMutationApprovalBinding {
@@ -14049,11 +14064,37 @@ export interface RuntimeGoalMutationApprovalBinding {
   approval_ref: string;
   approval_request_ref: string;
   approval_decision_ref: string;
+  approval_ledger_entry_hash_ref: string;
   exact_scope_ref: string;
   request_fingerprint_ref: string;
   operator_actor_ref: string;
   approval_validated: boolean;
   standing_authority_granted: boolean;
+}
+
+export interface RuntimeGoalMutationApprovalRequestSpec {
+  schema_version: "goal_mutation_approval_request.v1";
+  operation: string;
+  subject_ref: string;
+  idempotency_ref: string;
+  request_fingerprint_ref: string;
+  exact_scope_ref: string;
+  approval_request_ref: string;
+  approval_ref: string;
+  operator_actor_ref: "operator-ref:local-user";
+  requested_at: string;
+  expires_at: string;
+}
+
+export interface RuntimeGoalMutationApprovalDecision {
+  schema_version: "goal_mutation_approval_ledger.v1";
+  spec: RuntimeGoalMutationApprovalRequestSpec;
+  status: "pending" | "approved" | "denied" | "revoked";
+  decision_reason_ref?: string | null;
+  decision_actor_ref?: string | null;
+  decided_at?: string | null;
+  previous_entry_hash_ref?: string | null;
+  entry_hash_ref: string;
 }
 
 export interface RuntimeGoalMutationResult {

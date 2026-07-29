@@ -45,10 +45,13 @@ import type {
 } from "../api/types";
 import {
   createRuntimeGoal,
+  decideRuntimeGoalMutationApproval,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
   isRuntimeGoalMutationValidationError,
   prepareRuntimeGoalCreateSubmission,
+  prepareRuntimeGoalMutationApproval,
+  revokeRuntimeGoalMutationApproval,
   prepareRuntimeGoalUpdateSubmission,
   transitionRuntimeGoal,
 } from "../api/client";
@@ -63,6 +66,9 @@ type PendingGoalMutation =
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
+      approvalRequestRef: string | null;
+      approvalRef: string | null;
+      approvalStatus: "pending" | "approved" | null;
     }
   | {
       operation: "edit";
@@ -71,6 +77,9 @@ type PendingGoalMutation =
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
+      approvalRequestRef: string | null;
+      approvalRef: string | null;
+      approvalStatus: "pending" | "approved" | null;
     }
   | {
       operation: "transition";
@@ -79,6 +88,9 @@ type PendingGoalMutation =
       idempotencyRef: string;
       submissionEvidenceRef: string;
       submissionRef: string;
+      approvalRequestRef: string | null;
+      approvalRef: string | null;
+      approvalStatus: "pending" | "approved" | null;
     };
 
 function terminalSubmissionMatchesPending(
@@ -215,6 +227,9 @@ export function RuntimeReadinessPanel({
               idempotencyRef: record.idempotency_ref,
               submissionEvidenceRef: record.submission_evidence_ref,
               submissionRef: record.submission_ref,
+              approvalRequestRef: null,
+              approvalRef: null,
+              approvalStatus: null,
             }
           : record.operation === "edit"
             ? {
@@ -224,6 +239,9 @@ export function RuntimeReadinessPanel({
                 idempotencyRef: record.idempotency_ref,
                 submissionEvidenceRef: record.submission_evidence_ref,
                 submissionRef: record.submission_ref,
+                approvalRequestRef: null,
+                approvalRef: null,
+                approvalStatus: null,
               }
             : {
                 operation: "transition" as const,
@@ -233,6 +251,9 @@ export function RuntimeReadinessPanel({
                 idempotencyRef: record.idempotency_ref,
                 submissionEvidenceRef: record.submission_evidence_ref,
                 submissionRef: record.submission_ref,
+                approvalRequestRef: null,
+                approvalRef: null,
+                approvalStatus: null,
               };
       setPendingGoalMutation(recovered);
       if (record.operation === "create") {
@@ -509,6 +530,41 @@ export function RuntimeReadinessPanel({
     setSelectedGoalRef(goal.goal_ref);
   }
 
+  async function stageGoalMutationApproval(
+    pending: PendingGoalMutation,
+  ): Promise<PendingGoalMutation> {
+    if (mutationBinding === null) {
+      throw new Error("Goal mutation approval requires current backend truth.");
+    }
+    const spec = await prepareRuntimeGoalMutationApproval(
+      pending.operation === "create"
+        ? {
+            operation: "create",
+            goalRef: null,
+            request: pending.request,
+          }
+        : pending.operation === "edit"
+          ? {
+              operation: "edit",
+              goalRef: pending.goalRef,
+              request: pending.request,
+            }
+          : {
+              operation: "transition",
+              goalRef: pending.goalRef,
+              request: pending.request,
+            },
+      pending.idempotencyRef,
+      mutationBinding,
+    );
+    return {
+      ...pending,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: "pending",
+    };
+  }
+
   async function createGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!createMutationReady || mutationBinding === null) {
@@ -548,34 +604,16 @@ export function RuntimeReadinessPanel({
           : await prepareRuntimeGoalCreateSubmission(
               request,
             );
-      setPendingGoalMutation({
+      const staged = await stageGoalMutationApproval({
         operation: "create",
         ...submission,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
       });
-      const result = await createRuntimeGoal(
-        submission.request,
-        submission.idempotencyRef,
-        mutationBinding,
-        submission.submissionRef,
-      );
-      setPendingGoalMutation(null);
-      applyGoalSnapshot(result.goal);
-      setSelectedGoalRef(result.goal.goal_ref);
-      setGoalObjective("");
-      setGoalOutcome("");
-      setGoalSuccessCriterion("");
-      setGoalStopCondition("");
-      try {
-        await refreshGoalState(null);
-      } catch {
-        setGoalNotice(
-          "Goal creation was accepted, but the authoritative refresh failed. " +
-            "The accepted backend snapshot remains visible.",
-        );
-        return;
-      }
+      setPendingGoalMutation(staged);
       setGoalNotice(
-        `Goal created at version ${result.goal.version}; no runtime work was started.`,
+        "Exact goal creation is prepared and awaits an explicit operator approval.",
       );
     } catch (error) {
       if (isRuntimeGoalMutationValidationError(error)) {
@@ -621,31 +659,18 @@ export function RuntimeReadinessPanel({
                 evidence_refs: [],
               },
             );
-      setPendingGoalMutation({
+      const staged = await stageGoalMutationApproval({
         operation: "edit",
         goalRef: selectedGoal.goal_ref,
         ...submission,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
       });
-      const result = await editRuntimeGoal(
-        selectedGoal.goal_ref,
-        submission.request,
-        submission.idempotencyRef,
-        mutationBinding,
-        submission.submissionRef,
+      setPendingGoalMutation(staged);
+      setGoalNotice(
+        "The exact goal edit is prepared and awaits an explicit operator approval.",
       );
-      setPendingGoalMutation(null);
-      applyGoalSnapshot(result.goal);
-      setEditedObjective("");
-      try {
-        await refreshGoalState(null);
-      } catch {
-        setGoalNotice(
-          `Goal objective was accepted at version ${result.goal.version}, ` +
-            "but the authoritative refresh failed. The accepted snapshot remains visible.",
-        );
-        return;
-      }
-      setGoalNotice(`Goal objective saved at version ${result.goal.version}.`);
     } catch (error) {
       if (isRuntimeGoalMutationValidationError(error)) {
         setPendingGoalMutation(null);
@@ -697,32 +722,18 @@ export function RuntimeReadinessPanel({
               selectedGoal.goal_ref,
               request,
             );
-      setPendingGoalMutation({
+      const staged = await stageGoalMutationApproval({
         operation: "transition",
         goalRef: selectedGoal.goal_ref,
         ...submission,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
       });
-      const result = await transitionRuntimeGoal(
-        selectedGoal.goal_ref,
-        submission.request,
-        submission.idempotencyRef,
-        mutationBinding,
-        submission.submissionRef,
-      );
-      setPendingGoalMutation(null);
-      applyGoalSnapshot(result.goal);
-      try {
-        await refreshGoalState(null);
-      } catch {
-        setGoalNotice(
-          `Goal moved to ${result.goal.state} at version ${result.goal.version}, ` +
-            "but the authoritative refresh failed. The accepted snapshot remains visible.",
-        );
-        return;
-      }
       setGoalNotice(
-        `Goal moved to ${result.goal.state} at version ${result.goal.version}.`,
+        "The exact goal transition is prepared and awaits an explicit operator approval.",
       );
+      setPendingGoalMutation(staged);
     } catch (error) {
       if (isRuntimeGoalMutationValidationError(error)) {
         setPendingGoalMutation(null);
@@ -734,6 +745,165 @@ export function RuntimeReadinessPanel({
         error instanceof Error
           ? error.message
           : "Goal transition failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function approveAndSubmitPendingGoalMutation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalRequestRef === null ||
+      pendingGoalMutation.approvalRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice(
+        "No exact prepared goal mutation is available for approval.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    const approvedPending: PendingGoalMutation = {
+      ...pendingGoalMutation,
+      approvalStatus: "approved",
+    };
+    try {
+      if (pendingGoalMutation.approvalStatus !== "approved") {
+        await decideRuntimeGoalMutationApproval(
+          pendingGoalMutation.approvalRequestRef,
+          "approve",
+          "reason-ref:control-center-goal-mutation-explicit-approval",
+          mutationBinding,
+        );
+      }
+      setPendingGoalMutation(approvedPending);
+      const result =
+        approvedPending.operation === "create"
+          ? await createRuntimeGoal(
+              approvedPending.request,
+              approvedPending.idempotencyRef,
+              approvedPending.approvalRef as string,
+              mutationBinding,
+              approvedPending.submissionRef,
+            )
+          : approvedPending.operation === "edit"
+            ? await editRuntimeGoal(
+                approvedPending.goalRef,
+                approvedPending.request,
+                approvedPending.idempotencyRef,
+                approvedPending.approvalRef as string,
+                mutationBinding,
+                approvedPending.submissionRef,
+              )
+            : await transitionRuntimeGoal(
+                approvedPending.goalRef,
+                approvedPending.request,
+                approvedPending.idempotencyRef,
+                approvedPending.approvalRef as string,
+                mutationBinding,
+                approvedPending.submissionRef,
+              );
+      setPendingGoalMutation(null);
+      applyGoalSnapshot(result.goal);
+      if (approvedPending.operation === "create") {
+        setGoalObjective("");
+        setGoalOutcome("");
+        setGoalSuccessCriterion("");
+        setGoalStopCondition("");
+      } else if (approvedPending.operation === "edit") {
+        setEditedObjective("");
+      }
+      try {
+        await refreshGoalState(null);
+      } catch {
+        setGoalNotice(
+          "The exact mutation was accepted, but authoritative refresh failed. " +
+            "The accepted backend snapshot remains visible.",
+        );
+        return;
+      }
+      setGoalNotice(
+        `The exact approved goal mutation committed at version ${result.goal.version}.`,
+      );
+    } catch (error) {
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setPendingGoalMutation(approvedPending);
+        setGoalReadCurrent(false);
+      }
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact approved goal mutation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function denyPendingGoalMutation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalRequestRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice("No exact prepared goal mutation is available to deny.");
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      await decideRuntimeGoalMutationApproval(
+        pendingGoalMutation.approvalRequestRef,
+        "deny",
+        "reason-ref:control-center-goal-mutation-explicit-denial",
+        mutationBinding,
+      );
+      setPendingGoalMutation(null);
+      setGoalNotice(
+        "The exact goal mutation approval was denied; no goal mutation ran.",
+      );
+    } catch (error) {
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact goal mutation denial failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function revokePendingGoalMutationApproval() {
+    if (
+      pendingGoalMutation?.approvalStatus !== "approved" ||
+      pendingGoalMutation.approvalRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice("No exact approved goal mutation is available to revoke.");
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      await revokeRuntimeGoalMutationApproval(
+        pendingGoalMutation.approvalRef,
+        "reason-ref:control-center-goal-mutation-explicit-revocation",
+        mutationBinding,
+      );
+      setPendingGoalMutation(null);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        "The exact goal mutation approval was revoked. Refresh durable goal state before preparing another mutation.",
+      );
+    } catch (error) {
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact goal mutation approval revocation failed safely.",
       );
     } finally {
       setGoalMutationBusy(false);
@@ -4596,6 +4766,52 @@ export function RuntimeReadinessPanel({
             </button>
           ))}
         </div>
+        {pendingGoalMutation?.approvalStatus === "pending" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              Review the exact prepared {pendingGoalMutation.operation} request.
+              Approval is request-scoped, expires, and grants no standing
+              authority.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Approve and submit exact mutation
+            </button>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={denyPendingGoalMutation}
+            >
+              Deny exact mutation
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "approved" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact approval is retained while the mutation outcome remains
+              ambiguous. Refresh durable state or revoke this request-scoped
+              approval before preparing a different mutation.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Retry exact approved mutation
+            </button>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={revokePendingGoalMutationApproval}
+            >
+              Revoke exact mutation approval
+            </button>
+          </div>
+        ) : null}
         <p className="form-message" role="status">
           {goalNotice}
         </p>

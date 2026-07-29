@@ -1,9 +1,9 @@
 {
   "control_center_route_count": 172,
-  "fingerprint": "api-contract-fingerprint:sha256:c8716eb433859bfa8cd779f214569c60b691a9437fb66ce989510334219c4865",
+  "fingerprint": "api-contract-fingerprint:sha256:da9ff2147f5a9b0738bfa01aed2d702c5c8c7c450b515e0af35fbd10f8f793d7",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 114,
-  "openapi_path_count": 341,
+  "mutating_route_count": 119,
+  "openapi_path_count": 346,
   "projection_fields": [
     "path",
     "method",
@@ -25,16 +25,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 229,
-    "required_before_mutation_authority": 114
+    "required_before_mutation_authority": 119
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 340,
+    "protected_local_bearer_required": 345,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
     "local_sensitive": 197,
-    "mutating_requires_authority": 114,
+    "mutating_requires_authority": 119,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 343,
+  "route_count": 348,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 229,
-    "required_before_mutation_authority": 114
+    "required_before_mutation_authority": 119
   },
-  "route_operation_count": 343,
+  "route_operation_count": 348,
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 201,
-    "targeted_local_fixed_window": 142
+    "targeted_local_fixed_window": 147
   },
   "routes": [
     {
@@ -575,6 +575,66 @@
       ]
     },
     {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_goals_approval_requests_create",
+      "path": "/api/runtime/goals/approval-requests/create",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime goals approval requests create",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_goals_approval_requests_revoke",
+      "path": "/api/runtime/goals/approval-requests/revoke",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime goals approval requests revoke",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_goals_approval_requests_approval_request_ref_decision",
+      "path": "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime goals approval requests approval request ref decision",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
       "approval_posture": "not_required_for_route_classification",
       "auth_posture": "protected_local_bearer_required",
       "idempotency_policy_ref": null,
@@ -590,6 +650,46 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Get api runtime goals goal ref",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_goals_goal_ref_approval_requests_edit",
+      "path": "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime goals goal ref approval requests edit",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_goals_goal_ref_approval_requests_transition",
+      "path": "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime goals goal ref approval requests transition",
       "tags": [
         "governed-runtime"
       ]
@@ -6920,5 +7020,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 142
+  "targeted_rate_limit_route_count": 147
 }

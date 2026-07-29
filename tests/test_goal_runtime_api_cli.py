@@ -16,6 +16,7 @@ from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.api.routes import runtime_pilot_service
+from ultimate_ai_agent.core.runtime_gateway import goal_runtime as goal_runtime_module
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
     DurableCriterionVerifierBinding,
@@ -31,7 +32,6 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     PersistentGoal,
     build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
-    capture_exact_goal_mutation_approval,
 )
 
 
@@ -100,30 +100,195 @@ def _create_payload() -> dict[str, object]:
     }
 
 
+def _approved_mutation_ref(
+    service: GoalRuntimeService,
+    *,
+    operation: str,
+    goal_ref: str | None,
+    request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest | DurableRunEventAppendRequest,
+    idempotency_ref: str,
+) -> str:
+    spec = service.prepare_goal_mutation_approval(
+        operation=operation,
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    service.decide_goal_mutation_approval(
+        approval_request_ref=spec.approval_request_ref,
+        decision="approve",
+        decision_reason_ref="reason-ref:test-explicit-goal-mutation-approval",
+    )
+    return spec.approval_ref
+
+
+def _api_approval_ref(
+    client: TestClient,
+    *,
+    operation: str,
+    request: dict[str, object],
+    idempotency_ref: str,
+    goal_ref: str | None = None,
+) -> str:
+    endpoint = (
+        "/api/runtime/goals/approval-requests/create"
+        if operation == "create"
+        else f"/api/runtime/goals/{goal_ref}/approval-requests/{operation}"
+    )
+    prepared = client.post(
+        endpoint,
+        json=request,
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+    ).json()
+    spec = prepared["data"]["approval_request"]
+    decided = client.post(
+        (
+            "/api/runtime/goals/approval-requests/"
+            f"{spec['approval_request_ref']}/decision"
+        ),
+        json={
+            "decision": "approve",
+            "decision_reason_ref": "reason-ref:test-explicit-goal-mutation-approval",
+        },
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:goal-approval-decision:"
+                f"{spec['approval_request_ref']}"
+            )
+        },
+    ).json()
+    assert decided.get("success") is True, decided
+    return str(spec["approval_ref"])
+
+
+def test_goal_approval_decision_and_revoke_bind_exact_idempotency_headers(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, _service = goal_runtime_client
+    prepared = client.post(
+        "/api/runtime/goals/approval-requests/create",
+        json=_create_payload(),
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:approval-route-header-binding"
+            )
+        },
+    ).json()
+    spec = prepared["data"]["approval_request"]
+    decision_path = (
+        "/api/runtime/goals/approval-requests/"
+        f"{spec['approval_request_ref']}/decision"
+    )
+    decision_payload = {
+        "decision": "approve",
+        "decision_reason_ref": "reason-ref:approval-route-header-binding",
+    }
+
+    missing = client.post(decision_path, json=decision_payload)
+    assert missing.status_code == 428
+    assert missing.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+    malformed = client.post(
+        decision_path,
+        json=decision_payload,
+        headers={"x-uaa-idempotency-key": "short"},
+    )
+    assert malformed.status_code == 400
+    assert malformed.json()["code"] == "API_IDEMPOTENCY_INVALID"
+    mismatched = client.post(
+        decision_path,
+        json=decision_payload,
+        headers={"x-uaa-idempotency-key": "idempotency-ref:wrong-decision"},
+    ).json()
+    assert mismatched["success"] is False
+    assert mismatched["error"]["code"] == (
+        "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+    )
+    decision_idempotency_ref = (
+        "idempotency-ref:goal-approval-decision:"
+        f"{spec['approval_request_ref']}"
+    )
+    decided = client.post(
+        decision_path,
+        json=decision_payload,
+        headers={"x-uaa-idempotency-key": decision_idempotency_ref},
+    ).json()
+    assert decided["success"] is True
+
+    revoke_payload = {
+        "approval_ref": spec["approval_ref"],
+        "decision_reason_ref": "reason-ref:approval-route-revoke-binding",
+    }
+    revoke_path = "/api/runtime/goals/approval-requests/revoke"
+    missing_revoke = client.post(revoke_path, json=revoke_payload)
+    assert missing_revoke.status_code == 428
+    mismatched_revoke = client.post(
+        revoke_path,
+        json=revoke_payload,
+        headers={"x-uaa-idempotency-key": "idempotency-ref:wrong-revoke"},
+    ).json()
+    assert mismatched_revoke["success"] is False
+    assert mismatched_revoke["error"]["code"] == (
+        "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+    )
+    revoked = client.post(
+        revoke_path,
+        json=revoke_payload,
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:goal-approval-revoke:"
+                f"{spec['approval_ref']}"
+            )
+        },
+    ).json()
+    assert revoked["success"] is True
+    assert revoked["data"]["approval_decision"]["status"] == "revoked"
+
+
 def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
 ) -> None:
     client, _service = goal_runtime_client
+    create_payload = _create_payload()
+    create_idempotency_ref = "idempotency-ref:submission-base"
+    create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=create_payload,
+        idempotency_ref=create_idempotency_ref,
+    )
     created = client.post(
         "/api/runtime/goals",
-        json=_create_payload(),
-        headers={"x-uaa-idempotency-key": "idempotency-ref:submission-base"},
+        json=create_payload,
+        headers={
+            "x-uaa-idempotency-key": create_idempotency_ref,
+            "x-uaa-goal-approval-ref": create_approval_ref,
+        },
     ).json()["data"]["goal"]
     submission_ref = "submission-ref:control-center-goal-mutation:api-pending"
     submission_evidence_ref = (
         "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "c" * 64
     )
+    edit_payload = {
+        "expected_version": 99,
+        "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+        "objective": "A safely retained ambiguous edit.",
+        "evidence_refs": [submission_evidence_ref],
+    }
+    edit_idempotency_ref = "idempotency-ref:submission-edit"
+    edit_approval_ref = _api_approval_ref(
+        client,
+        operation="edit",
+        goal_ref=created["goal_ref"],
+        request=edit_payload,
+        idempotency_ref=edit_idempotency_ref,
+    )
     response = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/edit",
-        json={
-            "expected_version": 99,
-            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
-            "objective": "A safely retained ambiguous edit.",
-            "evidence_refs": [submission_evidence_ref],
-        },
+        json=edit_payload,
         headers={
-            "x-uaa-idempotency-key": "idempotency-ref:submission-edit",
+            "x-uaa-idempotency-key": edit_idempotency_ref,
             "x-uaa-goal-submission-ref": submission_ref,
+            "x-uaa-goal-approval-ref": edit_approval_ref,
         },
     )
     assert response.json()["success"] is False
@@ -145,15 +310,11 @@ def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
 
     exact_retry = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/edit",
-        json={
-            "expected_version": 99,
-            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
-            "objective": "A safely retained ambiguous edit.",
-            "evidence_refs": [submission_evidence_ref],
-        },
+        json=edit_payload,
         headers={
-            "x-uaa-idempotency-key": "idempotency-ref:submission-edit",
+            "x-uaa-idempotency-key": edit_idempotency_ref,
             "x-uaa-goal-submission-ref": submission_ref,
+            "x-uaa-goal-approval-ref": edit_approval_ref,
         },
     ).json()
     assert exact_retry["success"] is False
@@ -162,19 +323,29 @@ def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
     corrected_evidence_ref = (
         "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "d" * 64
     )
+    corrected_payload = {
+        "expected_version": 1,
+        "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+        "objective": "A corrected bounded edit.",
+        "evidence_refs": [corrected_evidence_ref],
+    }
+    corrected_idempotency_ref = "idempotency-ref:submission-edit-corrected"
+    corrected_approval_ref = _api_approval_ref(
+        client,
+        operation="edit",
+        goal_ref=created["goal_ref"],
+        request=corrected_payload,
+        idempotency_ref=corrected_idempotency_ref,
+    )
     corrected = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/edit",
-        json={
-            "expected_version": 1,
-            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
-            "objective": "A corrected bounded edit.",
-            "evidence_refs": [corrected_evidence_ref],
-        },
+        json=corrected_payload,
         headers={
-            "x-uaa-idempotency-key": "idempotency-ref:submission-edit-corrected",
+            "x-uaa-idempotency-key": corrected_idempotency_ref,
             "x-uaa-goal-submission-ref": (
                 "submission-ref:control-center-goal-mutation:api-corrected"
             ),
+            "x-uaa-goal-approval-ref": corrected_approval_ref,
         },
     ).json()
     assert corrected["success"] is True
@@ -198,13 +369,14 @@ def _append_event(
         DurableRunEventKind.dead_lettered.value,
     }:
         return service._events.append(request)  # noqa: SLF001
-    approval = capture_exact_goal_mutation_approval(
+    approval_ref = _approved_mutation_ref(
+        service,
         operation="append-run-event",
-        subject_ref=request.run_ref,
-        request_payload=request.model_dump(mode="json"),
+        goal_ref=None,
+        request=request,
         idempotency_ref=request.idempotency_ref,
     )
-    return service.append_run_event(request, approval_binding=approval)
+    return service.append_run_event(request, approval_ref=approval_ref)
 
 
 def test_run_events_get_is_strictly_read_only(
@@ -260,19 +432,42 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
 ) -> None:
     client, _service = goal_runtime_client
+    create_payload = _create_payload()
+    create_idempotency_ref = "idempotency-ref:restorable-goal-create"
+    create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=create_payload,
+        idempotency_ref=create_idempotency_ref,
+    )
     created = client.post(
         "/api/runtime/goals",
-        json=_create_payload(),
-        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-create"},
+        json=create_payload,
+        headers={
+            "x-uaa-idempotency-key": create_idempotency_ref,
+            "x-uaa-goal-approval-ref": create_approval_ref,
+        },
     ).json()["data"]["goal"]
+    clear_payload = {
+        "expected_version": created["version"],
+        "transition": "clear",
+        "reason_ref": "reason-ref:restorable-goal-clear",
+    }
+    clear_idempotency_ref = "idempotency-ref:restorable-goal-clear"
+    clear_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=created["goal_ref"],
+        request=clear_payload,
+        idempotency_ref=clear_idempotency_ref,
+    )
     cleared = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
-        json={
-            "expected_version": created["version"],
-            "transition": "clear",
-            "reason_ref": "reason-ref:restorable-goal-clear",
+        json=clear_payload,
+        headers={
+            "x-uaa-idempotency-key": clear_idempotency_ref,
+            "x-uaa-goal-approval-ref": clear_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-clear"},
     ).json()["data"]["goal"]
     assert cleared["state"] == "cleared"
 
@@ -283,14 +478,26 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
     ]["goals"]
     assert operator_goals == [cleared]
 
+    restore_payload = {
+        "expected_version": cleared["version"],
+        "transition": "restore",
+        "reason_ref": "reason-ref:restorable-goal-restore",
+    }
+    restore_idempotency_ref = "idempotency-ref:restorable-goal-restore"
+    restore_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=created["goal_ref"],
+        request=restore_payload,
+        idempotency_ref=restore_idempotency_ref,
+    )
     restored = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
-        json={
-            "expected_version": cleared["version"],
-            "transition": "restore",
-            "reason_ref": "reason-ref:restorable-goal-restore",
+        json=restore_payload,
+        headers={
+            "x-uaa-idempotency-key": restore_idempotency_ref,
+            "x-uaa-goal-approval-ref": restore_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:restorable-goal-restore"},
     ).json()["data"]["goal"]
     assert restored["state"] == "active"
 
@@ -514,7 +721,10 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     malformed_idempotency = client.post(
         "/api/runtime/goals",
         json=_create_payload(),
-        headers={"x-uaa-idempotency-key": "abcdefgh"},
+        headers={
+            "x-uaa-idempotency-key": "abcdefgh",
+            "x-uaa-goal-approval-ref": "approval-ref:untrusted",
+        },
     )
     assert malformed_idempotency.status_code == 200
     assert malformed_idempotency.json()["success"] is False
@@ -525,16 +735,39 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
         headers={
             "x-uaa-idempotency-key": "idempotency-ref:valid-key",
             "x-uaa-idempotency-ref": "abcdefgh",
+            "x-uaa-goal-approval-ref": "approval-ref:untrusted",
         },
     )
     assert malformed_preferred_ref.status_code == 200
     assert malformed_preferred_ref.json()["success"] is False
     assert malformed_preferred_ref.json()["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
 
-    headers = {"x-uaa-idempotency-key": "idempotency-ref:api-goal-create"}
-    created_response = client.post(
+    missing_approval = client.post(
         "/api/runtime/goals",
         json=_create_payload(),
+        headers={"x-uaa-idempotency-key": "idempotency-ref:missing-approval"},
+    )
+    assert missing_approval.status_code == 200
+    assert missing_approval.json()["success"] is False
+    assert missing_approval.json()["error"]["code"] == (
+        "GOAL_MUTATION_APPROVAL_REQUIRED"
+    )
+
+    create_payload = _create_payload()
+    create_idempotency_ref = "idempotency-ref:api-goal-create"
+    create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=create_payload,
+        idempotency_ref=create_idempotency_ref,
+    )
+    headers = {
+        "x-uaa-idempotency-key": create_idempotency_ref,
+        "x-uaa-goal-approval-ref": create_approval_ref,
+    }
+    created_response = client.post(
+        "/api/runtime/goals",
+        json=create_payload,
         headers=headers,
     )
     assert created_response.status_code == 200
@@ -554,27 +787,51 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
     ).json()
     assert replay["data"]["goal"] == goal
 
+    stale_edit_payload = {
+        "expected_version": 99,
+        "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+        "objective": "A stale edit.",
+    }
+    stale_edit_idempotency_ref = "idempotency-ref:api-goal-stale-edit"
+    stale_edit_approval_ref = _api_approval_ref(
+        client,
+        operation="edit",
+        goal_ref=goal["goal_ref"],
+        request=stale_edit_payload,
+        idempotency_ref=stale_edit_idempotency_ref,
+    )
     stale_edit = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/edit",
-        json={
-            "expected_version": 99,
-            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
-            "objective": "A stale edit.",
+        json=stale_edit_payload,
+        headers={
+            "x-uaa-idempotency-key": stale_edit_idempotency_ref,
+            "x-uaa-goal-approval-ref": stale_edit_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:api-goal-stale-edit"},
     ).json()
     assert stale_edit["success"] is False
     assert stale_edit["error"]["code"] == "GOAL_VERSION_CONFLICT"
 
+    request_completion_payload = {
+        "expected_version": 1,
+        "transition": "request_completion",
+        "reason_ref": "reason-ref:api-goal-completion-request",
+    }
+    request_completion_idempotency_ref = (
+        "idempotency-ref:api-goal-completion-request"
+    )
+    request_completion_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=goal["goal_ref"],
+        request=request_completion_payload,
+        idempotency_ref=request_completion_idempotency_ref,
+    )
     requested = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",
-        json={
-            "expected_version": 1,
-            "transition": "request_completion",
-            "reason_ref": "reason-ref:api-goal-completion-request",
-        },
+        json=request_completion_payload,
         headers={
-            "x-uaa-idempotency-key": ("idempotency-ref:api-goal-completion-request")
+            "x-uaa-idempotency-key": request_completion_idempotency_ref,
+            "x-uaa-goal-approval-ref": request_completion_approval_ref,
         },
     ).json()["data"]["goal"]
     assert requested["state"] == "complete_requested"
@@ -619,27 +876,37 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
         "evidence-ref:control-center-goal-update-submission:"
         "transition:sha256:" + "9" * 64
     )
+    blocked_completion_payload = {
+        "expected_version": 2,
+        "transition": "verify_completion",
+        "reason_ref": "reason-ref:api-goal-verifier",
+        "evidence_refs": [blocked_submission_evidence_ref],
+        "completion_evidence": {
+            "goal_ref": goal["goal_ref"],
+            "goal_version": 2,
+            "run_ref": "run-ref:api-cli:one",
+            "receipt_ref": "receipt-ref:api-cli:one",
+            "proof_ref": "proof-ref:api-cli:one",
+            "criterion_proof_refs": ["proof-ref:api-cli:one"],
+            "evidence_ref": completion_evidence_ref,
+            "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
+        },
+    }
+    blocked_completion_idempotency_ref = "idempotency-ref:api-goal-verify"
+    blocked_completion_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=goal["goal_ref"],
+        request=blocked_completion_payload,
+        idempotency_ref=blocked_completion_idempotency_ref,
+    )
     blocked_completion = client.post(
         f"/api/runtime/goals/{goal['goal_ref']}/transition",
-        json={
-            "expected_version": 2,
-            "transition": "verify_completion",
-            "reason_ref": "reason-ref:api-goal-verifier",
-            "evidence_refs": [blocked_submission_evidence_ref],
-            "completion_evidence": {
-                "goal_ref": goal["goal_ref"],
-                "goal_version": 2,
-                "run_ref": "run-ref:api-cli:one",
-                "receipt_ref": "receipt-ref:api-cli:one",
-                "proof_ref": "proof-ref:api-cli:one",
-                "criterion_proof_refs": ["proof-ref:api-cli:one"],
-                "evidence_ref": completion_evidence_ref,
-                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
-            },
-        },
+        json=blocked_completion_payload,
         headers={
-            "x-uaa-idempotency-key": "idempotency-ref:api-goal-verify",
+            "x-uaa-idempotency-key": blocked_completion_idempotency_ref,
             "x-uaa-goal-submission-ref": blocked_submission_ref,
+            "x-uaa-goal-approval-ref": blocked_completion_approval_ref,
         },
     ).json()
     assert blocked_completion["success"] is False
@@ -671,18 +938,20 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             },
         }
     )
-    approval = capture_exact_goal_mutation_approval(
-        operation="transition-verify_completion",
-        subject_ref=goal["goal_ref"],
-        request_payload=transition_request.model_dump(mode="json"),
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="transition",
+        goal_ref=goal["goal_ref"],
+        request=transition_request,
         idempotency_ref="idempotency-ref:trusted-internal-goal-verify",
     )
-    verified = service.transition_goal(
+    verified, _approval = service.transition_goal(
         goal["goal_ref"],
         transition_request,
         idempotency_ref="idempotency-ref:trusted-internal-goal-verify",
-        approval_binding=approval,
-    ).model_dump(mode="json")
+        approval_ref=approval_ref,
+    )
+    verified = verified.model_dump(mode="json")
     assert verified["state"] == "verified_complete"
 
     goals = client.get("/api/runtime/goals").json()["data"]
@@ -717,10 +986,21 @@ def test_goal_cli_and_api_read_identical_state_after_restart(
     tmp_path: Path,
 ) -> None:
     client, _service = goal_runtime_client
+    create_payload = _create_payload()
+    create_idempotency_ref = "idempotency-ref:cli-parity-create"
+    create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=create_payload,
+        idempotency_ref=create_idempotency_ref,
+    )
     created = client.post(
         "/api/runtime/goals",
-        json=_create_payload(),
-        headers={"x-uaa-idempotency-key": "idempotency-ref:cli-parity-create"},
+        json=create_payload,
+        headers={
+            "x-uaa-idempotency-key": create_idempotency_ref,
+            "x-uaa-goal-approval-ref": create_approval_ref,
+        },
     ).json()["data"]["goal"]
 
     env = dict(os.environ)
@@ -862,6 +1142,8 @@ def test_goal_cli_mutation_validation_failures_honor_json(
             "{}",
             "--idempotency-ref",
             f"idempotency-ref:{command_name}:json-failure",
+            "--approval-ref",
+            "approval-ref:untrusted",
             "--json",
         ],
         check=False,
@@ -908,6 +1190,8 @@ def test_goal_cli_verified_completion_is_explicitly_blocked(tmp_path: Path) -> N
             json.dumps(request),
             "--idempotency-ref",
             "idempotency-ref:cli-evaluator-blocked",
+            "--approval-ref",
+            "approval-ref:untrusted",
             "--json",
         ],
         check=False,
@@ -1016,6 +1300,45 @@ def test_run_event_cli_plain_inspection_failure_remains_redacted(
 def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> None:
     env = dict(os.environ)
     env["PYTHONPATH"] = "src"
+    request_json = json.dumps(_create_payload())
+    prepared = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "goal-approval-prepare",
+            "create",
+            "--request-json",
+            request_json,
+            "--idempotency-ref",
+            "idempotency-ref:cli-goal-create",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    approval_request = json.loads(prepared.stdout)["approval_request"]
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "goal-approval-decide",
+            approval_request["approval_request_ref"],
+            "approve",
+            "--reason-ref",
+            "reason-ref:cli-explicit-goal-approval",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     created = subprocess.run(
         [
             sys.executable,
@@ -1024,9 +1347,11 @@ def test_goal_cli_mutation_uses_exact_non_standing_approval(tmp_path: Path) -> N
             str(tmp_path),
             "goal-create",
             "--request-json",
-            json.dumps(_create_payload()),
+            request_json,
             "--idempotency-ref",
             "idempotency-ref:cli-goal-create",
+            "--approval-ref",
+            approval_request["approval_ref"],
             "--json",
         ],
         check=True,
@@ -1091,18 +1416,29 @@ def test_goal_cli_exact_retry_persists_terminal_submission_rejection(
         idempotency_ref=idempotency_ref,
     )
     monkeypatch.setattr(uaa_runtime, "_goal_runtime_service", lambda _args: service)
+    approval_spec = service.prepare_goal_mutation_approval(
+        operation=operation,
+        goal_ref=goal_binding,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
     if operation == "create":
-        monkeypatch.setattr(
-            uaa_runtime,
-            "capture_exact_goal_mutation_approval",
-            lambda **_kwargs: (_ for _ in ()).throw(
-                GoalRuntimeError("GOAL_MUTATION_APPROVAL_DENIED")
-            ),
+        service.decide_goal_mutation_approval(
+            approval_request_ref=approval_spec.approval_request_ref,
+            decision="deny",
+            decision_reason_ref="reason-ref:test-terminal-cli-denial",
+        )
+    else:
+        service.decide_goal_mutation_approval(
+            approval_request_ref=approval_spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:test-terminal-cli-approval",
         )
     args = argparse.Namespace(
         request_json=json.dumps(payload),
         idempotency_ref=idempotency_ref,
         goal_ref=goal_ref,
+        approval_ref=approval_spec.approval_ref,
         json=True,
     )
     handler = {
@@ -1126,21 +1462,151 @@ def test_goal_cli_exact_retry_persists_terminal_submission_rejection(
     assert exact.rejection_reason_ref is not None
 
 
+def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    create_request = GoalCreateRequest.model_validate(_create_payload())
+    create_idempotency_ref = "idempotency-ref:cli-version-overflow:create"
+    create_approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=create_request,
+        idempotency_ref=create_idempotency_ref,
+    )
+    goal, _approval = service.create_goal(
+        create_request,
+        idempotency_ref=create_idempotency_ref,
+        approval_ref=create_approval_ref,
+    )
+
+    with service.goals.mutation_entries() as journal_entries:
+        seed = journal_entries[0]
+        expanded_entries = [seed]
+        previous_entry_hash_ref = seed.entry_hash_ref
+        for version in range(2, 4097):
+            versioned_goal = seed.goal.model_copy(update={"version": version})
+            draft = seed.model_copy(
+                update={
+                    "entry_ref": goal_runtime_module._sha256_ref(  # noqa: SLF001
+                        "goal-journal-entry-ref",
+                        {
+                            "goal_ref": seed.goal_ref,
+                            "version": version,
+                            "operation": "edit",
+                        },
+                    ),
+                    "operation": "edit",
+                    "goal_version": version,
+                    "idempotency_ref": (
+                        f"idempotency-ref:cli-version-overflow:seed:{version}"
+                    ),
+                    "request_fingerprint_ref": (
+                        f"request-fingerprint-ref:cli-version-overflow:{version}"
+                    ),
+                    "goal_submission_fingerprint_ref": None,
+                    "transition_reason_ref": None,
+                    "goal": versioned_goal,
+                    "previous_entry_hash_ref": previous_entry_hash_ref,
+                    "entry_hash_ref": "entry-hash-ref:pending",
+                }
+            )
+            entry = draft.model_copy(
+                update={
+                    "entry_hash_ref": service.goals._entry_hash(draft)  # noqa: SLF001
+                }
+            )
+            expanded_entries.append(entry)
+            previous_entry_hash_ref = entry.entry_hash_ref
+        service.goals._write_entries(expanded_entries)  # noqa: SLF001
+
+    evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:"
+        + "9" * 64
+    )
+    payload = {
+        "expected_version": 4096,
+        "text_redaction_posture": "operator_authored_redacted_summary_only",
+        "objective": "A bounded edit that cannot exceed the version cap.",
+        "evidence_refs": [evidence_ref],
+    }
+    request = GoalEditRequest.model_validate(payload)
+    idempotency_ref = "idempotency-ref:cli-version-overflow:edit"
+    submission = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:cli-version-overflow:edit",
+        operation="edit",
+        goal_ref=goal.goal_ref,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="edit",
+        goal_ref=goal.goal_ref,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    monkeypatch.setattr(service, "reconcile_durable_events", lambda: None)
+    monkeypatch.setattr(uaa_runtime, "_goal_runtime_service", lambda _args: service)
+    args = argparse.Namespace(
+        request_json=json.dumps(payload),
+        idempotency_ref=idempotency_ref,
+        goal_ref=goal.goal_ref,
+        approval_ref=approval_ref,
+        json=True,
+    )
+
+    assert uaa_runtime._goal_edit(args) == 1
+    output = json.loads(capsys.readouterr().out)
+    assert output["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
+
+    restarted = GoalRuntimeService(tmp_path)
+    monkeypatch.setattr(restarted, "reconcile_durable_events", lambda: None)
+    recovery = restarted._submissions.recovery_read_model(  # noqa: SLF001
+        restarted.goals._load_consistent_entries()  # noqa: SLF001
+    )
+    exact = next(
+        record
+        for record in recovery.records
+        if record.submission_ref == submission.submission_ref
+    )
+    assert exact.status == "rejected"
+    assert exact.rejection_reason_ref == (
+        "reason-ref:goal-mutation-rejected:goal-request-ref-invalid"
+    )
+    monkeypatch.setattr(
+        uaa_runtime,
+        "_goal_runtime_service",
+        lambda _args: restarted,
+    )
+    assert uaa_runtime._goal_edit(args) == 1
+    retry = json.loads(capsys.readouterr().out)
+    assert retry["error"]["code"] == "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+    retry_recovery = restarted._submissions.recovery_read_model(  # noqa: SLF001
+        restarted.goals._load_consistent_entries()  # noqa: SLF001
+    )
+    assert retry_recovery == recovery
+
+
 def test_plain_run_event_cli_renders_durable_goal_submission_and_event_sections(
     tmp_path: Path,
 ) -> None:
     service = GoalRuntimeService.for_runtime_store(tmp_path)
     create_request = GoalCreateRequest.model_validate(_create_payload())
-    approval = capture_exact_goal_mutation_approval(
+    approval_ref = _approved_mutation_ref(
+        service,
         operation="create",
-        subject_ref="goal-ref:new",
-        request_payload=create_request.model_dump(mode="json"),
+        goal_ref=None,
+        request=create_request,
         idempotency_ref="idempotency-ref:plain-cli:create",
     )
-    goal = service.create_goal(
+    goal, _approval = service.create_goal(
         create_request,
         idempotency_ref="idempotency-ref:plain-cli:create",
-        approval_binding=approval,
+        approval_ref=approval_ref,
     )
     evidence_ref = (
         "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "4" * 64
@@ -1331,10 +1797,21 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
     tmp_path: Path,
 ) -> None:
     client, service = goal_runtime_client
+    create_payload = _create_payload()
+    create_idempotency_ref = "idempotency-ref:e2e-goal-create"
+    create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=create_payload,
+        idempotency_ref=create_idempotency_ref,
+    )
     created = client.post(
         "/api/runtime/goals",
-        json=_create_payload(),
-        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e-goal-create"},
+        json=create_payload,
+        headers={
+            "x-uaa-idempotency-key": create_idempotency_ref,
+            "x-uaa-goal-approval-ref": create_approval_ref,
+        },
     ).json()["data"]["goal"]
     run_ref = "run-ref:api-cli:one"
     event_specs = [
@@ -1429,14 +1906,28 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         ),
     )
 
+    completion_request_payload = {
+        "expected_version": 1,
+        "transition": "request_completion",
+        "reason_ref": "reason-ref:e2e:completion-request",
+    }
+    completion_request_idempotency_ref = (
+        "idempotency-ref:e2e:completion-request"
+    )
+    completion_request_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=created["goal_ref"],
+        request=completion_request_payload,
+        idempotency_ref=completion_request_idempotency_ref,
+    )
     requested_http_response = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
-        json={
-            "expected_version": 1,
-            "transition": "request_completion",
-            "reason_ref": "reason-ref:e2e:completion-request",
+        json=completion_request_payload,
+        headers={
+            "x-uaa-idempotency-key": completion_request_idempotency_ref,
+            "x-uaa-goal-approval-ref": completion_request_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:completion-request"},
     )
     assert requested_http_response.status_code == 200, requested_http_response.text
     requested_response = requested_http_response.json()
@@ -1475,24 +1966,36 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         criterion_verifier_bindings=criterion_bindings,
         plan_ref="plan-ref:api-cli:one",
     )
+    blocked_completion_payload = {
+        "expected_version": requested["version"],
+        "transition": "verify_completion",
+        "reason_ref": "reason-ref:e2e:deterministic-verifier",
+        "completion_evidence": {
+            "goal_ref": created["goal_ref"],
+            "goal_version": requested["version"],
+            "run_ref": run_ref,
+            "receipt_ref": "receipt-ref:e2e:accepted-local",
+            "proof_ref": "proof-ref:e2e:accepted-local",
+            "criterion_proof_refs": ["proof-ref:e2e:accepted-local"],
+            "evidence_ref": completion_evidence_ref,
+            "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
+        },
+    }
+    blocked_completion_idempotency_ref = "idempotency-ref:e2e:verify"
+    blocked_completion_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=created["goal_ref"],
+        request=blocked_completion_payload,
+        idempotency_ref=blocked_completion_idempotency_ref,
+    )
     blocked = client.post(
         f"/api/runtime/goals/{created['goal_ref']}/transition",
-        json={
-            "expected_version": requested["version"],
-            "transition": "verify_completion",
-            "reason_ref": "reason-ref:e2e:deterministic-verifier",
-            "completion_evidence": {
-                "goal_ref": created["goal_ref"],
-                "goal_version": requested["version"],
-                "run_ref": run_ref,
-                "receipt_ref": "receipt-ref:e2e:accepted-local",
-                "proof_ref": "proof-ref:e2e:accepted-local",
-                "criterion_proof_refs": ["proof-ref:e2e:accepted-local"],
-                "evidence_ref": completion_evidence_ref,
-                "verifier_ref": GOAL_COMPLETION_VERIFIER_REF,
-            },
+        json=blocked_completion_payload,
+        headers={
+            "x-uaa-idempotency-key": blocked_completion_idempotency_ref,
+            "x-uaa-goal-approval-ref": blocked_completion_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:verify"},
     ).json()
     assert blocked["error"]["code"] == ("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
     trusted_request = GoalTransitionRequest.model_validate(
@@ -1512,18 +2015,20 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
             },
         }
     )
-    trusted_approval = capture_exact_goal_mutation_approval(
-        operation="transition-verify_completion",
-        subject_ref=created["goal_ref"],
-        request_payload=trusted_request.model_dump(mode="json"),
+    trusted_approval_ref = _approved_mutation_ref(
+        restored,
+        operation="transition",
+        goal_ref=created["goal_ref"],
+        request=trusted_request,
         idempotency_ref="idempotency-ref:e2e:trusted-internal-verify",
     )
-    verified = restored.transition_goal(
+    verified, _approval = restored.transition_goal(
         created["goal_ref"],
         trusted_request,
         idempotency_ref="idempotency-ref:e2e:trusted-internal-verify",
-        approval_binding=trusted_approval,
-    ).model_dump(mode="json")
+        approval_ref=trusted_approval_ref,
+    )
+    verified = verified.model_dump(mode="json")
     assert verified["state"] == "verified_complete"
 
     reconnected = client.get(
@@ -1543,19 +2048,41 @@ def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(
         **cancelled_payload["links"],
         "run_refs": ["run-ref:e2e:cancelled"],
     }
+    cancelled_create_idempotency_ref = "idempotency-ref:e2e:cancel-goal-create"
+    cancelled_create_approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=cancelled_payload,
+        idempotency_ref=cancelled_create_idempotency_ref,
+    )
     cancelled_goal = client.post(
         "/api/runtime/goals",
         json=cancelled_payload,
-        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:cancel-goal-create"},
+        headers={
+            "x-uaa-idempotency-key": cancelled_create_idempotency_ref,
+            "x-uaa-goal-approval-ref": cancelled_create_approval_ref,
+        },
     ).json()["data"]["goal"]
+    cancel_payload = {
+        "expected_version": 1,
+        "transition": "cancel",
+        "reason_ref": "reason-ref:e2e:operator-cancel",
+    }
+    cancel_idempotency_ref = "idempotency-ref:e2e:goal-cancel"
+    cancel_approval_ref = _api_approval_ref(
+        client,
+        operation="transition",
+        goal_ref=cancelled_goal["goal_ref"],
+        request=cancel_payload,
+        idempotency_ref=cancel_idempotency_ref,
+    )
     cancelled = client.post(
         f"/api/runtime/goals/{cancelled_goal['goal_ref']}/transition",
-        json={
-            "expected_version": 1,
-            "transition": "cancel",
-            "reason_ref": "reason-ref:e2e:operator-cancel",
+        json=cancel_payload,
+        headers={
+            "x-uaa-idempotency-key": cancel_idempotency_ref,
+            "x-uaa-goal-approval-ref": cancel_approval_ref,
         },
-        headers={"x-uaa-idempotency-key": "idempotency-ref:e2e:goal-cancel"},
     ).json()["data"]["goal"]
     assert cancelled["state"] == "cancelled"
     for index, kind in enumerate(

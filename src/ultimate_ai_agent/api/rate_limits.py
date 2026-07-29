@@ -143,6 +143,11 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/command/run",
     "/api/runtime/hermes/chat",
     "/api/runtime/goals",
+    "/api/runtime/goals/approval-requests/create",
+    "/api/runtime/goals/approval-requests/revoke",
+    "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+    "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+    "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
     "/api/runtime/goals/{goal_ref}/edit",
     "/api/runtime/goals/{goal_ref}/transition",
     "/api/runtime/invocations",
@@ -366,6 +371,10 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         or (
             path.startswith("/api/runtime/goals/")
             and (path.endswith("/edit") or path.endswith("/transition"))
+        )
+        or (
+            path.startswith("/api/runtime/goals/approval-requests/")
+            and path.endswith("/decision")
         )
     ):
         return "governed_runtime_pilot"

@@ -142,6 +142,8 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalCreateRequest,
     GoalEditRequest,
     GoalIdempotencyConflictError,
+    GoalMutationApprovalDecisionRequest,
+    GoalMutationApprovalRevokeRequest,
     GoalMutationSubmissionRecord,
     GoalNotFoundError,
     GoalRuntimeCorruptionError,
@@ -151,7 +153,8 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalTransitionKind,
     GoalTransitionRequest,
     GoalVersionConflictError,
-    capture_exact_goal_mutation_approval,
+    build_goal_mutation_approval_decision_idempotency_ref,
+    build_goal_mutation_approval_revoke_idempotency_ref,
     terminal_goal_submission_rejection_reason_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import (
@@ -1169,6 +1172,225 @@ def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
     )
 
 
+def _goal_mutation_approval_prepare_result(
+    *,
+    operation: str,
+    goal_ref: str | None,
+    request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+    idempotency_ref: str,
+) -> ResultEnvelope:
+    try:
+        spec = _goal_runtime_service().prepare_goal_mutation_approval(
+            operation=operation,
+            goal_ref=goal_ref,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_prepare",
+            _safe_goal_failure_trace("goal-approval-prepare"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_prepare",
+        service="GoalRuntimeAPI",
+        trace_id=spec.approval_request_ref,
+        data={
+            "approval_request": spec.model_dump(mode="json"),
+            "mutation_performed": False,
+            "approval_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-request-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/approval-requests/create", response_model=ResultEnvelope)
+def post_api_runtime_goal_approval_prepare_create(
+    request: GoalCreateRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+    )
+
+
+@router.post(
+    "/goals/{goal_ref}/approval-requests/edit",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_prepare_edit(
+    goal_ref: str,
+    request: GoalEditRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="edit",
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+    )
+
+
+@router.post(
+    "/goals/{goal_ref}/approval-requests/transition",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_prepare_transition(
+    goal_ref: str,
+    request: GoalTransitionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="transition",
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+    )
+
+
+@router.post(
+    "/goals/approval-requests/{approval_request_ref}/decision",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_decision(
+    approval_request_ref: str,
+    request: GoalMutationApprovalDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    try:
+        if _idempotency_ref(
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        ) != build_goal_mutation_approval_decision_idempotency_ref(
+            approval_request_ref
+        ):
+            raise GoalIdempotencyConflictError(
+                "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+            )
+        entry = _goal_runtime_service().decide_goal_mutation_approval(
+            approval_request_ref=approval_request_ref,
+            decision=request.decision,
+            decision_reason_ref=request.decision_reason_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_decision",
+            _safe_goal_failure_trace("goal-approval-decision"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_decision",
+        service="GoalRuntimeAPI",
+        trace_id=entry.entry_hash_ref,
+        data={
+            "approval_decision": entry.model_dump(mode="json"),
+            "mutation_performed": False,
+            "standing_authority_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-decision-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/approval-requests/revoke", response_model=ResultEnvelope)
+def post_api_runtime_goal_approval_revoke(
+    request: GoalMutationApprovalRevokeRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    try:
+        if _idempotency_ref(
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        ) != build_goal_mutation_approval_revoke_idempotency_ref(
+            request.approval_ref
+        ):
+            raise GoalIdempotencyConflictError(
+                "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+            )
+        entry = _goal_runtime_service().revoke_goal_mutation_approval(
+            approval_ref=request.approval_ref,
+            decision_reason_ref=request.decision_reason_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_revoke",
+            _safe_goal_failure_trace("goal-approval-revoke"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_revoke",
+        service="GoalRuntimeAPI",
+        trace_id=entry.entry_hash_ref,
+        data={
+            "approval_decision": entry.model_dump(mode="json"),
+            "mutation_performed": False,
+            "standing_authority_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-revocation-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
 @router.post("/goals", response_model=ResultEnvelope)
 def post_api_runtime_goal(
     request: GoalCreateRequest,
@@ -1181,6 +1403,9 @@ def post_api_runtime_goal(
     x_uaa_goal_submission_ref: str | None = Header(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
@@ -1191,6 +1416,8 @@ def post_api_runtime_goal(
             for ref in (request.evidence_refs or [])
         ):
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
             submission = service.record_goal_mutation_submission(
@@ -1200,16 +1427,10 @@ def post_api_runtime_goal(
                 request=request,
                 idempotency_ref=idempotency_ref,
             )
-        approval = capture_exact_goal_mutation_approval(
-            operation="create",
-            subject_ref="goal-ref:new",
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=idempotency_ref,
-        )
-        goal = service.create_goal(
+        goal, approval = service.create_goal(
             request,
             idempotency_ref=idempotency_ref,
-            approval_binding=approval,
+            approval_ref=x_uaa_goal_approval_ref,
         )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
@@ -1257,6 +1478,9 @@ def post_api_runtime_goal_edit(
     x_uaa_goal_submission_ref: str | None = Header(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
@@ -1267,6 +1491,8 @@ def post_api_runtime_goal_edit(
             for ref in (request.evidence_refs or [])
         ):
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
             submission = service.record_goal_mutation_submission(
@@ -1276,17 +1502,11 @@ def post_api_runtime_goal_edit(
                 request=request,
                 idempotency_ref=idempotency_ref,
             )
-        approval = capture_exact_goal_mutation_approval(
-            operation="edit",
-            subject_ref=goal_ref,
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=idempotency_ref,
-        )
-        goal = service.edit_goal(
+        goal, approval = service.edit_goal(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
-            approval_binding=approval,
+            approval_ref=x_uaa_goal_approval_ref,
         )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
@@ -1334,6 +1554,9 @@ def post_api_runtime_goal_transition(
     x_uaa_goal_submission_ref: str | None = Header(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
@@ -1344,6 +1567,8 @@ def post_api_runtime_goal_transition(
             for ref in request.evidence_refs
         ):
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
             submission = service.record_goal_mutation_submission(
@@ -1357,17 +1582,11 @@ def post_api_runtime_goal_transition(
             raise GoalTransitionDeniedError(
                 "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
             )
-        approval = capture_exact_goal_mutation_approval(
-            operation=f"transition-{request.transition}",
-            subject_ref=goal_ref,
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=idempotency_ref,
-        )
-        goal = service.transition_goal(
+        goal, approval = service.transition_goal(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
-            approval_binding=approval,
+            approval_ref=x_uaa_goal_approval_ref,
         )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (

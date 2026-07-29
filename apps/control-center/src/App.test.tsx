@@ -9283,7 +9283,12 @@ describe("Web Control Center shell", () => {
       const fetchMock = vi.fn(
         async (url: string | URL | Request, options?: RequestInit) => {
           const urlText = String(url);
-          if (options?.method === "POST") {
+          const approvalResponse = runtimeGoalApprovalTestResponse(
+            urlText,
+            options,
+          );
+          if (approvalResponse !== null) return approvalResponse;
+          if (isRuntimeGoalMutationTestPost(urlText, options)) {
             const headers = new Headers(options.headers);
             const requestPayload = JSON.parse(
               String(options.body),
@@ -9362,6 +9367,19 @@ describe("Web Control Center shell", () => {
       fireEvent.click(mutationButton);
       expect(
         await screen.findByText(
+          new RegExp(
+            `exact goal ${mutationKind === "create" ? "creation" : mutationKind}.*awaits an explicit operator approval`,
+            "i",
+          ),
+        ),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Approve and submit exact mutation",
+        }),
+      );
+      expect(
+        await screen.findByText(
           `ambiguous ${mutationKind} response; outcome unknown`,
         ),
       ).toBeInTheDocument();
@@ -9405,19 +9423,27 @@ describe("Web Control Center shell", () => {
       }
 
       const firstPost = fetchMock.mock.calls.find(
-        ([, options]) => options?.method === "POST",
+        ([url, options]) =>
+          isRuntimeGoalMutationTestPost(String(url), options),
       );
       expect(firstPost).toBeDefined();
       fireEvent.click(mutationButton);
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: "Approve and submit exact mutation",
+        }),
+      );
       await waitFor(() =>
         expect(
           fetchMock.mock.calls.filter(
-            ([, options]) => options?.method === "POST",
+            ([url, options]) =>
+              isRuntimeGoalMutationTestPost(String(url), options),
           ),
         ).toHaveLength(2),
       );
       const postCalls = fetchMock.mock.calls.filter(
-        ([, options]) => options?.method === "POST",
+        ([url, options]) =>
+          isRuntimeGoalMutationTestPost(String(url), options),
       );
       expect(postCalls[1]?.[0]).toEqual(postCalls[0]?.[0]);
       expect(postCalls[1]?.[1]?.body).toEqual(postCalls[0]?.[1]?.body);
@@ -9542,7 +9568,12 @@ describe("Web Control Center shell", () => {
       const fetchMock = vi.fn(
         async (url: string | URL | Request, options?: RequestInit) => {
           const urlText = String(url);
-          if (options?.method === "POST") {
+          const approvalResponse = runtimeGoalApprovalTestResponse(
+            urlText,
+            options,
+          );
+          if (approvalResponse !== null) return approvalResponse;
+          if (isRuntimeGoalMutationTestPost(urlText, options)) {
             const body = String(options.body);
             const request = JSON.parse(body) as {
               objective?: string;
@@ -9615,6 +9646,11 @@ describe("Web Control Center shell", () => {
       }
 
       fireEvent.click(mutationButton);
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: "Approve and submit exact mutation",
+        }),
+      );
       expect(
         await screen.findByText(
           `committed ${mutationKind} response was lost`,
@@ -9735,7 +9771,12 @@ describe("Web Control Center shell", () => {
     const fetchMock = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
         const urlText = String(url);
-        if (options?.method === "POST") {
+        const approvalResponse = runtimeGoalApprovalTestResponse(
+          urlText,
+          options,
+        );
+        if (approvalResponse !== null) return approvalResponse;
+        if (isRuntimeGoalMutationTestPost(urlText, options)) {
           const body = String(options.body);
           const headers = new Headers(options.headers);
           postCalls.push({ body, headers });
@@ -9793,6 +9834,8 @@ describe("Web Control Center shell", () => {
                     "approval-request-ref:goal-create:revised",
                   approval_decision_ref:
                     "approval-decision-ref:goal-create:revised",
+                  approval_ledger_entry_hash_ref:
+                    `entry-hash-ref:goal-mutation-approval:sha256:${"6".repeat(64)}`,
                   exact_scope_ref: "approval-scope-ref:goal-create:revised",
                   request_fingerprint_ref:
                     `request-fingerprint-ref:goal-create:sha256:${"9".repeat(64)}`,
@@ -9843,6 +9886,11 @@ describe("Web Control Center shell", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create local goal" }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    );
     expect(
       await screen.findByText(
         "deterministic create failure; durable rejection recorded",
@@ -9885,9 +9933,14 @@ describe("Web Control Center shell", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create local goal" }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    );
     expect(
       await screen.findByText(
-        "Goal created at version 1; no runtime work was started.",
+        "The exact approved goal mutation committed at version 1.",
       ),
     ).toBeInTheDocument();
     expect(postCalls).toHaveLength(2);
@@ -9906,7 +9959,12 @@ describe("Web Control Center shell", () => {
     const fetchMock = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
         const urlText = String(url);
-        if (options?.method === "POST") {
+        const approvalResponse = runtimeGoalApprovalTestResponse(
+          urlText,
+          options,
+        );
+        if (approvalResponse !== null) return approvalResponse;
+        if (isRuntimeGoalMutationTestPost(urlText, options)) {
           postCalls.push({
             body: String(options.body),
             headers: new Headers(options.headers),
@@ -9960,6 +10018,11 @@ describe("Web Control Center shell", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create local goal" }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    );
     await waitFor(() => expect(postCalls).toHaveLength(1));
     await waitFor(() =>
       expect(
@@ -9976,6 +10039,11 @@ describe("Web Control Center shell", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Create local goal" }),
     );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    );
     await waitFor(() => expect(postCalls).toHaveLength(2));
     expect(
       postCalls[1]?.headers.get("X-UAA-Goal-Submission-Ref"),
@@ -9985,6 +10053,79 @@ describe("Web Control Center shell", () => {
     expect(
       postCalls[1]?.headers.get("X-UAA-Idempotency-Key"),
     ).not.toEqual(postCalls[0]?.headers.get("X-UAA-Idempotency-Key"));
+  });
+
+  it("denies a prepared exact goal request without calling the mutation route", async () => {
+    const fetchMock = vi.fn(
+      async (url: string | URL | Request, options?: RequestInit) => {
+        const urlText = String(url);
+        const approvalResponse = runtimeGoalApprovalTestResponse(
+          urlText,
+          options,
+        );
+        if (approvalResponse !== null) return approvalResponse;
+        if (isRuntimeGoalMutationTestPost(urlText, options)) {
+          throw new Error("denied goal request reached the mutation route");
+        }
+        const endpoint = READ_ENDPOINTS.find((candidate) =>
+          urlText.endsWith(candidate),
+        );
+        if (endpoint === undefined) {
+          throw new Error(`unexpected request ${urlText}`);
+        }
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderRuntimeGoalRecoveryPanel(
+      cloneForTest(mockControlCenterData.runtimeRunEvents),
+    );
+
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Prepare one bounded goal for denial." },
+    });
+    fireEvent.change(screen.getByLabelText("Desired outcome"), {
+      target: { value: "No mutation occurs after explicit denial." },
+    });
+    fireEvent.change(screen.getByLabelText("Success criterion"), {
+      target: { value: "The mutation route is never called." },
+    });
+    fireEvent.change(screen.getByLabelText("Stop condition"), {
+      target: { value: "Stop after the explicit denial." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Deny exact mutation",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "The exact goal mutation approval was denied; no goal mutation ran.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(([url, options]) =>
+        isRuntimeGoalMutationTestPost(String(url), options),
+      ),
+    ).toHaveLength(0);
+    const decisionCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/decision"),
+    );
+    expect(JSON.parse(String(decisionCall?.[1]?.body))).toEqual({
+      decision: "deny",
+      decision_reason_ref:
+        "reason-ref:control-center-goal-mutation-explicit-denial",
+    });
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeEnabled();
   });
 
   it.each([
@@ -19002,6 +19143,150 @@ const dogfoodRefs = {
 
 function cloneForTest<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function runtimeGoalApprovalTestResponse(
+  urlText: string,
+  options?: RequestInit,
+): Response | null {
+  if (options?.method !== "POST") return null;
+  const prepareMatch = urlText.match(
+    /\/api\/runtime\/goals\/([^/]+)\/approval-requests\/(edit|transition)$/,
+  );
+  const isCreatePrepare = urlText.endsWith(
+    API_ENDPOINTS.runtimeGoalApprovalPrepareCreate,
+  );
+  if (isCreatePrepare || prepareMatch !== null) {
+    const operation = isCreatePrepare ? "create" : prepareMatch?.[2] ?? "edit";
+    const subjectRef = isCreatePrepare
+      ? "goal-ref:new"
+      : decodeURIComponent(prepareMatch?.[1] ?? "");
+    const idempotencyRef =
+      new Headers(options.headers).get("X-UAA-Idempotency-Key") ?? "";
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        result: {
+          approval_request: {
+            schema_version: "goal_mutation_approval_request.v1",
+            operation,
+            subject_ref: subjectRef,
+            idempotency_ref: idempotencyRef,
+            request_fingerprint_ref:
+              `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+            exact_scope_ref:
+              `exact-scope-ref:goal-mutation:sha256:${"2".repeat(64)}`,
+            approval_request_ref:
+              `approval-request-ref:goal-mutation:sha256:${"3".repeat(64)}`,
+            approval_ref:
+              `approval-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+            operator_actor_ref: "operator-ref:local-user",
+            requested_at: "2026-07-28T00:00:00Z",
+            expires_at: "2026-07-28T00:30:00Z",
+          },
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const decisionMatch = urlText.match(
+    /\/api\/runtime\/goals\/approval-requests\/([^/]+)\/decision$/,
+  );
+  if (decisionMatch !== null) {
+    const body = JSON.parse(String(options.body)) as {
+      decision: "approve" | "deny";
+      decision_reason_ref: string;
+    };
+    const approvalRequestRef = decodeURIComponent(decisionMatch[1] ?? "");
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        result: {
+          approval_decision: {
+            schema_version: "goal_mutation_approval_ledger.v1",
+            spec: {
+              schema_version: "goal_mutation_approval_request.v1",
+              operation: "create",
+              subject_ref: "goal-ref:new",
+              idempotency_ref: "idempotency-ref:goal-app-approval-decision",
+              request_fingerprint_ref:
+                `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+              exact_scope_ref:
+                `exact-scope-ref:goal-mutation:sha256:${"2".repeat(64)}`,
+              approval_request_ref: approvalRequestRef,
+              approval_ref:
+                `approval-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+              operator_actor_ref: "operator-ref:local-user",
+              requested_at: "2026-07-28T00:00:00Z",
+              expires_at: "2026-07-28T00:30:00Z",
+            },
+            status: body.decision === "approve" ? "approved" : "denied",
+            approval_grant: body.decision === "approve" ? {} : null,
+            decision_reason_ref: body.decision_reason_ref,
+            decision_actor_ref: "operator-ref:local-user",
+            decided_at: "2026-07-28T00:01:00Z",
+            previous_entry_hash_ref:
+              `entry-hash-ref:goal-mutation-approval:sha256:${"5".repeat(64)}`,
+            entry_hash_ref:
+              `entry-hash-ref:goal-mutation-approval:sha256:${"6".repeat(64)}`,
+          },
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  if (urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalRevoke)) {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        result: {
+          approval_decision: {
+            schema_version: "goal_mutation_approval_ledger.v1",
+            spec: {
+              schema_version: "goal_mutation_approval_request.v1",
+              operation: "create",
+              subject_ref: "goal-ref:new",
+              idempotency_ref: "idempotency-ref:goal-app-approval-revoke",
+              request_fingerprint_ref:
+                `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+              exact_scope_ref:
+                `exact-scope-ref:goal-mutation:sha256:${"2".repeat(64)}`,
+              approval_request_ref:
+                `approval-request-ref:goal-mutation:sha256:${"3".repeat(64)}`,
+              approval_ref:
+                `approval-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+              operator_actor_ref: "operator-ref:local-user",
+              requested_at: "2026-07-28T00:00:00Z",
+              expires_at: "2026-07-28T00:30:00Z",
+            },
+            status: "revoked",
+            approval_grant: null,
+            decision_reason_ref:
+              "reason-ref:control-center-goal-mutation-explicit-revocation",
+            decision_actor_ref: "operator-ref:local-user",
+            decided_at: "2026-07-28T00:02:00Z",
+            previous_entry_hash_ref:
+              `entry-hash-ref:goal-mutation-approval:sha256:${"6".repeat(64)}`,
+            entry_hash_ref:
+              `entry-hash-ref:goal-mutation-approval:sha256:${"7".repeat(64)}`,
+          },
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  return null;
+}
+
+function isRuntimeGoalMutationTestPost(
+  urlText: string,
+  options?: RequestInit,
+): options is RequestInit {
+  return (
+    options?.method === "POST" &&
+    (urlText.endsWith(API_ENDPOINTS.runtimeGoals) ||
+      /\/api\/runtime\/goals\/[^/]+\/(edit|transition)$/.test(urlText))
+  );
 }
 
 function renderRuntimeGoalRecoveryPanel(

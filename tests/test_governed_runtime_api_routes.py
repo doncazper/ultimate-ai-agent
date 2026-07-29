@@ -544,6 +544,14 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
         "/api/runtime/command/run",
         "/api/runtime/hermes/chat",
         "/api/runtime/goals",
+        "/api/runtime/goals/approval-requests/create",
+        "/api/runtime/goals/approval-requests/revoke",
+        "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+        "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+        (
+            "/api/runtime/goals/approval-requests/"
+            "{approval_request_ref}/decision"
+        ),
         "/api/runtime/goals/{goal_ref}/edit",
         "/api/runtime/goals/{goal_ref}/transition",
         "/api/runtime/local-model/call",
@@ -593,6 +601,17 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
         )
         == "governed_runtime_pilot"
     )
+    for path in (
+        "/api/runtime/goals/approval-requests/create",
+        "/api/runtime/goals/approval-requests/revoke",
+        "/api/runtime/goals/goal-ref:abc/approval-requests/edit",
+        "/api/runtime/goals/goal-ref:abc/approval-requests/transition",
+        (
+            "/api/runtime/goals/approval-requests/"
+            "approval-request-ref:abc/decision"
+        ),
+    ):
+        assert route_rate_limit_group("POST", path) == "governed_runtime_pilot"
     assert route_rate_limit_group("POST", "/api/runtime/authority-leases") == (
         "governed_runtime_pilot"
     )

@@ -23,6 +23,14 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/api/runtime/command/run"),
         ("POST", "/api/runtime/hermes/chat"),
         ("POST", "/api/runtime/goals"),
+        ("POST", "/api/runtime/goals/approval-requests/create"),
+        (
+            "POST",
+            "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
+        ),
+        ("POST", "/api/runtime/goals/approval-requests/revoke"),
+        ("POST", "/api/runtime/goals/{goal_ref}/approval-requests/edit"),
+        ("POST", "/api/runtime/goals/{goal_ref}/approval-requests/transition"),
         ("POST", "/api/runtime/goals/{goal_ref}/edit"),
         ("POST", "/api/runtime/goals/{goal_ref}/transition"),
         ("POST", "/api/runtime/invocations"),
@@ -173,9 +181,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 142
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 147
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "bb9ed6a28a885fb7e8aa4f8bc8ddad39aecff9934ba7d343a256a2b3bc702bb4"
+    "fa7515fed2df9a42dc3ba65257cb307bca0a99cce2e8c3b7a35b09aa9c3e907a"
 )
 
 

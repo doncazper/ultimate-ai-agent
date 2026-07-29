@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `341` OpenAPI paths and `343` manifest route operations.
+Current generated contract snapshot: `346` OpenAPI paths and `348` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -528,8 +528,12 @@ posture, goal lifecycle state, proof/receipt refs, stream summaries, and the
 AuthorityState mapping/catalog/decision/reason/unsupported-adapter refs for
 `lane-ref:runtime-run-events-read-model`. `GET /api/runtime/goals` and
 `GET /api/runtime/goals/{goal_ref}` inspect the same persistent goal journal.
-The goal create, edit, and transition POST routes are protected, idempotent,
-request-scoped local metadata mutations with optimistic versions. Completion
+The approval prepare, decision, and revoke POST routes persist a two-step,
+request-scoped authority ledger without performing a goal mutation. The goal
+create, edit, and transition POST routes are protected, idempotent local
+metadata mutations with optimistic versions and must consume the exact approved
+ledger binding. Approval decision/revoke idempotency headers are deterministic
+functions of the approval request/ref and are never cosmetic. Completion
 requests are supported, while verified completion fails closed until a trusted
 criterion-evaluator receipt producer is separately authorized; caller refs do
 not establish evaluator provenance. The routes do not create delegated runs,

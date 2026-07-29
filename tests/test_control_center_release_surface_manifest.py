@@ -184,6 +184,23 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         if route["route_classification"] == "mutating_requires_authority"
     } == {
         ("POST", "/api/runtime/goals"),
+        ("POST", "/api/runtime/goals/approval-requests/create"),
+        ("POST", "/api/runtime/goals/approval-requests/revoke"),
+        (
+            "POST",
+            (
+                "/api/runtime/goals/approval-requests/"
+                "{approval_request_ref}/decision"
+            ),
+        ),
+        (
+            "POST",
+            "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+        ),
+        (
+            "POST",
+            "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+        ),
         ("POST", "/api/runtime/goals/{goal_ref}/edit"),
         ("POST", "/api/runtime/goals/{goal_ref}/transition"),
     }

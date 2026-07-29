@@ -4,8 +4,11 @@ import {
   editRuntimeGoal,
   fetchRuntimeRunEvents,
   isRuntimeGoalMutationValidationError,
+  decideRuntimeGoalMutationApproval,
+  prepareRuntimeGoalMutationApproval,
   prepareRuntimeGoalCreateSubmission,
   prepareRuntimeGoalUpdateSubmission,
+  revokeRuntimeGoalMutationApproval,
   runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
@@ -23,6 +26,7 @@ const binding: BackendTruthReadBinding = {
   backendInstanceRef:
     "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
+const approvalRef = `approval-ref:goal-mutation:sha256:${"3".repeat(64)}`;
 
 const request: RuntimeGoalCreateRequest = {
   text_redaction_posture: "operator_authored_redacted_summary_only",
@@ -72,11 +76,13 @@ const mutationResult: RuntimeGoalMutationResult = {
   },
   approval_binding: {
     schema_version: "goal_mutation_approval_binding.v1",
-    approval_ref: `approval-ref:goal-mutation:sha256:${"3".repeat(64)}`,
+    approval_ref: approvalRef,
     approval_request_ref:
       `approval-request-ref:goal-mutation:sha256:${"4".repeat(64)}`,
     approval_decision_ref:
       `approval-decision-ref:goal-mutation:sha256:${"5".repeat(64)}`,
+    approval_ledger_entry_hash_ref:
+      `entry-hash-ref:goal-mutation-approval:sha256:${"9".repeat(64)}`,
     exact_scope_ref:
       `exact-scope-ref:goal-mutation:sha256:${"6".repeat(64)}`,
     request_fingerprint_ref:
@@ -91,6 +97,145 @@ describe("proof-backed runtime goal mutations", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps prepare, decision, and mutation as distinct exact authority steps", async () => {
+    const approvalRequest = {
+      schema_version: "goal_mutation_approval_request.v1" as const,
+      operation: "create",
+      subject_ref: "goal-ref:new",
+      idempotency_ref: "idempotency-ref:goal-client-create",
+      request_fingerprint_ref:
+        `request-fingerprint-ref:goal-mutation:sha256:${"1".repeat(64)}`,
+      exact_scope_ref:
+        `exact-scope-ref:goal-mutation:sha256:${"2".repeat(64)}`,
+      approval_request_ref:
+        `approval-request-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+      approval_ref: approvalRef,
+      operator_actor_ref: "operator-ref:local-user",
+      requested_at: "2026-07-25T00:00:00Z",
+      expires_at: "2026-07-25T00:30:00Z",
+    };
+    const decision = {
+      schema_version: "goal_mutation_approval_ledger.v1" as const,
+      spec: approvalRequest,
+      status: "approved" as const,
+      approval_grant: {},
+      decision_reason_ref: "reason-ref:goal-client-explicit-approval",
+      decision_actor_ref: "operator-ref:local-user",
+      decided_at: "2026-07-25T00:01:00Z",
+      previous_entry_hash_ref:
+        `entry-hash-ref:goal-mutation-approval:sha256:${"8".repeat(64)}`,
+      entry_hash_ref:
+        `entry-hash-ref:goal-mutation-approval:sha256:${"9".repeat(64)}`,
+    };
+    const revoked = { ...decision, status: "revoked" as const };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { approval_request: approvalRequest },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { approval_decision: decision },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { approval_decision: revoked },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const prepared = await prepareRuntimeGoalMutationApproval(
+      { operation: "create", goalRef: null, request },
+      approvalRequest.idempotency_ref,
+      binding,
+    );
+    expect(prepared).toEqual(approvalRequest);
+    await decideRuntimeGoalMutationApproval(
+      approvalRequest.approval_request_ref,
+      "approve",
+      decision.decision_reason_ref,
+      binding,
+    );
+    await revokeRuntimeGoalMutationApproval(
+      approvalRequest.approval_ref,
+      "reason-ref:goal-client-explicit-revocation",
+      binding,
+    );
+
+    const prepareHeaders = fetchMock.mock.calls[0][1]
+      ?.headers as Record<string, string>;
+    const decisionHeaders = fetchMock.mock.calls[1][1]
+      ?.headers as Record<string, string>;
+    const revokeHeaders = fetchMock.mock.calls[2][1]
+      ?.headers as Record<string, string>;
+    expect(prepareHeaders["X-UAA-Idempotency-Key"]).toBe(
+      approvalRequest.idempotency_ref,
+    );
+    expect(decisionHeaders["X-UAA-Idempotency-Key"]).toBe(
+      `idempotency-ref:goal-approval-decision:${approvalRequest.approval_request_ref}`,
+    );
+    expect(revokeHeaders["X-UAA-Idempotency-Key"]).toBe(
+      `idempotency-ref:goal-approval-revoke:${approvalRequest.approval_ref}`,
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      decision: "approve",
+      decision_reason_ref: decision.decision_reason_ref,
+    });
+  });
+
+  it("blocks every goal approval write before fetch for a rejected API base", async () => {
+    vi.stubEnv("VITE_UAA_API_BASE_URL", "https://example.invalid");
+    vi.resetModules();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const blockedClient = await import("./client");
+      const blockedCalls = [
+        () => blockedClient.prepareRuntimeGoalMutationApproval(
+          { operation: "create", goalRef: null, request },
+          "idempotency-ref:goal-client-create",
+          binding,
+        ),
+        () => blockedClient.decideRuntimeGoalMutationApproval(
+          `approval-request-ref:goal-mutation:sha256:${"4".repeat(64)}`,
+          "approve",
+          "reason-ref:goal-client-explicit-approval",
+          binding,
+        ),
+        () => blockedClient.revokeRuntimeGoalMutationApproval(
+          approvalRef,
+          "reason-ref:goal-client-explicit-revocation",
+          binding,
+        ),
+      ];
+
+      for (const blockedCall of blockedCalls) {
+        await expect(blockedCall()).rejects.toThrow(
+          "API base URL is not allowed",
+        );
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 
   it("binds create to exact backend truth and idempotency", async () => {
@@ -109,6 +254,7 @@ describe("proof-backed runtime goal mutations", () => {
     const result = await createRuntimeGoal(
       request,
       "idempotency-ref:goal-client-create",
+      approvalRef,
       binding,
     );
     const [url, init] = fetchMock.mock.calls[0];
@@ -151,6 +297,7 @@ describe("proof-backed runtime goal mutations", () => {
         reason_ref: "reason-ref:goal-client-pause",
       },
       "idempotency-ref:goal-client-pause",
+      approvalRef,
       binding,
     );
 
@@ -205,6 +352,7 @@ describe("proof-backed runtime goal mutations", () => {
         },
       },
       "idempotency-ref:goal-client-edit-links",
+      approvalRef,
       binding,
     );
 
@@ -248,6 +396,7 @@ describe("proof-backed runtime goal mutations", () => {
       createRuntimeGoal(
         request,
         "idempotency-ref:goal-client-standing",
+        approvalRef,
         binding,
       ),
     ).rejects.toThrow("proof-backed goal mutation failed safely");
@@ -255,6 +404,7 @@ describe("proof-backed runtime goal mutations", () => {
       createRuntimeGoal(
         request,
         "idempotency-ref:goal-client-no-binding",
+        approvalRef,
         null,
       ),
     ).rejects.toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
@@ -279,6 +429,7 @@ describe("proof-backed runtime goal mutations", () => {
     const error = await createRuntimeGoal(
       request,
       "idempotency-ref:goal-client-validation",
+      approvalRef,
       binding,
     ).catch((caught: unknown) => caught);
     expect(isRuntimeGoalMutationValidationError(error)).toBe(true);
@@ -305,6 +456,7 @@ describe("proof-backed runtime goal mutations", () => {
       const error = await createRuntimeGoal(
         request,
         `idempotency-ref:goal-client-ambiguous-${status}`,
+        approvalRef,
         binding,
       ).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(Error);
@@ -333,6 +485,7 @@ describe("proof-backed runtime goal mutations", () => {
     const error = await createRuntimeGoal(
       request,
       "idempotency-ref:goal-client-ambiguous-envelope",
+      approvalRef,
       binding,
     ).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(Error);
@@ -358,6 +511,7 @@ describe("proof-backed runtime goal mutations", () => {
       createRuntimeGoal(
         request,
         "idempotency-ref:goal-client-malformed",
+        approvalRef,
         binding,
       ),
     ).rejects.toThrow("proof-backed goal mutation failed safely");
@@ -371,6 +525,160 @@ describe("proof-backed runtime goal mutations", () => {
         goals: [{ ...mutationResult.goal, version: 4097 }],
         goal_count: 1,
         active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it.each([
+    [
+      "backend-shaped edit with null optionals",
+      {
+        expected_version: 1,
+        text_redaction_posture: null,
+        objective: null,
+        desired_outcome: null,
+        success_criteria: null,
+        constraints: null,
+        in_scope_resource_refs: null,
+        stop_condition: null,
+        budget: null,
+        links: null,
+        evidence_refs: [
+          `evidence-ref:control-center-goal-update-submission:edit:sha256:${"a".repeat(64)}`,
+        ],
+      },
+      "edit",
+      `evidence-ref:control-center-goal-update-submission:edit:sha256:${"a".repeat(64)}`,
+    ],
+    [
+      "backend-shaped transition with null completion evidence",
+      {
+        expected_version: 1,
+        transition: "pause",
+        reason_ref: "reason-ref:goal-recovery-pause",
+        evidence_refs: [
+          `evidence-ref:control-center-goal-update-submission:transition:sha256:${"b".repeat(64)}`,
+        ],
+        completion_evidence: null,
+      },
+      "transition",
+      `evidence-ref:control-center-goal-update-submission:transition:sha256:${"b".repeat(64)}`,
+    ],
+    [
+      "backend-shaped rejected completion verification",
+      {
+        expected_version: 2,
+        transition: "verify_completion",
+        reason_ref: "reason-ref:goal-recovery-verify",
+        evidence_refs: [
+          `evidence-ref:control-center-goal-update-submission:transition:sha256:${"c".repeat(64)}`,
+        ],
+        completion_evidence: {
+          goal_ref: mutationResult.goal.goal_ref,
+          goal_version: 2,
+          run_ref: "run-ref:goal-recovery-verify",
+          receipt_ref: "receipt-ref:goal-recovery-verify",
+          proof_ref: "proof-ref:goal-recovery-verify",
+          criterion_proof_refs: ["proof-ref:goal-recovery-criterion"],
+          evidence_ref: "evidence-ref:goal-recovery-verify",
+          verifier_ref: "verifier-ref:goal-recovery-verify",
+        },
+      },
+      "transition",
+      `evidence-ref:control-center-goal-update-submission:transition:sha256:${"c".repeat(64)}`,
+    ],
+  ])("accepts %s from durable recovery", async (
+    _label,
+    requestPayload,
+    operation,
+    submissionEvidenceRef,
+  ) => {
+    const record = {
+      schema_version: "goal_mutation_submission_recovery.v1",
+      submission_ref: "submission-ref:goal-recovery-backend-shaped",
+      operation,
+      goal_ref: mutationResult.goal.goal_ref,
+      request_payload: requestPayload,
+      idempotency_ref: "idempotency-ref:goal-recovery-backend-shaped",
+      submission_evidence_ref: submissionEvidenceRef,
+      request_fingerprint_ref:
+        `request-fingerprint-ref:goal-recovery:sha256:${"d".repeat(64)}`,
+      recorded_at: "2026-07-28T00:00:00Z",
+      status: "rejected",
+      committed_goal_ref: null,
+      rejection_reason_ref: "reason-ref:goal-recovery-rejected",
+      resolved_at: "2026-07-28T00:01:00Z",
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_mutation_submissions: {
+        ...mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        records: [record],
+        pending_count: 0,
+        committed_count: 0,
+        rejected_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
+  });
+
+  it.each([
+    ["operation budget overflow", { operation_limit: 10_001 }],
+    ["cost budget overflow", { cost_budget_microusd: 10_000_000_001 }],
+  ])("rejects recovery with %s", async (_label, budgetOverride) => {
+    const submissionEvidenceRef =
+      `evidence-ref:control-center-goal-create-submission:sha256:${"e".repeat(64)}`;
+    const record = {
+      schema_version: "goal_mutation_submission_recovery.v1",
+      submission_ref: "submission-ref:goal-recovery-budget-overflow",
+      operation: "create",
+      goal_ref: null,
+      request_payload: {
+        ...request,
+        budget: { ...request.budget, ...budgetOverride },
+        evidence_refs: [submissionEvidenceRef],
+      },
+      idempotency_ref: "idempotency-ref:goal-recovery-budget-overflow",
+      submission_evidence_ref: submissionEvidenceRef,
+      request_fingerprint_ref:
+        `request-fingerprint-ref:goal-recovery:sha256:${"f".repeat(64)}`,
+      recorded_at: "2026-07-28T00:00:00Z",
+      status: "pending",
+      committed_goal_ref: null,
+      rejection_reason_ref: null,
+      resolved_at: null,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_mutation_submissions: {
+        ...mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        records: [record],
+        pending_count: 1,
+        committed_count: 0,
+        rejected_count: 0,
       },
     };
     vi.stubGlobal(
@@ -479,6 +787,7 @@ describe("proof-backed runtime goal mutations", () => {
       createRuntimeGoal(
         request,
         "idempotency-ref:goal-client-invalid-completion",
+        approvalRef,
         binding,
       ),
     ).rejects.toThrow("proof-backed goal mutation failed safely");

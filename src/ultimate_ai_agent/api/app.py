@@ -271,6 +271,8 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
     "/api/runtime/goals",
+    "/api/runtime/goals/approval-requests/create",
+    "/api/runtime/goals/approval-requests/revoke",
 }
 _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
     r"^/control-center/chat/turns/[^/]+/handoff$"
@@ -284,7 +286,10 @@ _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
     r")$"
 )
 _CONTROL_CENTER_BOUND_GOAL_MUTATION_RE = re.compile(
-    r"^/api/runtime/goals/[^/]+/(?:edit|transition)$"
+    r"^/api/runtime/goals/(?:"
+    r"[^/]+/(?:edit|transition|approval-requests/(?:edit|transition))"
+    r"|approval-requests/[^/]+/decision"
+    r")$"
 )
 _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE = re.compile(
     r"^/control-center/actions/[^/]+/"

@@ -86,7 +86,12 @@ validate the exact request-scoped authority boundary.
 | GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/goals` | `get_api_runtime_goals` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/goals` | `post_api_runtime_goals` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/create` | `post_api_runtime_goals_approval_requests_create` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/{approval_request_ref}/decision` | `post_api_runtime_goals_approval_requests_approval_request_ref_decision` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/revoke` | `post_api_runtime_goals_approval_requests_revoke` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/goals/{goal_ref}` | `get_api_runtime_goals_goal_ref` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/approval-requests/edit` | `post_api_runtime_goals_goal_ref_approval_requests_edit` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/approval-requests/transition` | `post_api_runtime_goals_goal_ref_approval_requests_transition` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/goals/{goal_ref}/edit` | `post_api_runtime_goals_goal_ref_edit` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/goals/{goal_ref}/transition` | `post_api_runtime_goals_goal_ref_transition` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/hardline-command-blocklist` | `get_api_runtime_hardline_command_blocklist` | `local_dev_workspace_only` | no | future | yes |

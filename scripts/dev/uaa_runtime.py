@@ -62,7 +62,8 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     GoalRuntimeService,
     GoalTransitionKind,
     GoalTransitionRequest,
-    capture_exact_goal_mutation_approval,
+    build_goal_mutation_approval_decision_idempotency_ref,
+    build_goal_mutation_approval_revoke_idempotency_ref,
     terminal_goal_submission_rejection_reason_ref,
     active_runtime_authority_leases,
     HermesChatRequest,
@@ -4269,9 +4270,17 @@ def _persist_terminal_goal_cli_submission_rejection(
     submission: Any | None,
     exc: Exception,
 ) -> Exception:
-    if service is None or submission is None or not isinstance(exc, GoalRuntimeError):
+    if service is None or submission is None:
         return exc
-    reason_ref = terminal_goal_submission_rejection_reason_ref(exc)
+    normalized = (
+        GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        if isinstance(exc, (ValidationError, ValueError))
+        and not isinstance(exc, GoalRuntimeError)
+        else exc
+    )
+    if not isinstance(normalized, GoalRuntimeError):
+        return exc
+    reason_ref = terminal_goal_submission_rejection_reason_ref(normalized)
     if reason_ref is None:
         return exc
     try:
@@ -4282,7 +4291,7 @@ def _persist_terminal_goal_cli_submission_rejection(
         )
     except (GoalRuntimeError, OSError, ValueError):
         return GoalRuntimeError("GOAL_SUBMISSION_REJECTION_PERSISTENCE_FAILED")
-    return exc
+    return normalized
 
 
 def _goals_list(args: argparse.Namespace) -> int:
@@ -4342,6 +4351,116 @@ def _goal_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _goal_approval_prepare(args: argparse.Namespace) -> int:
+    try:
+        payload = _goal_request_payload(args.request_json)
+        if args.goal_operation == "create":
+            request = GoalCreateRequest.model_validate(payload)
+            goal_ref = None
+        elif args.goal_operation == "edit":
+            request = GoalEditRequest.model_validate(payload)
+            goal_ref = args.goal_ref
+        else:
+            request = GoalTransitionRequest.model_validate(payload)
+            goal_ref = args.goal_ref
+        spec = _goal_runtime_service(args).prepare_goal_mutation_approval(
+            operation=args.goal_operation,
+            goal_ref=goal_ref,
+            request=request,
+            idempotency_ref=args.idempotency_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-approval-prepare",
+            exc=exc,
+            safe_summary="Goal mutation approval request preparation failed safely.",
+        )
+    output = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-goal-approval-prepare",
+        "approval_request": spec.model_dump(mode="json"),
+        "approval_granted": False,
+        "mutation_performed": False,
+        "standing_authority_granted": False,
+    }
+    if args.json:
+        _print_json(output)
+    else:
+        print(f"Approval request: {spec.approval_request_ref}")
+        print(f"Approval ref: {spec.approval_ref}")
+        print("Status: pending")
+    return 0
+
+
+def _goal_approval_decide(args: argparse.Namespace) -> int:
+    try:
+        entry = _goal_runtime_service(args).decide_goal_mutation_approval(
+            approval_request_ref=args.approval_request_ref,
+            decision=args.approval_decision,
+            decision_reason_ref=args.reason_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-approval-decide",
+            exc=exc,
+            safe_summary="Goal mutation approval decision failed safely.",
+        )
+    output = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-goal-approval-decide",
+        "approval_decision": entry.model_dump(mode="json"),
+        "idempotency_ref": (
+            build_goal_mutation_approval_decision_idempotency_ref(
+                entry.spec.approval_request_ref
+            )
+        ),
+        "mutation_performed": False,
+        "standing_authority_granted": False,
+    }
+    if args.json:
+        _print_json(output)
+    else:
+        print(f"Approval request: {entry.spec.approval_request_ref}")
+        print(f"Approval ref: {entry.spec.approval_ref}")
+        print(f"Status: {entry.status}")
+    return 0
+
+
+def _goal_approval_revoke(args: argparse.Namespace) -> int:
+    try:
+        entry = _goal_runtime_service(args).revoke_goal_mutation_approval(
+            approval_ref=args.approval_ref,
+            decision_reason_ref=args.reason_ref,
+        )
+    except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
+        return _goal_cli_failure(
+            args,
+            command_ref="repo-local-command:uaa-runtime-goal-approval-revoke",
+            exc=exc,
+            safe_summary="Goal mutation approval revocation failed safely.",
+        )
+    output = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-goal-approval-revoke",
+        "approval_decision": entry.model_dump(mode="json"),
+        "idempotency_ref": (
+            build_goal_mutation_approval_revoke_idempotency_ref(
+                entry.spec.approval_ref
+            )
+        ),
+        "mutation_performed": False,
+        "standing_authority_granted": False,
+    }
+    if args.json:
+        _print_json(output)
+    else:
+        print(f"Approval ref: {entry.spec.approval_ref}")
+        print("Status: revoked")
+    return 0
+
+
 def _goal_create(args: argparse.Namespace) -> int:
     service: GoalRuntimeService | None = None
     submission: Any | None = None
@@ -4356,16 +4475,12 @@ def _goal_create(args: argparse.Namespace) -> int:
             request=request,
             idempotency_ref=args.idempotency_ref,
         )
-        approval = capture_exact_goal_mutation_approval(
-            operation="create",
-            subject_ref="goal-ref:new",
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=args.idempotency_ref,
-        )
-        goal = service.create_goal(
+        if not args.approval_ref:
+            raise GoalRuntimeError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        goal, approval = service.create_goal(
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_binding=approval,
+            approval_ref=args.approval_ref,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
         failure = _persist_terminal_goal_cli_submission_rejection(
@@ -4407,17 +4522,13 @@ def _goal_edit(args: argparse.Namespace) -> int:
             request=request,
             idempotency_ref=args.idempotency_ref,
         )
-        approval = capture_exact_goal_mutation_approval(
-            operation="edit",
-            subject_ref=args.goal_ref,
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=args.idempotency_ref,
-        )
-        goal = service.edit_goal(
+        if not args.approval_ref:
+            raise GoalRuntimeError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        goal, approval = service.edit_goal(
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_binding=approval,
+            approval_ref=args.approval_ref,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
         failure = _persist_terminal_goal_cli_submission_rejection(
@@ -4461,17 +4572,13 @@ def _goal_transition(args: argparse.Namespace) -> int:
         )
         if request.transition == GoalTransitionKind.verify_completion.value:
             raise GoalRuntimeError("GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE")
-        approval = capture_exact_goal_mutation_approval(
-            operation=f"transition-{request.transition}",
-            subject_ref=args.goal_ref,
-            request_payload=request.model_dump(mode="json"),
-            idempotency_ref=args.idempotency_ref,
-        )
-        goal = service.transition_goal(
+        if not args.approval_ref:
+            raise GoalRuntimeError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        goal, approval = service.transition_goal(
             args.goal_ref,
             request,
             idempotency_ref=args.idempotency_ref,
-            approval_binding=approval,
+            approval_ref=args.approval_ref,
         )
     except (GoalRuntimeError, ValidationError, ValueError, OSError) as exc:
         failure = _persist_terminal_goal_cli_submission_rejection(

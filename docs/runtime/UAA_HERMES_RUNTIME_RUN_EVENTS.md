@@ -195,12 +195,20 @@ trusted Core producer paths.
 
 - `GET /api/runtime/goals`
 - `GET /api/runtime/goals/{goal_ref}`
+- `POST /api/runtime/goals/approval-requests/create`
+- `POST /api/runtime/goals/{goal_ref}/approval-requests/edit`
+- `POST /api/runtime/goals/{goal_ref}/approval-requests/transition`
+- `POST /api/runtime/goals/approval-requests/{approval_request_ref}/decision`
+- `POST /api/runtime/goals/approval-requests/revoke`
 - `POST /api/runtime/goals`
 - `POST /api/runtime/goals/{goal_ref}/edit`
 - `POST /api/runtime/goals/{goal_ref}/transition`
 - `GET /api/runtime/run-events?run_ref=...&after_sequence=...&limit=...`
 - `scripts/dev/uaa_runtime.py goals-list`
 - `scripts/dev/uaa_runtime.py goal-show`
+- `scripts/dev/uaa_runtime.py goal-approval-prepare`
+- `scripts/dev/uaa_runtime.py goal-approval-decide`
+- `scripts/dev/uaa_runtime.py goal-approval-revoke`
 - `scripts/dev/uaa_runtime.py goal-create`
 - `scripts/dev/uaa_runtime.py goal-edit`
 - `scripts/dev/uaa_runtime.py goal-transition`
@@ -211,6 +219,18 @@ The exact-goal read and `goal-show` CLI return the bounded, content-free mutatio
 provenance chain alongside the current goal. Provenance includes operation,
 version, idempotency, request fingerprint, approval, reason, and hash refs, but
 does not repeat raw request payloads or goal text.
+
+Every operator-facing goal mutation and public metadata-event append uses a
+distinct two-step approval workflow. Preparation durably binds the exact
+operation, subject, request fingerprint, idempotency identity, actor, and expiry
+without authorizing or performing the mutation. A separate approve/deny
+decision persists the request-scoped authority state; create, edit, transition,
+and public metadata-event append then consume that exact approval under the
+mutation claim. Trusted Core receipt/completion projection remains an internal
+producer path rather than operator-minted authority. Revocation, expiry, denial,
+drift, and fabricated refs fail closed. An already committed exact replay may
+return its prior result after expiry or revocation only when the caller supplies
+the original approval ref recorded in the durable journal.
 
 Verified completion is currently blocked on the public API, CLI, and Control
 Center because no trusted criterion-evaluator receipt producer exists in the

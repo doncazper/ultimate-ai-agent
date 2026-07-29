@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `341` OpenAPI paths and `343` manifest route operations.
+Current generated contract snapshot: `346` OpenAPI paths and `348` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -446,9 +446,14 @@ Contract rules:
   decision-bound snapshot refs for
   `lane-ref:runtime-run-events-read-model` under Read-only `workspace/read`.
   `GET /api/runtime/goals` and `GET /api/runtime/goals/{goal_ref}` expose the
-  same persistent goal journal. The three goal POST routes provide exact local
-  metadata create, edit, and typed lifecycle transition boundaries with
-  idempotency, optimistic versions, and request-scoped approval binding.
+  same persistent goal journal. Five approval POST routes durably prepare,
+  approve/deny, and revoke exact request-scoped goal authority without
+  performing the goal mutation. The three goal mutation POST routes then
+  provide exact local metadata create, edit, and typed lifecycle transition
+  boundaries with idempotency, optimistic versions, and approval-ledger
+  provenance. Decision and revocation routes bind their standard idempotency
+  headers to deterministic refs derived from the exact approval request/ref;
+  missing, malformed, or mismatched headers fail closed.
   Control Center supplies `x-uaa-goal-submission-ref`; the Core binds that ref
   to the exact validated request and idempotency identity before mutation so a
   lost response can be reconciled through the read-only run-events projection

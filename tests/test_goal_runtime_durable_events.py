@@ -34,7 +34,6 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
     RunEventReplayStatus,
-    capture_exact_goal_mutation_approval,
 )
 from ultimate_ai_agent.core.runtime_gateway.run_events import (
     build_runtime_run_events_read_model,
@@ -115,7 +114,29 @@ def _completion_evidence(
             plan_ref=plan_ref,
         ),
         verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
+)
+
+
+def _approved_mutation_ref(
+    service: GoalRuntimeService,
+    *,
+    operation: str,
+    goal_ref: str | None,
+    request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest | DurableRunEventAppendRequest,
+    idempotency_ref: str,
+) -> str:
+    spec = service.prepare_goal_mutation_approval(
+        operation=operation,
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=idempotency_ref,
     )
+    service.decide_goal_mutation_approval(
+        approval_request_ref=spec.approval_request_ref,
+        decision="approve",
+        decision_reason_ref="reason-ref:test-explicit-goal-mutation-approval",
+    )
+    return spec.approval_ref
 
 
 def _append_event(
@@ -158,13 +179,14 @@ def _append_event(
         DurableRunEventKind.dead_lettered.value,
     }:
         return service._events.append(request)  # noqa: SLF001
-    approval = capture_exact_goal_mutation_approval(
+    approval_ref = _approved_mutation_ref(
+        service,
         operation="append-run-event",
-        subject_ref=request.run_ref,
-        request_payload=request.model_dump(mode="json"),
+        goal_ref=None,
+        request=request,
         idempotency_ref=request.idempotency_ref,
     )
-    return service.append_run_event(request, approval_binding=approval)
+    return service.append_run_event(request, approval_ref=approval_ref)
 
 
 def _create_request(
@@ -230,17 +252,19 @@ def _create_goal(
     *,
     idempotency_ref: str,
 ):
-    approval = capture_exact_goal_mutation_approval(
+    approval_ref = _approved_mutation_ref(
+        service,
         operation="create",
-        subject_ref="goal-ref:new",
-        request_payload=request.model_dump(mode="json"),
+        goal_ref=None,
+        request=request,
         idempotency_ref=idempotency_ref,
     )
-    return service.create_goal(
+    goal, _approval = service.create_goal(
         request,
         idempotency_ref=idempotency_ref,
-        approval_binding=approval,
+        approval_ref=approval_ref,
     )
+    return goal
 
 
 def _edit_goal(
@@ -250,18 +274,20 @@ def _edit_goal(
     *,
     idempotency_ref: str,
 ):
-    approval = capture_exact_goal_mutation_approval(
+    approval_ref = _approved_mutation_ref(
+        service,
         operation="edit",
-        subject_ref=goal_ref,
-        request_payload=request.model_dump(mode="json"),
+        goal_ref=goal_ref,
+        request=request,
         idempotency_ref=idempotency_ref,
     )
-    return service.edit_goal(
+    goal, _approval = service.edit_goal(
         goal_ref,
         request,
         idempotency_ref=idempotency_ref,
-        approval_binding=approval,
+        approval_ref=approval_ref,
     )
+    return goal
 
 
 def _transition_goal(
@@ -271,18 +297,20 @@ def _transition_goal(
     *,
     idempotency_ref: str,
 ):
-    approval = capture_exact_goal_mutation_approval(
-        operation=f"transition-{request.transition}",
-        subject_ref=goal_ref,
-        request_payload=request.model_dump(mode="json"),
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="transition",
+        goal_ref=goal_ref,
+        request=request,
         idempotency_ref=idempotency_ref,
     )
-    return service.transition_goal(
+    goal, _approval = service.transition_goal(
         goal_ref,
         request,
         idempotency_ref=idempotency_ref,
-        approval_binding=approval,
+        approval_ref=approval_ref,
     )
+    return goal
 
 
 def test_goal_lifecycle_persists_replays_and_detects_version_conflicts(
@@ -542,6 +570,7 @@ def test_goal_store_rejects_fabricated_approval_binding(
         approval_ref="approval-ref:fabricated",
         approval_request_ref="approval-request-ref:fabricated",
         approval_decision_ref="approval-decision-ref:fabricated",
+        approval_ledger_entry_hash_ref="entry-hash-ref:fabricated",
         exact_scope_ref="exact-scope-ref:fabricated",
         request_fingerprint_ref="request-fingerprint-ref:fabricated",
     )
@@ -555,6 +584,517 @@ def test_goal_store_rejects_fabricated_approval_binding(
             idempotency_ref="idempotency-ref:fabricated-binding",
             approval_binding=fabricated,
         )
+
+
+@pytest.mark.parametrize(
+    ("approval_state", "expected_code"),
+    [
+        ("unknown", "GOAL_MUTATION_APPROVAL_UNKNOWN"),
+        ("pending", "GOAL_MUTATION_APPROVAL_REQUIRED"),
+        ("denied", "GOAL_MUTATION_APPROVAL_DENIED"),
+        ("revoked", "GOAL_MUTATION_APPROVAL_REVOKED"),
+        ("expired", "GOAL_MUTATION_APPROVAL_EXPIRED"),
+    ],
+)
+def test_goal_mutation_requires_current_exact_approval(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    approval_state: str,
+    expected_code: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    idempotency_ref = f"idempotency-ref:approval-state:{approval_state}"
+    approval_ref = "approval-ref:unknown"
+    if approval_state != "unknown":
+        spec = service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+        approval_ref = spec.approval_ref
+        if approval_state in {"denied", "revoked", "expired"}:
+            service.decide_goal_mutation_approval(
+                approval_request_ref=spec.approval_request_ref,
+                decision=("deny" if approval_state == "denied" else "approve"),
+                decision_reason_ref=f"reason-ref:approval-state:{approval_state}",
+            )
+        if approval_state == "revoked":
+            service.revoke_goal_mutation_approval(
+                approval_ref=spec.approval_ref,
+                decision_reason_ref="reason-ref:approval-state:revoked",
+            )
+        if approval_state == "expired":
+            monkeypatch.setattr(
+                goal_runtime_module,
+                "utc_now",
+                lambda: spec.expires_at + timedelta(seconds=1),
+            )
+
+    with pytest.raises(GoalTransitionDeniedError, match=expected_code):
+        service.create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=approval_ref,
+        )
+    assert service.goals.list() == []
+
+
+def test_goal_approval_prepare_is_non_authorizing_and_restart_durable(
+    tmp_path: Path,
+) -> None:
+    request = _create_request()
+    idempotency_ref = "idempotency-ref:approval-prepare-restart"
+    service = GoalRuntimeService(tmp_path)
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert service.goals.list() == []
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_MUTATION_APPROVAL_REQUIRED",
+    ):
+        GoalRuntimeService(tmp_path).create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=spec.approval_ref,
+        )
+
+    restarted = GoalRuntimeService(tmp_path)
+    decision = restarted.decide_goal_mutation_approval(
+        approval_request_ref=spec.approval_request_ref,
+        decision="approve",
+        decision_reason_ref="reason-ref:approval-prepare-restart",
+    )
+    created, binding = restarted.create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=spec.approval_ref,
+    )
+    assert created.state == GoalState.active.value
+    assert binding.approval_ledger_entry_hash_ref == decision.entry_hash_ref
+
+
+def test_goal_approval_rejects_cross_scope_and_decision_conflicts(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:approval-cross-scope",
+    )
+    approved = service._approvals.decide(  # noqa: SLF001
+        approval_request_ref=spec.approval_request_ref,
+        decision="approve",
+        decision_reason_ref="reason-ref:approval-cross-scope",
+        actor_ref="operator-ref:local-user",
+    )
+    assert (
+        service._approvals.decide(  # noqa: SLF001
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:approval-cross-scope",
+            actor_ref="operator-ref:local-user",
+        ).entry_hash_ref
+        == approved.entry_hash_ref
+    )
+    with pytest.raises(
+        GoalIdempotencyConflictError,
+        match="GOAL_MUTATION_APPROVAL_DECISION_CONFLICT",
+    ):
+        service._approvals.decide(  # noqa: SLF001
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:approval-cross-scope",
+            actor_ref="operator-ref:different-user",
+        )
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
+    ):
+        service.create_goal(
+            request.model_copy(
+                update={"objective": "A different exact request payload."}
+            ),
+            idempotency_ref="idempotency-ref:approval-cross-scope",
+            approval_ref=spec.approval_ref,
+        )
+
+    revoked = service._approvals.revoke(  # noqa: SLF001
+        approval_ref=spec.approval_ref,
+        decision_reason_ref="reason-ref:approval-cross-scope-revoke",
+        actor_ref="operator-ref:local-user",
+    )
+    assert (
+        service._approvals.revoke(  # noqa: SLF001
+            approval_ref=spec.approval_ref,
+            decision_reason_ref="reason-ref:approval-cross-scope-revoke",
+            actor_ref="operator-ref:local-user",
+        ).entry_hash_ref
+        == revoked.entry_hash_ref
+    )
+    with pytest.raises(
+        GoalIdempotencyConflictError,
+        match="GOAL_MUTATION_APPROVAL_REVOCATION_CONFLICT",
+    ):
+        service._approvals.revoke(  # noqa: SLF001
+            approval_ref=spec.approval_ref,
+            decision_reason_ref="reason-ref:approval-cross-scope-revoke",
+            actor_ref="operator-ref:different-user",
+        )
+
+
+def test_committed_goal_replay_survives_revocation_with_original_ref_only(
+    tmp_path: Path,
+) -> None:
+    request = _create_request()
+    idempotency_ref = "idempotency-ref:committed-approval-replay"
+    service = GoalRuntimeService(tmp_path)
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    created, binding = service.create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    )
+    entry_count = len(service.goals._load_consistent_entries())  # noqa: SLF001
+    service.revoke_goal_mutation_approval(
+        approval_ref=approval_ref,
+        decision_reason_ref="reason-ref:committed-approval-replay-revoke",
+    )
+
+    restarted = GoalRuntimeService(tmp_path)
+    replayed, replay_binding = restarted.create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    )
+    assert replayed == created
+    assert replay_binding == binding
+    assert len(restarted.goals._load_consistent_entries()) == entry_count  # noqa: SLF001
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
+    ):
+        restarted.create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref="approval-ref:different",
+        )
+    assert len(restarted.goals._load_consistent_entries()) == entry_count  # noqa: SLF001
+
+
+def test_committed_run_event_replay_survives_revocation_with_original_ref_only(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:committed-event-approval-replay",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="A bounded run began with exact approval provenance.",
+        idempotency_ref="idempotency-ref:committed-event-approval-replay",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="append-run-event",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=request.idempotency_ref,
+    )
+    created = service.append_run_event(request, approval_ref=approval_ref)
+    service.revoke_goal_mutation_approval(
+        approval_ref=approval_ref,
+        decision_reason_ref="reason-ref:committed-event-approval-replay-revoke",
+    )
+
+    restarted = GoalRuntimeService(tmp_path)
+    assert restarted.append_run_event(request, approval_ref=approval_ref) == created
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
+    ):
+        restarted.append_run_event(
+            request,
+            approval_ref="approval-ref:different",
+        )
+    assert len(restarted.events.replay(request.run_ref).events) == 1
+
+
+def test_committed_goal_and_event_replay_survive_approval_expiry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    goal_request = _create_request()
+    goal_idempotency_ref = "idempotency-ref:committed-goal-expired-approval"
+    goal_approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=goal_request,
+        idempotency_ref=goal_idempotency_ref,
+    )
+    created_goal, _goal_binding = service.create_goal(
+        goal_request,
+        idempotency_ref=goal_idempotency_ref,
+        approval_ref=goal_approval_ref,
+    )
+    event_request = DurableRunEventAppendRequest(
+        run_ref="run-ref:committed-event-expired-approval",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="A bounded run began before its exact approval expired.",
+        idempotency_ref="idempotency-ref:committed-event-expired-approval",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event_approval_ref = _approved_mutation_ref(
+        service,
+        operation="append-run-event",
+        goal_ref=None,
+        request=event_request,
+        idempotency_ref=event_request.idempotency_ref,
+    )
+    created_event = service.append_run_event(
+        event_request,
+        approval_ref=event_approval_ref,
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "utc_now",
+        lambda: datetime(2036, 7, 25, tzinfo=timezone.utc),
+    )
+
+    restarted = GoalRuntimeService(tmp_path)
+    replayed_goal, _replay_binding = restarted.create_goal(
+        goal_request,
+        idempotency_ref=goal_idempotency_ref,
+        approval_ref=goal_approval_ref,
+    )
+    replayed_event = restarted.append_run_event(
+        event_request,
+        approval_ref=event_approval_ref,
+    )
+    assert replayed_goal == created_goal
+    assert replayed_event == created_event
+    assert len(restarted.goals._load_consistent_entries()) == 1  # noqa: SLF001
+    assert len(restarted.events.replay(event_request.run_ref).events) == 1
+
+
+def test_pre_ledger_goal_replay_fails_closed(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    idempotency_ref = "idempotency-ref:pre-ledger-replay"
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    service.create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    )
+    [entry] = service.goals._load_consistent_entries()  # noqa: SLF001
+    legacy_draft = entry.model_copy(
+        update={
+            "approval_ledger_entry_hash_ref": None,
+            "entry_hash_ref": "entry-hash-ref:pending",
+        }
+    )
+    legacy = legacy_draft.model_copy(
+        update={"entry_hash_ref": service.goals._entry_hash(legacy_draft)}  # noqa: SLF001
+    )
+    service.goals._write_entries([legacy])  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING",
+    ):
+        GoalRuntimeService(tmp_path).create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=approval_ref,
+        )
+
+
+@pytest.mark.parametrize(
+    ("grant_field", "replacement"),
+    [
+        ("run_id", "run-ref:tampered"),
+        ("approved_actions", ["goal_mutation_edit"]),
+        ("approved_resource_refs", ["resource-ref:tampered"]),
+        ("purpose", "A different safe purpose."),
+        ("event_ref", "event-ref:tampered"),
+        ("trace_id", "trace-ref:tampered"),
+    ],
+)
+def test_committed_replay_rejects_tampered_canonical_grant_scope(
+    tmp_path: Path,
+    grant_field: str,
+    replacement: object,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    idempotency_ref = f"idempotency-ref:grant-tamper:{grant_field}"
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    service.create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    )
+    entries = service._approvals._load_entries()  # noqa: SLF001
+    approved = entries[-1]
+    assert approved.approval_grant is not None
+    tampered_grant = approved.approval_grant.model_copy(
+        update={grant_field: replacement}
+    )
+    tampered_draft = approved.model_copy(
+        update={
+            "approval_grant": tampered_grant,
+            "entry_hash_ref": "entry-hash-ref:pending",
+        }
+    )
+    tampered = tampered_draft.model_copy(
+        update={
+            "entry_hash_ref": service._approvals._entry_hash(tampered_draft)  # noqa: SLF001
+        }
+    )
+    service._approvals.path.write_text(  # noqa: SLF001
+        "".join(
+            entry.model_dump_json() + "\n"
+            for entry in [*entries[:-1], tampered]
+        ),
+        encoding="utf-8",
+    )
+    [journal_entry] = service.goals._load_consistent_entries()  # noqa: SLF001
+    tampered_decision_ref = goal_runtime_module._sha256_ref(  # noqa: SLF001
+        "approval-decision-ref:goal-mutation",
+        {
+            "approval_ref": approval_ref,
+            "ledger_entry_hash_ref": tampered.entry_hash_ref,
+            "status": "approved",
+        },
+    )
+    journal_draft = journal_entry.model_copy(
+        update={
+            "approval_decision_ref": tampered_decision_ref,
+            "approval_ledger_entry_hash_ref": tampered.entry_hash_ref,
+            "entry_hash_ref": "entry-hash-ref:pending",
+        }
+    )
+    tampered_journal = journal_draft.model_copy(
+        update={
+            "entry_hash_ref": service.goals._entry_hash(journal_draft)  # noqa: SLF001
+        }
+    )
+    service.goals._write_entries([tampered_journal])  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_INVALID",
+    ):
+        GoalRuntimeService(tmp_path).create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=approval_ref,
+        )
+
+
+def test_revoke_serializes_after_inflight_goal_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = _create_request()
+    idempotency_ref = "idempotency-ref:approval-revoke-race"
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    entered_commit = threading.Event()
+    release_commit = threading.Event()
+    original_create = service.goals.create
+
+    def blocked_create(*args: object, **kwargs: object) -> PersistentGoal:
+        entered_commit.set()
+        assert release_commit.wait(timeout=5)
+        return original_create(*args, **kwargs)
+
+    monkeypatch.setattr(service.goals, "create", blocked_create)
+    results: dict[str, object] = {}
+
+    def mutate() -> None:
+        try:
+            results["goal"] = service.create_goal(
+                request,
+                idempotency_ref=idempotency_ref,
+                approval_ref=approval_ref,
+            )[0]
+        except BaseException as exc:  # pragma: no cover - diagnostic guard
+            results["mutation_error"] = exc
+
+    def revoke() -> None:
+        try:
+            results["revoked"] = service.revoke_goal_mutation_approval(
+                approval_ref=approval_ref,
+                decision_reason_ref="reason-ref:approval-revoke-race",
+            )
+        except BaseException as exc:  # pragma: no cover - diagnostic guard
+            results["revoke_error"] = exc
+
+    mutation_thread = threading.Thread(target=mutate)
+    revoke_thread = threading.Thread(target=revoke)
+    mutation_thread.start()
+    assert entered_commit.wait(timeout=5)
+    revoke_thread.start()
+    assert revoke_thread.is_alive()
+    release_commit.set()
+    mutation_thread.join(timeout=5)
+    revoke_thread.join(timeout=5)
+
+    assert not mutation_thread.is_alive()
+    assert not revoke_thread.is_alive()
+    assert "mutation_error" not in results
+    assert "revoke_error" not in results
+    assert isinstance(results["goal"], PersistentGoal)
+    assert getattr(results["revoked"], "status", None) == "revoked"
+    assert (
+        service._approvals._load_entries()[-1].status  # noqa: SLF001
+        == "revoked"
+    )
+    assert GoalRuntimeService(tmp_path).create_goal(
+        request,
+        idempotency_ref=idempotency_ref,
+        approval_ref=approval_ref,
+    )[0] == results["goal"]
 
 
 def test_transition_replay_rejects_fabricated_approval_before_recovery(
@@ -608,22 +1148,15 @@ def test_transition_replay_rejects_fabricated_approval_before_recovery(
         )
 
     recovered = GoalRuntimeService(tmp_path)
-    fabricated = GoalMutationApprovalBinding(
-        approval_ref="approval-ref:fabricated",
-        approval_request_ref="approval-request-ref:fabricated",
-        approval_decision_ref="approval-decision-ref:fabricated",
-        exact_scope_ref="exact-scope-ref:fabricated",
-        request_fingerprint_ref="request-fingerprint-ref:fabricated",
-    )
     with pytest.raises(
         GoalTransitionDeniedError,
-        match="GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+        match="GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
     ):
         recovered.transition_goal(
             created.goal_ref,
             transition,
             idempotency_ref="idempotency-ref:replay-approval:verify",
-            approval_binding=fabricated,
+            approval_ref="approval-ref:fabricated",
         )
 
     assert not any(
@@ -2531,20 +3064,15 @@ def test_goal_runtime_lock_failures_are_normalized(tmp_path: Path) -> None:
     goal_dir.mkdir()
     (goal_dir / ".locks").write_text("blocked", encoding="utf-8")
     request = _create_request()
-    approval = capture_exact_goal_mutation_approval(
-        operation="create",
-        subject_ref="goal-ref:new",
-        request_payload=request.model_dump(mode="json"),
-        idempotency_ref="idempotency-ref:goal-lock-failure",
-    )
     with pytest.raises(
         GoalRuntimeError,
         match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
     ):
-        GoalRuntimeService(goal_dir).goals.create(
-            request,
+        GoalRuntimeService(goal_dir).prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
             idempotency_ref="idempotency-ref:goal-lock-failure",
-            approval_binding=approval,
         )
 
 
@@ -2591,19 +3119,20 @@ def test_run_event_writer_requires_exact_approval_and_is_not_on_reader(
     wrong_request = request.model_copy(
         update={"safe_summary": "A different bounded local run started."}
     )
-    wrong_approval = capture_exact_goal_mutation_approval(
+    wrong_approval_ref = _approved_mutation_ref(
+        service,
         operation="append-run-event",
-        subject_ref=wrong_request.run_ref,
-        request_payload=wrong_request.model_dump(mode="json"),
+        goal_ref=None,
+        request=wrong_request,
         idempotency_ref=wrong_request.idempotency_ref,
     )
 
     assert not hasattr(service.events, "append")
     with pytest.raises(
         GoalTransitionDeniedError,
-        match="GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+        match="GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
     ):
-        service.append_run_event(request, approval_binding=wrong_approval)
+        service.append_run_event(request, approval_ref=wrong_approval_ref)
     assert service.events.replay(request.run_ref).events == []
 
 
@@ -2633,18 +3162,14 @@ def test_run_event_writer_rejects_trusted_producer_events(
         idempotency_ref=f"idempotency-ref:trusted-producer:{event_kind.value}",
         authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
     )
-    approval = capture_exact_goal_mutation_approval(
-        operation="append-run-event",
-        subject_ref=request.run_ref,
-        request_payload=request.model_dump(mode="json"),
-        idempotency_ref=request.idempotency_ref,
-    )
-
     with pytest.raises(
         GoalTransitionDeniedError,
         match="RUN_EVENT_TRUSTED_PRODUCER_REQUIRED",
     ):
-        service.append_run_event(request, approval_binding=approval)
+        service.append_run_event(
+            request,
+            approval_ref="approval-ref:trusted-producer-not-consumed",
+        )
     assert service.events.replay(request.run_ref).events == []
 
 
