@@ -9229,7 +9229,15 @@ describe("Web Control Center shell", () => {
         safe_refs_only: true,
         model_output_authoritative: false,
       };
-      const runtimeRunEvents = {
+      let pendingRecovery:
+        | {
+            submissionRef: string;
+            idempotencyRef: string;
+            submissionEvidenceRef: string;
+            requestPayload: Record<string, unknown>;
+          }
+        | null = null;
+      const runtimeRunEvents = () => ({
         ...cloneForTest(mockControlCenterData.runtimeRunEvents),
         goal_lifecycle: {
           ...cloneForTest(
@@ -9239,11 +9247,57 @@ describe("Web Control Center shell", () => {
           goal_count: mutationKind === "create" ? 0 : 1,
           active_count: mutationKind === "create" ? 0 : 1,
         },
-      };
+        goal_mutation_submissions: {
+          ...cloneForTest(
+            mockControlCenterData.runtimeRunEvents
+              .goal_mutation_submissions,
+          ),
+          records:
+            pendingRecovery === null
+              ? []
+              : [
+                  {
+                    schema_version:
+                      "goal_mutation_submission_recovery.v1",
+                    submission_ref: pendingRecovery.submissionRef,
+                    operation: mutationKind,
+                    goal_ref:
+                      mutationKind === "create" ? null : goal.goal_ref,
+                    request_payload: pendingRecovery.requestPayload,
+                    idempotency_ref: pendingRecovery.idempotencyRef,
+                    submission_evidence_ref:
+                      pendingRecovery.submissionEvidenceRef,
+                    request_fingerprint_ref:
+                      "request-fingerprint-ref:goal-mutation-submission:test",
+                    recorded_at: "2026-07-28T00:00:00Z",
+                    status: "pending",
+                    committed_goal_ref: null,
+                  },
+                ],
+          pending_count: pendingRecovery === null ? 0 : 1,
+          committed_count: 0,
+        },
+      });
       const fetchMock = vi.fn(
         async (url: string | URL | Request, options?: RequestInit) => {
           const urlText = String(url);
           if (options?.method === "POST") {
+            const headers = new Headers(options.headers);
+            const requestPayload = JSON.parse(
+              String(options.body),
+            ) as { evidence_refs: string[] };
+            pendingRecovery = {
+              submissionRef:
+                headers.get("X-UAA-Goal-Submission-Ref") ?? "",
+              idempotencyRef:
+                headers.get("X-UAA-Idempotency-Key") ?? "",
+              submissionEvidenceRef:
+                requestPayload.evidence_refs.find((ref) =>
+                  ref.includes("goal-") &&
+                  ref.includes("submission"),
+                ) ?? "",
+              requestPayload,
+            };
             throw new Error(
               `ambiguous ${mutationKind} response; outcome unknown`,
             );
@@ -9256,7 +9310,7 @@ describe("Web Control Center shell", () => {
           }
           const envelope =
             endpoint === API_ENDPOINTS.runtimeRunEvents
-              ? { ok: true, result: runtimeRunEvents }
+              ? { ok: true, result: runtimeRunEvents() }
               : envelopeForReadEndpoint(urlText);
           return new Response(JSON.stringify(envelope), {
             status: 200,
@@ -9266,9 +9320,9 @@ describe("Web Control Center shell", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
       window.history.pushState({}, "", "/runtime");
-      render(<App />);
+      const firstRender = render(<App />);
 
-      const createButton = await screen.findByRole("button", {
+      let createButton = await screen.findByRole("button", {
         name: "Create local goal",
       });
       await waitFor(() => expect(createButton).toBeEnabled());
@@ -9308,6 +9362,23 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       await waitFor(() => expect(createButton).toBeDisabled());
       expect(mutationButton).toBeDisabled();
+
+      firstRender.unmount();
+      render(<App />);
+      expect(
+        await screen.findByText(
+          "Recovered an exact backend-owned pending goal submission; retry reuses its original request and identity.",
+        ),
+      ).toBeInTheDocument();
+      createButton = screen.getByRole("button", {
+        name: "Create local goal",
+      });
+      mutationButton =
+        mutationKind === "create"
+          ? screen.getByRole("button", { name: "Create local goal" })
+          : mutationKind === "edit"
+            ? screen.getByRole("button", { name: "Save objective" })
+            : screen.getByRole("button", { name: "pause" });
 
       const refreshButton = screen.getByRole("button", {
         name: "Refresh durable goal state",
@@ -9389,6 +9460,10 @@ describe("Web Control Center shell", () => {
         | typeof initialGoal
         | (typeof initialGoal & { version: number })
         | null = null;
+      const postCalls: Array<{
+        body: string;
+        headers: HeadersInit | undefined;
+      }> = [];
       const runtimeRunEvents = () => {
         const goals =
           committedGoal === null
@@ -9406,12 +9481,49 @@ describe("Web Control Center shell", () => {
             goal_count: goals.length,
             active_count: goals.length,
           },
+          goal_mutation_submissions: {
+            ...cloneForTest(
+              mockControlCenterData.runtimeRunEvents
+                .goal_mutation_submissions,
+            ),
+            records:
+              committedGoal === null || postCalls.length === 0
+                ? []
+                : [
+                    {
+                      schema_version:
+                        "goal_mutation_submission_recovery.v1",
+                      submission_ref:
+                        new Headers(postCalls[0]?.headers).get(
+                          "X-UAA-Goal-Submission-Ref",
+                        ) ?? "",
+                      operation: mutationKind,
+                      goal_ref:
+                        mutationKind === "create" ? null : goalRef,
+                      request_payload: JSON.parse(
+                        postCalls[0]?.body ?? "{}",
+                      ),
+                      idempotency_ref:
+                        new Headers(postCalls[0]?.headers).get(
+                          "X-UAA-Idempotency-Key",
+                        ) ?? "",
+                      submission_evidence_ref:
+                        committedGoal.evidence_refs.find((ref) =>
+                          ref.includes("submission"),
+                        ) ?? "",
+                      request_fingerprint_ref:
+                        "request-fingerprint-ref:goal-mutation-submission:committed",
+                      recorded_at: "2026-07-28T00:00:00Z",
+                      status: "committed",
+                      committed_goal_ref: committedGoal.goal_ref,
+                    },
+                  ],
+            pending_count: 0,
+            committed_count:
+              committedGoal === null || postCalls.length === 0 ? 0 : 1,
+          },
         };
       };
-      const postCalls: Array<{
-        body: string;
-        headers: HeadersInit | undefined;
-      }> = [];
       const fetchMock = vi.fn(
         async (url: string | URL | Request, options?: RequestInit) => {
           const urlText = String(url);
@@ -9453,7 +9565,7 @@ describe("Web Control Center shell", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
       window.history.pushState({}, "", "/runtime");
-      render(<App />);
+      const firstRender = render(<App />);
 
       const createButton = await screen.findByRole("button", {
         name: "Create local goal",
@@ -9503,6 +9615,15 @@ describe("Web Control Center shell", () => {
         ]),
       );
 
+      firstRender.unmount();
+      render(<App />);
+      expect(
+        await screen.findByText(
+          "A backend-owned goal submission is durably committed; no retry is required.",
+        ),
+      ).toBeInTheDocument();
+      expect(postCalls).toHaveLength(1);
+
       fireEvent.click(
         screen.getByRole("button", {
           name: "Refresh durable goal state",
@@ -9510,7 +9631,7 @@ describe("Web Control Center shell", () => {
       );
       expect(
         await screen.findByText(
-          "The pending goal mutation was confirmed in authoritative durable state.",
+          "Authoritative durable goal state refreshed from the backend.",
         ),
       ).toBeInTheDocument();
       expect(postCalls).toHaveLength(1);

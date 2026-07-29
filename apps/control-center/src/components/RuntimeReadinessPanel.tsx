@@ -60,6 +60,7 @@ type PendingGoalMutation =
       request: RuntimeGoalCreateRequest;
       idempotencyRef: string;
       submissionEvidenceRef: string;
+      submissionRef: string;
     }
   | {
       operation: "edit";
@@ -67,6 +68,7 @@ type PendingGoalMutation =
       request: RuntimeGoalEditRequest;
       idempotencyRef: string;
       submissionEvidenceRef: string;
+      submissionRef: string;
     }
   | {
       operation: "transition";
@@ -74,6 +76,7 @@ type PendingGoalMutation =
       request: RuntimeGoalTransitionRequest;
       idempotencyRef: string;
       submissionEvidenceRef: string;
+      submissionRef: string;
     };
 
 export function RuntimeReadinessPanel({
@@ -174,7 +177,86 @@ export function RuntimeReadinessPanel({
   );
   useEffect(() => {
     setRuntimeGoalEvents(runEvents);
-    setGoalReadCurrent((current) => runEventsBackendOwned && current);
+    const pendingRecords =
+      runEvents.goal_mutation_submissions.records.filter(
+        (record) => record.status === "pending",
+      );
+    if (pendingRecords.length > 1) {
+      setPendingGoalMutation(null);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        "Multiple backend-owned goal submissions require CLI inspection before mutation can continue.",
+      );
+    } else if (pendingRecords.length === 1) {
+      const record = pendingRecords[0];
+      const recovered =
+        record.operation === "create"
+          ? {
+              operation: "create" as const,
+              request: record.request_payload as RuntimeGoalCreateRequest,
+              idempotencyRef: record.idempotency_ref,
+              submissionEvidenceRef: record.submission_evidence_ref,
+              submissionRef: record.submission_ref,
+            }
+          : record.operation === "edit"
+            ? {
+                operation: "edit" as const,
+                goalRef: record.goal_ref as string,
+                request: record.request_payload as RuntimeGoalEditRequest,
+                idempotencyRef: record.idempotency_ref,
+                submissionEvidenceRef: record.submission_evidence_ref,
+                submissionRef: record.submission_ref,
+              }
+            : {
+                operation: "transition" as const,
+                goalRef: record.goal_ref as string,
+                request:
+                  record.request_payload as RuntimeGoalTransitionRequest,
+                idempotencyRef: record.idempotency_ref,
+                submissionEvidenceRef: record.submission_evidence_ref,
+                submissionRef: record.submission_ref,
+              };
+      setPendingGoalMutation(recovered);
+      if (record.operation === "create") {
+        const request = record.request_payload as RuntimeGoalCreateRequest;
+        setGoalObjective(request.objective);
+        setGoalOutcome(request.desired_outcome);
+        setGoalSuccessCriterion(request.success_criteria[0] ?? "");
+        setGoalStopCondition(request.stop_condition);
+      } else if (record.operation === "edit") {
+        const request = record.request_payload as RuntimeGoalEditRequest;
+        setEditedObjective(request.objective ?? "");
+      }
+      if (record.goal_ref) setSelectedGoalRef(record.goal_ref);
+      setGoalReadCurrent(runEventsBackendOwned);
+      setGoalNotice(
+        "Recovered an exact backend-owned pending goal submission; retry reuses its original request and identity.",
+      );
+    } else {
+      setGoalReadCurrent((current) => runEventsBackendOwned && current);
+      const latestCommitted = runEvents.goal_mutation_submissions.records
+        .filter((record) => record.status === "committed")
+        .at(-1);
+      if (latestCommitted?.committed_goal_ref) {
+        setSelectedGoalRef(latestCommitted.committed_goal_ref);
+        setGoalNotice(
+          "A backend-owned goal submission is durably committed; no retry is required.",
+        );
+      }
+      setPendingGoalMutation((current) => {
+        if (
+          current !== null &&
+          runEvents.goal_mutation_submissions.records.some(
+            (record) =>
+              record.status === "committed" &&
+              record.submission_ref === current.submissionRef,
+          )
+        ) {
+          return null;
+        }
+        return current;
+      });
+    }
     const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
     setSelectedGoalRef((current) =>
       runEvents.goal_lifecycle.goals.some(
@@ -357,7 +439,6 @@ export function RuntimeReadinessPanel({
           ? pendingGoalMutation
           : await prepareRuntimeGoalCreateSubmission(
               request,
-              runtimeGoalEvents.goal_lifecycle.goals,
             );
       setPendingGoalMutation({
         operation: "create",
@@ -367,6 +448,7 @@ export function RuntimeReadinessPanel({
         submission.request,
         submission.idempotencyRef,
         mutationBinding,
+        submission.submissionRef,
       );
       setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);
@@ -436,6 +518,7 @@ export function RuntimeReadinessPanel({
         submission.request,
         submission.idempotencyRef,
         mutationBinding,
+        submission.submissionRef,
       );
       setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);
@@ -506,6 +589,7 @@ export function RuntimeReadinessPanel({
         submission.request,
         submission.idempotencyRef,
         mutationBinding,
+        submission.submissionRef,
       );
       setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);

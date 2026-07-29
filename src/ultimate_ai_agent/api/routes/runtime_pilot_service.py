@@ -137,6 +137,8 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeSafeDisableRequest,
 )
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX,
+    CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX,
     GoalCreateRequest,
     GoalEditRequest,
     GoalIdempotencyConflictError,
@@ -1154,16 +1156,33 @@ def post_api_runtime_goal(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="create",
+                goal_ref=None,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
         approval = capture_exact_goal_mutation_approval(
             operation="create",
             subject_ref="goal-ref:new",
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=idempotency_ref,
         )
-        goal = _goal_runtime_service().create_goal(
+        goal = service.create_goal(
             request,
             idempotency_ref=idempotency_ref,
             approval_binding=approval,
@@ -1206,16 +1225,33 @@ def post_api_runtime_goal_edit(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="edit",
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
         approval = capture_exact_goal_mutation_approval(
             operation="edit",
             subject_ref=goal_ref,
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=idempotency_ref,
         )
-        goal = _goal_runtime_service().edit_goal(
+        goal = service.edit_goal(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,
@@ -1259,6 +1295,9 @@ def post_api_runtime_goal_transition(
     x_uaa_idempotency_ref: str | None = Header(
         default=None, alias="x-uaa-idempotency-ref"
     ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         if request.transition == GoalTransitionKind.verify_completion.value:
@@ -1266,13 +1305,27 @@ def post_api_runtime_goal_transition(
                 "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
             )
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in request.evidence_refs
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="transition",
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
         approval = capture_exact_goal_mutation_approval(
             operation=f"transition-{request.transition}",
             subject_ref=goal_ref,
             request_payload=request.model_dump(mode="json"),
             idempotency_ref=idempotency_ref,
         )
-        goal = _goal_runtime_service().transition_goal(
+        goal = service.transition_goal(
             goal_ref,
             request,
             idempotency_ref=idempotency_ref,

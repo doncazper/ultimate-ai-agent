@@ -49,6 +49,18 @@ binding rather than accepting caller-supplied approval strings, and the raw
 journal store is not exported as a public runtime-gateway surface. That
 decision grants no standing authority and cannot execute a runtime action.
 
+Control Center goal mutations also carry a collision-resistant submission ref.
+Before the goal mutation begins, the Core durably records the exact validated
+request, idempotency ref, and submission-evidence ref in a bounded,
+integrity-checked local recovery store. `GET /api/runtime/run-events` reports
+each retained submission as pending or committed by reconciling it against the
+same locked goal-journal generation, including bounded historical snapshots.
+After navigation, reload, or a lost response, Control Center either adopts and
+replays that exact envelope or suppresses the retry when the journal proves it
+committed. Multiple pending envelopes fail closed to CLI inspection. This
+recovery contract does not mint approval, expand authority, or permit a caller
+to substitute a new request under an existing submission ref.
+
 `complete_requested` is distinct from `verified_complete`. Verification fails
 closed unless the current goal version links the exact run and the durable event
 store already contains a matching goal-bound receipt and proof. Every ordered
@@ -147,8 +159,9 @@ Retention is bounded per run. Cursor replay returns explicit `ok`,
 anchor, next cursor, and gap posture. Replay never returns duplicates. Atomic
 receipt persistence is independent of consumers, so a slow or disconnected
 reader cannot block the writer or create an unbounded in-memory queue.
-The goal journal, run events, idempotency index, and projection reservations
-use a private `0700` state directory and `0600` files. The public service
+The goal journal, goal-submission recovery store, run events, idempotency index,
+and projection reservations use a private `0700` state directory and `0600`
+files. The public service
 exposes a read-only event facade; metadata event writes require one exact
 request-scoped local approval, while receipt and completion events remain
 trusted Core producer paths.

@@ -73,6 +73,8 @@ MAX_RUN_EVENT_IDEMPOTENCY_RECORDS = 4096
 MAX_GOAL_JOURNAL_ENTRIES = 4096
 MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
 MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
+MAX_GOAL_MUTATION_SUBMISSIONS = 64
+MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES = 2 * 1024 * 1024
 MAX_EXECUTION_REF_LENGTH = 320
 MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
@@ -87,6 +89,9 @@ GOAL_COMPLETION_EVALUATOR_BLOCKED_REASON_REF = (
 GOAL_EVIDENCE_ROLLUP_PREFIX = "evidence-rollup-ref:goal-runtime:sha256:"
 CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX = (
     "evidence-ref:control-center-goal-create-submission:sha256:"
+)
+CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX = (
+    "evidence-ref:control-center-goal-update-submission:"
 )
 MAX_RUN_EVENT_PROOF_REFS = (
     1
@@ -810,6 +815,224 @@ class PersistentGoal(BaseModel):
         )
         if self.completion_evidence_ref != expected_evidence_ref:
             raise ValueError("GOAL_COMPLETION_CRITERION_BINDING_EVIDENCE_MISMATCH")
+
+
+GoalMutationSubmissionOperation = Literal["create", "edit", "transition"]
+
+
+class GoalMutationSubmissionRecord(BaseModel):
+    """Backend-owned exact retry envelope for one Control Center mutation."""
+
+    schema_version: Literal["goal_mutation_submission.v1"] = (
+        "goal_mutation_submission.v1"
+    )
+    submission_ref: str
+    operation: GoalMutationSubmissionOperation
+    goal_ref: str | None = None
+    request_payload: dict[str, Any]
+    idempotency_ref: str
+    submission_evidence_ref: str
+    request_fingerprint_ref: str
+    recorded_at: datetime
+    record_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_submission(self) -> "GoalMutationSubmissionRecord":
+        for value, field_name in (
+            (self.submission_ref, "submission_ref"),
+            (self.idempotency_ref, "idempotency_ref"),
+            (self.submission_evidence_ref, "submission_evidence_ref"),
+            (self.request_fingerprint_ref, "request_fingerprint_ref"),
+            (self.record_hash_ref, "record_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        if self.operation == "create":
+            if self.goal_ref is not None:
+                raise ValueError("GOAL_SUBMISSION_CREATE_GOAL_REF_DENIED")
+            request = GoalCreateRequest.model_validate(self.request_payload)
+            evidence_prefix = CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX
+        elif self.operation == "edit":
+            if self.goal_ref is None:
+                raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+            validate_execution_ref(self.goal_ref, "goal_ref")
+            request = GoalEditRequest.model_validate(self.request_payload)
+            evidence_prefix = (
+                f"{CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}edit:sha256:"
+            )
+        else:
+            if self.goal_ref is None:
+                raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+            validate_execution_ref(self.goal_ref, "goal_ref")
+            request = GoalTransitionRequest.model_validate(self.request_payload)
+            evidence_prefix = (
+                f"{CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}"
+                "transition:sha256:"
+            )
+        matching_refs = [
+            ref
+            for ref in (request.evidence_refs or [])
+            if ref.startswith(evidence_prefix)
+        ]
+        if matching_refs != [self.submission_evidence_ref]:
+            raise ValueError("GOAL_SUBMISSION_EVIDENCE_BINDING_MISMATCH")
+        expected_fingerprint = _sha256_ref(
+            "request-fingerprint-ref:goal-mutation-submission",
+            {
+                "submission_ref": self.submission_ref,
+                "operation": self.operation,
+                "goal_ref": self.goal_ref,
+                "request_payload": request.model_dump(mode="json"),
+                "idempotency_ref": self.idempotency_ref,
+                "submission_evidence_ref": self.submission_evidence_ref,
+            },
+        )
+        if self.request_fingerprint_ref != expected_fingerprint:
+            raise ValueError("GOAL_SUBMISSION_REQUEST_FINGERPRINT_MISMATCH")
+        expected_record_hash = _sha256_ref(
+            "record-hash-ref:goal-mutation-submission",
+            {
+                "request_fingerprint_ref": self.request_fingerprint_ref,
+                "recorded_at": self.recorded_at.isoformat(),
+            },
+        )
+        if self.record_hash_ref != expected_record_hash:
+            raise ValueError("GOAL_SUBMISSION_RECORD_HASH_MISMATCH")
+        return self
+
+
+class GoalMutationSubmissionState(BaseModel):
+    schema_version: Literal["goal_mutation_submission_state.v1"] = (
+        "goal_mutation_submission_state.v1"
+    )
+    records: list[GoalMutationSubmissionRecord] = Field(
+        default_factory=list,
+        max_length=MAX_GOAL_MUTATION_SUBMISSIONS,
+    )
+    state_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_state(self) -> "GoalMutationSubmissionState":
+        validate_execution_ref(self.state_hash_ref, "state_hash_ref")
+        if len({record.submission_ref for record in self.records}) != len(self.records):
+            raise ValueError("GOAL_SUBMISSION_REF_DUPLICATE")
+        expected_hash = _sha256_ref(
+            "state-hash-ref:goal-mutation-submissions",
+            [record.model_dump(mode="json") for record in self.records],
+        )
+        if self.state_hash_ref != expected_hash:
+            raise ValueError("GOAL_SUBMISSION_STATE_HASH_MISMATCH")
+        return self
+
+
+class GoalMutationSubmissionRecoveryRecord(BaseModel):
+    schema_version: Literal["goal_mutation_submission_recovery.v1"] = (
+        "goal_mutation_submission_recovery.v1"
+    )
+    submission_ref: str
+    operation: GoalMutationSubmissionOperation
+    goal_ref: str | None = None
+    request_payload: dict[str, Any]
+    idempotency_ref: str
+    submission_evidence_ref: str
+    request_fingerprint_ref: str
+    recorded_at: datetime
+    status: Literal["pending", "committed"]
+    committed_goal_ref: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_recovery(self) -> "GoalMutationSubmissionRecoveryRecord":
+        validate_execution_ref(self.submission_ref, "submission_ref")
+        validate_execution_ref(self.idempotency_ref, "idempotency_ref")
+        validate_execution_ref(
+            self.submission_evidence_ref,
+            "submission_evidence_ref",
+        )
+        validate_execution_ref(
+            self.request_fingerprint_ref,
+            "request_fingerprint_ref",
+        )
+        if self.operation == "create":
+            if self.goal_ref is not None:
+                raise ValueError("GOAL_SUBMISSION_CREATE_GOAL_REF_DENIED")
+            request = GoalCreateRequest.model_validate(self.request_payload)
+            evidence_prefix = CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX
+        elif self.operation == "edit":
+            if self.goal_ref is None:
+                raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+            validate_execution_ref(self.goal_ref, "goal_ref")
+            request = GoalEditRequest.model_validate(self.request_payload)
+            evidence_prefix = (
+                f"{CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}edit:sha256:"
+            )
+        else:
+            if self.goal_ref is None:
+                raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+            validate_execution_ref(self.goal_ref, "goal_ref")
+            request = GoalTransitionRequest.model_validate(self.request_payload)
+            evidence_prefix = (
+                f"{CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}"
+                "transition:sha256:"
+            )
+        matching_refs = [
+            ref
+            for ref in (request.evidence_refs or [])
+            if ref.startswith(evidence_prefix)
+        ]
+        if matching_refs != [self.submission_evidence_ref]:
+            raise ValueError("GOAL_SUBMISSION_EVIDENCE_BINDING_MISMATCH")
+        if self.status == "committed":
+            if self.committed_goal_ref is None:
+                raise ValueError("GOAL_SUBMISSION_COMMITTED_GOAL_REF_REQUIRED")
+            validate_execution_ref(
+                self.committed_goal_ref,
+                "committed_goal_ref",
+            )
+        elif self.committed_goal_ref is not None:
+            raise ValueError("GOAL_SUBMISSION_PENDING_COMMITTED_REF_DENIED")
+        return self
+
+
+class GoalMutationSubmissionRecoveryReadModel(BaseModel):
+    schema_version: Literal["goal_mutation_submission_recovery_read_model.v1"] = (
+        "goal_mutation_submission_recovery_read_model.v1"
+    )
+    records: list[GoalMutationSubmissionRecoveryRecord] = Field(
+        default_factory=list,
+        max_length=MAX_GOAL_MUTATION_SUBMISSIONS,
+    )
+    pending_count: StrictInt = Field(ge=0, le=MAX_GOAL_MUTATION_SUBMISSIONS)
+    committed_count: StrictInt = Field(ge=0, le=MAX_GOAL_MUTATION_SUBMISSIONS)
+    backend_owned: bool = True
+    exact_retry_required: bool = True
+    raw_request_content_persisted: bool = False
+    redacted_goal_metadata_only: bool = True
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_counts(self) -> "GoalMutationSubmissionRecoveryReadModel":
+        if self.pending_count != sum(
+            record.status == "pending" for record in self.records
+        ):
+            raise ValueError("GOAL_SUBMISSION_PENDING_COUNT_MISMATCH")
+        if self.committed_count != sum(
+            record.status == "committed" for record in self.records
+        ):
+            raise ValueError("GOAL_SUBMISSION_COMMITTED_COUNT_MISMATCH")
+        if (
+            not self.backend_owned
+            or not self.exact_retry_required
+            or self.raw_request_content_persisted
+            or not self.redacted_goal_metadata_only
+        ):
+            raise ValueError("GOAL_SUBMISSION_RECOVERY_POSTURE_INVALID")
+        return self
 
 
 class GoalJournalEntry(BaseModel):
@@ -2370,6 +2593,222 @@ class _GoalJournalStore:
         self._write_head_manifest(self._build_head_manifest(entries))
 
 
+class _GoalMutationSubmissionStore:
+    """Persist exact Control Center retry envelopes before goal mutation."""
+
+    def __init__(self, state_dir: str | Path) -> None:
+        self.state_dir = Path(state_dir)
+        self.path = self.state_dir / "goal_mutation_submissions.json"
+        self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
+
+    @staticmethod
+    def _state(
+        records: list[GoalMutationSubmissionRecord],
+    ) -> GoalMutationSubmissionState:
+        state_hash_ref = _sha256_ref(
+            "state-hash-ref:goal-mutation-submissions",
+            [record.model_dump(mode="json") for record in records],
+        )
+        return GoalMutationSubmissionState(
+            records=records,
+            state_hash_ref=state_hash_ref,
+        )
+
+    def _load(self) -> list[GoalMutationSubmissionRecord]:
+        raw_content = _read_bounded_regular_utf8(
+            self.path,
+            max_bytes=MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_SUBMISSION_STATE_CORRUPT",
+        )
+        if raw_content is None:
+            return []
+        try:
+            state = GoalMutationSubmissionState.model_validate_json(raw_content)
+        except (ValueError, TypeError) as exc:
+            raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_STATE_CORRUPT") from exc
+        return [record.model_copy(deep=True) for record in state.records]
+
+    def _write(self, records: list[GoalMutationSubmissionRecord]) -> None:
+        state = self._state(records)
+        content = state.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
+            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+        _atomic_write(self.path, content)
+
+    @contextmanager
+    def consistent_read(self) -> Iterator[None]:
+        with _nonmutating_goal_runtime_read_lock(
+            self.state_dir / ".locks",
+            "goal-submissions",
+            generation_paths=(self.path,),
+        ):
+            yield
+
+    @staticmethod
+    def _validated_request(
+        operation: GoalMutationSubmissionOperation,
+        request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+    ) -> GoalCreateRequest | GoalEditRequest | GoalTransitionRequest:
+        if operation == "create":
+            return GoalCreateRequest.model_validate(request.model_dump())
+        if operation == "edit":
+            return GoalEditRequest.model_validate(request.model_dump())
+        return GoalTransitionRequest.model_validate(request.model_dump())
+
+    def prepare(
+        self,
+        *,
+        submission_ref: str,
+        operation: GoalMutationSubmissionOperation,
+        goal_ref: str | None,
+        request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+        idempotency_ref: str,
+        committed_evidence_refs: set[str],
+    ) -> GoalMutationSubmissionRecord:
+        validate_execution_ref(submission_ref, "submission_ref")
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        if operation == "create":
+            if goal_ref is not None:
+                raise ValueError("GOAL_SUBMISSION_CREATE_GOAL_REF_DENIED")
+        elif goal_ref is None:
+            raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+        else:
+            validate_execution_ref(goal_ref, "goal_ref")
+        validated = self._validated_request(operation, request)
+        payload = validated.model_dump(mode="json")
+        evidence_prefix = (
+            CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX
+            if operation == "create"
+            else (
+                f"{CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}"
+                f"{operation}:sha256:"
+            )
+        )
+        matching_evidence_refs = [
+            ref
+            for ref in (validated.evidence_refs or [])
+            if ref.startswith(evidence_prefix)
+        ]
+        if len(matching_evidence_refs) != 1:
+            raise ValueError("GOAL_SUBMISSION_EVIDENCE_BINDING_REQUIRED")
+        submission_evidence_ref = matching_evidence_refs[0]
+        request_fingerprint_ref = _sha256_ref(
+            "request-fingerprint-ref:goal-mutation-submission",
+            {
+                "submission_ref": submission_ref,
+                "operation": operation,
+                "goal_ref": goal_ref,
+                "request_payload": payload,
+                "idempotency_ref": idempotency_ref,
+                "submission_evidence_ref": submission_evidence_ref,
+            },
+        )
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
+            records = self._load()
+            for record in records:
+                if record.submission_ref != submission_ref:
+                    continue
+                if (
+                    record.request_fingerprint_ref != request_fingerprint_ref
+                    or record.idempotency_ref != idempotency_ref
+                ):
+                    raise GoalIdempotencyConflictError(
+                        "GOAL_SUBMISSION_IDEMPOTENCY_CONFLICT"
+                    )
+                return record.model_copy(deep=True)
+            if len(records) >= MAX_GOAL_MUTATION_SUBMISSIONS:
+                pending_records = [
+                    record
+                    for record in records
+                    if record.submission_evidence_ref not in committed_evidence_refs
+                ]
+                committed_records = [
+                    record
+                    for record in records
+                    if record.submission_evidence_ref in committed_evidence_refs
+                ]
+                records = [
+                    *pending_records,
+                    *committed_records[-8:],
+                ]
+            if len(records) >= MAX_GOAL_MUTATION_SUBMISSIONS:
+                raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+            recorded_at = utc_now()
+            record_hash_ref = _sha256_ref(
+                "record-hash-ref:goal-mutation-submission",
+                {
+                    "request_fingerprint_ref": request_fingerprint_ref,
+                    "recorded_at": recorded_at.isoformat(),
+                },
+            )
+            record = GoalMutationSubmissionRecord(
+                submission_ref=submission_ref,
+                operation=operation,
+                goal_ref=goal_ref,
+                request_payload=payload,
+                idempotency_ref=idempotency_ref,
+                submission_evidence_ref=submission_evidence_ref,
+                request_fingerprint_ref=request_fingerprint_ref,
+                recorded_at=recorded_at,
+                record_hash_ref=record_hash_ref,
+            )
+            records.append(record)
+            self._write(records)
+            return record.model_copy(deep=True)
+
+    def recovery_read_model(
+        self,
+        goals: list[PersistentGoal],
+    ) -> GoalMutationSubmissionRecoveryReadModel:
+        with self.consistent_read():
+            records = self._load()
+        return self.recovery_read_model_from_records(records, goals)
+
+    @staticmethod
+    def recovery_read_model_from_records(
+        records: list[GoalMutationSubmissionRecord],
+        goals: list[PersistentGoal],
+    ) -> GoalMutationSubmissionRecoveryReadModel:
+        committed_by_evidence = {
+            evidence_ref: goal.goal_ref
+            for goal in goals
+            for evidence_ref in goal.evidence_refs
+        }
+        recovery_records = [
+            GoalMutationSubmissionRecoveryRecord(
+                submission_ref=record.submission_ref,
+                operation=record.operation,
+                goal_ref=record.goal_ref,
+                request_payload=record.request_payload,
+                idempotency_ref=record.idempotency_ref,
+                submission_evidence_ref=record.submission_evidence_ref,
+                request_fingerprint_ref=record.request_fingerprint_ref,
+                recorded_at=record.recorded_at,
+                status=(
+                    "committed"
+                    if record.submission_evidence_ref in committed_by_evidence
+                    else "pending"
+                ),
+                committed_goal_ref=committed_by_evidence.get(
+                    record.submission_evidence_ref
+                ),
+            )
+            for record in records
+        ]
+        return GoalMutationSubmissionRecoveryReadModel(
+            records=recovery_records,
+            pending_count=sum(
+                record.status == "pending" for record in recovery_records
+            ),
+            committed_count=sum(
+                record.status == "committed" for record in recovery_records
+            ),
+        )
+
+
 class _DurableRunEventStore:
     def __init__(
         self,
@@ -3587,6 +4026,7 @@ class GoalRuntimeService:
         self.state_dir = Path(state_dir)
         _validate_goal_runtime_state_dir_for_read(self.state_dir)
         self.goals = _GoalJournalStore(self.state_dir)
+        self._submissions = _GoalMutationSubmissionStore(self.state_dir)
         self._events = _DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
         )
@@ -3622,6 +4062,7 @@ class GoalRuntimeService:
         list[DurableRunEvent],
         list[RunEventStreamSummary],
         GoalLifecycleReadModel,
+        GoalMutationSubmissionRecoveryReadModel,
     ]:
         """Read the event and goal projections from one canonical generation.
 
@@ -3640,40 +4081,72 @@ class GoalRuntimeService:
             try:
                 with self._events.consistent_read():
                     with self.goals.consistent_read():
-                        events = self._events._load_events()
-                        self._events._load_idempotency_tombstones(events)
-                        entries = self.goals._load_entries()
-                        replay = (
-                            self._events._replay_from_events(
-                                events,
-                                run_ref=run_ref,
-                                after_sequence=after_sequence,
-                                limit=bounded_limit,
+                        with self._submissions.consistent_read():
+                            events = self._events._load_events()
+                            self._events._load_idempotency_tombstones(events)
+                            entries = self.goals._load_entries()
+                            submission_records = self._submissions._load()
+                            replay = (
+                                self._events._replay_from_events(
+                                    events,
+                                    run_ref=run_ref,
+                                    after_sequence=after_sequence,
+                                    limit=bounded_limit,
+                                )
+                                if run_ref is not None
+                                else None
                             )
-                            if run_ref is not None
-                            else None
-                        )
-                        retained = (
-                            replay.events
-                            if replay is not None
-                            else self._events._retained_from_events(
-                                events,
-                                run_ref=None,
-                                limit=bounded_limit,
+                            retained = (
+                                replay.events
+                                if replay is not None
+                                else self._events._retained_from_events(
+                                    events,
+                                    run_ref=None,
+                                    limit=bounded_limit,
+                                )
                             )
-                        )
-                        return (
-                            replay,
-                            retained,
-                            self._events._summaries_from_events(events),
-                            self.goals._read_model_from_entries(
+                            goal_lifecycle = self.goals._read_model_from_entries(
                                 entries,
                                 include_cleared=True,
-                            ),
-                        )
+                            )
+                            return (
+                                replay,
+                                retained,
+                                self._events._summaries_from_events(events),
+                                goal_lifecycle,
+                                (
+                                    self._submissions.recovery_read_model_from_records(
+                                        submission_records,
+                                        [entry.goal for entry in entries],
+                                    )
+                                ),
+                            )
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_RUNTIME_AGGREGATE_GENERATION_UNSTABLE")
+
+    def record_goal_mutation_submission(
+        self,
+        *,
+        submission_ref: str,
+        operation: GoalMutationSubmissionOperation,
+        goal_ref: str | None,
+        request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+        idempotency_ref: str,
+    ) -> GoalMutationSubmissionRecord:
+        committed_evidence_refs = {
+            evidence_ref
+            for entry in self.goals._load_consistent_entries()
+            for evidence_ref in entry.goal.evidence_refs
+        }
+        return self._submissions.prepare(
+            submission_ref=submission_ref,
+            operation=operation,
+            goal_ref=goal_ref,
+            request=request,
+            idempotency_ref=idempotency_ref,
+            committed_evidence_refs=committed_evidence_refs,
+        )
 
     def create_goal(
         self,

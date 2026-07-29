@@ -9017,7 +9017,8 @@ function isSafeRuntimeRunEvents(
     !Array.isArray(value.event_previews) ||
     !Array.isArray(value.stream_summaries) ||
     value.goal_lifecycle === undefined ||
-    !Array.isArray(value.goal_lifecycle.goals)
+    !Array.isArray(value.goal_lifecycle.goals) ||
+    !isSafeRuntimeGoalMutationSubmissions(value.goal_mutation_submissions)
   ) {
     return false;
   }
@@ -9123,6 +9124,63 @@ function isSafeRuntimeRunEvents(
     value.event_previews.every(isSafeRuntimeRunEventPreview) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
+}
+
+function isSafeRuntimeGoalMutationSubmissions(
+  value: RuntimeRunEventsReadModel["goal_mutation_submissions"] | undefined,
+): boolean {
+  if (
+    value === undefined ||
+    value.schema_version !==
+      "goal_mutation_submission_recovery_read_model.v1" ||
+    !Array.isArray(value.records) ||
+    value.records.length > 64 ||
+    value.pending_count !==
+      value.records.filter((record) => record.status === "pending").length ||
+    value.committed_count !==
+      value.records.filter((record) => record.status === "committed").length ||
+    value.backend_owned !== true ||
+    value.exact_retry_required !== true ||
+    value.raw_request_content_persisted !== false ||
+    value.redacted_goal_metadata_only !== true
+  ) {
+    return false;
+  }
+  return value.records.every((record) => {
+    const request = record.request_payload;
+    const evidenceRefs = isPlainRecord(request)
+      ? request.evidence_refs
+      : undefined;
+    const goalBindingValid =
+      record.operation === "create"
+        ? record.goal_ref === null || record.goal_ref === undefined
+        : typeof record.goal_ref === "string" &&
+          isSafeTrustAuthorityRef(record.goal_ref);
+    const commitBindingValid =
+      record.status === "pending"
+        ? record.committed_goal_ref === null ||
+          record.committed_goal_ref === undefined
+        : typeof record.committed_goal_ref === "string" &&
+          isSafeTrustAuthorityRef(record.committed_goal_ref);
+    return (
+      record.schema_version === "goal_mutation_submission_recovery.v1" &&
+      ["create", "edit", "transition"].includes(record.operation) &&
+      goalBindingValid &&
+      commitBindingValid &&
+      isSafeTrustAuthorityRef(record.submission_ref) &&
+      isSafeTrustAuthorityRef(record.idempotency_ref) &&
+      isSafeTrustAuthorityRef(record.submission_evidence_ref) &&
+      isSafeTrustAuthorityRef(record.request_fingerprint_ref) &&
+      typeof record.recorded_at === "string" &&
+      Number.isFinite(Date.parse(record.recorded_at)) &&
+      Array.isArray(evidenceRefs) &&
+      evidenceRefs.length <= 32 &&
+      evidenceRefs.filter(
+        (ref) => ref === record.submission_evidence_ref,
+      ).length === 1 &&
+      evidenceRefs.every(isSafeTrustAuthorityRef)
+    );
+  });
 }
 
 function isSafeRuntimeRunEventPreview(
@@ -9350,6 +9408,7 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
     allowedStates.has(goal.state) &&
     Number.isSafeInteger(goal.version) &&
     goal.version >= 1 &&
+    goal.version <= 4096 &&
     Number.isSafeInteger(goal.budget.operation_limit) &&
     goal.budget.operation_limit >= 1 &&
     Number.isSafeInteger(goal.budget.cost_budget_microusd) &&
@@ -9363,10 +9422,11 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
 function isSafeRuntimeGoalMutationResult(
   value: RuntimeGoalMutationResult | undefined,
 ): value is RuntimeGoalMutationResult {
-  if (value === undefined) return false;
+  if (!isPlainRecord(value)) return false;
   const { goal, approval_binding: approval } = value;
+  if (!isPlainRecord(goal) || !isPlainRecord(approval)) return false;
   return (
-    isSafeRuntimePersistentGoal(goal) &&
+    isSafeRuntimePersistentGoal(goal as unknown as RuntimePersistentGoal) &&
     approval.schema_version === "goal_mutation_approval_binding.v1" &&
     approval.approval_validated === true &&
     approval.standing_authority_granted === false &&
@@ -9420,6 +9480,14 @@ const RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX =
 const RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX =
   "evidence-ref:control-center-goal-update-submission:";
 
+function newRuntimeGoalMutationSubmissionRef(): string {
+  const randomUuid = globalThis.crypto?.randomUUID;
+  if (randomUuid === undefined) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_UNAVAILABLE");
+  }
+  return `submission-ref:control-center-goal-mutation:${randomUuid.call(globalThis.crypto)}`;
+}
+
 async function sha256Hex(value: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
   if (subtle === undefined) {
@@ -9459,46 +9527,30 @@ export async function runtimeGoalMutationIdempotencyRef(
 
 export async function prepareRuntimeGoalCreateSubmission(
   request: RuntimeGoalCreateRequest,
-  durableGoals: RuntimePersistentGoal[],
+  submissionRef: string = newRuntimeGoalMutationSubmissionRef(),
 ): Promise<{
   request: RuntimeGoalCreateRequest;
   idempotencyRef: string;
   submissionEvidenceRef: string;
+  submissionRef: string;
 }> {
+  if (!isSafeTrustAuthorityRef(submissionRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
   const evidenceRefs = request.evidence_refs.filter(
     (ref) => !ref.startsWith(RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX),
   );
   const canonicalIntent = stableStringifyForIdempotency({
     domain: RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN,
+    submission_ref: submissionRef,
     request: {
       ...request,
       evidence_refs: evidenceRefs,
     },
   });
   const intentDigest = await sha256Hex(canonicalIntent);
-  const exactPrefix =
-    `${RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX}${intentDigest}:ordinal:`;
-  const seenOrdinals = new Set<number>();
-  for (const goal of durableGoals) {
-    for (const evidenceRef of goal.evidence_refs) {
-      if (!evidenceRef.startsWith(exactPrefix)) continue;
-      const encodedOrdinal = evidenceRef.slice(exactPrefix.length);
-      if (!/^[1-9][0-9]*$/.test(encodedOrdinal)) {
-        throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
-      }
-      const ordinal = Number(encodedOrdinal);
-      if (!Number.isSafeInteger(ordinal) || seenOrdinals.has(ordinal)) {
-        throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
-      }
-      seenOrdinals.add(ordinal);
-    }
-  }
-  const nextOrdinal =
-    seenOrdinals.size === 0 ? 1 : Math.max(...seenOrdinals) + 1;
-  if (!Number.isSafeInteger(nextOrdinal)) {
-    throw new Error("RUNTIME_GOAL_CREATE_SUBMISSION_HISTORY_INVALID");
-  }
-  const submissionEvidenceRef = `${exactPrefix}${nextOrdinal}`;
+  const submissionEvidenceRef =
+    `${RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX}${intentDigest}`;
   const submissionRequest: RuntimeGoalCreateRequest = {
     ...request,
     evidence_refs: [...evidenceRefs, submissionEvidenceRef],
@@ -9511,6 +9563,7 @@ export async function prepareRuntimeGoalCreateSubmission(
       request: submissionRequest,
     }),
     submissionEvidenceRef,
+    submissionRef,
   };
 }
 
@@ -9518,30 +9571,39 @@ export async function prepareRuntimeGoalUpdateSubmission(
   operation: "edit",
   goalRef: string,
   request: RuntimeGoalEditRequest,
+  submissionRef?: string,
 ): Promise<{
   request: RuntimeGoalEditRequest;
   idempotencyRef: string;
   submissionEvidenceRef: string;
+  submissionRef: string;
 }>;
 export async function prepareRuntimeGoalUpdateSubmission(
   operation: "transition",
   goalRef: string,
   request: RuntimeGoalTransitionRequest,
+  submissionRef?: string,
 ): Promise<{
   request: RuntimeGoalTransitionRequest;
   idempotencyRef: string;
   submissionEvidenceRef: string;
+  submissionRef: string;
 }>;
 export async function prepareRuntimeGoalUpdateSubmission(
   operation: "edit" | "transition",
   goalRef: string,
   request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest,
+  submissionRef: string = newRuntimeGoalMutationSubmissionRef(),
 ): Promise<{
   request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest;
   idempotencyRef: string;
   submissionEvidenceRef: string;
+  submissionRef: string;
 }> {
   if (!isSafeTrustAuthorityRef(goalRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  if (!isSafeTrustAuthorityRef(submissionRef)) {
     throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
   }
   const evidenceRefs = (request.evidence_refs ?? []).filter(
@@ -9550,6 +9612,7 @@ export async function prepareRuntimeGoalUpdateSubmission(
   );
   const canonicalIntent = stableStringifyForIdempotency({
     domain: RUNTIME_GOAL_UPDATE_SUBMISSION_DOMAIN,
+    submission_ref: submissionRef,
     operation,
     goal_ref: goalRef,
     request: {
@@ -9573,6 +9636,7 @@ export async function prepareRuntimeGoalUpdateSubmission(
       request: submissionRequest,
     } as RuntimeGoalMutationIdentityMaterial),
     submissionEvidenceRef,
+    submissionRef,
   };
 }
 
@@ -9583,6 +9647,7 @@ async function postRuntimeGoalMutation(
     | RuntimeGoalEditRequest
     | RuntimeGoalTransitionRequest,
   idempotencyRef: string,
+  submissionRef: string | null,
   binding: BackendTruthReadBinding | null,
 ): Promise<RuntimeGoalMutationResult> {
   if (!API_BASE_POLICY.allowed) {
@@ -9596,6 +9661,9 @@ async function postRuntimeGoalMutation(
           Accept: "application/json",
           "Content-Type": "application/json",
           "X-UAA-Idempotency-Key": idempotencyRef,
+          ...(submissionRef === null
+            ? {}
+            : { "X-UAA-Goal-Submission-Ref": submissionRef }),
         },
         binding,
       ),
@@ -9628,11 +9696,13 @@ export async function createRuntimeGoal(
   request: RuntimeGoalCreateRequest,
   idempotencyRef: string,
   binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
 ): Promise<RuntimeGoalMutationResult> {
   return postRuntimeGoalMutation(
     API_ENDPOINTS.runtimeGoals,
     request,
     idempotencyRef,
+    submissionRef,
     binding,
   );
 }
@@ -9642,11 +9712,13 @@ export async function editRuntimeGoal(
   request: RuntimeGoalEditRequest,
   idempotencyRef: string,
   binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
 ): Promise<RuntimeGoalMutationResult> {
   return postRuntimeGoalMutation(
     runtimeGoalEditEndpoint(goalRef),
     request,
     idempotencyRef,
+    submissionRef,
     binding,
   );
 }
@@ -9656,11 +9728,13 @@ export async function transitionRuntimeGoal(
   request: RuntimeGoalTransitionRequest,
   idempotencyRef: string,
   binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
 ): Promise<RuntimeGoalMutationResult> {
   return postRuntimeGoalMutation(
     runtimeGoalTransitionEndpoint(goalRef),
     request,
     idempotencyRef,
+    submissionRef,
     binding,
   );
 }

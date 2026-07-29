@@ -98,6 +98,45 @@ def _create_payload() -> dict[str, object]:
     }
 
 
+def test_goal_mutation_route_persists_backend_owned_retry_before_failure(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+) -> None:
+    client, _service = goal_runtime_client
+    created = client.post(
+        "/api/runtime/goals",
+        json=_create_payload(),
+        headers={"x-uaa-idempotency-key": "idempotency-ref:submission-base"},
+    ).json()["data"]["goal"]
+    submission_ref = "submission-ref:control-center-goal-mutation:api-pending"
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "c" * 64
+    )
+    response = client.post(
+        f"/api/runtime/goals/{created['goal_ref']}/edit",
+        json={
+            "expected_version": 99,
+            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+            "objective": "A safely retained ambiguous edit.",
+            "evidence_refs": [submission_evidence_ref],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:submission-edit",
+            "x-uaa-goal-submission-ref": submission_ref,
+        },
+    )
+    assert response.json()["success"] is False
+
+    recovery = client.get("/api/runtime/run-events").json()["data"][
+        "goal_mutation_submissions"
+    ]
+    assert recovery["pending_count"] == 1
+    assert recovery["records"][0]["submission_ref"] == submission_ref
+    assert recovery["records"][0]["submission_evidence_ref"] == (
+        submission_evidence_ref
+    )
+    assert recovery["records"][0]["status"] == "pending"
+
+
 def _append_event(
     service: GoalRuntimeService,
     request: DurableRunEventAppendRequest,

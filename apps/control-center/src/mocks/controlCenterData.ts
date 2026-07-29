@@ -16280,6 +16280,17 @@ export const mockControlCenterData: ControlCenterData = {
         "raw_runtime_payload_omitted",
       ],
     },
+    goal_mutation_submissions: {
+      schema_version:
+        "goal_mutation_submission_recovery_read_model.v1",
+      records: [],
+      pending_count: 0,
+      committed_count: 0,
+      backend_owned: true,
+      exact_retry_required: true,
+      raw_request_content_persisted: false,
+      redacted_goal_metadata_only: true,
+    },
     stream_summaries: [],
     replay: null,
     stream_count: 0,

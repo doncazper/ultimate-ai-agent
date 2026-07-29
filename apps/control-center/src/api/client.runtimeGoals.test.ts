@@ -260,6 +260,55 @@ describe("proof-backed runtime goal mutations", () => {
   });
 
   it.each([
+    ["null result", null],
+    ["primitive result", "accepted"],
+    ["missing approval binding", { goal: mutationResult.goal }],
+  ])("fails safely for a malformed %s", async (_label, data) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(
+      createRuntimeGoal(
+        request,
+        "idempotency-ref:goal-client-malformed",
+        binding,
+      ),
+    ).rejects.toThrow("proof-backed goal mutation failed safely");
+  });
+
+  it("rejects a persistent goal version above the durable maximum", async () => {
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [{ ...mutationResult.goal, version: 4097 }],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it.each([
     [
       "missing criterion proof binding",
       {
@@ -365,10 +414,15 @@ describe("proof-backed runtime goal mutations", () => {
     const storageRead = vi.spyOn(Storage.prototype, "getItem");
     const storageWrite = vi.spyOn(Storage.prototype, "setItem");
 
-    const beforeUnmount = await prepareRuntimeGoalCreateSubmission(request, []);
+    const submissionRef =
+      "submission-ref:control-center-goal-mutation:stable-remount";
+    const beforeUnmount = await prepareRuntimeGoalCreateSubmission(
+      request,
+      submissionRef,
+    );
     const afterRemount = await prepareRuntimeGoalCreateSubmission(
       JSON.parse(JSON.stringify(reorderedRequest)),
-      [],
+      submissionRef,
     );
 
     expect(afterRemount).toEqual(beforeUnmount);
@@ -379,40 +433,26 @@ describe("proof-backed runtime goal mutations", () => {
     expect(storageWrite).not.toHaveBeenCalled();
   });
 
-  it("advances identical create identity after bounded transition rollup retains the durable ordinal", async () => {
-    const firstSubmission = await prepareRuntimeGoalCreateSubmission(
+  it("allocates collision-resistant create identities without stale snapshot ordinals", async () => {
+    const firstSubmission =
+      await prepareRuntimeGoalCreateSubmission(request);
+    const concurrentSubmission =
+      await prepareRuntimeGoalCreateSubmission(request);
+    const exactRetry = await prepareRuntimeGoalCreateSubmission(
       request,
-      [],
+      firstSubmission.submissionRef,
     );
-    const ambiguousRetry = await prepareRuntimeGoalCreateSubmission(
-      request,
-      [],
-    );
-    const acceptedGoal = {
-      ...mutationResult.goal,
-      evidence_refs: [
-        firstSubmission.submissionEvidenceRef,
-        `evidence-rollup-ref:goal-runtime:sha256:${"a".repeat(64)}`,
-        ...Array.from(
-          { length: 30 },
-          (_, index) => `evidence-ref:bounded-transition:${index + 11}`,
-        ),
-      ],
-    };
-    const laterIdenticalSubmission =
-      await prepareRuntimeGoalCreateSubmission(request, [acceptedGoal]);
-    const laterAmbiguousRetry =
-      await prepareRuntimeGoalCreateSubmission(request, [acceptedGoal]);
 
-    expect(ambiguousRetry).toEqual(firstSubmission);
-    expect(firstSubmission.submissionEvidenceRef).toMatch(/:ordinal:1$/);
-    expect(laterIdenticalSubmission.submissionEvidenceRef).toMatch(
-      /:ordinal:2$/,
+    expect(concurrentSubmission.submissionRef).not.toBe(
+      firstSubmission.submissionRef,
     );
-    expect(laterIdenticalSubmission.idempotencyRef).not.toBe(
+    expect(concurrentSubmission.submissionEvidenceRef).not.toBe(
+      firstSubmission.submissionEvidenceRef,
+    );
+    expect(concurrentSubmission.idempotencyRef).not.toBe(
       firstSubmission.idempotencyRef,
     );
-    expect(laterAmbiguousRetry).toEqual(laterIdenticalSubmission);
+    expect(exactRetry).toEqual(firstSubmission);
   });
 
   it("binds edit and transition retry evidence to the exact update request", async () => {
@@ -432,6 +472,7 @@ describe("proof-backed runtime goal mutations", () => {
       "edit",
       mutationResult.goal.goal_ref,
       editRequest,
+      edit.submissionRef,
     );
     const transition = await prepareRuntimeGoalUpdateSubmission(
       "transition",

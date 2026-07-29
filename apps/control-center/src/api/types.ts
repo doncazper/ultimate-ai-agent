@@ -14146,6 +14146,7 @@ export interface RuntimeRunEventsReadModel {
   run_proposals: RuntimeRunProposalReadModel[];
   event_previews: RuntimeRunEventPreview[];
   goal_lifecycle: RuntimeGoalLifecycleReadModel;
+  goal_mutation_submissions: RuntimeGoalMutationSubmissionRecoveryReadModel;
   stream_summaries: RuntimeRunEventStreamSummary[];
   replay?: RuntimeRunEventReplay | null;
   stream_count: number;
@@ -14176,6 +14177,34 @@ export interface RuntimeRunEventsReadModel {
   next_safe_action_refs: string[];
   safe_summary: string;
   redactions_applied: string[];
+}
+
+export interface RuntimeGoalMutationSubmissionRecoveryRecord {
+  schema_version: "goal_mutation_submission_recovery.v1";
+  submission_ref: string;
+  operation: "create" | "edit" | "transition";
+  goal_ref?: string | null;
+  request_payload:
+    | RuntimeGoalCreateRequest
+    | RuntimeGoalEditRequest
+    | RuntimeGoalTransitionRequest;
+  idempotency_ref: string;
+  submission_evidence_ref: string;
+  request_fingerprint_ref: string;
+  recorded_at: string;
+  status: "pending" | "committed";
+  committed_goal_ref?: string | null;
+}
+
+export interface RuntimeGoalMutationSubmissionRecoveryReadModel {
+  schema_version: "goal_mutation_submission_recovery_read_model.v1";
+  records: RuntimeGoalMutationSubmissionRecoveryRecord[];
+  pending_count: number;
+  committed_count: number;
+  backend_owned: boolean;
+  exact_retry_required: boolean;
+  raw_request_content_persisted: boolean;
+  redacted_goal_metadata_only: boolean;
 }
 
 export interface RuntimeStreamingProgressEventPreview {

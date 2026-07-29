@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     DurableCriterionVerifierBinding,
     DurableRunEvent,
     GoalLifecycleReadModel,
+    GoalMutationSubmissionRecoveryReadModel,
     GoalRuntimeService,
     RunEventReplayReadModel,
     RunEventStreamSummary,
@@ -307,6 +308,7 @@ class RuntimeRunEventsReadModel(BaseModel):
     run_proposals: list[RuntimeRunProposalReadModel]
     event_previews: list[RuntimeRunEventPreview]
     goal_lifecycle: GoalLifecycleReadModel
+    goal_mutation_submissions: GoalMutationSubmissionRecoveryReadModel
     stream_summaries: list[RunEventStreamSummary] = Field(default_factory=list)
     replay: RunEventReplayReadModel | None = None
     stream_count: int = 0
@@ -497,6 +499,7 @@ def build_runtime_run_events_read_model_from_authority_catalog(
         durable_events,
         stream_summaries,
         goal_lifecycle,
+        goal_mutation_submissions,
     ) = runtime_service.aggregate_read_snapshot(
         run_ref=run_ref,
         after_sequence=after_sequence,
@@ -572,6 +575,7 @@ def build_runtime_run_events_read_model_from_authority_catalog(
             event_previews=events,
             authority_entry=authority_entry,
             goal_lifecycle=goal_lifecycle,
+            goal_mutation_submissions=goal_mutation_submissions,
             stream_summaries=stream_summaries,
             replay=replay,
         ),
@@ -591,6 +595,7 @@ def build_runtime_run_events_read_model_from_authority_catalog(
         run_proposals=[],
         event_previews=events,
         goal_lifecycle=goal_lifecycle,
+        goal_mutation_submissions=goal_mutation_submissions,
         stream_summaries=stream_summaries,
         replay=replay,
         stream_count=len(stream_summaries),
@@ -635,6 +640,7 @@ def _snapshot_hash_ref(
     event_previews: list[RuntimeRunEventPreview],
     authority_entry: AuthorityDecisionCatalogEntry,
     goal_lifecycle: GoalLifecycleReadModel,
+    goal_mutation_submissions: GoalMutationSubmissionRecoveryReadModel,
     stream_summaries: list[RunEventStreamSummary],
     replay: RunEventReplayReadModel | None,
 ) -> str:
@@ -653,6 +659,7 @@ def _snapshot_hash_ref(
         ],
         "event_previews": [event.model_dump(mode="json") for event in event_previews],
         "goal_lifecycle": goal_lifecycle.model_dump(mode="json"),
+        "goal_mutation_submissions": goal_mutation_submissions.model_dump(mode="json"),
         "stream_summaries": [
             summary.model_dump(mode="json") for summary in stream_summaries
         ],

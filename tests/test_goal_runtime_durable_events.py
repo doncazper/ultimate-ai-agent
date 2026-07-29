@@ -3690,3 +3690,101 @@ def test_completion_rejects_cross_transaction_verifier_binding(
             ),
             idempotency_ref="idempotency-ref:cross-transaction:verify",
         )
+
+
+def test_goal_mutation_submission_recovery_survives_restart_and_marks_commit(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_ref = "submission-ref:control-center-goal-mutation:restart"
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "a" * 64
+    )
+    request = _create_request().model_copy(
+        update={
+            "evidence_refs": [
+                "evidence-ref:goal-created",
+                submission_evidence_ref,
+            ]
+        }
+    )
+    idempotency_ref = "idempotency-ref:control-center-goal-create:restart"
+
+    service.record_goal_mutation_submission(
+        submission_ref=submission_ref,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    pending = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert pending.pending_count == 1
+    assert pending.records[0].submission_ref == submission_ref
+    assert pending.records[0].request_payload == request.model_dump(mode="json")
+    assert pending.records[0].status == "pending"
+
+    created = _create_goal(
+        GoalRuntimeService(tmp_path),
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    committed = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert committed.committed_count == 1
+    assert committed.records[0].status == "committed"
+    assert committed.records[0].committed_goal_ref == created.goal_ref
+
+
+def test_goal_mutation_submission_exact_replay_rejects_substitution(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_ref = "submission-ref:control-center-goal-mutation:exact-replay"
+    request = _create_request().model_copy(
+        update={
+            "evidence_refs": [
+                "evidence-ref:control-center-goal-create-submission:sha256:" + "b" * 64
+            ]
+        }
+    )
+    kwargs = {
+        "submission_ref": submission_ref,
+        "operation": "create",
+        "goal_ref": None,
+        "request": request,
+        "idempotency_ref": "idempotency-ref:control-center-goal-create:exact",
+    }
+    first = service.record_goal_mutation_submission(**kwargs)
+    assert service.record_goal_mutation_submission(**kwargs) == first
+
+    with pytest.raises(
+        GoalIdempotencyConflictError,
+        match="GOAL_SUBMISSION_IDEMPOTENCY_CONFLICT",
+    ):
+        service.record_goal_mutation_submission(
+            **{
+                **kwargs,
+                "idempotency_ref": (
+                    "idempotency-ref:control-center-goal-create:substituted"
+                ),
+            }
+        )
+
+
+def test_goal_mutation_submission_state_rejects_symlink_substitution(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}\n", encoding="utf-8")
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    (state_dir / "goal_mutation_submissions.json").symlink_to(outside)
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_STATE_CORRUPT",
+    ):
+        build_runtime_run_events_read_model(service=GoalRuntimeService(state_dir))

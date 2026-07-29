@@ -449,6 +449,10 @@ Contract rules:
   same persistent goal journal. The three goal POST routes provide exact local
   metadata create, edit, and typed lifecycle transition boundaries with
   idempotency, optimistic versions, and request-scoped approval binding.
+  Control Center supplies `x-uaa-goal-submission-ref`; the Core binds that ref
+  to the exact validated request and idempotency identity before mutation so a
+  lost response can be reconciled through the read-only run-events projection
+  without regenerating or duplicating the mutation.
   Completion may be requested, but verified completion is explicitly blocked
   until a separately authorized trusted criterion-evaluator receipt producer
   exists; caller refs cannot synthesize evaluator authority. The routes grant
