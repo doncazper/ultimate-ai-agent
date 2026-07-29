@@ -5410,6 +5410,19 @@ class _DurableRunEventStore:
                         == DurableRunEventKind.receipt_recorded.value
                         and journal_entry.goal.completion_receipt_ref
                         in candidate.receipt_refs
+                        and journal_entry.goal.completion_proof_ref
+                        in candidate.proof_refs
+                        and [
+                            binding.model_dump(mode="json")
+                            for binding in candidate.criterion_verifier_bindings
+                        ]
+                        == [
+                            binding.model_dump(mode="json")
+                            for binding in (
+                                journal_entry.goal
+                                .completion_criterion_verifier_bindings
+                            )
+                        ]
                     )
                 }
                 if len(receipt_events) != 1:
