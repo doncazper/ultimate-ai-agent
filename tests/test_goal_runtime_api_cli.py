@@ -462,7 +462,7 @@ def _append_event(
     return service.append_run_event(request, approval_ref=approval_ref)
 
 
-def test_run_events_get_is_strictly_read_only(
+def test_run_events_get_does_not_reconcile_without_durable_sources(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -472,7 +472,7 @@ def test_run_events_get_is_strictly_read_only(
     def reject_sync(_records: object) -> list[DurableRunEvent]:
         nonlocal sync_calls
         sync_calls += 1
-        raise AssertionError("GET must not reconcile durable runtime events")
+        raise AssertionError("empty GET must not reconcile runtime events")
 
     monkeypatch.setattr(service, "sync_runtime_invocations", reject_sync)
     response = client.get("/api/runtime/run-events")

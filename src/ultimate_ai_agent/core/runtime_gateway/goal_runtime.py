@@ -6364,12 +6364,14 @@ class GoalRuntimeService:
         GoalLifecycleReadModel,
         GoalMutationSubmissionRecoveryReadModel,
     ]:
-        """Read the event and goal projections from one canonical generation.
+        """Repair, then read, projections from one canonical generation.
 
         The lock order is always approvals, goal-journal, run-events, then
         submissions, matching the canonical writer dependency order. Missing
         first-generation lock files retain bounded optimistic-generation
-        checks implemented by the non-mutating read lock.
+        checks implemented by the non-mutating read lock. Existing durable
+        producer records are reconciled before the pinned aggregate snapshot;
+        absent stores remain non-initializing.
         """
 
         if run_ref is not None:
@@ -6380,6 +6382,28 @@ class GoalRuntimeService:
         self._submissions.repair_recoverable_write()
         self._approvals.repair_recoverable_append()
         self._converge_expired_goal_mutation_approvals()
+        if self.runtime_invocation_state_dir is not None:
+            from ultimate_ai_agent.core.runtime_gateway.storage import (
+                RuntimeInvocationStore,
+            )
+
+            runtime_store = RuntimeInvocationStore(
+                self.runtime_invocation_state_dir
+            )
+            if _path_generation(runtime_store.path)[0]:
+                self.sync_runtime_invocations(
+                    runtime_store.list_invocations_locked(),
+                    invocation_store=runtime_store,
+                )
+        if any(
+            _path_generation(path)[0]
+            for path in (
+                self.goals.path,
+                self.goals.head_path,
+                self.goals.genesis_intent_path,
+            )
+        ):
+            self.reconcile_durable_events()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():

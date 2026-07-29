@@ -347,7 +347,7 @@ class RuntimeGateway:
         self.goal_runtime_service.bind_runtime_invocation_store(self.store)
 
     def _committed_replay_available(self, idempotency_ref: str) -> bool:
-        record = self.store.get_invocation_for_idempotency(idempotency_ref)
+        record = self.store.get_invocation_for_idempotency_locked(idempotency_ref)
         return (
             record is not None
             and record.receipt is not None

@@ -1572,6 +1572,78 @@ def test_transition_replay_rejects_fabricated_approval_before_recovery(
     )
 
 
+def test_aggregate_read_repairs_committed_completion_projection_after_crash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:aggregate-completion:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:aggregate-completion:request",
+        ),
+        idempotency_ref="idempotency-ref:aggregate-completion:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    evidence = _completion_evidence(requested)
+    transition = GoalTransitionRequest(
+        expected_version=requested.version,
+        transition=GoalTransitionKind.verify_completion,
+        reason_ref="reason-ref:aggregate-completion:verify",
+        completion_evidence=evidence,
+    )
+    original_append = service._events._append_locked  # noqa: SLF001
+
+    def interrupt_completion_event(
+        request: DurableRunEventAppendRequest,
+        **kwargs: object,
+    ) -> DurableRunEvent:
+        if request.event_kind == DurableRunEventKind.completion_verified.value:
+            raise OSError("simulated completion projection interruption")
+        return original_append(request, **kwargs)
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_append_locked",
+        interrupt_completion_event,
+    )
+    with pytest.raises(OSError, match="simulated completion projection interruption"):
+        _transition_goal(
+            service,
+            created.goal_ref,
+            transition,
+            idempotency_ref="idempotency-ref:aggregate-completion:verify",
+        )
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_append_locked",
+        original_append,
+    )
+
+    replay = GoalRuntimeService(tmp_path).aggregate_read_snapshot(
+        run_ref=evidence.run_ref,
+        after_sequence=0,
+        limit=10,
+    )[0]
+
+    assert replay is not None
+    assert replay.events[-1].event_kind == (
+        DurableRunEventKind.completion_verified.value
+    )
+    assert evidence.receipt_ref in replay.events[-1].receipt_refs
+    assert evidence.proof_ref in replay.events[-1].proof_refs
+    assert evidence.evidence_ref in replay.events[-1].proof_refs
+    assert replay.events[-1].criterion_verifier_bindings
+
+
 def test_goal_completion_requires_linked_durable_receipt_and_proof(
     tmp_path: Path,
 ) -> None:
@@ -3355,6 +3427,57 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
         restored.events.replay(result.record.invocation_ref)
 
 
+def test_aggregate_read_projects_committed_runtime_receipt_after_crash(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    runtime_store = RuntimeInvocationStore(
+        runtime_dir,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    committed = invoke_governed_command(
+        store=runtime_store,
+        adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        request=RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref="mission-ref:aggregate-crash-recovery",
+            safe_summary="Inspect bounded status before aggregate recovery.",
+        ),
+        idempotency_ref="idempotency-ref:aggregate-crash-recovery",
+    ).record
+    service = GoalRuntimeService.for_runtime_store(runtime_dir)
+    assert service.events.retained_events(run_ref=committed.invocation_ref) == []
+
+    replay, retained, summaries, _goals, _submissions = (
+        service.aggregate_read_snapshot(
+            run_ref=committed.invocation_ref,
+            after_sequence=0,
+            limit=10,
+        )
+    )
+
+    assert replay is not None
+    assert [event.event_kind for event in replay.events] == [
+        DurableRunEventKind.run_started.value,
+        DurableRunEventKind.receipt_recorded.value,
+    ]
+    assert retained == replay.events
+    assert summaries[0].run_ref == committed.invocation_ref
+    assert summaries[0].successful_receipt_recorded is True
+
+
 def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
     tmp_path: Path,
 ) -> None:
@@ -3693,7 +3816,9 @@ def test_runtime_gateway_rechecks_committed_replay_at_mission_admission(
     assert cancelled.state == GoalState.cancelled.value
 
     original_lookup = gateway.store.get_invocation_for_idempotency
+    original_locked_lookup = gateway.store.get_invocation_for_idempotency_locked
     lookup_count = 0
+    locked_lookup_count = 0
 
     def stale_then_current(value: str) -> RuntimeInvocationRecord | None:
         nonlocal lookup_count
@@ -3702,17 +3827,104 @@ def test_runtime_gateway_rechecks_committed_replay_at_mission_admission(
             return None
         return original_lookup(value)
 
+    def locked_current(value: str) -> RuntimeInvocationRecord | None:
+        nonlocal locked_lookup_count
+        locked_lookup_count += 1
+        return original_locked_lookup(value)
+
     monkeypatch.setattr(
         gateway.store,
         "get_invocation_for_idempotency",
         stale_then_current,
+    )
+    monkeypatch.setattr(
+        gateway.store,
+        "get_invocation_for_idempotency_locked",
+        locked_current,
     )
 
     replay = gateway.invoke_command(request, idempotency_ref=idempotency_ref)
 
     assert replay.record.invocation_ref == committed.record.invocation_ref
     assert replay.record.receipt == committed.record.receipt
-    assert lookup_count >= 2
+    assert lookup_count == 1
+    assert locked_lookup_count >= 1
+    assert runner_call_count == 1
+
+
+def test_runtime_gateway_reloads_cross_store_committed_replay_at_admission(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:cross-store-replay-create",
+    )
+    runtime_dir = tmp_path / "runtime"
+    first_store = RuntimeInvocationStore(
+        runtime_dir,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    stale_store = RuntimeInvocationStore(
+        runtime_dir,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    idempotency_ref = "idempotency-ref:cross-store-replay-invoke"
+    assert stale_store.get_invocation_for_idempotency(idempotency_ref) is None
+    runner_call_count = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_call_count
+        runner_call_count += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    adapter = GovernedCommandRuntimeAdapter(
+        workspace_root=ROOT,
+        runner=runner,
+    )
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        mission_ref=goal.goal_ref,
+        safe_summary="Inspect bounded status for cross-store exact replay.",
+    )
+    first_gateway = RuntimeGateway(
+        store=first_store,
+        command_adapter=adapter,
+        goal_runtime_service=service,
+    )
+    committed = first_gateway.invoke_command(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    cancelled = _transition_goal(
+        service,
+        goal.goal_ref,
+        GoalTransitionRequest(
+            expected_version=goal.version,
+            transition=GoalTransitionKind.cancel,
+            reason_ref="reason-ref:cross-store-replay-cancel",
+        ),
+        idempotency_ref="idempotency-ref:cross-store-replay-cancel",
+    )
+    assert cancelled.state == GoalState.cancelled.value
+
+    replay = RuntimeGateway(
+        store=stale_store,
+        command_adapter=adapter,
+        goal_runtime_service=service,
+    ).invoke_command(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert replay.record.invocation_ref == committed.record.invocation_ref
+    assert replay.record.receipt == committed.record.receipt
     assert runner_call_count == 1
 
 

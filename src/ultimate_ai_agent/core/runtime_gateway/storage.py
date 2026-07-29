@@ -755,6 +755,15 @@ class RuntimeInvocationStore:
         self._load()
         return sorted(self._records.values(), key=lambda record: record.created_at.isoformat())
 
+    def list_invocations_locked(self) -> list[RuntimeInvocationRecord]:
+        """Reload and return one exact durable invocation generation."""
+
+        with self._exclusive_mutation():
+            return sorted(
+                self._records.values(),
+                key=lambda record: record.created_at.isoformat(),
+            )
+
     def list_entries(self) -> list[RuntimeGatewayStorageEntry]:
         self._load()
         return list(self._entries)
