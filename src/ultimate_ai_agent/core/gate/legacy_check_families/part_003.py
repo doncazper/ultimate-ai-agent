@@ -1346,6 +1346,9 @@ class FoundationGateLegacyChecksPart003Mixin:
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
             "API_ENDPOINTS.turnRouterPreview",
             "postRuntimeGoalMutation",
+            "prepareRuntimeGoalMutationApproval",
+            "decideRuntimeGoalMutationApproval",
+            "revokeRuntimeGoalMutationApproval",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

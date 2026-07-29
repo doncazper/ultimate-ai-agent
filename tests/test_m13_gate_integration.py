@@ -65,6 +65,9 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "API_ENDPOINTS.turnRouterPreview",
         "API_ENDPOINTS.controlCenterWebEvidenceAttach",
         "postRuntimeGoalMutation",
+        "prepareRuntimeGoalMutationApproval",
+        "decideRuntimeGoalMutationApproval",
+        "revokeRuntimeGoalMutationApproval",
     }
     assert client.count('method: "POST"') == len(allowed_post_targets)
     for target in allowed_post_targets:

@@ -30,10 +30,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 29 |
 | `local_sensitive` | 197 |
-| `mutating_requires_authority` | 114 |
+| `mutating_requires_authority` | 119 |
 
-The current OpenAPI path count is `341` and `/api/manifest` currently reports
-`343` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `346` and `/api/manifest` currently reports
+`348` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -65,7 +65,8 @@ receipts, blocked receipt, and safe-disable
 routes, plus the no-effect Turn Contract Router preview diagnostic route, plus
 the proof-backed goal create, edit, and lifecycle-transition metadata routes
 with exact request-scoped approval, idempotency, version, redaction, and
-durable journal bindings, plus
+durable journal bindings, plus the five distinct durable goal-mutation approval
+prepare, decision, and revoke routes, plus
 the CRM Local Command Center M2 read routes and exact local mutation receipt
 route, plus the governed runtime capability-discovery and run-events
 inspection routes, plus the Hermes Runtime Adoption Phase 04 approval bridge
