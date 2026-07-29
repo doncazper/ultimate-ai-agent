@@ -100,13 +100,28 @@ def _validate_full_suite_resource_path_binding(
     """Fail closed when a recognized resource lock is paired incorrectly."""
 
     recognized_lock_name = lock_path.name in FULL_SUITE_RESOURCE_LOCK_NAMES
+    canonical_lock_path = any(
+        _same_full_suite_path(lock_path, canonical_path)
+        for canonical_path in {
+            FULL_SUITE_LOCK_PATH,
+            TYPESCRIPT_TYPECHECK_LOCK_PATH,
+        }
+    )
     canonical_attempt_path = any(
         _same_full_suite_path(attempt_path, canonical_path)
         for canonical_path in FULL_SUITE_RESOURCE_ATTEMPT_PATHS
     )
-    if not recognized_lock_name and not canonical_attempt_path:
+    if (
+        not recognized_lock_name
+        and not canonical_lock_path
+        and not canonical_attempt_path
+    ):
         return
-    binding_root = lock_path.parent if recognized_lock_name else attempt_path.parent
+    binding_root = (
+        FULL_SUITE_SHARED_DIRECTORY
+        if canonical_lock_path or canonical_attempt_path
+        else lock_path.parent
+    )
     expected_lock_path, expected_attempt_path = full_suite_resource_paths(
         resource_ref,
         root=binding_root,

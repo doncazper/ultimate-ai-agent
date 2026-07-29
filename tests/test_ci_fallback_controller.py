@@ -1026,6 +1026,24 @@ def test_aliased_canonical_lock_identity_cannot_cross_resources() -> None:
         )
 
 
+def test_symlinked_canonical_lock_cannot_use_custom_attempt_ledger(
+    tmp_path: Path,
+) -> None:
+    lock_alias = tmp_path / "custom-lock-name"
+    try:
+        lock_alias.symlink_to(FULL_SUITE_LOCK_PATH)
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+
+    with pytest.raises(ValueError, match="lock path does not match resource ref"):
+        FullSuiteLock(
+            lock_alias,
+            attempt_path=tmp_path / "custom-attempts.json",
+            resource_ref="resource-ref:complete-pytest",
+            shared_across_accounts=True,
+        )
+
+
 def test_existing_complete_pytest_attempt_ledger_remains_compatible(
     tmp_path: Path,
 ) -> None:
