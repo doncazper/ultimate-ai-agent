@@ -344,6 +344,7 @@ class RuntimeGateway:
             goal_runtime_service
             or GoalRuntimeService.for_runtime_store(self.store.state_dir)
         )
+        self.goal_runtime_service.bind_runtime_invocation_store(self.store)
 
     def invoke_command(
         self,

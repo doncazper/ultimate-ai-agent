@@ -148,19 +148,16 @@ function pendingGoalRecoveryRecord(
     rejection_reason_ref: null,
     resolved_at: null,
     approval_recovery: {
-      schema_version: "goal_mutation_submission_approval_recovery.v1",
+      schema_version: "goal_mutation_approval_recovery.v1",
       posture,
       authoritative_current: true,
       approval_request: approvalRequest,
-      latest_decision: {
+      latest_decision: decisionStatus === "pending" ? null : {
         schema_version: "goal_mutation_approval_ledger.v2",
         spec: approvalRequest,
         status: decisionStatus,
         approval_grant: approvalGrant,
-        decision_reason_ref:
-          decisionStatus === "pending"
-            ? null
-            : "reason-ref:cli-goal-mutation-approval",
+        decision_reason_ref: "reason-ref:cli-goal-mutation-approval",
         decision_actor_ref: decisionActor,
         decided_at: decidedAt,
         previous_entry_hash_ref:
@@ -751,6 +748,13 @@ describe("proof-backed runtime goal mutations", () => {
       committed_goal_ref: null,
       rejection_reason_ref: "reason-ref:goal-recovery-rejected",
       resolved_at: "2026-07-28T00:01:00Z",
+      approval_recovery: {
+        schema_version: "goal_mutation_approval_recovery.v1",
+        posture: "missing",
+        authoritative_current: true,
+        approval_request: null,
+        latest_decision: null,
+      },
     };
     const data = {
       ...mockControlCenterData.runtimeRunEvents,

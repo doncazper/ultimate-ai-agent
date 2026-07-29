@@ -175,10 +175,7 @@ function hydratePendingGoalMutationApproval(
   const decision = recovery.latest_decision;
   if (
     spec === null ||
-    spec === undefined ||
-    decision === null ||
-    decision === undefined ||
-    !approvalSpecsEqual(spec, decision.spec)
+    spec === undefined
   ) {
     return null;
   }
@@ -195,9 +192,40 @@ function hydratePendingGoalMutationApproval(
   ) {
     return null;
   }
+  if (recovery.posture === "pending") {
+    if (decision !== null && decision !== undefined) {
+      return null;
+    }
+    return {
+      ...pending,
+      approvalSpec: spec,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: recovery.posture,
+    };
+  }
+  if (
+    recovery.posture === "expired" &&
+    (decision === null || decision === undefined)
+  ) {
+    return {
+      ...pending,
+      approvalSpec: spec,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: recovery.posture,
+    };
+  }
+  if (
+    decision === null ||
+    decision === undefined ||
+    !approvalSpecsEqual(spec, decision.spec)
+  ) {
+    return null;
+  }
   const decisionStatusMatches =
     recovery.posture === "expired"
-      ? decision.status === "pending" || decision.status === "approved"
+      ? decision.status === "expired" || decision.status === "approved"
       : decision.status === recovery.posture;
   if (!decisionStatusMatches) {
     return null;

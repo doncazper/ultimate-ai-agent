@@ -78,6 +78,10 @@ MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
 MAX_GOAL_MUTATION_SUBMISSIONS = 64
 MAX_GOAL_MUTATION_REJECTION_TOMBSTONES = MAX_GOAL_JOURNAL_ENTRIES
 MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES = 16 * 1024 * 1024
+MAX_GOAL_MUTATION_SUBMISSION_HEAD_BYTES = 16 * 1024
+MAX_GOAL_MUTATION_SUBMISSION_WRITE_INTENT_BYTES = (
+    MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES + 64 * 1024
+)
 MAX_GOAL_MUTATION_APPROVAL_ENTRIES = 4096
 MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES = 16 * 1024 * 1024
 MAX_GOAL_MUTATION_APPROVAL_HEAD_BYTES = 64 * 1024
@@ -331,6 +335,8 @@ def validate_execution_ref(value: str, field_name: str) -> None:
     if len(value) > MAX_EXECUTION_REF_LENGTH:
         raise ValueError(f"{field_name} exceeds the bounded ref length")
     _validate_execution_ref(value, field_name)
+    if contains_obvious_secret(value):
+        raise ValueError(f"{field_name} contains credential-like material")
 
 
 def _runtime_receipt_projection_kind(
@@ -375,6 +381,35 @@ def _runtime_receipt_projection_kind(
             else DurableRunEventKind.failed_terminal
         )
     return DurableRunEventKind.failed_terminal
+
+
+def _runtime_invocation_source_payload(
+    record: RuntimeInvocationRecord,
+) -> dict[str, Any]:
+    """Return the immutable accepted-invocation provenance envelope.
+
+    Operator safe-disable updates the receipt's current disable posture after
+    the terminal receipt is durable. That operational posture must not rewrite
+    historical projection provenance, while every other terminal receipt field
+    remains content-bound.
+    """
+
+    payload = record.model_dump(
+        mode="json",
+        include={
+            "invocation_ref",
+            "request",
+            "payload_fingerprint_ref",
+            "idempotency_ref",
+            "created_at",
+        },
+    )
+    payload["receipt"] = (
+        record.receipt.model_dump(mode="json", exclude={"safe_disable"})
+        if record.receipt is not None
+        else None
+    )
+    return payload
 
 
 def _bounded_safe_text(value: str, field_name: str) -> str:
@@ -1129,6 +1164,50 @@ class GoalMutationSubmissionState(BaseModel):
             not self.rejection_tombstones and self.state_hash_ref == legacy_hash
         ):
             raise ValueError("GOAL_SUBMISSION_STATE_HASH_MISMATCH")
+        return self
+
+
+class GoalMutationSubmissionHeadManifest(BaseModel):
+    """Independent monotonic anchor for the exact submission snapshot."""
+
+    schema_version: Literal["goal_mutation_submission_head.v1"] = (
+        "goal_mutation_submission_head.v1"
+    )
+    generation: StrictInt = Field(ge=1)
+    state_hash_ref: str
+    rejection_anchor_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> "GoalMutationSubmissionHeadManifest":
+        validate_execution_ref(self.state_hash_ref, "state_hash_ref")
+        validate_execution_ref(self.rejection_anchor_ref, "rejection_anchor_ref")
+        return self
+
+
+class GoalMutationSubmissionWriteIntent(BaseModel):
+    """Precommit binding for one exact submission snapshot replacement."""
+
+    schema_version: Literal["goal_mutation_submission_write_intent.v1"] = (
+        "goal_mutation_submission_write_intent.v1"
+    )
+    previous_head: GoalMutationSubmissionHeadManifest | None = None
+    next_state: GoalMutationSubmissionState
+    next_head: GoalMutationSubmissionHeadManifest
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "GoalMutationSubmissionWriteIntent":
+        previous_generation = (
+            self.previous_head.generation if self.previous_head is not None else 0
+        )
+        if (
+            self.next_head.generation != previous_generation + 1
+            or self.next_head.state_hash_ref != self.next_state.state_hash_ref
+        ):
+            raise ValueError("GOAL_SUBMISSION_WRITE_INTENT_INVALID")
         return self
 
 
@@ -3263,6 +3342,10 @@ class _GoalMutationSubmissionStore:
     def __init__(self, state_dir: str | Path) -> None:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "goal_mutation_submissions.json"
+        self.head_path = self.state_dir / "goal_mutation_submissions_head.json"
+        self.write_intent_path = (
+            self.state_dir / "goal_mutation_submissions_write_intent.json"
+        )
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     @staticmethod
@@ -3385,7 +3468,105 @@ class _GoalMutationSubmissionStore:
             tombstone_hash_ref=tombstone_hash_ref,
         )
 
-    def _load_state(self) -> GoalMutationSubmissionState:
+    @staticmethod
+    def _rejection_anchor(
+        state: GoalMutationSubmissionState,
+    ) -> str:
+        return _sha256_ref(
+            "rejection-anchor-ref:goal-mutation-submissions",
+            sorted(
+                [
+                    (
+                        record.submission_ref,
+                        record.request_fingerprint_ref,
+                        record.record_hash_ref,
+                    )
+                    for record in state.records
+                    if record.resolution_status == "rejected"
+                ]
+                + [
+                    (
+                        tombstone.submission_ref,
+                        tombstone.request_fingerprint_ref,
+                        tombstone.tombstone_hash_ref,
+                    )
+                    for tombstone in state.rejection_tombstones
+                ]
+            ),
+        )
+
+    @classmethod
+    def _head(
+        cls,
+        state: GoalMutationSubmissionState,
+        *,
+        generation: int,
+    ) -> GoalMutationSubmissionHeadManifest:
+        return GoalMutationSubmissionHeadManifest(
+            generation=generation,
+            state_hash_ref=state.state_hash_ref,
+            rejection_anchor_ref=cls._rejection_anchor(state),
+        )
+
+    def _load_head(self) -> GoalMutationSubmissionHeadManifest | None:
+        raw = _read_bounded_regular_utf8(
+            self.head_path,
+            max_bytes=MAX_GOAL_MUTATION_SUBMISSION_HEAD_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_SUBMISSION_HEAD_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_SUBMISSION_HEAD_CORRUPT",
+        )
+        if raw is None:
+            return None
+        try:
+            return GoalMutationSubmissionHeadManifest.model_validate_json(raw)
+        except (ValueError, TypeError) as exc:
+            raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_CORRUPT") from exc
+
+    def _load_write_intent(self) -> GoalMutationSubmissionWriteIntent | None:
+        raw = _read_bounded_regular_utf8(
+            self.write_intent_path,
+            max_bytes=MAX_GOAL_MUTATION_SUBMISSION_WRITE_INTENT_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_SUBMISSION_WRITE_INTENT_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_SUBMISSION_WRITE_INTENT_CORRUPT",
+        )
+        if raw is None:
+            return None
+        try:
+            intent = GoalMutationSubmissionWriteIntent.model_validate_json(raw)
+        except (ValueError, TypeError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_WRITE_INTENT_CORRUPT"
+            ) from exc
+        if (
+            intent.next_head.rejection_anchor_ref
+            != self._rejection_anchor(intent.next_state)
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_WRITE_INTENT_MISMATCH"
+            )
+        return intent
+
+    def _delete_write_intent(self) -> None:
+        try:
+            self.write_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError(
+                "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+            ) from exc
+
+    def _install_intent(self, intent: GoalMutationSubmissionWriteIntent) -> None:
+        _atomic_write(self.path, intent.next_state.model_dump_json() + "\n")
+        _atomic_write(self.head_path, intent.next_head.model_dump_json() + "\n")
+        self._delete_write_intent()
+
+    def _load_state(
+        self,
+        *,
+        repair_head: bool = False,
+    ) -> GoalMutationSubmissionState:
+        intent = self._load_write_intent()
         raw_content = _read_bounded_regular_utf8(
             self.path,
             max_bytes=MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES,
@@ -3394,11 +3575,56 @@ class _GoalMutationSubmissionStore:
             corruption_error="GOAL_SUBMISSION_STATE_CORRUPT",
         )
         if raw_content is None:
-            return self._state([])
+            head = self._load_head()
+            if intent is None:
+                if head is not None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_STATE_MISSING_WITH_HEAD"
+                    )
+                return self._state([])
+            if intent.previous_head is not None or head is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_WRITE_INTENT_STATE_MISMATCH"
+                )
+            if not repair_head:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_WRITE_RECOVERY_REQUIRED"
+                )
+            self._install_intent(intent)
+            return intent.next_state.model_copy(deep=True)
         try:
-            return GoalMutationSubmissionState.model_validate_json(raw_content)
+            state = GoalMutationSubmissionState.model_validate_json(raw_content)
         except (ValueError, TypeError) as exc:
             raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_STATE_CORRUPT") from exc
+        head = self._load_head()
+        if intent is None:
+            if head is None:
+                raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISSING")
+            if head != self._head(state, generation=head.generation):
+                raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISMATCH")
+            return state
+        if not repair_head:
+            raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_WRITE_RECOVERY_REQUIRED")
+        previous_head = intent.previous_head
+        if head == previous_head and previous_head is not None:
+            previous_state_matches = (
+                state.state_hash_ref == previous_head.state_hash_ref
+                and self._rejection_anchor(state)
+                == previous_head.rejection_anchor_ref
+            )
+            if previous_state_matches:
+                self._install_intent(intent)
+                return intent.next_state.model_copy(deep=True)
+        if head == previous_head and state == intent.next_state:
+            _atomic_write(self.head_path, intent.next_head.model_dump_json() + "\n")
+            self._delete_write_intent()
+            return intent.next_state.model_copy(deep=True)
+        if head == intent.next_head and state == intent.next_state:
+            self._delete_write_intent()
+            return intent.next_state.model_copy(deep=True)
+        raise GoalRuntimeCorruptionError(
+            "GOAL_SUBMISSION_WRITE_INTENT_STATE_MISMATCH"
+        )
 
     def _load(self) -> list[GoalMutationSubmissionRecord]:
         state = self._load_state()
@@ -3422,14 +3648,46 @@ class _GoalMutationSubmissionStore:
             > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES
         ):
             raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+        current_state = self._load_state(repair_head=True)
+        current_head = self._load_head()
+        if current_state.records or current_state.rejection_tombstones:
+            if current_head is None:
+                raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISSING")
+        elif current_head is not None:
+            raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISMATCH")
+        next_state = self._state(records, rejection_tombstones)
+        next_head = self._head(
+            next_state,
+            generation=(current_head.generation + 1 if current_head else 1),
+        )
+        intent = GoalMutationSubmissionWriteIntent(
+            previous_head=current_head,
+            next_state=next_state,
+            next_head=next_head,
+        )
+        intent_content = intent.model_dump_json() + "\n"
+        if (
+            len(intent_content.encode("utf-8"))
+            > MAX_GOAL_MUTATION_SUBMISSION_WRITE_INTENT_BYTES
+        ):
+            raise GoalRuntimeError(
+                "GOAL_SUBMISSION_WRITE_INTENT_CAPACITY_EXCEEDED"
+            )
+        _atomic_write(self.write_intent_path, intent_content)
         _atomic_write(self.path, content)
+        _atomic_write(self.head_path, next_head.model_dump_json() + "\n")
+        self._delete_write_intent()
 
     @contextmanager
     def consistent_read(self) -> Iterator[None]:
         with _nonmutating_goal_runtime_read_lock(
             self.state_dir / ".locks",
             "goal-submissions",
-            generation_paths=(self.path,),
+            generation_paths=(
+                self.path,
+                self.head_path,
+                self.write_intent_path,
+            ),
         ):
             yield
 
@@ -3500,7 +3758,7 @@ class _GoalMutationSubmissionStore:
             raise GoalIdempotencyConflictError("GOAL_IDEMPOTENCY_CONFLICT")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
-            state = self._load_state()
+            state = self._load_state(repair_head=True)
             records = [record.model_copy(deep=True) for record in state.records]
             rejection_tombstones = [
                 tombstone.model_copy(deep=True)
@@ -3664,7 +3922,7 @@ class _GoalMutationSubmissionStore:
             raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_OPERATION_INVALID")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
-            state = self._load_state()
+            state = self._load_state(repair_head=True)
             matches = [
                 record
                 for record in state.records
@@ -3718,7 +3976,7 @@ class _GoalMutationSubmissionStore:
         rejection_reason_ref: str,
         journal_entries: list[GoalJournalEntry],
     ) -> GoalMutationSubmissionRecord:
-        state = self._load_state()
+        state = self._load_state(repair_head=True)
         records = [record.model_copy(deep=True) for record in state.records]
         rejection_tombstones = [
             tombstone.model_copy(deep=True) for tombstone in state.rejection_tombstones
@@ -4908,8 +5166,15 @@ class _DurableRunEventStore:
     def _validate_trusted_sources(
         self,
         events: Iterable[DurableRunEvent],
+        *,
+        journal_entries: Iterable[GoalJournalEntry] = (),
+        runtime_invocation_state_dir: Path | None = None,
     ) -> None:
         sources = self._load_trusted_sources()
+        journal_by_ref = {
+            entry.entry_ref: entry for entry in journal_entries
+        }
+        runtime_store: RuntimeInvocationStore | None = None
         for event in events:
             if event.producer_class != "trusted_core":
                 continue
@@ -4931,6 +5196,43 @@ class _DurableRunEventStore:
                 raise GoalRuntimeCorruptionError(
                     "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
                 )
+            if source.source_kind == "goal_journal_completion":
+                journal_entry = journal_by_ref.get(source.source_ref)
+                if (
+                    journal_entry is None
+                    or journal_entry.entry_hash_ref != source.source_fingerprint_ref
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
+                    )
+            elif source.source_kind == "runtime_invocation":
+                if runtime_invocation_state_dir is None:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
+                    )
+                if runtime_store is None:
+                    from ultimate_ai_agent.core.runtime_gateway.storage import (
+                        RuntimeInvocationStore,
+                        RuntimeInvocationStorageError,
+                    )
+
+                    runtime_store = RuntimeInvocationStore(
+                        runtime_invocation_state_dir
+                    )
+                try:
+                    runtime_record = runtime_store.get_invocation(source.source_ref)
+                except (RuntimeInvocationStorageError, ValueError, AttributeError) as exc:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
+                    ) from exc
+                expected_source_fingerprint = _sha256_ref(
+                    "source-fingerprint-ref:runtime-invocation",
+                    _runtime_invocation_source_payload(runtime_record),
+                )
+                if expected_source_fingerprint != source.source_fingerprint_ref:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
+                    )
 
     def _missing_runtime_projection_key_refs(
         self,
@@ -5585,9 +5887,24 @@ class DurableRunEventReader:
         self,
         store: _DurableRunEventStore,
         approvals: _GoalMutationApprovalStore,
+        goals: _GoalJournalStore,
+        runtime_invocation_state_dir: Path | None,
     ) -> None:
         self.__store = store
         self.__approvals = approvals
+        self.__goals = goals
+        self.__runtime_invocation_state_dir = runtime_invocation_state_dir
+
+    def bind_runtime_invocation_state_dir(self, state_dir: Path) -> None:
+        candidate = Path(state_dir)
+        if (
+            self.__runtime_invocation_state_dir is not None
+            and self.__runtime_invocation_state_dir != candidate
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_STORE_MISMATCH"
+            )
+        self.__runtime_invocation_state_dir = candidate
 
     def _validated_generation(
         self,
@@ -5598,24 +5915,30 @@ class DurableRunEventReader:
         for _attempt in range(3):
             try:
                 with self.__approvals.consistent_read():
-                    with self.__store.consistent_read():
-                        approval_entries = self.__approvals._load_entries()
-                        events = self.__store._load_events()
-                        tombstones = self.__store._load_idempotency_tombstones(events)
-                        self.__store._validate_trusted_sources(
-                            [
+                    with self.__goals.consistent_read():
+                        with self.__store.consistent_read():
+                            approval_entries = self.__approvals._load_entries()
+                            journal_entries = self.__goals._load_entries()
+                            events = self.__store._load_events()
+                            tombstones = self.__store._load_idempotency_tombstones(
+                                events
+                            )
+                            all_events = [
                                 *events,
                                 *(item.event for item in tombstones.values()),
                             ]
-                        )
-                        self.__approvals.validate_event_provenance(
-                            approval_entries,
-                            [
-                                *events,
-                                *(item.event for item in tombstones.values()),
-                            ],
-                        )
-                        return events, tombstones
+                            self.__store._validate_trusted_sources(
+                                all_events,
+                                journal_entries=journal_entries,
+                                runtime_invocation_state_dir=(
+                                    self.__runtime_invocation_state_dir
+                                ),
+                            )
+                            self.__approvals.validate_event_provenance(
+                                approval_entries,
+                                all_events,
+                            )
+                            return events, tombstones
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("RUN_EVENT_APPROVAL_GENERATION_UNSTABLE")
@@ -5701,8 +6024,14 @@ class GoalRuntimeService:
         state_dir: str | Path,
         *,
         retention_limit: int = DEFAULT_RUN_EVENT_RETENTION,
+        runtime_invocation_state_dir: str | Path | None = None,
     ) -> None:
         self.state_dir = Path(state_dir)
+        self.runtime_invocation_state_dir = (
+            Path(runtime_invocation_state_dir)
+            if runtime_invocation_state_dir is not None
+            else None
+        )
         _validate_goal_runtime_state_dir_for_read(self.state_dir)
         self.goals = _GoalJournalStore(self.state_dir)
         self._submissions = _GoalMutationSubmissionStore(self.state_dir)
@@ -5710,7 +6039,34 @@ class GoalRuntimeService:
         self._events = _DurableRunEventStore(
             self.state_dir, retention_limit=retention_limit
         )
-        self.events = DurableRunEventReader(self._events, self._approvals)
+        self.events = DurableRunEventReader(
+            self._events,
+            self._approvals,
+            self.goals,
+            self.runtime_invocation_state_dir,
+        )
+
+    def bind_runtime_invocation_store(
+        self,
+        invocation_store: RuntimeInvocationStore,
+    ) -> None:
+        raw_state_dir = getattr(invocation_store, "state_dir", None)
+        if raw_state_dir is None:
+            if self.runtime_invocation_state_dir is None:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
+                )
+            return
+        candidate = Path(raw_state_dir)
+        if (
+            self.runtime_invocation_state_dir is not None
+            and self.runtime_invocation_state_dir != candidate
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_STORE_MISMATCH"
+            )
+        self.runtime_invocation_state_dir = candidate
+        self.events.bind_runtime_invocation_state_dir(candidate)
 
     @classmethod
     def from_env(cls) -> "GoalRuntimeService":
@@ -5724,12 +6080,21 @@ class GoalRuntimeService:
     @classmethod
     def for_runtime_store(cls, state_dir: str | Path) -> "GoalRuntimeService":
         configured = os.environ.get(GOAL_RUNTIME_STATE_DIR_ENV, "").strip()
-        if configured:
-            return cls(Path(configured).expanduser())
         candidate = Path(state_dir)
+        if configured:
+            return cls(
+                Path(configured).expanduser(),
+                runtime_invocation_state_dir=candidate,
+            )
         if candidate == Path(".uaa") / "runtime-gateway":
-            return cls(DEFAULT_GOAL_RUNTIME_STATE_DIR)
-        return cls(candidate / "goal_runtime")
+            return cls(
+                DEFAULT_GOAL_RUNTIME_STATE_DIR,
+                runtime_invocation_state_dir=candidate,
+            )
+        return cls(
+            candidate / "goal_runtime",
+            runtime_invocation_state_dir=candidate,
+        )
 
     def aggregate_read_snapshot(
         self,
@@ -5757,6 +6122,8 @@ class GoalRuntimeService:
         if after_sequence < 0:
             raise ValueError("RUN_EVENT_CURSOR_INVALID")
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
+        self._approvals.repair_recoverable_append()
+        self._converge_expired_goal_mutation_approvals()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
@@ -5768,13 +6135,17 @@ class GoalRuntimeService:
                                 tombstones = self._events._load_idempotency_tombstones(
                                     events
                                 )
+                                entries = self.goals._load_entries()
                                 self._events._validate_trusted_sources(
                                     [
                                         *events,
                                         *(item.event for item in tombstones.values()),
-                                    ]
+                                    ],
+                                    journal_entries=entries,
+                                    runtime_invocation_state_dir=(
+                                        self.runtime_invocation_state_dir
+                                    ),
                                 )
-                                entries = self.goals._load_entries()
                                 submission_records = self._submissions._load()
                                 self._approvals.validate_goal_provenance(
                                     approval_entries,
@@ -5830,6 +6201,24 @@ class GoalRuntimeService:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_RUNTIME_AGGREGATE_GENERATION_UNSTABLE")
 
+    def _converge_expired_goal_mutation_approvals(self) -> int:
+        """Resolve expired approval/submission truth before a shared snapshot."""
+
+        def reject_linked_submission(
+            spec: GoalMutationApprovalRequestSpec,
+            reason_ref: str,
+        ) -> None:
+            with self.goals.mutation_entries() as journal_entries:
+                self._submissions.reject_linked_approval(
+                    spec=spec,
+                    rejection_reason_ref=reason_ref,
+                    journal_entries=journal_entries,
+                )
+
+        return self._approvals.expire_pending(
+            before_terminal_append=reject_linked_submission,
+        )
+
     def goal_lifecycle_read_model(
         self,
         *,
@@ -5837,6 +6226,7 @@ class GoalRuntimeService:
     ) -> GoalLifecycleReadModel:
         """Read goals with the exact approval ledger generation validated."""
 
+        self._approvals.repair_recoverable_append()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
@@ -6333,8 +6723,11 @@ class GoalRuntimeService:
             ] = []
             with journal_lock, event_lock:
                 if evidence is not None:
+                    journal_entries = self.goals._load_entries(
+                        repair_manifest=True
+                    )
                     current = self.goals._latest_by_goal(  # noqa: SLF001
-                        self.goals._load_entries(repair_manifest=True)
+                        journal_entries
                     ).get(goal_ref)
                     if current is None:
                         raise GoalNotFoundError("GOAL_NOT_FOUND")
@@ -6362,7 +6755,11 @@ class GoalRuntimeService:
                                 tombstone.event
                                 for tombstone in retained_tombstones.values()
                             ),
-                        ]
+                        ],
+                        journal_entries=journal_entries,
+                        runtime_invocation_state_dir=(
+                            self.runtime_invocation_state_dir
+                        ),
                     )
                     self._approvals.validate_event_provenance(
                         approval_entries,
@@ -6525,7 +6922,11 @@ class GoalRuntimeService:
                     [
                         *events,
                         *(item.event for item in tombstones.values()),
-                    ]
+                    ],
+                    journal_entries=journal_entries,
+                    runtime_invocation_state_dir=(
+                        self.runtime_invocation_state_dir
+                    ),
                 )
                 self._approvals.validate_event_provenance(
                     approval_entries,
@@ -6621,11 +7022,19 @@ class GoalRuntimeService:
             )
         ):
             raise GoalRuntimeCorruptionError("GOAL_COMPLETION_EVENT_BINDING_INCOMPLETE")
+        retained_run_events = [
+            event
+            for event in self._events._load_events()
+            if event.run_ref == goal.completion_run_ref
+        ]
+        if not retained_run_events:
+            raise GoalRuntimeCorruptionError("RUN_EVENT_STREAM_NOT_FOUND")
+        run_type = AcceptedLocalRunType(retained_run_events[-1].run_type)
         return self._events._append_locked(
             DurableRunEventAppendRequest.model_validate(
                 {
                     "run_ref": goal.completion_run_ref,
-                    "run_type": self._events.run_type(goal.completion_run_ref),
+                    "run_type": run_type,
                     "event_kind": DurableRunEventKind.completion_verified,
                     "safe_summary": (
                         "Deterministic receipt evidence verified the linked "
@@ -6745,6 +7154,7 @@ class GoalRuntimeService:
             RuntimeInvocationStatus,
         )
 
+        self.bind_runtime_invocation_store(invocation_store)
         validated = self._durable_runtime_invocation(
             record,
             invocation_store=invocation_store,
@@ -6813,24 +7223,7 @@ class GoalRuntimeService:
             source_ref=validated.invocation_ref,
             source_fingerprint_ref=_sha256_ref(
                 "source-fingerprint-ref:runtime-invocation",
-                validated.model_dump(
-                    mode="json",
-                    include={
-                        # Bind the immutable accepted request and terminal receipt
-                        # rather than operational replay metadata. RuntimeGateway
-                        # may increment replay_count, refresh current authority, or
-                        # update action-inbox presentation after the receipt is
-                        # durable; none of those changes the historical source
-                        # that authorized this exact event projection.
-                        "invocation_ref",
-                        "request",
-                        "payload_fingerprint_ref",
-                        "idempotency_ref",
-                        "receipt",
-                        "status",
-                        "created_at",
-                    },
-                ),
+                _runtime_invocation_source_payload(validated),
             ),
         )
         with self._events.exclusive():
@@ -6937,6 +7330,7 @@ class GoalRuntimeService:
         *,
         invocation_store: RuntimeInvocationStore,
     ) -> list[DurableRunEvent]:
+        self.bind_runtime_invocation_store(invocation_store)
         self.reconcile_durable_events()
         projected: list[DurableRunEvent] = []
         quarantined_invocation_refs = {
@@ -7055,6 +7449,7 @@ GoalMutationApprovalDecisionStatus = Literal[
     "approved",
     "denied",
     "revoked",
+    "expired",
 ]
 
 
@@ -7122,7 +7517,7 @@ class GoalMutationApprovalLedgerEntry(BaseModel):
                 or self.decision_actor_ref is None
             ):
                 raise ValueError("GOAL_MUTATION_APPROVAL_GRANT_REQUIRED")
-        elif self.status == "denied":
+        elif self.status in {"denied", "expired"}:
             if (
                 self.approval_grant is not None
                 or self.decided_at is None
@@ -7551,10 +7946,11 @@ class _GoalMutationApprovalStore:
                             "GOAL_MUTATION_APPROVAL_REQUEST_BINDING_MISMATCH"
                         )
                     allowed = {
-                        "pending": {"approved", "denied"},
+                        "pending": {"approved", "denied", "expired"},
                         "approved": {"revoked"},
                         "denied": set(),
                         "revoked": set(),
+                        "expired": set(),
                     }[prior.status]
                     if entry.status not in allowed:
                         raise GoalRuntimeCorruptionError(
@@ -7656,6 +8052,25 @@ class _GoalMutationApprovalStore:
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE")
+
+    def repair_recoverable_append(self) -> None:
+        """Finish only an exactly precommitted approval append, if present."""
+
+        try:
+            intent_metadata = os.lstat(self.append_intent_path)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise GoalRuntimeError(
+                "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+            ) from exc
+        if not stat.S_ISREG(intent_metadata.st_mode):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_APPEND_INTENT_CORRUPT"
+            )
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
+            self._load_entries(repair_manifest=True)
 
     def _append(
         self,
@@ -8306,6 +8721,8 @@ class _GoalMutationApprovalStore:
             raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_DENIED")
         if current.status == "revoked":
             raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REVOKED")
+        if current.status == "expired":
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_EXPIRED")
         if current.status != "approved" or current.approval_grant is None:
             raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
         approval_request = build_exact_goal_mutation_approval_request(current.spec)
@@ -8552,6 +8969,55 @@ class _GoalMutationApprovalStore:
                 decision_actor_ref=actor_ref,
                 decided_at=decided_at,
             )
+
+    def expire_pending(
+        self,
+        *,
+        before_terminal_append: Callable[
+            [GoalMutationApprovalRequestSpec, str],
+            None,
+        ],
+    ) -> int:
+        """Durably reject each exact linked submission whose request expired."""
+
+        reason_ref = "reason-ref:goal-mutation-rejected:approval-expired"
+        actor_ref = "operator-ref:goal-runtime-expiration-recovery"
+        try:
+            ledger_metadata = os.lstat(self.path)
+        except FileNotFoundError:
+            return 0
+        except OSError as exc:
+            raise GoalRuntimeError(
+                "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+            ) from exc
+        if not stat.S_ISREG(ledger_metadata.st_mode):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_MUTATION_APPROVAL_LEDGER_CORRUPT"
+            )
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-approvals"):
+            entries = self._load_entries(repair_manifest=True)
+            latest: dict[str, GoalMutationApprovalLedgerEntry] = {}
+            for entry in entries:
+                latest[entry.spec.approval_request_ref] = entry
+            now = utc_now()
+            expired = [
+                entry
+                for entry in latest.values()
+                if entry.status == "pending" and now >= entry.spec.expires_at
+            ]
+            for current in expired:
+                before_terminal_append(current.spec, reason_ref)
+                appended = self._append(
+                    entries,
+                    spec=current.spec,
+                    status="expired",
+                    decision_reason_ref=reason_ref,
+                    decision_actor_ref=actor_ref,
+                    decided_at=now,
+                )
+                entries = [*entries, appended]
+            return len(expired)
 
     def revoke(
         self,

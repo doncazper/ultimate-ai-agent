@@ -14119,7 +14119,7 @@ export interface RuntimeGoalMutationApprovalGrant {
 export interface RuntimeGoalMutationApprovalDecision {
   schema_version: "goal_mutation_approval_ledger.v2";
   spec: RuntimeGoalMutationApprovalRequestSpec;
-  status: "pending" | "approved" | "denied" | "revoked";
+  status: "pending" | "approved" | "denied" | "revoked" | "expired";
   approval_grant?: RuntimeGoalMutationApprovalGrant | null;
   decision_reason_ref?: string | null;
   decision_actor_ref?: string | null;
@@ -14129,7 +14129,7 @@ export interface RuntimeGoalMutationApprovalDecision {
 }
 
 export interface RuntimeGoalMutationSubmissionApprovalRecovery {
-  schema_version: "goal_mutation_submission_approval_recovery.v1";
+  schema_version: "goal_mutation_approval_recovery.v1";
   posture:
     | "missing"
     | "pending"

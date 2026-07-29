@@ -856,6 +856,42 @@ def test_goal_approval_later_append_recovers_only_from_exact_append_intent(
     assert not (tmp_path / "goal_mutation_approvals_append_intent.json").exists()
 
 
+def test_aggregate_read_repairs_an_exact_approval_append_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def fail_head_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goal_mutation_approvals_head.json":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_head_once)
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=_create_request(),
+            idempotency_ref="idempotency-ref:aggregate-approval-repair",
+        )
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+
+    snapshot = GoalRuntimeService(tmp_path).aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=10,
+    )
+
+    assert snapshot[3].goals == []
+    assert not service._approvals.append_intent_path.exists()  # noqa: SLF001
+    assert service._approvals._load_consistent_entries()[0].status == "pending"  # noqa: SLF001
+
+
 def test_goal_approval_one_ahead_without_append_intent_fails_closed(
     tmp_path: Path,
 ) -> None:
@@ -2986,7 +3022,10 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
             output_bytes=b"SAFE_STATUS",
         )
 
-    goal_service = GoalRuntimeService(goal_dir)
+    goal_service = GoalRuntimeService(
+        goal_dir,
+        runtime_invocation_state_dir=runtime_dir,
+    )
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(
             runtime_dir,
@@ -3052,7 +3091,10 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     reservations_path = goal_dir / "run_event_projection_reservations.jsonl"
     assert reservations_path.read_text(encoding="utf-8") == ""
     assert stat.S_IMODE(reservations_path.stat().st_mode) == 0o600
-    restored = GoalRuntimeService(goal_dir)
+    restored = GoalRuntimeService(
+        goal_dir,
+        runtime_invocation_state_dir=runtime_dir,
+    )
     restored_runtime_store = RuntimeInvocationStore(
         runtime_dir,
         active_authority_leases=[workspace_execute_authority_lease()],
@@ -3081,6 +3123,12 @@ def test_runtime_gateway_projects_accepted_receipt_into_durable_events(
     )
     assert tombstone_write_calls == 0
     assert len(restored.events.replay(result.record.invocation_ref).events) == 2
+    restored_runtime_store.path.unlink()
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+    ):
+        restored.events.replay(result.record.invocation_ref)
 
 
 def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
@@ -5510,6 +5558,11 @@ def test_goal_mutation_submission_rejection_survives_restart_and_blocks_replay(
         ),
     )
     assert rejected.resolution_status == "rejected"
+    restarted = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert restarted.rejected_count == 1
+    assert restarted.records[0].status == "rejected"
 
     recovery = build_runtime_run_events_read_model(
         service=GoalRuntimeService(tmp_path)
@@ -5939,6 +5992,7 @@ def test_goal_mutation_submission_admission_reserves_terminal_bytes(
         ).encode("utf-8")
     )
     store.path.unlink()
+    store.head_path.unlink()  # noqa: SLF001
     monkeypatch.setattr(
         goal_runtime_module,
         "MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES",
@@ -5965,11 +6019,211 @@ def test_goal_mutation_submission_admission_reserves_terminal_bytes(
         ),
     )
     assert rejected.resolution_status == "rejected"
-    restarted = build_runtime_run_events_read_model(
-        service=GoalRuntimeService(tmp_path)
-    ).goal_mutation_submissions
-    assert restarted.rejected_count == 1
-    assert restarted.records[0].status == "rejected"
+
+
+def test_submission_rejection_head_blocks_state_rollback(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "d" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    record = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-rejection-rollback",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:goal-rejection-rollback",
+    )
+    pending_state = service._submissions.path.read_text(encoding="utf-8")  # noqa: SLF001
+    service.reject_goal_mutation_submission(
+        submission_ref=record.submission_ref,
+        request_fingerprint_ref=record.request_fingerprint_ref,
+        rejection_reason_ref="reason-ref:goal-rejection-rollback",
+    )
+
+    service._submissions.path.write_text(pending_state, encoding="utf-8")  # noqa: SLF001
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_HEAD_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).aggregate_read_snapshot(
+            run_ref=None,
+            after_sequence=0,
+            limit=10,
+        )
+
+
+@pytest.mark.parametrize("failure_boundary", ["state", "head", "cleanup"])
+def test_submission_rejection_recovers_only_from_exact_write_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_boundary: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "f" * 64
+    )
+    request = _create_request().model_copy(update={"evidence_refs": [evidence_ref]})
+    record = service.record_goal_mutation_submission(
+        submission_ref=f"submission-ref:goal-rejection-crash:{failure_boundary}",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=f"idempotency-ref:goal-rejection-crash:{failure_boundary}",
+    )
+    original_atomic_write = goal_runtime_module._atomic_write
+    original_cleanup = service._submissions._delete_write_intent  # noqa: SLF001
+    failed = False
+
+    def fail_head_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goal_mutation_submissions_head.json":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    def fail_state_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goal_mutation_submissions.json":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    def fail_cleanup_once() -> None:
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_cleanup()
+
+    if failure_boundary == "state":
+        monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_state_once)
+    elif failure_boundary == "head":
+        monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_head_once)
+    else:
+        monkeypatch.setattr(
+            service._submissions,  # noqa: SLF001
+            "_delete_write_intent",
+            fail_cleanup_once,
+        )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        service.reject_goal_mutation_submission(
+            submission_ref=record.submission_ref,
+            request_fingerprint_ref=record.request_fingerprint_ref,
+            rejection_reason_ref="reason-ref:goal-rejection-crash",
+        )
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+    monkeypatch.setattr(
+        service._submissions,  # noqa: SLF001
+        "_delete_write_intent",
+        original_cleanup,
+    )
+
+    recovered = GoalRuntimeService(tmp_path).reject_goal_mutation_submission(
+        submission_ref=record.submission_ref,
+        request_fingerprint_ref=record.request_fingerprint_ref,
+        rejection_reason_ref="reason-ref:goal-rejection-crash",
+    )
+
+    assert recovered.resolution_status == "rejected"
+    assert not service._submissions.write_intent_path.exists()  # noqa: SLF001
+
+
+def test_submission_state_loss_with_head_fails_closed(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "a" * 64
+    )
+    service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-state-loss",
+        operation="create",
+        goal_ref=None,
+        request=_create_request().model_copy(
+            update={"evidence_refs": [evidence_ref]}
+        ),
+        idempotency_ref="idempotency-ref:goal-state-loss",
+    )
+    service._submissions.path.unlink()  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_STATE_MISSING_WITH_HEAD",
+    ):
+        GoalRuntimeService(tmp_path).aggregate_read_snapshot(
+            run_ref=None,
+            after_sequence=0,
+            limit=10,
+        )
+
+
+def test_expired_approval_durably_rejects_linked_submission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "e" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    submission = service.record_goal_mutation_submission(
+        submission_ref="submission-ref:goal-approval-expiration",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref="idempotency-ref:goal-approval-expiration",
+    )
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=submission.idempotency_ref,
+        ttl_minutes=5,
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "utc_now",
+        lambda: spec.expires_at + timedelta(seconds=1),
+    )
+
+    recovery = service.aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=10,
+    )[4]
+
+    assert recovery.pending_count == 0
+    assert recovery.rejected_count == 1
+    assert recovery.records[0].approval_recovery.posture == "expired"
+    assert recovery.records[0].rejection_reason_ref == (
+        "reason-ref:goal-mutation-rejected:approval-expired"
+    )
+    assert service._approvals._load_consistent_entries()[-1].status == "expired"  # noqa: SLF001
+
+
+def test_durable_refs_reject_the_canonical_secret_detector(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "contains_obvious_secret",
+        lambda value: value == "evidence-ref:synthetic-sensitive",
+    )
+    with pytest.raises(ValueError, match="credential-like material"):
+        GoalCreateRequest(
+            **{
+                **_create_request().model_dump(mode="python"),
+                "evidence_refs": ["evidence-ref:synthetic-sensitive"],
+            }
+        )
 
 
 def test_goal_mutation_submission_state_rejects_symlink_substitution(

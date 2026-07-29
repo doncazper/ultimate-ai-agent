@@ -235,7 +235,13 @@ reason text. A deny or revoke first resolves the exact linked pending
 submission under the canonical approval, journal, then submission lock order;
 only then is the terminal approval entry installed. A committed submission
 wins exact reconciliation, while an uncommitted one cannot remain indefinitely
-pending behind durable terminal approval truth.
+pending behind durable terminal approval truth. Aggregate reads also converge
+expired pending approvals into a durable terminal `expired` decision and an
+exact linked submission rejection before returning current state. The
+submission store has an independent head binding its full state and rejection
+anchor; every state change uses an exact write intent, so rollback, state loss,
+or an unproven partial replacement fails closed while controlled recovery can
+finish only the precommitted generation.
 Completion verification and deterministic completion-event reconciliation use
 the canonical approval, goal-journal, then run-event lock order. They validate
 the exact approval generation, goal-journal approval binding, and every

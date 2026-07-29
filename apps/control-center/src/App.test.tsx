@@ -9221,7 +9221,12 @@ describe("Web Control Center shell", () => {
           ) {
             decisionCallCount += 1;
             const recovered =
-              fixture.record.approval_recovery.latest_decision;
+              runtimeGoalSubmissionApprovalRecovery(
+                "create",
+                null,
+                fixture.record.idempotency_ref,
+                "approved",
+              ).latest_decision;
             return new Response(
               JSON.stringify({
                 ok: true,
@@ -10234,6 +10239,15 @@ describe("Web Control Center shell", () => {
                       recorded_at: "2026-07-28T00:00:00Z",
                       status: "committed",
                       committed_goal_ref: committedGoal.goal_ref,
+                      approval_recovery:
+                        runtimeGoalSubmissionApprovalRecovery(
+                          mutationKind,
+                          mutationKind === "create" ? null : goalRef,
+                          new Headers(postCalls[0]?.headers).get(
+                            "X-UAA-Idempotency-Key",
+                          ) ?? "",
+                          "approved",
+                        ),
                       resolved_at: "2026-07-28T00:00:01Z",
                     },
                   ],
@@ -10437,6 +10451,17 @@ describe("Web Control Center shell", () => {
                     committed_goal_ref: null,
                     rejection_reason_ref:
                       "reason-ref:goal-mutation-rejected:goal-version-conflict",
+                    approval_recovery:
+                      runtimeGoalSubmissionApprovalRecovery(
+                        "create",
+                        null,
+                        substituteRejectedBinding
+                          ? "idempotency-ref:goal-create:substituted"
+                          : firstPost.headers.get(
+                              "X-UAA-Idempotency-Key",
+                            ) ?? "",
+                        "approved",
+                      ),
                     resolved_at: "2026-07-28T00:00:01Z",
                   },
                 ],
@@ -19966,7 +19991,7 @@ function runtimeGoalSubmissionApprovalRecovery(
 ): RuntimeGoalMutationSubmissionApprovalRecovery {
   if (posture === "missing") {
     return {
-      schema_version: "goal_mutation_submission_approval_recovery.v1",
+      schema_version: "goal_mutation_approval_recovery.v1",
       posture,
       authoritative_current: true,
       approval_request: null,
@@ -20050,19 +20075,16 @@ function runtimeGoalSubmissionApprovalRecovery(
         }
       : null;
   return {
-    schema_version: "goal_mutation_submission_approval_recovery.v1",
+    schema_version: "goal_mutation_approval_recovery.v1",
     posture,
     authoritative_current: true,
     approval_request: approvalRequest,
-    latest_decision: {
+    latest_decision: decisionStatus === "pending" ? null : {
       schema_version: "goal_mutation_approval_ledger.v2",
       spec: approvalRequest,
       status: decisionStatus,
       approval_grant: approvalGrant,
-      decision_reason_ref:
-        decisionStatus === "pending"
-          ? null
-          : "reason-ref:cli-goal-mutation-approval",
+      decision_reason_ref: "reason-ref:cli-goal-mutation-approval",
       decision_actor_ref: decisionActorRef,
       decided_at: decidedAt,
       previous_entry_hash_ref:
