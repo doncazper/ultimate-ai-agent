@@ -54,6 +54,11 @@ Current reusable foundation:
   full-manifest inspection.
 - progressive skill disclosure is metadata-only and does not auto-load or
   execute skills.
+- `scripts/run_agent_capability_evaluation.py` and the accepted Capability
+  Evaluation Lab provide reusable redacted case/result/report plumbing. TAW-00
+  should extend those contracts where compatible instead of creating a
+  competing evaluation system, while keeping task-capability scoring distinct
+  from the new paired ordinary-chat non-inferiority judgment.
 
 The convergence gap is a proof-backed layer between coarse turn
 classification and exact execution:
@@ -472,7 +477,10 @@ proportional post-merge verification, and cleanup.
 
 - Map every requirement in this plan to the existing Turn Contract Router,
   capability registry, skill disclosure, chat route, and authority system.
-- Establish the versioned evaluation corpus and benchmark harness.
+- Reuse the accepted agent-capability evaluation evidence/report contracts,
+  then establish only the missing versioned routing and paired ordinary-chat
+  corpus, blinded scoring, and statistical benchmark layers. Do not conflate
+  capability-task success with ordinary-chat quality.
 - Record baseline routing accuracy, paired same-model ordinary-chat quality,
   time to first token, routing latency, catalog scale, and current failure
   categories under frozen model, inference, and prompt-format identities.
