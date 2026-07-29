@@ -98,7 +98,7 @@ def _create_payload() -> dict[str, object]:
     }
 
 
-def test_goal_mutation_route_persists_backend_owned_retry_before_failure(
+def test_goal_mutation_route_durably_rejects_terminal_failure_without_wedging(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
 ) -> None:
     client, _service = goal_runtime_client
@@ -129,12 +129,59 @@ def test_goal_mutation_route_persists_backend_owned_retry_before_failure(
     recovery = client.get("/api/runtime/run-events").json()["data"][
         "goal_mutation_submissions"
     ]
-    assert recovery["pending_count"] == 1
+    assert recovery["pending_count"] == 0
+    assert recovery["rejected_count"] == 1
     assert recovery["records"][0]["submission_ref"] == submission_ref
     assert recovery["records"][0]["submission_evidence_ref"] == (
         submission_evidence_ref
     )
-    assert recovery["records"][0]["status"] == "pending"
+    assert recovery["records"][0]["status"] == "rejected"
+    assert recovery["records"][0]["rejection_reason_ref"] == (
+        "reason-ref:goal-mutation-rejected:goal-version-conflict"
+    )
+    assert recovery["records"][0]["resolved_at"] is not None
+
+    exact_retry = client.post(
+        f"/api/runtime/goals/{created['goal_ref']}/edit",
+        json={
+            "expected_version": 99,
+            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+            "objective": "A safely retained ambiguous edit.",
+            "evidence_refs": [submission_evidence_ref],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:submission-edit",
+            "x-uaa-goal-submission-ref": submission_ref,
+        },
+    ).json()
+    assert exact_retry["success"] is False
+    assert exact_retry["error"]["code"] == "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+
+    corrected_evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:" + "d" * 64
+    )
+    corrected = client.post(
+        f"/api/runtime/goals/{created['goal_ref']}/edit",
+        json={
+            "expected_version": 1,
+            "text_redaction_posture": ("operator_authored_redacted_summary_only"),
+            "objective": "A corrected bounded edit.",
+            "evidence_refs": [corrected_evidence_ref],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:submission-edit-corrected",
+            "x-uaa-goal-submission-ref": (
+                "submission-ref:control-center-goal-mutation:api-corrected"
+            ),
+        },
+    ).json()
+    assert corrected["success"] is True
+    final_recovery = client.get("/api/runtime/run-events").json()["data"][
+        "goal_mutation_submissions"
+    ]
+    assert final_recovery["pending_count"] == 0
+    assert final_recovery["rejected_count"] == 1
+    assert final_recovery["committed_count"] == 1
 
 
 def _append_event(

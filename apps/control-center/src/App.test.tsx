@@ -36,6 +36,7 @@ vi.mock("./api/backendTruth", async (importOriginal) => {
   };
 });
 import { App, NorthStarRoute } from "./App";
+import { BackendTruthMutationBindingProvider } from "./backendTruthMutationBinding";
 import {
   API_ENDPOINTS,
   actionDecisionEndpoint,
@@ -70,6 +71,7 @@ import type {
   TrustAuthorityDomainCoverage,
 } from "./api/types";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
+import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
 import {
   MOCK_CONTROL_CENTER_ROUTE_COUNT,
   MOCK_OPENAPI_ROUTE_COUNT,
@@ -9319,13 +9321,16 @@ describe("Web Control Center shell", () => {
         },
       );
       vi.stubGlobal("fetch", fetchMock);
-      window.history.pushState({}, "", "/runtime");
-      const firstRender = render(<App />);
+      const firstRender = renderRuntimeGoalRecoveryPanel(
+        runtimeRunEvents() as unknown as typeof mockControlCenterData.runtimeRunEvents,
+      );
 
       let createButton = await screen.findByRole("button", {
         name: "Create local goal",
       });
-      await waitFor(() => expect(createButton).toBeEnabled());
+      await waitFor(() =>
+        expect(screen.getByLabelText("Objective")).toBeEnabled(),
+      );
 
       let mutationButton: HTMLElement;
       if (mutationKind === "create") {
@@ -9364,7 +9369,9 @@ describe("Web Control Center shell", () => {
       expect(mutationButton).toBeDisabled();
 
       firstRender.unmount();
-      render(<App />);
+      renderRuntimeGoalRecoveryPanel(
+        runtimeRunEvents() as unknown as typeof mockControlCenterData.runtimeRunEvents,
+      );
       expect(
         await screen.findByText(
           "Recovered an exact backend-owned pending goal submission; retry reuses its original request and identity.",
@@ -9564,13 +9571,16 @@ describe("Web Control Center shell", () => {
         },
       );
       vi.stubGlobal("fetch", fetchMock);
-      window.history.pushState({}, "", "/runtime");
-      const firstRender = render(<App />);
+      const firstRender = renderRuntimeGoalRecoveryPanel(
+        runtimeRunEvents() as unknown as typeof mockControlCenterData.runtimeRunEvents,
+      );
 
       const createButton = await screen.findByRole("button", {
         name: "Create local goal",
       });
-      await waitFor(() => expect(createButton).toBeEnabled());
+      await waitFor(() =>
+        expect(screen.getByLabelText("Objective")).toBeEnabled(),
+      );
 
       let mutationButton: HTMLElement;
       if (mutationKind === "create") {
@@ -9616,7 +9626,9 @@ describe("Web Control Center shell", () => {
       );
 
       firstRender.unmount();
-      render(<App />);
+      renderRuntimeGoalRecoveryPanel(
+        runtimeRunEvents() as unknown as typeof mockControlCenterData.runtimeRunEvents,
+      );
       expect(
         await screen.findByText(
           "A backend-owned goal submission is durably committed; no retry is required.",
@@ -9647,6 +9659,90 @@ describe("Web Control Center shell", () => {
     },
     30000,
   );
+
+  it("releases a durably rejected goal submission for a revised mutation identity", async () => {
+    const submissionEvidenceRef =
+      `evidence-ref:control-center-goal-create-submission:sha256:${"4".repeat(64)}:ordinal:1`;
+    const rejectedRunEvents = {
+      ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+      goal_lifecycle: {
+        ...cloneForTest(
+          mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        ),
+        goals: [],
+        goal_count: 0,
+        active_count: 0,
+      },
+      goal_mutation_submissions: {
+        ...cloneForTest(
+          mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+        ),
+        records: [
+          {
+            schema_version: "goal_mutation_submission_recovery.v1",
+            submission_ref:
+              `goal-submission-ref:create:sha256:${"5".repeat(64)}`,
+            operation: "create",
+            goal_ref: null,
+            request_payload: {
+              objective: "Create one durable goal.",
+              desired_outcome: "A proof-backed local goal exists.",
+              success_criteria: ["The durable goal can be inspected."],
+              constraints: ["No external execution."],
+              in_scope_resource_refs: ["resource-ref:goal-app-test"],
+              stop_condition: "Stop if persistence is unavailable.",
+              operation_limit: 25,
+              cost_budget_microusd: 0,
+              plan_refs: ["plan-ref:goal-app-test"],
+              evidence_refs: [submissionEvidenceRef],
+            },
+            idempotency_ref:
+              `idempotency-ref:goal-create:sha256:${"6".repeat(64)}`,
+            submission_evidence_ref: submissionEvidenceRef,
+            request_fingerprint_ref:
+              `request-fingerprint-ref:goal-mutation-submission:sha256:${"7".repeat(64)}`,
+            recorded_at: "2026-07-28T00:00:00Z",
+            status: "rejected",
+            committed_goal_ref: null,
+            rejection_reason_ref:
+              "reason-ref:goal-mutation-rejected:goal-version-conflict",
+            resolved_at: "2026-07-28T00:00:01Z",
+          },
+        ],
+        pending_count: 0,
+        committed_count: 0,
+        rejected_count: 1,
+      },
+    };
+
+    renderRuntimeGoalRecoveryPanel(
+      rejectedRunEvents as unknown as typeof mockControlCenterData.runtimeRunEvents,
+    );
+
+    expect(
+      await screen.findByText(
+        "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Objective")).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Create a revised durable goal." },
+    });
+    fireEvent.change(screen.getByLabelText("Desired outcome"), {
+      target: { value: "A revised proof-backed local goal exists." },
+    });
+    fireEvent.change(screen.getByLabelText("Success criterion"), {
+      target: { value: "The revised durable goal can be inspected." },
+    });
+    fireEvent.change(screen.getByLabelText("Stop condition"), {
+      target: { value: "Stop if persistence is unavailable." },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create local goal" }),
+      ).toBeEnabled(),
+    );
+  });
 
   it("renders API route classification posture", async () => {
     window.history.pushState({}, "", "/api-routes");
@@ -18529,6 +18625,73 @@ const dogfoodRefs = {
 
 function cloneForTest<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function renderRuntimeGoalRecoveryPanel(
+  runEvents: typeof mockControlCenterData.runtimeRunEvents,
+) {
+  const data = mockControlCenterData;
+  return render(
+    <BackendTruthMutationBindingProvider binding={TEST_MUTATION_BINDING}>
+      <RuntimeReadinessPanel
+        report={data.runtimeReadiness}
+        matrix={data.capabilityMatrix}
+        delegationAdapter={data.runtimeDelegationAdapter}
+        interfaceMode={data.runtimeInterfaceMode}
+        hermesContextPack={data.runtimeHermesContextPack}
+        capabilityDiscovery={data.runtimeCapabilityDiscovery}
+        runEvents={runEvents}
+        runEventsReadState={{
+          route: "/runtime",
+          surfaceLabel: "Runtime durable goals",
+          state: "backend_owned",
+          statusLabel: "backend-owned",
+          sourceLabel: "Python Core/API read model",
+          safeSummary:
+            "Runtime durable goals returned from the local backend contract.",
+          backendRouteRefs: ["GET /api/runtime/run-events"],
+          warningRefs: [],
+          blockedAuthorityRefs: [
+            "blocked-state:no-provider-model-call",
+            "blocked-state:no-connector-write",
+            "blocked-state:no-browser-automation",
+            "blocked-state:no-shell-subprocess-execution",
+            "blocked-state:no-production-authority",
+          ],
+          nextSafeAction:
+            "Inspect proof, receipts, and blocked authority refs before relying on the route.",
+        }}
+        approvalBridge={data.runtimeApprovalBridge}
+        streamingProgress={data.runtimeStreamingProgress}
+        profiles={data.runtimeProfiles}
+        toolRegistry={data.runtimeToolRegistry}
+        virtualProviderMoa={data.runtimeVirtualProviderMoa}
+        usageCostAnalytics={data.runtimeUsageCostAnalytics}
+        promptStabilityTiers={data.runtimePromptStabilityTiers}
+        contextBudgetPressure={data.runtimeContextBudgetPressure}
+        hardlineCommandBlocklist={data.runtimeHardlineCommandBlocklist}
+        managedScopePolicy={data.runtimeManagedScopePolicy}
+        doctorDiagnostics={data.runtimeDoctorDiagnostics}
+        sessionContinuity={data.runtimeSessionContinuity}
+        mcpCatalogFiltering={data.runtimeMcpCatalogFiltering}
+        backgroundJobs={data.runtimeBackgroundJobs}
+        subagentIsolation={data.runtimeSubagentIsolation}
+        worktreePerAgent={data.runtimeWorktreePerAgent}
+        stagedOrchestration={data.runtimeStagedOrchestration}
+        lspDiagnostics={data.runtimeLspDiagnostics}
+        previewRail={data.runtimePreviewRail}
+        slashCommandRegistry={data.runtimeSlashCommandRegistry}
+        interruptRedirect={data.runtimeInterruptRedirect}
+        loggingProfile={data.runtimeLoggingProfile}
+        resultClassification={data.runtimeResultClassification}
+        voiceMediaPosture={data.runtimeVoiceMediaPosture}
+        messagingGatewayPosture={data.runtimeMessagingGatewayPosture}
+        remoteExecutionPosture={data.runtimeRemoteExecutionPosture}
+        pluginMetadataPosture={data.runtimePluginMetadataPosture}
+        skillMarketplacePosture={data.runtimeSkillMarketplacePosture}
+      />
+    </BackendTruthMutationBindingProvider>,
+  );
 }
 
 function dogfoodEvidenceMemoryBinding() {

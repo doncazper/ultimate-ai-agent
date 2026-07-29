@@ -452,7 +452,11 @@ Contract rules:
   Control Center supplies `x-uaa-goal-submission-ref`; the Core binds that ref
   to the exact validated request and idempotency identity before mutation so a
   lost response can be reconciled through the read-only run-events projection
-  without regenerating or duplicating the mutation.
+  without regenerating or duplicating the mutation. The projection distinguishes
+  pending, committed, and durably rejected submissions. A deterministic
+  terminal failure binds the rejected identity to a safe reason ref, blocks
+  exact replay of that identity, and permits only a revised request with a new
+  identity.
   Completion may be requested, but verified completion is explicitly blocked
   until a separately authorized trusted criterion-evaluator receipt producer
   exists; caller refs cannot synthesize evaluator authority. The routes grant

@@ -14192,8 +14192,10 @@ export interface RuntimeGoalMutationSubmissionRecoveryRecord {
   submission_evidence_ref: string;
   request_fingerprint_ref: string;
   recorded_at: string;
-  status: "pending" | "committed";
+  status: "pending" | "committed" | "rejected";
   committed_goal_ref?: string | null;
+  rejection_reason_ref?: string | null;
+  resolved_at?: string | null;
 }
 
 export interface RuntimeGoalMutationSubmissionRecoveryReadModel {
@@ -14201,6 +14203,7 @@ export interface RuntimeGoalMutationSubmissionRecoveryReadModel {
   records: RuntimeGoalMutationSubmissionRecoveryRecord[];
   pending_count: number;
   committed_count: number;
+  rejected_count: number;
   backend_owned: boolean;
   exact_retry_required: boolean;
   raw_request_content_persisted: boolean;

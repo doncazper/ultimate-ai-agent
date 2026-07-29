@@ -142,6 +142,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalCreateRequest,
     GoalEditRequest,
     GoalIdempotencyConflictError,
+    GoalMutationSubmissionRecord,
     GoalNotFoundError,
     GoalRuntimeCorruptionError,
     GoalRuntimeError,
@@ -1017,6 +1018,57 @@ def _goal_runtime_failure(
     )
 
 
+_TERMINAL_GOAL_SUBMISSION_REJECTION_CODES = frozenset(
+    {
+        "GOAL_REQUEST_REF_INVALID",
+        "GOAL_STORE_CAPACITY_EXCEEDED",
+        "GOAL_JOURNAL_CAPACITY_EXCEEDED",
+        "GOAL_MUTATION_APPROVAL_DENIED",
+        "GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+    }
+)
+
+
+def _terminal_goal_submission_rejection_reason_ref(
+    exc: GoalRuntimeError,
+) -> str | None:
+    code = str(exc) or "GOAL_RUNTIME_VALIDATION_FAILED"
+    if (
+        not isinstance(
+            exc,
+            (
+                GoalNotFoundError,
+                GoalVersionConflictError,
+                GoalIdempotencyConflictError,
+                GoalTransitionDeniedError,
+            ),
+        )
+        and code not in _TERMINAL_GOAL_SUBMISSION_REJECTION_CODES
+    ):
+        return None
+    return f"reason-ref:goal-mutation-rejected:{code.lower().replace('_', '-')}"
+
+
+def _persist_terminal_goal_submission_rejection(
+    *,
+    service: GoalRuntimeService | None,
+    submission: GoalMutationSubmissionRecord | None,
+    failure: GoalRuntimeError,
+) -> GoalRuntimeError:
+    reason_ref = _terminal_goal_submission_rejection_reason_ref(failure)
+    if service is None or submission is None or reason_ref is None:
+        return failure
+    try:
+        service.reject_goal_mutation_submission(
+            submission_ref=submission.submission_ref,
+            request_fingerprint_ref=submission.request_fingerprint_ref,
+            rejection_reason_ref=reason_ref,
+        )
+    except (GoalRuntimeError, OSError, ValueError):
+        return GoalRuntimeError("GOAL_SUBMISSION_REJECTION_PERSISTENCE_FAILED")
+    return failure
+
+
 def _safe_goal_failure_trace(operation: str) -> str:
     return f"failure-trace-ref:goal-runtime:{operation}"
 
@@ -1160,6 +1212,8 @@ def post_api_runtime_goal(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
 ) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
@@ -1169,7 +1223,7 @@ def post_api_runtime_goal(
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
-            service.record_goal_mutation_submission(
+            submission = service.record_goal_mutation_submission(
                 submission_ref=x_uaa_goal_submission_ref,
                 operation="create",
                 goal_ref=None,
@@ -1192,6 +1246,11 @@ def post_api_runtime_goal(
             exc
             if isinstance(exc, GoalRuntimeError)
             else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
         )
         return _goal_runtime_failure(
             "api_runtime_goal_create",
@@ -1229,6 +1288,8 @@ def post_api_runtime_goal_edit(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
 ) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
@@ -1238,7 +1299,7 @@ def post_api_runtime_goal_edit(
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
-            service.record_goal_mutation_submission(
+            submission = service.record_goal_mutation_submission(
                 submission_ref=x_uaa_goal_submission_ref,
                 operation="edit",
                 goal_ref=goal_ref,
@@ -1262,6 +1323,11 @@ def post_api_runtime_goal_edit(
             exc
             if isinstance(exc, GoalRuntimeError)
             else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
         )
         return _goal_runtime_failure(
             "api_runtime_goal_edit",
@@ -1299,6 +1365,8 @@ def post_api_runtime_goal_transition(
         default=None, alias="x-uaa-goal-submission-ref"
     ),
 ) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
     try:
         if request.transition == GoalTransitionKind.verify_completion.value:
             raise GoalTransitionDeniedError(
@@ -1312,7 +1380,7 @@ def post_api_runtime_goal_transition(
             raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
         service = _goal_runtime_service()
         if x_uaa_goal_submission_ref is not None:
-            service.record_goal_mutation_submission(
+            submission = service.record_goal_mutation_submission(
                 submission_ref=x_uaa_goal_submission_ref,
                 operation="transition",
                 goal_ref=goal_ref,
@@ -1336,6 +1404,11 @@ def post_api_runtime_goal_transition(
             exc
             if isinstance(exc, GoalRuntimeError)
             else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
         )
         return _goal_runtime_failure(
             "api_runtime_goal_transition",

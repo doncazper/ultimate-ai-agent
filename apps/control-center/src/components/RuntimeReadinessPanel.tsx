@@ -237,10 +237,17 @@ export function RuntimeReadinessPanel({
       const latestCommitted = runEvents.goal_mutation_submissions.records
         .filter((record) => record.status === "committed")
         .at(-1);
+      const latestRejected = runEvents.goal_mutation_submissions.records
+        .filter((record) => record.status === "rejected")
+        .at(-1);
       if (latestCommitted?.committed_goal_ref) {
         setSelectedGoalRef(latestCommitted.committed_goal_ref);
         setGoalNotice(
           "A backend-owned goal submission is durably committed; no retry is required.",
+        );
+      } else if (latestRejected) {
+        setGoalNotice(
+          "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
         );
       }
       setPendingGoalMutation((current) => {
@@ -248,7 +255,8 @@ export function RuntimeReadinessPanel({
           current !== null &&
           runEvents.goal_mutation_submissions.records.some(
             (record) =>
-              record.status === "committed" &&
+              (record.status === "committed" ||
+                record.status === "rejected") &&
               record.submission_ref === current.submissionRef,
           )
         ) {

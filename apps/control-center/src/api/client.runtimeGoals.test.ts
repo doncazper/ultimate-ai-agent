@@ -309,6 +309,42 @@ describe("proof-backed runtime goal mutations", () => {
   });
 
   it.each([
+    ["missing links", { links: undefined }],
+    ["missing budget", { budget: undefined }],
+    [
+      "malformed criterion binding",
+      { completion_criterion_verifier_bindings: [null] },
+    ],
+    [
+      "substituted contract ref",
+      { contract_ref: "contract-ref:substituted-goal-runtime:v1" },
+    ],
+  ])("rejects a persistent goal with %s", async (_label, replacement) => {
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [{ ...mutationResult.goal, ...replacement }],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).rejects.toThrow(
+      "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it.each([
     [
       "missing criterion proof binding",
       {

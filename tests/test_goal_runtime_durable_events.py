@@ -3738,6 +3738,59 @@ def test_goal_mutation_submission_recovery_survives_restart_and_marks_commit(
     assert committed.records[0].committed_goal_ref == created.goal_ref
 
 
+def test_goal_mutation_submission_rejection_survives_restart_and_blocks_replay(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    submission_ref = "submission-ref:control-center-goal-mutation:rejected"
+    submission_evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "c" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [submission_evidence_ref]}
+    )
+    idempotency_ref = "idempotency-ref:control-center-goal-create:rejected"
+    prepared = service.record_goal_mutation_submission(
+        submission_ref=submission_ref,
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    rejected = service.reject_goal_mutation_submission(
+        submission_ref=submission_ref,
+        request_fingerprint_ref=prepared.request_fingerprint_ref,
+        rejection_reason_ref=(
+            "reason-ref:goal-mutation-rejected:goal-store-capacity-exceeded"
+        ),
+    )
+    assert rejected.resolution_status == "rejected"
+
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    assert recovery.pending_count == 0
+    assert recovery.committed_count == 0
+    assert recovery.rejected_count == 1
+    assert recovery.records[0].status == "rejected"
+    assert recovery.records[0].rejection_reason_ref == (
+        "reason-ref:goal-mutation-rejected:goal-store-capacity-exceeded"
+    )
+    assert recovery.records[0].resolved_at is not None
+
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_SUBMISSION_PREVIOUSLY_REJECTED",
+    ):
+        GoalRuntimeService(tmp_path).record_goal_mutation_submission(
+            submission_ref=submission_ref,
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+
+
 def test_goal_mutation_submission_exact_replay_rejects_substitution(
     tmp_path: Path,
 ) -> None:

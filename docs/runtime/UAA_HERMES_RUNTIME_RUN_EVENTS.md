@@ -53,13 +53,18 @@ Control Center goal mutations also carry a collision-resistant submission ref.
 Before the goal mutation begins, the Core durably records the exact validated
 request, idempotency ref, and submission-evidence ref in a bounded,
 integrity-checked local recovery store. `GET /api/runtime/run-events` reports
-each retained submission as pending or committed by reconciling it against the
-same locked goal-journal generation, including bounded historical snapshots.
+each retained submission as pending, committed, or terminally rejected by
+reconciling it against the same locked goal-journal generation, including
+bounded historical snapshots. Terminal deterministic mutation failures are
+durably bound to a safe rejection-reason ref before the response is returned;
+the rejected identity cannot be replayed, while Control Center releases its
+pending state so the operator can revise the request and submit a new identity.
 After navigation, reload, or a lost response, Control Center either adopts and
-replays that exact envelope or suppresses the retry when the journal proves it
-committed. Multiple pending envelopes fail closed to CLI inspection. This
-recovery contract does not mint approval, expand authority, or permit a caller
-to substitute a new request under an existing submission ref.
+replays the exact pending envelope, suppresses the retry when the journal proves
+it committed, or reports the durable rejection. Multiple pending envelopes fail
+closed to CLI inspection. This recovery contract does not mint approval, expand
+authority, or permit a caller to substitute a new request under an existing
+submission ref.
 
 `complete_requested` is distinct from `verified_complete`. Verification fails
 closed unless the current goal version links the exact run and the durable event

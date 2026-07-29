@@ -16286,6 +16286,7 @@ export const mockControlCenterData: ControlCenterData = {
       records: [],
       pending_count: 0,
       committed_count: 0,
+      rejected_count: 0,
       backend_owned: true,
       exact_retry_required: true,
       raw_request_content_persisted: false,

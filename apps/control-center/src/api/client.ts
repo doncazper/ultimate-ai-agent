@@ -9139,6 +9139,8 @@ function isSafeRuntimeGoalMutationSubmissions(
       value.records.filter((record) => record.status === "pending").length ||
     value.committed_count !==
       value.records.filter((record) => record.status === "committed").length ||
+    value.rejected_count !==
+      value.records.filter((record) => record.status === "rejected").length ||
     value.backend_owned !== true ||
     value.exact_retry_required !== true ||
     value.raw_request_content_persisted !== false ||
@@ -9157,16 +9159,29 @@ function isSafeRuntimeGoalMutationSubmissions(
         : typeof record.goal_ref === "string" &&
           isSafeTrustAuthorityRef(record.goal_ref);
     const commitBindingValid =
-      record.status === "pending"
-        ? record.committed_goal_ref === null ||
-          record.committed_goal_ref === undefined
-        : typeof record.committed_goal_ref === "string" &&
-          isSafeTrustAuthorityRef(record.committed_goal_ref);
+      record.status === "committed"
+        ? typeof record.committed_goal_ref === "string" &&
+          isSafeTrustAuthorityRef(record.committed_goal_ref) &&
+          (record.rejection_reason_ref === null ||
+            record.rejection_reason_ref === undefined) &&
+          (record.resolved_at === null || record.resolved_at === undefined)
+        : record.committed_goal_ref === null ||
+          record.committed_goal_ref === undefined;
+    const rejectionBindingValid =
+      record.status === "rejected"
+        ? typeof record.rejection_reason_ref === "string" &&
+          isSafeTrustAuthorityRef(record.rejection_reason_ref) &&
+          typeof record.resolved_at === "string" &&
+          Number.isFinite(Date.parse(record.resolved_at))
+        : (record.rejection_reason_ref === null ||
+            record.rejection_reason_ref === undefined) &&
+          (record.resolved_at === null || record.resolved_at === undefined);
     return (
       record.schema_version === "goal_mutation_submission_recovery.v1" &&
       ["create", "edit", "transition"].includes(record.operation) &&
       goalBindingValid &&
       commitBindingValid &&
+      rejectionBindingValid &&
       isSafeTrustAuthorityRef(record.submission_ref) &&
       isSafeTrustAuthorityRef(record.idempotency_ref) &&
       isSafeTrustAuthorityRef(record.submission_evidence_ref) &&
@@ -9298,6 +9313,13 @@ function isSafeRuntimeRunEventPreview(
 }
 
 function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
+  if (
+    !isPlainRecord(goal) ||
+    !isPlainRecord(goal.links) ||
+    !isPlainRecord(goal.budget)
+  ) {
+    return false;
+  }
   const allowedStates = new Set<RuntimePersistentGoal["state"]>([
     "active",
     "paused",
@@ -9344,8 +9366,10 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
   const exactCompletionPlan =
     typeof goal.completion_plan_ref === "string" &&
     isSafeTrustAuthorityRef(goal.completion_plan_ref) &&
+    Array.isArray(goal.links.plan_refs) &&
     goal.links.plan_refs.includes(goal.completion_plan_ref);
-  const completionPlanValid = goal.links.plan_refs.length
+  const completionPlanValid =
+    Array.isArray(goal.links.plan_refs) && goal.links.plan_refs.length
     ? exactCompletionPlan
     : noCompletionPlan;
   const criterionProofRefsValid =
@@ -9364,6 +9388,7 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
           goal.success_criteria.length &&
         goal.completion_criterion_verifier_bindings.every(
           (binding, index) =>
+            isPlainRecord(binding) &&
             binding.goal_ref === goal.goal_ref &&
             binding.goal_version === goal.completion_source_goal_version &&
             isSafeTrustAuthorityRef(binding.criterion_ref) &&
@@ -9391,6 +9416,7 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
 
   return (
     goal.schema_version === "persistent_goal.v1" &&
+    goal.contract_ref === "contract-ref:proof-backed-goals-durable-events:v1" &&
     isSafeTrustAuthorityRef(goal.goal_ref) &&
     goal.text_redaction_posture ===
       "operator_authored_redacted_summary_only" &&
