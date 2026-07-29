@@ -13,12 +13,15 @@ SECRET_LIKE_RE = re.compile(
     r"(?i)(api[_-]?key|authorization|bearer\s+|cookie|password|private\s+key|secret|token|client[_-]?secret)"
 )
 ABSOLUTE_LOCAL_PATH_PATTERNS = (
-    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])/(?:/)?[^\s\"')>\],;]+"),
-    re.compile(r":/(?!/)[^\s\"')>\],;]+"),
-    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
-    re.compile(r"(?:^|[^A-Za-z0-9_:/@.-])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
+    re.compile(r"(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/][^\s\"')>\],;]*"),
+    re.compile(r"(?:^|[^A-Za-z0-9])\\\\[^\\\s]+\\[^\s\"')>\],;]+"),
     re.compile(r"\b(?i:file):(?://|%2f)"),
 )
+_POSIX_ABSOLUTE_PATH_CANDIDATE_RE = re.compile(r"/(?:/)?[^\s\"')>\],;]+")
+_SAFE_REF_TOKEN_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*"
+)
+_NETWORK_URI_TOKEN_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://[^\s\"')>\],;]+")
 RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:\\)")
 EFFECTFUL_HINT_RE = re.compile(
     r"(?i)("
@@ -99,7 +102,22 @@ def validate_safe_execution_text(value: str, field_name: str = "text") -> None:
 def contains_absolute_local_path(value: str) -> bool:
     """Return whether text contains an absolute local path in canonical grammar."""
 
-    return any(pattern.search(value) for pattern in ABSOLUTE_LOCAL_PATH_PATTERNS)
+    if any(pattern.search(value) for pattern in ABSOLUTE_LOCAL_PATH_PATTERNS):
+        return True
+    protected_spans = [
+        match.span()
+        for pattern in (_SAFE_REF_TOKEN_RE, _NETWORK_URI_TOKEN_RE)
+        for match in pattern.finditer(value)
+    ]
+    for match in _POSIX_ABSOLUTE_PATH_CANDIDATE_RE.finditer(value):
+        slash_index = match.start()
+        predecessor = value[slash_index - 1] if slash_index > 0 else ""
+        if predecessor.isascii() and predecessor.isalnum():
+            continue
+        if any(start <= slash_index < end for start, end in protected_spans):
+            continue
+        return True
+    return False
 
 
 def validate_safe_execution_payload(value: Any, field_name: str = "payload") -> None:

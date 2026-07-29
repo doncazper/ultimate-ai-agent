@@ -3199,7 +3199,7 @@ def test_durable_summaries_reject_every_absolute_local_path_family(
 
 @pytest.mark.parametrize(
     "delimiter",
-    list("!\"#$%&'()*+,;<=>?[\\]^`{|}~"),
+    list("!\"#$%&'()*+,-.;<=>?@[\\]^_`{|}~"),
 )
 def test_durable_summaries_reject_ascii_punctuation_path_delimiters(
     delimiter: str,
@@ -3220,6 +3220,10 @@ def test_durable_summaries_reject_ascii_punctuation_path_delimiters(
         "Reviewed https://example.test/bounded-evidence.",
         "Recorded urn:uaa:evidence:bounded.",
         "Recorded artifact-ref:bounded/path.",
+        "Recorded artifact-ref:bounded./path.",
+        "Recorded artifact-ref:bounded-/path.",
+        "Recorded artifact-ref:bounded@/path.",
+        "Recorded artifact-ref:bounded_/path.",
     ],
 )
 def test_valid_uri_or_safe_ref_is_not_misclassified_as_a_local_path(

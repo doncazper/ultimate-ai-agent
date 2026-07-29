@@ -14259,15 +14259,41 @@ function isSafeTrustAuthorityDomainCoverage(value: unknown): boolean {
 const CANONICAL_SAFE_REF_RE =
   /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/;
 const ABSOLUTE_LOCAL_PATH_PATTERNS = [
-  /(?:^|[^A-Za-z0-9_:/@.-])\/(?:\/)?[^\s"')>\],;]+/,
-  /:\/(?!\/)[^\s"')>\],;]+/,
-  /(?:^|[^A-Za-z0-9_:/@.-])[A-Za-z]:[\\/][^\s"')>\],;]*/,
-  /(?:^|[^A-Za-z0-9_:/@.-])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
+  /(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/][^\s"')>\],;]*/,
+  /(?:^|[^A-Za-z0-9])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
   /\bfile:(?:\/\/|%2f)/i,
 ];
+const POSIX_ABSOLUTE_PATH_CANDIDATE_RE =
+  /\/(?:\/)?[^\s"')>\],;]+/g;
+const CANONICAL_SAFE_REF_TOKEN_RE =
+  /[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*/g;
+const NETWORK_URI_TOKEN_RE =
+  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s"')>\],;]+/g;
 
 function containsAbsoluteLocalPath(value: string): boolean {
-  return ABSOLUTE_LOCAL_PATH_PATTERNS.some((pattern) => pattern.test(value));
+  if (ABSOLUTE_LOCAL_PATH_PATTERNS.some((pattern) => pattern.test(value))) {
+    return true;
+  }
+  const protectedSpans = [
+    ...value.matchAll(CANONICAL_SAFE_REF_TOKEN_RE),
+    ...value.matchAll(NETWORK_URI_TOKEN_RE),
+  ].map((match) => [match.index, match.index + match[0].length] as const);
+  for (const match of value.matchAll(POSIX_ABSOLUTE_PATH_CANDIDATE_RE)) {
+    const slashIndex = match.index;
+    const predecessor = slashIndex > 0 ? value[slashIndex - 1] : "";
+    if (/^[A-Za-z0-9]$/.test(predecessor)) {
+      continue;
+    }
+    if (
+      protectedSpans.some(
+        ([start, end]) => start <= slashIndex && slashIndex < end,
+      )
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 function isSafeTrustAuthorityRef(value: unknown): value is string {

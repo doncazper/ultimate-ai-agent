@@ -715,7 +715,7 @@ describe("proof-backed runtime goal mutations", () => {
   it.each([
     "Review path:/workspace/private.txt.",
     "Inspect artifact:/opt/company/private.txt.",
-    ...Array.from("!\"#$%&'()*+,;<=>?[\\]^`{|}~").map(
+    ...Array.from("!\"#$%&'()*+,-.;<=>?@[\\]^_`{|}~").map(
       (delimiter) =>
         `Inspect artifact${delimiter}/home/operator/private.txt.`,
     ),
@@ -748,6 +748,40 @@ describe("proof-backed runtime goal mutations", () => {
     await expect(fetchRuntimeRunEvents()).rejects.toThrow(
       "Runtime goal/event state failed safe validation.",
     );
+  });
+
+  it.each([
+    "Reviewed https://example.test/bounded-evidence.",
+    "Recorded artifact-ref:bounded/path.",
+    "Recorded artifact-ref:bounded./path.",
+    "Recorded artifact-ref:bounded-/path.",
+    "Recorded artifact-ref:bounded@/path.",
+    "Recorded artifact-ref:bounded_/path.",
+  ])("preserves network URI and canonical safe-ref text", async (objective) => {
+    const goal = {
+      ...mutationResult.goal,
+      objective,
+    };
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [goal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchRuntimeRunEvents()).resolves.toEqual(data);
   });
 
   it("uses Unicode code-point bounds that match the Python contract", async () => {
