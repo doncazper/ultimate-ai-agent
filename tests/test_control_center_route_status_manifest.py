@@ -389,7 +389,7 @@ def test_goal_mutation_errors_invalidate_control_center_read_freshness() -> None
     function_boundaries = [
         ("createGoal", "saveGoalObjective"),
         ("saveGoalObjective", "transitionGoal"),
-        ("transitionGoal", "const booleans"),
+        ("transitionGoal", "approveAndSubmitPendingGoalMutation"),
     ]
 
     for function_name, next_boundary in function_boundaries:

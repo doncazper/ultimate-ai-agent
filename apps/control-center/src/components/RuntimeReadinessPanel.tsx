@@ -892,6 +892,7 @@ export function RuntimeReadinessPanel({
           ...preparedPending,
           approvalStatus: "approval_uncertain",
         });
+        setGoalReadCurrent(false);
       } else {
         setPendingGoalMutation(approvedPending);
         setGoalReadCurrent(false);
@@ -945,6 +946,7 @@ export function RuntimeReadinessPanel({
         ...preparedPending,
         approvalStatus: "denial_uncertain",
       });
+      setGoalReadCurrent(false);
       setGoalNotice(
         error instanceof Error
           ? error.message
@@ -995,6 +997,7 @@ export function RuntimeReadinessPanel({
         ...approvedPending,
         approvalStatus: "revocation_uncertain",
       });
+      setGoalReadCurrent(false);
       setGoalNotice(
         error instanceof Error
           ? error.message
