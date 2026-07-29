@@ -32,6 +32,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeProfile,
     build_local_model_receipt,
     build_policy_decision,
+    runtime_invocation_has_committed_receipt,
     runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.command import (
@@ -348,10 +349,8 @@ class RuntimeGateway:
 
     def _committed_replay_available(self, idempotency_ref: str) -> bool:
         record = self.store.get_invocation_for_idempotency_locked(idempotency_ref)
-        return (
-            record is not None
-            and record.receipt is not None
-            and record.status == RuntimeInvocationStatus.receipt_recorded.value
+        return bool(
+            record is not None and runtime_invocation_has_committed_receipt(record)
         )
 
     def invoke_command(
@@ -369,9 +368,7 @@ class RuntimeGateway:
                 request.mission_ref,
                 allow_committed_replay=(
                     existing is not None
-                    and existing.receipt is not None
-                    and existing.status
-                    == RuntimeInvocationStatus.receipt_recorded.value
+                    and runtime_invocation_has_committed_receipt(existing)
                 ),
                 committed_replay_lookup=lambda: self._committed_replay_available(
                     idempotency_ref
@@ -412,8 +409,7 @@ class RuntimeGateway:
             with self.goal_runtime_service.runtime_mission_execution_guard(
                 request.mission_ref,
                 allow_committed_replay=(
-                    record.receipt is not None
-                    and record.status == RuntimeInvocationStatus.receipt_recorded.value
+                    runtime_invocation_has_committed_receipt(record)
                 ),
                 committed_replay_lookup=lambda: self._committed_replay_available(
                     idempotency_ref
@@ -470,9 +466,7 @@ class RuntimeGateway:
                 request.mission_ref,
                 allow_committed_replay=(
                     existing is not None
-                    and existing.receipt is not None
-                    and existing.status
-                    == RuntimeInvocationStatus.receipt_recorded.value
+                    and runtime_invocation_has_committed_receipt(existing)
                 ),
                 committed_replay_lookup=lambda: self._committed_replay_available(
                     idempotency_ref

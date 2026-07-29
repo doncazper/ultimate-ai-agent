@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     MAX_RUNTIME_GOAL_VERSION,
     MAX_RUNTIME_RECEIPT_EVIDENCE_REFS,
     RuntimeCriterionVerificationBinding,
+    runtime_invocation_has_committed_receipt,
 )
 from ultimate_ai_agent.core.time import utc_now
 
@@ -91,8 +92,11 @@ MAX_RUN_EVENT_STORE_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024
 MAX_RUN_EVENT_PROJECTION_RESERVATION_BYTES = 16 * 1024 * 1024
 MAX_RUN_EVENT_TRUSTED_SOURCE_BYTES = 16 * 1024 * 1024
+MAX_RUN_EVENT_GENERATION_HEAD_BYTES = 64 * 1024
+MAX_RUN_EVENT_APPEND_INTENT_BYTES = 512 * 1024
 MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES = 4096
 MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES = 4 * 1024 * 1024
+MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_BYTES = 64 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
 RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 GOAL_TEXT_REDACTION_POSTURE = "operator_authored_redacted_summary_only"
@@ -1906,6 +1910,71 @@ class TrustedRunEventSourceState(BaseModel):
         return self
 
 
+class RunEventGenerationHeadManifest(BaseModel):
+    schema_version: Literal["run_event_generation_head.v1"] = (
+        "run_event_generation_head.v1"
+    )
+    retained_event_count: StrictInt = Field(ge=1, le=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS)
+    tombstone_count: StrictInt = Field(ge=1, le=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS)
+    trusted_source_count: StrictInt = Field(
+        ge=0, le=MAX_RUN_EVENT_IDEMPOTENCY_RECORDS
+    )
+    terminal_tombstone_hash_ref: str
+    event_content_hash_ref: str
+    tombstone_content_hash_ref: str
+    trusted_source_content_hash_ref: str
+    accepted_state_set_hash_ref: str
+    head_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> "RunEventGenerationHeadManifest":
+        for value, field_name in (
+            (self.terminal_tombstone_hash_ref, "terminal_tombstone_hash_ref"),
+            (self.event_content_hash_ref, "event_content_hash_ref"),
+            (self.tombstone_content_hash_ref, "tombstone_content_hash_ref"),
+            (self.trusted_source_content_hash_ref, "trusted_source_content_hash_ref"),
+            (self.accepted_state_set_hash_ref, "accepted_state_set_hash_ref"),
+            (self.head_hash_ref, "head_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        expected = _sha256_ref(
+            "head-hash-ref:run-event-generation",
+            self.model_dump(mode="json", exclude={"head_hash_ref"}),
+        )
+        if self.head_hash_ref != expected:
+            raise ValueError("RUN_EVENT_GENERATION_HEAD_HASH_MISMATCH")
+        return self
+
+
+class RunEventAppendIntent(BaseModel):
+    schema_version: Literal["run_event_append_intent.v1"] = (
+        "run_event_append_intent.v1"
+    )
+    previous_head_manifest: RunEventGenerationHeadManifest | None = None
+    next_event: DurableRunEvent
+    next_tombstone: RunEventIdempotencyTombstone
+    next_trusted_source: TrustedRunEventSourceRecord | None = None
+    next_head_manifest: RunEventGenerationHeadManifest
+    intent_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "RunEventAppendIntent":
+        validate_execution_ref(self.intent_hash_ref, "intent_hash_ref")
+        if self.next_tombstone.event != self.next_event:
+            raise ValueError("RUN_EVENT_APPEND_INTENT_EVENT_MISMATCH")
+        expected = _sha256_ref(
+            "intent-hash-ref:run-event-append",
+            self.model_dump(mode="json", exclude={"intent_hash_ref"}),
+        )
+        if self.intent_hash_ref != expected:
+            raise ValueError("RUN_EVENT_APPEND_INTENT_HASH_MISMATCH")
+        return self
+
+
 class RunEventProjectionReservation(BaseModel):
     schema_version: str = "run_event_projection_reservation.v1"
     reservation_ref: str
@@ -1950,6 +2019,7 @@ class RuntimeProjectionIncompatibilityRecord(BaseModel):
     mission_ref: str
     payload_fingerprint_ref: str
     receipt_ref: str
+    goal_absence_proof_ref: str
     reason_ref: Literal[
         "reason-ref:runtime-projection-incompatible:missing-durable-goal"
     ] = "reason-ref:runtime-projection-incompatible:missing-durable-goal"
@@ -1965,6 +2035,7 @@ class RuntimeProjectionIncompatibilityRecord(BaseModel):
             (self.mission_ref, "mission_ref"),
             (self.payload_fingerprint_ref, "payload_fingerprint_ref"),
             (self.receipt_ref, "receipt_ref"),
+            (self.goal_absence_proof_ref, "goal_absence_proof_ref"),
             (self.reason_ref, "reason_ref"),
             (self.record_hash_ref, "record_hash_ref"),
         ):
@@ -1976,12 +2047,43 @@ class RuntimeProjectionIncompatibilityRecord(BaseModel):
                 "mission_ref": self.mission_ref,
                 "payload_fingerprint_ref": self.payload_fingerprint_ref,
                 "receipt_ref": self.receipt_ref,
+                "goal_absence_proof_ref": self.goal_absence_proof_ref,
                 "reason_ref": self.reason_ref,
                 "recorded_at": self.recorded_at.isoformat(),
             },
         )
         if self.record_hash_ref != expected_hash:
             raise ValueError("RUNTIME_PROJECTION_INCOMPATIBILITY_HASH_MISMATCH")
+        return self
+
+
+class RuntimeProjectionIncompatibilityHeadManifest(BaseModel):
+    schema_version: Literal["runtime_projection_incompatibility_head.v1"] = (
+        "runtime_projection_incompatibility_head.v1"
+    )
+    entry_count: StrictInt = Field(ge=1, le=MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES)
+    terminal_record_hash_ref: str
+    record_set_hash_ref: str
+    content_hash_ref: str
+    head_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> "RuntimeProjectionIncompatibilityHeadManifest":
+        for value, field_name in (
+            (self.terminal_record_hash_ref, "terminal_record_hash_ref"),
+            (self.record_set_hash_ref, "record_set_hash_ref"),
+            (self.content_hash_ref, "content_hash_ref"),
+            (self.head_hash_ref, "head_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        expected = _sha256_ref(
+            "head-hash-ref:runtime-projection-incompatibility",
+            self.model_dump(mode="json", exclude={"head_hash_ref"}),
+        )
+        if self.head_hash_ref != expected:
+            raise ValueError("RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_HASH_MISMATCH")
         return self
 
 
@@ -4329,11 +4431,16 @@ class _DurableRunEventStore:
         self.path = self.state_dir / "run_events.jsonl"
         self.idempotency_path = self.state_dir / "run_event_idempotency.jsonl"
         self.trusted_sources_path = self.state_dir / "run_event_trusted_sources.json"
+        self.generation_head_path = self.state_dir / "run_event_generation_head.json"
+        self.append_intent_path = self.state_dir / "run_event_append_intent.json"
         self.reservations_path = (
             self.state_dir / "run_event_projection_reservations.jsonl"
         )
         self.incompatibilities_path = (
             self.state_dir / "runtime_projection_incompatibilities.jsonl"
+        )
+        self.incompatibilities_head_path = (
+            self.state_dir / "runtime_projection_incompatibilities_head.json"
         )
         self.retention_limit = retention_limit
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
@@ -4346,6 +4453,8 @@ class _DurableRunEventStore:
             depth = getattr(self._lock_state, "exclusive_depth", 0)
             self._lock_state.exclusive_depth = depth + 1
             try:
+                if depth == 0:
+                    self._repair_run_event_append()
                 yield
             finally:
                 self._lock_state.exclusive_depth = depth
@@ -4362,6 +4471,8 @@ class _DurableRunEventStore:
                 self.path,
                 self.idempotency_path,
                 self.trusted_sources_path,
+                self.generation_head_path,
+                self.append_intent_path,
             ),
         ):
             yield
@@ -4546,6 +4657,324 @@ class _DurableRunEventStore:
                     reservations.pop(reservation_ref)
                 self._write_projection_reservations(reservations.values())
 
+    @staticmethod
+    def _events_content(events: Iterable[DurableRunEvent]) -> str:
+        return "".join(
+            _DurableRunEventStore._event_json(event) + "\n" for event in events
+        )
+
+    @staticmethod
+    def _tombstones_content(
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+    ) -> str:
+        return "".join(
+            _DurableRunEventStore._tombstone_json(tombstone) + "\n"
+            for tombstone in tombstones
+        )
+
+    def _trusted_sources_content(
+        self,
+        records: Iterable[TrustedRunEventSourceRecord],
+    ) -> str:
+        materialized = list(records)
+        if not materialized:
+            return ""
+        return self._trusted_source_state(materialized).model_dump_json() + "\n"
+
+    def _build_run_event_generation_head(
+        self,
+        events: list[DurableRunEvent],
+        tombstones: list[RunEventIdempotencyTombstone],
+        trusted_sources: list[TrustedRunEventSourceRecord],
+    ) -> RunEventGenerationHeadManifest:
+        if not events or not tombstones:
+            raise GoalRuntimeCorruptionError("RUN_EVENT_GENERATION_HEAD_EMPTY")
+        payload = {
+            "retained_event_count": len(events),
+            "tombstone_count": len(tombstones),
+            "trusted_source_count": len(trusted_sources),
+            "terminal_tombstone_hash_ref": tombstones[-1].tombstone_hash_ref,
+            "event_content_hash_ref": _sha256_ref(
+                "content-hash-ref:run-events",
+                self._events_content(events),
+            ),
+            "tombstone_content_hash_ref": _sha256_ref(
+                "content-hash-ref:run-event-idempotency",
+                self._tombstones_content(tombstones),
+            ),
+            "trusted_source_content_hash_ref": _sha256_ref(
+                "content-hash-ref:run-event-trusted-sources",
+                self._trusted_sources_content(trusted_sources),
+            ),
+            "accepted_state_set_hash_ref": _sha256_ref(
+                "state-set-hash-ref:run-event-accepted",
+                sorted(
+                    (
+                        tombstone.run_ref,
+                        tombstone.idempotency_ref,
+                        tombstone.tombstone_hash_ref,
+                    )
+                    for tombstone in tombstones
+                ),
+            ),
+        }
+        return RunEventGenerationHeadManifest(
+            **payload,
+            head_hash_ref=_sha256_ref(
+                "head-hash-ref:run-event-generation",
+                {
+                    "schema_version": "run_event_generation_head.v1",
+                    **payload,
+                },
+            ),
+        )
+
+    def _load_run_event_generation_head(
+        self,
+    ) -> RunEventGenerationHeadManifest | None:
+        raw = _read_bounded_regular_utf8(
+            self.generation_head_path,
+            max_bytes=MAX_RUN_EVENT_GENERATION_HEAD_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_GENERATION_HEAD_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_GENERATION_HEAD_CORRUPT",
+        )
+        if raw is None:
+            return None
+        try:
+            return RunEventGenerationHeadManifest.model_validate_json(raw)
+        except ValueError as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_GENERATION_HEAD_CORRUPT"
+            ) from exc
+
+    def _write_run_event_generation_head(
+        self,
+        manifest: RunEventGenerationHeadManifest,
+    ) -> None:
+        content = manifest.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_RUN_EVENT_GENERATION_HEAD_BYTES:
+            raise GoalRuntimeError("RUN_EVENT_GENERATION_HEAD_CAPACITY_EXCEEDED")
+        _atomic_write(self.generation_head_path, content)
+
+    def _load_run_event_append_intent(self) -> RunEventAppendIntent | None:
+        raw = _read_bounded_regular_utf8(
+            self.append_intent_path,
+            max_bytes=MAX_RUN_EVENT_APPEND_INTENT_BYTES,
+            missing_ok=True,
+            capacity_error="RUN_EVENT_APPEND_INTENT_CAPACITY_EXCEEDED",
+            corruption_error="RUN_EVENT_APPEND_INTENT_CORRUPT",
+        )
+        if raw is None:
+            return None
+        try:
+            return RunEventAppendIntent.model_validate_json(raw)
+        except ValueError as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_APPEND_INTENT_CORRUPT"
+            ) from exc
+
+    def _write_run_event_append_intent(
+        self,
+        intent: RunEventAppendIntent,
+    ) -> None:
+        content = intent.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_RUN_EVENT_APPEND_INTENT_BYTES:
+            raise GoalRuntimeError("RUN_EVENT_APPEND_INTENT_CAPACITY_EXCEEDED")
+        _atomic_write(self.append_intent_path, content)
+
+    def _delete_run_event_append_intent(self) -> None:
+        try:
+            self.append_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+    def _events_from_tombstones(
+        self,
+        tombstones: Iterable[RunEventIdempotencyTombstone],
+    ) -> list[DurableRunEvent]:
+        events: list[DurableRunEvent] = []
+        for tombstone in tombstones:
+            event = tombstone.event
+            events = self._apply_retention([*events, event], event.run_ref)
+        return events
+
+    def _repair_run_event_append(self) -> None:
+        intent = self._load_run_event_append_intent()
+        if intent is None:
+            return
+        current_head = self._load_run_event_generation_head()
+        previous_head = intent.previous_head_manifest
+        if (
+            current_head != previous_head
+            and current_head != intent.next_head_manifest
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_APPEND_INTENT_STATE_MISMATCH"
+            )
+        current_events = self._load_events()
+        current_tombstones = list(
+            self._load_persisted_idempotency_tombstones().values()
+        )
+        current_sources = list(self._load_trusted_sources().values())
+        current_component_hashes = (
+            _sha256_ref(
+                "content-hash-ref:run-events",
+                self._events_content(current_events),
+            ),
+            _sha256_ref(
+                "content-hash-ref:run-event-idempotency",
+                self._tombstones_content(current_tombstones),
+            ),
+            _sha256_ref(
+                "content-hash-ref:run-event-trusted-sources",
+                self._trusted_sources_content(current_sources),
+            ),
+        )
+        previous_component_hashes = (
+            (
+                previous_head.event_content_hash_ref,
+                previous_head.tombstone_content_hash_ref,
+                previous_head.trusted_source_content_hash_ref,
+            )
+            if previous_head is not None
+            else (
+                _sha256_ref("content-hash-ref:run-events", ""),
+                _sha256_ref("content-hash-ref:run-event-idempotency", ""),
+                _sha256_ref("content-hash-ref:run-event-trusted-sources", ""),
+            )
+        )
+        next_component_hashes = (
+            intent.next_head_manifest.event_content_hash_ref,
+            intent.next_head_manifest.tombstone_content_hash_ref,
+            intent.next_head_manifest.trusted_source_content_hash_ref,
+        )
+        if any(
+            current_hash not in {previous_hash, next_hash}
+            for current_hash, previous_hash, next_hash in zip(
+                current_component_hashes,
+                previous_component_hashes,
+                next_component_hashes,
+                strict=True,
+            )
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_APPEND_INTENT_STATE_MISMATCH"
+            )
+
+        def _matches(
+            *,
+            events: list[DurableRunEvent],
+            tombstones: list[RunEventIdempotencyTombstone],
+            sources: list[TrustedRunEventSourceRecord],
+            head: RunEventGenerationHeadManifest | None,
+        ) -> bool:
+            if head is None:
+                return not events and not tombstones and not sources
+            if not events or not tombstones:
+                return False
+            return self._build_run_event_generation_head(
+                events,
+                tombstones,
+                sources,
+            ) == head
+
+        current_matches_previous = _matches(
+            events=current_events,
+            tombstones=current_tombstones,
+            sources=current_sources,
+            head=previous_head,
+        )
+        current_matches_next = _matches(
+            events=current_events,
+            tombstones=current_tombstones,
+            sources=current_sources,
+            head=intent.next_head_manifest,
+        )
+        if current_matches_next:
+            next_events = current_events
+            next_tombstones = current_tombstones
+            next_sources = current_sources
+        else:
+            if current_head == intent.next_head_manifest:
+                # The head is never allowed to lead its bound projections.
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_APPEND_INTENT_STATE_MISMATCH"
+                )
+            previous_tombstones: list[RunEventIdempotencyTombstone]
+            if current_matches_previous:
+                previous_tombstones = current_tombstones
+            else:
+                # Files can be independently old or new between atomic writes.
+                previous_tombstones = [
+                    tombstone
+                    for tombstone in current_tombstones
+                    if (
+                        tombstone.run_ref,
+                        tombstone.idempotency_ref,
+                    )
+                    != (
+                        intent.next_tombstone.run_ref,
+                        intent.next_tombstone.idempotency_ref,
+                    )
+                ]
+                previous_events = self._events_from_tombstones(previous_tombstones)
+                previous_sources = [
+                    source
+                    for source in current_sources
+                    if (
+                        intent.next_trusted_source is None
+                        or source.event_key_ref
+                        != intent.next_trusted_source.event_key_ref
+                    )
+                ]
+                if not _matches(
+                    events=previous_events,
+                    tombstones=previous_tombstones,
+                    sources=previous_sources,
+                    head=previous_head,
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_APPEND_INTENT_STATE_MISMATCH"
+                    )
+            next_tombstones = [*previous_tombstones, intent.next_tombstone]
+            next_events = self._events_from_tombstones(next_tombstones)
+            next_sources_by_key = {
+                source.event_key_ref: source
+                for source in (
+                    current_sources
+                    if current_matches_previous
+                    else [
+                        source
+                        for source in current_sources
+                        if (
+                            intent.next_trusted_source is None
+                            or source.event_key_ref
+                            != intent.next_trusted_source.event_key_ref
+                        )
+                    ]
+                )
+            }
+            if intent.next_trusted_source is not None:
+                next_sources_by_key[
+                    intent.next_trusted_source.event_key_ref
+                ] = intent.next_trusted_source
+            next_sources = list(next_sources_by_key.values())
+            if self._build_run_event_generation_head(
+                next_events,
+                next_tombstones,
+                next_sources,
+            ) != intent.next_head_manifest:
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_APPEND_INTENT_STATE_MISMATCH"
+                )
+        if next_sources:
+            self._write_trusted_sources(next_sources)
+        self._write_events(next_events)
+        self._write_idempotency_tombstones(next_tombstones)
+        self._write_run_event_generation_head(intent.next_head_manifest)
+        self._delete_run_event_append_intent()
+
     def _append_locked(
         self,
         validated: DurableRunEventAppendRequest,
@@ -4557,14 +4986,7 @@ class _DurableRunEventStore:
         if approval_binding is not None and trusted_source is not None:
             raise GoalRuntimeCorruptionError("RUN_EVENT_PRODUCER_PROVENANCE_AMBIGUOUS")
         events = self._load_events()
-        persisted_tombstones = self._load_persisted_idempotency_tombstones()
         tombstones = self._load_idempotency_tombstones(events)
-        if tombstones != persisted_tombstones:
-            # A prior append may have installed the event journal immediately
-            # before a process loss. Close that single recoverable generation
-            # before installing any different event so repeated interruptions
-            # can never advance the journal two generations past provenance.
-            self._write_idempotency_tombstones(tombstones.values())
         loaded_reservations = self._load_projection_reservations()
         reservations = {
             ref: reservation
@@ -4713,10 +5135,45 @@ class _DurableRunEventStore:
             tombstones.values(),
             required_slots=remaining_reserved_slots,
         )
+        next_tombstones = list(tombstones.values())
+        next_sources = list(trusted_sources.values())
+        previous_head = self._load_run_event_generation_head()
+        next_head = self._build_run_event_generation_head(
+            next_events,
+            next_tombstones,
+            next_sources,
+        )
+        intent_payload = {
+            "previous_head_manifest": previous_head,
+            "next_event": event,
+            "next_tombstone": tombstone,
+            "next_trusted_source": source_record,
+            "next_head_manifest": next_head,
+        }
+        append_intent = RunEventAppendIntent(
+            **intent_payload,
+            intent_hash_ref=_sha256_ref(
+                "intent-hash-ref:run-event-append",
+                {
+                    "schema_version": "run_event_append_intent.v1",
+                    **{
+                        key: (
+                            value.model_dump(mode="json")
+                            if isinstance(value, BaseModel)
+                            else value
+                        )
+                        for key, value in intent_payload.items()
+                    },
+                },
+            ),
+        )
+        self._write_run_event_append_intent(append_intent)
         if source_record is not None:
-            self._write_trusted_sources(trusted_sources.values())
+            self._write_trusted_sources(next_sources)
         self._write_events(next_events)
-        self._write_idempotency_tombstones(tombstones.values())
+        self._write_idempotency_tombstones(next_tombstones)
+        self._write_run_event_generation_head(next_head)
+        self._delete_run_event_append_intent()
         if reservation is not None and reservation_ref is not None:
             remaining = [
                 ref
@@ -5535,7 +5992,6 @@ class _DurableRunEventStore:
     ) -> list[RuntimeInvocationRecord]:
         from ultimate_ai_agent.core.runtime_gateway.contracts import (
             RuntimeInvocationRecord,
-            RuntimeInvocationStatus,
         )
 
         candidates: list[RuntimeInvocationRecord] = []
@@ -5544,11 +6000,7 @@ class _DurableRunEventStore:
             tombstones = self._load_idempotency_tombstones(events)
             for record in records:
                 validated = RuntimeInvocationRecord.model_validate(record.model_dump())
-                if (
-                    validated.receipt is None
-                    or validated.status
-                    != RuntimeInvocationStatus.receipt_recorded.value
-                ):
+                if not runtime_invocation_has_committed_receipt(validated):
                     continue
                 missing_key_refs = self._missing_runtime_projection_key_refs(
                     validated,
@@ -5654,13 +6106,18 @@ class _DurableRunEventStore:
         with _nonmutating_goal_runtime_read_lock(
             self.state_dir / ".locks",
             "runtime-projection-incompatibilities",
-            generation_paths=(self.incompatibilities_path,),
+            generation_paths=(
+                self.incompatibilities_path,
+                self.incompatibilities_head_path,
+            ),
         ):
             return self._load_projection_incompatibilities()
 
     def quarantine_projection_incompatibility(
         self,
         record: RuntimeInvocationRecord,
+        *,
+        goal_absence_proof_ref: str,
     ) -> RuntimeProjectionIncompatibilityRecord:
         receipt = record.receipt
         mission_ref = record.request.mission_ref
@@ -5668,6 +6125,7 @@ class _DurableRunEventStore:
             raise GoalRuntimeCorruptionError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISSING"
             )
+        validate_execution_ref(goal_absence_proof_ref, "goal_absence_proof_ref")
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(
             self._locks,
@@ -5688,6 +6146,7 @@ class _DurableRunEventStore:
                     or existing.payload_fingerprint_ref
                     != record.payload_fingerprint_ref
                     or existing.receipt_ref != receipt.receipt_ref
+                    or existing.goal_absence_proof_ref != goal_absence_proof_ref
                 ):
                     raise GoalRuntimeCorruptionError(
                         "RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISMATCH"
@@ -5703,6 +6162,7 @@ class _DurableRunEventStore:
                 "mission_ref": mission_ref,
                 "payload_fingerprint_ref": record.payload_fingerprint_ref,
                 "receipt_ref": receipt.receipt_ref,
+                "goal_absence_proof_ref": goal_absence_proof_ref,
                 "reason_ref": (
                     "reason-ref:runtime-projection-incompatible:missing-durable-goal"
                 ),
@@ -5730,6 +6190,10 @@ class _DurableRunEventStore:
             corruption_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_STORE_CORRUPT"),
         )
         if raw_content is None:
+            if _path_generation(self.incompatibilities_head_path)[0]:
+                raise GoalRuntimeCorruptionError(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+                )
             return []
         try:
             records = [
@@ -5749,6 +6213,32 @@ class _DurableRunEventStore:
             raise GoalRuntimeCorruptionError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_DUPLICATE"
             )
+        head_content = _read_bounded_regular_utf8(
+            self.incompatibilities_head_path,
+            max_bytes=MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_BYTES,
+            missing_ok=False,
+            capacity_error=(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CAPACITY_EXCEEDED"
+            ),
+            corruption_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CORRUPT"),
+        )
+        if head_content is None:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISSING"
+            )
+        try:
+            head = RuntimeProjectionIncompatibilityHeadManifest.model_validate_json(
+                head_content
+            )
+        except ValueError as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CORRUPT"
+            ) from exc
+        expected_head = self._projection_incompatibility_head(records, raw_content)
+        if head != expected_head:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+            )
         return records
 
     def _write_projection_incompatibilities(
@@ -5761,6 +6251,45 @@ class _DurableRunEventStore:
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"
             )
         _atomic_write(self.incompatibilities_path, content)
+        head = self._projection_incompatibility_head(records, content)
+        _atomic_write(
+            self.incompatibilities_head_path,
+            head.model_dump_json() + "\n",
+        )
+
+    @staticmethod
+    def _projection_incompatibility_head(
+        records: list[RuntimeProjectionIncompatibilityRecord],
+        content: str,
+    ) -> RuntimeProjectionIncompatibilityHeadManifest:
+        if not records:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_EMPTY"
+            )
+        payload = {
+            "entry_count": len(records),
+            "terminal_record_hash_ref": records[-1].record_hash_ref,
+            "record_set_hash_ref": _sha256_ref(
+                "record-set-hash-ref:runtime-projection-incompatibility",
+                sorted(record.record_hash_ref for record in records),
+            ),
+            "content_hash_ref": _sha256_ref(
+                "content-hash-ref:runtime-projection-incompatibility",
+                content,
+            ),
+        }
+        return RuntimeProjectionIncompatibilityHeadManifest(
+            **payload,
+            head_hash_ref=_sha256_ref(
+                "head-hash-ref:runtime-projection-incompatibility",
+                {
+                    "schema_version": (
+                        "runtime_projection_incompatibility_head.v1"
+                    ),
+                    **payload,
+                },
+            ),
+        )
 
     def _build_idempotency_tombstone(
         self,
@@ -5783,6 +6312,8 @@ class _DurableRunEventStore:
         events: list[DurableRunEvent],
     ) -> dict[tuple[str, str], RunEventIdempotencyTombstone]:
         tombstones = self._load_persisted_idempotency_tombstones()
+        if self._load_run_event_append_intent() is not None:
+            raise GoalRuntimeCorruptionError("RUN_EVENT_APPEND_RECOVERY_REQUIRED")
         try:
             for event in events:
                 key = (event.run_ref, event.idempotency_ref)
@@ -5800,12 +6331,34 @@ class _DurableRunEventStore:
                             "RUN_EVENT_IDEMPOTENCY_TOMBSTONE_EVENT_MISMATCH"
                         )
                     continue
-                tombstones[key] = self._build_idempotency_tombstone(event, fingerprint)
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_GENERATION_HEAD_MISMATCH"
+                )
             if len(tombstones) > MAX_RUN_EVENT_IDEMPOTENCY_RECORDS:
                 raise GoalRuntimeCorruptionError(
                     "RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED"
                 )
             self._validate_tombstone_event_history(tombstones.values())
+            manifest = self._load_run_event_generation_head()
+            if not events and not tombstones:
+                if manifest is not None:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_GENERATION_HEAD_MISMATCH"
+                    )
+            else:
+                if manifest is None:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_GENERATION_HEAD_MISSING"
+                    )
+                expected = self._build_run_event_generation_head(
+                    events,
+                    list(tombstones.values()),
+                    list(self._load_trusted_sources().values()),
+                )
+                if manifest != expected:
+                    raise GoalRuntimeCorruptionError(
+                        "RUN_EVENT_GENERATION_HEAD_MISMATCH"
+                    )
         except GoalRuntimeCorruptionError:
             raise
         except (OSError, UnicodeError, ValueError) as exc:
@@ -6391,10 +6944,16 @@ class GoalRuntimeService:
                 self.runtime_invocation_state_dir
             )
             if _path_generation(runtime_store.path)[0]:
-                self.sync_runtime_invocations(
-                    runtime_store.list_invocations_locked(),
-                    invocation_store=runtime_store,
-                )
+                committed_records = [
+                    record
+                    for record in runtime_store.list_invocations_locked()
+                    if runtime_invocation_has_committed_receipt(record)
+                ]
+                if committed_records:
+                    self.sync_runtime_invocations(
+                        committed_records,
+                        invocation_store=runtime_store,
+                    )
         if any(
             _path_generation(path)[0]
             for path in (
@@ -6779,6 +7338,53 @@ class GoalRuntimeService:
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE")
+
+    @contextmanager
+    def _runtime_projection_goal_absence_guard(
+        self,
+        mission_ref: str,
+    ) -> Iterator[str | None]:
+        """Pin exact goal absence while admitting or honoring quarantine."""
+
+        validate_execution_ref(mission_ref, "mission_ref")
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self._approvals._locks,  # noqa: SLF001
+            "goal-approvals",
+        ):
+            with _normalized_goal_runtime_lock(
+                self.goals._locks,  # noqa: SLF001
+                "goal-journal",
+            ):
+                approval_entries = self._approvals._load_entries(
+                    repair_manifest=True
+                )
+                journal_entries = self.goals._load_entries(repair_manifest=True)
+                self._approvals.validate_goal_provenance(
+                    approval_entries,
+                    journal_entries,
+                )
+                if mission_ref in self.goals._latest_by_goal(journal_entries):
+                    yield None
+                    return
+                yield _sha256_ref(
+                    "goal-absence-proof-ref:runtime-projection-incompatibility",
+                    {
+                        "mission_ref": mission_ref,
+                        "goal_entry_count": len(journal_entries),
+                        "goal_terminal_entry_hash_ref": (
+                            journal_entries[-1].entry_hash_ref
+                            if journal_entries
+                            else None
+                        ),
+                        "approval_entry_count": len(approval_entries),
+                        "approval_terminal_entry_hash_ref": (
+                            approval_entries[-1].entry_hash_ref
+                            if approval_entries
+                            else None
+                        ),
+                    },
+                )
 
     @contextmanager
     def runtime_mission_execution_guard(
@@ -7389,10 +7995,6 @@ class GoalRuntimeService:
     ) -> list[DurableRunEvent]:
         """Project one accepted RuntimeGateway receipt into durable run events."""
 
-        from ultimate_ai_agent.core.runtime_gateway.contracts import (
-            RuntimeInvocationStatus,
-        )
-
         self.bind_runtime_invocation_store(invocation_store)
         validated = self._durable_runtime_invocation(
             record,
@@ -7400,10 +8002,7 @@ class GoalRuntimeService:
         )
         self.assert_runtime_mission_goal_exists(validated.request.mission_ref)
         receipt = validated.receipt
-        if (
-            receipt is None
-            or validated.status != RuntimeInvocationStatus.receipt_recorded.value
-        ):
+        if receipt is None or not runtime_invocation_has_committed_receipt(validated):
             return []
         if reservation_ref is None:
             with self.runtime_projection_guard(
@@ -7489,8 +8088,8 @@ class GoalRuntimeService:
         self.bind_runtime_invocation_store(invocation_store)
         self.reconcile_durable_events()
         projected: list[DurableRunEvent] = []
-        quarantined_invocation_refs = {
-            record.invocation_ref
+        quarantined_records = {
+            record.invocation_ref: record
             for record in self._events.projection_incompatibilities()
         }
         for record in self._events.unprojected_runtime_invocations(records):
@@ -7498,9 +8097,24 @@ class GoalRuntimeService:
                 record,
                 invocation_store=invocation_store,
             )
-            if record.invocation_ref in quarantined_invocation_refs:
-                self._events.quarantine_projection_incompatibility(durable_record)
-                continue
+            existing_quarantine = quarantined_records.get(record.invocation_ref)
+            mission_ref = durable_record.request.mission_ref
+            if existing_quarantine is not None:
+                if mission_ref is None or not mission_ref.startswith("goal-ref:"):
+                    raise GoalRuntimeCorruptionError(
+                        "RUNTIME_PROJECTION_INCOMPATIBILITY_BINDING_MISMATCH"
+                    )
+                with self._runtime_projection_goal_absence_guard(
+                    mission_ref
+                ) as goal_absence_proof_ref:
+                    if goal_absence_proof_ref is not None:
+                        self._events.quarantine_projection_incompatibility(
+                            durable_record,
+                            goal_absence_proof_ref=(
+                                existing_quarantine.goal_absence_proof_ref
+                            ),
+                        )
+                        continue
             try:
                 projected.extend(
                     self.record_accepted_runtime_invocation(
@@ -7512,8 +8126,24 @@ class GoalRuntimeService:
                 # Historical opaque goal-shaped missions predate the durable goal
                 # journal. Quarantine their exact durable receipt so later syncs do
                 # not retry silently; new executions retain the strict preflight.
+                if mission_ref is None or not mission_ref.startswith("goal-ref:"):
+                    raise
                 try:
-                    self._events.quarantine_projection_incompatibility(durable_record)
+                    with self._runtime_projection_goal_absence_guard(
+                        mission_ref
+                    ) as goal_absence_proof_ref:
+                        if goal_absence_proof_ref is None:
+                            projected.extend(
+                                self.record_accepted_runtime_invocation(
+                                    durable_record,
+                                    invocation_store=invocation_store,
+                                )
+                            )
+                            continue
+                        self._events.quarantine_projection_incompatibility(
+                            durable_record,
+                            goal_absence_proof_ref=goal_absence_proof_ref,
+                        )
                 except GoalRuntimeError as exc:
                     if (
                         str(exc)

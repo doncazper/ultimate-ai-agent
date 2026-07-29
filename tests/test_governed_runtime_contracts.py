@@ -862,6 +862,24 @@ def test_runtime_store_rejects_sidecar_with_symlinked_present_ledger(
         RuntimeInvocationStore(target_dir).operator_safe_disable_active()
 
 
+def test_runtime_store_mutation_lock_rejects_symlinked_state_root_ancestor(
+    tmp_path: Path,
+) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    state_dir = linked_parent / "runtime"
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(state_dir).list_invocations_locked()
+
+    assert not (real_parent / "runtime" / "runtime_gateway_invocations.lock").exists()
+
+
 def test_runtime_store_ledger_read_rejects_inode_substitution_between_stat_and_open(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

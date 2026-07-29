@@ -10,7 +10,13 @@ import pytest
 
 import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_module
 from ultimate_ai_agent.core.runtime_gateway.command import invoke_governed_command
-from ultimate_ai_agent.core.runtime_gateway.contracts import RuntimeInvocationRecord
+from ultimate_ai_agent.core.runtime_gateway.contracts import (
+    RuntimeAuthority,
+    RuntimeInvocationRecord,
+    RuntimeInvocationRequest,
+    RuntimeProfile,
+    RuntimeSafeDisableRequest,
+)
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
     DurableCriterionVerifierBinding,
@@ -1849,7 +1855,7 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
     ):
         _transition_goal(
             GoalRuntimeService(tmp_path),
@@ -1895,7 +1901,7 @@ def test_trusted_event_tombstone_requires_independent_source_provenance(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).events.summaries()
 
@@ -2003,7 +2009,7 @@ def test_runtime_trusted_event_must_equal_canonical_producer_projection(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
     ):
         service.aggregate_read_snapshot(
             run_ref=result.record.invocation_ref,
@@ -2114,7 +2120,7 @@ def test_completion_event_must_equal_canonical_journal_projection(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
     ):
         service.aggregate_read_snapshot(
             run_ref=completion.run_ref,
@@ -2558,19 +2564,11 @@ def test_cleared_verified_goal_recovers_missing_terminal_event(
         encoding="utf-8",
     )
 
-    restored = GoalRuntimeService(tmp_path)
-    restored.reconcile_durable_events()
-    replay = restored.events.replay(evidence.run_ref)
-    assert replay.events[-1].event_kind == (
-        DurableRunEventKind.completion_verified.value
-    )
-    assert replay.events[-1].plan_ref == "plan-ref:accepted-local:one"
-    assert replay.events[-1].authority_decision_ref == (
-        verified_entry.approval_decision_ref
-    )
-    assert replay.events[-1].authority_decision_ref != (
-        service.goals.latest_entry(created.goal_ref).approval_decision_ref
-    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).reconcile_durable_events()
 
 
 def test_goal_terminal_states_fail_closed(tmp_path: Path) -> None:
@@ -3478,6 +3476,122 @@ def test_aggregate_read_projects_committed_runtime_receipt_after_crash(
     assert summaries[0].successful_receipt_recorded is True
 
 
+@pytest.mark.parametrize("runtime_state", ["empty", "nonterminal"])
+def test_aggregate_read_does_not_initialize_goal_state_without_committed_receipt(
+    tmp_path: Path,
+    runtime_state: str,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    runtime_path = runtime_dir / "runtime_gateway_invocations.jsonl"
+    if runtime_state == "empty":
+        runtime_path.write_text("", encoding="utf-8")
+    else:
+        RuntimeInvocationStore(runtime_dir).create_invocation(
+            RuntimeInvocationRequest(
+                requested_authority=RuntimeAuthority.allowlisted_command,
+                requested_profile=RuntimeProfile.sealed,
+                input_ref="command-input-ref:aggregate-nonterminal",
+                mission_ref="mission-ref:aggregate-nonterminal",
+                safe_summary="Retain one bounded nonterminal runtime request.",
+            ),
+            idempotency_ref="idempotency-ref:aggregate-nonterminal",
+        )
+    service = GoalRuntimeService.for_runtime_store(runtime_dir)
+    assert not service.state_dir.exists()
+
+    replay, retained, summaries, goals, submissions = service.aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=10,
+    )
+
+    assert replay is None
+    assert retained == []
+    assert summaries == []
+    assert goals.goals == []
+    assert submissions.records == []
+    assert not service.state_dir.exists()
+
+
+def test_safe_disabled_committed_receipt_replays_and_projects_from_receipt_truth(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    runtime_store = RuntimeInvocationStore(
+        runtime_dir,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    runner_call_count = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_call_count
+        runner_call_count += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        mission_ref="mission-ref:safe-disabled-committed",
+        safe_summary="Inspect bounded status before safe-disable.",
+    )
+    idempotency_ref = "idempotency-ref:safe-disabled-committed"
+    committed = invoke_governed_command(
+        store=runtime_store,
+        adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        request=request,
+        idempotency_ref=idempotency_ref,
+    ).record
+    runtime_store.safe_disable(
+        RuntimeSafeDisableRequest(
+            reason_ref="reason-ref:safe-disabled-committed"
+        ),
+        idempotency_ref="idempotency-ref:safe-disabled-committed-posture",
+    )
+    disabled = runtime_store.get_invocation(committed.invocation_ref)
+    assert disabled.status == "safe_disabled"
+    assert disabled.receipt is not None
+    assert committed.receipt is not None
+    assert disabled.receipt.receipt_ref == committed.receipt.receipt_ref
+    assert disabled.receipt.invocation_status == "receipt_recorded"
+
+    service = GoalRuntimeService.for_runtime_store(runtime_dir)
+    replay, _retained, _summaries, _goals, _submissions = (
+        service.aggregate_read_snapshot(
+            run_ref=committed.invocation_ref,
+            after_sequence=0,
+            limit=10,
+        )
+    )
+    assert replay is not None
+    assert [event.event_kind for event in replay.events] == [
+        DurableRunEventKind.run_started.value,
+        DurableRunEventKind.receipt_recorded.value,
+    ]
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            runtime_dir,
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    exact_replay = gateway.invoke_command(request, idempotency_ref=idempotency_ref)
+    assert exact_replay.record.receipt == disabled.receipt
+    assert runner_call_count == 1
+
+
 def test_runtime_gateway_rejects_unknown_goal_mission_before_execution(
     tmp_path: Path,
 ) -> None:
@@ -3931,6 +4045,12 @@ def test_runtime_gateway_reloads_cross_store_committed_replay_at_admission(
 def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
     tmp_path: Path,
 ) -> None:
+    future_goal = _create_goal(
+        GoalRuntimeService(tmp_path / "future-goal"),
+        _create_request(),
+        idempotency_ref="idempotency-ref:future-quarantined-goal",
+    )
+
     def runner(**_kwargs: object) -> RuntimeCommandRunResult:
         return RuntimeCommandRunResult(
             exit_code=0,
@@ -3952,7 +4072,7 @@ def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
         adapter=adapter,
         request=RuntimeCommandExecutionRequest(
             intent="git_status",
-            mission_ref="goal-ref:sha256:" + "a" * 64,
+            mission_ref=future_goal.goal_ref,
             safe_summary="A historical opaque goal mission completed locally.",
         ),
         idempotency_ref="idempotency-ref:legacy-goal-receipt",
@@ -3979,6 +4099,13 @@ def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
     assert incompatibilities[0].invocation_ref == legacy.invocation_ref
     quarantine_path = service.state_dir / "runtime_projection_incompatibilities.jsonl"
     first_quarantine = quarantine_path.read_bytes()
+    quarantine_path.write_bytes(first_quarantine + b"\n")
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH",
+    ):
+        service.events.projection_incompatibilities()
+    quarantine_path.write_bytes(first_quarantine)
 
     restarted = GoalRuntimeService(tmp_path / "goals")
     assert (
@@ -4045,6 +4172,21 @@ def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
             [legacy],
             invocation_store=_MissingDurableStore(),  # type: ignore[arg-type]
         )
+
+    admitted_goal = _create_goal(
+        restarted,
+        _create_request(),
+        idempotency_ref="idempotency-ref:future-quarantined-goal",
+    )
+    assert admitted_goal.goal_ref == future_goal.goal_ref
+    newly_projected = restarted.sync_runtime_invocations(
+        [legacy],
+        invocation_store=store,
+    )
+    assert {event.run_ref for event in newly_projected} == {
+        legacy.invocation_ref
+    }
+    assert len(restarted.events.replay(legacy.invocation_ref).events) == 2
 
 
 def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
@@ -4185,6 +4327,42 @@ def test_event_journal_rejects_individual_run_rollback(
         GoalRuntimeService(tmp_path, retention_limit=3).events.replay(
             rolled_back_run_ref
         )
+
+
+def test_event_generation_head_rejects_paired_valid_prefix_rollback(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    run_ref = "run-ref:paired-prefix-rollback"
+    prior_events = b""
+    prior_tombstones = b""
+    for index in range(2):
+        _append_event(
+            service,
+            DurableRunEventAppendRequest(
+                run_ref=run_ref,
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.evidence_linked,
+                safe_summary="Retain bounded evidence for rollback detection.",
+                proof_refs=[f"proof-ref:paired-prefix-rollback:{index}"],
+                idempotency_ref=f"idempotency-ref:paired-prefix-rollback:{index}",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+            ),
+        )
+        if index == 0:
+            prior_events = service._events.path.read_bytes()  # noqa: SLF001
+            prior_tombstones = (  # noqa: SLF001
+                service._events.idempotency_path.read_bytes()
+            )
+
+    service._events.path.write_bytes(prior_events)  # noqa: SLF001
+    service._events.idempotency_path.write_bytes(prior_tombstones)  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).events.replay(run_ref)
 
 
 def test_atomic_storage_failure_is_normalized(
@@ -5483,6 +5661,31 @@ def test_lagging_tombstone_repairs_before_next_event_install(
             ),
         )
     assert write_count == 2
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_APPEND_RECOVERY_REQUIRED",
+    ):
+        service.events.replay(
+            "run-ref:tombstone-repair",
+            after_sequence=0,
+        )
+
+    monkeypatch.setattr(
+        service._events,  # noqa: SLF001
+        "_write_idempotency_tombstones",
+        original_write,
+    )
+    _append_event(
+        service,
+        first.model_copy(
+            update={
+                "safe_summary": (
+                    "The next event is installed only after provenance repair."
+                ),
+                "idempotency_ref": "idempotency-ref:tombstone-repair:two",
+            }
+        ),
+    )
     assert [
         event.sequence
         for event in service.events.replay(
@@ -5490,12 +5693,6 @@ def test_lagging_tombstone_repairs_before_next_event_install(
             after_sequence=0,
         ).events
     ] == [1, 2]
-
-    monkeypatch.setattr(
-        service._events,  # noqa: SLF001
-        "_write_idempotency_tombstones",
-        original_write,
-    )
     _append_event(
         service,
         first.model_copy(
@@ -5512,6 +5709,61 @@ def test_lagging_tombstone_repairs_before_next_event_install(
             after_sequence=0,
         ).events
     ] == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "failure_method",
+    [
+        "_write_trusted_sources",
+        "_write_events",
+        "_write_idempotency_tombstones",
+        "_write_run_event_generation_head",
+        "_delete_run_event_append_intent",
+    ],
+)
+def test_run_event_append_intent_recovers_every_persistence_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_method: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref=f"run-ref:append-intent:{failure_method}",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="Precommit one exact bounded run-event generation.",
+        idempotency_ref=f"idempotency-ref:append-intent:{failure_method}",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    binding = goal_runtime_module.TrustedRunEventSourceBinding(
+        source_kind="trusted_core_internal",
+        source_ref=f"source-ref:append-intent:{failure_method}",
+        source_fingerprint_ref=(
+            f"source-fingerprint-ref:append-intent:{failure_method}"
+        ),
+    )
+    original = getattr(service._events, failure_method)  # noqa: SLF001
+
+    def interrupt(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+
+    monkeypatch.setattr(service._events, failure_method, interrupt)  # noqa: SLF001
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        service._events.append(request, trusted_source=binding)  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_APPEND_RECOVERY_REQUIRED",
+    ):
+        service.events.replay(request.run_ref)
+
+    monkeypatch.setattr(service._events, failure_method, original)  # noqa: SLF001
+    replayed = service._events.append(  # noqa: SLF001
+        request,
+        trusted_source=binding,
+    )
+    assert service.events.replay(request.run_ref).events == [replayed]
+    assert not service._events.append_intent_path.exists()  # noqa: SLF001
 
 
 @pytest.mark.parametrize(
@@ -7270,7 +7522,7 @@ def test_public_event_cannot_be_reclassified_as_trusted_core(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).events.replay(event.run_ref)
 
@@ -7339,6 +7591,14 @@ def test_trusted_and_legacy_event_epochs_remain_readable_without_approval_ledger
     )
     service._events._write_events([legacy])  # noqa: SLF001
     service._events._write_idempotency_tombstones([legacy_tombstone])  # noqa: SLF001
+    service._events.trusted_sources_path.unlink()  # noqa: SLF001
+    service._events._write_run_event_generation_head(  # noqa: SLF001
+        service._events._build_run_event_generation_head(  # noqa: SLF001
+            [legacy],
+            [legacy_tombstone],
+            [],
+        )
+    )
 
     replayed = GoalRuntimeService(tmp_path).events.replay(event.run_ref).events
     assert replayed[0].schema_version == "durable_run_event.v1"

@@ -173,6 +173,86 @@ def runtime_gateway_state_dir() -> Path:
     return Path(".uaa") / "runtime-gateway"
 
 
+_RUNTIME_GATEWAY_STATE_DIR_IDENTITIES: dict[str, tuple[int, int]] = {}
+_RUNTIME_GATEWAY_STATE_DIR_IDENTITIES_LOCK = threading.RLock()
+
+
+def _runtime_gateway_state_dir_key(state_dir: Path) -> str:
+    return os.path.abspath(os.fspath(state_dir))
+
+
+def _runtime_gateway_state_dir_chain_identity(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> tuple[int, int] | None:
+    """Open every configured state-root component without following links."""
+
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        raise OSError("runtime gateway state directory guard unavailable")
+    absolute = Path(_runtime_gateway_state_dir_key(state_dir))
+    if absolute == Path(absolute.anchor):
+        raise OSError("runtime gateway state directory cannot be a filesystem root")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise OSError("runtime gateway state directory component is invalid")
+            try:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create:
+                    return None
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        opened = os.fstat(descriptor)
+        linked = os.lstat(absolute)
+        identity = (opened.st_dev, opened.st_ino)
+        if (
+            not stat.S_ISDIR(opened.st_mode)
+            or not stat.S_ISDIR(linked.st_mode)
+            or stat.S_ISLNK(linked.st_mode)
+            or identity != (linked.st_dev, linked.st_ino)
+        ):
+            raise OSError("runtime gateway state directory identity mismatch")
+        if create:
+            os.fchmod(descriptor, 0o700)
+        return identity
+    finally:
+        os.close(descriptor)
+
+
+def _bind_runtime_gateway_state_dir_identity(
+    state_dir: Path,
+    identity: tuple[int, int] | None,
+) -> None:
+    key = _runtime_gateway_state_dir_key(state_dir)
+    with _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES_LOCK:
+        expected = _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES.get(key)
+        if identity is None:
+            if expected is not None:
+                raise OSError("runtime gateway state directory disappeared")
+            return
+        if expected is not None and expected != identity:
+            raise OSError("runtime gateway state directory changed")
+        _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES.setdefault(key, identity)
+
+
+def _validate_runtime_gateway_state_dir(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> None:
+    identity = _runtime_gateway_state_dir_chain_identity(state_dir, create=create)
+    _bind_runtime_gateway_state_dir_identity(state_dir, identity)
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -1878,6 +1958,7 @@ class RuntimeInvocationStore:
         directory_fd = -1
         ledger_fd = -1
         try:
+            _validate_runtime_gateway_state_dir(self.state_dir, create=False)
             try:
                 directory_fd = os.open(
                     self.state_dir,
@@ -2034,10 +2115,38 @@ class RuntimeInvocationStore:
 
     @contextmanager
     def _exclusive_mutation(self):
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            _validate_runtime_gateway_state_dir(self.state_dir, create=True)
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            ) from exc
+        directory_fd = -1
+        lock_fd = -1
         with self._process_lock:
-            with self.lock_path.open("a", encoding="utf-8") as lock_handle:
-                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            try:
+                directory_fd = os.open(
+                    self.state_dir,
+                    os.O_RDONLY
+                    | os.O_DIRECTORY
+                    | os.O_NOFOLLOW
+                    | getattr(os, "O_CLOEXEC", 0),
+                )
+                lock_fd = os.open(
+                    RUNTIME_GATEWAY_LOCK,
+                    os.O_RDWR
+                    | os.O_CREAT
+                    | os.O_NOFOLLOW
+                    | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+                lock_info = os.fstat(lock_fd)
+                if not stat.S_ISREG(lock_info.st_mode):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                    )
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
                 try:
                     self._reload()
                     yield
@@ -2045,7 +2154,18 @@ class RuntimeInvocationStore:
                     self._loaded = False
                     raise
                 finally:
-                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            except RuntimeInvocationStorageError:
+                raise
+            except OSError as exc:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                ) from exc
+            finally:
+                if lock_fd >= 0:
+                    os.close(lock_fd)
+                if directory_fd >= 0:
+                    os.close(directory_fd)
 
     def _idempotent_operation_replay(
         self,

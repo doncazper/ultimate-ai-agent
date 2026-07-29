@@ -938,6 +938,23 @@ class RuntimeInvocationRecord(BaseModel):
         return self
 
 
+def runtime_invocation_has_committed_receipt(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    """Derive commitment from immutable terminal receipt evidence."""
+
+    receipt = record.receipt
+    return bool(
+        receipt is not None
+        and receipt.invocation_status == RuntimeInvocationStatus.receipt_recorded.value
+        and record.status
+        in {
+            RuntimeInvocationStatus.receipt_recorded.value,
+            RuntimeInvocationStatus.safe_disabled.value,
+        }
+    )
+
+
 class RuntimeCapabilities(BaseModel):
     schema_version: str = "governed_runtime_capabilities.v1"
     contract_ref: str = GOVERNED_RUNTIME_CONTRACT_REF

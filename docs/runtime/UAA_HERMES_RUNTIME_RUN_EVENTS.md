@@ -136,8 +136,11 @@ result after a later goal transition; it cannot cause a new adapter call.
 Non-goal mission refs retain their existing governed behavior.
 Historically accepted receipts with opaque goal-shaped missions are left
 unprojected and recorded once in a bounded, content-bound incompatibility
-quarantine so they cannot block or repeatedly retry during unrelated current
-receipt synchronization.
+quarantine whose independently persisted head binds the exact durable receipt
+and the authoritative goal-journal absence generation. Every later skip
+revalidates that the claimed goal is still absent; a subsequently admitted
+goal makes the receipt eligible for projection instead of letting a recomputed
+quarantine suppress it.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
@@ -146,10 +149,14 @@ file is replaced. The proof-ref and receipt-ref arities and the event,
 tombstone, and first-journal-generation reservation sizes are derived from the
 same bounded Pydantic maximum envelopes. A schema-valid maximum record
 therefore cannot outgrow a separately maintained reservation constant.
-If an interrupted append leaves the event journal exactly one accepted event
-ahead of its tombstone index, the next mutating path durably repairs that
-accepted tombstone generation before installing any different event. Repeated
-interruptions therefore cannot widen the bounded recovery window.
+Every accepted append first persists a bounded intent binding the previous
+independent generation head, exact next event/tombstone/source record, and next
+head. The event, tombstone, and trusted-source projections are then installed
+before the new head and intent removal. Read-only paths fail closed while an
+intent remains; the next mutating path may finish only that exact precommitted
+generation. Rolling the event journal and tombstone index back together to an
+older valid prefix therefore disagrees with the independent head instead of
+silently discarding an accepted run.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -345,13 +352,16 @@ trusted receipt-producer enforcement, successful-versus-failed
 RuntimeGateway projection, accepted RuntimeGateway producer wiring, approval wait/resume,
 controlled worker-restart evidence, a second cancelled run, first-commit
 failure at every genesis persistence boundary, unanchored-journal rejection,
-one-ahead tombstone repair, cross-store snapshot serialization, absolute-path
+precommitted event-generation repair, paired event/tombstone rollback
+rejection, cross-store snapshot serialization, absolute-path
 family rejection, criterion/cross-transaction provenance substitution, and
 approval-ledger append-intent crash recovery for first and later generations,
 unanchored approval-head rollback rejection, public-event producer
 reclassification rejection, approval-bound completion reconciliation across
 direct/runtime-projection/sync entry points, approval-prepare response-loss
-restart recovery,
+restart recovery, safe-disabled committed-receipt replay, nonterminal aggregate
+read non-initialization, quarantine-head and current-goal revalidation,
+no-follow RuntimeGateway state-root admission, and
 behavioral UI mutation lockout until authoritative refresh. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly
