@@ -43,12 +43,14 @@ account. Complete pytest and TypeScript verification use separate host-wide
 locks and separate attempt ledgers, so those independent resource classes may
 run concurrently while duplicate work within either class still fails closed.
 Starting one consumes the single attempt for its own resource class, SHA, and
-dependency state inside its execution plane. Local, private-diagnostic, and
-GitHub planes may each produce one independently bound attempt for the same
-tree; the shared physical resource lock still prevents conflicting concurrent
-use, and a second attempt within any one plane fails closed. This preserves the
-same candidate SHA across proportional local qualification and authoritative
-hosted evidence instead of requiring a content-free commit rotation. `make
+dependency state inside its execution plane. Local and GitHub planes may each
+produce one independently bound attempt for the same tree; the shared physical
+resource lock still prevents conflicting concurrent use, and a second attempt
+within either plane fails closed. Private diagnostics retain their separate
+non-gating reproduction lock and cannot consume either exclusive merge-gate
+resource. This preserves the same candidate SHA across proportional local
+qualification and authoritative hosted evidence instead of requiring a
+content-free commit rotation. `make
 verify`, `make verify-dev-fast`, `make verify-dev-sharded`, and `make
 verify-local` also include the canonical complete-pytest lane and consume that
 attempt. `test-sharded-profile` is an alternative first and only complete run

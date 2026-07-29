@@ -421,11 +421,11 @@ Exact resource-attempt identity is scoped to one execution plane for each of
 the two exclusive resources: complete pytest and TypeScript typecheck. The key
 binds the repository SHA, execution plane, dependency state, canonical resource
 ref, and TypeScript runtime/version where applicable. A second plan in the same
-plane cannot start the same resource attempt. Local, private-diagnostic, and
-GitHub planes may each produce one independently bound attempt for an identical
-tree, allowing proportional local qualification and authoritative hosted
-evidence to retain the same SHA. The shared resource locks still prevent
-conflicting physical use across all planes. The host-wide attempt ledger
+plane cannot start the same resource attempt. Local and GitHub planes may each
+produce one independently bound attempt for an identical tree, allowing
+proportional local qualification and authoritative hosted evidence to retain
+the same SHA. The shared resource locks still prevent conflicting physical use
+across those planes. The host-wide attempt ledger
 enforces same-plane duplicate prevention, while the separate owner-only
 execution fence binds exact pre-start and terminal settlement. A changed
 dependency state creates a distinct attempt; an unsettled exact scoped attempt
@@ -434,9 +434,10 @@ remains recovery required. The execution fence store uses the versioned
 repository-scoped runner and an owner-scoped
 `/private/tmp/uaa-verification-execution-fence-v2-<uid>` boundary for local
 entry points. Cross-account duplicate prevention remains in the shared attempt
-ledger for each exact plane rather than either owner-only store. Private
-diagnosis still cannot execute either exclusive merge-gate resource; recognizing
-the private attempt scope grants no execution authority.
+ledger for each exact plane rather than either owner-only store. The storage
+contract recognizes a private identity only to validate and reject
+substitutions consistently; private diagnosis still cannot execute either
+exclusive merge-gate resource or create a gating attempt.
 
 The stable `make test-sharded`, `make test-sharded-profile`, and
 `make frontend-check` entry points now invoke the same canonical lane runner
