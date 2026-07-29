@@ -14268,16 +14268,18 @@ const POSIX_ABSOLUTE_PATH_CANDIDATE_RE =
 const CANONICAL_SAFE_REF_TOKEN_RE =
   /[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*/g;
 const NETWORK_URI_TOKEN_RE =
-  /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s"')>\],;]+/g;
+  /(?<![A-Za-z0-9_.:@-])\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s"')>\],;]+/g;
 
 function containsAbsoluteLocalPath(value: string): boolean {
   if (ABSOLUTE_LOCAL_PATH_PATTERNS.some((pattern) => pattern.test(value))) {
     return true;
   }
-  const protectedSpans = [
-    ...value.matchAll(CANONICAL_SAFE_REF_TOKEN_RE),
-    ...value.matchAll(NETWORK_URI_TOKEN_RE),
-  ].map((match) => [match.index, match.index + match[0].length] as const);
+  const safeRefSpans = [...value.matchAll(CANONICAL_SAFE_REF_TOKEN_RE)].map(
+    (match) => [match.index, match.index + match[0].length] as const,
+  );
+  const networkUriSpans = [...value.matchAll(NETWORK_URI_TOKEN_RE)].map(
+    (match) => [match.index, match.index + match[0].length] as const,
+  );
   for (const match of value.matchAll(POSIX_ABSOLUTE_PATH_CANDIDATE_RE)) {
     const slashIndex = match.index;
     const predecessor = slashIndex > 0 ? value[slashIndex - 1] : "";
@@ -14285,7 +14287,15 @@ function containsAbsoluteLocalPath(value: string): boolean {
       continue;
     }
     if (
-      protectedSpans.some(
+      networkUriSpans.some(
+        ([start, end]) => start <= slashIndex && slashIndex < end,
+      )
+    ) {
+      continue;
+    }
+    if (
+      "._-@_".includes(predecessor) &&
+      safeRefSpans.some(
         ([start, end]) => start <= slashIndex && slashIndex < end,
       )
     ) {

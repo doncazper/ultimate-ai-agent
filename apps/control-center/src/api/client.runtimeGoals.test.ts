@@ -715,6 +715,8 @@ describe("proof-backed runtime goal mutations", () => {
   it.each([
     "Review path:/workspace/private.txt.",
     "Inspect artifact:/opt/company/private.txt.",
+    "Inspect artifact-ref:bounded:/workspace/private.txt.",
+    "Inspect artifact-ref:bounded://root/private.txt.",
     ...Array.from("!\"#$%&'()*+,-.;<=>?@[\\]^_`{|}~").map(
       (delimiter) =>
         `Inspect artifact${delimiter}/home/operator/private.txt.`,

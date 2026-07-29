@@ -21,7 +21,9 @@ _POSIX_ABSOLUTE_PATH_CANDIDATE_RE = re.compile(r"/(?:/)?[^\s\"')>\],;]+")
 _SAFE_REF_TOKEN_RE = re.compile(
     r"[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*"
 )
-_NETWORK_URI_TOKEN_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://[^\s\"')>\],;]+")
+_NETWORK_URI_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_.:@-])\b[A-Za-z][A-Za-z0-9+.-]*://[^\s\"')>\],;]+"
+)
 RAW_LOCAL_PATH_RE = re.compile(r"(^|[\s:=])(/Users/|/home/|/var/|/etc/|[A-Za-z]:\\)")
 EFFECTFUL_HINT_RE = re.compile(
     r"(?i)("
@@ -104,17 +106,20 @@ def contains_absolute_local_path(value: str) -> bool:
 
     if any(pattern.search(value) for pattern in ABSOLUTE_LOCAL_PATH_PATTERNS):
         return True
-    protected_spans = [
-        match.span()
-        for pattern in (_SAFE_REF_TOKEN_RE, _NETWORK_URI_TOKEN_RE)
-        for match in pattern.finditer(value)
+    safe_ref_spans = [match.span() for match in _SAFE_REF_TOKEN_RE.finditer(value)]
+    network_uri_spans = [
+        match.span() for match in _NETWORK_URI_TOKEN_RE.finditer(value)
     ]
     for match in _POSIX_ABSOLUTE_PATH_CANDIDATE_RE.finditer(value):
         slash_index = match.start()
         predecessor = value[slash_index - 1] if slash_index > 0 else ""
         if predecessor.isascii() and predecessor.isalnum():
             continue
-        if any(start <= slash_index < end for start, end in protected_spans):
+        if any(start <= slash_index < end for start, end in network_uri_spans):
+            continue
+        if predecessor in "._-@_" and any(
+            start <= slash_index < end for start, end in safe_ref_spans
+        ):
             continue
         return True
     return False

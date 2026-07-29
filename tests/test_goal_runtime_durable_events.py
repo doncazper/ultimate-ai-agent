@@ -3164,6 +3164,8 @@ def test_lagging_tombstone_repairs_before_next_event_install(
         "Read file:///private/operator-data.",
         "Review path:/workspace/private.txt.",
         "Inspect artifact:/opt/company/private.txt.",
+        "Inspect artifact-ref:bounded:/workspace/private.txt.",
+        "Inspect artifact-ref:bounded://root/private.txt.",
         "Inspect artifact,/home/operator/private.txt.",
         "Inspect artifact;/Users/operator/private.txt.",
         "Inspect artifact|/home/operator/private.txt.",

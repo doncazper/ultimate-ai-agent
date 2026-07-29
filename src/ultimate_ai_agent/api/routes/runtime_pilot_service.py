@@ -150,6 +150,9 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     GoalVersionConflictError,
     capture_exact_goal_mutation_approval,
 )
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationStorageError,
+)
 
 
 router = APIRouter(prefix="/api/runtime", tags=["governed-runtime"])
@@ -1026,6 +1029,33 @@ def _runtime_projection_failure(
         if isinstance(exc, GoalRuntimeError)
         else "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
     )
+    execution_truth: dict[str, object] = {
+        "execution_outcome": "unknown_after_projection_failure",
+        "execution_performed": None,
+        "model_call_performed": None,
+        "command_execution_performed": None,
+        "invocation_ref": None,
+        "receipt_ref": None,
+        "retry_allowed": False,
+    }
+    try:
+        record = _runtime_store().get_invocation_for_idempotency(trace_id)
+    except (OSError, RuntimeInvocationStorageError, ValueError):
+        record = None
+    if record is not None:
+        execution_truth["invocation_ref"] = record.invocation_ref
+        if record.receipt is not None:
+            execution_truth.update(
+                {
+                    "execution_outcome": "durable_receipt_recovered",
+                    "execution_performed": record.receipt.execution_performed,
+                    "model_call_performed": record.receipt.model_call_performed,
+                    "command_execution_performed": (
+                        record.receipt.command_execution_performed
+                    ),
+                    "receipt_ref": record.receipt.receipt_ref,
+                }
+            )
     return ResultEnvelope(
         success=False,
         operation=operation,
@@ -1042,6 +1072,7 @@ def _runtime_projection_failure(
             details_redacted=True,
             source="GovernedRuntimeAPI",
         ),
+        data=execution_truth,
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
     )
 

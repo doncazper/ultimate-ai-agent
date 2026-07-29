@@ -250,6 +250,7 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
         ),
     ],
 )
+@pytest.mark.parametrize("durable_truth", ["receipt", "missing", "unreadable"])
 def test_runtime_projection_failures_keep_the_public_result_envelope(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
     monkeypatch: pytest.MonkeyPatch,
@@ -258,6 +259,7 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
     operation: str,
     projection_exception: Exception,
     expected_code: str,
+    durable_truth: str,
 ) -> None:
     client, _service = goal_runtime_client
 
@@ -282,6 +284,33 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
         "_runtime_gateway",
         lambda: FailingProjectionGateway(),
     )
+
+    class ProjectionTruthStore:
+        @staticmethod
+        def get_invocation_for_idempotency(
+            _idempotency_ref: str,
+        ) -> object | None:
+            if durable_truth == "unreadable":
+                raise OSError("raw durable ledger failure must stay redacted")
+            if durable_truth == "missing":
+                return None
+            return SimpleNamespace(
+                invocation_ref="invocation-ref:api-projection-failure",
+                receipt=SimpleNamespace(
+                    receipt_ref="receipt-ref:api-projection-failure",
+                    execution_performed=True,
+                    model_call_performed=(operation == "api_runtime_local_model_call"),
+                    command_execution_performed=(
+                        operation != "api_runtime_local_model_call"
+                    ),
+                ),
+            )
+
+    monkeypatch.setattr(
+        runtime_pilot_service,
+        "_runtime_store",
+        lambda: ProjectionTruthStore(),
+    )
     response = client.post(
         path,
         json=payload,
@@ -298,6 +327,30 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
     assert body["operation"] == operation
     assert body["error"]["code"] == expected_code
     assert body["error"]["details_redacted"] is True
+    assert body["data"]["retry_allowed"] is False
+    assert "raw durable ledger failure" not in json.dumps(body)
+    if durable_truth == "receipt":
+        assert body["data"] == {
+            "execution_outcome": "durable_receipt_recovered",
+            "execution_performed": True,
+            "model_call_performed": operation == "api_runtime_local_model_call",
+            "command_execution_performed": (
+                operation != "api_runtime_local_model_call"
+            ),
+            "invocation_ref": "invocation-ref:api-projection-failure",
+            "receipt_ref": "receipt-ref:api-projection-failure",
+            "retry_allowed": False,
+        }
+    else:
+        assert body["data"] == {
+            "execution_outcome": "unknown_after_projection_failure",
+            "execution_performed": None,
+            "model_call_performed": None,
+            "command_execution_performed": None,
+            "invocation_ref": None,
+            "receipt_ref": None,
+            "retry_allowed": False,
+        }
 
 
 def test_goal_get_rejects_malformed_path_ref_with_safe_envelope(
