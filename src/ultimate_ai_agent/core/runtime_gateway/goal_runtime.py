@@ -97,6 +97,7 @@ MAX_RUN_EVENT_APPEND_INTENT_BYTES = 512 * 1024
 MAX_RUNTIME_PROJECTION_INCOMPATIBILITIES = 4096
 MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES = 4 * 1024 * 1024
 MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_BYTES = 64 * 1024
+MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_BYTES = 256 * 1024
 MAX_GOAL_PROVENANCE_ENTRIES = 100
 RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS = 120
 GOAL_TEXT_REDACTION_POSTURE = "operator_authored_redacted_summary_only"
@@ -1824,6 +1825,7 @@ class RunEventIdempotencyTombstone(BaseModel):
 
 TrustedRunEventSourceKind = Literal[
     "runtime_invocation",
+    "runtime_evaluator_receipt",
     "goal_journal_completion",
     "trusted_core_internal",
 ]
@@ -2084,6 +2086,31 @@ class RuntimeProjectionIncompatibilityHeadManifest(BaseModel):
         )
         if self.head_hash_ref != expected:
             raise ValueError("RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_HASH_MISMATCH")
+        return self
+
+
+class RuntimeProjectionIncompatibilityAppendIntent(BaseModel):
+    schema_version: Literal[
+        "runtime_projection_incompatibility_append_intent.v1"
+    ] = "runtime_projection_incompatibility_append_intent.v1"
+    previous_head_manifest: RuntimeProjectionIncompatibilityHeadManifest | None = None
+    next_record: RuntimeProjectionIncompatibilityRecord
+    next_head_manifest: RuntimeProjectionIncompatibilityHeadManifest
+    intent_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "RuntimeProjectionIncompatibilityAppendIntent":
+        validate_execution_ref(self.intent_hash_ref, "intent_hash_ref")
+        expected = _sha256_ref(
+            "intent-hash-ref:runtime-projection-incompatibility-append",
+            self.model_dump(mode="json", exclude={"intent_hash_ref"}),
+        )
+        if self.intent_hash_ref != expected:
+            raise ValueError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_HASH_MISMATCH"
+            )
         return self
 
 
@@ -4442,6 +4469,10 @@ class _DurableRunEventStore:
         self.incompatibilities_head_path = (
             self.state_dir / "runtime_projection_incompatibilities_head.json"
         )
+        self.incompatibilities_append_intent_path = (
+            self.state_dir
+            / "runtime_projection_incompatibilities_append_intent.json"
+        )
         self.retention_limit = retention_limit
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
         self._lock_state = threading.local()
@@ -5007,11 +5038,29 @@ class _DurableRunEventStore:
         if prior is not None and prior.request_fingerprint_ref != expected_fingerprint:
             raise GoalIdempotencyConflictError("RUN_EVENT_IDEMPOTENCY_CONFLICT")
         if approval_binding is None:
+            if trusted_source is None and validated.event_kind in {
+                DurableRunEventKind.receipt_recorded.value,
+                *TERMINAL_RUN_EVENT_KINDS,
+            }:
+                raise GoalTransitionDeniedError(
+                    "RUN_EVENT_TRUSTED_PRODUCER_REQUIRED"
+                )
             binding = trusted_source or TrustedRunEventSourceBinding(
                 source_kind="trusted_core_internal",
                 source_ref=validated.authority_decision_ref,
                 source_fingerprint_ref=expected_fingerprint,
             )
+            if (
+                binding.source_kind == "trusted_core_internal"
+                and validated.event_kind
+                in {
+                    DurableRunEventKind.receipt_recorded.value,
+                    *TERMINAL_RUN_EVENT_KINDS,
+                }
+            ):
+                raise GoalTransitionDeniedError(
+                    "RUN_EVENT_TRUSTED_PRODUCER_REQUIRED"
+                )
             source_record = self._trusted_source_record(
                 event_key_ref=event_key_ref,
                 request_fingerprint_ref=expected_fingerprint,
@@ -5826,7 +5875,7 @@ class _DurableRunEventStore:
         journal_by_ref = {
             entry.entry_ref: entry for entry in journal_entries
         }
-        runtime_store: RuntimeInvocationStore | None = None
+        runtime_stores: dict[Path, RuntimeInvocationStore] = {}
         for event in event_list:
             if event.producer_class != "trusted_core":
                 continue
@@ -5901,11 +5950,20 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
                     )
-            elif source.source_kind == "runtime_invocation":
-                if runtime_invocation_state_dir is None:
+            elif source.source_kind in {
+                "runtime_invocation",
+                "runtime_evaluator_receipt",
+            }:
+                source_state_dir = (
+                    self.state_dir / "trusted_evaluator_runtime"
+                    if source.source_kind == "runtime_evaluator_receipt"
+                    else runtime_invocation_state_dir
+                )
+                if source_state_dir is None:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
                     )
+                runtime_store = runtime_stores.get(source_state_dir)
                 if runtime_store is None:
                     from ultimate_ai_agent.core.runtime_gateway.storage import (
                         RuntimeInvocationStore,
@@ -5913,14 +5971,43 @@ class _DurableRunEventStore:
                     )
 
                     runtime_store = RuntimeInvocationStore(
-                        runtime_invocation_state_dir
+                        source_state_dir
                     )
+                    runtime_stores[source_state_dir] = runtime_store
                 try:
                     runtime_record = runtime_store.get_invocation(source.source_ref)
                 except (RuntimeInvocationStorageError, ValueError, AttributeError) as exc:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
                     ) from exc
+                if source.source_kind == "runtime_evaluator_receipt":
+                    receipt = runtime_record.receipt
+                    if (
+                        receipt is None
+                        or not runtime_invocation_has_committed_receipt(runtime_record)
+                        or source.source_fingerprint_ref
+                        not in receipt.evidence_refs
+                        or event.event_kind
+                        not in {
+                            DurableRunEventKind.receipt_recorded.value,
+                            DurableRunEventKind.cancelled.value,
+                            DurableRunEventKind.failed_terminal.value,
+                            DurableRunEventKind.dead_lettered.value,
+                        }
+                        or event.receipt_refs != [receipt.receipt_ref]
+                        or [
+                            binding.model_dump(mode="json")
+                            for binding in event.criterion_verifier_bindings
+                        ]
+                        != [
+                            binding.model_dump(mode="json")
+                            for binding in receipt.criterion_verification_bindings
+                        ]
+                    ):
+                        raise GoalRuntimeCorruptionError(
+                            "RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH"
+                        )
+                    continue
                 expected_source_fingerprint = _sha256_ref(
                     "source-fingerprint-ref:runtime-invocation",
                     _runtime_invocation_source_payload(runtime_record),
@@ -5929,6 +6016,16 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
                     )
+            elif source.source_kind == "trusted_core_internal" and (
+                event.event_kind
+                in {
+                    DurableRunEventKind.receipt_recorded.value,
+                    *TERMINAL_RUN_EVENT_KINDS,
+                }
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
+                )
                 expected_requests = self._runtime_projection_requests(runtime_record)
                 matching_requests = [
                     request
@@ -6109,6 +6206,7 @@ class _DurableRunEventStore:
             generation_paths=(
                 self.incompatibilities_path,
                 self.incompatibilities_head_path,
+                self.incompatibilities_append_intent_path,
             ),
         ):
             return self._load_projection_incompatibilities()
@@ -6131,6 +6229,7 @@ class _DurableRunEventStore:
             self._locks,
             "runtime-projection-incompatibilities",
         ):
+            self._repair_projection_incompatibility_append()
             records = self._load_projection_incompatibilities()
             existing = next(
                 (
@@ -6182,6 +6281,28 @@ class _DurableRunEventStore:
     def _load_projection_incompatibilities(
         self,
     ) -> list[RuntimeProjectionIncompatibilityRecord]:
+        if _path_generation(self.incompatibilities_append_intent_path)[0]:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_RECOVERY_REQUIRED"
+            )
+        records, raw_content = self._read_projection_incompatibility_records()
+        if raw_content is None:
+            if _path_generation(self.incompatibilities_head_path)[0]:
+                raise GoalRuntimeCorruptionError(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+                )
+            return []
+        head = self._read_projection_incompatibility_head(missing_ok=False)
+        expected_head = self._projection_incompatibility_head(records, raw_content)
+        if head != expected_head:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+            )
+        return records
+
+    def _read_projection_incompatibility_records(
+        self,
+    ) -> tuple[list[RuntimeProjectionIncompatibilityRecord], str | None]:
         raw_content = _read_bounded_regular_utf8(
             self.incompatibilities_path,
             max_bytes=MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_BYTES,
@@ -6190,11 +6311,7 @@ class _DurableRunEventStore:
             corruption_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_STORE_CORRUPT"),
         )
         if raw_content is None:
-            if _path_generation(self.incompatibilities_head_path)[0]:
-                raise GoalRuntimeCorruptionError(
-                    "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
-                )
-            return []
+            return [], None
         try:
             records = [
                 RuntimeProjectionIncompatibilityRecord.model_validate_json(line)
@@ -6213,16 +6330,25 @@ class _DurableRunEventStore:
             raise GoalRuntimeCorruptionError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_DUPLICATE"
             )
+        return records, raw_content
+
+    def _read_projection_incompatibility_head(
+        self,
+        *,
+        missing_ok: bool,
+    ) -> RuntimeProjectionIncompatibilityHeadManifest | None:
         head_content = _read_bounded_regular_utf8(
             self.incompatibilities_head_path,
             max_bytes=MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_BYTES,
-            missing_ok=False,
+            missing_ok=missing_ok,
             capacity_error=(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CAPACITY_EXCEEDED"
             ),
             corruption_error=("RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CORRUPT"),
         )
         if head_content is None:
+            if missing_ok:
+                return None
             raise GoalRuntimeCorruptionError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISSING"
             )
@@ -6234,12 +6360,7 @@ class _DurableRunEventStore:
             raise GoalRuntimeCorruptionError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_CORRUPT"
             ) from exc
-        expected_head = self._projection_incompatibility_head(records, raw_content)
-        if head != expected_head:
-            raise GoalRuntimeCorruptionError(
-                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
-            )
-        return records
+        return head
 
     def _write_projection_incompatibilities(
         self,
@@ -6250,12 +6371,157 @@ class _DurableRunEventStore:
             raise GoalRuntimeError(
                 "RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"
             )
-        _atomic_write(self.incompatibilities_path, content)
         head = self._projection_incompatibility_head(records, content)
+        previous_records, previous_content = (
+            self._read_projection_incompatibility_records()
+        )
+        previous_head = (
+            None
+            if previous_content is None
+            else self._read_projection_incompatibility_head(missing_ok=False)
+        )
+        if previous_content is None:
+            if _path_generation(self.incompatibilities_head_path)[0]:
+                raise GoalRuntimeCorruptionError(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+                )
+        elif previous_head != self._projection_incompatibility_head(
+            previous_records,
+            previous_content,
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_HEAD_MISMATCH"
+            )
+        if len(records) != len(previous_records) + 1 or (
+            previous_records != records[:-1]
+        ):
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_SEQUENCE_MISMATCH"
+            )
+        intent_payload = {
+            "previous_head_manifest": (
+                previous_head.model_dump(mode="json")
+                if previous_head is not None
+                else None
+            ),
+            "next_record": records[-1].model_dump(mode="json"),
+            "next_head_manifest": head.model_dump(mode="json"),
+        }
+        intent = RuntimeProjectionIncompatibilityAppendIntent(
+            **intent_payload,
+            intent_hash_ref=_sha256_ref(
+                "intent-hash-ref:runtime-projection-incompatibility-append",
+                {
+                    "schema_version": (
+                        "runtime_projection_incompatibility_append_intent.v1"
+                    ),
+                    **intent_payload,
+                },
+            ),
+        )
+        self._write_projection_incompatibility_append_intent(intent)
+        _atomic_write(self.incompatibilities_path, content)
         _atomic_write(
             self.incompatibilities_head_path,
             head.model_dump_json() + "\n",
         )
+        self._delete_projection_incompatibility_append_intent()
+
+    def _load_projection_incompatibility_append_intent(
+        self,
+    ) -> RuntimeProjectionIncompatibilityAppendIntent | None:
+        raw = _read_bounded_regular_utf8(
+            self.incompatibilities_append_intent_path,
+            max_bytes=(
+                MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_BYTES
+            ),
+            missing_ok=True,
+            capacity_error=(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_CAPACITY_EXCEEDED"
+            ),
+            corruption_error=(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_CORRUPT"
+            ),
+        )
+        if raw is None:
+            return None
+        try:
+            return RuntimeProjectionIncompatibilityAppendIntent.model_validate_json(
+                raw
+            )
+        except ValueError as exc:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_CORRUPT"
+            ) from exc
+
+    def _write_projection_incompatibility_append_intent(
+        self,
+        intent: RuntimeProjectionIncompatibilityAppendIntent,
+    ) -> None:
+        content = intent.model_dump_json() + "\n"
+        if (
+            len(content.encode("utf-8"))
+            > MAX_RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_BYTES
+        ):
+            raise GoalRuntimeError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_CAPACITY_EXCEEDED"
+            )
+        _atomic_write(self.incompatibilities_append_intent_path, content)
+
+    def _delete_projection_incompatibility_append_intent(self) -> None:
+        try:
+            self.incompatibilities_append_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+    def _repair_projection_incompatibility_append(self) -> None:
+        intent = self._load_projection_incompatibility_append_intent()
+        if intent is None:
+            return
+        records, content = self._read_projection_incompatibility_records()
+        head = self._read_projection_incompatibility_head(missing_ok=True)
+        previous_head = intent.previous_head_manifest
+        if previous_head is None:
+            previous_matches = content is None and head is None
+        else:
+            previous_matches = (
+                content is not None
+                and head == previous_head
+                and self._projection_incompatibility_head(records, content)
+                == previous_head
+            )
+        next_matches = False
+        if content is not None:
+            try:
+                next_matches = (
+                    self._projection_incompatibility_head(records, content)
+                    == intent.next_head_manifest
+                    and records[-1] == intent.next_record
+                )
+            except (GoalRuntimeCorruptionError, IndexError):
+                next_matches = False
+        if previous_matches:
+            next_records = [*records, intent.next_record]
+            next_content = "".join(
+                record.model_dump_json() + "\n" for record in next_records
+            )
+            if (
+                self._projection_incompatibility_head(next_records, next_content)
+                != intent.next_head_manifest
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_STATE_MISMATCH"
+                )
+            _atomic_write(self.incompatibilities_path, next_content)
+        elif not next_matches:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_INTENT_STATE_MISMATCH"
+            )
+        _atomic_write(
+            self.incompatibilities_head_path,
+            intent.next_head_manifest.model_dump_json() + "\n",
+        )
+        self._delete_projection_incompatibility_append_intent()
 
     @staticmethod
     def _projection_incompatibility_head(
@@ -8128,28 +8394,21 @@ class GoalRuntimeService:
                 # not retry silently; new executions retain the strict preflight.
                 if mission_ref is None or not mission_ref.startswith("goal-ref:"):
                     raise
-                try:
-                    with self._runtime_projection_goal_absence_guard(
-                        mission_ref
-                    ) as goal_absence_proof_ref:
-                        if goal_absence_proof_ref is None:
-                            projected.extend(
-                                self.record_accepted_runtime_invocation(
-                                    durable_record,
-                                    invocation_store=invocation_store,
-                                )
+                with self._runtime_projection_goal_absence_guard(
+                    mission_ref
+                ) as goal_absence_proof_ref:
+                    if goal_absence_proof_ref is None:
+                        projected.extend(
+                            self.record_accepted_runtime_invocation(
+                                durable_record,
+                                invocation_store=invocation_store,
                             )
-                            continue
-                        self._events.quarantine_projection_incompatibility(
-                            durable_record,
-                            goal_absence_proof_ref=goal_absence_proof_ref,
                         )
-                except GoalRuntimeError as exc:
-                    if (
-                        str(exc)
-                        != "RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED"
-                    ):
-                        raise
+                        continue
+                    self._events.quarantine_projection_incompatibility(
+                        durable_record,
+                        goal_absence_proof_ref=goal_absence_proof_ref,
+                    )
                 continue
         return projected
 

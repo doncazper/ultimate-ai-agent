@@ -17,6 +17,13 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.api.routes import runtime_pilot_service
 from ultimate_ai_agent.core.runtime_gateway import goal_runtime as goal_runtime_module
+from ultimate_ai_agent.core.runtime_gateway.contracts import (
+    RuntimeAuthority,
+    RuntimeCriterionVerificationBinding,
+    RuntimeInvocationReceipt,
+    RuntimeInvocationRequest,
+    RuntimeInvocationStatus,
+)
 from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     AcceptedLocalRunType,
     DurableCriterionVerifierBinding,
@@ -33,6 +40,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     build_goal_criterion_ref,
     build_goal_completion_evidence_ref,
 )
+from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
 
 
 def _criterion_bindings(
@@ -446,10 +454,66 @@ def _append_event(
 ) -> DurableRunEvent:
     if request.event_kind in {
         DurableRunEventKind.receipt_recorded.value,
-        DurableRunEventKind.completion_verified.value,
         DurableRunEventKind.cancelled.value,
         DurableRunEventKind.failed_terminal.value,
         DurableRunEventKind.dead_lettered.value,
+    }:
+        request_fingerprint_ref = service._events._request_fingerprint(  # noqa: SLF001
+            request
+        )
+        runtime_store = RuntimeInvocationStore(
+            service.state_dir / "trusted_evaluator_runtime"
+        )
+        invocation_idempotency_ref = goal_runtime_module._sha256_ref(  # noqa: SLF001
+            "idempotency-ref:trusted-evaluator-receipt",
+            {"request_fingerprint_ref": request_fingerprint_ref},
+        )
+        created = runtime_store.create_invocation(
+            RuntimeInvocationRequest(
+                requested_authority=RuntimeAuthority.local_model,
+                input_ref=request_fingerprint_ref,
+                safe_summary=(
+                    "Record one exact trusted evaluator receipt projection."
+                ),
+                mission_ref=request.goal_ref,
+                action_ref=request.run_ref,
+                metadata_refs=[request_fingerprint_ref],
+            ),
+            idempotency_ref=invocation_idempotency_ref,
+            local_model_gateway_validated=True,
+        ).record
+        receipt = RuntimeInvocationReceipt(
+            receipt_ref=request.receipt_refs[0],
+            invocation_ref=created.invocation_ref,
+            policy_decision_ref=created.policy_decision.policy_decision_ref,
+            invocation_status=RuntimeInvocationStatus.receipt_recorded,
+            evidence_refs=[request_fingerprint_ref],
+            criterion_verification_bindings=[
+                RuntimeCriterionVerificationBinding.model_validate(
+                    binding.model_dump(mode="json")
+                )
+                for binding in request.criterion_verifier_bindings
+            ],
+            safe_summary=request.safe_summary,
+        )
+        runtime_store.record_receipt(
+            created.invocation_ref,
+            receipt,
+            idempotency_ref=goal_runtime_module._sha256_ref(  # noqa: SLF001
+                "idempotency-ref:trusted-evaluator-receipt-record",
+                {"request_fingerprint_ref": request_fingerprint_ref},
+            ),
+        )
+        return service._events.append(  # noqa: SLF001
+            request,
+            trusted_source=goal_runtime_module.TrustedRunEventSourceBinding(
+                source_kind="runtime_evaluator_receipt",
+                source_ref=created.invocation_ref,
+                source_fingerprint_ref=request_fingerprint_ref,
+            ),
+        )
+    if request.event_kind in {
+        DurableRunEventKind.completion_verified.value,
     }:
         return service._events.append(request)  # noqa: SLF001
     approval_ref = _approved_mutation_ref(

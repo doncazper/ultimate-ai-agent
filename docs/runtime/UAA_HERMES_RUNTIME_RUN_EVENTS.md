@@ -140,7 +140,9 @@ quarantine whose independently persisted head binds the exact durable receipt
 and the authoritative goal-journal absence generation. Every later skip
 revalidates that the claimed goal is still absent; a subsequently admitted
 goal makes the receipt eligible for projection instead of letting a recomputed
-quarantine suppress it.
+quarantine suppress it. Quarantine admission uses a recoverable append intent
+across the JSONL and independent head, and capacity exhaustion fails closed
+instead of silently omitting an accepted historical receipt.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
@@ -157,6 +159,12 @@ intent remains; the next mutating path may finish only that exact precommitted
 generation. Rolling the event journal and tombstone index back together to an
 older valid prefix therefore disagrees with the independent head instead of
 silently discarding an accepted run.
+Authority-bearing receipt and terminal events cannot use the self-attested
+trusted-Core source posture. They must bind to an exact independent
+RuntimeInvocationStore receipt/evaluator record or to the exact durable goal
+journal completion entry. RuntimeGateway mutation locks retain the validated
+state-root directory descriptor through lock creation, so an exchanged real
+ancestor cannot redirect the lock into a substituted tree.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -361,7 +369,9 @@ reclassification rejection, approval-bound completion reconciliation across
 direct/runtime-projection/sync entry points, approval-prepare response-loss
 restart recovery, safe-disabled committed-receipt replay, nonterminal aggregate
 read non-initialization, quarantine-head and current-goal revalidation,
-no-follow RuntimeGateway state-root admission, and
+quarantine append-intent crash recovery and capacity exhaustion, no-follow
+RuntimeGateway state-root admission and descriptor-exchange resistance,
+self-attested receipt rejection, and
 behavioral UI mutation lockout until authoritative refresh. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly

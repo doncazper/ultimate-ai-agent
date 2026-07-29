@@ -12,8 +12,11 @@ import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_modul
 from ultimate_ai_agent.core.runtime_gateway.command import invoke_governed_command
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeAuthority,
+    RuntimeCriterionVerificationBinding,
     RuntimeInvocationRecord,
+    RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
+    RuntimeInvocationStatus,
     RuntimeProfile,
     RuntimeSafeDisableRequest,
 )
@@ -184,10 +187,66 @@ def _append_event(
             )
     if request.event_kind in {
         DurableRunEventKind.receipt_recorded.value,
-        DurableRunEventKind.completion_verified.value,
         DurableRunEventKind.cancelled.value,
         DurableRunEventKind.failed_terminal.value,
         DurableRunEventKind.dead_lettered.value,
+    }:
+        request_fingerprint_ref = service._events._request_fingerprint(  # noqa: SLF001
+            request
+        )
+        runtime_store = RuntimeInvocationStore(
+            service.state_dir / "trusted_evaluator_runtime"
+        )
+        invocation_idempotency_ref = goal_runtime_module._sha256_ref(  # noqa: SLF001
+            "idempotency-ref:trusted-evaluator-receipt",
+            {"request_fingerprint_ref": request_fingerprint_ref},
+        )
+        created = runtime_store.create_invocation(
+            RuntimeInvocationRequest(
+                requested_authority=RuntimeAuthority.local_model,
+                input_ref=request_fingerprint_ref,
+                safe_summary=(
+                    "Record one exact trusted evaluator receipt projection."
+                ),
+                mission_ref=request.goal_ref,
+                action_ref=request.run_ref,
+                metadata_refs=[request_fingerprint_ref],
+            ),
+            idempotency_ref=invocation_idempotency_ref,
+            local_model_gateway_validated=True,
+        ).record
+        receipt = RuntimeInvocationReceipt(
+            receipt_ref=request.receipt_refs[0],
+            invocation_ref=created.invocation_ref,
+            policy_decision_ref=created.policy_decision.policy_decision_ref,
+            invocation_status=RuntimeInvocationStatus.receipt_recorded,
+            evidence_refs=[request_fingerprint_ref],
+            criterion_verification_bindings=[
+                RuntimeCriterionVerificationBinding.model_validate(
+                    binding.model_dump(mode="json")
+                )
+                for binding in request.criterion_verifier_bindings
+            ],
+            safe_summary=request.safe_summary,
+        )
+        runtime_store.record_receipt(
+            created.invocation_ref,
+            receipt,
+            idempotency_ref=goal_runtime_module._sha256_ref(  # noqa: SLF001
+                "idempotency-ref:trusted-evaluator-receipt-record",
+                {"request_fingerprint_ref": request_fingerprint_ref},
+            ),
+        )
+        return service._events.append(  # noqa: SLF001
+            request,
+            trusted_source=goal_runtime_module.TrustedRunEventSourceBinding(
+                source_kind="runtime_evaluator_receipt",
+                source_ref=created.invocation_ref,
+                source_fingerprint_ref=request_fingerprint_ref,
+            ),
+        )
+    if request.event_kind in {
+        DurableRunEventKind.completion_verified.value,
     }:
         return service._events.append(request)  # noqa: SLF001
     approval_ref = _approved_mutation_ref(
@@ -1874,36 +1933,35 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
     )
 
 
-def test_trusted_event_tombstone_requires_independent_source_provenance(
+def test_receipt_event_rejects_self_attested_trusted_core_provenance(
     tmp_path: Path,
 ) -> None:
     service = GoalRuntimeService(tmp_path)
     request = DurableRunEventAppendRequest(
         run_ref="run-ref:trusted-source-tombstone",
         run_type=AcceptedLocalRunType.local_read_task,
-        event_kind=DurableRunEventKind.failed_terminal,
-        safe_summary="The trusted Core recorded a bounded terminal failure.",
+        event_kind=DurableRunEventKind.receipt_recorded,
+        safe_summary="The trusted Core claimed a bounded successful receipt.",
         proof_refs=["proof-ref:trusted-source-tombstone"],
         receipt_refs=["receipt-ref:trusted-source-tombstone"],
         idempotency_ref="idempotency-ref:trusted-source-test",
         authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
     )
-    event = service._events.append(  # noqa: SLF001
-        request,
-        trusted_source=goal_runtime_module.TrustedRunEventSourceBinding(
-            source_kind="trusted_core_internal",
-            source_ref="source-ref:trusted-source-tombstone",
-            source_fingerprint_ref="source-fingerprint-ref:trusted-source-tombstone",
-        ),
-    )
-    assert event.trusted_source_record_hash_ref is not None
-    service._events.trusted_sources_path.unlink()  # noqa: SLF001
-
     with pytest.raises(
-        GoalRuntimeCorruptionError,
-        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
+        GoalTransitionDeniedError,
+        match="RUN_EVENT_TRUSTED_PRODUCER_REQUIRED",
     ):
-        GoalRuntimeService(tmp_path).events.summaries()
+        service._events.append(  # noqa: SLF001
+            request,
+            trusted_source=goal_runtime_module.TrustedRunEventSourceBinding(
+                source_kind="trusted_core_internal",
+                source_ref="source-ref:trusted-source-tombstone",
+                source_fingerprint_ref=(
+                    "source-fingerprint-ref:trusted-source-tombstone"
+                ),
+            ),
+        )
+    assert not service._events.path.exists()  # noqa: SLF001
 
 
 def test_runtime_trusted_event_must_equal_canonical_producer_projection(
@@ -4189,6 +4247,119 @@ def test_legacy_unknown_goal_receipt_is_quarantined_without_blocking_sync(
     assert len(restarted.events.replay(legacy.invocation_ref).events) == 2
 
 
+@pytest.mark.parametrize(
+    "failure_boundary",
+    ["intent", "records", "head", "intent-delete"],
+)
+def test_projection_incompatibility_append_recovers_every_persistence_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_boundary: str,
+) -> None:
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    goal_ref = "goal-ref:sha256:" + "3" * 64
+    runtime_store = RuntimeInvocationStore(
+        tmp_path / "runtime",
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    record = invoke_governed_command(
+        store=runtime_store,
+        adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        request=RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref=goal_ref,
+            safe_summary="Record one bounded historical projection mismatch.",
+        ),
+        idempotency_ref=(
+            f"idempotency-ref:projection-incompatibility:{failure_boundary}"
+        ),
+    ).record
+    service = GoalRuntimeService(tmp_path / "goals")
+    with service._runtime_projection_goal_absence_guard(  # noqa: SLF001
+        goal_ref
+    ) as goal_absence_proof_ref:
+        assert goal_absence_proof_ref is not None
+        original_atomic_write = goal_runtime_module._atomic_write  # noqa: SLF001
+        target_path = {
+            "intent": service._events.incompatibilities_append_intent_path,
+            "records": service._events.incompatibilities_path,
+            "head": service._events.incompatibilities_head_path,
+        }.get(failure_boundary)
+
+        def interrupt_atomic_write(path: Path, content: str) -> None:
+            if target_path is not None and path == target_path:
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+            original_atomic_write(path, content)
+
+        original_delete = (
+            service._events._delete_projection_incompatibility_append_intent
+        )
+
+        def interrupt_delete() -> None:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            interrupt_atomic_write,
+        )
+        if failure_boundary == "intent-delete":
+            monkeypatch.setattr(
+                service._events,
+                "_delete_projection_incompatibility_append_intent",
+                interrupt_delete,
+            )
+        with pytest.raises(
+            GoalRuntimeError,
+            match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+        ):
+            service._events.quarantine_projection_incompatibility(  # noqa: SLF001
+                record,
+                goal_absence_proof_ref=goal_absence_proof_ref,
+            )
+
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            original_atomic_write,
+        )
+        monkeypatch.setattr(
+            service._events,
+            "_delete_projection_incompatibility_append_intent",
+            original_delete,
+        )
+        if failure_boundary == "intent":
+            assert service.events.projection_incompatibilities() == []
+        else:
+            with pytest.raises(
+                GoalRuntimeCorruptionError,
+                match=(
+                    "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_RECOVERY_REQUIRED"
+                ),
+            ):
+                service.events.projection_incompatibilities()
+        recovered = service._events.quarantine_projection_incompatibility(  # noqa: SLF001
+            record,
+            goal_absence_proof_ref=goal_absence_proof_ref,
+        )
+
+    assert recovered.invocation_ref == record.invocation_ref
+    assert not service._events.incompatibilities_append_intent_path.exists()
+    assert GoalRuntimeService(
+        tmp_path / "goals"
+    ).events.projection_incompatibilities() == [recovered]
+
+
 def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
     tmp_path: Path,
 ) -> None:
@@ -5229,20 +5400,21 @@ def test_run_event_reorder_idempotency_completion_and_terminal_fences(
             ),
         )
 
-    completed = service._events.append(  # noqa: SLF001
+    terminal = _append_event(
+        service,
         DurableRunEventAppendRequest(
             run_ref=run_ref,
             run_type=AcceptedLocalRunType.local_read_task,
-            event_kind=DurableRunEventKind.completion_verified,
-            safe_summary="The linked receipt deterministically verified completion.",
+            event_kind=DurableRunEventKind.failed_terminal,
+            safe_summary="The bounded run reached a proof-backed terminal fence.",
             proof_refs=["proof-ref:fences:receipt"],
             receipt_refs=["receipt-ref:fences:receipt"],
             goal_ref="goal-ref:fences",
-            idempotency_ref="idempotency-ref:fences:completion",
+            idempotency_ref="idempotency-ref:fences:terminal",
             authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-        )
+        ),
     )
-    assert completed.sequence == 2
+    assert terminal.sequence == 2
     with pytest.raises(
         GoalTransitionDeniedError,
         match="RUN_EVENT_TERMINAL_STREAM_FENCE",
@@ -5270,7 +5442,7 @@ def test_run_event_reorder_idempotency_completion_and_terminal_fences(
     )
     with pytest.raises(
         GoalTransitionDeniedError,
-        match="RUN_EVENT_COMPLETION_RECEIPT_NOT_FOUND",
+        match="RUN_EVENT_TRUSTED_PRODUCER_REQUIRED",
     ):
         service._events.append(  # noqa: SLF001
             DurableRunEventAppendRequest(
@@ -6171,7 +6343,7 @@ def test_completion_rejects_cross_criterion_and_recomputed_client_evidence(
         )
 
 
-def test_completion_rejects_cross_transaction_verifier_binding(
+def test_receipt_producer_rejects_cross_transaction_verifier_binding(
     tmp_path: Path,
 ) -> None:
     service = GoalRuntimeService(tmp_path)
@@ -6198,57 +6370,28 @@ def test_completion_rejects_cross_transaction_verifier_binding(
         binding.model_copy(update={"goal_ref": "goal-ref:other-transaction"})
         for binding in _criterion_bindings(requested, proof_refs)
     ]
-    _append_event(
-        service,
-        DurableRunEventAppendRequest(
-            run_ref="run-ref:accepted-local:one",
-            run_type=AcceptedLocalRunType.local_read_task,
-            event_kind=DurableRunEventKind.receipt_recorded,
-            safe_summary="A different transaction cannot verify this goal.",
-            proof_refs=[
-                *proof_refs,
-                *(binding.evaluator_receipt_ref for binding in bindings),
-            ],
-            receipt_refs=["receipt-ref:cross-transaction"],
-            criterion_verifier_bindings=bindings,
-            goal_ref=created.goal_ref,
-            plan_ref="plan-ref:accepted-local:one",
-            idempotency_ref="idempotency-ref:cross-transaction:receipt",
-            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
-        ),
-    )
-    evidence = GoalCompletionEvidence(
-        goal_ref=created.goal_ref,
-        goal_version=requested.version,
-        run_ref="run-ref:accepted-local:one",
-        receipt_ref="receipt-ref:cross-transaction",
-        proof_ref=proof_refs[0],
-        criterion_proof_refs=proof_refs,
-        evidence_ref=build_goal_completion_evidence_ref(
-            requested,
-            run_ref="run-ref:accepted-local:one",
-            receipt_ref="receipt-ref:cross-transaction",
-            proof_ref=proof_refs[0],
-            criterion_verifier_bindings=bindings,
-            plan_ref="plan-ref:accepted-local:one",
-        ),
-        verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
-    )
-
     with pytest.raises(
-        GoalTransitionDeniedError,
-        match="GOAL_COMPLETION_CRITERION_VERIFIER_BINDING_MISMATCH",
+        ValueError,
+        match="RUNTIME_CRITERION_VERIFICATION_GOAL_BINDING_MISMATCH",
     ):
-        _transition_goal(
+        _append_event(
             service,
-            created.goal_ref,
-            GoalTransitionRequest(
-                expected_version=requested.version,
-                transition=GoalTransitionKind.verify_completion,
-                reason_ref="reason-ref:cross-transaction:verify",
-                completion_evidence=evidence,
+            DurableRunEventAppendRequest(
+                run_ref="run-ref:accepted-local:one",
+                run_type=AcceptedLocalRunType.local_read_task,
+                event_kind=DurableRunEventKind.receipt_recorded,
+                safe_summary="A different transaction cannot verify this goal.",
+                proof_refs=[
+                    *proof_refs,
+                    *(binding.evaluator_receipt_ref for binding in bindings),
+                ],
+                receipt_refs=["receipt-ref:cross-transaction"],
+                criterion_verifier_bindings=bindings,
+                goal_ref=created.goal_ref,
+                plan_ref="plan-ref:accepted-local:one",
+                idempotency_ref="idempotency-ref:cross-transaction:receipt",
+                authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
             ),
-            idempotency_ref="idempotency-ref:cross-transaction:verify",
         )
 
 
@@ -7955,7 +8098,7 @@ def test_successful_receipt_summary_survives_later_events_and_compaction(
     assert read_model.completed_run_count == 1
 
 
-def test_quarantine_capacity_does_not_block_later_current_receipt_sync(
+def test_quarantine_capacity_fails_closed_before_later_receipt_sync(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -8000,22 +8143,26 @@ def test_quarantine_capacity_does_not_block_later_current_receipt_sync(
         1,
     )
     service = GoalRuntimeService(tmp_path / "goals")
-    projected = service.sync_runtime_invocations(
-        records,
-        invocation_store=store,
-    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED",
+    ):
+        service.sync_runtime_invocations(
+            records,
+            invocation_store=store,
+        )
 
-    assert {event.run_ref for event in projected} == {records[-1].invocation_ref}
     incompatibilities = service.events.projection_incompatibilities()
     assert [item.invocation_ref for item in incompatibilities] == [
         records[0].invocation_ref
     ]
     restarted = GoalRuntimeService(tmp_path / "goals")
-    assert (
+    with pytest.raises(
+        GoalRuntimeError,
+        match="RUNTIME_PROJECTION_INCOMPATIBILITY_CAPACITY_EXCEEDED",
+    ):
         restarted.sync_runtime_invocations(
             records,
             invocation_store=store,
         )
-        == []
-    )
-    assert len(restarted.events.replay(records[-1].invocation_ref).events) == 2
+    assert not restarted.events.replay(records[-1].invocation_ref).events

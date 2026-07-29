@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from scripts.dev import uaa_runtime
 import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
+import ultimate_ai_agent.core.runtime_gateway.storage as runtime_storage
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -878,6 +879,48 @@ def test_runtime_store_mutation_lock_rejects_symlinked_state_root_ancestor(
         RuntimeInvocationStore(state_dir).list_invocations_locked()
 
     assert not (real_parent / "runtime" / "runtime_gateway_invocations.lock").exists()
+
+
+def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    preserved_dir = tmp_path / "runtime-preserved"
+    store = RuntimeInvocationStore(state_dir)
+    real_open = os.open
+    exchanged = False
+
+    def exchanging_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal exchanged
+        if (
+            not exchanged
+            and path == runtime_storage.RUNTIME_GATEWAY_LOCK
+            and dir_fd is not None
+        ):
+            exchanged = True
+            state_dir.rename(preserved_dir)
+            state_dir.mkdir(mode=0o700)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", exchanging_open)
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        store.list_invocations_locked()
+
+    assert exchanged is True
+    assert (
+        preserved_dir / runtime_storage.RUNTIME_GATEWAY_LOCK
+    ).is_file()
+    assert not (state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK).exists()
 
 
 def test_runtime_store_ledger_read_rejects_inode_substitution_between_stat_and_open(

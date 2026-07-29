@@ -181,12 +181,12 @@ def _runtime_gateway_state_dir_key(state_dir: Path) -> str:
     return os.path.abspath(os.fspath(state_dir))
 
 
-def _runtime_gateway_state_dir_chain_identity(
+def _open_runtime_gateway_state_dir(
     state_dir: Path,
     *,
     create: bool,
-) -> tuple[int, int] | None:
-    """Open every configured state-root component without following links."""
+) -> tuple[int, tuple[int, int]] | None:
+    """Open and retain the exact validated state-root directory descriptor."""
 
     if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
         raise OSError("runtime gateway state directory guard unavailable")
@@ -223,6 +223,24 @@ def _runtime_gateway_state_dir_chain_identity(
             raise OSError("runtime gateway state directory identity mismatch")
         if create:
             os.fchmod(descriptor, 0o700)
+        retained_descriptor = descriptor
+        descriptor = -1
+        return retained_descriptor, identity
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _runtime_gateway_state_dir_chain_identity(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> tuple[int, int] | None:
+    opened = _open_runtime_gateway_state_dir(state_dir, create=create)
+    if opened is None:
+        return None
+    descriptor, identity = opened
+    try:
         return identity
     finally:
         os.close(descriptor)
@@ -2115,22 +2133,20 @@ class RuntimeInvocationStore:
 
     @contextmanager
     def _exclusive_mutation(self):
-        try:
-            _validate_runtime_gateway_state_dir(self.state_dir, create=True)
-        except OSError as exc:
-            raise RuntimeInvocationStorageError(
-                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
-            ) from exc
         directory_fd = -1
         lock_fd = -1
         with self._process_lock:
             try:
-                directory_fd = os.open(
+                opened = _open_runtime_gateway_state_dir(
                     self.state_dir,
-                    os.O_RDONLY
-                    | os.O_DIRECTORY
-                    | os.O_NOFOLLOW
-                    | getattr(os, "O_CLOEXEC", 0),
+                    create=True,
+                )
+                if opened is None:
+                    raise OSError("runtime gateway state directory missing")
+                directory_fd, identity = opened
+                _bind_runtime_gateway_state_dir_identity(
+                    self.state_dir,
+                    identity,
                 )
                 lock_fd = os.open(
                     RUNTIME_GATEWAY_LOCK,
