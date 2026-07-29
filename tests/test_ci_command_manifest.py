@@ -414,6 +414,30 @@ def test_focused_python_plan_selects_an_exact_owned_test() -> None:
     assert "risk-focused-pytest" in plan.selected_unit_refs
     assert plan.selected_test_refs == (
         "tests/test_agent_capability_evaluation.py",
+        "tests/test_goat_comparison_findings.py",
+    )
+
+
+def test_frontend_evaluator_change_schedules_cross_surface_affected_pytest() -> None:
+    source_ref = "apps/control-center/src/App.test.tsx"
+
+    plan = manifest.build_plan(
+        ROOT,
+        SHA,
+        change_records=(
+            manifest.ChangeRecord(manifest.ChangeKind.MODIFIED, (source_ref,)),
+        ),
+        base_sha=SHA,
+        shadow_mode=True,
+        verify_repository_state=False,
+    )
+
+    assert "risk-focused-pytest" in plan.selected_unit_refs
+    assert "risk-frontend-tests" in plan.selected_unit_refs
+    assert "command:pytest.focused" in plan.selected_command_refs
+    assert "command:frontend.unit-tests" in plan.selected_command_refs
+    assert plan.selected_test_refs == (
+        "tests/test_goat_comparison_findings.py",
     )
 
 

@@ -89,6 +89,14 @@ The machine-verifiable inventory lives in
 failure behavior live in
 `docs/developer/CI_EVIDENCE_DAG_ARCHITECTURE.md`.
 
+Affected verification treats exact test ownership as cross-surface. If a
+frontend, dependency, evaluator, runtime, or test input participates in the
+content-bound Goat comparison evaluator source envelope, changing that input
+selects `tests/test_goat_comparison_findings.py` and the affected-pytest unit
+in addition to its native verification units. A registry-equivalence test
+binds this ownership list to `evaluation_source_paths()`, so a new evaluator
+input cannot silently bypass the early golden-evidence drift check.
+
 ## Binary release boundary
 
 A pushed tag verifies the macOS package in a read-only, secret-free job and

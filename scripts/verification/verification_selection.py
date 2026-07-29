@@ -113,17 +113,95 @@ class VerificationSelection:
             raise ValueError("VERIFICATION_SELECTION_FINGERPRINT_MISMATCH")
 
 
+GOAT_EVIDENCE_SOURCE_PATHS: tuple[str, ...] = (
+    "apps/control-center/package-lock.json",
+    "apps/control-center/package.json",
+    "apps/control-center/src/App.test.tsx",
+    "apps/control-center/src/components/AuthorityMissionInspectionPanel.test.tsx",
+    "pyproject.toml",
+    "scripts/run_agent_capability_evaluation.py",
+    "scripts/run_uaa_runtime_phase09_benchmark.py",
+    "scripts/verify_capability_maturity_uplift.py",
+    "scripts/verify_goat_comparison_findings.py",
+    "scripts/verify_uaa_runtime_cockpit_cli_api.py",
+    "scripts/verify_web_hybrid_contracts.py",
+    "src/ultimate_ai_agent/core/authority/dispatcher.py",
+    "src/ultimate_ai_agent/core/capability_availability/read_model.py",
+    "src/ultimate_ai_agent/core/evals/capability_maturity.py",
+    "src/ultimate_ai_agent/core/evals/capability_metrics.py",
+    "src/ultimate_ai_agent/core/execution/durable_mission_controls.py",
+    "src/ultimate_ai_agent/core/execution/durable_mission_worker.py",
+    "src/ultimate_ai_agent/core/execution/mission_completion.py",
+    "src/ultimate_ai_agent/core/execution/mission_orchestrator.py",
+    "src/ultimate_ai_agent/core/execution/portable_mission_evidence.py",
+    "src/ultimate_ai_agent/core/intent/reasoning_truth.py",
+    "src/ultimate_ai_agent/core/memory/review_runtime.py",
+    "src/ultimate_ai_agent/core/planning/revisions.py",
+    "src/ultimate_ai_agent/core/runtime_gateway/remote_execution_posture.py",
+    "src/ultimate_ai_agent/core/web_access/research_aggregation.py",
+    "tests/test_agent_capability_evaluation.py",
+    "tests/test_authority_dispatcher_approval_and_start.py",
+    "tests/test_authority_dispatcher_settlement_reconciliation.py",
+    "tests/test_authority_mission_approval_wait.py",
+    "tests/test_authority_mission_completion_surfaces.py",
+    "tests/test_authority_mission_controls.py",
+    "tests/test_authority_mission_orchestrator_hardening.py",
+    "tests/test_capability_availability.py",
+    "tests/test_chat_to_loop_handoff_v1.py",
+    "tests/test_exact_extension_adapter.py",
+    "tests/test_file_atomic_writes.py",
+    "tests/test_founder_loop_filesystem_mission.py",
+    "tests/test_goat_comparison_findings.py",
+    "tests/test_governed_memory_context_phase03.py",
+    "tests/test_hermes_runtime_remote_execution_posture.py",
+    "tests/test_m57_gate_integration.py",
+    "tests/test_m81_runtime_sandbox_spec.py",
+    "tests/test_phase01_reasoning_truth.py",
+    "tests/test_portable_mission_evidence.py",
+    "tests/test_provider_router_dry_run.py",
+    "tests/test_runtime_agent_loop_spine.py",
+    "tests/test_runtime_agent_loop_web_hybrid_truth.py",
+    "tests/test_uaa_runtime_phase09_benchmark.py",
+    "tests/test_web_hybrid_contracts.py",
+    "tests/test_web_hybrid_execution.py",
+    "tests/test_web_hybrid_ledger_router.py",
+    "tests/test_web_research_aggregation.py",
+    "uv.lock",
+)
+GOAT_EVIDENCE_TEST_REFS = ("tests/test_goat_comparison_findings.py",)
+
+
 EXACT_SOURCE_TEST_OWNERSHIP: dict[str, tuple[str, ...]] = {
-    "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
-        "tests/test_agent_capability_evaluation.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
-        "tests/test_capability_maturity_integrity.py",
-    ),
-    "src/ultimate_ai_agent/core/evals/regression.py": (
-        "tests/test_m56_agent_eval_regression_harness.py",
-    ),
+    source_path: GOAT_EVIDENCE_TEST_REFS for source_path in GOAT_EVIDENCE_SOURCE_PATHS
 }
+EXACT_SOURCE_TEST_OWNERSHIP.update(
+    {
+        "scripts/run_agent_capability_evaluation.py": (
+            "tests/test_agent_capability_evaluation.py",
+            "tests/test_verification_selection.py",
+            *GOAT_EVIDENCE_TEST_REFS,
+        ),
+        "scripts/run_uaa_runtime_phase09_benchmark.py": (
+            "tests/test_uaa_runtime_phase09_benchmark.py",
+            "tests/test_verification_selection.py",
+            *GOAT_EVIDENCE_TEST_REFS,
+        ),
+        "scripts/verification/verification_selection.py": (
+            "tests/test_verification_selection.py",
+        ),
+        "src/ultimate_ai_agent/core/evals/capability_metrics.py": (
+            "tests/test_agent_capability_evaluation.py",
+            *GOAT_EVIDENCE_TEST_REFS,
+        ),
+        "src/ultimate_ai_agent/core/evals/capability_maturity.py": (
+            "tests/test_capability_maturity_integrity.py",
+            *GOAT_EVIDENCE_TEST_REFS,
+        ),
+        "src/ultimate_ai_agent/core/evals/regression.py": (
+            "tests/test_m56_agent_eval_regression_harness.py",
+        ),
+    }
+)
 
 PREFIX_TEST_OWNERSHIP: tuple[
     tuple[str, tuple[str, ...], tuple[str, ...]], ...
@@ -471,6 +549,13 @@ def select_verification(
         risk_selection,
         full_unit_refs=full_unit_refs,
     )
+    if (
+        ownership.selected_test_refs
+        and risk_selection.tier is not VerificationRiskTier.TIER_3
+    ):
+        selected_unit_refs = tuple(
+            sorted({*selected_unit_refs, "risk-focused-pytest"})
+        )
     if unknown_selected := set(selected_unit_refs) - known_unit_refs:
         raise ValueError(
             f"VERIFICATION_SELECTED_UNIT_REFS_UNKNOWN:{sorted(unknown_selected)}"
