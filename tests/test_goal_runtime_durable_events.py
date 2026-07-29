@@ -1159,6 +1159,50 @@ def test_committed_run_event_replay_survives_revocation_with_original_ref_only(
     assert len(restarted.events.replay(request.run_ref).events) == 1
 
 
+@pytest.mark.parametrize(
+    "reserved_ref",
+    [
+        "idempotency-ref:goal-completion-event:forged",
+        "idempotency-ref:runtime-run-started:forged",
+        "idempotency-ref:runtime-receipt-recorded:forged",
+        "idempotency-ref:runtime-failed-terminal:forged",
+    ],
+)
+def test_public_event_approval_rejects_trusted_core_idempotency_namespaces(
+    tmp_path: Path,
+    reserved_ref: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:reserved-trusted-core-namespace",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.run_started,
+        safe_summary="A public metadata event attempted a reserved namespace.",
+        idempotency_ref=reserved_ref,
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="RUN_EVENT_TRUSTED_IDEMPOTENCY_NAMESPACE_RESERVED",
+    ):
+        service.prepare_goal_mutation_approval(
+            operation="append-run-event",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=reserved_ref,
+        )
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="RUN_EVENT_TRUSTED_IDEMPOTENCY_NAMESPACE_RESERVED",
+    ):
+        service.append_run_event(
+            request,
+            approval_ref="approval-ref:forged",
+        )
+    assert not service._approvals.path.exists()  # noqa: SLF001
+    assert not service._events.path.exists()  # noqa: SLF001
+
+
 def test_committed_goal_and_event_replay_survive_approval_expiry(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1459,10 +1503,11 @@ def test_transition_replay_rejects_fabricated_approval_before_recovery(
 
     def interrupt_completion_event(
         request: DurableRunEventAppendRequest,
+        **kwargs: object,
     ) -> DurableRunEvent:
         if request.event_kind == DurableRunEventKind.completion_verified.value:
             raise OSError("simulated completion projection interruption")
-        return original_append(request)
+        return original_append(request, **kwargs)
 
     monkeypatch.setattr(
         service._events,  # noqa: SLF001
@@ -1646,6 +1691,10 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
             "goal_mutation_approval_ref": None,
             "goal_mutation_approval_decision_ref": None,
             "goal_mutation_approval_ledger_entry_hash_ref": None,
+            "trusted_source_record_hash_ref": goal_runtime_module._sha256_ref(  # noqa: SLF001
+                "record-hash-ref:trusted-run-event-source",
+                {"forged_from": public_event.event_ref},
+            ),
             "event_hash_ref": "event-hash-ref:pending",
         }
     )
@@ -1694,7 +1743,7 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION",
+        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
     ):
         _transition_goal(
             GoalRuntimeService(tmp_path),
@@ -1711,6 +1760,38 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
         GoalRuntimeService(tmp_path).goals.get(requested.goal_ref).state
         == GoalState.complete_requested.value
     )
+
+
+def test_trusted_event_tombstone_requires_independent_source_provenance(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    request = DurableRunEventAppendRequest(
+        run_ref="run-ref:trusted-source-tombstone",
+        run_type=AcceptedLocalRunType.local_read_task,
+        event_kind=DurableRunEventKind.failed_terminal,
+        safe_summary="The trusted Core recorded a bounded terminal failure.",
+        proof_refs=["proof-ref:trusted-source-tombstone"],
+        receipt_refs=["receipt-ref:trusted-source-tombstone"],
+        idempotency_ref="idempotency-ref:trusted-source-test",
+        authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+    )
+    event = service._events.append(  # noqa: SLF001
+        request,
+        trusted_source=goal_runtime_module.TrustedRunEventSourceBinding(
+            source_kind="trusted_core_internal",
+            source_ref="source-ref:trusted-source-tombstone",
+            source_fingerprint_ref="source-fingerprint-ref:trusted-source-tombstone",
+        ),
+    )
+    assert event.trusted_source_record_hash_ref is not None
+    service._events.trusted_sources_path.unlink()  # noqa: SLF001
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).events.summaries()
 
 
 @pytest.mark.parametrize(
@@ -1886,6 +1967,7 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
 
     def fail_terminal_append_once(
         request: DurableRunEventAppendRequest,
+        **kwargs: object,
     ) -> DurableRunEvent:
         nonlocal failed_once
         if (
@@ -1894,7 +1976,7 @@ def test_verified_completion_recovers_exact_terminal_event_after_restart(
         ):
             failed_once = True
             raise OSError("simulated completion event commit interruption")
-        return original_append(request)
+        return original_append(request, **kwargs)
 
     monkeypatch.setattr(
         service._events,
@@ -5458,6 +5540,71 @@ def test_goal_mutation_submission_rejection_survives_restart_and_blocks_replay(
         )
 
 
+@pytest.mark.parametrize("terminal_action", ["deny", "revoke"])
+def test_terminal_approval_converges_linked_submission_before_ledger_commit(
+    tmp_path: Path,
+    terminal_action: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    evidence_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:" + "d" * 64
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [evidence_ref]}
+    )
+    idempotency_ref = f"idempotency-ref:approval-submission:{terminal_action}"
+    service.record_goal_mutation_submission(
+        submission_ref=f"submission-ref:approval-submission:{terminal_action}",
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    spec = service.prepare_goal_mutation_approval(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    reason_ref = f"reason-ref:approval-submission:{terminal_action}"
+    if terminal_action == "deny":
+        terminal = service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="deny",
+            decision_reason_ref=reason_ref,
+        )
+        replayed = GoalRuntimeService(tmp_path).decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="deny",
+            decision_reason_ref=reason_ref,
+        )
+    else:
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref="reason-ref:approval-submission:approve",
+        )
+        terminal = service.revoke_goal_mutation_approval(
+            approval_ref=spec.approval_ref,
+            decision_reason_ref=reason_ref,
+        )
+        replayed = GoalRuntimeService(tmp_path).revoke_goal_mutation_approval(
+            approval_ref=spec.approval_ref,
+            decision_reason_ref=reason_ref,
+        )
+    assert replayed.entry_hash_ref == terminal.entry_hash_ref
+    recovery = build_runtime_run_events_read_model(
+        service=GoalRuntimeService(tmp_path)
+    ).goal_mutation_submissions
+    [record] = recovery.records
+    assert record.status == "rejected"
+    assert record.rejection_reason_ref == reason_ref
+    assert record.approval_recovery.posture == (
+        "denied" if terminal_action == "deny" else "revoked"
+    )
+    assert record.approval_recovery.authoritative_current
+
+
 def test_goal_mutation_submission_exact_replay_rejects_substitution(
     tmp_path: Path,
 ) -> None:
@@ -6148,26 +6295,17 @@ def test_approval_admission_reserves_exact_revocation_count_capacity(
     )
     service = GoalRuntimeService(tmp_path)
     request = _create_request()
-    spec = service.prepare_goal_mutation_approval(
-        operation="create",
-        goal_ref=None,
-        request=request,
-        idempotency_ref="idempotency-ref:approval-reserve-count",
-    )
-
     with pytest.raises(
         GoalRuntimeError,
         match="GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED",
     ):
-        service.decide_goal_mutation_approval(
-            approval_request_ref=spec.approval_request_ref,
-            decision="approve",
-            decision_reason_ref="reason-ref:approval-reserve-count",
+        service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref="idempotency-ref:approval-reserve-count",
         )
-
-    restarted = GoalRuntimeService(tmp_path)
-    [pending] = restarted._approvals._load_entries()  # noqa: SLF001
-    assert pending.status == "pending"
+    assert not service._approvals.path.exists()  # noqa: SLF001
 
 
 def test_goal_reads_fail_closed_when_approval_ledger_is_missing(
@@ -6487,12 +6625,6 @@ def test_approval_admission_reserves_encoded_revocation_bytes(
     assert projected_bytes > approved_bytes
 
     service = GoalRuntimeService(tmp_path / "subject")
-    spec = service.prepare_goal_mutation_approval(
-        operation="create",
-        goal_ref=None,
-        request=request,
-        idempotency_ref="idempotency-ref:approval-reserve-bytes",
-    )
     monkeypatch.setattr(
         goal_runtime_module,
         "MAX_GOAL_MUTATION_APPROVAL_LEDGER_BYTES",
@@ -6502,13 +6634,13 @@ def test_approval_admission_reserves_encoded_revocation_bytes(
         GoalRuntimeError,
         match="GOAL_MUTATION_APPROVAL_LEDGER_CAPACITY_EXCEEDED",
     ):
-        service.decide_goal_mutation_approval(
-            approval_request_ref=spec.approval_request_ref,
-            decision="approve",
-            decision_reason_ref="reason-ref:approval-reserve-bytes",
+        service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref="idempotency-ref:approval-reserve-bytes",
         )
-    [pending] = service._approvals._load_entries()  # noqa: SLF001
-    assert pending.status == "pending"
+    assert not service._approvals.path.exists()  # noqa: SLF001
 
 
 def test_multiple_approved_requests_retain_independent_revocation_slots(
