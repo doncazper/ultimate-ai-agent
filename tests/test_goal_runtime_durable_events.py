@@ -115,7 +115,7 @@ def _completion_evidence(
             plan_ref=plan_ref,
         ),
         verifier_ref=GOAL_COMPLETION_VERIFIER_REF,
-)
+    )
 
 
 def _approved_mutation_ref(
@@ -123,7 +123,10 @@ def _approved_mutation_ref(
     *,
     operation: str,
     goal_ref: str | None,
-    request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest | DurableRunEventAppendRequest,
+    request: GoalCreateRequest
+    | GoalEditRequest
+    | GoalTransitionRequest
+    | DurableRunEventAppendRequest,
     idempotency_ref: str,
 ) -> str:
     spec = service.prepare_goal_mutation_approval(
@@ -758,15 +761,11 @@ def test_goal_approval_first_append_recovers_only_from_exact_append_intent(
     assert recovered.operation == "create"
     assert (
         json.loads(
-            (tmp_path / "goal_mutation_approvals_head.json").read_text(
-                encoding="utf-8"
-            )
+            (tmp_path / "goal_mutation_approvals_head.json").read_text(encoding="utf-8")
         )["entry_count"]
         == 1
     )
-    assert not (
-        tmp_path / "goal_mutation_approvals_append_intent.json"
-    ).exists()
+    assert not (tmp_path / "goal_mutation_approvals_append_intent.json").exists()
 
 
 @pytest.mark.parametrize("failure_boundary", ["ledger", "head", "cleanup"])
@@ -850,15 +849,11 @@ def test_goal_approval_later_append_recovers_only_from_exact_append_intent(
     assert recovered.status == "approved"
     assert (
         json.loads(
-            (tmp_path / "goal_mutation_approvals_head.json").read_text(
-                encoding="utf-8"
-            )
+            (tmp_path / "goal_mutation_approvals_head.json").read_text(encoding="utf-8")
         )["entry_count"]
         == 2
     )
-    assert not (
-        tmp_path / "goal_mutation_approvals_append_intent.json"
-    ).exists()
+    assert not (tmp_path / "goal_mutation_approvals_append_intent.json").exists()
 
 
 def test_goal_approval_one_ahead_without_append_intent_fails_closed(
@@ -919,10 +914,7 @@ def test_goal_approval_append_intent_rejects_mismatch_and_old_replay(
 
     def interrupt_head(path: Path, content: str) -> None:
         nonlocal interrupted
-        if (
-            not interrupted
-            and path.name == "goal_mutation_approvals_head.json"
-        ):
+        if not interrupted and path.name == "goal_mutation_approvals_head.json":
             interrupted = True
             raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
         original_atomic_write(path, content)
@@ -1464,11 +1456,14 @@ def test_revoke_serializes_after_inflight_goal_commit(
         service._approvals._load_entries()[-1].status  # noqa: SLF001
         == "revoked"
     )
-    assert GoalRuntimeService(tmp_path).create_goal(
-        request,
-        idempotency_ref=idempotency_ref,
-        approval_ref=approval_ref,
-    )[0] == results["goal"]
+    assert (
+        GoalRuntimeService(tmp_path).create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=approval_ref,
+        )[0]
+        == results["goal"]
+    )
 
 
 def test_transition_replay_rejects_fabricated_approval_before_recovery(
@@ -1717,8 +1712,10 @@ def test_completion_rejects_recomputed_public_event_producer_substitution(
     )
     key = (public_event.run_ref, public_event.idempotency_ref)
     prior_tombstone = tombstones[key]
-    substituted_request = goal_runtime_module.DurableRunEventAppendRequest.model_validate(
-        service._events._event_request_payload(substituted)  # noqa: SLF001
+    substituted_request = (
+        goal_runtime_module.DurableRunEventAppendRequest.model_validate(
+            service._events._event_request_payload(substituted)  # noqa: SLF001
+        )
     )
     substituted_tombstone_draft = prior_tombstone.model_copy(
         update={
@@ -1842,8 +1839,7 @@ def test_completion_reconciliation_requires_exact_approval_generation(
     retained_tombstones = [
         tombstone
         for tombstone in tombstones.values()
-        if tombstone.event.event_kind
-        != DurableRunEventKind.completion_verified.value
+        if tombstone.event.event_kind != DurableRunEventKind.completion_verified.value
     ]
     service._events._write_events(retained)  # noqa: SLF001
     service._events._write_idempotency_tombstones(  # noqa: SLF001
@@ -5549,9 +5545,7 @@ def test_terminal_approval_converges_linked_submission_before_ledger_commit(
     evidence_ref = (
         "evidence-ref:control-center-goal-create-submission:sha256:" + "d" * 64
     )
-    request = _create_request().model_copy(
-        update={"evidence_refs": [evidence_ref]}
-    )
+    request = _create_request().model_copy(update={"evidence_refs": [evidence_ref]})
     idempotency_ref = f"idempotency-ref:approval-submission:{terminal_action}"
     service.record_goal_mutation_submission(
         submission_ref=f"submission-ref:approval-submission:{terminal_action}",
@@ -6418,6 +6412,9 @@ def test_public_event_cannot_be_reclassified_as_trusted_core(
             "goal_mutation_approval_ref": None,
             "goal_mutation_approval_decision_ref": None,
             "goal_mutation_approval_ledger_entry_hash_ref": None,
+            "trusted_source_record_hash_ref": (
+                "record-hash-ref:trusted-run-event-source:sha256:" + "f" * 64
+            ),
             "event_hash_ref": "event-hash-ref:pending",
         }
     )
@@ -6448,7 +6445,7 @@ def test_public_event_cannot_be_reclassified_as_trusted_core(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_PRODUCER_CLASS_SUBSTITUTION",
+        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).events.replay(event.run_ref)
 

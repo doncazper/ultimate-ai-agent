@@ -48,6 +48,9 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     HERMES_CLI_ENV,
     HERMES_INTERFACE_MODE_ENABLED_ENV,
 )
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    GoalRuntimeCorruptionError,
+)
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
     RuntimeExecuteRequest,
@@ -1948,15 +1951,16 @@ def test_runtime_gateway_local_model_replay_key_binds_exact_durable_receipt(
         idempotency_ref="idempotency-ref:runtime-local-model-receipt-key-write",
         payload_fingerprint_ref=("runtime-operation-fingerprint-ref:receipt-key-write"),
     )
-    replacement_replay = gateway.invoke_local_model(
-        request,
-        idempotency_ref=idempotency_ref,
-    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
 
     assert calls == 1
-    assert replacement_replay.replayed is True
-    assert replacement_replay.record.receipt == replacement
-    assert replacement_replay.record.receipt != replay.record.receipt
 
 
 def test_runtime_gateway_blocked_replay_revalidates_before_equal_posture_return(

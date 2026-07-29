@@ -26,8 +26,9 @@ fails closed.
 Goal text is accepted only under the explicit
 `operator_authored_redacted_summary_only` posture and rejects multiline,
 prompt-like, response-like, or secret-like raw-content shapes before durable
-persistence. POSIX, Windows drive, UNC, and file-URI absolute path shapes are
-also rejected without persisting the supplied content.
+persistence or approval preparation. The same canonical secret detector guards
+durable event summaries. POSIX, Windows drive, UNC, and file-URI absolute path
+shapes are also rejected without persisting the supplied content.
 Edit evidence is append-only: newly supplied evidence refs are unioned with
 the prior authoritative snapshot instead of replacing its audit history.
 Every transition journal entry also retains the validated reason ref, covered
@@ -125,7 +126,14 @@ terminal-failure, and dead-letter events require receipt and proof refs; those
 streams are terminal and late success events are rejected.
 An invocation that claims a `goal-ref:` mission is rejected before either the
 command or local-model adapter runs unless that exact ref exists in the durable
-goal journal. Non-goal mission refs retain their existing governed behavior.
+goal journal and its current lifecycle state is `active`. The Core completes
+projection reconciliation and capacity reservation first, then holds the
+canonical approval-to-journal admission locks through adapter dispatch so a
+pause, block, wait, completion request, cancellation, clear, or verified
+completion cannot race between the state check and execution. An exact
+already-committed invocation replay may still return its historical durable
+result after a later goal transition; it cannot cause a new adapter call.
+Non-goal mission refs retain their existing governed behavior.
 Historically accepted receipts with opaque goal-shaped missions are left
 unprojected and recorded once in a bounded, content-bound incompatibility
 quarantine so they cannot block or repeatedly retry during unrelated current
@@ -149,7 +157,12 @@ projected at the Python Core boundary as `run_started` plus
 instead project `run_started` plus proof-backed `failed_terminal`, so their
 receipts can never satisfy goal completion. Public metadata writers reject both
 receipt and completion events; only receipt-validated Core producers may append
-them. Before runtime execution, a private durable reservation
+them. Every newly written trusted event also binds a separately persisted
+source record to the exact durable runtime invocation or completion journal
+entry. Retained events and tombstones revalidate that source generation before
+replay or completion use. The trusted Core idempotency namespaces are reserved
+at both public approval preparation and append, so an operator metadata event
+cannot preoccupy a future projection key. Before runtime execution, a private durable reservation
 secures the exact two-event projection capacity without holding the event lock
 across the bounded runtime call. The reservation is then bound to the exact
 receipt-derived event keys and consumed atomically under the writer lock.
@@ -194,9 +207,13 @@ receipt persistence is independent of consumers, so a slow or disconnected
 reader cannot block the writer or create an unbounded in-memory queue.
 The approval ledger, goal journal, goal-submission recovery store, run events,
 idempotency index, and projection reservations use a private `0700` state
-directory and `0600` files. Approval admission reserves the exact count and
-encoded-byte capacity needed to append a worst-case revocation for every usable
-grant, so the rollback path cannot be consumed by a later ledger append. The
+directory and `0600` files. Every state-root component is opened without
+following links, and the final directory identity is pinned for the process;
+an ancestor link or later directory-chain substitution fails closed before
+read, lock, or atomic replacement. Approval admission reserves the exact count
+and encoded-byte capacity needed to turn every pending request into a maximum
+typed approval and then append its maximum typed revocation. Both grant and
+rollback therefore remain possible at the declared ledger boundary. The
 approval ledger has its own independently replaced head manifest binding the
 exact entry count, terminal entry hash, and current request-state set. Every
 approval append first installs a generic durable intent binding the old head,
@@ -209,7 +226,16 @@ Control Center approval preparation supplies the exact submission ref and
 durably records the complete typed submission envelope before returning the
 approval request. A lost prepare response or process restart can therefore
 recover and retry the same request, idempotency ref, evidence ref, and
-submission ref; React state is not the recovery authority.
+submission ref; React state is not the recovery authority. The aggregate
+submission read model includes the exact authoritative approval request and
+latest durable decision/grant envelope from that same locked approval
+generation. This lets the UI recover an approval issued through CLI or after a
+lost response without synthesizing a new decision or comparing presentation
+reason text. A deny or revoke first resolves the exact linked pending
+submission under the canonical approval, journal, then submission lock order;
+only then is the terminal approval entry installed. A committed submission
+wins exact reconciliation, while an uncommitted one cannot remain indefinitely
+pending behind durable terminal approval truth.
 Completion verification and deterministic completion-event reconciliation use
 the canonical approval, goal-journal, then run-event lock order. They validate
 the exact approval generation, goal-journal approval binding, and every

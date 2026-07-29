@@ -764,6 +764,39 @@ export function RuntimeReadinessPanel({
     };
   }
 
+  async function retryPendingGoalMutationApprovalPreparation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalStatus !== null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice(
+        "No exact backend-owned goal mutation is available for approval preparation retry.",
+      );
+      return;
+    }
+    const retainedPending = pendingGoalMutation;
+    setGoalMutationBusy(true);
+    try {
+      const staged = await stageGoalMutationApproval(retainedPending);
+      setPendingGoalMutation(staged);
+      setGoalReadCurrent(true);
+      setGoalNotice(
+        "The exact recovered goal mutation approval is prepared and awaits an explicit operator decision.",
+      );
+    } catch (error) {
+      setPendingGoalMutation(retainedPending);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Exact goal mutation approval preparation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
   async function createGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!createMutationReady || mutationBinding === null) {
@@ -797,12 +830,7 @@ export function RuntimeReadinessPanel({
         },
         evidence_refs: [],
       };
-      const submission =
-        pendingGoalMutation?.operation === "create"
-          ? pendingGoalMutation
-          : await prepareRuntimeGoalCreateSubmission(
-              request,
-            );
+      const submission = await prepareRuntimeGoalCreateSubmission(request);
       const staged = await stageGoalMutationApproval({
         operation: "create",
         ...submission,
@@ -845,20 +873,17 @@ export function RuntimeReadinessPanel({
     }
     setGoalMutationBusy(true);
     try {
-      const submission =
-        pendingGoalMutation?.operation === "edit"
-          ? pendingGoalMutation
-          : await prepareRuntimeGoalUpdateSubmission(
-              "edit",
-              selectedGoal.goal_ref,
-              {
-                expected_version: selectedGoal.version,
-                text_redaction_posture:
-                  "operator_authored_redacted_summary_only",
-                objective: editedObjective,
-                evidence_refs: [],
-              },
-            );
+      const submission = await prepareRuntimeGoalUpdateSubmission(
+        "edit",
+        selectedGoal.goal_ref,
+        {
+          expected_version: selectedGoal.version,
+          text_redaction_posture:
+            "operator_authored_redacted_summary_only",
+          objective: editedObjective,
+          evidence_refs: [],
+        },
+      );
       const staged = await stageGoalMutationApproval({
         operation: "edit",
         goalRef: selectedGoal.goal_ref,
@@ -5023,6 +5048,22 @@ export function RuntimeReadinessPanel({
             </button>
           ))}
         </div>
+        {pendingGoalMutation?.approvalStatus === null ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The backend retained the exact pending mutation, but its approval
+              preparation was not durably observed. Retry reuses the same request,
+              submission, and idempotency identity.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={retryPendingGoalMutationApprovalPreparation}
+            >
+              Retry exact approval preparation
+            </button>
+          </div>
+        ) : null}
         {pendingGoalMutation?.approvalStatus === "pending" ? (
           <div className="preview-form">
             <p className="section-copy">

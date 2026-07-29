@@ -9663,14 +9663,16 @@ describe("Web Control Center shell", () => {
     );
     expect(
       await screen.findByText(
-        "Recovered an exact backend-owned pending goal submission; retry reuses its original request and identity.",
+        "Recovered an exact backend-owned pending goal submission; approval preparation reuses its original request and identity.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Objective")).toHaveValue(
       "Create one durable goal.",
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Create local goal" }),
+      screen.getByRole("button", {
+        name: "Retry exact approval preparation",
+      }),
     );
     expect(
       await screen.findByRole("button", {
