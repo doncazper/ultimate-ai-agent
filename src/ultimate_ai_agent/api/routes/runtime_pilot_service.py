@@ -1042,6 +1042,19 @@ def _runtime_projection_failure(
         record = _runtime_store().get_invocation_for_idempotency(trace_id)
     except (OSError, RuntimeInvocationStorageError, ValueError):
         record = None
+        invocation_lookup_succeeded = False
+    else:
+        invocation_lookup_succeeded = True
+    if invocation_lookup_succeeded and record is None:
+        execution_truth.update(
+            {
+                "execution_outcome": "not_started",
+                "execution_performed": False,
+                "model_call_performed": False,
+                "command_execution_performed": False,
+                "retry_allowed": True,
+            }
+        )
     if record is not None:
         execution_truth["invocation_ref"] = record.invocation_ref
         if record.receipt is not None:
@@ -1068,7 +1081,7 @@ def _runtime_projection_failure(
                 "The governed runtime durable-event projection failed closed."
             ),
             severity=Severity.high,
-            retryable=False,
+            retryable=bool(execution_truth["retry_allowed"]),
             details_redacted=True,
             source="GovernedRuntimeAPI",
         ),

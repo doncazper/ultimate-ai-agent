@@ -381,6 +381,59 @@ def test_goal_edits_append_evidence_and_transitions_persist_reason(
     )
 
 
+def test_repeated_transitions_roll_up_evidence_and_pin_create_identity(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    create_submission_ref = (
+        "evidence-ref:control-center-goal-create-submission:sha256:"
+        f"{'a' * 64}:ordinal:1"
+    )
+    request = _create_request().model_copy(
+        update={"evidence_refs": [create_submission_ref]}
+    )
+    current = _create_goal(
+        service,
+        request,
+        idempotency_ref="idempotency-ref:bounded-evidence:create",
+    )
+
+    transition_evidence_refs: list[str] = []
+    for index in range(40):
+        transition = (
+            GoalTransitionKind.pause
+            if current.state == GoalState.active.value
+            else GoalTransitionKind.resume
+        )
+        evidence_ref = f"evidence-ref:bounded-transition:{index + 1}"
+        transition_evidence_refs.append(evidence_ref)
+        current = _transition_goal(
+            service,
+            current.goal_ref,
+            GoalTransitionRequest(
+                expected_version=current.version,
+                transition=transition,
+                reason_ref=f"reason-ref:bounded-transition:{index + 1}",
+                evidence_refs=[evidence_ref],
+            ),
+            idempotency_ref=f"idempotency-ref:bounded-transition:{index + 1}",
+        )
+
+    assert current.version == 41
+    assert len(current.evidence_refs) == 32
+    assert current.evidence_refs[0] == create_submission_ref
+    assert current.evidence_refs[1].startswith(
+        "evidence-rollup-ref:goal-runtime:sha256:"
+    )
+    assert transition_evidence_refs[-1] in current.evidence_refs
+    assert transition_evidence_refs[0] not in current.evidence_refs
+    provenance = service.goals.mutation_provenance(current.goal_ref)
+    assert provenance.entry_count == 41
+    assert [entry.transition_reason_ref for entry in provenance.entries[1:]] == [
+        f"reason-ref:bounded-transition:{index + 1}" for index in range(40)
+    ]
+
+
 def test_goal_snapshot_and_provenance_share_one_journal_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

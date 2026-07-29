@@ -4,6 +4,7 @@ import {
   editRuntimeGoal,
   fetchRuntimeRunEvents,
   prepareRuntimeGoalCreateSubmission,
+  prepareRuntimeGoalUpdateSubmission,
   runtimeGoalMutationIdempotencyRef,
   transitionRuntimeGoal,
   type BackendTruthReadBinding,
@@ -378,7 +379,7 @@ describe("proof-backed runtime goal mutations", () => {
     expect(storageWrite).not.toHaveBeenCalled();
   });
 
-  it("advances identical create identity only after the prior submission is durable", async () => {
+  it("advances identical create identity after bounded transition rollup retains the durable ordinal", async () => {
     const firstSubmission = await prepareRuntimeGoalCreateSubmission(
       request,
       [],
@@ -389,7 +390,14 @@ describe("proof-backed runtime goal mutations", () => {
     );
     const acceptedGoal = {
       ...mutationResult.goal,
-      evidence_refs: firstSubmission.request.evidence_refs,
+      evidence_refs: [
+        firstSubmission.submissionEvidenceRef,
+        `evidence-rollup-ref:goal-runtime:sha256:${"a".repeat(64)}`,
+        ...Array.from(
+          { length: 30 },
+          (_, index) => `evidence-ref:bounded-transition:${index + 11}`,
+        ),
+      ],
     };
     const laterIdenticalSubmission =
       await prepareRuntimeGoalCreateSubmission(request, [acceptedGoal]);
@@ -405,6 +413,49 @@ describe("proof-backed runtime goal mutations", () => {
       firstSubmission.idempotencyRef,
     );
     expect(laterAmbiguousRetry).toEqual(laterIdenticalSubmission);
+  });
+
+  it("binds edit and transition retry evidence to the exact update request", async () => {
+    const editRequest = {
+      expected_version: 4,
+      text_redaction_posture:
+        "operator_authored_redacted_summary_only" as const,
+      objective: "Refine one bounded local outcome.",
+      evidence_refs: [],
+    };
+    const edit = await prepareRuntimeGoalUpdateSubmission(
+      "edit",
+      mutationResult.goal.goal_ref,
+      editRequest,
+    );
+    const editRetry = await prepareRuntimeGoalUpdateSubmission(
+      "edit",
+      mutationResult.goal.goal_ref,
+      editRequest,
+    );
+    const transition = await prepareRuntimeGoalUpdateSubmission(
+      "transition",
+      mutationResult.goal.goal_ref,
+      {
+        expected_version: 4,
+        transition: "pause",
+        reason_ref: "reason-ref:goal-client-pause",
+        evidence_refs: ["evidence-ref:goal-client-pause"],
+      },
+    );
+
+    expect(editRetry).toEqual(edit);
+    expect(edit.request.evidence_refs).toContain(edit.submissionEvidenceRef);
+    expect(edit.submissionEvidenceRef).toMatch(
+      /^evidence-ref:control-center-goal-update-submission:edit:sha256:[a-f0-9]{64}$/,
+    );
+    expect(transition.request.evidence_refs).toContain(
+      transition.submissionEvidenceRef,
+    );
+    expect(transition.submissionEvidenceRef).toMatch(
+      /^evidence-ref:control-center-goal-update-submission:transition:sha256:[a-f0-9]{64}$/,
+    );
+    expect(transition.idempotencyRef).not.toBe(edit.idempotencyRef);
   });
 
   it("domain-separates materially distinct mutation payloads, operations, and goals", async () => {

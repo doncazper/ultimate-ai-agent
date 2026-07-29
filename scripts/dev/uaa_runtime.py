@@ -2012,27 +2012,30 @@ def _command_projection_failure_truth(
     runtime_store: RuntimeInvocationStore | None,
     *,
     idempotency_ref: str,
-    invocation_attempted: bool,
 ) -> dict[str, Any]:
     truth: dict[str, Any] = {
-        "execution_outcome": (
-            "unknown_after_projection_failure"
-            if invocation_attempted
-            else "not_started"
-        ),
-        "execution_performed": None if invocation_attempted else False,
-        "command_execution_performed": None if invocation_attempted else False,
+        "execution_outcome": "unknown_after_projection_failure",
+        "execution_performed": None,
+        "command_execution_performed": None,
         "invocation_ref": None,
         "receipt_ref": None,
         "retry_allowed": False,
     }
-    if runtime_store is None or not invocation_attempted:
+    if runtime_store is None:
         return truth
     try:
         record = runtime_store.get_invocation_for_idempotency(idempotency_ref)
     except (OSError, RuntimeInvocationStorageError, ValueError):
         return truth
     if record is None:
+        truth.update(
+            {
+                "execution_outcome": "not_started",
+                "execution_performed": False,
+                "command_execution_performed": False,
+                "retry_allowed": True,
+            }
+        )
         return truth
     truth["invocation_ref"] = record.invocation_ref
     receipt = record.receipt
@@ -2051,7 +2054,6 @@ def _command_projection_failure_truth(
 
 def _command_run(args: argparse.Namespace) -> int:
     runtime_store: RuntimeInvocationStore | None = None
-    invocation_attempted = False
     try:
         request = RuntimeCommandExecutionRequest(
             intent=args.intent,
@@ -2073,7 +2075,6 @@ def _command_run(args: argparse.Namespace) -> int:
             store=runtime_store,
             goal_runtime_service=goal_service,
         )
-        invocation_attempted = True
         result = gateway.invoke_command(
             request,
             idempotency_ref=args.idempotency_ref,
@@ -2108,7 +2109,6 @@ def _command_run(args: argparse.Namespace) -> int:
         execution_truth = _command_projection_failure_truth(
             runtime_store,
             idempotency_ref=args.idempotency_ref,
-            invocation_attempted=invocation_attempted,
         )
         error_category = (
             str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
@@ -4163,7 +4163,7 @@ def _stable_runtime_cli_error_code(
         and message.startswith(("GOAL_", "RUN_EVENT_"))
     ):
         return message
-    if isinstance(exc, ValidationError):
+    if isinstance(exc, (ValidationError, ValueError)):
         return validation_code
     if isinstance(exc, OSError):
         return storage_code
@@ -4255,7 +4255,7 @@ def _goal_show(args: argparse.Namespace) -> int:
     try:
         goal_store = _goal_runtime_service(args).goals
         goal, mutation_provenance = goal_store.goal_with_provenance(args.goal_ref)
-    except (GoalRuntimeError, OSError) as exc:
+    except (GoalRuntimeError, OSError, ValueError) as exc:
         return _goal_cli_failure(
             args,
             command_ref="repo-local-command:uaa-runtime-goal-show",

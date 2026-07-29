@@ -9413,8 +9413,12 @@ const RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN =
   "uaa.control-center.runtime-goal-mutation-idempotency.v1";
 const RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN =
   "uaa.control-center.runtime-goal-create-submission.v1";
+const RUNTIME_GOAL_UPDATE_SUBMISSION_DOMAIN =
+  "uaa.control-center.runtime-goal-update-submission.v1";
 const RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX =
   "evidence-ref:control-center-goal-create-submission:sha256:";
+const RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX =
+  "evidence-ref:control-center-goal-update-submission:";
 
 async function sha256Hex(value: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
@@ -9506,6 +9510,68 @@ export async function prepareRuntimeGoalCreateSubmission(
       goalRef: null,
       request: submissionRequest,
     }),
+    submissionEvidenceRef,
+  };
+}
+
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "edit",
+  goalRef: string,
+  request: RuntimeGoalEditRequest,
+): Promise<{
+  request: RuntimeGoalEditRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+}>;
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "transition",
+  goalRef: string,
+  request: RuntimeGoalTransitionRequest,
+): Promise<{
+  request: RuntimeGoalTransitionRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+}>;
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "edit" | "transition",
+  goalRef: string,
+  request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest,
+): Promise<{
+  request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+}> {
+  if (!isSafeTrustAuthorityRef(goalRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  const evidenceRefs = (request.evidence_refs ?? []).filter(
+    (ref) =>
+      !ref.startsWith(RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX),
+  );
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_UPDATE_SUBMISSION_DOMAIN,
+    operation,
+    goal_ref: goalRef,
+    request: {
+      ...request,
+      evidence_refs: evidenceRefs,
+    },
+  });
+  const intentDigest = await sha256Hex(canonicalIntent);
+  const submissionEvidenceRef =
+    `${RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}${operation}:` +
+    `sha256:${intentDigest}`;
+  const submissionRequest = {
+    ...request,
+    evidence_refs: [...evidenceRefs, submissionEvidenceRef],
+  };
+  return {
+    request: submissionRequest,
+    idempotencyRef: await runtimeGoalMutationIdempotencyRef({
+      operation,
+      goalRef,
+      request: submissionRequest,
+    } as RuntimeGoalMutationIdentityMaterial),
     submissionEvidenceRef,
   };
 }

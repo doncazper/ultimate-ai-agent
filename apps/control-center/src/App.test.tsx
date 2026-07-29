@@ -9316,10 +9316,213 @@ describe("Web Control Center shell", () => {
       fireEvent.click(refreshButton);
       expect(
         await screen.findByText(
-          "Authoritative durable goal state refreshed from the backend.",
+          "The pending goal mutation was not observed; retry will reuse its exact request and idempotency identity.",
         ),
       ).toBeInTheDocument();
+      await waitFor(() => expect(mutationButton).toBeEnabled());
+      if (mutationKind === "create") {
+        expect(createButton).toBeEnabled();
+      } else {
+        expect(createButton).toBeDisabled();
+      }
+
+      const firstPost = fetchMock.mock.calls.find(
+        ([, options]) => options?.method === "POST",
+      );
+      expect(firstPost).toBeDefined();
+      fireEvent.click(mutationButton);
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(
+            ([, options]) => options?.method === "POST",
+          ),
+        ).toHaveLength(2),
+      );
+      const postCalls = fetchMock.mock.calls.filter(
+        ([, options]) => options?.method === "POST",
+      );
+      expect(postCalls[1]?.[0]).toEqual(postCalls[0]?.[0]);
+      expect(postCalls[1]?.[1]?.body).toEqual(postCalls[0]?.[1]?.body);
+      expect(postCalls[1]?.[1]?.headers).toEqual(postCalls[0]?.[1]?.headers);
+    },
+    30000,
+  );
+
+  it.each(["create", "edit"] as const)(
+    "reconciles a committed %s after its response is lost without issuing a duplicate mutation",
+    async (mutationKind) => {
+      const goalRef = `goal-ref:sha256:${"3".repeat(64)}`;
+      const initialGoal = {
+        schema_version: "persistent_goal.v1",
+        contract_ref: "contract-ref:proof-backed-goals-durable-events:v1",
+        goal_ref: goalRef,
+        text_redaction_posture:
+          "operator_authored_redacted_summary_only" as const,
+        objective: "Deliver one bounded local outcome.",
+        desired_outcome: "A durable proof-backed goal.",
+        success_criteria: ["A linked receipt and proof exist."],
+        constraints: ["No external execution."],
+        in_scope_resource_refs: ["resource-ref:goal-app-test"],
+        stop_condition: "Stop when evidence is unavailable.",
+        state: "active" as const,
+        budget: {
+          operation_limit: 25,
+          cost_budget_microusd: 0,
+        },
+        links: {
+          plan_refs: ["plan-ref:goal-app-test"],
+          run_refs: [],
+          action_inbox_refs: [],
+          work_board_refs: [],
+        },
+        version: 1,
+        created_at: "2026-07-28T00:00:00Z",
+        updated_at: "2026-07-28T00:00:00Z",
+        evidence_refs: ["evidence-ref:goal-app-test"],
+        completion_criterion_proof_refs: [],
+        completion_source_goal_version: null,
+        completion_criterion_verifier_bindings: [],
+        safe_refs_only: true,
+        model_output_authoritative: false,
+      };
+      let committedGoal:
+        | typeof initialGoal
+        | (typeof initialGoal & { version: number })
+        | null = null;
+      const runtimeRunEvents = () => {
+        const goals =
+          committedGoal === null
+            ? mutationKind === "create"
+              ? []
+              : [initialGoal]
+            : [committedGoal];
+        return {
+          ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+          goal_lifecycle: {
+            ...cloneForTest(
+              mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+            ),
+            goals,
+            goal_count: goals.length,
+            active_count: goals.length,
+          },
+        };
+      };
+      const postCalls: Array<{
+        body: string;
+        headers: HeadersInit | undefined;
+      }> = [];
+      const fetchMock = vi.fn(
+        async (url: string | URL | Request, options?: RequestInit) => {
+          const urlText = String(url);
+          if (options?.method === "POST") {
+            const body = String(options.body);
+            const request = JSON.parse(body) as {
+              objective?: string;
+              evidence_refs: string[];
+            };
+            postCalls.push({ body, headers: options.headers });
+            committedGoal = {
+              ...initialGoal,
+              objective: request.objective ?? initialGoal.objective,
+              version: mutationKind === "create" ? 1 : 2,
+              evidence_refs: [
+                ...initialGoal.evidence_refs,
+                ...request.evidence_refs,
+              ],
+            };
+            throw new Error(
+              `committed ${mutationKind} response was lost`,
+            );
+          }
+          const endpoint = READ_ENDPOINTS.find((candidate) =>
+            urlText.endsWith(candidate),
+          );
+          if (endpoint === undefined) {
+            throw new Error(`unexpected request ${urlText}`);
+          }
+          const envelope =
+            endpoint === API_ENDPOINTS.runtimeRunEvents
+              ? { ok: true, result: runtimeRunEvents() }
+              : envelopeForReadEndpoint(urlText);
+          return new Response(JSON.stringify(envelope), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        },
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      window.history.pushState({}, "", "/runtime");
+      render(<App />);
+
+      const createButton = await screen.findByRole("button", {
+        name: "Create local goal",
+      });
       await waitFor(() => expect(createButton).toBeEnabled());
+
+      let mutationButton: HTMLElement;
+      if (mutationKind === "create") {
+        fireEvent.change(screen.getByLabelText("Objective"), {
+          target: { value: "Create one durable goal." },
+        });
+        fireEvent.change(screen.getByLabelText("Desired outcome"), {
+          target: { value: "A proof-backed local goal exists." },
+        });
+        fireEvent.change(screen.getByLabelText("Success criterion"), {
+          target: { value: "The durable goal can be inspected." },
+        });
+        fireEvent.change(screen.getByLabelText("Stop condition"), {
+          target: { value: "Stop if persistence is unavailable." },
+        });
+        mutationButton = createButton;
+      } else {
+        fireEvent.change(screen.getByLabelText("Refined objective"), {
+          target: { value: "Refine the bounded local outcome." },
+        });
+        mutationButton = screen.getByRole("button", {
+          name: "Save objective",
+        });
+      }
+
+      fireEvent.click(mutationButton);
+      expect(
+        await screen.findByText(
+          `committed ${mutationKind} response was lost`,
+        ),
+      ).toBeInTheDocument();
+      expect(postCalls).toHaveLength(1);
+      expect(
+        JSON.parse(postCalls[0]?.body ?? "{}").evidence_refs,
+      ).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(
+            mutationKind === "create"
+              ? /^evidence-ref:control-center-goal-create-submission:sha256:/
+              : /^evidence-ref:control-center-goal-update-submission:edit:sha256:/,
+          ),
+        ]),
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Refresh durable goal state",
+        }),
+      );
+      expect(
+        await screen.findByText(
+          "The pending goal mutation was confirmed in authoritative durable state.",
+        ),
+      ).toBeInTheDocument();
+      expect(postCalls).toHaveLength(1);
+      if (mutationKind === "create") {
+        expect(screen.getByLabelText("Objective")).toHaveValue("");
+        expect(screen.getByLabelText("Desired outcome")).toHaveValue("");
+      } else {
+        expect(screen.getByLabelText("Refined objective")).toHaveValue("");
+        expect(
+          screen.getByRole("button", { name: "Save objective" }),
+        ).toBeDisabled();
+      }
     },
     30000,
   );

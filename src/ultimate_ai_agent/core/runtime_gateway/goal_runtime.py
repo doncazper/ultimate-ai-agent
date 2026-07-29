@@ -84,6 +84,10 @@ GOAL_COMPLETION_VERIFIER_REF = "verifier-ref:goal-runtime:criteria-receipt-bindi
 GOAL_COMPLETION_EVALUATOR_BLOCKED_REASON_REF = (
     "blocked-authority-ref:goal-runtime:trusted-criterion-evaluator-unavailable"
 )
+GOAL_EVIDENCE_ROLLUP_PREFIX = "evidence-rollup-ref:goal-runtime:sha256:"
+CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX = (
+    "evidence-ref:control-center-goal-create-submission:sha256:"
+)
 MAX_RUN_EVENT_PROOF_REFS = (
     1
     + MAX_RUNTIME_RECEIPT_EVIDENCE_REFS
@@ -359,6 +363,45 @@ def _validate_refs(
     return values
 
 
+def _merge_bounded_goal_evidence_refs(
+    existing_refs: Iterable[str],
+    new_refs: Iterable[str],
+) -> list[str]:
+    """Keep the current snapshot bounded while journal entries retain history."""
+
+    merged = list(dict.fromkeys([*existing_refs, *new_refs]))
+    if len(merged) <= MAX_GOAL_LIST_ITEMS:
+        return merged
+    pinned_create_refs = [
+        ref
+        for ref in merged
+        if ref.startswith(CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX)
+    ]
+    if len(pinned_create_refs) > 1:
+        raise ValueError("GOAL_CREATE_SUBMISSION_IDENTITY_CONFLICT")
+    prior_rollups = [
+        ref for ref in merged if ref.startswith(GOAL_EVIDENCE_ROLLUP_PREFIX)
+    ]
+    ordinary_refs = [
+        ref
+        for ref in merged
+        if not ref.startswith(GOAL_EVIDENCE_ROLLUP_PREFIX)
+        and ref not in pinned_create_refs
+    ]
+    retained_count = MAX_GOAL_LIST_ITEMS - len(pinned_create_refs) - 1
+    retained_refs = ordinary_refs[-retained_count:]
+    evicted_refs = ordinary_refs[:-retained_count]
+    rollup_ref = _sha256_ref(
+        "evidence-rollup-ref:goal-runtime",
+        {
+            "schema_version": "goal_evidence_rollup.v1",
+            "previous_rollup_refs": prior_rollups,
+            "evicted_evidence_refs": evicted_refs,
+        },
+    )
+    return [*pinned_create_refs, rollup_ref, *retained_refs]
+
+
 def _validate_safe_texts(values: Iterable[str], field_name: str) -> list[str]:
     items = list(dict.fromkeys(value.strip() for value in values))
     if len(items) > MAX_GOAL_LIST_ITEMS:
@@ -439,6 +482,14 @@ class GoalCreateRequest(BaseModel):
             self.in_scope_resource_refs, "in_scope_resource_refs"
         )
         self.evidence_refs = _validate_refs(self.evidence_refs, "evidence_refs")
+        if (
+            sum(
+                ref.startswith(CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX)
+                for ref in self.evidence_refs
+            )
+            > 1
+        ):
+            raise ValueError("GOAL_CREATE_SUBMISSION_IDENTITY_CONFLICT")
         return self
 
 
@@ -632,6 +683,14 @@ class PersistentGoal(BaseModel):
             self.in_scope_resource_refs, "in_scope_resource_refs"
         )
         self.evidence_refs = _validate_refs(self.evidence_refs, "evidence_refs")
+        if (
+            sum(
+                ref.startswith(CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX)
+                for ref in self.evidence_refs
+            )
+            > 1
+        ):
+            raise ValueError("GOAL_CREATE_SUBMISSION_IDENTITY_CONFLICT")
         if not self.success_criteria:
             raise ValueError("GOAL_SUCCESS_CRITERIA_REQUIRED")
         for value, field_name in (
@@ -1801,8 +1860,9 @@ class _GoalJournalStore:
             if value is not None
         }
         if request.evidence_refs is not None:
-            updates["evidence_refs"] = list(
-                dict.fromkeys([*current.evidence_refs, *request.evidence_refs])
+            updates["evidence_refs"] = _merge_bounded_goal_evidence_refs(
+                current.evidence_refs,
+                request.evidence_refs,
             )
         updates.update(version=current.version + 1, updated_at=utc_now())
         return PersistentGoal.model_validate(
@@ -1873,13 +1933,9 @@ class _GoalJournalStore:
                     update={
                         "version": current.version + 1,
                         "updated_at": utc_now(),
-                        "evidence_refs": list(
-                            dict.fromkeys(
-                                [
-                                    *restore_goal.evidence_refs,
-                                    *request.evidence_refs,
-                                ]
-                            )
+                        "evidence_refs": _merge_bounded_goal_evidence_refs(
+                            restore_goal.evidence_refs,
+                            request.evidence_refs,
                         ),
                     }
                 ).model_dump()
@@ -1902,8 +1958,9 @@ class _GoalJournalStore:
             "state": target,
             "version": current.version + 1,
             "updated_at": utc_now(),
-            "evidence_refs": list(
-                dict.fromkeys([*current.evidence_refs, *request.evidence_refs])
+            "evidence_refs": _merge_bounded_goal_evidence_refs(
+                current.evidence_refs,
+                request.evidence_refs,
             ),
         }
         if request.completion_evidence is not None:
@@ -1921,13 +1978,9 @@ class _GoalJournalStore:
                     completion_criterion_verifier_bindings
                 ),
                 completion_verifier_ref=request.completion_evidence.verifier_ref,
-                evidence_refs=list(
-                    dict.fromkeys(
-                        [
-                            *updates["evidence_refs"],
-                            request.completion_evidence.evidence_ref,
-                        ]
-                    )
+                evidence_refs=_merge_bounded_goal_evidence_refs(
+                    updates["evidence_refs"],
+                    [request.completion_evidence.evidence_ref],
                 ),
             )
         return PersistentGoal.model_validate(

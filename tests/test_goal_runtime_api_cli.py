@@ -335,7 +335,6 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
     assert body["operation"] == operation
     assert body["error"]["code"] == expected_code
     assert body["error"]["details_redacted"] is True
-    assert body["data"]["retry_allowed"] is False
     assert "raw durable ledger failure" not in json.dumps(body)
     if durable_truth == "receipt":
         assert body["data"] == {
@@ -349,6 +348,18 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
             "receipt_ref": "receipt-ref:api-projection-failure",
             "retry_allowed": False,
         }
+        assert body["error"]["retryable"] is False
+    elif durable_truth == "missing":
+        assert body["data"] == {
+            "execution_outcome": "not_started",
+            "execution_performed": False,
+            "model_call_performed": False,
+            "command_execution_performed": False,
+            "invocation_ref": None,
+            "receipt_ref": None,
+            "retry_allowed": True,
+        }
+        assert body["error"]["retryable"] is True
     else:
         assert body["data"] == {
             "execution_outcome": "unknown_after_projection_failure",
@@ -359,6 +370,7 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
             "receipt_ref": None,
             "retry_allowed": False,
         }
+        assert body["error"]["retryable"] is False
 
 
 def test_goal_get_rejects_malformed_path_ref_with_safe_envelope(
@@ -687,6 +699,37 @@ def test_goal_cli_state_directory_failure_is_redacted(tmp_path: Path) -> None:
     assert "Traceback" not in cli.stdout
 
 
+def test_goal_show_json_rejects_malformed_ref_without_traceback(
+    tmp_path: Path,
+) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_runtime.py",
+            "--state-dir",
+            str(tmp_path),
+            "goal-show",
+            "not-a-ref",
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert cli.returncode == 1
+    payload = json.loads(cli.stdout)
+    assert payload["success"] is False
+    assert payload["error"]["code"] == "GOAL_REQUEST_VALIDATION_FAILED"
+    assert payload["raw_error_omitted"] is True
+    assert cli.stderr == ""
+    assert "Traceback" not in cli.stdout
+    assert str(tmp_path) not in cli.stdout
+
+
 @pytest.mark.parametrize(
     ("command_name", "extra_args"),
     [
@@ -986,7 +1029,6 @@ def test_command_cli_projection_failure_preserves_execution_truth(
     payload = json.loads(capsys.readouterr().out)
     assert payload["success"] is False
     assert payload["error_category"] == "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
-    assert payload["retry_allowed"] is False
     assert "Traceback" not in json.dumps(payload)
     assert "raw durable ledger failure" not in json.dumps(payload)
     if durable_truth == "receipt":
@@ -995,12 +1037,35 @@ def test_command_cli_projection_failure_preserves_execution_truth(
         assert payload["command_execution_performed"] is True
         assert payload["invocation_ref"] == ("invocation-ref:cli-projection-failure")
         assert payload["receipt_ref"] == "receipt-ref:cli-projection-failure"
+        assert payload["retry_allowed"] is False
+    elif durable_truth == "missing":
+        assert payload["execution_outcome"] == "not_started"
+        assert payload["execution_performed"] is False
+        assert payload["command_execution_performed"] is False
+        assert payload["invocation_ref"] is None
+        assert payload["receipt_ref"] is None
+        assert payload["retry_allowed"] is True
     else:
         assert payload["execution_outcome"] == "unknown_after_projection_failure"
         assert payload["execution_performed"] is None
         assert payload["command_execution_performed"] is None
         assert payload["invocation_ref"] is None
         assert payload["receipt_ref"] is None
+        assert payload["retry_allowed"] is False
+
+
+def test_command_cli_projection_failure_store_unavailable_blocks_retry() -> None:
+    assert uaa_runtime._command_projection_failure_truth(
+        None,
+        idempotency_ref="idempotency-ref:runtime-command-cli-store-unavailable",
+    ) == {
+        "execution_outcome": "unknown_after_projection_failure",
+        "execution_performed": None,
+        "command_execution_performed": None,
+        "invocation_ref": None,
+        "receipt_ref": None,
+        "retry_allowed": False,
+    }
 
 
 def test_goal_event_lifecycle_e2e_reconnect_restart_and_second_run_cancel(

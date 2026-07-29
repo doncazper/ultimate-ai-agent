@@ -47,12 +47,34 @@ import {
   editRuntimeGoal,
   fetchRuntimeRunEvents,
   prepareRuntimeGoalCreateSubmission,
-  runtimeGoalMutationIdempotencyRef,
+  prepareRuntimeGoalUpdateSubmission,
   transitionRuntimeGoal,
 } from "../api/client";
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
+
+type PendingGoalMutation =
+  | {
+      operation: "create";
+      request: RuntimeGoalCreateRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+    }
+  | {
+      operation: "edit";
+      goalRef: string;
+      request: RuntimeGoalEditRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+    }
+  | {
+      operation: "transition";
+      goalRef: string;
+      request: RuntimeGoalTransitionRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+    };
 
 export function RuntimeReadinessPanel({
   report,
@@ -145,12 +167,14 @@ export function RuntimeReadinessPanel({
   );
   const [editedObjective, setEditedObjective] = useState("");
   const [goalMutationBusy, setGoalMutationBusy] = useState(false);
+  const [pendingGoalMutation, setPendingGoalMutation] =
+    useState<PendingGoalMutation | null>(null);
   const [goalNotice, setGoalNotice] = useState(
     "Goal mutations require the exact local backend, a current truth binding, and current durable goal state.",
   );
   useEffect(() => {
     setRuntimeGoalEvents(runEvents);
-    setGoalReadCurrent(runEventsBackendOwned);
+    setGoalReadCurrent((current) => runEventsBackendOwned && current);
     const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
     setSelectedGoalRef((current) =>
       runEvents.goal_lifecycle.goals.some(
@@ -165,6 +189,15 @@ export function RuntimeReadinessPanel({
   const selectedGoal = runtimeGoalEvents.goal_lifecycle.goals.find(
     (goal) => goal.goal_ref === selectedGoalRef,
   );
+  const createMutationReady =
+    goalMutationReady &&
+    (pendingGoalMutation === null ||
+      pendingGoalMutation.operation === "create");
+  const editMutationReady =
+    goalMutationReady &&
+    (pendingGoalMutation === null ||
+      (pendingGoalMutation.operation === "edit" &&
+        pendingGoalMutation.goalRef === selectedGoalRef));
   const availableGoalTransitions: RuntimeGoalTransitionKind[] =
     selectedGoal === undefined
       ? []
@@ -185,11 +218,40 @@ export function RuntimeReadinessPanel({
                     ? ["restore"]
                   : [];
 
-  async function refreshGoalState() {
+  async function refreshGoalState(
+    pendingMutation: PendingGoalMutation | null = pendingGoalMutation,
+  ): Promise<"current" | "committed" | "retry_exact"> {
     try {
       const refreshed = await fetchRuntimeRunEvents(mutationBinding);
       setRuntimeGoalEvents(refreshed);
+      const committedGoal =
+        pendingMutation === null
+          ? undefined
+          : refreshed.goal_lifecycle.goals.find((goal) =>
+              goal.evidence_refs.includes(
+                pendingMutation.submissionEvidenceRef,
+              ),
+            );
+      if (committedGoal !== undefined) {
+        setPendingGoalMutation(null);
+        setSelectedGoalRef(committedGoal.goal_ref);
+        if (pendingMutation?.operation === "create") {
+          setGoalObjective("");
+          setGoalOutcome("");
+          setGoalSuccessCriterion("");
+          setGoalStopCondition("");
+        } else if (pendingMutation?.operation === "edit") {
+          setEditedObjective("");
+        }
+      } else {
+        setPendingGoalMutation(pendingMutation);
+      }
       setGoalReadCurrent(true);
+      return pendingMutation === null
+        ? "current"
+        : committedGoal === undefined
+          ? "retry_exact"
+          : "committed";
     } catch (error) {
       setGoalReadCurrent(false);
       throw error;
@@ -206,9 +268,13 @@ export function RuntimeReadinessPanel({
     }
     setGoalMutationBusy(true);
     try {
-      await refreshGoalState();
+      const outcome = await refreshGoalState();
       setGoalNotice(
-        "Authoritative durable goal state refreshed from the backend.",
+        outcome === "committed"
+          ? "The pending goal mutation was confirmed in authoritative durable state."
+          : outcome === "retry_exact"
+            ? "The pending goal mutation was not observed; retry will reuse its exact request and idempotency identity."
+            : "Authoritative durable goal state refreshed from the backend.",
       );
     } catch (error) {
       setGoalNotice(
@@ -255,7 +321,7 @@ export function RuntimeReadinessPanel({
 
   async function createGoal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!goalMutationReady || mutationBinding === null) {
+    if (!createMutationReady || mutationBinding === null) {
       setGoalNotice(
         "Goal creation is blocked until backend truth and durable goal state are current.",
       );
@@ -286,15 +352,23 @@ export function RuntimeReadinessPanel({
         },
         evidence_refs: [],
       };
-      const submission = await prepareRuntimeGoalCreateSubmission(
-        request,
-        runtimeGoalEvents.goal_lifecycle.goals,
-      );
+      const submission =
+        pendingGoalMutation?.operation === "create"
+          ? pendingGoalMutation
+          : await prepareRuntimeGoalCreateSubmission(
+              request,
+              runtimeGoalEvents.goal_lifecycle.goals,
+            );
+      setPendingGoalMutation({
+        operation: "create",
+        ...submission,
+      });
       const result = await createRuntimeGoal(
         submission.request,
         submission.idempotencyRef,
         mutationBinding,
       );
+      setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);
       setSelectedGoalRef(result.goal.goal_ref);
       setGoalObjective("");
@@ -302,7 +376,7 @@ export function RuntimeReadinessPanel({
       setGoalSuccessCriterion("");
       setGoalStopCondition("");
       try {
-        await refreshGoalState();
+        await refreshGoalState(null);
       } catch {
         setGoalNotice(
           "Goal creation was accepted, but the authoritative refresh failed. " +
@@ -327,7 +401,7 @@ export function RuntimeReadinessPanel({
 
   async function saveGoalObjective() {
     if (
-      !goalMutationReady ||
+      !editMutationReady ||
       mutationBinding === null ||
       selectedGoal === undefined
     ) {
@@ -338,28 +412,36 @@ export function RuntimeReadinessPanel({
     }
     setGoalMutationBusy(true);
     try {
-      const request: RuntimeGoalEditRequest = {
-        expected_version: selectedGoal.version,
-        text_redaction_posture:
-          "operator_authored_redacted_summary_only",
-        objective: editedObjective,
-        evidence_refs: selectedGoal.evidence_refs,
-      };
-      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
+      const submission =
+        pendingGoalMutation?.operation === "edit"
+          ? pendingGoalMutation
+          : await prepareRuntimeGoalUpdateSubmission(
+              "edit",
+              selectedGoal.goal_ref,
+              {
+                expected_version: selectedGoal.version,
+                text_redaction_posture:
+                  "operator_authored_redacted_summary_only",
+                objective: editedObjective,
+                evidence_refs: [],
+              },
+            );
+      setPendingGoalMutation({
         operation: "edit",
         goalRef: selectedGoal.goal_ref,
-        request,
+        ...submission,
       });
       const result = await editRuntimeGoal(
         selectedGoal.goal_ref,
-        request,
-        idempotencyRef,
+        submission.request,
+        submission.idempotencyRef,
         mutationBinding,
       );
+      setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);
       setEditedObjective("");
       try {
-        await refreshGoalState();
+        await refreshGoalState(null);
       } catch {
         setGoalNotice(
           `Goal objective was accepted at version ${result.goal.version}, ` +
@@ -382,7 +464,11 @@ export function RuntimeReadinessPanel({
     if (
       !goalMutationReady ||
       mutationBinding === null ||
-      selectedGoal === undefined
+      selectedGoal === undefined ||
+      (pendingGoalMutation !== null &&
+        (pendingGoalMutation.operation !== "transition" ||
+          pendingGoalMutation.goalRef !== selectedGoal.goal_ref ||
+          pendingGoalMutation.request.transition !== transition))
     ) {
       setGoalNotice(
         "Goal transition is blocked until backend truth and durable goal state are current.",
@@ -402,20 +488,29 @@ export function RuntimeReadinessPanel({
             `${selectedGoal.goal_ref}:v${selectedGoal.version}`,
         ],
       };
-      const idempotencyRef = await runtimeGoalMutationIdempotencyRef({
+      const submission =
+        pendingGoalMutation?.operation === "transition"
+          ? pendingGoalMutation
+          : await prepareRuntimeGoalUpdateSubmission(
+              "transition",
+              selectedGoal.goal_ref,
+              request,
+            );
+      setPendingGoalMutation({
         operation: "transition",
         goalRef: selectedGoal.goal_ref,
-        request,
+        ...submission,
       });
       const result = await transitionRuntimeGoal(
         selectedGoal.goal_ref,
-        request,
-        idempotencyRef,
+        submission.request,
+        submission.idempotencyRef,
         mutationBinding,
       );
+      setPendingGoalMutation(null);
       applyGoalSnapshot(result.goal);
       try {
-        await refreshGoalState();
+        await refreshGoalState(null);
       } catch {
         setGoalNotice(
           `Goal moved to ${result.goal.state} at version ${result.goal.version}, ` +
@@ -4192,7 +4287,7 @@ export function RuntimeReadinessPanel({
               maxLength={1200}
               value={goalObjective}
               onChange={(event) => setGoalObjective(event.target.value)}
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             />
           </label>
           <label>
@@ -4202,7 +4297,7 @@ export function RuntimeReadinessPanel({
               maxLength={1200}
               value={goalOutcome}
               onChange={(event) => setGoalOutcome(event.target.value)}
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             />
           </label>
           <label>
@@ -4214,7 +4309,7 @@ export function RuntimeReadinessPanel({
               onChange={(event) =>
                 setGoalSuccessCriterion(event.target.value)
               }
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             />
           </label>
           <label>
@@ -4224,12 +4319,12 @@ export function RuntimeReadinessPanel({
               maxLength={1200}
               value={goalStopCondition}
               onChange={(event) => setGoalStopCondition(event.target.value)}
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             />
           </label>
           <button
             type="submit"
-            disabled={goalMutationBusy || !goalMutationReady}
+            disabled={goalMutationBusy || !createMutationReady}
           >
             Create local goal
           </button>
@@ -4243,7 +4338,7 @@ export function RuntimeReadinessPanel({
                 setSelectedGoalRef(event.target.value);
                 setEditedObjective("");
               }}
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             >
               <option value="">No goal selected</option>
               {runtimeGoalEvents.goal_lifecycle.goals.map((goal) => (
@@ -4260,16 +4355,17 @@ export function RuntimeReadinessPanel({
               placeholder={selectedGoal?.objective ?? "Select a goal"}
               value={editedObjective}
               onChange={(event) => setEditedObjective(event.target.value)}
-              disabled={!goalMutationReady}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
             />
           </label>
           <button
             type="button"
             disabled={
               goalMutationBusy ||
-              !goalMutationReady ||
+              !editMutationReady ||
               selectedGoal === undefined ||
-              editedObjective.trim().length === 0
+              (pendingGoalMutation === null &&
+                editedObjective.trim().length === 0)
             }
             onClick={saveGoalObjective}
           >
@@ -4279,7 +4375,14 @@ export function RuntimeReadinessPanel({
             <button
               key={transition}
               type="button"
-              disabled={goalMutationBusy || !goalMutationReady}
+              disabled={
+                goalMutationBusy ||
+                !goalMutationReady ||
+                (pendingGoalMutation !== null &&
+                  (pendingGoalMutation.operation !== "transition" ||
+                    pendingGoalMutation.goalRef !== selectedGoalRef ||
+                    pendingGoalMutation.request.transition !== transition))
+              }
               onClick={() => transitionGoal(transition)}
             >
               {transition.replaceAll("_", " ")}
