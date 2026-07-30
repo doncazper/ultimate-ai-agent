@@ -5191,6 +5191,13 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     assert persisted_during_attempt.status == marker.status
     assert persisted_during_attempt.policy_decision == marker.policy_decision
     assert persisted_during_attempt.receipt == marker.receipt
+    assert gateway.goal_runtime_service.sync_runtime_invocations(
+        store.list_invocations(),
+        invocation_store=store,
+    ) == []
+    assert gateway.goal_runtime_service.events.replay(
+        marker.invocation_ref
+    ).events == []
 
     release_transport.set()
     first.join(timeout=5)
@@ -5205,6 +5212,12 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     assert durable.policy_decision.authority_lease_ref == (
         "authority-lease-ref:test-provider-model-execute"
     )
+    assert [
+        event.event_kind
+        for event in gateway.goal_runtime_service.events.replay(
+            durable.invocation_ref
+        ).events
+    ] == ["run_started", "receipt_recorded"]
 
 
 @pytest.mark.parametrize("posture_change", ["safe_disabled", "lease_revoked"])

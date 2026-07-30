@@ -425,44 +425,38 @@ print(json.dumps(payload))
     timeout_observation = observed["timeout"]
     assert isinstance(output_observation, dict)
     assert isinstance(timeout_observation, dict)
-    sandbox_apply_denied = (
-        output_observation["return_code"] == 71
-        and timeout_observation["return_code"] == 71
-    )
-    if sandbox_apply_denied:
+    if output_observation["return_code"] == 71:
         assert output_observation == {
             "failure": "assertion_failed",
             "return_code": 71,
             "output_bytes": 0,
         }
-        assert timeout_observation == {
-            "failure": "assertion_failed",
-            "return_code": 71,
-            "child_ready": False,
-            "child_survived": False,
-        }
-        network_observation = observed["network"]
-        assert network_observation in (
-            {"posture": "outer_sandbox_denied"},
-            {"failure": "assertion_failed", "return_code": 71},
-        )
     else:
         assert output_observation == {
             "failure": "output_limit_exceeded",
             "return_code": 1,
             "output_bytes": 0,
         }
+    if timeout_observation["return_code"] == 71:
+        assert timeout_observation == {
+            "failure": "assertion_failed",
+            "return_code": 71,
+            "child_ready": False,
+            "child_survived": False,
+        }
+    else:
         assert timeout_observation == {
             "failure": "timeout",
             "return_code": 124,
             "child_ready": True,
             "child_survived": False,
         }
-        network_observation = observed["network"]
-        assert network_observation in (
-            {"posture": "outer_sandbox_denied"},
-            {"failure": "none", "return_code": 0},
-        )
+    network_observation = observed["network"]
+    assert network_observation in (
+        {"posture": "outer_sandbox_denied"},
+        {"failure": "assertion_failed", "return_code": 71},
+        {"failure": "none", "return_code": 0},
+    )
 
 
 def test_runner_reports_spawn_failure_without_output(

@@ -3394,8 +3394,70 @@ def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
 
     assert result.record.receipt is not None
     assert runner_calls == 1
-    assert refresh_times == runner_times
+    assert refresh_times == [runner_times[0], runner_times[0]]
     assert len(service.events.replay(result.record.invocation_ref).events) == 2
+
+
+def test_blocked_receipt_refreshes_expired_projection_reservation_before_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2026, 7, 30, 1, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(goal_runtime_module, "utc_now", lambda: now)
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS",
+        1,
+    )
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:blocked-reservation-refresh:create",
+    )
+    store = RuntimeInvocationStore(
+        tmp_path / "runtime",
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    store.safe_disable(
+        RuntimeSafeDisableRequest(
+            reason_ref="reason-ref:blocked-reservation-refresh",
+        ),
+        idempotency_ref="idempotency-ref:blocked-reservation-refresh:disable",
+    )
+    gateway = RuntimeGateway(store=store, goal_runtime_service=service)
+    original_create_invocation = store.create_invocation
+    original_refresh = service.refresh_runtime_projection_reservation
+    refresh_times: list[datetime] = []
+
+    def expire_after_preflight(*args: object, **kwargs: object):
+        nonlocal now
+        created = original_create_invocation(*args, **kwargs)
+        now += timedelta(seconds=2)
+        return created
+
+    def record_terminal_refresh(*args: object, **kwargs: object) -> None:
+        refresh_times.append(now)
+        original_refresh(*args, **kwargs)
+
+    monkeypatch.setattr(store, "create_invocation", expire_after_preflight)
+    monkeypatch.setattr(
+        service,
+        "refresh_runtime_projection_reservation",
+        record_terminal_refresh,
+    )
+    result = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref=goal.goal_ref,
+            safe_summary="Block before dispatch and retain exact audit projection.",
+        ),
+        idempotency_ref="idempotency-ref:blocked-reservation-refresh:invoke",
+    )
+
+    assert result.error_category == "RUNTIME_COMMAND_SAFE_DISABLED"
+    assert result.record.receipt is not None
+    assert refresh_times == [now]
 
 
 def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(

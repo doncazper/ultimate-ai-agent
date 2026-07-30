@@ -388,6 +388,18 @@ def _runtime_receipt_projection_kind(
     return DurableRunEventKind.failed_terminal
 
 
+def _runtime_invocation_has_projectable_terminal_receipt(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    """Keep durable in-flight replay markers out of terminal event projection."""
+
+    if not runtime_invocation_has_committed_receipt(record):
+        return False
+    receipt = record.receipt
+    metadata = receipt.model_receipt_metadata if receipt is not None else None
+    return metadata is None or not metadata.attempt_outcome_unknown
+
+
 def _runtime_invocation_source_payload(
     record: RuntimeInvocationRecord,
 ) -> dict[str, Any]:
@@ -6725,7 +6737,11 @@ class _DurableRunEventStore:
             RunEventIdempotencyTombstone,
         ],
     ) -> list[str] | None:
-        if record is None or record.receipt is None:
+        if (
+            record is None
+            or record.receipt is None
+            or not _runtime_invocation_has_projectable_terminal_receipt(record)
+        ):
             return None
         run_ref = record.invocation_ref
         projection_kind = _runtime_receipt_projection_kind(record)
@@ -6771,7 +6787,7 @@ class _DurableRunEventStore:
             tombstones = self._load_idempotency_tombstones(events)
             for record in records:
                 validated = RuntimeInvocationRecord.model_validate(record.model_dump())
-                if not runtime_invocation_has_committed_receipt(validated):
+                if not _runtime_invocation_has_projectable_terminal_receipt(validated):
                     continue
                 missing_key_refs = self._missing_runtime_projection_key_refs(
                     validated,
@@ -8024,7 +8040,7 @@ class GoalRuntimeService:
                 committed_records = [
                     record
                     for record in runtime_store.list_invocations_locked()
-                    if runtime_invocation_has_committed_receipt(record)
+                    if _runtime_invocation_has_projectable_terminal_receipt(record)
                 ]
                 if committed_records:
                     self.sync_runtime_invocations(
@@ -9170,7 +9186,10 @@ class GoalRuntimeService:
         )
         self.assert_runtime_mission_goal_exists(validated.request.mission_ref)
         receipt = validated.receipt
-        if receipt is None or not runtime_invocation_has_committed_receipt(validated):
+        if (
+            receipt is None
+            or not _runtime_invocation_has_projectable_terminal_receipt(validated)
+        ):
             return []
         if reservation_ref is None:
             with self.runtime_projection_guard(

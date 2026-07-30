@@ -380,6 +380,7 @@ def invoke_governed_command(
     request: RuntimeCommandExecutionRequest,
     idempotency_ref: str,
     pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
+    pre_terminal_receipt: Callable[[RuntimeInvocationRecord], None] | None = None,
 ) -> RuntimeCommandGatewayResult:
     validate_execution_ref(idempotency_ref, "idempotency_ref")
     runtime_disabled = store.operator_safe_disable_active()
@@ -443,6 +444,7 @@ def invoke_governed_command(
                     operation="command-replay-without-receipt",
                     error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                     replayed=True,
+                    pre_terminal_receipt=pre_terminal_receipt,
                 )
 
         if blocked_error is not None or not record.policy_decision.allowed_to_execute:
@@ -456,6 +458,7 @@ def invoke_governed_command(
                 error_category=blocked_error
                 or "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED",
                 replayed=False,
+                pre_terminal_receipt=pre_terminal_receipt,
             )
 
         attempt = adapter.invoke(
@@ -501,6 +504,7 @@ def invoke_governed_command(
             command_execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
             status=RuntimeInvocationStatus.receipt_recorded,
         )
+        _refresh_before_terminal_receipt(pre_terminal_receipt, record)
         updated = store.record_receipt(
             record.invocation_ref,
             receipt,
@@ -913,6 +917,7 @@ def invoke_approved_governed_command(
     execute_request: RuntimeExecuteRequest,
     idempotency_ref: str,
     pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
+    pre_terminal_receipt: Callable[[RuntimeInvocationRecord], None] | None = None,
 ) -> RuntimeCommandGatewayResult:
     validate_execution_ref(idempotency_ref, "idempotency_ref")
     envelope = record.action_inbox_envelope
@@ -977,6 +982,7 @@ def invoke_approved_governed_command(
                 operation="approved-command-replay-without-receipt",
                 error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 replayed=True,
+                pre_terminal_receipt=pre_terminal_receipt,
             )
     if envelope is None:
         return _record_blocked_command_result(
@@ -990,6 +996,7 @@ def invoke_approved_governed_command(
             replayed=False,
             direct_idempotency_ref=True,
             payload_fingerprint_ref=execution_fingerprint_ref,
+            pre_terminal_receipt=pre_terminal_receipt,
         )
     record = store.refresh_policy_decision_for_execution(
         record.invocation_ref,
@@ -1016,6 +1023,7 @@ def invoke_approved_governed_command(
             replayed=False,
             direct_idempotency_ref=True,
             payload_fingerprint_ref=execution_fingerprint_ref,
+            pre_terminal_receipt=pre_terminal_receipt,
         )
     record = store.prepare_adapter_dispatch_protocol(
         record.invocation_ref,
@@ -1063,6 +1071,7 @@ def invoke_approved_governed_command(
                 operation="approved-command-replay-without-receipt",
                 error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 replayed=True,
+                pre_terminal_receipt=pre_terminal_receipt,
             )
     attempt = adapter.invoke(
         request,
@@ -1111,6 +1120,7 @@ def invoke_approved_governed_command(
         command_execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
         status=RuntimeInvocationStatus.receipt_recorded,
     )
+    _refresh_before_terminal_receipt(pre_terminal_receipt, record)
     updated = store.record_receipt(
         record.invocation_ref,
         receipt,
@@ -1225,6 +1235,7 @@ def _record_blocked_command_result(
     replayed: bool,
     direct_idempotency_ref: bool = False,
     payload_fingerprint_ref: str | None = None,
+    pre_terminal_receipt: Callable[[RuntimeInvocationRecord], None] | None = None,
 ) -> RuntimeCommandGatewayResult:
     metadata = _command_metadata(
         request,
@@ -1267,6 +1278,7 @@ def _record_blocked_command_result(
             "metadata": metadata.model_dump(mode="json"),
         },
     )
+    _refresh_before_terminal_receipt(pre_terminal_receipt, record)
     updated = store.record_receipt(
         record.invocation_ref,
         receipt,
@@ -1283,6 +1295,14 @@ def _record_blocked_command_result(
         replayed=replayed,
         command_execution_enabled=False,
     )
+
+
+def _refresh_before_terminal_receipt(
+    callback: Callable[[RuntimeInvocationRecord], None] | None,
+    record: RuntimeInvocationRecord,
+) -> None:
+    if callback is not None:
+        callback(record)
 
 
 def _runtime_invocation_request(

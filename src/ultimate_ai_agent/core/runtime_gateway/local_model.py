@@ -380,6 +380,15 @@ class RuntimeGateway:
         locked_record = self.store.get_invocation_for_idempotency_locked(
             idempotency_ref
         )
+        if locked_record is None:
+            locked_record = next(
+                (
+                    candidate
+                    for candidate in self.store.list_invocations_locked()
+                    if candidate.invocation_ref == expected_record.invocation_ref
+                ),
+                None,
+            )
         if (
             locked_record is None
             or locked_record.invocation_ref != expected_record.invocation_ref
@@ -433,6 +442,13 @@ class RuntimeGateway:
                             expected_record=record,
                         )
                     ),
+                    pre_terminal_receipt=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
                 )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
@@ -477,6 +493,13 @@ class RuntimeGateway:
                     execute_request=execute_request,
                     idempotency_ref=idempotency_ref,
                     pre_adapter_dispatch=lambda current: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=current,
+                        )
+                    ),
+                    pre_terminal_receipt=lambda current: (
                         self._refresh_projection_at_adapter_boundary(
                             reservation_ref=reservation_ref,
                             idempotency_ref=idempotency_ref,
@@ -554,6 +577,13 @@ class RuntimeGateway:
                             expected_record=record,
                         )
                     ),
+                    pre_terminal_receipt=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
                 )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
@@ -568,6 +598,7 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
         pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
+        pre_terminal_receipt: Callable[[RuntimeInvocationRecord], None] | None = None,
     ) -> RuntimeLocalModelGatewayResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
         runtime_disabled = self.store.operator_safe_disable_active()
@@ -774,6 +805,8 @@ class RuntimeGateway:
                 error_category="RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 safe_summary="Local model runtime replay was blocked before transport.",
             )
+            if pre_terminal_receipt is not None:
+                pre_terminal_receipt(record)
             recovery = self.store.record_local_model_replay_without_receipt(
                 record.invocation_ref,
                 metadata,
@@ -794,6 +827,7 @@ class RuntimeGateway:
                     request,
                     idempotency_ref=idempotency_ref,
                     pre_adapter_dispatch=pre_adapter_dispatch,
+                    pre_terminal_receipt=pre_terminal_receipt,
                 )
             updated = recovery.record
             return RuntimeLocalModelGatewayResult(
@@ -826,6 +860,8 @@ class RuntimeGateway:
                 model_call_performed=False,
                 status=RuntimeInvocationStatus.execution_blocked,
             )
+            if pre_terminal_receipt is not None:
+                pre_terminal_receipt(record)
             updated = self.store.record_receipt(
                 record.invocation_ref,
                 receipt,
@@ -920,6 +956,8 @@ class RuntimeGateway:
                 else RuntimeInvocationStatus.receipt_recorded
             ),
         )
+        if pre_terminal_receipt is not None:
+            pre_terminal_receipt(record)
         updated = self.store.record_receipt(
             record.invocation_ref,
             receipt,
