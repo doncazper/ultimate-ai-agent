@@ -3,6 +3,7 @@ import {
   createRuntimeGoal,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  isRuntimeGoalMutationTerminalRejectionError,
   isRuntimeGoalMutationValidationError,
   decideRuntimeGoalMutationApproval,
   prepareRuntimeGoalMutationApproval,
@@ -562,6 +563,84 @@ describe("proof-backed runtime goal mutations", () => {
     expect(isRuntimeGoalMutationValidationError(error)).toBe(true);
   });
 
+  it.each([
+    ["GOAL_VERSION_CONFLICT", "conflict"],
+    ["GOAL_NOT_FOUND", "not_found"],
+    ["GOAL_MUTATION_APPROVAL_EXPIRED", "authorization_error"],
+    ["GOAL_REQUEST_REF_INVALID", "validation_error"],
+  ])(
+    "classifies durable HTTP 200 terminal failure %s for authoritative recovery",
+    async (code, category) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: {
+                code,
+                category,
+                safe_message: "The proof-backed goal operation failed safely.",
+                retryable: false,
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      );
+      const error = await createRuntimeGoal(
+        request,
+        `idempotency-ref:goal-client-terminal-${code.toLowerCase()}`,
+        approvalRef,
+        binding,
+        "submission-ref:goal-client-terminal",
+      ).catch((caught: unknown) => caught);
+      expect(isRuntimeGoalMutationTerminalRejectionError(error)).toBe(true);
+      expect(error).toMatchObject({ code });
+    },
+  );
+
+  it.each([
+    ["GOAL_SUBMISSION_REJECTION_PERSISTENCE_FAILED", "validation_error"],
+    ["RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH", "internal_error"],
+  ])(
+    "keeps HTTP 200 non-durable failure %s ambiguous",
+    async (code, category) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              error: {
+                code,
+                category,
+                safe_message: "The proof-backed goal operation failed safely.",
+                retryable: false,
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      );
+      const error = await createRuntimeGoal(
+        request,
+        `idempotency-ref:goal-client-nondurable-${code.toLowerCase()}`,
+        approvalRef,
+        binding,
+        "submission-ref:goal-client-nondurable",
+      ).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(Error);
+      expect(isRuntimeGoalMutationTerminalRejectionError(error)).toBe(false);
+    },
+  );
+
   it.each([409, 429, 500])(
     "keeps HTTP %s goal failures ambiguous for durable recovery",
     async (status) => {
@@ -1000,6 +1079,36 @@ describe("proof-backed runtime goal mutations", () => {
 
     await expect(fetchRuntimeRunEvents()).rejects.toThrow(
       "Runtime goal/event state failed safe validation.",
+    );
+  });
+
+  it("accepts an active linked goal without premature completion-plan provenance", async () => {
+    const data = {
+      ...mockControlCenterData.runtimeRunEvents,
+      goal_lifecycle: {
+        ...mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+        goals: [mutationResult.goal],
+        goal_count: 1,
+        active_count: 1,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true, data }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const result = await fetchRuntimeRunEvents();
+    expect(result.goal_lifecycle.goals[0]).toMatchObject({
+      state: "active",
+      links: { plan_refs: request.links.plan_refs },
+    });
+    expect(result.goal_lifecycle.goals[0]).not.toHaveProperty(
+      "completion_plan_ref",
     );
   });
 

@@ -6655,6 +6655,10 @@ class _DurableRunEventStore:
                     if (
                         receipt is None
                         or not runtime_invocation_has_committed_receipt(runtime_record)
+                        or runtime_record.request.input_ref
+                        != source.request_fingerprint_ref
+                        or runtime_record.request.mission_ref != event.goal_ref
+                        or runtime_record.request.action_ref != event.run_ref
                         or source.source_fingerprint_ref
                         not in receipt.evidence_refs
                         or event.event_kind

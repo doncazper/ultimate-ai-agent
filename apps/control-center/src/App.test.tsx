@@ -10657,6 +10657,162 @@ describe("Web Control Center shell", () => {
     ).not.toEqual(postCalls[0]?.headers.get("X-UAA-Idempotency-Key"));
   });
 
+  it("immediately reconciles a durable HTTP 200 goal rejection and releases the stale pending identity", async () => {
+    const postCalls: Array<{ body: string; headers: Headers }> = [];
+    const runtimeRunEvents = () => {
+      const firstPost = postCalls[0];
+      const request =
+        firstPost === undefined
+          ? undefined
+          : (JSON.parse(firstPost.body) as { evidence_refs: string[] });
+      const submissionEvidenceRef = request?.evidence_refs.find((ref) =>
+        ref.includes("goal-create-submission"),
+      );
+      return {
+        ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+        goal_lifecycle: {
+          ...cloneForTest(
+            mockControlCenterData.runtimeRunEvents.goal_lifecycle,
+          ),
+          goals: [],
+          goal_count: 0,
+          active_count: 0,
+        },
+        goal_mutation_submissions: {
+          ...cloneForTest(
+            mockControlCenterData.runtimeRunEvents
+              .goal_mutation_submissions,
+          ),
+          records:
+            firstPost === undefined || submissionEvidenceRef === undefined
+              ? []
+              : [
+                  {
+                    schema_version:
+                      "goal_mutation_submission_recovery.v1",
+                    submission_ref:
+                      firstPost.headers.get(
+                        "X-UAA-Goal-Submission-Ref",
+                      ) ?? "",
+                    operation: "create",
+                    goal_ref: null,
+                    request_payload: request,
+                    idempotency_ref:
+                      firstPost.headers.get(
+                        "X-UAA-Idempotency-Key",
+                      ) ?? "",
+                    submission_evidence_ref: submissionEvidenceRef,
+                    request_fingerprint_ref:
+                      `request-fingerprint-ref:goal-mutation-submission:sha256:${"7".repeat(64)}`,
+                    recorded_at: "2026-07-28T00:00:00Z",
+                    status: "rejected",
+                    committed_goal_ref: null,
+                    rejection_reason_ref:
+                      "reason-ref:goal-mutation-rejected:goal-version-conflict",
+                    approval_recovery:
+                      runtimeGoalSubmissionApprovalRecovery(
+                        "create",
+                        null,
+                        firstPost.headers.get(
+                          "X-UAA-Idempotency-Key",
+                        ) ?? "",
+                        "approved",
+                      ),
+                    resolved_at: "2026-07-28T00:00:01Z",
+                  },
+                ],
+          pending_count: 0,
+          committed_count: 0,
+          rejected_count: firstPost === undefined ? 0 : 1,
+        },
+      };
+    };
+    const fetchMock = vi.fn(
+      async (url: string | URL | Request, options?: RequestInit) => {
+        const urlText = String(url);
+        const approvalResponse = runtimeGoalApprovalTestResponse(
+          urlText,
+          options,
+        );
+        if (approvalResponse !== null) return approvalResponse;
+        if (isRuntimeGoalMutationTestPost(urlText, options)) {
+          postCalls.push({
+            body: String(options.body),
+            headers: new Headers(options.headers),
+          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: {
+                code: "GOAL_VERSION_CONFLICT",
+                category: "conflict",
+                safe_message:
+                  "The proof-backed goal operation failed safely.",
+                retryable: false,
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        const endpoint = READ_ENDPOINTS.find((candidate) =>
+          urlText.endsWith(candidate),
+        );
+        if (endpoint === undefined) {
+          throw new Error(`unexpected request ${urlText}`);
+        }
+        const envelope =
+          endpoint === API_ENDPOINTS.runtimeRunEvents
+            ? { ok: true, result: runtimeRunEvents() }
+            : envelopeForReadEndpoint(urlText);
+        return new Response(JSON.stringify(envelope), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderRuntimeGoalRecoveryPanel(
+      runtimeRunEvents() as unknown as typeof mockControlCenterData.runtimeRunEvents,
+    );
+
+    fireEvent.change(screen.getByLabelText("Objective"), {
+      target: { value: "Create one conflicting durable goal." },
+    });
+    fireEvent.change(screen.getByLabelText("Desired outcome"), {
+      target: { value: "A proof-backed local goal exists." },
+    });
+    fireEvent.change(screen.getByLabelText("Success criterion"), {
+      target: { value: "The durable goal can be inspected." },
+    });
+    fireEvent.change(screen.getByLabelText("Stop condition"), {
+      target: { value: "Stop if persistence is unavailable." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create local goal" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Approve and submit exact mutation",
+      }),
+    );
+
+    await waitFor(() => expect(postCalls).toHaveLength(1));
+    expect(
+      await screen.findByText(
+        /The durable rejection was confirmed; revise the request before submitting a new identity\./,
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Objective")).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeEnabled();
+  });
+
   it("releases only a client-only 422 submission identity so a revised create can submit", async () => {
     const postCalls: Array<{ body: string; headers: Headers }> = [];
     const fetchMock = vi.fn(

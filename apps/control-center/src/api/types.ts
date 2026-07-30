@@ -106,7 +106,9 @@ export interface ResultEnvelope<T> {
   result?: T;
   error?: {
     code?: string;
+    category?: string;
     safe_message?: string;
+    retryable?: boolean;
     details_redacted?: boolean;
   };
 }

@@ -50,6 +50,7 @@ import {
   decideRuntimeGoalMutationApproval,
   editRuntimeGoal,
   fetchRuntimeRunEvents,
+  isRuntimeGoalMutationTerminalRejectionError,
   isRuntimeGoalMutationValidationError,
   prepareRuntimeGoalCreateSubmission,
   prepareRuntimeGoalMutationApproval,
@@ -1099,7 +1100,32 @@ export function RuntimeReadinessPanel({
         `The exact approved goal mutation committed at version ${result.goal.version}.`,
       );
     } catch (error) {
-      if (isRuntimeGoalMutationValidationError(error)) {
+      if (
+        isRuntimeGoalMutationTerminalRejectionError(error) &&
+        approvedPending !== null
+      ) {
+        try {
+          const recovery = await refreshGoalState(approvedPending);
+          if (recovery !== "rejected") {
+            throw new Error(
+              "The terminal goal mutation failure was not confirmed in durable state.",
+            );
+          }
+          setGoalNotice(
+            `${error.message} The durable rejection was confirmed; revise the request before submitting a new identity.`,
+          );
+          return;
+        } catch (recoveryError) {
+          setPendingGoalMutation(approvedPending);
+          setGoalReadCurrent(false);
+          setGoalNotice(
+            recoveryError instanceof Error
+              ? recoveryError.message
+              : "The terminal goal mutation failure could not be reconciled safely.",
+          );
+          return;
+        }
+      } else if (isRuntimeGoalMutationValidationError(error)) {
         setPendingGoalMutation(null);
         setGoalReadCurrent(true);
       } else if (approvedPending === null) {

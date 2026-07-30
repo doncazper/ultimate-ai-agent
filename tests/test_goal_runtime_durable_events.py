@@ -2154,6 +2154,137 @@ def test_runtime_trusted_event_must_equal_canonical_producer_projection(
         )
 
 
+@pytest.mark.parametrize(
+    ("field_name", "replacement"),
+    [
+        ("run_ref", "run-ref:substituted-evaluator-event"),
+        ("plan_ref", "plan-ref:substituted-evaluator-event"),
+        ("proof_refs", "append-proof-ref"),
+    ],
+)
+def test_runtime_evaluator_event_must_equal_producer_bound_request(
+    tmp_path: Path,
+    field_name: str,
+    replacement: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref=f"idempotency-ref:evaluator-event-binding:{field_name}",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    events = service._events._load_events()  # noqa: SLF001
+    original = next(
+        event
+        for event in events
+        if event.goal_ref == created.goal_ref
+        and event.event_kind == DurableRunEventKind.receipt_recorded.value
+    )
+    old_key = (original.run_ref, original.idempotency_ref)
+    old_event_key_ref = service._events._event_key_ref(*old_key)  # noqa: SLF001
+    sources = service._events._load_trusted_sources()  # noqa: SLF001
+    original_source = sources[old_event_key_ref]
+    assert original_source.source_kind == "runtime_evaluator_receipt"
+    effective_replacement: str | list[str] = (
+        [*original.proof_refs, "proof-ref:substituted-evaluator-event"]
+        if field_name == "proof_refs"
+        else replacement
+    )
+
+    substituted_request = DurableRunEventAppendRequest.model_validate(
+        {
+            **service._events._event_request_payload(original),  # noqa: SLF001
+            field_name: effective_replacement,
+        }
+    )
+    substituted_fingerprint = service._events._request_fingerprint(  # noqa: SLF001
+        substituted_request
+    )
+    new_key = (
+        substituted_request.run_ref,
+        substituted_request.idempotency_ref,
+    )
+    new_event_key_ref = service._events._event_key_ref(*new_key)  # noqa: SLF001
+    substituted_source = service._events._trusted_source_record(  # noqa: SLF001
+        event_key_ref=new_event_key_ref,
+        request_fingerprint_ref=substituted_fingerprint,
+        binding=goal_runtime_module.TrustedRunEventSourceBinding(
+            source_kind=original_source.source_kind,
+            source_ref=original_source.source_ref,
+            source_fingerprint_ref=original_source.source_fingerprint_ref,
+        ),
+    )
+    substituted_draft = original.model_copy(
+        update={
+            field_name: effective_replacement,
+            "event_ref": goal_runtime_module._sha256_ref(  # noqa: SLF001
+                "runtime-run-event-ref",
+                {
+                    "run_ref": substituted_request.run_ref,
+                    "sequence": original.sequence,
+                    "event_kind": original.event_kind,
+                },
+            ),
+            "trusted_source_record_hash_ref": substituted_source.record_hash_ref,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    substituted = substituted_draft.model_copy(
+        update={
+            "event_hash_ref": service._events._event_hash(  # noqa: SLF001
+                substituted_draft
+            )
+        }
+    )
+    tombstones = service._events._load_idempotency_tombstones(events)  # noqa: SLF001
+    prior_tombstone = tombstones.pop(old_key)
+    substituted_tombstone_draft = prior_tombstone.model_copy(
+        update={
+            "run_ref": substituted.run_ref,
+            "request_fingerprint_ref": substituted_fingerprint,
+            "event": substituted,
+            "tombstone_hash_ref": "tombstone-hash-ref:pending",
+        }
+    )
+    substituted_tombstone = substituted_tombstone_draft.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                substituted_tombstone_draft
+            )
+        }
+    )
+    tombstones[new_key] = substituted_tombstone
+    substituted_events = [
+        substituted if event.event_ref == original.event_ref else event
+        for event in events
+    ]
+    sources.pop(old_event_key_ref)
+    sources[new_event_key_ref] = substituted_source
+    service._events._write_events(substituted_events)  # noqa: SLF001
+    service._events._write_idempotency_tombstones(  # noqa: SLF001
+        tombstones.values()
+    )
+    service._events._write_trusted_sources(sources.values())  # noqa: SLF001
+    service._events._write_run_event_generation_head(  # noqa: SLF001
+        service._events._build_run_event_generation_head(  # noqa: SLF001
+            substituted_events,
+            list(tombstones.values()),
+            list(sources.values()),
+        )
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_PROVENANCE_MISMATCH",
+    ):
+        service.aggregate_read_snapshot(
+            run_ref=substituted.run_ref,
+            after_sequence=0,
+            limit=10,
+        )
+
+
 def test_completion_event_must_equal_canonical_journal_projection(
     tmp_path: Path,
 ) -> None:

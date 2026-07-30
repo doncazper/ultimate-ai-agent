@@ -9879,9 +9879,11 @@ function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
     Array.isArray(goal.links.plan_refs) &&
     goal.links.plan_refs.includes(goal.completion_plan_ref);
   const completionPlanValid =
-    Array.isArray(goal.links.plan_refs) && goal.links.plan_refs.length
-    ? exactCompletionPlan
-    : noCompletionPlan;
+    exactCompletionRefs &&
+    Array.isArray(goal.links.plan_refs) &&
+    goal.links.plan_refs.length
+      ? exactCompletionPlan
+      : noCompletionPlan;
   const criterionProofRefsValid =
     safeRefs(goal.completion_criterion_proof_refs) &&
     (goal.state === "verified_complete" ||
@@ -10460,9 +10462,51 @@ async function postRuntimeGoalMutation(
     if (response.status === 422) {
       throw new RuntimeGoalMutationValidationError(safeFailureMessage);
     }
+    if (
+      response.status === 200 &&
+      submissionRef !== null &&
+      isDurableGoalMutationTerminalFailure(data.error)
+    ) {
+      throw new RuntimeGoalMutationTerminalRejectionError(
+        safeFailureMessage,
+        data.error?.code as string,
+      );
+    }
     throw new Error(safeFailureMessage);
   }
   return result;
+}
+
+const DURABLE_GOAL_MUTATION_VALIDATION_FAILURE_CODES = new Set([
+  "GOAL_REQUEST_REF_INVALID",
+  "GOAL_STORE_CAPACITY_EXCEEDED",
+  "GOAL_JOURNAL_CAPACITY_EXCEEDED",
+  "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE",
+  "GOAL_REQUEST_VALIDATION_FAILED",
+  "GOAL_MUTATION_APPROVAL_DENIED",
+  "GOAL_MUTATION_APPROVAL_REVOKED",
+  "GOAL_MUTATION_APPROVAL_EXPIRED",
+  "GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
+  "GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+]);
+
+function isDurableGoalMutationTerminalFailure(
+  error: ResultEnvelope<unknown>["error"],
+): boolean {
+  if (
+    error === undefined ||
+    typeof error.code !== "string" ||
+    error.retryable !== false
+  ) {
+    return false;
+  }
+  return (
+    error.category === "not_found" ||
+    error.category === "conflict" ||
+    error.category === "authorization_error" ||
+    (error.category === "validation_error" &&
+      DURABLE_GOAL_MUTATION_VALIDATION_FAILURE_CODES.has(error.code))
+  );
 }
 
 export class RuntimeGoalMutationValidationError extends Error {
@@ -10480,6 +10524,26 @@ export function isRuntimeGoalMutationValidationError(
   return (
     error instanceof RuntimeGoalMutationValidationError &&
     error.deterministicClientOnlyRejection
+  );
+}
+
+export class RuntimeGoalMutationTerminalRejectionError extends Error {
+  readonly durableSubmissionRejected = true;
+  readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "RuntimeGoalMutationTerminalRejectionError";
+    this.code = code;
+  }
+}
+
+export function isRuntimeGoalMutationTerminalRejectionError(
+  error: unknown,
+): error is RuntimeGoalMutationTerminalRejectionError {
+  return (
+    error instanceof RuntimeGoalMutationTerminalRejectionError &&
+    error.durableSubmissionRejected
   );
 }
 
