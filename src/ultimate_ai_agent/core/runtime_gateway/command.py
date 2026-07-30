@@ -12,7 +12,7 @@ import time
 import weakref
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -225,12 +225,16 @@ class GovernedCommandRuntimeAdapter:
         self,
         request: RuntimeCommandExecutionRequest,
         entry: RuntimeCommandAllowlistEntry,
+        *,
+        pre_dispatch_guard: Callable[[], None] | None = None,
     ) -> _CommandAttempt:
         argv = _argv_for_entry(entry, workspace_root=self._workspace_root)
         hardline_block_reason = hardline_block_reason_for_argv(argv)
         if hardline_block_reason is not None:
             raise ValueError(hardline_block_reason)
         _validate_exact_argv(argv, workspace_root=self._workspace_root)
+        if pre_dispatch_guard is not None:
+            pre_dispatch_guard()
         result = self._runner(
             argv=argv,
             cwd=self._workspace_root,
@@ -333,6 +337,7 @@ def invoke_governed_command(
     adapter: GovernedCommandRuntimeAdapter,
     request: RuntimeCommandExecutionRequest,
     idempotency_ref: str,
+    pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
 ) -> RuntimeCommandGatewayResult:
     validate_execution_ref(idempotency_ref, "idempotency_ref")
     runtime_disabled = store.operator_safe_disable_active()
@@ -409,7 +414,15 @@ def invoke_governed_command(
                 replayed=False,
             )
 
-        attempt = adapter.invoke(request, entry)
+        attempt = adapter.invoke(
+            request,
+            entry,
+            pre_dispatch_guard=(
+                (lambda: pre_adapter_dispatch(record))
+                if pre_adapter_dispatch is not None
+                else None
+            ),
+        )
         status_category = _status_category(
             RuntimeCommandRunResult(
                 exit_code=attempt.exit_code,
@@ -832,6 +845,7 @@ def invoke_approved_governed_command(
     request: RuntimeCommandExecutionRequest,
     execute_request: RuntimeExecuteRequest,
     idempotency_ref: str,
+    pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
 ) -> RuntimeCommandGatewayResult:
     validate_execution_ref(idempotency_ref, "idempotency_ref")
     envelope = record.action_inbox_envelope
@@ -958,7 +972,15 @@ def invoke_approved_governed_command(
             error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
             replayed=True,
         )
-    attempt = adapter.invoke(request, entry)
+    attempt = adapter.invoke(
+        request,
+        entry,
+        pre_dispatch_guard=(
+            (lambda: pre_adapter_dispatch(record))
+            if pre_adapter_dispatch is not None
+            else None
+        ),
+    )
     status_category = _status_category(
         RuntimeCommandRunResult(
             exit_code=attempt.exit_code,

@@ -353,6 +353,38 @@ class RuntimeGateway:
             record is not None and runtime_invocation_has_committed_receipt(record)
         )
 
+    def _refresh_projection_at_adapter_boundary(
+        self,
+        *,
+        reservation_ref: str,
+        idempotency_ref: str,
+        expected_record: RuntimeInvocationRecord,
+    ) -> None:
+        """Refresh one new dispatch from exact locked invocation truth."""
+
+        locked_record = self.store.get_invocation_for_idempotency_locked(
+            idempotency_ref
+        )
+        if (
+            locked_record is None
+            or locked_record.invocation_ref != expected_record.invocation_ref
+            or locked_record.payload_fingerprint_ref
+            != expected_record.payload_fingerprint_ref
+            or (
+                expected_record.receipt is None
+                and locked_record.receipt is not None
+            )
+            or _receipt_proves_completed_local_model_attempt(locked_record)
+        ):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_INVOCATION_ADAPTER_BOUNDARY_MISMATCH"
+            )
+        self.goal_runtime_service.refresh_runtime_projection_reservation(
+            reservation_ref,
+            None,
+            operation_idempotency_ref=idempotency_ref,
+        )
+
     def invoke_command(
         self,
         request: RuntimeCommandExecutionRequest,
@@ -374,16 +406,18 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
-                self.goal_runtime_service.refresh_runtime_projection_reservation(
-                    reservation_ref,
-                    existing,
-                    operation_idempotency_ref=idempotency_ref,
-                )
                 result = invoke_governed_command(
                     store=self.store,
                     adapter=self.command_adapter,
                     request=request,
                     idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
                 )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
@@ -420,11 +454,6 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
-                self.goal_runtime_service.refresh_runtime_projection_reservation(
-                    reservation_ref,
-                    record,
-                    operation_idempotency_ref=idempotency_ref,
-                )
                 result = invoke_approved_governed_command(
                     store=self.store,
                     adapter=self.command_adapter,
@@ -432,6 +461,13 @@ class RuntimeGateway:
                     request=request,
                     execute_request=execute_request,
                     idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda current: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=current,
+                        )
+                    ),
                 )
             if result.record.action_inbox_envelope is not None:
                 updated = self.store.mark_action_inbox_execution_receipt(
@@ -482,14 +518,16 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
-                self.goal_runtime_service.refresh_runtime_projection_reservation(
-                    reservation_ref,
-                    existing,
-                    operation_idempotency_ref=idempotency_ref,
-                )
                 result = self._invoke_local_model(
                     request,
                     idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
                 )
             self.goal_runtime_service.record_accepted_runtime_invocation(
                 result.record,
@@ -503,6 +541,7 @@ class RuntimeGateway:
         request: RuntimeLocalModelCallRequest,
         *,
         idempotency_ref: str,
+        pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
     ) -> RuntimeLocalModelGatewayResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
         runtime_disabled = self.store.operator_safe_disable_active()
@@ -707,6 +746,7 @@ class RuntimeGateway:
                 return self._invoke_local_model(
                     request,
                     idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=pre_adapter_dispatch,
                 )
             updated = recovery.record
             return RuntimeLocalModelGatewayResult(
@@ -802,7 +842,9 @@ class RuntimeGateway:
         attempt = self.local_model_adapter.invoke(
             request,
             pre_transport_guard=lambda: self._local_model_transport_boundary_posture(
-                record, request
+                record,
+                request,
+                pre_adapter_dispatch=pre_adapter_dispatch,
             ),
         )
         boundary_posture = attempt.boundary_posture
@@ -898,7 +940,11 @@ class RuntimeGateway:
         self,
         record: RuntimeInvocationRecord,
         request: RuntimeLocalModelCallRequest,
+        *,
+        pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
     ) -> _LocalModelTransportBoundaryPosture:
+        if pre_adapter_dispatch is not None:
+            pre_adapter_dispatch(record)
         runtime_disabled = self.store.operator_safe_disable_active()
         runtime_enabled = self._runtime_local_model_enabled()
         gateway_error = _blocked_error_category(

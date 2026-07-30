@@ -6272,23 +6272,36 @@ class _DurableRunEventStore:
     def projection_incompatibilities(
         self,
     ) -> list[RuntimeProjectionIncompatibilityRecord]:
-        try:
-            with _nonmutating_goal_runtime_read_lock(
-                self.state_dir / ".locks",
-                "runtime-projection-incompatibilities",
-                generation_paths=(
-                    self.incompatibilities_path,
-                    self.incompatibilities_head_path,
-                    self.incompatibilities_append_intent_path,
-                ),
-            ):
-                return self._load_projection_incompatibilities()
-        except GoalRuntimeCorruptionError as exc:
-            if (
-                str(exc)
-                != "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_RECOVERY_REQUIRED"
-            ):
-                raise
+        recovery_required = False
+        for _attempt in range(3):
+            try:
+                with _nonmutating_goal_runtime_read_lock(
+                    self.state_dir / ".locks",
+                    "runtime-projection-incompatibilities",
+                    generation_paths=(
+                        self.incompatibilities_path,
+                        self.incompatibilities_head_path,
+                        self.incompatibilities_append_intent_path,
+                    ),
+                ):
+                    return self._load_projection_incompatibilities()
+            except _GoalRuntimeGenerationChanged:
+                continue
+            except GoalRuntimeCorruptionError as exc:
+                if (
+                    str(exc)
+                    != (
+                        "RUNTIME_PROJECTION_INCOMPATIBILITY_"
+                        "APPEND_RECOVERY_REQUIRED"
+                    )
+                ):
+                    raise
+                recovery_required = True
+                break
+        if not recovery_required:
+            raise GoalRuntimeCorruptionError(
+                "RUNTIME_PROJECTION_INCOMPATIBILITY_GENERATION_UNSTABLE"
+            )
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(
             self._locks,
@@ -7026,7 +7039,7 @@ class _DurableRunEventStore:
         same_run = [event for event in events if event.run_ref == run_ref]
         if len(same_run) < self.retention_limit:
             return 0
-        return len((same_run[0].model_dump_json() + "\n").encode("utf-8"))
+        return len((self._event_json(same_run[0]) + "\n").encode("utf-8"))
 
     def _write_idempotency_tombstones(
         self,

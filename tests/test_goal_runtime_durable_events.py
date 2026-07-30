@@ -3045,10 +3045,18 @@ def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
         expire_before_dispatch,
     )
     runner_calls = 0
+    refresh_times: list[datetime] = []
+    runner_times: list[datetime] = []
+    original_refresh = service.refresh_runtime_projection_reservation
+
+    def record_boundary_refresh(*args: object, **kwargs: object) -> None:
+        refresh_times.append(now)
+        original_refresh(*args, **kwargs)
 
     def runner(**_kwargs: object) -> RuntimeCommandRunResult:
         nonlocal runner_calls
         runner_calls += 1
+        runner_times.append(now)
         return RuntimeCommandRunResult(
             exit_code=0,
             timed_out=False,
@@ -3056,6 +3064,11 @@ def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
             output_bytes=b"SAFE_STATUS",
         )
 
+    monkeypatch.setattr(
+        service,
+        "refresh_runtime_projection_reservation",
+        record_boundary_refresh,
+    )
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(
             tmp_path / "runtime",
@@ -3066,6 +3079,19 @@ def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
             runner=runner,
         ),
         goal_runtime_service=service,
+    )
+    original_create_invocation = gateway.store.create_invocation
+
+    def delayed_invocation_preflight(*args: object, **kwargs: object):
+        nonlocal now
+        result = original_create_invocation(*args, **kwargs)
+        now += timedelta(seconds=2)
+        return result
+
+    monkeypatch.setattr(
+        gateway.store,
+        "create_invocation",
+        delayed_invocation_preflight,
     )
     result = gateway.invoke_command(
         RuntimeCommandExecutionRequest(
@@ -3078,6 +3104,7 @@ def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
 
     assert result.record.receipt is not None
     assert runner_calls == 1
+    assert refresh_times == runner_times
     assert len(service.events.replay(result.record.invocation_ref).events) == 2
 
 
@@ -3136,7 +3163,8 @@ def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(
         )
 
     assert runner_calls == 0
-    assert gateway.store.list_invocations() == []
+    [pending] = gateway.store.list_invocations()
+    assert pending.receipt is None
 
 
 def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
@@ -4150,6 +4178,18 @@ def test_runtime_gateway_rechecks_committed_replay_at_mission_admission(
         "get_invocation_for_idempotency_locked",
         locked_current,
     )
+    refresh_calls = 0
+
+    def reject_replay_refresh(*_args: object, **_kwargs: object) -> None:
+        nonlocal refresh_calls
+        refresh_calls += 1
+        raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+    monkeypatch.setattr(
+        service,
+        "refresh_runtime_projection_reservation",
+        reject_replay_refresh,
+    )
 
     replay = gateway.invoke_command(request, idempotency_ref=idempotency_ref)
 
@@ -4157,6 +4197,7 @@ def test_runtime_gateway_rechecks_committed_replay_at_mission_admission(
     assert replay.record.receipt == committed.record.receipt
     assert lookup_count == 1
     assert locked_lookup_count >= 1
+    assert refresh_calls == 0
     assert runner_call_count == 1
 
 
@@ -4488,6 +4529,61 @@ def test_projection_incompatibility_append_recovers_every_persistence_boundary(
     assert GoalRuntimeService(
         tmp_path / "goals"
     ).events.projection_incompatibilities() == [recovered]
+
+
+def test_projection_incompatibility_read_retries_first_lock_generation_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    original_read_lock = goal_runtime_module._nonmutating_goal_runtime_read_lock
+    attempts = 0
+
+    @contextmanager
+    def first_generation_changes(*args: object, **kwargs: object):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise goal_runtime_module._GoalRuntimeGenerationChanged
+        with original_read_lock(*args, **kwargs):
+            yield
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_nonmutating_goal_runtime_read_lock",
+        first_generation_changes,
+    )
+
+    assert service.events.projection_incompatibilities() == []
+    assert attempts == 2
+
+
+def test_projection_incompatibility_read_fails_after_bounded_generation_races(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    attempts = 0
+
+    @contextmanager
+    def generation_always_changes(*_args: object, **_kwargs: object):
+        nonlocal attempts
+        attempts += 1
+        raise goal_runtime_module._GoalRuntimeGenerationChanged
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_nonmutating_goal_runtime_read_lock",
+        generation_always_changes,
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUNTIME_PROJECTION_INCOMPATIBILITY_GENERATION_UNSTABLE",
+    ):
+        service.events.projection_incompatibilities()
+    assert attempts == 3
 
 
 def test_runtime_gateway_projects_failed_receipt_as_terminal_failure(
@@ -5358,7 +5454,11 @@ def test_completion_capacity_credits_exact_retention_eviction(
         run_ref="run-ref:accepted-local:one"
     )
     event_bytes = service._events.path.stat().st_size  # noqa: SLF001
-    eviction_credit = len((retained_before[0].model_dump_json() + "\n").encode("utf-8"))
+    persisted_event = service._events._event_json(retained_before[0])  # noqa: SLF001
+    eviction_credit = len((persisted_event + "\n").encode("utf-8"))
+    assert eviction_credit < len(
+        (retained_before[0].model_dump_json() + "\n").encode("utf-8")
+    )
     monkeypatch.setattr(
         goal_runtime_module,
         "MAX_RUN_EVENT_STORE_BYTES",
