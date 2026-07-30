@@ -387,6 +387,44 @@ def test_operator_goal_writes_report_storage_interruption_as_unknown_outcome(
     assert "raw storage detail" not in json.dumps(body)
 
 
+def test_goal_storage_interruption_does_not_reflect_unvalidated_refs(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _service = goal_runtime_client
+
+    def fail_service() -> GoalRuntimeService:
+        raise OSError("raw storage detail must remain redacted")
+
+    monkeypatch.setattr(
+        runtime_pilot_service,
+        "_goal_runtime_service_getter",
+        fail_service,
+    )
+    raw_submission_ref = "/Users/operator/private/submission"
+    raw_approval_ref = "approval-ref:password-material"
+    body = client.post(
+        "/api/runtime/goals",
+        json=_create_payload(),
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:storage-redaction",
+            "x-uaa-goal-submission-ref": raw_submission_ref,
+            "x-uaa-goal-approval-ref": raw_approval_ref,
+        },
+    ).json()
+
+    assert body["success"] is False
+    assert body["error"]["code"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert body["trace_id"] == "failure-trace-ref:goal-runtime:storage-unavailable"
+    assert body["data"]["idempotency_ref"] == (
+        "idempotency-ref:storage-redaction"
+    )
+    assert "submission_ref" not in body["data"]
+    assert "approval_ref" not in body["data"]
+    assert raw_submission_ref not in json.dumps(body)
+    assert raw_approval_ref not in json.dumps(body)
+
+
 def test_post_commit_storage_interruption_recovers_by_exact_retry(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
     monkeypatch: pytest.MonkeyPatch,

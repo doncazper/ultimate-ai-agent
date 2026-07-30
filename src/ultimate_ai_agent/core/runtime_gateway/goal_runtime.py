@@ -1307,31 +1307,21 @@ class GoalMutationSubmissionState(BaseModel):
             [record.model_dump(mode="json") for record in self.records],
         )
         pre_commit_tombstone_payload = {
-            "records": [record.model_dump(mode="json") for record in self.records],
-            "rejection_tombstones": [
-                tombstone.model_dump(mode="json")
-                for tombstone in self.rejection_tombstones
-            ],
+            "records": [],
+            "rejection_tombstones": [],
         }
-        if self.goal_journal_anchor is not None:
-            pre_commit_tombstone_payload["goal_journal_anchor"] = (
-                self.goal_journal_anchor.model_dump(mode="json")
-            )
         pre_commit_tombstone_hash = _sha256_ref(
             "state-hash-ref:goal-mutation-submissions",
             pre_commit_tombstone_payload,
         )
-        if self.state_hash_ref != expected_hash and not (
-            not self.commit_tombstones
-            and (
-                self.state_hash_ref == pre_commit_tombstone_hash
-                or (
-                    not self.rejection_tombstones
-                    and self.goal_journal_anchor is None
-                    and self.state_hash_ref == legacy_hash
-                )
-            )
-        ):
+        legacy_empty_state = (
+            "commit_tombstones" not in self.model_fields_set
+            and not self.records
+            and not self.rejection_tombstones
+            and self.goal_journal_anchor is None
+            and self.state_hash_ref in {pre_commit_tombstone_hash, legacy_hash}
+        )
+        if self.state_hash_ref != expected_hash and not legacy_empty_state:
             raise ValueError("GOAL_SUBMISSION_STATE_HASH_MISMATCH")
         return self
 

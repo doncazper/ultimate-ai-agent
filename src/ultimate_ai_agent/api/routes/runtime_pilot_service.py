@@ -157,6 +157,7 @@ from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
     build_goal_mutation_approval_decision_idempotency_ref,
     build_goal_mutation_approval_revoke_idempotency_ref,
     terminal_goal_submission_rejection_reason_ref,
+    validate_execution_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import (
     RuntimeInvocationStorageError,
@@ -1034,21 +1035,33 @@ def _goal_runtime_storage_failure(
 ) -> ResultEnvelope:
     """Return a redacted unknown-outcome envelope without resolving a submission."""
 
+    def safe_ref(value: str | None, field_name: str) -> str | None:
+        if value is None:
+            return None
+        try:
+            validate_execution_ref(value, field_name)
+        except ValueError:
+            return None
+        return value
+
     refs = {
-        key: value
+        key: safe_value
         for key, value in (
             ("submission_ref", submission_ref),
             ("idempotency_ref", idempotency_ref),
             ("approval_request_ref", approval_request_ref),
             ("approval_ref", approval_ref),
         )
-        if value is not None
+        if (safe_value := safe_ref(value, key)) is not None
     }
+    safe_trace_id = safe_ref(trace_id, "trace_id") or _safe_goal_failure_trace(
+        "storage-unavailable"
+    )
     return ResultEnvelope(
         success=False,
         operation=operation,
         service="GoalRuntimeAPI",
-        trace_id=trace_id,
+        trace_id=safe_trace_id,
         error=ErrorEnvelope(
             code="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
             category=ErrorCategory.internal_error,

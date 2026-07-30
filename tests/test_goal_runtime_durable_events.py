@@ -9651,6 +9651,70 @@ def test_submission_state_accepts_legacy_empty_commit_tombstone_hash() -> None:
     assert validated.commit_tombstones == []
 
 
+def test_submission_state_rejects_removed_commit_tombstones_with_legacy_hash(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    for index in range(66):
+        suffix = f"{index:064x}"
+        request = _create_request().model_copy(
+            update={
+                "objective": f"Durable tombstone deletion guard {index}.",
+                "evidence_refs": [
+                    (
+                        "evidence-ref:control-center-goal-create-submission:"
+                        f"sha256:{suffix}"
+                    )
+                ],
+            }
+        )
+        idempotency_ref = f"idempotency-ref:tombstone-deletion:{index}"
+        service.record_goal_mutation_submission(
+            submission_ref=f"submission-ref:tombstone-deletion:{index}",
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+        spec = service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref=f"reason-ref:tombstone-deletion:{index}",
+        )
+        service.create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=spec.approval_ref,
+        )
+
+    payload = json.loads(
+        (tmp_path / "goal_mutation_submissions.json").read_text(encoding="utf-8")
+    )
+    assert payload["commit_tombstones"]
+    payload.pop("commit_tombstones")
+    legacy_payload = {
+        "records": payload["records"],
+        "rejection_tombstones": payload["rejection_tombstones"],
+        "goal_journal_anchor": payload["goal_journal_anchor"],
+    }
+    payload["state_hash_ref"] = goal_runtime_module._sha256_ref(  # noqa: SLF001
+        "state-hash-ref:goal-mutation-submissions",
+        legacy_payload,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOAL_SUBMISSION_STATE_HASH_MISMATCH",
+    ):
+        goal_runtime_module.GoalMutationSubmissionState.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     "reserved_refs",
     [
