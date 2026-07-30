@@ -701,7 +701,10 @@ def test_run_events_read_model_keeps_cleared_goals_restorable(
         ),
     ],
 )
-@pytest.mark.parametrize("durable_truth", ["receipt", "missing", "unreadable"])
+@pytest.mark.parametrize(
+    "durable_truth",
+    ["receipt", "attempt_outcome_unknown", "missing", "unreadable"],
+)
 def test_runtime_projection_failures_keep_the_public_result_envelope(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
     monkeypatch: pytest.MonkeyPatch,
@@ -749,10 +752,19 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
                 invocation_ref="invocation-ref:api-projection-failure",
                 receipt=SimpleNamespace(
                     receipt_ref="receipt-ref:api-projection-failure",
-                    execution_performed=True,
-                    model_call_performed=(operation == "api_runtime_local_model_call"),
+                    execution_performed=durable_truth == "receipt",
+                    model_call_performed=(
+                        durable_truth == "receipt"
+                        and operation == "api_runtime_local_model_call"
+                    ),
                     command_execution_performed=(
-                        operation != "api_runtime_local_model_call"
+                        durable_truth == "receipt"
+                        and operation != "api_runtime_local_model_call"
+                    ),
+                    model_receipt_metadata=(
+                        SimpleNamespace(attempt_outcome_unknown=True)
+                        if durable_truth == "attempt_outcome_unknown"
+                        else None
                     ),
                 ),
             )
@@ -787,6 +799,19 @@ def test_runtime_projection_failures_keep_the_public_result_envelope(
             "command_execution_performed": (
                 operation != "api_runtime_local_model_call"
             ),
+            "invocation_ref": "invocation-ref:api-projection-failure",
+            "receipt_ref": "receipt-ref:api-projection-failure",
+            "retry_allowed": False,
+        }
+        assert body["error"]["retryable"] is False
+    elif durable_truth == "attempt_outcome_unknown":
+        assert body["data"] == {
+            "execution_outcome": (
+                "attempt_outcome_unknown_after_projection_failure"
+            ),
+            "execution_performed": None,
+            "model_call_performed": None,
+            "command_execution_performed": None,
             "invocation_ref": "invocation-ref:api-projection-failure",
             "receipt_ref": "receipt-ref:api-projection-failure",
             "retry_allowed": False,

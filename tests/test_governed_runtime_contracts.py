@@ -5878,6 +5878,69 @@ def test_local_model_boundary_rejection_retries_before_attempt_marker(
     assert len(transport.calls) == 1
 
 
+def test_local_model_terminal_projection_refresh_failure_preserves_unknown_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = FakeM164GatewayTransport("TERMINAL_REFRESH_REJECTED")
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path / "runtime"),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=lambda _request: transport,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content=REDACTED_TEST_PROMPT,
+            )
+        ],
+        safe_summary="Preserve unknown truth after terminal refresh rejection.",
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+    refresh_count = 0
+
+    def reject_terminal_refresh(*args: object, **kwargs: object) -> None:
+        nonlocal refresh_count
+        refresh_count += 1
+        if refresh_count == 2:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_PROJECTION_REFRESH_REJECTED"
+            )
+        original_refresh(*args, **kwargs)
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_terminal_refresh,
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=(
+                "idempotency-ref:local-model-terminal-refresh-rejected"
+            ),
+        )
+
+    assert refresh_count == 2
+    assert len(transport.calls) == 1
+    [marker] = gateway.store.list_invocations()
+    assert marker.receipt is not None
+    assert marker.receipt.model_receipt_metadata is not None
+    assert marker.receipt.model_receipt_metadata.attempt_outcome_unknown is True
+    assert marker.receipt.execution_performed is False
+    assert marker.receipt.model_call_performed is False
+
+
 def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> None:
     store = _runtime_store_with_workspace_execute(tmp_path)
     request = RuntimeCommandExecutionRequest(

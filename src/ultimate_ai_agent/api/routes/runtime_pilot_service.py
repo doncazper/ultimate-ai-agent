@@ -1086,17 +1086,30 @@ def _runtime_projection_failure(
     if record is not None:
         execution_truth["invocation_ref"] = record.invocation_ref
         if record.receipt is not None:
-            execution_truth.update(
-                {
-                    "execution_outcome": "durable_receipt_recovered",
-                    "execution_performed": record.receipt.execution_performed,
-                    "model_call_performed": record.receipt.model_call_performed,
-                    "command_execution_performed": (
-                        record.receipt.command_execution_performed
-                    ),
-                    "receipt_ref": record.receipt.receipt_ref,
-                }
-            )
+            metadata = record.receipt.model_receipt_metadata
+            if metadata is not None and metadata.attempt_outcome_unknown:
+                execution_truth.update(
+                    {
+                        "execution_outcome": (
+                            "attempt_outcome_unknown_after_projection_failure"
+                        ),
+                        "receipt_ref": record.receipt.receipt_ref,
+                    }
+                )
+            else:
+                execution_truth.update(
+                    {
+                        "execution_outcome": "durable_receipt_recovered",
+                        "execution_performed": record.receipt.execution_performed,
+                        "model_call_performed": (
+                            record.receipt.model_call_performed
+                        ),
+                        "command_execution_performed": (
+                            record.receipt.command_execution_performed
+                        ),
+                        "receipt_ref": record.receipt.receipt_ref,
+                    }
+                )
     return ResultEnvelope(
         success=False,
         operation=operation,
