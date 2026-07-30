@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Iterator
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1636,7 +1637,17 @@ def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart
         expanded_entries = [seed]
         previous_entry_hash_ref = seed.entry_hash_ref
         for version in range(2, 4097):
-            versioned_goal = seed.goal.model_copy(update={"version": version})
+            synthetic_request = GoalEditRequest(
+                expected_version=version - 1,
+                text_redaction_posture=(
+                    "operator_authored_redacted_summary_only"
+                ),
+                objective=seed.goal.objective,
+            )
+            request_payload = synthetic_request.model_dump(mode="json")
+            versioned_goal = seed.goal.model_copy(
+                update={"version": version}
+            )
             draft = seed.model_copy(
                 update={
                     "entry_ref": goal_runtime_module._sha256_ref(  # noqa: SLF001
@@ -1653,8 +1664,15 @@ def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart
                         f"idempotency-ref:cli-version-overflow:seed:{version}"
                     ),
                     "request_fingerprint_ref": (
-                        f"request-fingerprint-ref:cli-version-overflow:{version}"
+                        goal_runtime_module._sha256_ref(  # noqa: SLF001
+                            "request-fingerprint-ref:goal-edit",
+                            {
+                                "goal_ref": seed.goal_ref,
+                                "request": request_payload,
+                            },
+                        )
                     ),
+                    "request_payload": request_payload,
                     "goal_submission_fingerprint_ref": None,
                     "transition_reason_ref": None,
                     "goal": versioned_goal,
@@ -1671,6 +1689,7 @@ def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart
             previous_entry_hash_ref = entry.entry_hash_ref
         service.goals._write_entries(expanded_entries)  # noqa: SLF001
 
+    monkeypatch.setattr(service, "_repair_goal_read_generation", lambda: None)
     evidence_ref = (
         "evidence-ref:control-center-goal-update-submission:edit:sha256:"
         + "9" * 64
@@ -1697,6 +1716,11 @@ def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart
         request=request,
         idempotency_ref=idempotency_ref,
     )
+    monkeypatch.setattr(
+        service._submissions,  # noqa: SLF001
+        "terminal_commit_guard",
+        lambda **_kwargs: nullcontext(),
+    )
     monkeypatch.setattr(service, "reconcile_durable_events", lambda: None)
     monkeypatch.setattr(uaa_runtime, "_goal_runtime_service", lambda _args: service)
     args = argparse.Namespace(
@@ -1712,6 +1736,7 @@ def test_goal_cli_version_overflow_persists_request_ref_rejection_across_restart
     assert output["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
 
     restarted = GoalRuntimeService(tmp_path)
+    monkeypatch.setattr(restarted, "_repair_goal_read_generation", lambda: None)
     monkeypatch.setattr(restarted, "reconcile_durable_events", lambda: None)
     recovery = restarted._submissions.recovery_read_model(  # noqa: SLF001
         restarted.goals._load_consistent_entries()  # noqa: SLF001
