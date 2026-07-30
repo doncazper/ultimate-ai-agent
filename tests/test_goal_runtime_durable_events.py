@@ -8673,7 +8673,7 @@ def test_file_single_writer_lock_reenters_across_path_and_parent_entrypoints(
                     "shared-writer",
                 ):
                     completed.set()
-        except BaseException as exc:  # pragma: no cover - surfaced below
+        except BaseException as exc:  # noqa: BLE001  # pragma: no cover - surfaced below
             errors.append(exc)
         finally:
             if parent_descriptor is not None:

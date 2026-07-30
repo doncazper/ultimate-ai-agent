@@ -493,11 +493,10 @@ export function RuntimeReadinessPanel({
             record.status === "committed" || record.status === "rejected",
         )
         .sort((left, right) => {
-          const resolvedOrder =
-            terminalSubmissionResolutionTime(left) -
-            terminalSubmissionResolutionTime(right);
-          return resolvedOrder !== 0
-            ? resolvedOrder
+          const leftResolvedAt = terminalSubmissionResolutionTime(left);
+          const rightResolvedAt = terminalSubmissionResolutionTime(right);
+          return leftResolvedAt !== rightResolvedAt
+            ? leftResolvedAt - rightResolvedAt
             : left.submission_ref.localeCompare(right.submission_ref);
         })
         .at(-1);
