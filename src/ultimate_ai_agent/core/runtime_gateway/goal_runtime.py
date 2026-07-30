@@ -79,6 +79,7 @@ MAX_GOAL_JOURNAL_BYTES = 16 * 1024 * 1024
 MAX_GOAL_JOURNAL_HEAD_BYTES = 64 * 1024
 MAX_GOAL_MUTATION_SUBMISSIONS = 64
 MAX_GOAL_MUTATION_REJECTION_TOMBSTONES = MAX_GOAL_JOURNAL_ENTRIES
+MAX_GOAL_MUTATION_COMMIT_TOMBSTONES = MAX_GOAL_JOURNAL_ENTRIES
 MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES = 16 * 1024 * 1024
 MAX_GOAL_MUTATION_SUBMISSION_HEAD_BYTES = 16 * 1024
 MAX_GOAL_MUTATION_SUBMISSION_WRITE_INTENT_BYTES = (
@@ -1128,6 +1129,80 @@ class GoalMutationSubmissionRejectionTombstone(BaseModel):
         return self
 
 
+class GoalMutationSubmissionCommitTombstone(BaseModel):
+    """Canonical identity for an evicted submission already committed to journal."""
+
+    schema_version: Literal["goal_mutation_submission_commit_tombstone.v1"] = (
+        "goal_mutation_submission_commit_tombstone.v1"
+    )
+    submission_ref: str
+    operation: GoalMutationSubmissionOperation
+    goal_ref: str | None = None
+    idempotency_ref: str
+    submission_evidence_ref: str
+    request_fingerprint_ref: str
+    recorded_at: datetime
+    pending_record_hash_ref: str
+    committed_goal_ref: str
+    journal_entry_hash_ref: str
+    journal_recorded_at: datetime
+    tombstone_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_tombstone(self) -> "GoalMutationSubmissionCommitTombstone":
+        for value, field_name in (
+            (self.submission_ref, "submission_ref"),
+            (self.idempotency_ref, "idempotency_ref"),
+            (self.submission_evidence_ref, "submission_evidence_ref"),
+            (self.request_fingerprint_ref, "request_fingerprint_ref"),
+            (self.pending_record_hash_ref, "pending_record_hash_ref"),
+            (self.committed_goal_ref, "committed_goal_ref"),
+            (self.journal_entry_hash_ref, "journal_entry_hash_ref"),
+            (self.tombstone_hash_ref, "tombstone_hash_ref"),
+        ):
+            validate_execution_ref(value, field_name)
+        if self.operation == "create":
+            if self.goal_ref is not None:
+                raise ValueError("GOAL_SUBMISSION_CREATE_GOAL_REF_DENIED")
+        elif self.goal_ref is None:
+            raise ValueError("GOAL_SUBMISSION_GOAL_REF_REQUIRED")
+        else:
+            validate_execution_ref(self.goal_ref, "goal_ref")
+        expected_pending_hash = _sha256_ref(
+            "record-hash-ref:goal-mutation-submission",
+            {
+                "request_fingerprint_ref": self.request_fingerprint_ref,
+                "recorded_at": self.recorded_at.isoformat(),
+                "resolution_status": "pending",
+                "rejection_reason_ref": None,
+                "resolved_at": None,
+            },
+        )
+        if self.pending_record_hash_ref != expected_pending_hash:
+            raise ValueError("GOAL_SUBMISSION_COMMIT_PENDING_HASH_MISMATCH")
+        expected_hash_ref = _sha256_ref(
+            "tombstone-hash-ref:goal-mutation-submission-commit",
+            {
+                "submission_ref": self.submission_ref,
+                "operation": self.operation,
+                "goal_ref": self.goal_ref,
+                "idempotency_ref": self.idempotency_ref,
+                "submission_evidence_ref": self.submission_evidence_ref,
+                "request_fingerprint_ref": self.request_fingerprint_ref,
+                "recorded_at": self.recorded_at.isoformat(),
+                "pending_record_hash_ref": self.pending_record_hash_ref,
+                "committed_goal_ref": self.committed_goal_ref,
+                "journal_entry_hash_ref": self.journal_entry_hash_ref,
+                "journal_recorded_at": self.journal_recorded_at.isoformat(),
+            },
+        )
+        if self.tombstone_hash_ref != expected_hash_ref:
+            raise ValueError("GOAL_SUBMISSION_COMMIT_TOMBSTONE_HASH_MISMATCH")
+        return self
+
+
 class GoalJournalGenerationAnchor(BaseModel):
     """Independent submission-store binding for one committed goal generation."""
 
@@ -1165,6 +1240,10 @@ class GoalMutationSubmissionState(BaseModel):
         default_factory=list,
         max_length=MAX_GOAL_MUTATION_REJECTION_TOMBSTONES,
     )
+    commit_tombstones: list[GoalMutationSubmissionCommitTombstone] = Field(
+        default_factory=list,
+        max_length=MAX_GOAL_MUTATION_COMMIT_TOMBSTONES,
+    )
     goal_journal_anchor: GoalJournalGenerationAnchor | None = None
     state_hash_ref: str
 
@@ -1186,14 +1265,17 @@ class GoalMutationSubmissionState(BaseModel):
         all_submission_refs = [
             *(record.submission_ref for record in self.records),
             *(record.submission_ref for record in self.rejection_tombstones),
+            *(record.submission_ref for record in self.commit_tombstones),
         ]
         all_idempotency_refs = [
             *(record.idempotency_ref for record in self.records),
             *(record.idempotency_ref for record in self.rejection_tombstones),
+            *(record.idempotency_ref for record in self.commit_tombstones),
         ]
         all_evidence_refs = [
             *(record.submission_evidence_ref for record in self.records),
             *(record.submission_evidence_ref for record in self.rejection_tombstones),
+            *(record.submission_evidence_ref for record in self.commit_tombstones),
         ]
         if len(set(all_submission_refs)) != len(all_submission_refs):
             raise ValueError("GOAL_SUBMISSION_REF_DUPLICATE")
@@ -1206,6 +1288,10 @@ class GoalMutationSubmissionState(BaseModel):
             "rejection_tombstones": [
                 tombstone.model_dump(mode="json")
                 for tombstone in self.rejection_tombstones
+            ],
+            "commit_tombstones": [
+                tombstone.model_dump(mode="json")
+                for tombstone in self.commit_tombstones
             ],
         }
         if self.goal_journal_anchor is not None:
@@ -1220,10 +1306,31 @@ class GoalMutationSubmissionState(BaseModel):
             "state-hash-ref:goal-mutation-submissions",
             [record.model_dump(mode="json") for record in self.records],
         )
+        pre_commit_tombstone_payload = {
+            "records": [record.model_dump(mode="json") for record in self.records],
+            "rejection_tombstones": [
+                tombstone.model_dump(mode="json")
+                for tombstone in self.rejection_tombstones
+            ],
+        }
+        if self.goal_journal_anchor is not None:
+            pre_commit_tombstone_payload["goal_journal_anchor"] = (
+                self.goal_journal_anchor.model_dump(mode="json")
+            )
+        pre_commit_tombstone_hash = _sha256_ref(
+            "state-hash-ref:goal-mutation-submissions",
+            pre_commit_tombstone_payload,
+        )
         if self.state_hash_ref != expected_hash and not (
-            not self.rejection_tombstones
-            and self.goal_journal_anchor is None
-            and self.state_hash_ref == legacy_hash
+            not self.commit_tombstones
+            and (
+                self.state_hash_ref == pre_commit_tombstone_hash
+                or (
+                    not self.rejection_tombstones
+                    and self.goal_journal_anchor is None
+                    and self.state_hash_ref == legacy_hash
+                )
+            )
         ):
             raise ValueError("GOAL_SUBMISSION_STATE_HASH_MISMATCH")
         return self
@@ -3949,12 +4056,19 @@ class _GoalMutationSubmissionStore:
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
         goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
+        *,
+        commit_tombstones: list[GoalMutationSubmissionCommitTombstone]
+        | None = None,
     ) -> GoalMutationSubmissionState:
         tombstones = list(rejection_tombstones or [])
+        committed = list(commit_tombstones or [])
         state_payload: dict[str, Any] = {
             "records": [record.model_dump(mode="json") for record in records],
             "rejection_tombstones": [
                 tombstone.model_dump(mode="json") for tombstone in tombstones
+            ],
+            "commit_tombstones": [
+                tombstone.model_dump(mode="json") for tombstone in committed
             ],
         }
         if goal_journal_anchor is not None:
@@ -3968,6 +4082,7 @@ class _GoalMutationSubmissionStore:
         return GoalMutationSubmissionState(
             records=records,
             rejection_tombstones=tombstones,
+            commit_tombstones=committed,
             goal_journal_anchor=goal_journal_anchor,
             state_hash_ref=state_hash_ref,
         )
@@ -3979,12 +4094,16 @@ class _GoalMutationSubmissionStore:
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
         goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
+        *,
+        commit_tombstones: list[GoalMutationSubmissionCommitTombstone]
+        | None = None,
     ) -> str:
         return (
             cls._state(
                 records,
                 rejection_tombstones,
                 goal_journal_anchor,
+                commit_tombstones=commit_tombstones,
             ).model_dump_json()
             + "\n"
         )
@@ -4079,6 +4198,87 @@ class _GoalMutationSubmissionStore:
         )
 
     @staticmethod
+    def _commit_tombstone(
+        record: GoalMutationSubmissionRecord,
+        entry: GoalJournalEntry,
+    ) -> GoalMutationSubmissionCommitTombstone:
+        if (
+            record.resolution_status != "pending"
+            or entry.idempotency_ref != record.idempotency_ref
+            or entry.goal_submission_fingerprint_ref
+            != record.request_fingerprint_ref
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_COMMIT_TOMBSTONE_SOURCE_INVALID"
+            )
+        payload = {
+            "submission_ref": record.submission_ref,
+            "operation": record.operation,
+            "goal_ref": record.goal_ref,
+            "idempotency_ref": record.idempotency_ref,
+            "submission_evidence_ref": record.submission_evidence_ref,
+            "request_fingerprint_ref": record.request_fingerprint_ref,
+            "recorded_at": record.recorded_at.isoformat(),
+            "pending_record_hash_ref": record.record_hash_ref,
+            "committed_goal_ref": entry.goal_ref,
+            "journal_entry_hash_ref": entry.entry_hash_ref,
+            "journal_recorded_at": entry.recorded_at.isoformat(),
+        }
+        return GoalMutationSubmissionCommitTombstone(
+            **payload,
+            tombstone_hash_ref=_sha256_ref(
+                "tombstone-hash-ref:goal-mutation-submission-commit",
+                payload,
+            ),
+        )
+
+    @classmethod
+    def _record_from_commit_tombstone(
+        cls,
+        tombstone: GoalMutationSubmissionCommitTombstone,
+        *,
+        request_payload: dict[str, Any],
+        journal_entries: list[GoalJournalEntry] | None = None,
+    ) -> GoalMutationSubmissionRecord:
+        record = GoalMutationSubmissionRecord(
+            submission_ref=tombstone.submission_ref,
+            operation=tombstone.operation,
+            goal_ref=tombstone.goal_ref,
+            request_payload=request_payload,
+            idempotency_ref=tombstone.idempotency_ref,
+            submission_evidence_ref=tombstone.submission_evidence_ref,
+            request_fingerprint_ref=tombstone.request_fingerprint_ref,
+            recorded_at=tombstone.recorded_at,
+            record_hash_ref=tombstone.pending_record_hash_ref,
+        )
+        if journal_entries is None:
+            return record
+        entry = next(
+            (
+                candidate
+                for candidate in journal_entries
+                if candidate.idempotency_ref == tombstone.idempotency_ref
+            ),
+            None,
+        )
+        if (
+            entry is None
+            or entry.entry_hash_ref != tombstone.journal_entry_hash_ref
+            or entry.goal_ref != tombstone.committed_goal_ref
+            or entry.recorded_at != tombstone.journal_recorded_at
+            or entry.goal_submission_fingerprint_ref
+            != tombstone.request_fingerprint_ref
+            or entry.operation != tombstone.operation
+            or entry.request_fingerprint_ref
+            != cls._goal_journal_request_fingerprint(record)
+            or tombstone.submission_evidence_ref not in entry.goal.evidence_refs
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_SUBMISSION_COMMIT_TOMBSTONE_JOURNAL_MISMATCH"
+            )
+        return record
+
+    @staticmethod
     def _rejection_anchor(
         state: GoalMutationSubmissionState,
     ) -> str:
@@ -4101,6 +4301,14 @@ class _GoalMutationSubmissionStore:
                         tombstone.tombstone_hash_ref,
                     )
                     for tombstone in state.rejection_tombstones
+                ]
+                + [
+                    (
+                        tombstone.submission_ref,
+                        tombstone.request_fingerprint_ref,
+                        tombstone.tombstone_hash_ref,
+                    )
+                    for tombstone in state.commit_tombstones
                 ]
             ),
         )
@@ -4323,6 +4531,7 @@ class _GoalMutationSubmissionStore:
         self._write(
             list(state.records),
             list(state.rejection_tombstones),
+            commit_tombstones=list(state.commit_tombstones),
             goal_journal_anchor=next_anchor,
         )
 
@@ -4332,6 +4541,7 @@ class _GoalMutationSubmissionStore:
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
         *,
+        commit_tombstones: list[GoalMutationSubmissionCommitTombstone] | None = None,
         goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
     ) -> None:
         current_state = self._load_state(repair_head=True)
@@ -4345,11 +4555,13 @@ class _GoalMutationSubmissionStore:
             records,
             list(rejection_tombstones or []),
             effective_anchor,
+            commit_tombstones=list(commit_tombstones or []),
             current_head=current_head,
         )
         if (
             current_state.records
             or current_state.rejection_tombstones
+            or current_state.commit_tombstones
             or current_state.goal_journal_anchor is not None
         ):
             if current_head is None:
@@ -4368,6 +4580,8 @@ class _GoalMutationSubmissionStore:
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone],
         goal_journal_anchor: GoalJournalGenerationAnchor | None,
         *,
+        commit_tombstones: list[GoalMutationSubmissionCommitTombstone]
+        | None = None,
         current_head: GoalMutationSubmissionHeadManifest | None,
     ) -> tuple[
         str,
@@ -4381,6 +4595,7 @@ class _GoalMutationSubmissionStore:
             records,
             rejection_tombstones,
             goal_journal_anchor,
+            commit_tombstones=commit_tombstones,
         )
         if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
             raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
@@ -4388,6 +4603,7 @@ class _GoalMutationSubmissionStore:
             cls._worst_case_terminal_records(records),
             rejection_tombstones,
             goal_journal_anchor,
+            commit_tombstones=commit_tombstones,
         )
         if (
             len(terminal_content.encode("utf-8"))
@@ -4398,6 +4614,7 @@ class _GoalMutationSubmissionStore:
             records,
             rejection_tombstones,
             goal_journal_anchor,
+            commit_tombstones=commit_tombstones,
         )
         next_head = cls._head(
             next_state,
@@ -4504,6 +4721,10 @@ class _GoalMutationSubmissionStore:
                 tombstone.model_copy(deep=True)
                 for tombstone in state.rejection_tombstones
             ]
+            commit_tombstones = [
+                tombstone.model_copy(deep=True)
+                for tombstone in state.commit_tombstones
+            ]
             committed_submission_refs = {
                 recovery.submission_ref
                 for recovery in self.recovery_read_model_from_records(
@@ -4524,6 +4745,29 @@ class _GoalMutationSubmissionStore:
                 if exact_binding:
                     raise GoalTransitionDeniedError(
                         "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+                    )
+                if (
+                    tombstone.submission_ref == submission_ref
+                    or tombstone.idempotency_ref == idempotency_ref
+                    or tombstone.submission_evidence_ref == submission_evidence_ref
+                ):
+                    raise GoalIdempotencyConflictError(
+                        "GOAL_SUBMISSION_BINDING_CONFLICT"
+                    )
+            for tombstone in commit_tombstones:
+                exact_binding = (
+                    tombstone.submission_ref == submission_ref
+                    and tombstone.operation == operation
+                    and tombstone.goal_ref == goal_ref
+                    and tombstone.idempotency_ref == idempotency_ref
+                    and tombstone.submission_evidence_ref == submission_evidence_ref
+                    and tombstone.request_fingerprint_ref == request_fingerprint_ref
+                )
+                if exact_binding:
+                    return self._record_from_commit_tombstone(
+                        tombstone,
+                        request_payload=payload,
+                        journal_entries=journal_entries,
                     )
                 if (
                     tombstone.submission_ref == submission_ref
@@ -4575,6 +4819,18 @@ class _GoalMutationSubmissionStore:
                     for record in evicted_terminal_records
                     if record.resolution_status == "rejected"
                 ]
+                compacted_commit_tombstones = [
+                    self._commit_tombstone(
+                        record,
+                        next(
+                            entry
+                            for entry in journal_entries
+                            if entry.idempotency_ref == record.idempotency_ref
+                        ),
+                    )
+                    for record in evicted_terminal_records
+                    if record.submission_ref in committed_submission_refs
+                ]
                 if (
                     len(rejection_tombstones) + len(compacted_tombstones)
                     > MAX_GOAL_MUTATION_REJECTION_TOMBSTONES
@@ -4583,6 +4839,14 @@ class _GoalMutationSubmissionStore:
                         "GOAL_SUBMISSION_REJECTION_TOMBSTONE_CAPACITY_EXCEEDED"
                     )
                 rejection_tombstones.extend(compacted_tombstones)
+                if (
+                    len(commit_tombstones) + len(compacted_commit_tombstones)
+                    > MAX_GOAL_MUTATION_COMMIT_TOMBSTONES
+                ):
+                    raise GoalRuntimeError(
+                        "GOAL_SUBMISSION_COMMIT_TOMBSTONE_CAPACITY_EXCEEDED"
+                    )
+                commit_tombstones.extend(compacted_commit_tombstones)
                 records = [
                     *pending_records,
                     *terminal_records[-8:],
@@ -4612,7 +4876,11 @@ class _GoalMutationSubmissionStore:
                 record_hash_ref=record_hash_ref,
             )
             records.append(record)
-            self._write(records, rejection_tombstones)
+            self._write(
+                records,
+                rejection_tombstones,
+                commit_tombstones=commit_tombstones,
+            )
             return record.model_copy(deep=True)
 
     def reject(
@@ -4721,6 +4989,9 @@ class _GoalMutationSubmissionStore:
         rejection_tombstones = [
             tombstone.model_copy(deep=True) for tombstone in state.rejection_tombstones
         ]
+        commit_tombstones = [
+            tombstone.model_copy(deep=True) for tombstone in state.commit_tombstones
+        ]
         matching_index = next(
             (
                 index
@@ -4757,7 +5028,11 @@ class _GoalMutationSubmissionStore:
             resolved_at=utc_now(),
         )
         records[matching_index] = rejected
-        self._write(records, rejection_tombstones)
+        self._write(
+            records,
+            rejection_tombstones,
+            commit_tombstones=commit_tombstones,
+        )
         return rejected.model_copy(deep=True)
 
     @contextmanager
@@ -4780,6 +5055,27 @@ class _GoalMutationSubmissionStore:
             state = self._load_state(repair_head=True)
             if request_fingerprint_ref is not None:
                 records = list(state.records)
+                committed_tombstone_matches = [
+                    tombstone
+                    for tombstone in state.commit_tombstones
+                    if tombstone.idempotency_ref == idempotency_ref
+                    or tombstone.request_fingerprint_ref
+                    == request_fingerprint_ref
+                ]
+                if committed_tombstone_matches:
+                    if (
+                        len(committed_tombstone_matches) != 1
+                        or committed_tombstone_matches[0].idempotency_ref
+                        != idempotency_ref
+                        or committed_tombstone_matches[0].request_fingerprint_ref
+                        != request_fingerprint_ref
+                    ):
+                        raise GoalRuntimeCorruptionError(
+                            "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
+                        )
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_COMMITTED_REPLAY_REQUIRED"
+                    )
                 matching = [
                     record
                     for record in records
@@ -4830,6 +5126,7 @@ class _GoalMutationSubmissionStore:
                 list(state.records),
                 list(state.rejection_tombstones),
                 prospective_anchor,
+                commit_tombstones=list(state.commit_tombstones),
                 current_head=self._load_head(),
             )
             yield
@@ -4848,11 +5145,57 @@ class _GoalMutationSubmissionStore:
         validated = self._validated_request(operation, request)
         request_payload = validated.model_dump(mode="json")
         with self.consistent_read():
-            records = self._load()
+            state = self._load_state()
+            records = [
+                record.model_copy(deep=True) for record in state.records
+            ]
         matches = [
             record for record in records if record.idempotency_ref == idempotency_ref
         ]
         if not matches:
+            tombstone_matches = [
+                tombstone
+                for tombstone in state.commit_tombstones
+                if tombstone.idempotency_ref == idempotency_ref
+            ]
+            if len(tombstone_matches) > 1:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_SUBMISSION_BINDING_DUPLICATE"
+                )
+            if tombstone_matches:
+                tombstone = tombstone_matches[0]
+                evidence_refs = _reserved_goal_submission_evidence_refs(
+                    validated.evidence_refs
+                )
+                if len(evidence_refs) != 1:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_MUTATION_BINDING_MISMATCH"
+                    )
+                expected_fingerprint = _sha256_ref(
+                    "request-fingerprint-ref:goal-mutation-submission",
+                    {
+                        "submission_ref": tombstone.submission_ref,
+                        "operation": operation,
+                        "goal_ref": goal_ref,
+                        "request_payload": request_payload,
+                        "idempotency_ref": idempotency_ref,
+                        "submission_evidence_ref": evidence_refs[0],
+                    },
+                )
+                if (
+                    tombstone.operation != operation
+                    or tombstone.goal_ref != goal_ref
+                    or tombstone.submission_evidence_ref != evidence_refs[0]
+                    or tombstone.request_fingerprint_ref
+                    != expected_fingerprint
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_MUTATION_BINDING_MISMATCH"
+                    )
+                return self._record_from_commit_tombstone(
+                    tombstone,
+                    request_payload=request_payload,
+                )
             if any(
                 ref.startswith(
                     (

@@ -9481,6 +9481,162 @@ def test_compacted_rejection_identity_remains_terminal_after_restart(
         GoalRuntimeService(tmp_path).record_goal_mutation_submission(**first_kwargs)
 
 
+def test_compacted_commit_identity_replays_exactly_and_blocks_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(goal_runtime_module, "MAX_GOAL_MUTATION_SUBMISSIONS", 10)
+    service = GoalRuntimeService(tmp_path)
+    first_kwargs: dict[str, object] | None = None
+    first_record = None
+    first_approval_ref: str | None = None
+    for index in range(11):
+        suffix = f"{index:064x}"
+        request = _create_request().model_copy(
+            update={
+                "objective": f"Durable compacted commit {index}.",
+                "evidence_refs": [
+                    (
+                        "evidence-ref:control-center-goal-create-submission:"
+                        f"sha256:{suffix}"
+                    )
+                ],
+            }
+        )
+        kwargs: dict[str, object] = {
+            "submission_ref": f"submission-ref:goal-mutation:committed:{index}",
+            "operation": "create",
+            "goal_ref": None,
+            "request": request,
+            "idempotency_ref": f"idempotency-ref:goal-mutation:committed:{index}",
+        }
+        record = service.record_goal_mutation_submission(**kwargs)
+        spec = service.prepare_goal_mutation_approval(
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=str(kwargs["idempotency_ref"]),
+        )
+        service.decide_goal_mutation_approval(
+            approval_request_ref=spec.approval_request_ref,
+            decision="approve",
+            decision_reason_ref=f"reason-ref:goal-mutation:committed:{index}",
+        )
+        service.create_goal(
+            request,
+            idempotency_ref=str(kwargs["idempotency_ref"]),
+            approval_ref=spec.approval_ref,
+        )
+        if index == 0:
+            first_kwargs = kwargs
+            first_record = record
+            first_approval_ref = spec.approval_ref
+
+    assert first_kwargs is not None
+    assert first_record is not None
+    assert first_approval_ref is not None
+    state = json.loads(
+        (tmp_path / "goal_mutation_submissions.json").read_text(encoding="utf-8")
+    )
+    first_tombstone = next(
+        tombstone
+        for tombstone in state["commit_tombstones"]
+        if tombstone["submission_ref"] == first_kwargs["submission_ref"]
+    )
+    tampered_tombstone = {
+        **first_tombstone,
+        "committed_goal_ref": "goal-ref:compacted-commit-substitution",
+    }
+    with pytest.raises(
+        ValueError,
+        match="GOAL_SUBMISSION_COMMIT_TOMBSTONE_HASH_MISMATCH",
+    ):
+        goal_runtime_module.GoalMutationSubmissionCommitTombstone.model_validate(
+            tampered_tombstone
+        )
+    restarted = GoalRuntimeService(tmp_path)
+    replayed_record = restarted.record_goal_mutation_submission(**first_kwargs)
+    assert replayed_record == first_record
+    replayed_goal, _binding = restarted.create_goal(
+        first_kwargs["request"],
+        idempotency_ref=str(first_kwargs["idempotency_ref"]),
+        approval_ref=first_approval_ref,
+    )
+    assert replayed_goal.objective == "Durable compacted commit 0."
+    assert len(restarted.goals._load_entries()) == 11  # noqa: SLF001
+
+    original_request = first_kwargs["request"]
+    assert isinstance(original_request, GoalCreateRequest)
+    substituted_requests = [
+        {
+            **first_kwargs,
+            "submission_ref": "submission-ref:goal-mutation:substituted",
+        },
+        {
+            **first_kwargs,
+            "idempotency_ref": "idempotency-ref:goal-mutation:substituted",
+        },
+        {
+            **first_kwargs,
+            "request": original_request.model_copy(
+                update={
+                    "evidence_refs": [
+                        (
+                            "evidence-ref:control-center-goal-create-submission:"
+                            f"sha256:{'f' * 64}"
+                        )
+                    ]
+                }
+            ),
+        },
+        {
+            **first_kwargs,
+            "request": original_request.model_copy(
+                update={
+                    "objective": "A substituted compacted request must conflict."
+                }
+            ),
+        },
+    ]
+    for substituted_kwargs in substituted_requests:
+        with pytest.raises(
+            GoalIdempotencyConflictError,
+            match="GOAL_(?:IDEMPOTENCY|SUBMISSION_BINDING)_CONFLICT",
+        ):
+            restarted.record_goal_mutation_submission(**substituted_kwargs)
+
+    first_tombstone["committed_goal_ref"] = (
+        "goal-ref:compacted-commit-persisted-tamper"
+    )
+    (tmp_path / "goal_mutation_submissions.json").write_text(
+        json.dumps(state),
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_SUBMISSION_STATE_CORRUPT",
+    ):
+        GoalRuntimeService(tmp_path).record_goal_mutation_submission(**first_kwargs)
+
+
+def test_submission_state_accepts_legacy_empty_commit_tombstone_hash() -> None:
+    state = goal_runtime_module._GoalMutationSubmissionStore._state([])  # noqa: SLF001
+    legacy_payload = state.model_dump(mode="json")
+    legacy_payload.pop("commit_tombstones")
+    legacy_payload["state_hash_ref"] = goal_runtime_module._sha256_ref(  # noqa: SLF001
+        "state-hash-ref:goal-mutation-submissions",
+        {
+            "records": [],
+            "rejection_tombstones": [],
+        },
+    )
+
+    validated = goal_runtime_module.GoalMutationSubmissionState.model_validate(
+        legacy_payload
+    )
+    assert validated.commit_tombstones == []
+
+
 @pytest.mark.parametrize(
     "reserved_refs",
     [

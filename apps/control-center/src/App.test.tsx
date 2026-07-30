@@ -9315,6 +9315,57 @@ describe("Web Control Center shell", () => {
     },
   );
 
+  it("fails closed when durable recovery contains multiple pending submissions", async () => {
+    const fixture = runtimeGoalPendingRecoveryFixture("pending");
+    const secondIdempotencyRef =
+      "idempotency-ref:goal-app-authoritative-recovery:second";
+    const secondEvidenceRef =
+      `evidence-ref:control-center-goal-create-submission:sha256:${"c".repeat(64)}`;
+    const secondRecord = {
+      ...cloneForTest(fixture.record),
+      submission_ref:
+        "submission-ref:goal-app-authoritative-recovery:second",
+      idempotency_ref: secondIdempotencyRef,
+      submission_evidence_ref: secondEvidenceRef,
+      request_fingerprint_ref:
+        `request-fingerprint-ref:goal-mutation-submission:sha256:${"d".repeat(64)}`,
+      request_payload: {
+        ...cloneForTest(fixture.record.request_payload),
+        evidence_refs: [secondEvidenceRef],
+      },
+      approval_recovery: runtimeGoalSubmissionApprovalRecovery(
+        "create",
+        null,
+        secondIdempotencyRef,
+        "pending",
+      ),
+    };
+    const runEvents = {
+      ...cloneForTest(fixture.runEvents),
+      goal_mutation_submissions: {
+        ...cloneForTest(fixture.runEvents.goal_mutation_submissions),
+        records: [fixture.record, secondRecord],
+        pending_count: 2,
+      },
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderRuntimeGoalRecoveryPanel(
+      runEvents as unknown as typeof mockControlCenterData.runtimeRunEvents,
+    );
+
+    expect(
+      await screen.findByText(
+        "Multiple backend-owned goal submissions require CLI inspection before mutation can continue.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each(["request_not_received", "response_lost_after_approval"] as const)(
     "retries an exact approval decision after %s without submitting early",
     async (failureMode) => {
@@ -9697,9 +9748,32 @@ describe("Web Control Center shell", () => {
   it("keeps a mismatched denial uncertain and retries the exact durable decision", async () => {
     let decisionCallCount = 0;
     let mutationCallCount = 0;
+    let prepared: RuntimeGoalPreparedRecoveryIdentity | null = null;
+    let denialDurable = false;
     const fetchMock = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
         const urlText = String(url);
+        if (
+          options?.method === "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalPrepareCreate)
+        ) {
+          const headers = new Headers(options.headers);
+          const requestPayload = JSON.parse(
+            String(options.body),
+          ) as RuntimeGoalCreateRequest;
+          prepared = {
+            submissionRef:
+              headers.get("X-UAA-Goal-Submission-Ref") ?? "",
+            idempotencyRef:
+              headers.get("X-UAA-Idempotency-Key") ?? "",
+            submissionEvidenceRef:
+              requestPayload.evidence_refs.find((ref) =>
+                ref.includes("goal-create-submission"),
+              ) ?? "",
+            requestPayload,
+          };
+          return runtimeGoalApprovalTestResponse(urlText, options) as Response;
+        }
         const isDenialDecision =
           options?.method === "POST" &&
           /\/api\/runtime\/goals\/approval-requests\/[^/]+\/decision$/.test(
@@ -9725,7 +9799,25 @@ describe("Web Control Center shell", () => {
               headers: { "Content-Type": "application/json" },
             });
           }
+          denialDurable = true;
           return response as Response;
+        }
+        if (
+          options?.method !== "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeRunEvents) &&
+          prepared !== null &&
+          denialDurable
+        ) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              result: runtimeGoalPreparedRecoveryRunEvents(
+                prepared,
+                "denied",
+              ),
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
         }
         const approvalResponse = runtimeGoalApprovalTestResponse(
           urlText,
@@ -9777,14 +9869,40 @@ describe("Web Control Center shell", () => {
         name: "Retry exact denial decision",
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
   });
 
   it("blocks mutation retry while exact approval revocation is uncertain", async () => {
     let mutationCallCount = 0;
     let revocationCallCount = 0;
+    let prepared: RuntimeGoalPreparedRecoveryIdentity | null = null;
+    let revocationDurable = false;
     const fetchMock = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
         const urlText = String(url);
+        if (
+          options?.method === "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalPrepareCreate)
+        ) {
+          const headers = new Headers(options.headers);
+          const requestPayload = JSON.parse(
+            String(options.body),
+          ) as RuntimeGoalCreateRequest;
+          prepared = {
+            submissionRef:
+              headers.get("X-UAA-Goal-Submission-Ref") ?? "",
+            idempotencyRef:
+              headers.get("X-UAA-Idempotency-Key") ?? "",
+            submissionEvidenceRef:
+              requestPayload.evidence_refs.find((ref) =>
+                ref.includes("goal-create-submission"),
+              ) ?? "",
+            requestPayload,
+          };
+          return runtimeGoalApprovalTestResponse(urlText, options) as Response;
+        }
         if (
           options?.method === "POST" &&
           urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalRevoke)
@@ -9807,7 +9925,25 @@ describe("Web Control Center shell", () => {
               headers: { "Content-Type": "application/json" },
             });
           }
+          revocationDurable = true;
           return response as Response;
+        }
+        if (
+          options?.method !== "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeRunEvents) &&
+          prepared !== null &&
+          revocationDurable
+        ) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              result: runtimeGoalPreparedRecoveryRunEvents(
+                prepared,
+                "revoked",
+              ),
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
         }
         const approvalResponse = runtimeGoalApprovalTestResponse(
           urlText,
@@ -9859,11 +9995,14 @@ describe("Web Control Center shell", () => {
     );
     expect(
       await screen.findByText(
-        "The exact goal mutation approval was revoked. Refresh durable goal state before preparing another mutation.",
+        "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
       ),
     ).toBeInTheDocument();
     expect(revocationCallCount).toBe(2);
     expect(mutationCallCount).toBe(1);
+    expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
   });
 
   it.each(["create", "edit", "transition"] as const)(
@@ -10915,14 +11054,47 @@ describe("Web Control Center shell", () => {
   });
 
   it("denies a prepared exact goal request without calling the mutation route", async () => {
+    let prepared: RuntimeGoalPreparedRecoveryIdentity | null = null;
+    let denialDurable = false;
     const fetchMock = vi.fn(
       async (url: string | URL | Request, options?: RequestInit) => {
         const urlText = String(url);
+        if (
+          options?.method === "POST" &&
+          urlText.endsWith(API_ENDPOINTS.runtimeGoalApprovalPrepareCreate)
+        ) {
+          const headers = new Headers(options.headers);
+          const requestPayload = JSON.parse(
+            String(options.body),
+          ) as RuntimeGoalCreateRequest;
+          prepared = {
+            submissionRef:
+              headers.get("X-UAA-Goal-Submission-Ref") ?? "",
+            idempotencyRef:
+              headers.get("X-UAA-Idempotency-Key") ?? "",
+            submissionEvidenceRef:
+              requestPayload.evidence_refs.find((ref) =>
+                ref.includes("goal-create-submission"),
+              ) ?? "",
+            requestPayload,
+          };
+          return runtimeGoalApprovalTestResponse(urlText, options) as Response;
+        }
         const approvalResponse = runtimeGoalApprovalTestResponse(
           urlText,
           options,
         );
-        if (approvalResponse !== null) return approvalResponse;
+        if (approvalResponse !== null) {
+          if (
+            options?.method === "POST" &&
+            /\/api\/runtime\/goals\/approval-requests\/[^/]+\/decision$/.test(
+              urlText,
+            )
+          ) {
+            denialDurable = true;
+          }
+          return approvalResponse;
+        }
         if (isRuntimeGoalMutationTestPost(urlText, options)) {
           throw new Error("denied goal request reached the mutation route");
         }
@@ -10932,7 +11104,19 @@ describe("Web Control Center shell", () => {
         if (endpoint === undefined) {
           throw new Error(`unexpected request ${urlText}`);
         }
-        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+        const envelope =
+          endpoint === API_ENDPOINTS.runtimeRunEvents &&
+          prepared !== null &&
+          denialDurable
+            ? {
+                ok: true,
+                result: runtimeGoalPreparedRecoveryRunEvents(
+                  prepared,
+                  "denied",
+                ),
+              }
+            : envelopeForReadEndpoint(urlText);
+        return new Response(JSON.stringify(envelope), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -10970,6 +11154,9 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("button", { name: "Create local goal" }),
+    ).toBeDisabled();
+    expect(
       fetchMock.mock.calls.filter(([url, options]) =>
         isRuntimeGoalMutationTestPost(String(url), options),
       ),
@@ -10982,9 +11169,6 @@ describe("Web Control Center shell", () => {
       decision_reason_ref:
         "reason-ref:control-center-goal-mutation-explicit-denial",
     });
-    expect(
-      screen.getByRole("button", { name: "Create local goal" }),
-    ).toBeEnabled();
   });
 
   it.each([
@@ -20421,6 +20605,53 @@ function runtimeGoalPendingRecoveryFixture(
         committed_count: 0,
         rejected_count: 0,
       },
+    },
+  };
+}
+
+type RuntimeGoalPreparedRecoveryIdentity = {
+  submissionRef: string;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+  requestPayload: RuntimeGoalCreateRequest;
+};
+
+function runtimeGoalPreparedRecoveryRunEvents(
+  prepared: RuntimeGoalPreparedRecoveryIdentity,
+  posture: "pending" | "approved" | "expired" | "denied" | "revoked",
+) {
+  const record = {
+    schema_version: "goal_mutation_submission_recovery.v1" as const,
+    submission_ref: prepared.submissionRef,
+    operation: "create" as const,
+    goal_ref: null,
+    request_payload: prepared.requestPayload,
+    idempotency_ref: prepared.idempotencyRef,
+    submission_evidence_ref: prepared.submissionEvidenceRef,
+    request_fingerprint_ref:
+      `request-fingerprint-ref:goal-mutation-submission:sha256:${"d".repeat(64)}`,
+    recorded_at: "2026-07-28T00:00:00Z",
+    status: "pending" as const,
+    committed_goal_ref: null,
+    rejection_reason_ref: null,
+    resolved_at: null,
+    approval_recovery: runtimeGoalSubmissionApprovalRecovery(
+      "create",
+      null,
+      prepared.idempotencyRef,
+      posture,
+    ),
+  };
+  return {
+    ...cloneForTest(mockControlCenterData.runtimeRunEvents),
+    goal_mutation_submissions: {
+      ...cloneForTest(
+        mockControlCenterData.runtimeRunEvents.goal_mutation_submissions,
+      ),
+      records: [record],
+      pending_count: 1,
+      committed_count: 0,
+      rejected_count: 0,
     },
   };
 }

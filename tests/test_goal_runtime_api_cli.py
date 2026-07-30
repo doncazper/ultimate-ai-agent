@@ -257,6 +257,196 @@ def test_goal_approval_decision_and_revoke_bind_exact_idempotency_headers(
     assert revoked["data"]["approval_decision"]["status"] == "revoked"
 
 
+@pytest.mark.parametrize(
+    ("path", "payload", "service_method", "idempotency_ref", "expected_ref"),
+    [
+        (
+            "/api/runtime/goals/approval-requests/create",
+            _create_payload(),
+            "prepare_goal_mutation_approval",
+            "idempotency-ref:storage-prepare-create",
+            None,
+        ),
+        (
+            "/api/runtime/goals/goal-ref:storage/approval-requests/edit",
+            {
+                "expected_version": 1,
+                "text_redaction_posture": (
+                    "operator_authored_redacted_summary_only"
+                ),
+                "objective": "A bounded edit.",
+            },
+            "prepare_goal_mutation_approval",
+            "idempotency-ref:storage-prepare-edit",
+            None,
+        ),
+        (
+            "/api/runtime/goals/goal-ref:storage/approval-requests/transition",
+            {
+                "expected_version": 1,
+                "transition": "pause",
+                "reason_ref": "reason-ref:storage-prepare-transition",
+            },
+            "prepare_goal_mutation_approval",
+            "idempotency-ref:storage-prepare-transition",
+            None,
+        ),
+        (
+            "/api/runtime/goals/approval-requests/"
+            "approval-request-ref:storage/decision",
+            {
+                "decision": "approve",
+                "decision_reason_ref": "reason-ref:storage-decision",
+            },
+            "decide_goal_mutation_approval",
+            (
+                "idempotency-ref:goal-approval-decision:"
+                "approval-request-ref:storage"
+            ),
+            "approval-request-ref:storage",
+        ),
+        (
+            "/api/runtime/goals/approval-requests/revoke",
+            {
+                "approval_ref": "approval-ref:storage",
+                "decision_reason_ref": "reason-ref:storage-revoke",
+            },
+            "revoke_goal_mutation_approval",
+            "idempotency-ref:goal-approval-revoke:approval-ref:storage",
+            "approval-ref:storage",
+        ),
+        (
+            "/api/runtime/goals",
+            _create_payload(),
+            "create_goal",
+            "idempotency-ref:storage-create",
+            "approval-ref:storage-create",
+        ),
+        (
+            "/api/runtime/goals/goal-ref:storage/edit",
+            {
+                "expected_version": 1,
+                "text_redaction_posture": (
+                    "operator_authored_redacted_summary_only"
+                ),
+                "objective": "A bounded edit.",
+            },
+            "edit_goal",
+            "idempotency-ref:storage-edit",
+            "approval-ref:storage-edit",
+        ),
+        (
+            "/api/runtime/goals/goal-ref:storage/transition",
+            {
+                "expected_version": 1,
+                "transition": "pause",
+                "reason_ref": "reason-ref:storage-transition",
+            },
+            "transition_goal",
+            "idempotency-ref:storage-transition",
+            "approval-ref:storage-transition",
+        ),
+    ],
+)
+def test_operator_goal_writes_report_storage_interruption_as_unknown_outcome(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    payload: dict[str, object],
+    service_method: str,
+    idempotency_ref: str,
+    expected_ref: str | None,
+) -> None:
+    client, service = goal_runtime_client
+
+    def fail_storage(*_args: object, **_kwargs: object) -> None:
+        raise OSError("raw storage detail must remain redacted")
+
+    monkeypatch.setattr(service, service_method, fail_storage)
+    headers = {"x-uaa-idempotency-key": idempotency_ref}
+    if service_method in {"create_goal", "edit_goal", "transition_goal"}:
+        headers["x-uaa-goal-approval-ref"] = str(expected_ref)
+    body = client.post(path, json=payload, headers=headers).json()
+
+    assert body["success"] is False
+    assert body["error"]["code"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert body["error"]["retryable"] is True
+    assert body["data"]["execution_outcome"] == (
+        "unknown_after_storage_interruption"
+    )
+    assert body["data"]["mutation_performed"] is None
+    assert body["data"]["reconciliation_required"] is True
+    assert body["data"]["exact_idempotent_retry_required"] is True
+    assert body["data"]["idempotency_ref"] == idempotency_ref
+    if service_method == "decide_goal_mutation_approval":
+        assert body["data"]["approval_request_ref"] == expected_ref
+    elif expected_ref is not None:
+        assert body["data"]["approval_ref"] == expected_ref
+    assert "raw storage detail" not in json.dumps(body)
+
+
+def test_post_commit_storage_interruption_recovers_by_exact_retry(
+    goal_runtime_client: tuple[TestClient, GoalRuntimeService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, service = goal_runtime_client
+    submission_ref = "submission-ref:goal-mutation:post-commit-storage"
+    idempotency_ref = "idempotency-ref:goal-mutation:post-commit-storage"
+    payload = {
+        **_create_payload(),
+        "evidence_refs": [
+            (
+                "evidence-ref:control-center-goal-create-submission:sha256:"
+                + "e" * 64
+            )
+        ],
+    }
+    approval_ref = _api_approval_ref(
+        client,
+        operation="create",
+        request=payload,
+        idempotency_ref=idempotency_ref,
+        submission_ref=submission_ref,
+    )
+    original_create = service.create_goal
+
+    def commit_then_interrupt(*args: object, **kwargs: object) -> None:
+        original_create(*args, **kwargs)
+        raise OSError("post-commit storage teardown detail")
+
+    monkeypatch.setattr(service, "create_goal", commit_then_interrupt)
+    headers = {
+        "x-uaa-idempotency-key": idempotency_ref,
+        "x-uaa-goal-submission-ref": submission_ref,
+        "x-uaa-goal-approval-ref": approval_ref,
+    }
+    interrupted = client.post(
+        "/api/runtime/goals",
+        json=payload,
+        headers=headers,
+    ).json()
+    assert interrupted["error"]["code"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert interrupted["data"]["submission_ref"] == submission_ref
+    assert interrupted["data"]["idempotency_ref"] == idempotency_ref
+    assert interrupted["data"]["approval_ref"] == approval_ref
+
+    monkeypatch.setattr(service, "create_goal", original_create)
+    replayed = client.post(
+        "/api/runtime/goals",
+        json=payload,
+        headers=headers,
+    ).json()
+    assert replayed["success"] is True
+    assert len(service.goals._load_entries()) == 1  # noqa: SLF001
+    [recovery] = service.aggregate_read_snapshot(
+        run_ref=None,
+        after_sequence=0,
+        limit=50,
+    )[4].records
+    assert recovery.status == "committed"
+    assert recovery.submission_ref == submission_ref
+
+
 def test_goal_approval_prepare_persists_exact_submission_before_response(
     goal_runtime_client: tuple[TestClient, GoalRuntimeService],
 ) -> None:

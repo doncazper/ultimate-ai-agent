@@ -1023,6 +1023,55 @@ def _goal_runtime_failure(
     )
 
 
+def _goal_runtime_storage_failure(
+    operation: str,
+    trace_id: str,
+    *,
+    submission_ref: str | None = None,
+    idempotency_ref: str | None = None,
+    approval_request_ref: str | None = None,
+    approval_ref: str | None = None,
+) -> ResultEnvelope:
+    """Return a redacted unknown-outcome envelope without resolving a submission."""
+
+    refs = {
+        key: value
+        for key, value in (
+            ("submission_ref", submission_ref),
+            ("idempotency_ref", idempotency_ref),
+            ("approval_request_ref", approval_request_ref),
+            ("approval_ref", approval_ref),
+        )
+        if value is not None
+    }
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GoalRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+            category=ErrorCategory.internal_error,
+            safe_message=(
+                "Durable goal storage became unavailable; reconcile durable state "
+                "and retry only the exact same idempotent operation."
+            ),
+            severity=Severity.high,
+            retryable=True,
+            details_redacted=True,
+            source="GoalRuntimeAPI",
+        ),
+        data={
+            "execution_outcome": "unknown_after_storage_interruption",
+            "mutation_performed": None,
+            "reconciliation_required": True,
+            "exact_idempotent_retry_required": True,
+            **refs,
+        },
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
 def _persist_terminal_goal_submission_rejection(
     *,
     service: GoalRuntimeService | None,
@@ -1222,6 +1271,14 @@ def _goal_mutation_approval_prepare_result(
             request=request,
             idempotency_ref=idempotency_ref,
         )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_prepare",
+            submission_ref
+            or _safe_goal_failure_trace("goal-approval-prepare"),
+            submission_ref=submission_ref,
+            idempotency_ref=idempotency_ref,
+        )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
             exc
@@ -1349,11 +1406,13 @@ def post_api_runtime_goal_approval_decision(
         default=None, alias="x-uaa-idempotency-ref"
     ),
 ) -> ResultEnvelope:
+    idempotency_ref: str | None = None
     try:
-        if _idempotency_ref(
+        idempotency_ref = _idempotency_ref(
             x_uaa_idempotency_key,
             x_uaa_idempotency_ref,
-        ) != build_goal_mutation_approval_decision_idempotency_ref(
+        )
+        if idempotency_ref != build_goal_mutation_approval_decision_idempotency_ref(
             approval_request_ref
         ):
             raise GoalIdempotencyConflictError(
@@ -1363,6 +1422,13 @@ def post_api_runtime_goal_approval_decision(
             approval_request_ref=approval_request_ref,
             decision=request.decision,
             decision_reason_ref=request.decision_reason_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_decision",
+            approval_request_ref,
+            idempotency_ref=idempotency_ref,
+            approval_request_ref=approval_request_ref,
         )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
@@ -1402,11 +1468,13 @@ def post_api_runtime_goal_approval_revoke(
         default=None, alias="x-uaa-idempotency-ref"
     ),
 ) -> ResultEnvelope:
+    idempotency_ref: str | None = None
     try:
-        if _idempotency_ref(
+        idempotency_ref = _idempotency_ref(
             x_uaa_idempotency_key,
             x_uaa_idempotency_ref,
-        ) != build_goal_mutation_approval_revoke_idempotency_ref(
+        )
+        if idempotency_ref != build_goal_mutation_approval_revoke_idempotency_ref(
             request.approval_ref
         ):
             raise GoalIdempotencyConflictError(
@@ -1415,6 +1483,13 @@ def post_api_runtime_goal_approval_revoke(
         entry = _goal_runtime_service().revoke_goal_mutation_approval(
             approval_ref=request.approval_ref,
             decision_reason_ref=request.decision_reason_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_revoke",
+            request.approval_ref,
+            idempotency_ref=idempotency_ref,
+            approval_ref=request.approval_ref,
         )
     except (GoalRuntimeError, ValueError) as exc:
         failure = (
@@ -1462,6 +1537,7 @@ def post_api_runtime_goal(
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
@@ -1482,6 +1558,14 @@ def post_api_runtime_goal(
             )
         goal, approval = service.create_goal(
             request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_create",
+            x_uaa_goal_submission_ref or "idempotency-ref:goal-create-unknown",
+            submission_ref=x_uaa_goal_submission_ref,
             idempotency_ref=idempotency_ref,
             approval_ref=x_uaa_goal_approval_ref,
         )
@@ -1537,6 +1621,7 @@ def post_api_runtime_goal_edit(
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
@@ -1558,6 +1643,14 @@ def post_api_runtime_goal_edit(
         goal, approval = service.edit_goal(
             goal_ref,
             request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_edit",
+            x_uaa_goal_submission_ref or _safe_goal_failure_trace("goal-edit"),
+            submission_ref=x_uaa_goal_submission_ref,
             idempotency_ref=idempotency_ref,
             approval_ref=x_uaa_goal_approval_ref,
         )
@@ -1613,6 +1706,7 @@ def post_api_runtime_goal_transition(
 ) -> ResultEnvelope:
     service: GoalRuntimeService | None = None
     submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
     try:
         idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
         if x_uaa_goal_submission_ref is None and any(
@@ -1638,6 +1732,15 @@ def post_api_runtime_goal_transition(
         goal, approval = service.transition_goal(
             goal_ref,
             request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_transition",
+            x_uaa_goal_submission_ref
+            or _safe_goal_failure_trace("goal-transition"),
+            submission_ref=x_uaa_goal_submission_ref,
             idempotency_ref=idempotency_ref,
             approval_ref=x_uaa_goal_approval_ref,
         )

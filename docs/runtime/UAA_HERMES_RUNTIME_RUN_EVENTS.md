@@ -73,7 +73,14 @@ content.
 Reserved Control Center submission evidence is rejected unless the exact
 backend-owned recovery envelope exists. Terminal recovery records carry a
 durable resolution timestamp for deterministic UI ordering; committed recovery
-remains authoritative after bounded goal-evidence compaction.
+remains authoritative after bounded goal-evidence or active-submission
+compaction. Compacted commits retain a canonical identity tombstone binding the
+original submission, idempotency, evidence, request fingerprint, recorded time,
+pending-record hash, and exact journal commit. Tombstones participate in the
+submission state hash, independent head, write intent, duplicate-ref checks, and
+capacity bounds. Exact historical replay reconstructs the original submission
+record and reuses the journal result; any substituted identity or request, or
+any tombstone/journal mismatch, fails closed.
 Terminal deterministic mutation failures are
 durably bound to a safe rejection-reason ref before the response is returned;
 the rejected identity cannot be replayed, while Control Center releases its
@@ -234,8 +241,12 @@ result and cannot leave a journal entry paired with a rejected submission.
 Blocked or approval-pending invocations are not projected as accepted runs.
 Projection-capacity or corruption failures are returned through redacted API
 and CLI error envelopes rather than escaping as unstructured failures. Local
-storage failures are normalized to the same safe contract, and goal mutations
-remain in the governed-runtime targeted rate-limit group.
+storage interruptions on approval preparation, decision, revocation, or goal
+mutation return `GOAL_RUNTIME_STORAGE_UNAVAILABLE` with an explicit unknown
+outcome, reconciliation requirement, and exact-idempotent-retry posture. They
+never terminally reject a submission because the durable write may already
+have completed. Goal mutations remain in the governed-runtime targeted
+rate-limit group.
 When CLI `--state-dir` is supplied, goal state is derived from the same
 `goal_runtime` child used by the API for that runtime store. An unavailable or
 invalid directory, corrupt journal, or malformed inspection ref returns a

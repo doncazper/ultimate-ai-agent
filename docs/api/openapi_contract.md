@@ -461,7 +461,13 @@ Contract rules:
   pending, committed, and durably rejected submissions. A deterministic
   terminal failure binds the rejected identity to a safe reason ref, blocks
   exact replay of that identity, and permits only a revised request with a new
-  identity.
+  identity. Bounded compaction preserves committed submission identities as
+  integrity-bound tombstones, so the exact original submission can still replay
+  the journal result while substituted submission, idempotency, evidence, or
+  payload bindings fail closed. A raw storage interruption on any approval or
+  mutation POST returns a redacted `GOAL_RUNTIME_STORAGE_UNAVAILABLE` envelope
+  with an unknown outcome and requires durable reconciliation plus the exact
+  same idempotent retry; it does not terminally reject the submission.
   Completion may be requested, but verified completion is explicitly blocked
   until a separately authorized trusted criterion-evaluator receipt producer
   exists; caller refs cannot synthesize evaluator authority. The routes grant

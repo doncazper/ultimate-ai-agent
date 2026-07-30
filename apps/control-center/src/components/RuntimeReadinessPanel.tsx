@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type {
   ControlCenterRouteReadState,
   RuntimeCapabilityMatrix,
@@ -295,6 +295,152 @@ function pendingGoalMutationsEqual(
   );
 }
 
+type GoalMutationSubmissionReconciliation =
+  | {
+      posture: "pending";
+      pending: PendingGoalMutation;
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "approval_terminal";
+      pending: PendingGoalMutation;
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "committed" | "rejected";
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "current";
+      record: RuntimeGoalMutationSubmissionRecoveryRecord | null;
+    };
+
+function pendingGoalMutationFromRecoveryRecord(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+): PendingGoalMutation {
+  if (record.operation === "create") {
+    return {
+      operation: "create",
+      request: record.request_payload as RuntimeGoalCreateRequest,
+      idempotencyRef: record.idempotency_ref,
+      submissionEvidenceRef: record.submission_evidence_ref,
+      submissionRef: record.submission_ref,
+      approvalSpec: null,
+      approvalRequestRef: null,
+      approvalRef: null,
+      approvalStatus: null,
+    };
+  }
+  if (record.goal_ref === null || record.goal_ref === undefined) {
+    throw new Error(
+      "Goal submission recovery binding is inconsistent and remains blocked.",
+    );
+  }
+  if (record.operation === "edit") {
+    return {
+      operation: "edit",
+      goalRef: record.goal_ref,
+      request: record.request_payload as RuntimeGoalEditRequest,
+      idempotencyRef: record.idempotency_ref,
+      submissionEvidenceRef: record.submission_evidence_ref,
+      submissionRef: record.submission_ref,
+      approvalSpec: null,
+      approvalRequestRef: null,
+      approvalRef: null,
+      approvalStatus: null,
+    };
+  }
+  return {
+    operation: "transition",
+    goalRef: record.goal_ref,
+    request: record.request_payload as RuntimeGoalTransitionRequest,
+    idempotencyRef: record.idempotency_ref,
+    submissionEvidenceRef: record.submission_evidence_ref,
+    submissionRef: record.submission_ref,
+    approvalSpec: null,
+    approvalRequestRef: null,
+    approvalRef: null,
+    approvalStatus: null,
+  };
+}
+
+function reconcileGoalMutationSubmissions(
+  records: RuntimeGoalMutationSubmissionRecoveryRecord[],
+  expected: PendingGoalMutation | null = null,
+): GoalMutationSubmissionReconciliation {
+  const pendingRecords = records.filter(
+    (record) => record.status === "pending",
+  );
+  if (pendingRecords.length > 1) {
+    throw new Error(
+      "Multiple backend-owned goal submissions require CLI inspection before mutation can continue.",
+    );
+  }
+  if (pendingRecords.length === 1) {
+    const record = pendingRecords[0];
+    const identity = pendingGoalMutationFromRecoveryRecord(record);
+    if (expected !== null && !submissionMatchesPending(record, expected)) {
+      throw new Error(
+        "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    const recovered = hydratePendingGoalMutationApproval(
+      expected ?? identity,
+      record,
+    );
+    if (recovered === null) {
+      throw new Error(
+        "Goal submission approval recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    return {
+      posture:
+        recovered.approvalStatus === "denied" ||
+        recovered.approvalStatus === "revoked" ||
+        recovered.approvalStatus === "expired"
+          ? "approval_terminal"
+          : "pending",
+      pending: recovered,
+      record,
+    };
+  }
+
+  const terminalRecords = records.filter(
+    (record) =>
+      record.status === "committed" || record.status === "rejected",
+  );
+  if (expected !== null) {
+    const matches = terminalRecords.filter(
+      (record) => record.submission_ref === expected.submissionRef,
+    );
+    if (
+      matches.length !== 1 ||
+      !terminalSubmissionMatchesPending(matches[0], expected)
+    ) {
+      throw new Error(
+        "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    return matches[0].status === "committed"
+      ? { posture: "committed", record: matches[0] }
+      : { posture: "rejected", record: matches[0] };
+  }
+
+  const latestTerminal = terminalRecords
+    .slice()
+    .sort((left, right) => {
+      const leftResolvedAt = terminalSubmissionResolutionTime(left);
+      const rightResolvedAt = terminalSubmissionResolutionTime(right);
+      return leftResolvedAt !== rightResolvedAt
+        ? leftResolvedAt - rightResolvedAt
+        : left.submission_ref.localeCompare(right.submission_ref);
+    })
+    .at(-1);
+  return latestTerminal === undefined
+    ? { posture: "current", record: null }
+    : { posture: "current", record: latestTerminal };
+}
+
 export function RuntimeReadinessPanel({
   report,
   matrix,
@@ -388,172 +534,80 @@ export function RuntimeReadinessPanel({
   const [goalMutationBusy, setGoalMutationBusy] = useState(false);
   const [pendingGoalMutation, setPendingGoalMutation] =
     useState<PendingGoalMutation | null>(null);
+  const pendingGoalMutationRef = useRef<PendingGoalMutation | null>(null);
+  pendingGoalMutationRef.current = pendingGoalMutation;
+  const runEventsBackendOwnedRef = useRef(runEventsBackendOwned);
+  runEventsBackendOwnedRef.current = runEventsBackendOwned;
   const [goalNotice, setGoalNotice] = useState(
     "Goal mutations require the exact local backend, a current truth binding, and current durable goal state.",
   );
   useEffect(() => {
     setRuntimeGoalEvents(runEvents);
-    const pendingRecords =
-      runEvents.goal_mutation_submissions.records.filter(
-        (record) => record.status === "pending",
+    try {
+      const reconciliation = reconcileGoalMutationSubmissions(
+        runEvents.goal_mutation_submissions.records,
+        pendingGoalMutationRef.current,
       );
-    if (pendingRecords.length > 1) {
-      setPendingGoalMutation(null);
-      setGoalReadCurrent(false);
-      setGoalNotice(
-        "Multiple backend-owned goal submissions require CLI inspection before mutation can continue.",
-      );
-    } else if (pendingRecords.length === 1) {
-      const record = pendingRecords[0];
-      const recoveredIdentity =
-        record.operation === "create"
-          ? {
-              operation: "create" as const,
-              request: record.request_payload as RuntimeGoalCreateRequest,
-              idempotencyRef: record.idempotency_ref,
-              submissionEvidenceRef: record.submission_evidence_ref,
-              submissionRef: record.submission_ref,
-              approvalSpec: null,
-              approvalRequestRef: null,
-              approvalRef: null,
-              approvalStatus: null,
-            }
-          : record.operation === "edit"
-            ? {
-                operation: "edit" as const,
-                goalRef: record.goal_ref as string,
-                request: record.request_payload as RuntimeGoalEditRequest,
-                idempotencyRef: record.idempotency_ref,
-                submissionEvidenceRef: record.submission_evidence_ref,
-                submissionRef: record.submission_ref,
-                approvalSpec: null,
-                approvalRequestRef: null,
-                approvalRef: null,
-                approvalStatus: null,
-              }
-            : {
-                operation: "transition" as const,
-                goalRef: record.goal_ref as string,
-                request:
-                  record.request_payload as RuntimeGoalTransitionRequest,
-                idempotencyRef: record.idempotency_ref,
-                submissionEvidenceRef: record.submission_evidence_ref,
-                submissionRef: record.submission_ref,
-                approvalSpec: null,
-                approvalRequestRef: null,
-                approvalRef: null,
-                approvalStatus: null,
-              };
-      const recovered = hydratePendingGoalMutationApproval(
-        recoveredIdentity,
-        record,
-      );
-      if (recovered === null) {
-        setPendingGoalMutation(null);
-        setGoalReadCurrent(false);
-        setGoalNotice(
-          "Goal submission approval recovery binding is inconsistent and remains blocked.",
-        );
-        return;
-      }
-      setPendingGoalMutation((current) =>
-        pendingGoalMutationsEqual(current, recovered)
-          ? current
-          : recovered,
-      );
-      if (record.operation === "create") {
-        const request = record.request_payload as RuntimeGoalCreateRequest;
-        setGoalObjective(request.objective);
-        setGoalOutcome(request.desired_outcome);
-        setGoalSuccessCriterion(request.success_criteria[0] ?? "");
-        setGoalStopCondition(request.stop_condition);
-      } else if (record.operation === "edit") {
-        const request = record.request_payload as RuntimeGoalEditRequest;
-        setEditedObjective(request.objective ?? "");
-      }
-      if (record.goal_ref) setSelectedGoalRef(record.goal_ref);
-      setGoalReadCurrent(runEventsBackendOwned);
-      setGoalNotice(
-        recovered.approvalStatus === "approved"
-          ? "Recovered an exact backend-owned pending goal submission with a current authoritative approval; submit reuses its original request and identity."
-          : recovered.approvalStatus === "pending"
-            ? "Recovered an exact backend-owned pending goal submission awaiting its authoritative approval decision."
-            : recovered.approvalStatus === "expired"
-              ? "The recovered exact goal mutation approval expired; the pending identity remains blocked."
-              : recovered.approvalStatus === "denied" ||
-                  recovered.approvalStatus === "revoked"
-                ? "The recovered exact goal mutation approval is terminal; the pending identity remains blocked."
-                : "Recovered an exact backend-owned pending goal submission; approval preparation reuses its original request and identity.",
-      );
-    } else {
-      setGoalReadCurrent((current) => runEventsBackendOwned && current);
-      const latestTerminal = runEvents.goal_mutation_submissions.records
-        .filter(
-          (record) =>
-            record.status === "committed" || record.status === "rejected",
-        )
-        .sort((left, right) => {
-          const leftResolvedAt = terminalSubmissionResolutionTime(left);
-          const rightResolvedAt = terminalSubmissionResolutionTime(right);
-          return leftResolvedAt !== rightResolvedAt
-            ? leftResolvedAt - rightResolvedAt
-            : left.submission_ref.localeCompare(right.submission_ref);
-        })
-        .at(-1);
-      const latestCommittedGoal =
-        latestTerminal?.status !== "committed"
-          ? undefined
-          : runEvents.goal_lifecycle.goals.find(
-              (goal) =>
-                goal.goal_ref === latestTerminal.committed_goal_ref,
-            );
       if (
-        latestTerminal?.status === "committed" &&
-        latestCommittedGoal !== undefined
+        reconciliation.posture === "pending" ||
+        reconciliation.posture === "approval_terminal"
       ) {
-        setSelectedGoalRef(latestCommittedGoal.goal_ref);
-        setGoalNotice(
-          "A backend-owned goal submission is durably committed; no retry is required.",
+        const { pending, record } = reconciliation;
+        setPendingGoalMutation((current) =>
+          pendingGoalMutationsEqual(current, pending) ? current : pending,
         );
-      } else if (latestTerminal?.status === "committed") {
-        setGoalReadCurrent(false);
+        if (record.operation === "create") {
+          const request = record.request_payload as RuntimeGoalCreateRequest;
+          setGoalObjective(request.objective);
+          setGoalOutcome(request.desired_outcome);
+          setGoalSuccessCriterion(request.success_criteria[0] ?? "");
+          setGoalStopCondition(request.stop_condition);
+        } else if (record.operation === "edit") {
+          const request = record.request_payload as RuntimeGoalEditRequest;
+          setEditedObjective(request.objective ?? "");
+        }
+        if (record.goal_ref) setSelectedGoalRef(record.goal_ref);
+        setGoalReadCurrent(runEventsBackendOwnedRef.current);
         setGoalNotice(
-          "Goal submission recovery state is inconsistent and remains blocked.",
+          reconciliation.posture === "approval_terminal"
+            ? "The recovered exact goal mutation approval is terminal; the pending identity remains blocked."
+            : pending.approvalStatus === "approved"
+              ? "Recovered an exact backend-owned pending goal submission with a current authoritative approval; submit reuses its original request and identity."
+              : pending.approvalStatus === "pending"
+                ? "Recovered an exact backend-owned pending goal submission awaiting its authoritative approval decision."
+                : "Recovered an exact backend-owned pending goal submission; approval preparation reuses its original request and identity.",
         );
-      } else if (latestTerminal?.status === "rejected") {
-        setGoalNotice(
-          "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
-        );
-      }
-      if (pendingGoalMutation !== null) {
-        const matchingRefRecords =
-          runEvents.goal_mutation_submissions.records.filter(
-            (record) =>
-              (record.status === "committed" ||
-                record.status === "rejected") &&
-              record.submission_ref === pendingGoalMutation.submissionRef,
+      } else {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(runEventsBackendOwnedRef.current);
+        const terminal = reconciliation.record;
+        if (terminal?.status === "committed") {
+          const committedGoal = runEvents.goal_lifecycle.goals.find(
+            (goal) => goal.goal_ref === terminal.committed_goal_ref,
           );
-        const exactTerminalMatch =
-          matchingRefRecords.length === 1 &&
-          terminalSubmissionMatchesPending(
-            matchingRefRecords[0],
-            pendingGoalMutation,
-          ) &&
-          (matchingRefRecords[0].status === "rejected" ||
-            runEvents.goal_lifecycle.goals.some(
-              (goal) =>
-                goal.goal_ref ===
-                matchingRefRecords[0].committed_goal_ref,
-            ));
-        if (exactTerminalMatch) {
-          setPendingGoalMutation(null);
-        } else if (matchingRefRecords.length > 0) {
-          setGoalReadCurrent(false);
+          if (committedGoal === undefined) {
+            throw new Error(
+              "Goal submission recovery state is inconsistent and remains blocked.",
+            );
+          }
+          setSelectedGoalRef(committedGoal.goal_ref);
           setGoalNotice(
-            "Goal submission recovery binding is inconsistent and remains blocked.",
+            "A backend-owned goal submission is durably committed; no retry is required.",
+          );
+        } else if (terminal?.status === "rejected") {
+          setGoalNotice(
+            "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
           );
         }
       }
+    } catch (error) {
+      setPendingGoalMutation(null);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
     }
     const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
     setSelectedGoalRef((current) =>
@@ -563,7 +617,7 @@ export function RuntimeReadinessPanel({
         ? current
         : firstGoalRef,
     );
-  }, [pendingGoalMutation, runEvents, runEventsBackendOwned]);
+  }, [runEvents]);
   const goalMutationReady =
     mutationBinding !== null && runEventsBackendOwned && goalReadCurrent;
   const selectedGoal = runtimeGoalEvents.goal_lifecycle.goals.find(
@@ -606,63 +660,22 @@ export function RuntimeReadinessPanel({
     try {
       const refreshed = await fetchRuntimeRunEvents(mutationBinding);
       setRuntimeGoalEvents(refreshed);
-      const terminalCandidates =
-        pendingMutation === null
-          ? []
-          : refreshed.goal_mutation_submissions.records.filter(
-              (record) =>
-                (record.status === "committed" ||
-                  record.status === "rejected") &&
-                record.submission_ref === pendingMutation.submissionRef,
-            );
-      if (
-        pendingMutation !== null &&
-        (terminalCandidates.length > 1 ||
-          (terminalCandidates.length === 1 &&
-            !terminalSubmissionMatchesPending(
-              terminalCandidates[0],
-              pendingMutation,
-            )))
-      ) {
-        throw new Error(
-          "Goal submission recovery binding is inconsistent and remains blocked.",
-        );
-      }
-      const terminalSubmission = terminalCandidates[0];
-      const pendingCandidates =
-        pendingMutation === null
-          ? []
-          : refreshed.goal_mutation_submissions.records.filter(
-              (record) =>
-                record.status === "pending" &&
-                record.submission_ref === pendingMutation.submissionRef,
-            );
-      if (
-        pendingMutation !== null &&
-        terminalSubmission === undefined &&
-        (pendingCandidates.length !== 1 ||
-          !submissionMatchesPending(pendingCandidates[0], pendingMutation))
-      ) {
-        throw new Error(
-          "Goal submission recovery binding is inconsistent and remains blocked.",
-        );
-      }
+      const reconciliation = reconcileGoalMutationSubmissions(
+        refreshed.goal_mutation_submissions.records,
+        pendingMutation,
+      );
+      const terminalSubmission =
+        reconciliation.posture === "committed" ||
+        reconciliation.posture === "rejected"
+          ? reconciliation.record
+          : reconciliation.posture === "current"
+            ? reconciliation.record
+            : undefined;
       const recoveredPending =
-        pendingMutation === null || terminalSubmission !== undefined
-          ? null
-          : hydratePendingGoalMutationApproval(
-              pendingMutation,
-              pendingCandidates[0],
-            );
-      if (
-        pendingMutation !== null &&
-        terminalSubmission === undefined &&
-        recoveredPending === null
-      ) {
-        throw new Error(
-          "Goal submission approval recovery binding is inconsistent and remains blocked.",
-        );
-      }
+        reconciliation.posture === "pending" ||
+        reconciliation.posture === "approval_terminal"
+          ? reconciliation.pending
+          : null;
       const committedGoal =
         terminalSubmission?.status !== "committed"
           ? undefined
@@ -705,13 +718,13 @@ export function RuntimeReadinessPanel({
           ? "committed"
           : rejectedSubmission !== undefined
             ? "rejected"
+            : reconciliation.posture === "approval_terminal"
+              ? "approval_terminal"
             : recoveredPending?.approvalStatus === "approved"
               ? "approval_recovered"
-              : recoveredPending?.approvalStatus === "expired" ||
-                  recoveredPending?.approvalStatus === "denied" ||
-                  recoveredPending?.approvalStatus === "revoked"
-                ? "approval_terminal"
-                : "retry_exact";
+              : recoveredPending !== null
+                ? "retry_exact"
+                : "current";
     } catch (error) {
       setGoalReadCurrent(false);
       throw error;
@@ -1207,7 +1220,12 @@ export function RuntimeReadinessPanel({
           "The exact goal mutation denial decision binding mismatched and remains uncertain.",
         );
       }
-      setPendingGoalMutation(null);
+      const recovery = await refreshGoalState(preparedPending);
+      if (recovery !== "approval_terminal") {
+        throw new Error(
+          "The exact goal mutation denial is not durably reconciled and remains uncertain.",
+        );
+      }
       setGoalNotice(
         "The exact goal mutation approval was denied; no goal mutation ran.",
       );
@@ -1257,10 +1275,14 @@ export function RuntimeReadinessPanel({
           "The exact goal mutation revocation decision binding mismatched and remains uncertain.",
         );
       }
-      setPendingGoalMutation(null);
-      setGoalReadCurrent(false);
+      const recovery = await refreshGoalState(approvedPending);
+      if (recovery !== "approval_terminal") {
+        throw new Error(
+          "The exact goal mutation revocation is not durably reconciled and remains uncertain.",
+        );
+      }
       setGoalNotice(
-        "The exact goal mutation approval was revoked. Refresh durable goal state before preparing another mutation.",
+        "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
       );
     } catch (error) {
       setPendingGoalMutation({
