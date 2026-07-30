@@ -60,6 +60,9 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
 }
 DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
 COMMAND_RUNTIME_RECEIPT_GRACE_SECONDS = 1.0
+ADAPTER_DISPATCH_PROTOCOL_REF = (
+    "adapter-dispatch-protocol-ref:exact-boundary-attempt-v1"
+)
 
 _COMMAND_EXECUTION_LOCK_GUARD = threading.Lock()
 _COMMAND_EXECUTION_PROCESS_LOCKS: weakref.WeakValueDictionary[
@@ -331,6 +334,36 @@ def promoted_approval_bridge_command_intents() -> set[RuntimeCommandIntent]:
     }
 
 
+def _retryable_pre_dispatch_record(record: RuntimeInvocationRecord) -> bool:
+    return bool(
+        record.adapter_dispatch_protocol_ref == ADAPTER_DISPATCH_PROTOCOL_REF
+        and not record.adapter_dispatch_started
+        and record.receipt is None
+    )
+
+
+def _prepare_adapter_dispatch(
+    *,
+    store: RuntimeInvocationStore,
+    record: RuntimeInvocationRecord,
+    idempotency_ref: str,
+    pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None,
+) -> None:
+    if pre_adapter_dispatch is not None:
+        pre_adapter_dispatch(record)
+    store.mark_adapter_dispatch_started(
+        record.invocation_ref,
+        protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref=_hash_ref(
+            "idempotency-ref",
+            {
+                "base_idempotency_ref": idempotency_ref,
+                "operation": "adapter-dispatch-started",
+            },
+        ),
+    )
+
+
 def invoke_governed_command(
     *,
     store: RuntimeInvocationStore,
@@ -383,6 +416,7 @@ def invoke_governed_command(
             invocation_request,
             idempotency_ref=idempotency_ref,
             command_gateway_validated=blocked_error is None,
+            adapter_dispatch_protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
         )
         record = created.record
         if blocked_error is None and _record_safe_disabled(record):
@@ -390,16 +424,17 @@ def invoke_governed_command(
         if created.replayed:
             if record.receipt is not None:
                 return _completed_command_replay_result(record)
-            return _record_blocked_command_result(
-                store=store,
-                request=request,
-                entry=entry,
-                record=record,
-                idempotency_ref=idempotency_ref,
-                operation="command-replay-without-receipt",
-                error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
-                replayed=True,
-            )
+            if not _retryable_pre_dispatch_record(record):
+                return _record_blocked_command_result(
+                    store=store,
+                    request=request,
+                    entry=entry,
+                    record=record,
+                    idempotency_ref=idempotency_ref,
+                    operation="command-replay-without-receipt",
+                    error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+                    replayed=True,
+                )
 
         if blocked_error is not None or not record.policy_decision.allowed_to_execute:
             return _record_blocked_command_result(
@@ -418,9 +453,12 @@ def invoke_governed_command(
             request,
             entry,
             pre_dispatch_guard=(
-                (lambda: pre_adapter_dispatch(record))
-                if pre_adapter_dispatch is not None
-                else None
+                lambda: _prepare_adapter_dispatch(
+                    store=store,
+                    record=record,
+                    idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=pre_adapter_dispatch,
+                )
             ),
         )
         status_category = _status_category(
@@ -894,16 +932,17 @@ def invoke_approved_governed_command(
                 replayed=True,
                 command_execution_enabled=record.policy_decision.command_execution_enabled,
             )
-        return _record_blocked_command_result(
-            store=store,
-            request=request,
-            entry=entry,
-            record=record,
-            idempotency_ref=idempotency_ref,
-            operation="approved-command-replay-without-receipt",
-            error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
-            replayed=True,
-        )
+        if not _retryable_pre_dispatch_record(record):
+            return _record_blocked_command_result(
+                store=store,
+                request=request,
+                entry=entry,
+                record=record,
+                idempotency_ref=idempotency_ref,
+                operation="approved-command-replay-without-receipt",
+                error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+                replayed=True,
+            )
     if envelope is None:
         return _record_blocked_command_result(
             store=store,
@@ -943,6 +982,17 @@ def invoke_approved_governed_command(
             direct_idempotency_ref=True,
             payload_fingerprint_ref=execution_fingerprint_ref,
         )
+    record = store.prepare_adapter_dispatch_protocol(
+        record.invocation_ref,
+        protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref=_hash_ref(
+            "idempotency-ref",
+            {
+                "base_idempotency_ref": idempotency_ref,
+                "operation": "adapter-dispatch-protocol-prepared",
+            },
+        ),
+    )
     reserved = store.begin_action_inbox_execution(
         record.invocation_ref,
         idempotency_ref=idempotency_ref,
@@ -962,23 +1012,27 @@ def invoke_approved_governed_command(
                 replayed=True,
                 command_execution_enabled=record.policy_decision.command_execution_enabled,
             )
-        return _record_blocked_command_result(
-            store=store,
-            request=request,
-            entry=entry,
-            record=record,
-            idempotency_ref=idempotency_ref,
-            operation="approved-command-replay-without-receipt",
-            error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
-            replayed=True,
-        )
+        if not _retryable_pre_dispatch_record(record):
+            return _record_blocked_command_result(
+                store=store,
+                request=request,
+                entry=entry,
+                record=record,
+                idempotency_ref=idempotency_ref,
+                operation="approved-command-replay-without-receipt",
+                error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+                replayed=True,
+            )
     attempt = adapter.invoke(
         request,
         entry,
         pre_dispatch_guard=(
-            (lambda: pre_adapter_dispatch(record))
-            if pre_adapter_dispatch is not None
-            else None
+            lambda: _prepare_adapter_dispatch(
+                store=store,
+                record=record,
+                idempotency_ref=idempotency_ref,
+                pre_adapter_dispatch=pre_adapter_dispatch,
+            )
         ),
     )
     status_category = _status_category(

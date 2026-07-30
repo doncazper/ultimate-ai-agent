@@ -909,6 +909,8 @@ class RuntimeInvocationRecord(BaseModel):
     receipt: RuntimeInvocationReceipt | None = None
     payload_fingerprint_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
+    adapter_dispatch_protocol_ref: str | None = None
+    adapter_dispatch_started: bool = False
     safe_disable: RuntimeSafeDisableState = Field(
         default_factory=RuntimeSafeDisableState
     )
@@ -927,6 +929,16 @@ class RuntimeInvocationRecord(BaseModel):
             (self.idempotency_ref, "idempotency_ref"),
         ]:
             validate_execution_ref(value, field_name)
+        if self.adapter_dispatch_protocol_ref is not None:
+            validate_execution_ref(
+                self.adapter_dispatch_protocol_ref,
+                "adapter_dispatch_protocol_ref",
+            )
+        if (
+            self.adapter_dispatch_started
+            and self.adapter_dispatch_protocol_ref is None
+        ):
+            raise ValueError("RUNTIME_ADAPTER_DISPATCH_PROTOCOL_REQUIRED")
         if self.receipt and self.receipt.invocation_ref != self.invocation_ref:
             raise ValueError("RUNTIME_RECEIPT_INVOCATION_REF_MISMATCH")
         if self.receipt and self.receipt.criterion_verification_bindings:

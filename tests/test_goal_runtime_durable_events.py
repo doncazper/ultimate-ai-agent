@@ -3119,6 +3119,12 @@ def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(
         idempotency_ref="idempotency-ref:reservation-refresh-failure:create",
     )
     runner_calls = 0
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        mission_ref=goal.goal_ref,
+        safe_summary="Do not dispatch after reservation refresh fails.",
+    )
+    original_refresh = service.refresh_runtime_projection_reservation
 
     def runner(**_kwargs: object) -> RuntimeCommandRunResult:
         nonlocal runner_calls
@@ -3154,17 +3160,28 @@ def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(
         match="RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED",
     ):
         gateway.invoke_command(
-            RuntimeCommandExecutionRequest(
-                intent="git_status",
-                mission_ref=goal.goal_ref,
-                safe_summary="Do not dispatch after reservation refresh fails.",
-            ),
+            request,
             idempotency_ref="idempotency-ref:reservation-refresh-failure:invoke",
         )
 
     assert runner_calls == 0
     [pending] = gateway.store.list_invocations()
     assert pending.receipt is None
+    assert pending.adapter_dispatch_protocol_ref is not None
+    assert pending.adapter_dispatch_started is False
+
+    monkeypatch.setattr(
+        service,
+        "refresh_runtime_projection_reservation",
+        original_refresh,
+    )
+    retried = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:reservation-refresh-failure:invoke",
+    )
+    assert runner_calls == 1
+    assert retried.record.receipt is not None
+    assert retried.record.adapter_dispatch_started is True
 
 
 def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
@@ -5841,6 +5858,116 @@ def test_goal_journal_recovers_one_entry_ahead_manifest_on_mutation(
     )
 
 
+@pytest.mark.parametrize("surface", ["list", "show"])
+def test_direct_goal_reads_repair_one_entry_ahead_manifest(
+    tmp_path: Path,
+    surface: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-direct-recovery:create",
+    )
+    old_manifest = (tmp_path / "goal_journal_head.json").read_text(
+        encoding="utf-8"
+    )
+    edited = _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="Direct goal reads recover the exact committed generation.",
+        ),
+        idempotency_ref="idempotency-ref:goal-direct-recovery:edit",
+    )
+    (tmp_path / "goal_journal_head.json").write_text(
+        old_manifest,
+        encoding="utf-8",
+    )
+
+    restarted = GoalRuntimeService(tmp_path)
+    if surface == "list":
+        [recovered] = restarted.goal_lifecycle_read_model(
+            include_cleared=True
+        ).goals
+    else:
+        recovered, provenance = restarted.goal_with_provenance(created.goal_ref)
+        assert provenance.entries[-1].goal_version == edited.version
+    assert recovered == edited
+    assert json.loads(
+        (tmp_path / "goal_journal_head.json").read_text(encoding="utf-8")
+    )["entry_count"] == 2
+
+
+def test_direct_goal_read_repairs_bound_first_generation_genesis_intent(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-direct-genesis:create",
+    )
+    [entry] = service.goals._load_consistent_entries()  # noqa: SLF001
+    manifest = service.goals._build_head_manifest([entry])  # noqa: SLF001
+    intent = goal_runtime_module.GoalJournalGenesisIntent(
+        entry=entry,
+        head_manifest=manifest,
+        journal_content_hash_ref=service.goals._journal_content_hash([entry]),  # noqa: SLF001
+    )
+    service.goals._write_genesis_intent(intent)  # noqa: SLF001
+    service.goals.path.unlink()  # noqa: SLF001
+    service.goals.head_path.unlink()  # noqa: SLF001
+
+    [recovered] = GoalRuntimeService(tmp_path).goal_lifecycle_read_model(
+        include_cleared=True
+    ).goals
+    assert recovered == created
+    assert not service.goals.genesis_intent_path.exists()  # noqa: SLF001
+
+
+@pytest.mark.parametrize("surface", ["read", "mission"])
+def test_independent_goal_journal_anchor_rejects_paired_prefix_rollback(
+    tmp_path: Path,
+    surface: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-anchor-rollback:create",
+    )
+    journal_path = tmp_path / "goals.jsonl"
+    head_path = tmp_path / "goal_journal_head.json"
+    original_journal = journal_path.read_text(encoding="utf-8")
+    original_head = head_path.read_text(encoding="utf-8")
+    _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.cancel,
+            reason_ref="reason-ref:goal-anchor-rollback:cancel",
+        ),
+        idempotency_ref="idempotency-ref:goal-anchor-rollback:cancel",
+    )
+    journal_path.write_text(original_journal, encoding="utf-8")
+    head_path.write_text(original_head, encoding="utf-8")
+
+    restarted = GoalRuntimeService(tmp_path)
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_ROLLBACK_DETECTED",
+    ):
+        if surface == "read":
+            restarted.goal_lifecycle_read_model(include_cleared=True)
+        else:
+            with restarted.runtime_mission_execution_guard(created.goal_ref):
+                pass
+
+
 def test_goal_transition_reason_tampering_fails_closed(tmp_path: Path) -> None:
     service = GoalRuntimeService(tmp_path)
     created = _create_goal(
@@ -7052,6 +7179,7 @@ def test_goal_mutation_submission_rejects_journal_idempotency_collision_before_w
         original_request,
         idempotency_ref=idempotency_ref,
     )
+    anchored_state = service._submissions.path.read_bytes()  # noqa: SLF001
     colliding_evidence_ref = (
         "evidence-ref:control-center-goal-create-submission:sha256:" + "7" * 64
     )
@@ -7074,7 +7202,7 @@ def test_goal_mutation_submission_rejects_journal_idempotency_collision_before_w
             idempotency_ref=idempotency_ref,
         )
 
-    assert not service._submissions.path.exists()  # noqa: SLF001
+    assert service._submissions.path.read_bytes() == anchored_state  # noqa: SLF001
     recovery = build_runtime_run_events_read_model(
         service=GoalRuntimeService(tmp_path)
     ).goal_mutation_submissions
@@ -7978,6 +8106,85 @@ def test_trusted_and_legacy_event_epochs_remain_readable_without_approval_ledger
     assert replayed[0].producer_class is None
 
 
+@pytest.mark.parametrize(
+    ("schema_version", "producer_class"),
+    [
+        ("durable_run_event.v1", None),
+        ("durable_run_event.v2", "trusted_core"),
+    ],
+)
+def test_legacy_receipt_events_never_grant_completion_authority(
+    tmp_path: Path,
+    schema_version: str,
+    producer_class: str | None,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    run_ref = "run-ref:legacy-completion-authority"
+    goal_ref = "goal-ref:legacy-completion-authority"
+    receipt_ref = "receipt-ref:legacy-completion-authority"
+    proof_ref = "proof-ref:legacy-completion-authority"
+    event = _append_event(
+        service,
+        DurableRunEventAppendRequest(
+            run_ref=run_ref,
+            run_type=AcceptedLocalRunType.local_read_task,
+            event_kind=DurableRunEventKind.receipt_recorded,
+            safe_summary="A legacy receipt remains readable but non-authoritative.",
+            proof_refs=[proof_ref],
+            receipt_refs=[receipt_ref],
+            goal_ref=goal_ref,
+            idempotency_ref="idempotency-ref:legacy-completion-authority",
+            authority_decision_ref=EVENT_AUTHORITY_DECISION_REF,
+        ),
+    )
+    tombstone = service._events._load_idempotency_tombstones([event])[  # noqa: SLF001
+        (event.run_ref, event.idempotency_ref)
+    ]
+    legacy_draft = event.model_copy(
+        update={
+            "schema_version": schema_version,
+            "producer_class": producer_class,
+            "trusted_source_record_hash_ref": None,
+            "event_hash_ref": "event-hash-ref:pending",
+        }
+    )
+    legacy = legacy_draft.model_copy(
+        update={"event_hash_ref": service._events._event_hash(legacy_draft)}  # noqa: SLF001
+    )
+    legacy_tombstone = tombstone.model_copy(
+        update={"event": legacy, "tombstone_hash_ref": "tombstone-hash-ref:pending"}
+    )
+    legacy_tombstone = legacy_tombstone.model_copy(
+        update={
+            "tombstone_hash_ref": service._events._tombstone_hash(  # noqa: SLF001
+                legacy_tombstone
+            )
+        }
+    )
+    service._events._write_events([legacy])  # noqa: SLF001
+    service._events._write_idempotency_tombstones([legacy_tombstone])  # noqa: SLF001
+    service._events.trusted_sources_path.unlink()  # noqa: SLF001
+    service._events._write_run_event_generation_head(  # noqa: SLF001
+        service._events._build_run_event_generation_head(  # noqa: SLF001
+            [legacy],
+            [legacy_tombstone],
+            [],
+        )
+    )
+
+    restarted = GoalRuntimeService(tmp_path)
+    assert restarted.events.replay(run_ref).events == [legacy]
+    assert (
+        restarted.events.has_completion_evidence(
+            run_ref=run_ref,
+            receipt_ref=receipt_ref,
+            proof_ref=proof_ref,
+            goal_ref=goal_ref,
+        )
+        is False
+    )
+
+
 def test_goal_read_rejects_same_idempotency_cross_request_approval_substitution(
     tmp_path: Path,
 ) -> None:
@@ -8038,7 +8245,7 @@ def test_goal_read_rejects_same_idempotency_cross_request_approval_substitution(
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH",
+        match="GOAL_JOURNAL_ROLLBACK_DETECTED",
     ):
         GoalRuntimeService(tmp_path).goal_lifecycle_read_model()
 

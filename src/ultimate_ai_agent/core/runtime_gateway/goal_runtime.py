@@ -1104,6 +1104,31 @@ class GoalMutationSubmissionRejectionTombstone(BaseModel):
         return self
 
 
+class GoalJournalGenerationAnchor(BaseModel):
+    """Independent submission-store binding for one committed goal generation."""
+
+    schema_version: Literal["goal_journal_generation_anchor.v1"] = (
+        "goal_journal_generation_anchor.v1"
+    )
+    entry_count: StrictInt = Field(ge=1, le=MAX_GOAL_JOURNAL_ENTRIES)
+    head_entry_hash_ref: str
+    idempotency_set_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_anchor(self) -> "GoalJournalGenerationAnchor":
+        validate_execution_ref(
+            self.head_entry_hash_ref,
+            "head_entry_hash_ref",
+        )
+        validate_execution_ref(
+            self.idempotency_set_hash_ref,
+            "idempotency_set_hash_ref",
+        )
+        return self
+
+
 class GoalMutationSubmissionState(BaseModel):
     schema_version: Literal["goal_mutation_submission_state.v1"] = (
         "goal_mutation_submission_state.v1"
@@ -1116,6 +1141,7 @@ class GoalMutationSubmissionState(BaseModel):
         default_factory=list,
         max_length=MAX_GOAL_MUTATION_REJECTION_TOMBSTONES,
     )
+    goal_journal_anchor: GoalJournalGenerationAnchor | None = None
     state_hash_ref: str
 
     model_config = ConfigDict(extra="forbid")
@@ -1151,15 +1177,20 @@ class GoalMutationSubmissionState(BaseModel):
             raise ValueError("GOAL_SUBMISSION_IDEMPOTENCY_REF_DUPLICATE")
         if len(set(all_evidence_refs)) != len(all_evidence_refs):
             raise ValueError("GOAL_SUBMISSION_EVIDENCE_REF_DUPLICATE")
+        state_payload: dict[str, Any] = {
+            "records": [record.model_dump(mode="json") for record in self.records],
+            "rejection_tombstones": [
+                tombstone.model_dump(mode="json")
+                for tombstone in self.rejection_tombstones
+            ],
+        }
+        if self.goal_journal_anchor is not None:
+            state_payload["goal_journal_anchor"] = (
+                self.goal_journal_anchor.model_dump(mode="json")
+            )
         expected_hash = _sha256_ref(
             "state-hash-ref:goal-mutation-submissions",
-            {
-                "records": [record.model_dump(mode="json") for record in self.records],
-                "rejection_tombstones": [
-                    tombstone.model_dump(mode="json")
-                    for tombstone in self.rejection_tombstones
-                ],
-            },
+            state_payload,
         )
         legacy_hash = _sha256_ref(
             "state-hash-ref:goal-mutation-submissions",
@@ -3113,7 +3144,9 @@ class _GoalJournalStore:
             entry_hash_ref="entry-hash-ref:pending",
         )
         entry = draft.model_copy(update={"entry_hash_ref": self._entry_hash(draft)})
-        self._write_entries([*entries, entry])
+        next_entries = [*entries, entry]
+        self._write_entries(next_entries)
+        entries[:] = next_entries
 
     @staticmethod
     def _entry_hash(entry: GoalJournalEntry) -> str:
@@ -3256,6 +3289,26 @@ class _GoalJournalStore:
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_JOURNAL_GENERATION_UNSTABLE")
+
+    def repair_recoverable_append(self) -> None:
+        """Finish only an exactly recoverable journal generation."""
+
+        recoverable_path_present = False
+        for path in (self.path, self.head_path, self.genesis_intent_path):
+            try:
+                metadata = os.lstat(path)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+            if not stat.S_ISREG(metadata.st_mode):
+                raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT")
+            recoverable_path_present = True
+        if not recoverable_path_present:
+            return
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
+            self._load_entries(repair_manifest=True)
 
     @contextmanager
     def mutation_entries(self) -> Iterator[list[GoalJournalEntry]]:
@@ -3482,20 +3535,27 @@ class _GoalMutationSubmissionStore:
         records: list[GoalMutationSubmissionRecord],
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
+        goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
     ) -> GoalMutationSubmissionState:
         tombstones = list(rejection_tombstones or [])
+        state_payload: dict[str, Any] = {
+            "records": [record.model_dump(mode="json") for record in records],
+            "rejection_tombstones": [
+                tombstone.model_dump(mode="json") for tombstone in tombstones
+            ],
+        }
+        if goal_journal_anchor is not None:
+            state_payload["goal_journal_anchor"] = (
+                goal_journal_anchor.model_dump(mode="json")
+            )
         state_hash_ref = _sha256_ref(
             "state-hash-ref:goal-mutation-submissions",
-            {
-                "records": [record.model_dump(mode="json") for record in records],
-                "rejection_tombstones": [
-                    tombstone.model_dump(mode="json") for tombstone in tombstones
-                ],
-            },
+            state_payload,
         )
         return GoalMutationSubmissionState(
             records=records,
             rejection_tombstones=tombstones,
+            goal_journal_anchor=goal_journal_anchor,
             state_hash_ref=state_hash_ref,
         )
 
@@ -3505,8 +3565,16 @@ class _GoalMutationSubmissionStore:
         records: list[GoalMutationSubmissionRecord],
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
+        goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
     ) -> str:
-        return cls._state(records, rejection_tombstones).model_dump_json() + "\n"
+        return (
+            cls._state(
+                records,
+                rejection_tombstones,
+                goal_journal_anchor,
+            ).model_dump_json()
+            + "\n"
+        )
 
     @staticmethod
     def _rejected_record(
@@ -3776,32 +3844,121 @@ class _GoalMutationSubmissionStore:
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
             self._load_state(repair_head=True)
 
+    @staticmethod
+    def _journal_anchor(
+        entries: list[GoalJournalEntry],
+    ) -> GoalJournalGenerationAnchor | None:
+        if not entries:
+            return None
+        manifest = _GoalJournalStore._build_head_manifest(entries)
+        return GoalJournalGenerationAnchor(
+            entry_count=manifest.entry_count,
+            head_entry_hash_ref=manifest.head_entry_hash_ref,
+            idempotency_set_hash_ref=manifest.idempotency_set_hash_ref,
+        )
+
+    @classmethod
+    def _validate_goal_journal_anchor(
+        cls,
+        state: GoalMutationSubmissionState,
+        entries: list[GoalJournalEntry],
+        *,
+        require_exact: bool,
+    ) -> None:
+        anchor = state.goal_journal_anchor
+        if anchor is None:
+            if entries and require_exact:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_INDEPENDENT_ANCHOR_MISSING"
+                )
+            return
+        if len(entries) < anchor.entry_count:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_ROLLBACK_DETECTED")
+        prefix_anchor = cls._journal_anchor(entries[: anchor.entry_count])
+        if prefix_anchor != anchor:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_ROLLBACK_DETECTED")
+        if require_exact and cls._journal_anchor(entries) != anchor:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_INDEPENDENT_ANCHOR_LAGGING"
+            )
+
+    def converge_goal_journal_anchor(
+        self,
+        entries: list[GoalJournalEntry],
+    ) -> None:
+        """Advance the independent anchor or reject a journal rollback."""
+
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
+            self._converge_goal_journal_anchor_locked(entries)
+
+    def _converge_goal_journal_anchor_locked(
+        self,
+        entries: list[GoalJournalEntry],
+    ) -> None:
+        state = self._load_state(repair_head=True)
+        self._validate_goal_journal_anchor(
+            state,
+            entries,
+            require_exact=False,
+        )
+        next_anchor = self._journal_anchor(entries)
+        if next_anchor == state.goal_journal_anchor:
+            return
+        if next_anchor is None:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_ROLLBACK_DETECTED")
+        self._write(
+            list(state.records),
+            list(state.rejection_tombstones),
+            goal_journal_anchor=next_anchor,
+        )
+
     def _write(
         self,
         records: list[GoalMutationSubmissionRecord],
         rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone]
         | None = None,
+        *,
+        goal_journal_anchor: GoalJournalGenerationAnchor | None = None,
     ) -> None:
-        content = self._state_content(records, rejection_tombstones)
+        current_state = self._load_state(repair_head=True)
+        current_head = self._load_head()
+        effective_anchor = (
+            goal_journal_anchor
+            if goal_journal_anchor is not None
+            else current_state.goal_journal_anchor
+        )
+        content = self._state_content(
+            records,
+            rejection_tombstones,
+            effective_anchor,
+        )
         if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
             raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
         terminal_content = self._state_content(
             self._worst_case_terminal_records(records),
             rejection_tombstones,
+            effective_anchor,
         )
         if (
             len(terminal_content.encode("utf-8"))
             > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES
         ):
             raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
-        current_state = self._load_state(repair_head=True)
-        current_head = self._load_head()
-        if current_state.records or current_state.rejection_tombstones:
+        if (
+            current_state.records
+            or current_state.rejection_tombstones
+            or current_state.goal_journal_anchor is not None
+        ):
             if current_head is None:
                 raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISSING")
         elif current_head is not None:
             raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISMATCH")
-        next_state = self._state(records, rejection_tombstones)
+        next_state = self._state(
+            records,
+            rejection_tombstones,
+            effective_anchor,
+        )
         next_head = self._head(
             next_state,
             generation=(current_head.generation + 1 if current_head else 1),
@@ -4176,45 +4333,50 @@ class _GoalMutationSubmissionStore:
     ) -> Iterator[None]:
         """Hold one prepared submission terminal state stable through commit."""
 
-        if request_fingerprint_ref is None:
-            yield
-            return
-        validate_execution_ref(request_fingerprint_ref, "request_fingerprint_ref")
         validate_execution_ref(idempotency_ref, "idempotency_ref")
+        if request_fingerprint_ref is not None:
+            validate_execution_ref(
+                request_fingerprint_ref,
+                "request_fingerprint_ref",
+            )
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
-            records = self._load()
-            matching = [
-                record
-                for record in records
-                if record.idempotency_ref == idempotency_ref
-                or record.request_fingerprint_ref == request_fingerprint_ref
-            ]
-            if len(matching) != 1:
-                raise GoalRuntimeCorruptionError(
-                    "GOAL_SUBMISSION_COMMIT_RECORD_MISSING"
-                    if not matching
-                    else "GOAL_SUBMISSION_COMMIT_BINDING_DUPLICATE"
+            if request_fingerprint_ref is not None:
+                records = self._load()
+                matching = [
+                    record
+                    for record in records
+                    if record.idempotency_ref == idempotency_ref
+                    or record.request_fingerprint_ref == request_fingerprint_ref
+                ]
+                if len(matching) != 1:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_COMMIT_RECORD_MISSING"
+                        if not matching
+                        else "GOAL_SUBMISSION_COMMIT_BINDING_DUPLICATE"
+                    )
+                record = matching[0]
+                if (
+                    record.idempotency_ref != idempotency_ref
+                    or record.request_fingerprint_ref != request_fingerprint_ref
+                ):
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
+                    )
+                recovery = self.recovery_read_model_from_records(
+                    records,
+                    journal_entries,
                 )
-            record = matching[0]
-            if (
-                record.idempotency_ref != idempotency_ref
-                or record.request_fingerprint_ref != request_fingerprint_ref
-            ):
-                raise GoalRuntimeCorruptionError(
-                    "GOAL_SUBMISSION_COMMIT_BINDING_MISMATCH"
+                exact_recovery = next(
+                    item
+                    for item in recovery.records
+                    if item.submission_ref == record.submission_ref
                 )
-            recovery = self.recovery_read_model_from_records(
-                records,
-                journal_entries,
-            )
-            exact_recovery = next(
-                item
-                for item in recovery.records
-                if item.submission_ref == record.submission_ref
-            )
-            if exact_recovery.status == "rejected":
-                raise GoalTransitionDeniedError("GOAL_SUBMISSION_PREVIOUSLY_REJECTED")
+                if exact_recovery.status == "rejected":
+                    raise GoalTransitionDeniedError(
+                        "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
+                    )
             yield
+            self._converge_goal_journal_anchor_locked(journal_entries)
 
     def mutation_binding_record(
         self,
@@ -5560,6 +5722,9 @@ class _DurableRunEventStore:
             for event in candidates
             if event.run_ref == run_ref
             and event.goal_ref == goal_ref
+            and event.schema_version == "durable_run_event.v3"
+            and event.producer_class == "trusted_core"
+            and event.trusted_source_record_hash_ref is not None
             and event.event_kind == DurableRunEventKind.receipt_recorded.value
             and receipt_ref in event.receipt_refs
             and proof_ref in event.proof_refs
@@ -7241,6 +7406,27 @@ class GoalRuntimeService:
         self.runtime_invocation_state_dir = candidate
         self.events.bind_runtime_invocation_state_dir(candidate)
 
+    def _repair_goal_read_generation(self) -> None:
+        """Converge only precommitted journal truth and its independent anchor."""
+
+        self.goals.repair_recoverable_append()
+        if not any(
+            _path_generation(path)[0]
+            for path in (
+                self.goals.path,
+                self.goals.head_path,
+                self.goals.genesis_intent_path,
+            )
+        ):
+            return
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self.goals._locks,  # noqa: SLF001
+            "goal-journal",
+        ):
+            journal_entries = self.goals._load_entries(repair_manifest=True)
+            self._submissions.converge_goal_journal_anchor(journal_entries)
+
     @classmethod
     def from_env(cls) -> "GoalRuntimeService":
         configured = os.environ.get(GOAL_RUNTIME_STATE_DIR_ENV, "").strip()
@@ -7299,6 +7485,7 @@ class GoalRuntimeService:
         bounded_limit = max(1, min(int(limit), MAX_REPLAY_EVENTS))
         self._submissions.repair_recoverable_write()
         self._approvals.repair_recoverable_append()
+        self._repair_goal_read_generation()
         self._converge_expired_goal_mutation_approvals()
         if self.runtime_invocation_state_dir is not None:
             from ultimate_ai_agent.core.runtime_gateway.storage import (
@@ -7350,7 +7537,13 @@ class GoalRuntimeService:
                                         self.runtime_invocation_state_dir
                                     ),
                                 )
-                                submission_records = self._submissions._load()
+                                submission_state = self._submissions._load_state()
+                                self._submissions._validate_goal_journal_anchor(
+                                    submission_state,
+                                    entries,
+                                    require_exact=True,
+                                )
+                                submission_records = list(submission_state.records)
                                 self._approvals.validate_goal_provenance(
                                     approval_entries,
                                     entries,
@@ -7431,20 +7624,29 @@ class GoalRuntimeService:
         """Read goals with the exact approval ledger generation validated."""
 
         self._approvals.repair_recoverable_append()
+        self._submissions.repair_recoverable_write()
+        self._repair_goal_read_generation()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
                     with self.goals.consistent_read():
-                        approval_entries = self._approvals._load_entries()
-                        journal_entries = self.goals._load_entries()
-                        self._approvals.validate_goal_provenance(
-                            approval_entries,
-                            journal_entries,
-                        )
-                        return self.goals._read_model_from_entries(
-                            journal_entries,
-                            include_cleared=include_cleared,
-                        )
+                        with self._submissions.consistent_read():
+                            approval_entries = self._approvals._load_entries()
+                            journal_entries = self.goals._load_entries()
+                            submission_state = self._submissions._load_state()
+                            self._submissions._validate_goal_journal_anchor(
+                                submission_state,
+                                journal_entries,
+                                require_exact=True,
+                            )
+                            self._approvals.validate_goal_provenance(
+                                approval_entries,
+                                journal_entries,
+                            )
+                            return self.goals._read_model_from_entries(
+                                journal_entries,
+                                include_cleared=include_cleared,
+                            )
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE")
@@ -7459,35 +7661,45 @@ class GoalRuntimeService:
 
         validate_execution_ref(goal_ref, "goal_ref")
         bounded_limit = max(1, min(int(limit), MAX_GOAL_PROVENANCE_ENTRIES))
+        self._approvals.repair_recoverable_append()
+        self._submissions.repair_recoverable_write()
+        self._repair_goal_read_generation()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
                     with self.goals.consistent_read():
-                        approval_entries = self._approvals._load_entries()
-                        journal_entries = self.goals._load_entries()
-                        self._approvals.validate_goal_provenance(
-                            approval_entries,
-                            journal_entries,
-                        )
-                        matching = [
-                            entry
-                            for entry in journal_entries
-                            if entry.goal_ref == goal_ref
-                        ]
-                        if not matching:
-                            raise GoalNotFoundError("GOAL_NOT_FOUND")
-                        provenance_entries = [
-                            GoalMutationProvenanceEntry.from_journal_entry(entry)
-                            for entry in matching[-bounded_limit:]
-                        ]
-                        return (
-                            matching[-1].goal.model_copy(deep=True),
-                            GoalMutationProvenanceReadModel(
-                                goal_ref=goal_ref,
-                                entries=provenance_entries,
-                                entry_count=len(provenance_entries),
-                            ),
-                        )
+                        with self._submissions.consistent_read():
+                            approval_entries = self._approvals._load_entries()
+                            journal_entries = self.goals._load_entries()
+                            submission_state = self._submissions._load_state()
+                            self._submissions._validate_goal_journal_anchor(
+                                submission_state,
+                                journal_entries,
+                                require_exact=True,
+                            )
+                            self._approvals.validate_goal_provenance(
+                                approval_entries,
+                                journal_entries,
+                            )
+                            matching = [
+                                entry
+                                for entry in journal_entries
+                                if entry.goal_ref == goal_ref
+                            ]
+                            if not matching:
+                                raise GoalNotFoundError("GOAL_NOT_FOUND")
+                            provenance_entries = [
+                                GoalMutationProvenanceEntry.from_journal_entry(entry)
+                                for entry in matching[-bounded_limit:]
+                            ]
+                            return (
+                                matching[-1].goal.model_copy(deep=True),
+                                GoalMutationProvenanceReadModel(
+                                    goal_ref=goal_ref,
+                                    entries=provenance_entries,
+                                    entry_count=len(provenance_entries),
+                                ),
+                            )
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE")
@@ -7685,21 +7897,31 @@ class GoalRuntimeService:
         if mission_ref is None or not mission_ref.startswith("goal-ref:"):
             return
         validate_execution_ref(mission_ref, "mission_ref")
+        self._approvals.repair_recoverable_append()
+        self._submissions.repair_recoverable_write()
+        self._repair_goal_read_generation()
         for _attempt in range(3):
             try:
                 with self._approvals.consistent_read():
                     with self.goals.consistent_read():
-                        approval_entries = self._approvals._load_entries()
-                        journal_entries = self.goals._load_entries()
-                        self._approvals.validate_goal_provenance(
-                            approval_entries,
-                            journal_entries,
-                        )
-                        if mission_ref not in self.goals._latest_by_goal(
-                            journal_entries
-                        ):
-                            raise GoalNotFoundError("GOAL_NOT_FOUND")
-                        return
+                        with self._submissions.consistent_read():
+                            approval_entries = self._approvals._load_entries()
+                            journal_entries = self.goals._load_entries()
+                            submission_state = self._submissions._load_state()
+                            self._submissions._validate_goal_journal_anchor(
+                                submission_state,
+                                journal_entries,
+                                require_exact=True,
+                            )
+                            self._approvals.validate_goal_provenance(
+                                approval_entries,
+                                journal_entries,
+                            )
+                            if mission_ref not in self.goals._latest_by_goal(
+                                journal_entries
+                            ):
+                                raise GoalNotFoundError("GOAL_NOT_FOUND")
+                            return
             except _GoalRuntimeGenerationChanged:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_MUTATION_APPROVAL_GENERATION_UNSTABLE")
@@ -7725,6 +7947,7 @@ class GoalRuntimeService:
                     repair_manifest=True
                 )
                 journal_entries = self.goals._load_entries(repair_manifest=True)
+                self._submissions.converge_goal_journal_anchor(journal_entries)
                 self._approvals.validate_goal_provenance(
                     approval_entries,
                     journal_entries,
@@ -7784,6 +8007,7 @@ class GoalRuntimeService:
             ):
                 approval_entries = self._approvals._load_entries(repair_manifest=True)
                 journal_entries = self.goals._load_entries(repair_manifest=True)
+                self._submissions.converge_goal_journal_anchor(journal_entries)
                 self._approvals.validate_goal_provenance(
                     approval_entries,
                     journal_entries,

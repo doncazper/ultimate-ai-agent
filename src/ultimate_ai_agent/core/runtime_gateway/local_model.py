@@ -36,6 +36,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.command import (
+    ADAPTER_DISPATCH_PROTOCOL_REF,
     GovernedCommandRuntimeAdapter,
     RuntimeCommandExecutionRequest,
     RuntimeCommandGatewayResult,
@@ -156,6 +157,7 @@ class RuntimeLocalModelGatewayResult(BaseModel):
 
 @dataclass(frozen=True)
 class _LocalModelTransportBoundaryPosture:
+    record: RuntimeInvocationRecord
     runtime_enabled: bool
     gateway_error_category: str | None
     blocked_error_category: str | None
@@ -167,6 +169,14 @@ class _LocalModelTransportBoundaryBlocked(RuntimeError):
     def __init__(self, posture: _LocalModelTransportBoundaryPosture) -> None:
         super().__init__(posture.blocked_error_category)
         self.posture = posture
+
+
+class _LocalModelTransportBoundaryRejected(RuntimeError):
+    """Preserve a pre-transport guard failure outside adapter parsing errors."""
+
+    def __init__(self, cause: Exception) -> None:
+        super().__init__("RUNTIME_LOCAL_MODEL_TRANSPORT_BOUNDARY_REJECTED")
+        self.cause = cause
 
 
 @dataclass(frozen=True)
@@ -207,7 +217,10 @@ class _GuardedM164GatewayTransport:
         *,
         api_key: str | None = None,
     ) -> dict[str, object]:
-        posture = self._guard()
+        try:
+            posture = self._guard()
+        except Exception as exc:
+            raise _LocalModelTransportBoundaryRejected(exc) from exc
         self.boundary_posture = posture
         if posture.blocked_error_category is not None:
             raise _LocalModelTransportBoundaryBlocked(posture)
@@ -278,6 +291,8 @@ class LocalModelRuntimeAdapter:
                 transport_performed=False,
                 boundary_posture=exc.posture,
             )
+        except _LocalModelTransportBoundaryRejected as exc:
+            raise exc.cause
         except (ValueError, ValidationError) as exc:
             return _AdapterAttempt(
                 request_byte_count=request_byte_count,
@@ -579,6 +594,7 @@ class RuntimeGateway:
             invocation_request,
             idempotency_ref=idempotency_ref,
             local_model_gateway_validated=blocked_error is None,
+            adapter_dispatch_protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
         )
         record = created.record
         if (
@@ -586,7 +602,14 @@ class RuntimeGateway:
             and record.status == RuntimeInvocationStatus.safe_disabled.value
         ):
             blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
-        if created.replayed:
+        retryable_pre_dispatch_replay = bool(
+            created.replayed
+            and record.adapter_dispatch_protocol_ref
+            == ADAPTER_DISPATCH_PROTOCOL_REF
+            and not record.adapter_dispatch_started
+            and record.receipt is None
+        )
+        if created.replayed and not retryable_pre_dispatch_replay:
             replay_runtime_disabled = self.store.operator_safe_disable_active()
             replay_runtime_enabled = self._runtime_local_model_enabled()
             replay_endpoint_error = _validate_loopback_endpoint(request)
@@ -800,54 +823,22 @@ class RuntimeGateway:
                 local_model_runtime_enabled=runtime_enabled,
             )
 
-        attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
-            model_ref=request.model_ref,
-            endpoint_ref=_endpoint_ref(request.base_url),
-            profile=record.policy_decision.profile,
-            request_byte_count=_request_byte_count(request),
-            response_byte_count=0,
-            status_code=None,
-            response_received=False,
-            response_truncated=False,
-            bounded_preview_returned=False,
-            bounded_preview_persisted=False,
-            error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
-            attempt_outcome_unknown=True,
-            safe_summary=(
-                "Local model transport attempt was authorized; outcome is not yet known."
-            ),
-        )
-        attempt_marker = build_local_model_receipt(
+        record = self._prepare_local_model_adapter_dispatch(
             record,
-            metadata=attempt_marker_metadata,
-            execution_performed=False,
-            model_call_performed=False,
-            status=RuntimeInvocationStatus.receipt_recorded,
-        )
-        record = self.store.record_receipt(
-            record.invocation_ref,
-            attempt_marker,
-            idempotency_ref=_operation_idempotency_ref(
-                idempotency_ref,
-                "local-model-attempt-marker",
-            ),
-            payload_fingerprint_ref=_operation_fingerprint_ref(
-                record.invocation_ref,
-                {
-                    "operation": "local_model_attempt_marker",
-                    "metadata": attempt_marker_metadata.model_dump(mode="json"),
-                },
-            ),
+            request,
+            idempotency_ref=idempotency_ref,
+            pre_adapter_dispatch=pre_adapter_dispatch,
         )
         attempt = self.local_model_adapter.invoke(
             request,
             pre_transport_guard=lambda: self._local_model_transport_boundary_posture(
                 record,
                 request,
-                pre_adapter_dispatch=pre_adapter_dispatch,
             ),
         )
         boundary_posture = attempt.boundary_posture
+        if boundary_posture is not None:
+            record = boundary_posture.record
         attempt_policy_decision = (
             boundary_posture.policy_decision
             if boundary_posture is not None
@@ -936,15 +927,74 @@ class RuntimeGateway:
             ),
         )
 
-    def _local_model_transport_boundary_posture(
+    def _prepare_local_model_adapter_dispatch(
         self,
         record: RuntimeInvocationRecord,
         request: RuntimeLocalModelCallRequest,
         *,
+        idempotency_ref: str,
         pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
-    ) -> _LocalModelTransportBoundaryPosture:
+    ) -> RuntimeInvocationRecord:
+        """Persist the exact attempt boundary before constructing an adapter."""
+
         if pre_adapter_dispatch is not None:
             pre_adapter_dispatch(record)
+        record = self.store.mark_adapter_dispatch_started(
+            record.invocation_ref,
+            protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "adapter-dispatch-started",
+            ),
+        )
+        attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
+            model_ref=request.model_ref,
+            endpoint_ref=_endpoint_ref(request.base_url),
+            profile=record.policy_decision.profile,
+            request_byte_count=_request_byte_count(request),
+            response_byte_count=0,
+            status_code=None,
+            response_received=False,
+            response_truncated=False,
+            bounded_preview_returned=False,
+            bounded_preview_persisted=False,
+            error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
+            attempt_outcome_unknown=True,
+            safe_summary=(
+                "Local model transport attempt was authorized; outcome is not yet known."
+            ),
+        )
+        attempt_marker = build_local_model_receipt(
+            record,
+            metadata=attempt_marker_metadata,
+            execution_performed=False,
+            model_call_performed=False,
+            status=RuntimeInvocationStatus.receipt_recorded,
+        )
+        record = self.store.record_receipt(
+            record.invocation_ref,
+            attempt_marker,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "local-model-attempt-marker",
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                record.invocation_ref,
+                {
+                    "operation": "local_model_attempt_marker",
+                    "metadata": attempt_marker_metadata.model_dump(mode="json"),
+                },
+            ),
+        )
+        return record
+
+    def _local_model_transport_boundary_posture(
+        self,
+        record: RuntimeInvocationRecord,
+        request: RuntimeLocalModelCallRequest,
+    ) -> _LocalModelTransportBoundaryPosture:
+        """Revalidate live authority immediately before the transport send."""
+
         runtime_disabled = self.store.operator_safe_disable_active()
         runtime_enabled = self._runtime_local_model_enabled()
         gateway_error = _blocked_error_category(
@@ -983,6 +1033,7 @@ class RuntimeGateway:
                 update={"invocation_status": status}
             )
         return _LocalModelTransportBoundaryPosture(
+            record=record,
             runtime_enabled=runtime_enabled,
             gateway_error_category=gateway_error,
             blocked_error_category=blocked_error,

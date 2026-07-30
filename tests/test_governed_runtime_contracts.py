@@ -5708,3 +5708,146 @@ def test_runtime_gateway_local_model_boundary_denial_survives_restored_posture(
         assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
             result.record.policy_decision.reason_codes
         )
+
+
+def test_approved_command_boundary_rejection_retries_exact_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path / "runtime")
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+
+    def reject_refresh(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_REFRESH_REJECTED")
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_refresh,
+    )
+    execute_request = _runtime_execute_request(approved)
+    exact_command = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    idempotency_ref = "idempotency-ref:approved-command-boundary-retry"
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.execute_approved_command(
+            approved.invocation_ref,
+            exact_command,
+            execute_request,
+            idempotency_ref=idempotency_ref,
+        )
+    assert calls == 0
+    pending = store.get_invocation(approved.invocation_ref)
+    assert pending.receipt is None
+    assert pending.adapter_dispatch_protocol_ref is not None
+    assert pending.adapter_dispatch_started is False
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        original_refresh,
+    )
+    retried = gateway.execute_approved_command(
+        approved.invocation_ref,
+        exact_command,
+        execute_request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert calls == 1
+    assert retried.record.receipt is not None
+    assert retried.record.adapter_dispatch_started is True
+
+
+def test_local_model_boundary_rejection_retries_before_attempt_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = FakeM164GatewayTransport("BOUNDARY_RETRY_OK")
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path / "runtime"),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=lambda _request: transport,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content=REDACTED_TEST_PROMPT,
+            )
+        ],
+        safe_summary="Retry only the exact pre-dispatch local request.",
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+
+    def reject_refresh(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_REFRESH_REJECTED")
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_refresh,
+    )
+    idempotency_ref = "idempotency-ref:local-model-boundary-retry"
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    [pending] = gateway.store.list_invocations()
+    assert pending.receipt is None
+    assert pending.adapter_dispatch_protocol_ref is not None
+    assert pending.adapter_dispatch_started is False
+    assert transport.calls == []
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        original_refresh,
+    )
+    retried = gateway.invoke_local_model(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert retried.record.receipt is not None
+    assert retried.record.adapter_dispatch_started is True
+    assert len(transport.calls) == 1

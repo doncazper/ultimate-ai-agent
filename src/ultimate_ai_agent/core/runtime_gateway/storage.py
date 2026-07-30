@@ -912,6 +912,7 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         with self._exclusive_mutation():
             return self._create_invocation_loaded(
@@ -919,6 +920,7 @@ class RuntimeInvocationStore:
                 idempotency_ref=idempotency_ref,
                 local_model_gateway_validated=local_model_gateway_validated,
                 command_gateway_validated=command_gateway_validated,
+                adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
             )
 
     def _create_invocation_loaded(
@@ -928,8 +930,14 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
+        if adapter_dispatch_protocol_ref is not None:
+            validate_execution_ref(
+                adapter_dispatch_protocol_ref,
+                "adapter_dispatch_protocol_ref",
+            )
         payload_fingerprint_ref = runtime_payload_fingerprint_ref(request)
         existing_ref = self._idempotency_index.get(idempotency_ref)
         if existing_ref:
@@ -940,6 +948,14 @@ class RuntimeInvocationStore:
             )
             if existing_fingerprint != payload_fingerprint_ref:
                 raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
+            if (
+                adapter_dispatch_protocol_ref is not None
+                and existing.adapter_dispatch_protocol_ref
+                != adapter_dispatch_protocol_ref
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH"
+                )
             replayed = existing.model_copy(update={"replay_count": existing.replay_count + 1})
             self._records[existing_ref] = replayed
             return RuntimeInvocationStoreResult(record=replayed, replayed=True)
@@ -970,6 +986,7 @@ class RuntimeInvocationStore:
             approval_requirement=policy_decision.approval_requirement,
             payload_fingerprint_ref=payload_fingerprint_ref,
             idempotency_ref=idempotency_ref,
+            adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
             safe_disable=(
                 operator_safe_disable
                 if operator_safe_disable.active
@@ -997,6 +1014,106 @@ class RuntimeInvocationStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
         return RuntimeInvocationStoreResult(record=record, replayed=False)
+
+    def mark_adapter_dispatch_started(
+        self,
+        invocation_ref: str,
+        *,
+        protocol_ref: str,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord:
+        """Durably cross the exact adapter-attempt boundary once."""
+
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(protocol_ref, "protocol_ref")
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "adapter_dispatch_started",
+                    "invocation_ref": invocation_ref,
+                    "protocol_ref": protocol_ref,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            if (
+                record.adapter_dispatch_protocol_ref != protocol_ref
+                or record.adapter_dispatch_started
+                or record.receipt is not None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_STATE_INVALID"
+                )
+            updated = record.model_copy(
+                update={
+                    "adapter_dispatch_started": True,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "adapter_dispatch_started",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
+
+    def prepare_adapter_dispatch_protocol(
+        self,
+        invocation_ref: str,
+        *,
+        protocol_ref: str,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord:
+        """Bind an undispatched prepared invocation to the boundary protocol."""
+
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(protocol_ref, "protocol_ref")
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "adapter_dispatch_protocol_prepared",
+                    "invocation_ref": invocation_ref,
+                    "protocol_ref": protocol_ref,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            if record.adapter_dispatch_protocol_ref == protocol_ref:
+                return record
+            if (
+                record.adapter_dispatch_protocol_ref is not None
+                or record.adapter_dispatch_started
+                or record.receipt is not None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH"
+                )
+            updated = record.model_copy(
+                update={
+                    "adapter_dispatch_protocol_ref": protocol_ref,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "adapter_dispatch_protocol_prepared",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
 
     def bind_approval(
         self,
