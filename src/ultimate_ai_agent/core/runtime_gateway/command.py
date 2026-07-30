@@ -348,6 +348,8 @@ def _prepare_adapter_dispatch(
     record: RuntimeInvocationRecord,
     idempotency_ref: str,
     pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None,
+    action_inbox_envelope_ref: str | None = None,
+    action_inbox_approval_ref: str | None = None,
 ) -> None:
     if pre_adapter_dispatch is not None:
         pre_adapter_dispatch(record)
@@ -362,6 +364,8 @@ def _prepare_adapter_dispatch(
             },
         ),
         command_gateway_validated=True,
+        action_inbox_envelope_ref=action_inbox_envelope_ref,
+        action_inbox_approval_ref=action_inbox_approval_ref,
     )
     if not claim.acquired:
         raise RuntimeInvocationStorageError(
@@ -806,6 +810,26 @@ def _in_progress_command_replay_result(
     )
 
 
+def _in_progress_approved_command_replay_result(
+    record: RuntimeInvocationRecord,
+) -> RuntimeCommandGatewayResult:
+    """Report the exact owned attempt without installing competing evidence."""
+
+    replayed_record = record.model_copy(
+        update={"replay_count": record.replay_count + 1}
+    )
+    if replayed_record.receipt is not None:
+        return _completed_command_replay_result(replayed_record)
+    return RuntimeCommandGatewayResult(
+        record=replayed_record,
+        error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
+        replayed=True,
+        command_execution_enabled=(
+            replayed_record.policy_decision.command_execution_enabled
+        ),
+    )
+
+
 def _run_subprocess(
     *,
     argv: tuple[str, ...],
@@ -938,6 +962,12 @@ def invoke_approved_governed_command(
                 command_execution_enabled=record.policy_decision.command_execution_enabled,
             )
         if not _retryable_pre_dispatch_record(record):
+            if (
+                record.adapter_dispatch_started
+                and record.adapter_dispatch_protocol_ref
+                == ADAPTER_DISPATCH_PROTOCOL_REF
+            ):
+                return _in_progress_approved_command_replay_result(record)
             return _record_blocked_command_result(
                 store=store,
                 request=request,
@@ -1018,6 +1048,12 @@ def invoke_approved_governed_command(
                 command_execution_enabled=record.policy_decision.command_execution_enabled,
             )
         if not _retryable_pre_dispatch_record(record):
+            if (
+                record.adapter_dispatch_started
+                and record.adapter_dispatch_protocol_ref
+                == ADAPTER_DISPATCH_PROTOCOL_REF
+            ):
+                return _in_progress_approved_command_replay_result(record)
             return _record_blocked_command_result(
                 store=store,
                 request=request,
@@ -1037,6 +1073,10 @@ def invoke_approved_governed_command(
                 record=record,
                 idempotency_ref=idempotency_ref,
                 pre_adapter_dispatch=pre_adapter_dispatch,
+                action_inbox_envelope_ref=(
+                    execute_request.action_envelope_ref
+                ),
+                action_inbox_approval_ref=execute_request.approval_ref,
             )
         ),
     )

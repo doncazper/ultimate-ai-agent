@@ -5945,6 +5945,148 @@ def test_command_dispatch_revalidates_current_authority_under_store_lock(
     )
 
 
+def test_approved_command_dispatch_revalidates_current_action_inbox_envelope(
+    tmp_path: Path,
+) -> None:
+    calls: list[object] = []
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+
+    def deny_at_dispatch(current: RuntimeInvocationRecord) -> None:
+        refs = _runtime_action_inbox_refs(current, decision="deny")
+        store.bind_approval(
+            current.invocation_ref,
+            RuntimeApprovalBindingRequest(
+                decision="deny",
+                action_envelope_ref=refs["action_envelope_ref"],
+                exact_scope_ref=refs["exact_scope_ref"],
+                expected_payload_fingerprint_ref=current.payload_fingerprint_ref,
+                expected_policy_decision_ref=(
+                    current.policy_decision.policy_decision_ref
+                ),
+                adapter_id="governed-command-runtime-adapter",
+                command_intent="focused_pytest",
+                risk_class="medium",
+                safe_summary="Deny the exact command before adapter dispatch.",
+            ),
+            idempotency_ref="idempotency-ref:dispatch-envelope-denied",
+        )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED",
+    ):
+        runtime_command.invoke_approved_governed_command(
+            store=store,
+            adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=ROOT,
+                runner=lambda **kwargs: calls.append(kwargs),
+            ),
+            record=approved,
+            request=exact_request,
+            execute_request=execute_request,
+            idempotency_ref="idempotency-ref:dispatch-envelope-execute",
+            pre_adapter_dispatch=deny_at_dispatch,
+        )
+
+    durable = store.get_invocation(approved.invocation_ref)
+    assert durable.status == RuntimeInvocationStatus.approval_denied.value
+    assert durable.adapter_dispatch_started is False
+    assert durable.receipt is None
+    assert calls == []
+
+
+def test_overlapping_approved_command_retry_reports_in_progress_without_receipt(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    calls = 0
+    owner_results: list[RuntimeCommandGatewayResult] = []
+    owner_errors: list[BaseException] = []
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_APPROVED_OUTPUT",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+    adapter = GovernedCommandRuntimeAdapter(workspace_root=ROOT, runner=runner)
+    execution_idempotency_ref = "idempotency-ref:approved-command-overlap"
+
+    def run_owner() -> None:
+        try:
+            owner_results.append(
+                runtime_command.invoke_approved_governed_command(
+                    store=store,
+                    adapter=adapter,
+                    record=approved,
+                    request=exact_request,
+                    execute_request=execute_request,
+                    idempotency_ref=execution_idempotency_ref,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            owner_errors.append(exc)
+
+    owner = threading.Thread(target=run_owner)
+    owner.start()
+    assert runner_started.wait(timeout=5)
+    duplicate = runtime_command.invoke_approved_governed_command(
+        store=store,
+        adapter=adapter,
+        record=approved,
+        request=exact_request,
+        execute_request=execute_request,
+        idempotency_ref=execution_idempotency_ref,
+    )
+    try:
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert store.get_invocation(approved.invocation_ref).receipt is None
+        assert calls == 1
+    finally:
+        release_runner.set()
+        owner.join(timeout=10)
+
+    assert owner.is_alive() is False
+    assert owner_errors == []
+    assert len(owner_results) == 1
+    assert owner_results[0].record.receipt is not None
+    assert owner_results[0].record.receipt.command_execution_performed is True
+    assert calls == 1
+
+
 def test_legacy_protocol_accepts_only_immutable_receipt_replay(
     tmp_path: Path,
 ) -> None:

@@ -1034,6 +1034,8 @@ class RuntimeInvocationStore:
         protocol_ref: str,
         idempotency_ref: str,
         command_gateway_validated: bool | None = None,
+        action_inbox_envelope_ref: str | None = None,
+        action_inbox_approval_ref: str | None = None,
     ) -> RuntimeAdapterDispatchClaim:
         """Durably cross the exact adapter-attempt boundary once."""
 
@@ -1067,6 +1069,41 @@ class RuntimeInvocationStore:
                     "RUNTIME_ADAPTER_DISPATCH_STATE_INVALID"
                 )
             if command_gateway_validated is not None:
+                if action_inbox_envelope_ref is not None:
+                    validate_execution_ref(
+                        action_inbox_envelope_ref,
+                        "action_inbox_envelope_ref",
+                    )
+                    if action_inbox_approval_ref is None:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
+                    validate_execution_ref(
+                        action_inbox_approval_ref,
+                        "action_inbox_approval_ref",
+                    )
+                    envelope = record.action_inbox_envelope
+                    if (
+                        envelope is None
+                        or envelope.action_envelope_ref
+                        != action_inbox_envelope_ref
+                        or envelope.approval_ref != action_inbox_approval_ref
+                        or envelope.decision
+                        != RuntimeActionInboxApprovalDecision.approve.value
+                        or envelope.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or record.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or not envelope.approval_validated
+                        or not envelope.authority_scope_allowed
+                        or envelope.safe_disable_active
+                        or envelope.scope_mismatch
+                        or envelope.runtime_profile_weaker_or_disabled
+                        or envelope.expires_at <= utc_now()
+                    ):
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
                 current_policy = build_policy_decision(
                     record.request,
                     invocation_ref=record.invocation_ref,

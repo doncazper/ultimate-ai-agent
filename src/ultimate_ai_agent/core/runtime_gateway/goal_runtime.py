@@ -3443,6 +3443,7 @@ class _GoalJournalStore:
                     raise GoalRuntimeCorruptionError(
                         "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
                     )
+                self._validate_snapshot_transition(genesis_intent.entry, [])
                 repair_validator([genesis_intent.entry])
                 self._install_genesis_intent(genesis_intent)
                 return [genesis_intent.entry.model_copy(deep=True)]
@@ -3566,6 +3567,11 @@ class _GoalJournalStore:
             if repair_validator is None:
                 raise GoalRuntimeCorruptionError(
                     "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
+                )
+            if entries != next_entries:
+                self._validate_snapshot_transition(
+                    append_intent.next_entry,
+                    entries,
                 )
             repair_validator(next_entries)
             if entries != next_entries:
@@ -7833,6 +7839,74 @@ class GoalRuntimeService:
         self.runtime_invocation_state_dir = candidate
         self.events.bind_runtime_invocation_state_dir(candidate)
 
+    def _validate_goal_recovery_candidate(
+        self,
+        approval_entries: list[GoalMutationApprovalLedgerEntry],
+        candidate: list[GoalJournalEntry],
+    ) -> None:
+        """Validate approval and producer truth before installing an intent."""
+
+        self._approvals.validate_goal_provenance(
+            approval_entries,
+            candidate,
+        )
+        append_intent = self.goals._load_append_intent()
+        genesis_intent = self.goals._load_genesis_intent()
+        recovering_entry = (
+            append_intent.next_entry
+            if append_intent is not None
+            else (genesis_intent.entry if genesis_intent is not None else None)
+        )
+        if (
+            recovering_entry is None
+            or recovering_entry.operation
+            != GoalJournalOperation.transition.value
+            or recovering_entry.request_payload is None
+        ):
+            return
+        request = GoalTransitionRequest.model_validate(
+            recovering_entry.request_payload
+        )
+        if request.transition != GoalTransitionKind.verify_completion.value:
+            return
+        evidence = request.completion_evidence
+        if evidence is None:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_COMPLETION_EVIDENCE_REQUIRED"
+            )
+        try:
+            recovered_index = candidate.index(recovering_entry)
+        except ValueError as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+            ) from exc
+        prior_entries = candidate[:recovered_index]
+        current = self.goals._latest_by_goal(prior_entries).get(
+            recovering_entry.goal_ref
+        )
+        if current is None:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_TRANSITION_SNAPSHOT_MISSING"
+            )
+        with self._events.exclusive():
+            (
+                completion_plan_ref,
+                completion_bindings,
+            ) = self._validate_completion_evidence_locked(
+                current=current,
+                evidence=evidence,
+                journal_entries=candidate,
+                approval_entries=approval_entries,
+            )
+        if (
+            recovering_entry.goal.completion_plan_ref != completion_plan_ref
+            or recovering_entry.goal.completion_criterion_verifier_bindings
+            != completion_bindings
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_COMPLETION_VERIFIER_BINDING_MISMATCH"
+            )
+
     def _repair_goal_read_generation(self) -> None:
         """Converge only precommitted journal truth and its independent anchor."""
 
@@ -7862,7 +7936,7 @@ class GoalRuntimeService:
                 journal_entries = self.goals._load_entries(
                     repair_manifest=True,
                     repair_validator=lambda candidate: (
-                        self._approvals.validate_goal_provenance(
+                        self._validate_goal_recovery_candidate(
                             approval_entries,
                             candidate,
                         )
@@ -8404,7 +8478,7 @@ class GoalRuntimeService:
                 journal_entries = self.goals._load_entries(
                     repair_manifest=True,
                     repair_validator=lambda candidate: (
-                        self._approvals.validate_goal_provenance(
+                        self._validate_goal_recovery_candidate(
                             approval_entries,
                             candidate,
                         )
@@ -8472,7 +8546,7 @@ class GoalRuntimeService:
                 journal_entries = self.goals._load_entries(
                     repair_manifest=True,
                     repair_validator=lambda candidate: (
-                        self._approvals.validate_goal_provenance(
+                        self._validate_goal_recovery_candidate(
                             approval_entries,
                             candidate,
                         )
@@ -8597,6 +8671,116 @@ class GoalRuntimeService:
             )
             return goal, approval_binding
 
+    def _validate_completion_evidence_locked(
+        self,
+        *,
+        current: PersistentGoal,
+        evidence: GoalCompletionEvidence,
+        journal_entries: list[GoalJournalEntry],
+        approval_entries: list[GoalMutationApprovalLedgerEntry],
+    ) -> tuple[str | None, list[RuntimeCriterionVerificationBinding]]:
+        """Validate exact producer evidence while journal and event locks are held."""
+
+        if evidence.goal_ref != current.goal_ref:
+            raise GoalTransitionDeniedError("GOAL_COMPLETION_GOAL_REF_MISMATCH")
+        if evidence.goal_version != current.version:
+            raise GoalVersionConflictError("GOAL_COMPLETION_VERSION_CONFLICT")
+        if evidence.run_ref not in current.links.run_refs:
+            raise GoalTransitionDeniedError("GOAL_COMPLETION_RUN_NOT_LINKED")
+        retained_events = self._events._load_events()
+        retained_tombstones = self._events._load_idempotency_tombstones(
+            retained_events
+        )
+        retained_evidence = [
+            *retained_events,
+            *(tombstone.event for tombstone in retained_tombstones.values()),
+        ]
+        self._events._validate_trusted_sources(
+            retained_evidence,
+            journal_entries=journal_entries,
+            runtime_invocation_state_dir=self.runtime_invocation_state_dir,
+        )
+        self._approvals.validate_event_provenance(
+            approval_entries,
+            retained_evidence,
+        )
+        receipt_event = self._events.assert_completion_appendable(
+            run_ref=evidence.run_ref,
+            receipt_ref=evidence.receipt_ref,
+            proof_ref=evidence.proof_ref,
+            goal_ref=current.goal_ref,
+        )
+        expected_criterion_refs = [
+            build_goal_criterion_ref(
+                current,
+                criterion_index=index,
+                criterion_summary=criterion,
+            )
+            for index, criterion in enumerate(current.success_criteria)
+        ]
+        matching_bindings = {
+            binding.criterion_ref: binding
+            for binding in receipt_event.criterion_verifier_bindings
+            if binding.goal_ref == current.goal_ref
+            and binding.goal_version == current.version
+        }
+        if set(matching_bindings) != set(expected_criterion_refs):
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_CRITERION_VERIFIER_BINDING_MISMATCH"
+            )
+        ordered_bindings = [
+            matching_bindings[criterion_ref]
+            for criterion_ref in expected_criterion_refs
+        ]
+        if any(
+            binding.verifier_ref != GOAL_COMPLETION_VERIFIER_REF
+            or binding.proof_ref not in receipt_event.proof_refs
+            or binding.evaluator_receipt_ref not in receipt_event.proof_refs
+            for binding in ordered_bindings
+        ):
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_CRITERION_VERIFIER_NOT_TRUSTED"
+            )
+        derived_criterion_proof_refs = [
+            binding.proof_ref for binding in ordered_bindings
+        ]
+        if evidence.criterion_proof_refs != derived_criterion_proof_refs:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH"
+            )
+        completion_plan_ref = receipt_event.plan_ref
+        if current.links.plan_refs:
+            if completion_plan_ref is None:
+                raise GoalTransitionDeniedError(
+                    "GOAL_COMPLETION_PLAN_BINDING_REQUIRED"
+                )
+            if completion_plan_ref not in current.links.plan_refs:
+                raise GoalTransitionDeniedError(
+                    "GOAL_COMPLETION_PLAN_NOT_LINKED"
+                )
+        if evidence.verifier_ref != GOAL_COMPLETION_VERIFIER_REF:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_VERIFIER_NOT_TRUSTED"
+            )
+        expected_evidence_ref = build_goal_completion_evidence_ref(
+            current,
+            run_ref=evidence.run_ref,
+            receipt_ref=evidence.receipt_ref,
+            proof_ref=evidence.proof_ref,
+            criterion_verifier_bindings=ordered_bindings,
+            plan_ref=completion_plan_ref,
+        )
+        if evidence.evidence_ref != expected_evidence_ref:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_VERIFIER_BINDING_MISMATCH"
+            )
+        return completion_plan_ref, [
+            RuntimeCriterionVerificationBinding.model_validate(
+                binding.model_dump(mode="json")
+            )
+            for binding in ordered_bindings
+        ]
+
     def transition_goal(
         self,
         goal_ref: str,
@@ -8687,123 +8871,17 @@ class GoalRuntimeService:
                     ).get(goal_ref)
                     if current is None:
                         raise GoalNotFoundError("GOAL_NOT_FOUND")
-                    if evidence.goal_ref != goal_ref:
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_GOAL_REF_MISMATCH"
-                        )
-                    if evidence.goal_version != current.version:
-                        raise GoalVersionConflictError(
-                            "GOAL_COMPLETION_VERSION_CONFLICT"
-                        )
-                    if evidence.run_ref not in current.links.run_refs:
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_RUN_NOT_LINKED"
-                        )
                     approval_entries = self._approvals._load_entries()
-                    retained_events = self._events._load_events()
-                    retained_tombstones = self._events._load_idempotency_tombstones(
-                        retained_events
-                    )
-                    self._events._validate_trusted_sources(
-                        [
-                            *retained_events,
-                            *(
-                                tombstone.event
-                                for tombstone in retained_tombstones.values()
-                            ),
-                        ],
+                    (
+                        completion_plan_ref,
+                        completion_criterion_verifier_bindings,
+                    ) = self._validate_completion_evidence_locked(
+                        current=current,
+                        evidence=evidence,
                         journal_entries=journal_entries,
-                        runtime_invocation_state_dir=(
-                            self.runtime_invocation_state_dir
-                        ),
+                        approval_entries=approval_entries,
                     )
-                    self._approvals.validate_event_provenance(
-                        approval_entries,
-                        [
-                            *retained_events,
-                            *(
-                                tombstone.event
-                                for tombstone in retained_tombstones.values()
-                            ),
-                        ],
-                    )
-                    receipt_event = self._events.assert_completion_appendable(
-                        run_ref=evidence.run_ref,
-                        receipt_ref=evidence.receipt_ref,
-                        proof_ref=evidence.proof_ref,
-                        goal_ref=goal_ref,
-                    )
-                    expected_criterion_refs = [
-                        build_goal_criterion_ref(
-                            current,
-                            criterion_index=index,
-                            criterion_summary=criterion,
-                        )
-                        for index, criterion in enumerate(current.success_criteria)
-                    ]
-                    matching_bindings = {
-                        binding.criterion_ref: binding
-                        for binding in receipt_event.criterion_verifier_bindings
-                        if binding.goal_ref == current.goal_ref
-                        and binding.goal_version == current.version
-                    }
-                    if set(matching_bindings) != set(expected_criterion_refs):
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_CRITERION_VERIFIER_BINDING_MISMATCH"
-                        )
-                    ordered_bindings = [
-                        matching_bindings[criterion_ref]
-                        for criterion_ref in expected_criterion_refs
-                    ]
-                    if any(
-                        binding.verifier_ref != GOAL_COMPLETION_VERIFIER_REF
-                        or binding.proof_ref not in receipt_event.proof_refs
-                        or binding.evaluator_receipt_ref not in receipt_event.proof_refs
-                        for binding in ordered_bindings
-                    ):
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_CRITERION_VERIFIER_NOT_TRUSTED"
-                        )
-                    derived_criterion_proof_refs = [
-                        binding.proof_ref for binding in ordered_bindings
-                    ]
-                    if evidence.criterion_proof_refs != derived_criterion_proof_refs:
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_CRITERION_PROOF_BINDING_MISMATCH"
-                        )
-                    completion_plan_ref = receipt_event.plan_ref
-                    if current.links.plan_refs:
-                        if completion_plan_ref is None:
-                            raise GoalTransitionDeniedError(
-                                "GOAL_COMPLETION_PLAN_BINDING_REQUIRED"
-                            )
-                        if completion_plan_ref not in current.links.plan_refs:
-                            raise GoalTransitionDeniedError(
-                                "GOAL_COMPLETION_PLAN_NOT_LINKED"
-                            )
-                    if evidence.verifier_ref != GOAL_COMPLETION_VERIFIER_REF:
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_VERIFIER_NOT_TRUSTED"
-                        )
-                    expected_evidence_ref = build_goal_completion_evidence_ref(
-                        current,
-                        run_ref=evidence.run_ref,
-                        receipt_ref=evidence.receipt_ref,
-                        proof_ref=evidence.proof_ref,
-                        criterion_verifier_bindings=ordered_bindings,
-                        plan_ref=completion_plan_ref,
-                    )
-                    if evidence.evidence_ref != expected_evidence_ref:
-                        raise GoalTransitionDeniedError(
-                            "GOAL_COMPLETION_VERIFIER_BINDING_MISMATCH"
-                        )
                     completion_verified = True
-                    completion_criterion_verifier_bindings = [
-                        RuntimeCriterionVerificationBinding.model_validate(
-                            binding.model_dump(mode="json")
-                        )
-                        for binding in ordered_bindings
-                    ]
                 goal = self.goals.transition(
                     goal_ref,
                     validated,
@@ -8857,7 +8935,7 @@ class GoalRuntimeService:
             journal_entries = self.goals._load_entries(
                 repair_manifest=True,
                 repair_validator=lambda candidate: (
-                    self._approvals.validate_goal_provenance(
+                    self._validate_goal_recovery_candidate(
                         approval_entries,
                         candidate,
                     )
@@ -11091,29 +11169,11 @@ def _goal_runtime_state_dir_chain_identity(
 ) -> tuple[int, int] | None:
     """Open every state-root component without following ancestor links."""
 
-    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
-        raise OSError("goal runtime state directory guard unavailable")
-    absolute = Path(_goal_runtime_state_dir_key(state_dir))
-    if absolute == Path(absolute.anchor):
-        raise OSError("goal runtime state directory cannot be a filesystem root")
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-    descriptor = os.open(absolute.anchor, flags)
+    descriptor = _open_goal_runtime_state_dir_chain(state_dir, create=create)
+    if descriptor is None:
+        return None
     try:
-        for component in absolute.parts[1:]:
-            if component in {"", ".", ".."}:
-                raise OSError("goal runtime state directory component is invalid")
-            try:
-                next_descriptor = os.open(component, flags, dir_fd=descriptor)
-            except FileNotFoundError:
-                if not create:
-                    return None
-                try:
-                    os.mkdir(component, mode=0o700, dir_fd=descriptor)
-                except FileExistsError:
-                    pass
-                next_descriptor = os.open(component, flags, dir_fd=descriptor)
-            os.close(descriptor)
-            descriptor = next_descriptor
+        absolute = Path(_goal_runtime_state_dir_key(state_dir))
         opened = os.fstat(descriptor)
         linked = os.lstat(absolute)
         identity = (opened.st_dev, opened.st_ino)
@@ -11129,6 +11189,45 @@ def _goal_runtime_state_dir_chain_identity(
         return identity
     finally:
         os.close(descriptor)
+
+
+def _open_goal_runtime_state_dir_chain(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> int | None:
+    """Return a descriptor reached through an all-no-follow directory walk."""
+
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        raise OSError("goal runtime state directory guard unavailable")
+    absolute = Path(_goal_runtime_state_dir_key(state_dir))
+    if absolute == Path(absolute.anchor):
+        raise OSError("goal runtime state directory cannot be a filesystem root")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise OSError("goal runtime state directory component is invalid")
+            try:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create:
+                    os.close(descriptor)
+                    descriptor = -1
+                    return None
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except BaseException:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise
 
 
 def _bind_goal_runtime_state_dir_identity(
@@ -11153,15 +11252,40 @@ def _normalized_goal_runtime_lock(
     writer_key: str,
 ) -> Iterator[None]:
     entered = False
+    state_descriptor: int | None = None
     try:
-        _validate_goal_runtime_state_dir_for_read(manager.lock_dir.parent)
-        with manager.acquire(writer_key):
+        state_dir = manager.lock_dir.parent
+        state_descriptor = _open_goal_runtime_state_dir_chain(
+            state_dir,
+            create=False,
+        )
+        if state_descriptor is None:
+            raise OSError("goal runtime state directory is missing")
+        metadata = os.fstat(state_descriptor)
+        identity = (metadata.st_dev, metadata.st_ino)
+        linked = os.lstat(Path(_goal_runtime_state_dir_key(state_dir)))
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or not stat.S_ISDIR(linked.st_mode)
+            or stat.S_ISLNK(linked.st_mode)
+            or identity != (linked.st_dev, linked.st_ino)
+        ):
+            raise OSError("goal runtime state directory identity mismatch")
+        _bind_goal_runtime_state_dir_identity(state_dir, identity)
+        with manager.acquire_from_parent(
+            state_descriptor,
+            manager.lock_dir.name,
+            writer_key,
+        ):
             entered = True
             yield
     except OSError as exc:
         if not entered:
             raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
         raise
+    finally:
+        if state_descriptor is not None:
+            os.close(state_descriptor)
 
 
 @contextmanager

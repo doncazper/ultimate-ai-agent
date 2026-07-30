@@ -2404,6 +2404,97 @@ def test_goal_completion_rejects_already_terminal_run_before_journal_commit(
     assert restored.version == requested.version
 
 
+def test_goal_completion_intent_recovery_revalidates_authoritative_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:completion-intent:create",
+    )
+    requested = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.request_completion,
+            reason_ref="reason-ref:completion-intent:request",
+        ),
+        idempotency_ref="idempotency-ref:completion-intent:request",
+    )
+    _append_receipt(service, goal_ref=created.goal_ref)
+    transition = GoalTransitionRequest(
+        expected_version=requested.version,
+        transition=GoalTransitionKind.verify_completion,
+        reason_ref="reason-ref:completion-intent:verify",
+        completion_evidence=_completion_evidence(requested),
+    )
+    operation_idempotency_ref = "idempotency-ref:completion-intent:verify"
+    approval_ref = _approved_mutation_ref(
+        service,
+        operation="transition",
+        goal_ref=created.goal_ref,
+        request=transition,
+        idempotency_ref=operation_idempotency_ref,
+    )
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def interrupt_journal_install(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goals.jsonl":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        interrupt_journal_install,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        service.transition_goal(
+            created.goal_ref,
+            transition,
+            idempotency_ref=operation_idempotency_ref,
+            approval_ref=approval_ref,
+        )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        original_atomic_write,
+    )
+    assert service.goals.append_intent_path.exists()  # noqa: SLF001
+    for path in (
+        service._events.path,  # noqa: SLF001
+        service._events.idempotency_path,  # noqa: SLF001
+        service._events.trusted_sources_path,  # noqa: SLF001
+        service._events.generation_head_path,  # noqa: SLF001
+        service._events.append_intent_path,  # noqa: SLF001
+        service._events.reservations_path,  # noqa: SLF001
+    ):
+        path.unlink(missing_ok=True)
+
+    with pytest.raises(
+        GoalTransitionDeniedError,
+        match="GOAL_COMPLETION_DURABLE_RECEIPT_NOT_FOUND",
+    ):
+        GoalRuntimeService(tmp_path).goal_lifecycle_read_model(
+            include_cleared=True
+        )
+    assert service.goals.append_intent_path.exists()  # noqa: SLF001
+    durable_entries = [
+        goal_runtime_module.GoalJournalEntry.model_validate_json(line)
+        for line in service.goals.path.read_text(encoding="utf-8").splitlines()  # noqa: SLF001
+    ]
+    assert durable_entries[-1].goal.state == GoalState.complete_requested.value
+
+
 def test_verified_completion_recovers_exact_terminal_event_after_restart(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -6305,6 +6396,171 @@ def test_goal_journal_append_recovery_validates_approval_before_promotion(
     assert service.goals.append_intent_path.exists()  # noqa: SLF001
 
 
+@pytest.mark.parametrize("intent_kind", ["genesis", "append"])
+def test_goal_journal_intent_recovery_validates_candidate_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    intent_kind: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def interrupt_journal_install(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goals.jsonl":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    if intent_kind == "genesis":
+        request: GoalCreateRequest | GoalEditRequest = _create_request()
+        operation_idempotency_ref = (
+            "idempotency-ref:intent-snapshot:genesis"
+        )
+        approval_ref = _approved_mutation_ref(
+            service,
+            operation="create",
+            goal_ref=None,
+            request=request,
+            idempotency_ref=operation_idempotency_ref,
+        )
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            interrupt_journal_install,
+        )
+        with pytest.raises(
+            GoalRuntimeError,
+            match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+        ):
+            service.create_goal(
+                request,
+                idempotency_ref=operation_idempotency_ref,
+                approval_ref=approval_ref,
+            )
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            original_atomic_write,
+        )
+        intent = service.goals._load_genesis_intent()  # noqa: SLF001
+        assert intent is not None
+        substituted_entry = intent.entry.model_copy(
+            update={
+                "goal": intent.entry.goal.model_copy(
+                    update={"state": GoalState.cancelled.value}
+                )
+            }
+        )
+        substituted_entry = substituted_entry.model_copy(
+            update={
+                "entry_hash_ref": service.goals._entry_hash(  # noqa: SLF001
+                    substituted_entry
+                )
+            }
+        )
+        substituted_entries = [substituted_entry]
+        substituted_intent = goal_runtime_module.GoalJournalGenesisIntent(
+            entry=substituted_entry,
+            head_manifest=service.goals._build_head_manifest(  # noqa: SLF001
+                substituted_entries
+            ),
+            journal_content_hash_ref=service.goals._journal_content_hash(  # noqa: SLF001
+                substituted_entries
+            ),
+        )
+        service.goals.genesis_intent_path.write_text(  # noqa: SLF001
+            substituted_intent.model_dump_json() + "\n",
+            encoding="utf-8",
+        )
+    else:
+        created = _create_goal(
+            service,
+            _create_request(),
+            idempotency_ref="idempotency-ref:intent-snapshot:create",
+        )
+        request = GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="Install only a request-derived edit snapshot.",
+        )
+        operation_idempotency_ref = "idempotency-ref:intent-snapshot:edit"
+        approval_ref = _approved_mutation_ref(
+            service,
+            operation="edit",
+            goal_ref=created.goal_ref,
+            request=request,
+            idempotency_ref=operation_idempotency_ref,
+        )
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            interrupt_journal_install,
+        )
+        with pytest.raises(
+            GoalRuntimeError,
+            match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+        ):
+            service.edit_goal(
+                created.goal_ref,
+                request,
+                idempotency_ref=operation_idempotency_ref,
+                approval_ref=approval_ref,
+            )
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            original_atomic_write,
+        )
+        intent = service.goals._load_append_intent()  # noqa: SLF001
+        assert intent is not None
+        substituted_entry = intent.next_entry.model_copy(
+            update={
+                "goal": intent.next_entry.goal.model_copy(
+                    update={"state": GoalState.cancelled.value}
+                )
+            }
+        )
+        substituted_entry = substituted_entry.model_copy(
+            update={
+                "entry_hash_ref": service.goals._entry_hash(  # noqa: SLF001
+                    substituted_entry
+                )
+            }
+        )
+        prior_entries = [
+            goal_runtime_module.GoalJournalEntry.model_validate_json(line)
+            for line in service.goals.path.read_text(encoding="utf-8").splitlines()  # noqa: SLF001
+        ]
+        substituted_entries = [*prior_entries, substituted_entry]
+        substituted_intent = goal_runtime_module.GoalJournalAppendIntent(
+            previous_head_manifest=intent.previous_head_manifest,
+            next_entry=substituted_entry,
+            next_head_manifest=service.goals._build_head_manifest(  # noqa: SLF001
+                substituted_entries
+            ),
+            journal_content_hash_ref=service.goals._journal_content_hash(  # noqa: SLF001
+                substituted_entries
+            ),
+        )
+        service.goals.append_intent_path.write_text(  # noqa: SLF001
+            substituted_intent.model_dump_json() + "\n",
+            encoding="utf-8",
+        )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_SNAPSHOT_TRANSITION_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).goal_lifecycle_read_model(
+            include_cleared=True
+        )
+    assert not service.goals.path.exists() or len(  # noqa: SLF001
+        service.goals.path.read_text(encoding="utf-8").splitlines()  # noqa: SLF001
+    ) == (0 if intent_kind == "genesis" else 1)
+
+
 @pytest.mark.parametrize("substitution", ["symlink", "directory"])
 def test_goal_journal_append_recovery_rejects_nonregular_intent(
     tmp_path: Path,
@@ -8088,6 +8344,82 @@ def test_goal_runtime_pinned_state_root_rejects_ancestor_substitution(
     ):
         service.goal_with_provenance(goal.goal_ref)
     assert list(outside.iterdir()) == []
+
+
+def test_goal_runtime_lock_uses_pinned_root_across_path_exchange(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "goal-runtime"
+    preserved_dir = tmp_path / "goal-runtime-preserved"
+    substituted_dir = tmp_path / "goal-runtime-substituted"
+    substituted_dir.mkdir()
+    service = GoalRuntimeService(state_dir)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:goal-root-lock-pin:create",
+    )
+    (state_dir / ".locks" / "goal-journal.lock").unlink()
+    manager = service.goals._locks  # noqa: SLF001
+    original_acquire = manager.acquire_from_parent
+    exchanged = False
+
+    @contextmanager
+    def exchange_during_lock_admission(
+        parent_descriptor: int,
+        lock_dir_name: str,
+        writer_key: str,
+    ):
+        nonlocal exchanged
+        if exchanged:
+            with original_acquire(
+                parent_descriptor,
+                lock_dir_name,
+                writer_key,
+            ) as lease_ref:
+                yield lease_ref
+            return
+        state_dir.rename(preserved_dir)
+        substituted_dir.rename(state_dir)
+        exchanged = True
+        try:
+            with original_acquire(
+                parent_descriptor,
+                lock_dir_name,
+                writer_key,
+            ) as lease_ref:
+                state_dir.rename(substituted_dir)
+                preserved_dir.rename(state_dir)
+                yield lease_ref
+        finally:
+            if preserved_dir.exists():
+                if state_dir.exists():
+                    state_dir.rename(substituted_dir)
+                preserved_dir.rename(state_dir)
+
+    monkeypatch.setattr(
+        manager,
+        "acquire_from_parent",
+        exchange_during_lock_admission,
+    )
+    updated = _edit_goal(
+        service,
+        created.goal_ref,
+        GoalEditRequest(
+            expected_version=created.version,
+            text_redaction_posture="operator_authored_redacted_summary_only",
+            objective="Use the descriptor-pinned journal lock.",
+        ),
+        idempotency_ref="idempotency-ref:goal-root-lock-pin:edit",
+    )
+
+    assert exchanged is True
+    assert updated.version == created.version + 1
+    assert (state_dir / ".locks" / "goal-journal.lock").is_file()
+    assert not (
+        substituted_dir / ".locks" / "goal-journal.lock"
+    ).exists()
 
 
 def test_exact_submission_retry_repairs_bound_genesis_intent(

@@ -174,6 +174,11 @@ canonical event requests derived from that immutable receipt. RuntimeGateway
 mutation locks retain the validated state-root directory descriptor through
 lock creation and every ledger/safe-disable write, so an exchanged real
 ancestor cannot redirect evidence into a substituted tree.
+Goal-runtime mutation locks use the same descriptor-pinned posture: the
+validated goal state root remains open while `.locks` and the exact lock file
+are created and acquired with directory-relative, no-follow operations. A path
+exchange between validation and lock admission therefore cannot move the
+writer fence into a substituted tree.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -200,10 +205,13 @@ locks therefore fails before execution or receives a fresh bounded guarantee.
 The durable adapter-start marker is also an ownership claim: exactly one caller
 may cross a receiptless adapter boundary, while concurrent exact replays observe
 an in-progress result and do not execute the adapter. Command dispatch
-revalidates the current authority lease and operator safe-disable state inside
-the same locked mutation that records that claim. Historical invocations that
-predate the dispatch protocol can replay only an already-durable immutable
-receipt; receiptless legacy records remain fail closed.
+revalidates the current authority lease, operator safe-disable state, and exact
+Action Inbox approval envelope inside the same locked mutation that records
+that claim. A concurrent retry that observes an owned, receiptless attempt
+returns in-progress without writing competing failure evidence. Historical
+invocations that predate the dispatch protocol can replay only an
+already-durable immutable receipt; receiptless legacy records remain fail
+closed.
 Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
 idempotently after a process interruption. Reconciliation reads the tombstone
 index once and selects only records whose exact projection keys remain absent;
@@ -287,7 +295,11 @@ Completion verification and deterministic completion-event reconciliation use
 the canonical approval, goal-journal, then run-event lock order. They validate
 the exact approval generation, goal-journal approval binding, and every
 retained or tombstoned event producer binding before consuming receipt evidence
-or recreating a completion projection. The public service
+or recreating a completion projection. Journal recovery also reconstructs an
+intent-only snapshot from its exact typed request before installation; a
+`verify_completion` intent must still prove the authoritative receipt,
+criterion evaluator bindings, and appendable run stream before either the
+journal or independent head may advance. The public service
 exposes a read-only event facade; metadata event writes require one exact
 request-scoped local approval, while receipt and completion events remain
 trusted Core producer paths.
