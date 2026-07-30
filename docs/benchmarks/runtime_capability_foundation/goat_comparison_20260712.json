@@ -1036,7 +1036,7 @@
     "cross_repo_empirical_performance": "not_measured",
     "observed_product_experience": "not_measured",
     "content_free": true,
-    "uaa_source_commit": "31df68e0795315de7c41fedcdb0c06997a4e5b6d",
+    "uaa_source_commit": "4cabc4d51392dc5d06d46b61d16032173225b1fa",
     "evaluator_source_digest": "sha256:5a7ec1e8c30f8d20a111aef1fcf87c6fdf105fad96222addf75f4fd2dac828a6",
     "evaluator_source_file_count": 53,
     "runtime_revalidation_required": true,
