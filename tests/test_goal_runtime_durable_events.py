@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import stat
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -2056,18 +2057,27 @@ def test_runtime_trusted_event_must_equal_canonical_producer_projection(
             )
         }
     )
-    service._events._write_events(  # noqa: SLF001
-        [substituted if event.event_ref == terminal.event_ref else event for event in events]
-    )
+    substituted_events = [
+        substituted if event.event_ref == terminal.event_ref else event
+        for event in events
+    ]
+    service._events._write_events(substituted_events)  # noqa: SLF001
     service._events._write_idempotency_tombstones(  # noqa: SLF001
         tombstones.values()
     )
     trusted_sources[event_key_ref] = substituted_source
     service._events._write_trusted_sources(trusted_sources.values())  # noqa: SLF001
+    service._events._write_run_event_generation_head(  # noqa: SLF001
+        service._events._build_run_event_generation_head(  # noqa: SLF001
+            substituted_events,
+            list(tombstones.values()),
+            list(trusted_sources.values()),
+        )
+    )
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="RUN_EVENT_GENERATION_HEAD_MISMATCH",
+        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
     ):
         service.aggregate_read_snapshot(
             run_ref=result.record.invocation_ref,
@@ -3001,6 +3011,132 @@ def test_projection_reservations_are_reused_and_expired_crash_leases_reclaimed(
     ]
     assert second_ref != first_ref
     assert [row["reservation_ref"] for row in rows] == [second_ref]
+
+
+def test_runtime_projection_reservation_is_refreshed_after_mission_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime(2026, 7, 30, 1, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(goal_runtime_module, "utc_now", lambda: now)
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "RUN_EVENT_PROJECTION_RESERVATION_TTL_SECONDS",
+        1,
+    )
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:reservation-refresh:create",
+    )
+    original_guard = service.runtime_mission_execution_guard
+
+    @contextmanager
+    def expire_before_dispatch(*args: object, **kwargs: object):
+        nonlocal now
+        with original_guard(*args, **kwargs):
+            now += timedelta(seconds=2)
+            yield
+
+    monkeypatch.setattr(
+        service,
+        "runtime_mission_execution_guard",
+        expire_before_dispatch,
+    )
+    runner_calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_calls
+        runner_calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    result = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            mission_ref=goal.goal_ref,
+            safe_summary="Inspect bounded status after exact mission admission.",
+        ),
+        idempotency_ref="idempotency-ref:reservation-refresh:invoke",
+    )
+
+    assert result.record.receipt is not None
+    assert runner_calls == 1
+    assert len(service.events.replay(result.record.invocation_ref).events) == 2
+
+
+def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path / "goals")
+    goal = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:reservation-refresh-failure:create",
+    )
+    runner_calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal runner_calls
+        runner_calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    def reject_refresh(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeError("RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED")
+
+    monkeypatch.setattr(
+        service,
+        "refresh_runtime_projection_reservation",
+        reject_refresh,
+    )
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(
+            tmp_path / "runtime",
+            active_authority_leases=[workspace_execute_authority_lease()],
+        ),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+        goal_runtime_service=service,
+    )
+    with pytest.raises(
+        GoalRuntimeError,
+        match="RUN_EVENT_IDEMPOTENCY_CAPACITY_EXCEEDED",
+    ):
+        gateway.invoke_command(
+            RuntimeCommandExecutionRequest(
+                intent="git_status",
+                mission_ref=goal.goal_ref,
+                safe_summary="Do not dispatch after reservation refresh fails.",
+            ),
+            idempotency_ref="idempotency-ref:reservation-refresh-failure:invoke",
+        )
+
+    assert runner_calls == 0
+    assert gateway.store.list_invocations() == []
 
 
 def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
@@ -4340,18 +4476,12 @@ def test_projection_incompatibility_append_recovers_every_persistence_boundary(
         )
         if failure_boundary == "intent":
             assert service.events.projection_incompatibilities() == []
+            recovered = service._events.quarantine_projection_incompatibility(  # noqa: SLF001
+                record,
+                goal_absence_proof_ref=goal_absence_proof_ref,
+            )
         else:
-            with pytest.raises(
-                GoalRuntimeCorruptionError,
-                match=(
-                    "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_RECOVERY_REQUIRED"
-                ),
-            ):
-                service.events.projection_incompatibilities()
-        recovered = service._events.quarantine_projection_incompatibility(  # noqa: SLF001
-            record,
-            goal_absence_proof_ref=goal_absence_proof_ref,
-        )
+            recovered = service.events.projection_incompatibilities()[0]
 
     assert recovered.invocation_ref == record.invocation_ref
     assert not service._events.incompatibilities_append_intent_path.exists()

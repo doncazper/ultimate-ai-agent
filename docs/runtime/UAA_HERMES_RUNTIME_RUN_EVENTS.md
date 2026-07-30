@@ -142,7 +142,9 @@ revalidates that the claimed goal is still absent; a subsequently admitted
 goal makes the receipt eligible for projection instead of letting a recomputed
 quarantine suppress it. Quarantine admission uses a recoverable append intent
 across the JSONL and independent head, and capacity exhaustion fails closed
-instead of silently omitting an accepted historical receipt.
+instead of silently omitting an accepted historical receipt. Aggregate
+recovery detects that exact intent and finishes it under the quarantine writer
+lock before returning the authoritative snapshot.
 The event journal and tombstone history are one consistency boundary: a missing
 or empty event journal with surviving accepted tombstones is corruption, not an
 empty runtime. Both stores have explicit encoded-byte limits, and a candidate
@@ -162,9 +164,11 @@ silently discarding an accepted run.
 Authority-bearing receipt and terminal events cannot use the self-attested
 trusted-Core source posture. They must bind to an exact independent
 RuntimeInvocationStore receipt/evaluator record or to the exact durable goal
-journal completion entry. RuntimeGateway mutation locks retain the validated
-state-root directory descriptor through lock creation, so an exchanged real
-ancestor cannot redirect the lock into a substituted tree.
+journal completion entry. Runtime-backed events must also equal the complete
+canonical event requests derived from that immutable receipt. RuntimeGateway
+mutation locks retain the validated state-root directory descriptor through
+lock creation and every ledger/safe-disable write, so an exchanged real
+ancestor cannot redirect evidence into a substituted tree.
 
 Successful `RuntimeGateway` local-model and governed-command receipts are
 projected at the Python Core boundary as `run_started` plus
@@ -184,12 +188,17 @@ receipt-derived event keys and consumed atomically under the writer lock.
 Reservation identity is deterministic for the operation idempotency ref, and
 each reservation is a short bounded lease longer than the maximum supported
 runtime call. Exact retries reuse the lease, while expired crash leftovers are
-reclaimed under the same writer lock before capacity is counted.
+reclaimed under the same writer lock before capacity is counted. After mission
+admission and immediately before adapter dispatch, the Core revalidates
+capacity and refreshes that exact lease; a request delayed behind other mission
+locks therefore fails before execution or receives a fresh bounded guarantee.
 Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
 idempotently after a process interruption. Reconciliation reads the tombstone
 index once and selects only records whose exact projection keys remain absent;
 already-projected history is not rewritten for every new invocation.
-`GET /api/runtime/run-events` and CLI inspection remain strictly read-only.
+`GET /api/runtime/run-events` and CLI inspection do not initialize absent
+state or grant authority; they may finish only an independently precommitted
+exact recovery intent before reading.
 Their aggregate event, summary, replay, goal-lifecycle, and submission response
 is built from one canonical approval-ledger, event, goal-journal, then
 submission snapshot boundary. Goal list, detail, mission preflight, and durable
@@ -370,8 +379,10 @@ direct/runtime-projection/sync entry points, approval-prepare response-loss
 restart recovery, safe-disabled committed-receipt replay, nonterminal aggregate
 read non-initialization, quarantine-head and current-goal revalidation,
 quarantine append-intent crash recovery and capacity exhaustion, no-follow
-RuntimeGateway state-root admission and descriptor-exchange resistance,
-self-attested receipt rejection, and
+RuntimeGateway state-root admission and descriptor-exchange resistance through
+ledger/safe-disable writes, reservation refresh immediately before dispatch,
+canonical runtime-projection payload substitution rejection, self-attested
+receipt rejection, and
 behavioral UI mutation lockout until authoritative refresh. API and CLI
 are compared after process-state reconstruction, while the Control Center
 tests consume the same typed read model and reject mock completion. A newly

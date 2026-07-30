@@ -4623,6 +4623,78 @@ class _DurableRunEventStore:
             self._write_projection_reservations(reservations.values())
         return reservation_ref
 
+    def refresh_runtime_projection_reservation(
+        self,
+        reservation_ref: str,
+        existing_record: RuntimeInvocationRecord | None,
+        *,
+        operation_idempotency_ref: str,
+    ) -> None:
+        """Re-admit one exact projection lease immediately before dispatch."""
+
+        validate_execution_ref(reservation_ref, "reservation_ref")
+        validate_execution_ref(
+            operation_idempotency_ref,
+            "operation_idempotency_ref",
+        )
+        expected_reservation_ref = _sha256_ref(
+            "run-event-reservation-ref",
+            {
+                "operation_idempotency_ref": operation_idempotency_ref,
+            },
+        )
+        if reservation_ref != expected_reservation_ref:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_PROJECTION_RESERVATION_BINDING_MISMATCH"
+            )
+        with self.exclusive():
+            events = self._load_events()
+            tombstones = self._load_idempotency_tombstones(events)
+            now = utc_now()
+            loaded_reservations = self._load_projection_reservations()
+            existing_reservation = loaded_reservations.get(reservation_ref)
+            if (
+                existing_reservation is not None
+                and existing_reservation.operation_idempotency_ref
+                != operation_idempotency_ref
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_PROJECTION_RESERVATION_BINDING_MISMATCH"
+                )
+            reservations = {
+                ref: reservation
+                for ref, reservation in loaded_reservations.items()
+                if ref != reservation_ref and reservation.expires_at > now
+            }
+            missing_key_refs = self._missing_runtime_projection_key_refs(
+                existing_record,
+                tombstones,
+            )
+            required_slots = (
+                len(missing_key_refs) if missing_key_refs is not None else 2
+            )
+            reserved_slots = sum(
+                reservation.slot_count for reservation in reservations.values()
+            )
+            self._assert_projection_capacity(
+                events,
+                tombstones.values(),
+                required_slots=reserved_slots + required_slots,
+            )
+            reservations[reservation_ref] = self._build_projection_reservation(
+                reservation_ref,
+                operation_idempotency_ref=operation_idempotency_ref,
+                holder_count=(
+                    existing_reservation.holder_count
+                    if existing_reservation is not None
+                    else 1
+                ),
+                slot_count=required_slots,
+                allowed_event_key_refs=missing_key_refs or [],
+                reserved_at=now,
+            )
+            self._write_projection_reservations(reservations.values())
+
     def bind_runtime_projection_reservation(
         self,
         reservation_ref: str,
@@ -6016,16 +6088,6 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
                     )
-            elif source.source_kind == "trusted_core_internal" and (
-                event.event_kind
-                in {
-                    DurableRunEventKind.receipt_recorded.value,
-                    *TERMINAL_RUN_EVENT_KINDS,
-                }
-            ):
-                raise GoalRuntimeCorruptionError(
-                    "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
-                )
                 expected_requests = self._runtime_projection_requests(runtime_record)
                 matching_requests = [
                     request
@@ -6042,6 +6104,16 @@ class _DurableRunEventStore:
                     raise GoalRuntimeCorruptionError(
                         "RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH"
                     )
+            elif source.source_kind == "trusted_core_internal" and (
+                event.event_kind
+                in {
+                    DurableRunEventKind.receipt_recorded.value,
+                    *TERMINAL_RUN_EVENT_KINDS,
+                }
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "RUN_EVENT_TRUSTED_SOURCE_AUTHORITY_UNAVAILABLE"
+                )
 
     def _missing_runtime_projection_key_refs(
         self,
@@ -6200,15 +6272,29 @@ class _DurableRunEventStore:
     def projection_incompatibilities(
         self,
     ) -> list[RuntimeProjectionIncompatibilityRecord]:
-        with _nonmutating_goal_runtime_read_lock(
-            self.state_dir / ".locks",
+        try:
+            with _nonmutating_goal_runtime_read_lock(
+                self.state_dir / ".locks",
+                "runtime-projection-incompatibilities",
+                generation_paths=(
+                    self.incompatibilities_path,
+                    self.incompatibilities_head_path,
+                    self.incompatibilities_append_intent_path,
+                ),
+            ):
+                return self._load_projection_incompatibilities()
+        except GoalRuntimeCorruptionError as exc:
+            if (
+                str(exc)
+                != "RUNTIME_PROJECTION_INCOMPATIBILITY_APPEND_RECOVERY_REQUIRED"
+            ):
+                raise
+        _initialize_goal_runtime_state_dir(self.state_dir)
+        with _normalized_goal_runtime_lock(
+            self._locks,
             "runtime-projection-incompatibilities",
-            generation_paths=(
-                self.incompatibilities_path,
-                self.incompatibilities_head_path,
-                self.incompatibilities_append_intent_path,
-            ),
         ):
+            self._repair_projection_incompatibility_append()
             return self._load_projection_incompatibilities()
 
     def quarantine_projection_incompatibility(
@@ -8251,6 +8337,21 @@ class GoalRuntimeService:
             yield reservation_ref
         finally:
             self._events.release_runtime_projection_reservation(reservation_ref)
+
+    def refresh_runtime_projection_reservation(
+        self,
+        reservation_ref: str,
+        existing_record: RuntimeInvocationRecord | None,
+        *,
+        operation_idempotency_ref: str,
+    ) -> None:
+        """Refresh exact capacity admission under the mission execution pin."""
+
+        self._events.refresh_runtime_projection_reservation(
+            reservation_ref,
+            existing_record,
+            operation_idempotency_ref=operation_idempotency_ref,
+        )
 
     def record_accepted_runtime_invocation(
         self,

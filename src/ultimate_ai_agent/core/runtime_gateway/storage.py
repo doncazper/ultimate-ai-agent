@@ -837,6 +837,7 @@ class RuntimeInvocationStore:
         self._loaded_ledger_identity: tuple[int, int] | None = None
         self._loaded = False
         self._process_lock = threading.RLock()
+        self._mutation_directory_fds: list[int] = []
 
     def capabilities_storage_ref(self) -> str:
         return _hash_ref("runtime-storage-ref", {"path": RUNTIME_GATEWAY_JSONL})
@@ -1780,7 +1781,6 @@ class RuntimeInvocationStore:
             )
         payload = state.model_dump(mode="json")
         _validate_storage_payload(payload, "runtime_safe_disable_state")
-        self.state_dir.mkdir(parents=True, exist_ok=True)
         encoded = _canonical_json(payload).encode("utf-8")
         if len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
             raise RuntimeInvocationStorageError(
@@ -1791,14 +1791,10 @@ class RuntimeInvocationStore:
                 "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
             )
 
-        directory_fd = -1
+        directory_fd = self._active_mutation_directory_fd()
         temporary_fd = -1
         temporary_name: str | None = None
         try:
-            directory_fd = os.open(
-                self.state_dir,
-                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-            )
             directory_info = os.fstat(directory_fd)
             if not stat.S_ISDIR(directory_info.st_mode):
                 raise RuntimeInvocationStorageError(
@@ -1861,8 +1857,6 @@ class RuntimeInvocationStore:
                     os.unlink(temporary_name, dir_fd=directory_fd)
                 except FileNotFoundError:
                     pass
-            if directory_fd >= 0:
-                os.close(directory_fd)
 
     def _load_operator_safe_disable_state(self) -> RuntimeSafeDisableState:
         if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
@@ -2163,6 +2157,7 @@ class RuntimeInvocationStore:
                         "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
                     )
                 fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                self._mutation_directory_fds.append(directory_fd)
                 try:
                     self._reload()
                     yield
@@ -2170,7 +2165,13 @@ class RuntimeInvocationStore:
                     self._loaded = False
                     raise
                 finally:
+                    active_directory_fd = self._mutation_directory_fds.pop()
                     fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                    if active_directory_fd != directory_fd:
+                        self._loaded = False
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                        )
             except RuntimeInvocationStorageError:
                 raise
             except OSError as exc:
@@ -2182,6 +2183,24 @@ class RuntimeInvocationStore:
                     os.close(lock_fd)
                 if directory_fd >= 0:
                     os.close(directory_fd)
+
+    def _active_mutation_directory_fd(self) -> int:
+        if not self._mutation_directory_fds:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        directory_fd = self._mutation_directory_fds[-1]
+        try:
+            directory_info = os.fstat(directory_fd)
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            ) from exc
+        if not stat.S_ISDIR(directory_info.st_mode):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        return directory_fd
 
     def _idempotent_operation_replay(
         self,
@@ -2213,15 +2232,10 @@ class RuntimeInvocationStore:
             raise RuntimeInvocationStorageError(
                 "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
             )
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        directory_fd = -1
+        directory_fd = self._active_mutation_directory_fd()
         ledger_fd = -1
         created = False
         try:
-            directory_fd = os.open(
-                self.state_dir,
-                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-            )
             open_flags = (
                 os.O_WRONLY
                 | os.O_APPEND
@@ -2313,8 +2327,6 @@ class RuntimeInvocationStore:
         finally:
             if ledger_fd >= 0:
                 os.close(ledger_fd)
-            if directory_fd >= 0:
-                os.close(directory_fd)
 
     def _append(
         self,

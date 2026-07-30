@@ -923,6 +923,57 @@ def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admissi
     assert not (state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK).exists()
 
 
+def test_runtime_store_uses_pinned_state_root_descriptor_for_first_ledger_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    preserved_dir = tmp_path / "runtime-preserved"
+    substituted_dir = tmp_path / "runtime-substituted"
+    store = RuntimeInvocationStore(state_dir)
+    original_append = store._append_ledger_line  # noqa: SLF001
+    exchanged = False
+
+    def exchange_then_append(encoded_line: bytes) -> None:
+        nonlocal exchanged
+        if not exchanged:
+            exchanged = True
+            state_dir.rename(preserved_dir)
+            state_dir.mkdir(mode=0o700)
+        original_append(encoded_line)
+
+    monkeypatch.setattr(store, "_append_ledger_line", exchange_then_append)
+    try:
+        result = store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:pinned-state-root-first-write"
+            ),
+            idempotency_ref="idempotency-ref:pinned-state-root-first-write",
+        )
+
+        assert exchanged is True
+        assert result.active is True
+        assert (
+            preserved_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
+        ).is_file()
+        assert (
+            preserved_dir
+            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        ).is_file()
+        assert not (
+            state_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
+        ).exists()
+        assert not (
+            state_dir
+            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        ).exists()
+    finally:
+        if state_dir.exists():
+            state_dir.rename(substituted_dir)
+        if preserved_dir.exists():
+            preserved_dir.rename(state_dir)
+
+
 def test_runtime_store_ledger_read_rejects_inode_substitution_between_stat_and_open(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

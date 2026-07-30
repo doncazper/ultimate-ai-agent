@@ -374,6 +374,11 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
+                self.goal_runtime_service.refresh_runtime_projection_reservation(
+                    reservation_ref,
+                    existing,
+                    operation_idempotency_ref=idempotency_ref,
+                )
                 result = invoke_governed_command(
                     store=self.store,
                     adapter=self.command_adapter,
@@ -415,6 +420,11 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
+                self.goal_runtime_service.refresh_runtime_projection_reservation(
+                    reservation_ref,
+                    record,
+                    operation_idempotency_ref=idempotency_ref,
+                )
                 result = invoke_approved_governed_command(
                     store=self.store,
                     adapter=self.command_adapter,
@@ -472,6 +482,11 @@ class RuntimeGateway:
                     idempotency_ref
                 ),
             ):
+                self.goal_runtime_service.refresh_runtime_projection_reservation(
+                    reservation_ref,
+                    existing,
+                    operation_idempotency_ref=idempotency_ref,
+                )
                 result = self._invoke_local_model(
                     request,
                     idempotency_ref=idempotency_ref,
