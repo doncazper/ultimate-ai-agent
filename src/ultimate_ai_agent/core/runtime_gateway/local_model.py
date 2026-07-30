@@ -823,12 +823,20 @@ class RuntimeGateway:
                 local_model_runtime_enabled=runtime_enabled,
             )
 
-        record = self._prepare_local_model_adapter_dispatch(
+        record, dispatch_acquired = self._prepare_local_model_adapter_dispatch(
             record,
             request,
             idempotency_ref=idempotency_ref,
             pre_adapter_dispatch=pre_adapter_dispatch,
         )
+        if not dispatch_acquired:
+            return RuntimeLocalModelGatewayResult(
+                record=record,
+                request_byte_count=_request_byte_count(request),
+                error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS",
+                replayed=True,
+                local_model_runtime_enabled=runtime_enabled,
+            )
         attempt = self.local_model_adapter.invoke(
             request,
             pre_transport_guard=lambda: self._local_model_transport_boundary_posture(
@@ -934,12 +942,12 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
         pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
-    ) -> RuntimeInvocationRecord:
+    ) -> tuple[RuntimeInvocationRecord, bool]:
         """Persist the exact attempt boundary before constructing an adapter."""
 
         if pre_adapter_dispatch is not None:
             pre_adapter_dispatch(record)
-        record = self.store.mark_adapter_dispatch_started(
+        claim = self.store.mark_adapter_dispatch_started(
             record.invocation_ref,
             protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
             idempotency_ref=_operation_idempotency_ref(
@@ -947,6 +955,9 @@ class RuntimeGateway:
                 "adapter-dispatch-started",
             ),
         )
+        record = claim.record
+        if not claim.acquired:
+            return record, False
         attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
             model_ref=request.model_ref,
             endpoint_ref=_endpoint_ref(request.base_url),
@@ -986,7 +997,7 @@ class RuntimeGateway:
                 },
             ),
         )
-        return record
+        return record, True
 
     def _local_model_transport_boundary_posture(
         self,

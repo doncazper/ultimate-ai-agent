@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
 GOAL_RUNTIME_STATE_DIR_ENV = "UAA_GOAL_RUNTIME_STATE_DIR"
 DEFAULT_GOAL_RUNTIME_STATE_DIR = Path(".uaa") / "goal_runtime"
-GOAL_JOURNAL_SCHEMA_VERSION = "goal_journal.v2"
+GOAL_JOURNAL_SCHEMA_VERSION = "goal_journal.v3"
 RUN_EVENT_SCHEMA_VERSION = "durable_run_event.v3"
 GOAL_RUNTIME_CONTRACT_REF = "contract-ref:proof-backed-goals-durable-events:v1"
 GOAL_RUNTIME_REDACTIONS = (
@@ -1197,7 +1197,9 @@ class GoalMutationSubmissionState(BaseModel):
             [record.model_dump(mode="json") for record in self.records],
         )
         if self.state_hash_ref != expected_hash and not (
-            not self.rejection_tombstones and self.state_hash_ref == legacy_hash
+            not self.rejection_tombstones
+            and self.goal_journal_anchor is None
+            and self.state_hash_ref == legacy_hash
         ):
             raise ValueError("GOAL_SUBMISSION_STATE_HASH_MISMATCH")
         return self
@@ -1406,7 +1408,11 @@ class GoalMutationSubmissionRecoveryReadModel(BaseModel):
 
 
 class GoalJournalEntry(BaseModel):
-    schema_version: Literal["goal_journal.v1", "goal_journal.v2"] = (
+    schema_version: Literal[
+        "goal_journal.v1",
+        "goal_journal.v2",
+        "goal_journal.v3",
+    ] = (
         GOAL_JOURNAL_SCHEMA_VERSION
     )
     entry_ref: str
@@ -1415,6 +1421,7 @@ class GoalJournalEntry(BaseModel):
     goal_version: StrictInt = Field(ge=1, le=MAX_RUNTIME_GOAL_VERSION)
     idempotency_ref: str
     request_fingerprint_ref: str
+    request_payload: dict[str, Any] | None = None
     goal_submission_fingerprint_ref: str | None = None
     approval_ref: str
     approval_decision_ref: str
@@ -1464,8 +1471,18 @@ class GoalJournalEntry(BaseModel):
         if self.schema_version == GOAL_JOURNAL_SCHEMA_VERSION:
             if not all(value is not None for value in approval_ledger_provenance):
                 raise ValueError("GOAL_JOURNAL_APPROVAL_PROVENANCE_INCOMPLETE")
-        elif any(value is not None for value in approval_ledger_provenance):
-            raise ValueError("GOAL_JOURNAL_V1_APPROVAL_PROVENANCE_UNSUPPORTED")
+            if self.request_payload is None:
+                raise ValueError("GOAL_JOURNAL_REQUEST_PAYLOAD_REQUIRED")
+        elif self.schema_version == "goal_journal.v2":
+            if not all(value is not None for value in approval_ledger_provenance):
+                raise ValueError("GOAL_JOURNAL_APPROVAL_PROVENANCE_INCOMPLETE")
+            if self.request_payload is not None:
+                raise ValueError("GOAL_JOURNAL_V2_REQUEST_PAYLOAD_UNSUPPORTED")
+        else:
+            if any(value is not None for value in approval_ledger_provenance):
+                raise ValueError("GOAL_JOURNAL_V1_APPROVAL_PROVENANCE_UNSUPPORTED")
+            if self.request_payload is not None:
+                raise ValueError("GOAL_JOURNAL_V1_REQUEST_PAYLOAD_UNSUPPORTED")
         if self.previous_entry_hash_ref is not None:
             validate_execution_ref(
                 self.previous_entry_hash_ref, "previous_entry_hash_ref"
@@ -1524,7 +1541,7 @@ class GoalMutationProvenanceEntry(BaseModel):
         return cls.model_validate(
             entry.model_dump(
                 mode="json",
-                exclude={"goal"},
+                exclude={"goal", "request_payload"},
             )
         )
 
@@ -1586,6 +1603,37 @@ class GoalJournalGenesisIntent(BaseModel):
             raise ValueError("GOAL_JOURNAL_GENESIS_INTENT_ARITY_INVALID")
         if self.head_manifest.head_entry_hash_ref != self.entry.entry_hash_ref:
             raise ValueError("GOAL_JOURNAL_GENESIS_INTENT_HEAD_MISMATCH")
+        return self
+
+
+class GoalJournalAppendIntent(BaseModel):
+    """Durable precommit binding for one exact non-genesis journal append."""
+
+    schema_version: Literal["goal_journal_append_intent.v1"] = (
+        "goal_journal_append_intent.v1"
+    )
+    previous_head_manifest: GoalJournalHeadManifest
+    next_entry: GoalJournalEntry
+    next_head_manifest: GoalJournalHeadManifest
+    journal_content_hash_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_intent(self) -> "GoalJournalAppendIntent":
+        validate_execution_ref(
+            self.journal_content_hash_ref,
+            "journal_content_hash_ref",
+        )
+        if (
+            self.next_entry.previous_entry_hash_ref
+            != self.previous_head_manifest.head_entry_hash_ref
+            or self.next_head_manifest.entry_count
+            != self.previous_head_manifest.entry_count + 1
+            or self.next_head_manifest.head_entry_hash_ref
+            != self.next_entry.entry_hash_ref
+        ):
+            raise ValueError("GOAL_JOURNAL_APPEND_INTENT_INVALID")
         return self
 
 
@@ -2230,6 +2278,18 @@ def _maximum_goal_genesis_intent() -> GoalJournalGenesisIntent:
             "request-fingerprint-ref:max-envelope",
             0,
         ),
+        request_payload=GoalCreateRequest(
+            text_redaction_posture=goal.text_redaction_posture,
+            objective=goal.objective,
+            desired_outcome=goal.desired_outcome,
+            success_criteria=goal.success_criteria,
+            constraints=goal.constraints,
+            in_scope_resource_refs=goal.in_scope_resource_refs,
+            stop_condition=goal.stop_condition,
+            budget=goal.budget,
+            links=goal.links,
+            evidence_refs=goal.evidence_refs,
+        ).model_dump(mode="json"),
         goal_submission_fingerprint_ref=_maximum_typed_ref(
             "request-fingerprint-ref:goal-mutation-submission:max-envelope",
             0,
@@ -2358,6 +2418,47 @@ _MAXIMUM_GOAL_GENESIS_INTENT = _maximum_goal_genesis_intent()
 MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES = len(
     (_MAXIMUM_GOAL_GENESIS_INTENT.model_dump_json() + "\n").encode("utf-8")
 )
+_MAXIMUM_GOAL_APPEND_PREVIOUS_HEAD = GoalJournalHeadManifest(
+    entry_count=MAX_GOAL_JOURNAL_ENTRIES - 1,
+    head_entry_hash_ref=_maximum_typed_ref(
+        "entry-hash-ref:goal-journal:max-envelope",
+        1,
+    ),
+    idempotency_set_hash_ref=_maximum_typed_ref(
+        "idempotency-set-hash-ref:goal-journal:max-envelope",
+        1,
+    ),
+)
+_MAXIMUM_GOAL_APPEND_ENTRY = _MAXIMUM_GOAL_GENESIS_INTENT.entry.model_copy(
+    update={
+        "previous_entry_hash_ref": (
+            _MAXIMUM_GOAL_APPEND_PREVIOUS_HEAD.head_entry_hash_ref
+        ),
+        "entry_hash_ref": _maximum_typed_ref(
+            "entry-hash-ref:goal-journal:max-envelope",
+            2,
+        ),
+    }
+)
+_MAXIMUM_GOAL_APPEND_INTENT = GoalJournalAppendIntent(
+    previous_head_manifest=_MAXIMUM_GOAL_APPEND_PREVIOUS_HEAD,
+    next_entry=_MAXIMUM_GOAL_APPEND_ENTRY,
+    next_head_manifest=GoalJournalHeadManifest(
+        entry_count=MAX_GOAL_JOURNAL_ENTRIES,
+        head_entry_hash_ref=_MAXIMUM_GOAL_APPEND_ENTRY.entry_hash_ref,
+        idempotency_set_hash_ref=_maximum_typed_ref(
+            "idempotency-set-hash-ref:goal-journal:max-envelope",
+            2,
+        ),
+    ),
+    journal_content_hash_ref=_maximum_typed_ref(
+        "journal-content-hash-ref:goal-journal:max-envelope",
+        1,
+    ),
+)
+MAX_GOAL_JOURNAL_APPEND_INTENT_BYTES = len(
+    (_MAXIMUM_GOAL_APPEND_INTENT.model_dump_json() + "\n").encode("utf-8")
+)
 _MAXIMUM_RUN_EVENT, _MAXIMUM_RUN_EVENT_TOMBSTONE = _maximum_run_event_envelopes()
 MAX_RESERVED_RUN_EVENT_BYTES = len(
     (_MAXIMUM_RUN_EVENT.model_dump_json() + "\n").encode("utf-8")
@@ -2447,6 +2548,7 @@ class _GoalJournalStore:
         self.path = self.state_dir / "goals.jsonl"
         self.head_path = self.state_dir / "goal_journal_head.json"
         self.genesis_intent_path = self.state_dir / "goal_journal_genesis_intent.json"
+        self.append_intent_path = self.state_dir / "goal_journal_append_intent.json"
         self._locks = FileSingleWriterLockManager(self.state_dir / ".locks")
 
     def create(
@@ -2524,6 +2626,7 @@ class _GoalJournalStore:
                     goal=goal,
                     idempotency_ref=idempotency_ref,
                     request_fingerprint_ref=fingerprint,
+                    request_payload=validated.model_dump(mode="json"),
                     goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
                     approval_ref=approval_binding.approval_ref,
                     approval_decision_ref=approval_binding.approval_decision_ref,
@@ -2897,6 +3000,7 @@ class _GoalJournalStore:
                     goal=updated,
                     idempotency_ref=idempotency_ref,
                     request_fingerprint_ref=fingerprint,
+                    request_payload=request_payload,
                     approval_ref=approval_binding.approval_ref,
                     approval_decision_ref=approval_binding.approval_decision_ref,
                     approval_ledger_entry_hash_ref=(
@@ -2913,7 +3017,10 @@ class _GoalJournalStore:
 
     @staticmethod
     def _edited_goal(
-        current: PersistentGoal, request: GoalEditRequest
+        current: PersistentGoal,
+        request: GoalEditRequest,
+        *,
+        updated_at: datetime | None = None,
     ) -> PersistentGoal:
         if current.state in {
             GoalState.verified_complete.value,
@@ -2933,7 +3040,10 @@ class _GoalJournalStore:
                 current.evidence_refs,
                 request.evidence_refs,
             )
-        updates.update(version=current.version + 1, updated_at=utc_now())
+        updates.update(
+            version=current.version + 1,
+            updated_at=updated_at or utc_now(),
+        )
         return PersistentGoal.model_validate(
             current.model_copy(update=updates).model_dump()
         )
@@ -2949,6 +3059,7 @@ class _GoalJournalStore:
             RuntimeCriterionVerificationBinding
         ],
         restore_goal: PersistentGoal | None,
+        updated_at: datetime | None = None,
     ) -> PersistentGoal:
         allowed: dict[str, set[str]] = {
             GoalState.active.value: {
@@ -3001,7 +3112,7 @@ class _GoalJournalStore:
                 restore_goal.model_copy(
                     update={
                         "version": current.version + 1,
-                        "updated_at": utc_now(),
+                        "updated_at": updated_at or utc_now(),
                         "evidence_refs": _merge_bounded_goal_evidence_refs(
                             restore_goal.evidence_refs,
                             request.evidence_refs,
@@ -3026,7 +3137,7 @@ class _GoalJournalStore:
         updates: dict[str, Any] = {
             "state": target,
             "version": current.version + 1,
-            "updated_at": utc_now(),
+            "updated_at": updated_at or utc_now(),
             "evidence_refs": _merge_bounded_goal_evidence_refs(
                 current.evidence_refs,
                 request.evidence_refs,
@@ -3106,6 +3217,7 @@ class _GoalJournalStore:
         goal: PersistentGoal,
         idempotency_ref: str,
         request_fingerprint_ref: str,
+        request_payload: dict[str, Any],
         approval_ref: str,
         approval_decision_ref: str,
         approval_ledger_entry_hash_ref: str,
@@ -3131,6 +3243,7 @@ class _GoalJournalStore:
             goal_version=goal.version,
             idempotency_ref=idempotency_ref,
             request_fingerprint_ref=request_fingerprint_ref,
+            request_payload=request_payload,
             goal_submission_fingerprint_ref=goal_submission_fingerprint_ref,
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
@@ -3138,7 +3251,7 @@ class _GoalJournalStore:
             approval_request_fingerprint_ref=approval_request_fingerprint_ref,
             approval_exact_scope_ref=approval_exact_scope_ref,
             transition_reason_ref=transition_reason_ref,
-            recorded_at=utc_now(),
+            recorded_at=goal.updated_at,
             goal=goal,
             previous_entry_hash_ref=previous,
             entry_hash_ref="entry-hash-ref:pending",
@@ -3154,6 +3267,8 @@ class _GoalJournalStore:
         payload.pop("entry_hash_ref", None)
         if payload.get("transition_reason_ref") is None:
             payload.pop("transition_reason_ref", None)
+        if payload.get("request_payload") is None:
+            payload.pop("request_payload", None)
         if payload.get("goal_submission_fingerprint_ref") is None:
             payload.pop("goal_submission_fingerprint_ref", None)
         if payload.get("approval_ledger_entry_hash_ref") is None:
@@ -3164,12 +3279,145 @@ class _GoalJournalStore:
             payload.pop("approval_exact_scope_ref", None)
         return _sha256_ref("entry-hash-ref:goal-journal", payload)
 
+    @classmethod
+    def _validate_snapshot_transition(
+        cls,
+        entry: GoalJournalEntry,
+        prior_entries: list[GoalJournalEntry],
+    ) -> None:
+        """Reconstruct each v3 snapshot from its exact approved request."""
+
+        if entry.schema_version != GOAL_JOURNAL_SCHEMA_VERSION:
+            return
+        if entry.request_payload is None:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_REQUEST_PAYLOAD_MISSING"
+            )
+        prior = cls._latest_by_goal(prior_entries).get(entry.goal_ref)
+        try:
+            if entry.operation == GoalJournalOperation.create.value:
+                request = GoalCreateRequest.model_validate(entry.request_payload)
+                expected_fingerprint = _sha256_ref(
+                    "request-fingerprint-ref:goal-create",
+                    request.model_dump(mode="json"),
+                )
+                expected_goal_ref = _sha256_ref(
+                    "goal-ref",
+                    {
+                        "idempotency_ref": entry.idempotency_ref,
+                        "objective": request.objective,
+                    },
+                )
+                if prior is not None or entry.goal_ref != expected_goal_ref:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_CREATE_SNAPSHOT_MISMATCH"
+                    )
+                expected = PersistentGoal(
+                    goal_ref=expected_goal_ref,
+                    text_redaction_posture=request.text_redaction_posture,
+                    objective=request.objective,
+                    desired_outcome=request.desired_outcome,
+                    success_criteria=request.success_criteria,
+                    constraints=request.constraints,
+                    in_scope_resource_refs=request.in_scope_resource_refs,
+                    stop_condition=request.stop_condition,
+                    state=GoalState.active,
+                    budget=request.budget,
+                    links=request.links,
+                    version=1,
+                    created_at=entry.recorded_at,
+                    updated_at=entry.recorded_at,
+                    evidence_refs=request.evidence_refs,
+                )
+                expected_reason_ref = None
+            elif entry.operation == GoalJournalOperation.edit.value:
+                if prior is None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_EDIT_SNAPSHOT_MISSING"
+                    )
+                request = GoalEditRequest.model_validate(entry.request_payload)
+                expected_fingerprint = _sha256_ref(
+                    "request-fingerprint-ref:goal-edit",
+                    {
+                        "goal_ref": entry.goal_ref,
+                        "request": request.model_dump(mode="json"),
+                    },
+                )
+                if request.expected_version != prior.version:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_EDIT_VERSION_MISMATCH"
+                    )
+                expected = cls._edited_goal(
+                    prior,
+                    request,
+                    updated_at=entry.recorded_at,
+                )
+                expected_reason_ref = None
+            else:
+                if prior is None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_TRANSITION_SNAPSHOT_MISSING"
+                    )
+                request = GoalTransitionRequest.model_validate(
+                    entry.request_payload
+                )
+                expected_fingerprint = _sha256_ref(
+                    "request-fingerprint-ref:goal-transition",
+                    {
+                        "goal_ref": entry.goal_ref,
+                        "request": request.model_dump(mode="json"),
+                    },
+                )
+                if request.expected_version != prior.version:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_TRANSITION_VERSION_MISMATCH"
+                    )
+                expected = cls._transitioned_goal(
+                    prior,
+                    request,
+                    completion_verified=(
+                        request.transition
+                        == GoalTransitionKind.verify_completion.value
+                    ),
+                    completion_plan_ref=entry.goal.completion_plan_ref,
+                    completion_criterion_verifier_bindings=list(
+                        entry.goal.completion_criterion_verifier_bindings
+                    ),
+                    restore_goal=(
+                        cls._goal_before_latest_clear(
+                            prior_entries,
+                            entry.goal_ref,
+                        )
+                        if request.transition
+                        == GoalTransitionKind.restore.value
+                        else None
+                    ),
+                    updated_at=entry.recorded_at,
+                )
+                expected_reason_ref = request.reason_ref
+        except GoalRuntimeError:
+            raise
+        except (TypeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_REQUEST_PAYLOAD_INVALID"
+            ) from exc
+        if (
+            entry.request_fingerprint_ref != expected_fingerprint
+            or entry.transition_reason_ref != expected_reason_ref
+            or entry.goal != expected
+        ):
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_SNAPSHOT_TRANSITION_MISMATCH"
+            )
+
     def _load_entries(
         self,
         *,
         repair_manifest: bool = False,
+        repair_validator: Callable[[list[GoalJournalEntry]], None] | None = None,
     ) -> list[GoalJournalEntry]:
         genesis_intent = self._load_genesis_intent()
+        append_intent = self._load_append_intent()
         raw_content = _read_bounded_regular_utf8(
             self.path,
             max_bytes=MAX_GOAL_JOURNAL_BYTES,
@@ -3178,6 +3426,10 @@ class _GoalJournalStore:
             corruption_error="GOAL_JOURNAL_CORRUPT",
         )
         if raw_content is None:
+            if append_intent is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+                )
             if genesis_intent is not None:
                 if self._load_head_manifest() is not None:
                     raise GoalRuntimeCorruptionError(
@@ -3187,6 +3439,11 @@ class _GoalJournalStore:
                     raise GoalRuntimeCorruptionError(
                         "GOAL_JOURNAL_GENESIS_RECOVERY_REQUIRED"
                     )
+                if repair_validator is None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
+                    )
+                repair_validator([genesis_intent.entry])
                 self._install_genesis_intent(genesis_intent)
                 return [genesis_intent.entry.model_copy(deep=True)]
             if self._load_head_manifest() is not None:
@@ -3225,6 +3482,7 @@ class _GoalJournalStore:
                 expected_version = versions.get(entry.goal_ref, 0) + 1
                 if entry.goal_version != expected_version:
                     raise GoalRuntimeCorruptionError("GOAL_JOURNAL_VERSION_GAP")
+                self._validate_snapshot_transition(entry, entries)
                 known_fingerprint = idempotency.get(entry.idempotency_ref)
                 if known_fingerprint is not None:
                     raise GoalRuntimeCorruptionError(
@@ -3244,6 +3502,10 @@ class _GoalJournalStore:
             raise GoalRuntimeCorruptionError("GOAL_JOURNAL_CORRUPT") from exc
         manifest = self._load_head_manifest()
         if manifest is None:
+            if append_intent is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+                )
             if (
                 genesis_intent is not None
                 and len(entries) == 1
@@ -3253,11 +3515,64 @@ class _GoalJournalStore:
                 == self._journal_content_hash(entries)
             ):
                 if repair_manifest:
+                    if repair_validator is None:
+                        raise GoalRuntimeCorruptionError(
+                            "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
+                        )
+                    repair_validator(entries)
                     self._write_head_manifest(genesis_intent.head_manifest)
                     self._delete_genesis_intent()
                 return entries
             raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_MISSING")
         exact_manifest = self._build_head_manifest(entries)
+        if append_intent is not None:
+            if genesis_intent is not None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+                )
+            if not repair_manifest:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_RECOVERY_REQUIRED"
+                )
+            previous_manifest = append_intent.previous_head_manifest
+            next_entries: list[GoalJournalEntry]
+            if manifest == previous_manifest and exact_manifest == previous_manifest:
+                next_entries = [*entries, append_intent.next_entry]
+            elif (
+                manifest == previous_manifest
+                and len(entries) == previous_manifest.entry_count + 1
+                and entries[-1] == append_intent.next_entry
+            ):
+                next_entries = entries
+            elif (
+                manifest == append_intent.next_head_manifest
+                and exact_manifest == append_intent.next_head_manifest
+                and entries[-1] == append_intent.next_entry
+            ):
+                next_entries = entries
+            else:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+                )
+            if (
+                self._build_head_manifest(next_entries)
+                != append_intent.next_head_manifest
+                or self._journal_content_hash(next_entries)
+                != append_intent.journal_content_hash_ref
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_STATE_MISMATCH"
+                )
+            if repair_validator is None:
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
+                )
+            repair_validator(next_entries)
+            if entries != next_entries:
+                _atomic_write(self.path, self._journal_content(next_entries))
+            self._write_head_manifest(append_intent.next_head_manifest)
+            self._delete_append_intent()
+            return [entry.model_copy(deep=True) for entry in next_entries]
         if manifest == exact_manifest:
             if genesis_intent is not None:
                 if (
@@ -3271,14 +3586,13 @@ class _GoalJournalStore:
                         "GOAL_JOURNAL_GENESIS_INTENT_STATE_MISMATCH"
                     )
                 if repair_manifest:
+                    if repair_validator is None:
+                        raise GoalRuntimeCorruptionError(
+                            "GOAL_JOURNAL_APPEND_RECOVERY_PROVENANCE_REQUIRED"
+                        )
+                    repair_validator(entries)
                     self._delete_genesis_intent()
             return entries
-        if len(entries) == manifest.entry_count + 1:
-            previous_manifest = self._build_head_manifest(entries[:-1])
-            if manifest == previous_manifest:
-                if repair_manifest:
-                    self._write_head_manifest(exact_manifest)
-                return entries
         raise GoalRuntimeCorruptionError("GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH")
 
     def _load_consistent_entries(self) -> list[GoalJournalEntry]:
@@ -3290,11 +3604,20 @@ class _GoalJournalStore:
                 continue
         raise GoalRuntimeCorruptionError("GOAL_JOURNAL_GENERATION_UNSTABLE")
 
-    def repair_recoverable_append(self) -> None:
+    def repair_recoverable_append(
+        self,
+        *,
+        repair_validator: Callable[[list[GoalJournalEntry]], None] | None = None,
+    ) -> None:
         """Finish only an exactly recoverable journal generation."""
 
         recoverable_path_present = False
-        for path in (self.path, self.head_path, self.genesis_intent_path):
+        for path in (
+            self.path,
+            self.head_path,
+            self.genesis_intent_path,
+            self.append_intent_path,
+        ):
             try:
                 metadata = os.lstat(path)
             except FileNotFoundError:
@@ -3308,7 +3631,10 @@ class _GoalJournalStore:
             return
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(self._locks, "goal-journal"):
-            self._load_entries(repair_manifest=True)
+            self._load_entries(
+                repair_manifest=True,
+                repair_validator=repair_validator,
+            )
 
     @contextmanager
     def mutation_entries(self) -> Iterator[list[GoalJournalEntry]]:
@@ -3327,6 +3653,7 @@ class _GoalJournalStore:
                 self.path,
                 self.head_path,
                 self.genesis_intent_path,
+                self.append_intent_path,
             ),
         ):
             yield
@@ -3389,6 +3716,36 @@ class _GoalJournalStore:
                 "GOAL_JOURNAL_GENESIS_INTENT_CORRUPT"
             ) from exc
 
+    def _load_append_intent(self) -> GoalJournalAppendIntent | None:
+        raw_content = _read_bounded_regular_utf8(
+            self.append_intent_path,
+            max_bytes=MAX_GOAL_JOURNAL_APPEND_INTENT_BYTES,
+            missing_ok=True,
+            capacity_error="GOAL_JOURNAL_APPEND_INTENT_CAPACITY_EXCEEDED",
+            corruption_error="GOAL_JOURNAL_APPEND_INTENT_CORRUPT",
+        )
+        if raw_content is None:
+            return None
+        try:
+            if not raw_content.strip():
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_EMPTY"
+                )
+            intent = GoalJournalAppendIntent.model_validate_json(raw_content)
+            if intent.next_entry.entry_hash_ref != self._entry_hash(
+                intent.next_entry
+            ):
+                raise GoalRuntimeCorruptionError(
+                    "GOAL_JOURNAL_APPEND_INTENT_MISMATCH"
+                )
+            return intent
+        except GoalRuntimeCorruptionError:
+            raise
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise GoalRuntimeCorruptionError(
+                "GOAL_JOURNAL_APPEND_INTENT_CORRUPT"
+            ) from exc
+
     def _load_head_manifest(self) -> GoalJournalHeadManifest | None:
         raw_content = _read_bounded_regular_utf8(
             self.head_path,
@@ -3445,6 +3802,10 @@ class _GoalJournalStore:
                     field_name
                     for field_name, field_value in (
                         (
+                            "request_payload",
+                            entry.request_payload,
+                        ),
+                        (
                             "goal_submission_fingerprint_ref",
                             entry.goal_submission_fingerprint_ref,
                         ),
@@ -3481,9 +3842,21 @@ class _GoalJournalStore:
             raise GoalRuntimeError("GOAL_JOURNAL_GENESIS_INTENT_CAPACITY_EXCEEDED")
         _atomic_write(self.genesis_intent_path, content)
 
+    def _write_append_intent(self, intent: GoalJournalAppendIntent) -> None:
+        content = intent.model_dump_json() + "\n"
+        if len(content.encode("utf-8")) > MAX_GOAL_JOURNAL_APPEND_INTENT_BYTES:
+            raise GoalRuntimeError("GOAL_JOURNAL_APPEND_INTENT_CAPACITY_EXCEEDED")
+        _atomic_write(self.append_intent_path, content)
+
     def _delete_genesis_intent(self) -> None:
         try:
             self.genesis_intent_path.unlink(missing_ok=True)
+        except OSError as exc:
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
+
+    def _delete_append_intent(self) -> None:
+        try:
+            self.append_intent_path.unlink(missing_ok=True)
         except OSError as exc:
             raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE") from exc
 
@@ -3514,8 +3887,18 @@ class _GoalJournalStore:
             self._write_genesis_intent(intent)
             self._install_genesis_intent(intent)
             return
+        if len(entries) < 2:
+            raise GoalRuntimeCorruptionError("GOAL_JOURNAL_APPEND_STATE_INVALID")
+        intent = GoalJournalAppendIntent(
+            previous_head_manifest=self._build_head_manifest(entries[:-1]),
+            next_entry=entries[-1],
+            next_head_manifest=self._build_head_manifest(entries),
+            journal_content_hash_ref=self._journal_content_hash(entries),
+        )
+        self._write_append_intent(intent)
         _atomic_write(self.path, content)
-        self._write_head_manifest(self._build_head_manifest(entries))
+        self._write_head_manifest(intent.next_head_manifest)
+        self._delete_append_intent()
 
 
 class _GoalMutationSubmissionStore:
@@ -3928,23 +4311,12 @@ class _GoalMutationSubmissionStore:
             if goal_journal_anchor is not None
             else current_state.goal_journal_anchor
         )
-        content = self._state_content(
+        content, next_state, next_head, intent_content = self._bounded_write_envelope(
             records,
-            rejection_tombstones,
+            list(rejection_tombstones or []),
             effective_anchor,
+            current_head=current_head,
         )
-        if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
-            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
-        terminal_content = self._state_content(
-            self._worst_case_terminal_records(records),
-            rejection_tombstones,
-            effective_anchor,
-        )
-        if (
-            len(terminal_content.encode("utf-8"))
-            > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES
-        ):
-            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
         if (
             current_state.records
             or current_state.rejection_tombstones
@@ -3954,12 +4326,50 @@ class _GoalMutationSubmissionStore:
                 raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISSING")
         elif current_head is not None:
             raise GoalRuntimeCorruptionError("GOAL_SUBMISSION_HEAD_MISMATCH")
-        next_state = self._state(
+        _atomic_write(self.write_intent_path, intent_content)
+        _atomic_write(self.path, content)
+        _atomic_write(self.head_path, next_head.model_dump_json() + "\n")
+        self._delete_write_intent()
+
+    @classmethod
+    def _bounded_write_envelope(
+        cls,
+        records: list[GoalMutationSubmissionRecord],
+        rejection_tombstones: list[GoalMutationSubmissionRejectionTombstone],
+        goal_journal_anchor: GoalJournalGenerationAnchor | None,
+        *,
+        current_head: GoalMutationSubmissionHeadManifest | None,
+    ) -> tuple[
+        str,
+        GoalMutationSubmissionState,
+        GoalMutationSubmissionHeadManifest,
+        str,
+    ]:
+        """Encode and bound the exact write plus every pending terminal outcome."""
+
+        content = cls._state_content(
             records,
             rejection_tombstones,
-            effective_anchor,
+            goal_journal_anchor,
         )
-        next_head = self._head(
+        if len(content.encode("utf-8")) > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES:
+            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+        terminal_content = cls._state_content(
+            cls._worst_case_terminal_records(records),
+            rejection_tombstones,
+            goal_journal_anchor,
+        )
+        if (
+            len(terminal_content.encode("utf-8"))
+            > MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED")
+        next_state = cls._state(
+            records,
+            rejection_tombstones,
+            goal_journal_anchor,
+        )
+        next_head = cls._head(
             next_state,
             generation=(current_head.generation + 1 if current_head else 1),
         )
@@ -3976,10 +4386,7 @@ class _GoalMutationSubmissionStore:
             raise GoalRuntimeError(
                 "GOAL_SUBMISSION_WRITE_INTENT_CAPACITY_EXCEEDED"
             )
-        _atomic_write(self.write_intent_path, intent_content)
-        _atomic_write(self.path, content)
-        _atomic_write(self.head_path, next_head.model_dump_json() + "\n")
-        self._delete_write_intent()
+        return content, next_state, next_head, intent_content
 
     @contextmanager
     def consistent_read(self) -> Iterator[None]:
@@ -4340,8 +4747,9 @@ class _GoalMutationSubmissionStore:
                 "request_fingerprint_ref",
             )
         with _normalized_goal_runtime_lock(self._locks, "goal-submissions"):
+            state = self._load_state(repair_head=True)
             if request_fingerprint_ref is not None:
-                records = self._load()
+                records = list(state.records)
                 matching = [
                     record
                     for record in records
@@ -4375,6 +4783,25 @@ class _GoalMutationSubmissionStore:
                     raise GoalTransitionDeniedError(
                         "GOAL_SUBMISSION_PREVIOUSLY_REJECTED"
                     )
+            if len(journal_entries) >= MAX_GOAL_JOURNAL_ENTRIES:
+                raise GoalRuntimeError("GOAL_JOURNAL_CAPACITY_EXCEEDED")
+            prospective_anchor = GoalJournalGenerationAnchor(
+                entry_count=len(journal_entries) + 1,
+                head_entry_hash_ref=_sha256_ref(
+                    "entry-hash-ref:goal-journal-capacity-reservation",
+                    {"entry_count": len(journal_entries) + 1},
+                ),
+                idempotency_set_hash_ref=_sha256_ref(
+                    "idempotency-set-hash-ref:goal-journal-capacity-reservation",
+                    {"entry_count": len(journal_entries) + 1},
+                ),
+            )
+            self._bounded_write_envelope(
+                list(state.records),
+                list(state.rejection_tombstones),
+                prospective_anchor,
+                current_head=self._load_head(),
+            )
             yield
             self._converge_goal_journal_anchor_locked(journal_entries)
 
@@ -7409,23 +7836,43 @@ class GoalRuntimeService:
     def _repair_goal_read_generation(self) -> None:
         """Converge only precommitted journal truth and its independent anchor."""
 
-        self.goals.repair_recoverable_append()
+        self._approvals.repair_recoverable_append()
         if not any(
             _path_generation(path)[0]
             for path in (
                 self.goals.path,
                 self.goals.head_path,
                 self.goals.genesis_intent_path,
+                self.goals.append_intent_path,
             )
         ):
             return
         _initialize_goal_runtime_state_dir(self.state_dir)
         with _normalized_goal_runtime_lock(
-            self.goals._locks,  # noqa: SLF001
-            "goal-journal",
+            self._approvals._locks,  # noqa: SLF001
+            "goal-approvals",
         ):
-            journal_entries = self.goals._load_entries(repair_manifest=True)
-            self._submissions.converge_goal_journal_anchor(journal_entries)
+            approval_entries = self._approvals._load_entries(
+                repair_manifest=True
+            )
+            with _normalized_goal_runtime_lock(
+                self.goals._locks,  # noqa: SLF001
+                "goal-journal",
+            ):
+                journal_entries = self.goals._load_entries(
+                    repair_manifest=True,
+                    repair_validator=lambda candidate: (
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            candidate,
+                        )
+                    ),
+                )
+                self._approvals.validate_goal_provenance(
+                    approval_entries,
+                    journal_entries,
+                )
+                self._submissions.converge_goal_journal_anchor(journal_entries)
 
     @classmethod
     def from_env(cls) -> "GoalRuntimeService":
@@ -7512,6 +7959,7 @@ class GoalRuntimeService:
                 self.goals.path,
                 self.goals.head_path,
                 self.goals.genesis_intent_path,
+                self.goals.append_intent_path,
             )
         ):
             self.reconcile_durable_events()
@@ -7713,6 +8161,7 @@ class GoalRuntimeService:
         request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
         idempotency_ref: str,
     ) -> GoalMutationSubmissionRecord:
+        self._repair_goal_read_generation()
         with self.goals.mutation_entries() as journal_entries:
             return self._submissions.prepare(
                 submission_ref=submission_ref,
@@ -7783,6 +8232,7 @@ class GoalRuntimeService:
     ) -> GoalMutationApprovalRequestSpec:
         """Persist one exact pending approval request without granting it."""
 
+        self._repair_goal_read_generation()
         exact_operation, subject_ref, request_payload = (
             self._approval_operation_and_subject(
                 operation=operation,
@@ -7814,6 +8264,8 @@ class GoalRuntimeService:
     ) -> GoalMutationApprovalLedgerEntry:
         """Record one explicit operator approval or denial."""
 
+        self._repair_goal_read_generation()
+
         def converge_submission(
             spec: GoalMutationApprovalRequestSpec,
             reason_ref: str,
@@ -7842,6 +8294,8 @@ class GoalRuntimeService:
     ) -> GoalMutationApprovalLedgerEntry:
         """Revoke one exact approval without affecting any other request."""
 
+        self._repair_goal_read_generation()
+
         def converge_submission(
             spec: GoalMutationApprovalRequestSpec,
             reason_ref: str,
@@ -7866,6 +8320,7 @@ class GoalRuntimeService:
         request_fingerprint_ref: str,
         rejection_reason_ref: str,
     ) -> GoalMutationSubmissionRecord:
+        self._repair_goal_read_generation()
         with self.goals.mutation_entries() as journal_entries:
             return self._submissions.reject(
                 submission_ref=submission_ref,
@@ -7946,7 +8401,15 @@ class GoalRuntimeService:
                 approval_entries = self._approvals._load_entries(
                     repair_manifest=True
                 )
-                journal_entries = self.goals._load_entries(repair_manifest=True)
+                journal_entries = self.goals._load_entries(
+                    repair_manifest=True,
+                    repair_validator=lambda candidate: (
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            candidate,
+                        )
+                    ),
+                )
                 self._submissions.converge_goal_journal_anchor(journal_entries)
                 self._approvals.validate_goal_provenance(
                     approval_entries,
@@ -8006,7 +8469,15 @@ class GoalRuntimeService:
                 "goal-journal",
             ):
                 approval_entries = self._approvals._load_entries(repair_manifest=True)
-                journal_entries = self.goals._load_entries(repair_manifest=True)
+                journal_entries = self.goals._load_entries(
+                    repair_manifest=True,
+                    repair_validator=lambda candidate: (
+                        self._approvals.validate_goal_provenance(
+                            approval_entries,
+                            candidate,
+                        )
+                    ),
+                )
                 self._submissions.converge_goal_journal_anchor(journal_entries)
                 self._approvals.validate_goal_provenance(
                     approval_entries,
@@ -8035,6 +8506,7 @@ class GoalRuntimeService:
         idempotency_ref: str,
         approval_ref: str,
     ) -> tuple[PersistentGoal, GoalMutationApprovalBinding]:
+        self._repair_goal_read_generation()
         validated = GoalCreateRequest.model_validate(request.model_dump())
         request_payload = validated.model_dump(mode="json")
         submission_fingerprint_ref = self._submissions.mutation_binding_fingerprint(
@@ -8083,6 +8555,7 @@ class GoalRuntimeService:
         idempotency_ref: str,
         approval_ref: str,
     ) -> tuple[PersistentGoal, GoalMutationApprovalBinding]:
+        self._repair_goal_read_generation()
         validated = GoalEditRequest.model_validate(request.model_dump())
         request_payload = validated.model_dump(mode="json")
         submission_fingerprint_ref = self._submissions.mutation_binding_fingerprint(
@@ -8132,6 +8605,7 @@ class GoalRuntimeService:
         idempotency_ref: str,
         approval_ref: str,
     ) -> tuple[PersistentGoal, GoalMutationApprovalBinding]:
+        self._repair_goal_read_generation()
         validated = GoalTransitionRequest.model_validate(request.model_dump())
         request_payload = validated.model_dump(mode="json")
         approval_operation = f"transition-{validated.transition}"
@@ -8380,7 +8854,15 @@ class GoalRuntimeService:
         """Repair completion projections under approval -> journal -> event locks."""
 
         with _normalized_goal_runtime_lock(self.goals._locks, "goal-journal"):
-            journal_entries = self.goals._load_entries(repair_manifest=True)
+            journal_entries = self.goals._load_entries(
+                repair_manifest=True,
+                repair_validator=lambda candidate: (
+                    self._approvals.validate_goal_provenance(
+                        approval_entries,
+                        candidate,
+                    )
+                ),
+            )
             self._approvals.validate_goal_provenance(
                 approval_entries,
                 journal_entries,
@@ -9988,26 +10470,105 @@ class _GoalMutationApprovalStore:
                     "GOAL_MUTATION_APPROVAL_PROVENANCE_MISSING"
                 )
             binding = self._binding_from_approved_entry(approval_entry)
-            expected_operation = {
-                GoalJournalOperation.create.value: "create",
-                GoalJournalOperation.edit.value: "edit",
-            }.get(journal_entry.operation)
-            operation_matches = (
-                approval_entry.spec.operation == expected_operation
-                if expected_operation is not None
-                else approval_entry.spec.operation.startswith("transition-")
-            )
             expected_subject = (
                 "goal-ref:new"
                 if journal_entry.operation == GoalJournalOperation.create.value
                 else journal_entry.goal_ref
+            )
+            expected_operation = {
+                GoalJournalOperation.create.value: "create",
+                GoalJournalOperation.edit.value: "edit",
+            }.get(journal_entry.operation)
+            if journal_entry.schema_version == GOAL_JOURNAL_SCHEMA_VERSION:
+                if journal_entry.request_payload is None:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_REQUEST_PAYLOAD_MISSING"
+                    )
+                try:
+                    if (
+                        journal_entry.operation
+                        == GoalJournalOperation.create.value
+                    ):
+                        exact_request = GoalCreateRequest.model_validate(
+                            journal_entry.request_payload
+                        )
+                        exact_payload = exact_request.model_dump(mode="json")
+                        expected_journal_fingerprint = _sha256_ref(
+                            "request-fingerprint-ref:goal-create",
+                            exact_payload,
+                        )
+                    elif (
+                        journal_entry.operation
+                        == GoalJournalOperation.edit.value
+                    ):
+                        exact_request = GoalEditRequest.model_validate(
+                            journal_entry.request_payload
+                        )
+                        exact_payload = exact_request.model_dump(mode="json")
+                        expected_journal_fingerprint = _sha256_ref(
+                            "request-fingerprint-ref:goal-edit",
+                            {
+                                "goal_ref": journal_entry.goal_ref,
+                                "request": exact_payload,
+                            },
+                        )
+                    else:
+                        exact_request = GoalTransitionRequest.model_validate(
+                            journal_entry.request_payload
+                        )
+                        exact_payload = exact_request.model_dump(mode="json")
+                        expected_operation = (
+                            f"transition-{exact_request.transition}"
+                        )
+                        expected_journal_fingerprint = _sha256_ref(
+                            "request-fingerprint-ref:goal-transition",
+                            {
+                                "goal_ref": journal_entry.goal_ref,
+                                "request": exact_payload,
+                            },
+                        )
+                except (TypeError, ValueError) as exc:
+                    raise GoalRuntimeCorruptionError(
+                        "GOAL_JOURNAL_REQUEST_PAYLOAD_INVALID"
+                    ) from exc
+                expected_approval_request_fingerprint = (
+                    _goal_mutation_approval_request_fingerprint_ref(
+                        operation=expected_operation,
+                        subject_ref=expected_subject,
+                        request_payload=exact_payload,
+                        idempotency_ref=journal_entry.idempotency_ref,
+                    )
+                )
+                expected_mutation_fingerprint = _mutation_request_fingerprint_ref(
+                    operation=expected_operation,
+                    subject_ref=expected_subject,
+                    request_payload=exact_payload,
+                )
+            else:
+                expected_journal_fingerprint = (
+                    journal_entry.request_fingerprint_ref
+                )
+                expected_approval_request_fingerprint = (
+                    approval_entry.spec.request_fingerprint_ref
+                )
+                expected_mutation_fingerprint = (
+                    approval_entry.spec.mutation_request_fingerprint_ref
+                )
+            operation_matches = (
+                approval_entry.spec.operation == expected_operation
+                if expected_operation is not None
+                else approval_entry.spec.operation.startswith("transition-")
             )
             if (
                 not operation_matches
                 or approval_entry.spec.subject_ref != expected_subject
                 or approval_entry.spec.idempotency_ref != journal_entry.idempotency_ref
                 or approval_entry.spec.mutation_request_fingerprint_ref
-                != journal_entry.request_fingerprint_ref
+                != expected_mutation_fingerprint
+                or journal_entry.request_fingerprint_ref
+                != expected_journal_fingerprint
+                or approval_entry.spec.request_fingerprint_ref
+                != expected_approval_request_fingerprint
                 or journal_entry.approval_request_fingerprint_ref
                 != approval_entry.spec.request_fingerprint_ref
                 or journal_entry.approval_exact_scope_ref

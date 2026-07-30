@@ -166,6 +166,14 @@ class RuntimeInvocationStoreResult:
     replayed: bool = False
 
 
+@dataclass(frozen=True)
+class RuntimeAdapterDispatchClaim:
+    """One durable adapter-boundary claim and its single-call ownership."""
+
+    record: RuntimeInvocationRecord
+    acquired: bool
+
+
 def runtime_gateway_state_dir() -> Path:
     configured = os.getenv(RUNTIME_GATEWAY_STATE_DIR_ENV, "").strip()
     if configured:
@@ -952,6 +960,10 @@ class RuntimeInvocationStore:
                 adapter_dispatch_protocol_ref is not None
                 and existing.adapter_dispatch_protocol_ref
                 != adapter_dispatch_protocol_ref
+                and not (
+                    existing.adapter_dispatch_protocol_ref is None
+                    and existing.receipt is not None
+                )
             ):
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH"
@@ -1021,7 +1033,8 @@ class RuntimeInvocationStore:
         *,
         protocol_ref: str,
         idempotency_ref: str,
-    ) -> RuntimeInvocationRecord:
+        command_gateway_validated: bool | None = None,
+    ) -> RuntimeAdapterDispatchClaim:
         """Durably cross the exact adapter-attempt boundary once."""
 
         with self._exclusive_mutation():
@@ -1041,7 +1054,10 @@ class RuntimeInvocationStore:
                 payload_fingerprint_ref,
             )
             if replayed is not None:
-                return replayed
+                return RuntimeAdapterDispatchClaim(
+                    record=replayed,
+                    acquired=False,
+                )
             if (
                 record.adapter_dispatch_protocol_ref != protocol_ref
                 or record.adapter_dispatch_started
@@ -1050,6 +1066,23 @@ class RuntimeInvocationStore:
                 raise RuntimeInvocationStorageError(
                     "RUNTIME_ADAPTER_DISPATCH_STATE_INVALID"
                 )
+            if command_gateway_validated is not None:
+                current_policy = build_policy_decision(
+                    record.request,
+                    invocation_ref=record.invocation_ref,
+                    approval_ref=record.approval_requirement.approval_ref,
+                    status=RuntimeInvocationStatus(record.status),
+                    command_gateway_validated=command_gateway_validated,
+                    active_authority_leases=self.current_authority_leases(),
+                    kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+                )
+                if (
+                    self._canonical_safe_disable_state.active
+                    or not current_policy.allowed_to_execute
+                ):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_COMMAND_DISPATCH_AUTHORITY_REVOKED"
+                    )
             updated = record.model_copy(
                 update={
                     "adapter_dispatch_started": True,
@@ -1062,7 +1095,10 @@ class RuntimeInvocationStore:
                 entry_idempotency_ref=idempotency_ref,
                 payload_fingerprint_ref=payload_fingerprint_ref,
             )
-            return updated
+            return RuntimeAdapterDispatchClaim(
+                record=updated,
+                acquired=True,
+            )
 
     def prepare_adapter_dispatch_protocol(
         self,

@@ -384,6 +384,30 @@ def _transition_goal(
     return goal
 
 
+def _replace_goal_journal_for_tamper(
+    service: GoalRuntimeService,
+    entries: list[goal_runtime_module.GoalJournalEntry],
+    *,
+    rewrite_independent_anchor: bool = False,
+) -> None:
+    service.goals.path.write_text(  # noqa: SLF001
+        service.goals._journal_content(entries),  # noqa: SLF001
+        encoding="utf-8",
+    )
+    service.goals._write_head_manifest(  # noqa: SLF001
+        service.goals._build_head_manifest(entries)  # noqa: SLF001
+    )
+    if rewrite_independent_anchor:
+        state = service._submissions._load_state()  # noqa: SLF001
+        service._submissions._write(  # noqa: SLF001
+            list(state.records),
+            list(state.rejection_tombstones),
+            goal_journal_anchor=service._submissions._journal_anchor(  # noqa: SLF001
+                entries
+            ),
+        )
+
+
 def test_goal_lifecycle_persists_replays_and_detects_version_conflicts(
     tmp_path: Path,
 ) -> None:
@@ -1383,13 +1407,18 @@ def test_pre_ledger_goal_replay_fails_closed(
             "approval_ledger_entry_hash_ref": None,
             "approval_request_fingerprint_ref": None,
             "approval_exact_scope_ref": None,
+            "request_payload": None,
             "entry_hash_ref": "entry-hash-ref:pending",
         }
     )
     legacy = legacy_draft.model_copy(
         update={"entry_hash_ref": service.goals._entry_hash(legacy_draft)}  # noqa: SLF001
     )
-    service.goals._write_entries([legacy])  # noqa: SLF001
+    _replace_goal_journal_for_tamper(
+        service,
+        [legacy],
+        rewrite_independent_anchor=True,
+    )
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
@@ -1400,6 +1429,41 @@ def test_pre_ledger_goal_replay_fails_closed(
             idempotency_ref=idempotency_ref,
             approval_ref=approval_ref,
         )
+
+
+def test_v2_goal_journal_remains_read_compatible(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:v2-journal-compatibility:create",
+    )
+    [entry] = service.goals._load_consistent_entries()  # noqa: SLF001
+    v2_draft = entry.model_copy(
+        update={
+            "schema_version": "goal_journal.v2",
+            "request_payload": None,
+            "entry_hash_ref": "entry-hash-ref:pending",
+        }
+    )
+    v2_entry = v2_draft.model_copy(
+        update={
+            "entry_hash_ref": service.goals._entry_hash(v2_draft)  # noqa: SLF001
+        }
+    )
+    _replace_goal_journal_for_tamper(
+        service,
+        [v2_entry],
+        rewrite_independent_anchor=True,
+    )
+
+    [recovered] = GoalRuntimeService(tmp_path).goal_lifecycle_read_model(
+        include_cleared=True,
+    ).goals
+
+    assert recovered == created
 
 
 @pytest.mark.parametrize(
@@ -1481,7 +1545,11 @@ def test_committed_replay_rejects_tampered_canonical_grant_scope(
             "entry_hash_ref": service.goals._entry_hash(journal_draft)  # noqa: SLF001
         }
     )
-    service.goals._write_entries([tampered_journal])  # noqa: SLF001
+    _replace_goal_journal_for_tamper(
+        service,
+        [tampered_journal],
+        rewrite_independent_anchor=True,
+    )
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
@@ -3223,6 +3291,90 @@ def test_goal_journal_capacity_fails_closed_before_unbounded_growth(
 
     assert service.goals.get(created.goal_ref).version == edited.version
     assert len((tmp_path / "goals.jsonl").read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_goal_commit_reserves_next_independent_anchor_capacity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:anchor-capacity:create",
+    )
+    evidence_ref = (
+        "evidence-ref:control-center-goal-update-submission:edit:sha256:"
+        + "a" * 64
+    )
+    request = GoalEditRequest(
+        expected_version=created.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Reserve the exact next independent journal anchor.",
+        evidence_refs=[evidence_ref],
+    )
+    idempotency_ref = "idempotency-ref:anchor-capacity:edit"
+    service.record_goal_mutation_submission(
+        submission_ref="submission-ref:anchor-capacity:edit",
+        operation="edit",
+        goal_ref=created.goal_ref,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    state = service._submissions._load_state()  # noqa: SLF001
+    current_terminal_bytes = len(
+        service._submissions._state_content(  # noqa: SLF001
+            service._submissions._worst_case_terminal_records(  # noqa: SLF001
+                list(state.records)
+            ),
+            list(state.rejection_tombstones),
+            state.goal_journal_anchor,
+        ).encode("utf-8")
+    )
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "MAX_GOAL_MUTATION_SUBMISSION_STATE_BYTES",
+        current_terminal_bytes,
+    )
+    journal_before = service.goals.path.read_bytes()
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_SUBMISSION_STATE_CAPACITY_EXCEEDED",
+    ):
+        _edit_goal(
+            service,
+            created.goal_ref,
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+
+    assert service.goals.path.read_bytes() == journal_before
+    assert service.goals.get(created.goal_ref).version == created.version
+
+
+def test_legacy_submission_state_hash_is_rejected_once_journal_is_anchored(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:anchored-legacy-state-hash:create",
+    )
+    state = service._submissions._load_state()  # noqa: SLF001
+    assert state.goal_journal_anchor is not None
+    payload = state.model_dump(mode="json")
+    payload["state_hash_ref"] = goal_runtime_module._sha256_ref(  # noqa: SLF001
+        "state-hash-ref:goal-mutation-submissions",
+        [record.model_dump(mode="json") for record in state.records],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="GOAL_SUBMISSION_STATE_HASH_MISMATCH",
+    ):
+        goal_runtime_module.GoalMutationSubmissionState.model_validate(payload)
 
 
 def test_goal_text_requires_explicit_redacted_summary_contract() -> None:
@@ -5761,6 +5913,77 @@ def test_goal_journal_tampering_fails_closed(tmp_path: Path) -> None:
         GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
 
 
+def test_goal_journal_snapshot_cannot_relabel_an_approved_transition(
+    tmp_path: Path,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:snapshot-binding:create",
+    )
+    paused = _transition_goal(
+        service,
+        created.goal_ref,
+        GoalTransitionRequest(
+            expected_version=created.version,
+            transition=GoalTransitionKind.pause,
+            reason_ref="reason-ref:snapshot-binding:pause",
+        ),
+        idempotency_ref="idempotency-ref:snapshot-binding:pause",
+    )
+    approval_entries = service._approvals._load_consistent_entries()  # noqa: SLF001
+    journal_entries = service.goals._load_consistent_entries()  # noqa: SLF001
+    original = journal_entries[-1]
+    substituted_request = GoalTransitionRequest(
+        expected_version=created.version,
+        transition=GoalTransitionKind.cancel,
+        reason_ref="reason-ref:snapshot-binding:cancel",
+    )
+    substituted_goal = service.goals._transitioned_goal(  # noqa: SLF001
+        journal_entries[0].goal,
+        substituted_request,
+        completion_verified=False,
+        completion_plan_ref=None,
+        completion_criterion_verifier_bindings=[],
+        restore_goal=None,
+        updated_at=original.recorded_at,
+    )
+    substituted = original.model_copy(
+        update={
+            "request_payload": substituted_request.model_dump(mode="json"),
+            "request_fingerprint_ref": goal_runtime_module._sha256_ref(  # noqa: SLF001
+                "request-fingerprint-ref:goal-transition",
+                {
+                    "goal_ref": created.goal_ref,
+                    "request": substituted_request.model_dump(mode="json"),
+                },
+            ),
+            "transition_reason_ref": substituted_request.reason_ref,
+            "goal": substituted_goal,
+        }
+    )
+    substituted = substituted.model_copy(
+        update={
+            "entry_hash_ref": service.goals._entry_hash(substituted)  # noqa: SLF001
+        }
+    )
+    service.goals._validate_snapshot_transition(  # noqa: SLF001
+        substituted,
+        journal_entries[:-1],
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH",
+    ):
+        service._approvals.validate_goal_provenance(  # noqa: SLF001
+            approval_entries,
+            [journal_entries[0], substituted],
+        )
+    assert paused.state == GoalState.paused.value
+
+
 @pytest.mark.parametrize(
     ("tamper", "expected_code"),
     [
@@ -5813,7 +6036,7 @@ def test_goal_journal_head_manifest_rejects_rollback(
         GoalRuntimeService(tmp_path).goals.get(created.goal_ref)
 
 
-def test_goal_journal_recovers_one_entry_ahead_manifest_on_mutation(
+def test_goal_journal_rejects_unbound_one_entry_ahead_manifest_on_mutation(
     tmp_path: Path,
 ) -> None:
     service = GoalRuntimeService(tmp_path)
@@ -5838,28 +6061,25 @@ def test_goal_journal_recovers_one_entry_ahead_manifest_on_mutation(
         encoding="utf-8",
     )
 
-    replayed = _edit_goal(
-        GoalRuntimeService(tmp_path),
-        created.goal_ref,
-        GoalEditRequest(
-            expected_version=created.version,
-            text_redaction_posture="operator_authored_redacted_summary_only",
-            objective="The journal commit survived before its head update.",
-        ),
-        idempotency_ref="idempotency-ref:goal-head-recovery:edit",
-    )
-
-    assert replayed == edited
-    assert (
-        json.loads((tmp_path / "goal_journal_head.json").read_text(encoding="utf-8"))[
-            "entry_count"
-        ]
-        == 2
-    )
+    assert edited.version == 2
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH",
+    ):
+        _edit_goal(
+            GoalRuntimeService(tmp_path),
+            created.goal_ref,
+            GoalEditRequest(
+                expected_version=created.version,
+                text_redaction_posture="operator_authored_redacted_summary_only",
+                objective="The journal commit survived before its head update.",
+            ),
+            idempotency_ref="idempotency-ref:goal-head-recovery:edit",
+        )
 
 
 @pytest.mark.parametrize("surface", ["list", "show"])
-def test_direct_goal_reads_repair_one_entry_ahead_manifest(
+def test_direct_goal_reads_reject_unbound_one_entry_ahead_manifest(
     tmp_path: Path,
     surface: str,
 ) -> None:
@@ -5887,18 +6107,264 @@ def test_direct_goal_reads_repair_one_entry_ahead_manifest(
         encoding="utf-8",
     )
 
+    assert edited.version == 2
     restarted = GoalRuntimeService(tmp_path)
-    if surface == "list":
-        [recovered] = restarted.goal_lifecycle_read_model(
-            include_cleared=True
-        ).goals
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_HEAD_MANIFEST_MISMATCH",
+    ):
+        if surface == "list":
+            restarted.goal_lifecycle_read_model(include_cleared=True)
+        else:
+            restarted.goal_with_provenance(created.goal_ref)
+
+
+@pytest.mark.parametrize(
+    "failure_boundary",
+    ["intent", "journal", "head", "cleanup"],
+)
+def test_goal_journal_recovers_only_exact_precommitted_append(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_boundary: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref=f"idempotency-ref:append-intent:{failure_boundary}:create",
+    )
+    request = GoalEditRequest(
+        expected_version=created.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Recover only the exact precommitted journal append.",
+    )
+    edit_idempotency_ref = (
+        f"idempotency-ref:append-intent:{failure_boundary}:edit"
+    )
+    original_atomic_write = goal_runtime_module._atomic_write
+    original_cleanup = service.goals._delete_append_intent  # noqa: SLF001
+    failed = False
+
+    if failure_boundary != "cleanup":
+
+        def fail_selected_write(path: Path, content: str) -> None:
+            nonlocal failed
+            if not failed and (
+                (
+                    failure_boundary == "intent"
+                    and path.name == "goal_journal_append_intent.json"
+                )
+                or (failure_boundary == "journal" and path.name == "goals.jsonl")
+                or (
+                    failure_boundary == "head"
+                    and path.name == "goal_journal_head.json"
+                )
+            ):
+                failed = True
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+            original_atomic_write(path, content)
+
+        monkeypatch.setattr(
+            goal_runtime_module,
+            "_atomic_write",
+            fail_selected_write,
+        )
     else:
-        recovered, provenance = restarted.goal_with_provenance(created.goal_ref)
-        assert provenance.entries[-1].goal_version == edited.version
-    assert recovered == edited
+
+        def fail_cleanup() -> None:
+            nonlocal failed
+            if not failed:
+                failed = True
+                raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+            original_cleanup()
+
+        monkeypatch.setattr(service.goals, "_delete_append_intent", fail_cleanup)
+
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _edit_goal(
+            service,
+            created.goal_ref,
+            request,
+            idempotency_ref=edit_idempotency_ref,
+        )
+    assert failed
+
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+    if failure_boundary == "cleanup":
+        monkeypatch.setattr(service.goals, "_delete_append_intent", original_cleanup)
+    recovered = _edit_goal(
+        GoalRuntimeService(tmp_path),
+        created.goal_ref,
+        request,
+        idempotency_ref=edit_idempotency_ref,
+    )
+
+    assert recovered.version == 2
+    assert recovered.objective == request.objective
+    assert not (tmp_path / "goal_journal_append_intent.json").exists()
+
+
+def test_goal_journal_append_recovery_validates_approval_before_promotion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:append-provenance:create",
+    )
+    request = GoalEditRequest(
+        expected_version=created.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Never promote copied approval provenance.",
+    )
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def fail_head_once(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goal_journal_head.json":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", fail_head_once)
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _edit_goal(
+            service,
+            created.goal_ref,
+            request,
+            idempotency_ref="idempotency-ref:append-provenance:edit",
+        )
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+
+    approval_entries = service._approvals._load_consistent_entries()  # noqa: SLF001
+    create_approval = next(
+        entry
+        for entry in approval_entries
+        if entry.status == "approved" and entry.spec.operation == "create"
+    )
+    intent = service.goals._load_append_intent()  # noqa: SLF001
+    assert intent is not None
+    raw_entries = [
+        goal_runtime_module.GoalJournalEntry.model_validate_json(line)
+        for line in service.goals.path.read_text(encoding="utf-8").splitlines()
+    ]
+    substituted = raw_entries[-1].model_copy(
+        update={
+            "approval_ref": create_approval.spec.approval_ref,
+            "approval_decision_ref": (
+                service._approvals._binding_from_approved_entry(  # noqa: SLF001
+                    create_approval
+                ).approval_decision_ref
+            ),
+            "approval_ledger_entry_hash_ref": create_approval.entry_hash_ref,
+            "approval_request_fingerprint_ref": (
+                create_approval.spec.request_fingerprint_ref
+            ),
+            "approval_exact_scope_ref": create_approval.spec.exact_scope_ref,
+        }
+    )
+    substituted = substituted.model_copy(
+        update={
+            "entry_hash_ref": service.goals._entry_hash(substituted)  # noqa: SLF001
+        }
+    )
+    substituted_entries = [*raw_entries[:-1], substituted]
+    substituted_intent = goal_runtime_module.GoalJournalAppendIntent(
+        previous_head_manifest=intent.previous_head_manifest,
+        next_entry=substituted,
+        next_head_manifest=service.goals._build_head_manifest(  # noqa: SLF001
+            substituted_entries
+        ),
+        journal_content_hash_ref=service.goals._journal_content_hash(  # noqa: SLF001
+            substituted_entries
+        ),
+    )
+    service.goals.path.write_text(  # noqa: SLF001
+        service.goals._journal_content(substituted_entries),  # noqa: SLF001
+        encoding="utf-8",
+    )
+    service.goals.append_intent_path.write_text(  # noqa: SLF001
+        substituted_intent.model_dump_json() + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH",
+    ):
+        GoalRuntimeService(tmp_path).goal_lifecycle_read_model(
+            include_cleared=True
+        )
     assert json.loads(
-        (tmp_path / "goal_journal_head.json").read_text(encoding="utf-8")
-    )["entry_count"] == 2
+        service.goals.head_path.read_text(encoding="utf-8")  # noqa: SLF001
+    )["entry_count"] == 1
+    assert service.goals.append_intent_path.exists()  # noqa: SLF001
+
+
+@pytest.mark.parametrize("substitution", ["symlink", "directory"])
+def test_goal_journal_append_recovery_rejects_nonregular_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    substitution: str,
+) -> None:
+    service = GoalRuntimeService(tmp_path)
+    created = _create_goal(
+        service,
+        _create_request(),
+        idempotency_ref="idempotency-ref:append-intent-substitution:create",
+    )
+    request = GoalEditRequest(
+        expected_version=created.version,
+        text_redaction_posture="operator_authored_redacted_summary_only",
+        objective="Reject substituted append intent state.",
+    )
+    original_atomic_write = goal_runtime_module._atomic_write
+    failed = False
+
+    def interrupt_journal_install(path: Path, content: str) -> None:
+        nonlocal failed
+        if not failed and path.name == "goals.jsonl":
+            failed = True
+            raise GoalRuntimeError("GOAL_RUNTIME_STORAGE_UNAVAILABLE")
+        original_atomic_write(path, content)
+
+    monkeypatch.setattr(
+        goal_runtime_module,
+        "_atomic_write",
+        interrupt_journal_install,
+    )
+    with pytest.raises(GoalRuntimeError, match="GOAL_RUNTIME_STORAGE_UNAVAILABLE"):
+        _edit_goal(
+            service,
+            created.goal_ref,
+            request,
+            idempotency_ref="idempotency-ref:append-intent-substitution:edit",
+        )
+    monkeypatch.setattr(goal_runtime_module, "_atomic_write", original_atomic_write)
+
+    intent_path = service.goals.append_intent_path  # noqa: SLF001
+    if substitution == "symlink":
+        preserved = tmp_path / "goal_journal_append_intent.preserved"
+        intent_path.replace(preserved)
+        intent_path.symlink_to(preserved.name)
+    else:
+        intent_path.unlink()
+        intent_path.mkdir()
+
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="GOAL_JOURNAL_APPEND_INTENT_CORRUPT",
+    ):
+        _edit_goal(
+            GoalRuntimeService(tmp_path),
+            created.goal_ref,
+            request,
+            idempotency_ref="idempotency-ref:append-intent-substitution:edit",
+        )
 
 
 def test_direct_goal_read_repairs_bound_first_generation_genesis_intent(
@@ -6479,6 +6945,9 @@ def test_maximum_unicode_goal_envelope_fits_derived_genesis_budget(
 
 def test_schema_maximum_envelopes_define_all_storage_reservations() -> None:
     maximum_intent = goal_runtime_module._MAXIMUM_GOAL_GENESIS_INTENT  # noqa: SLF001
+    maximum_append_intent = (
+        goal_runtime_module._MAXIMUM_GOAL_APPEND_INTENT  # noqa: SLF001
+    )
     maximum_event = goal_runtime_module._MAXIMUM_RUN_EVENT  # noqa: SLF001
     maximum_tombstone = (
         goal_runtime_module._MAXIMUM_RUN_EVENT_TOMBSTONE  # noqa: SLF001
@@ -6495,6 +6964,19 @@ def test_schema_maximum_envelopes_define_all_storage_reservations() -> None:
         == goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES
     )
     assert goal_runtime_module.MAX_GOAL_JOURNAL_GENESIS_INTENT_BYTES > 128 * 1024
+    assert (
+        len((maximum_append_intent.model_dump_json() + "\n").encode("utf-8"))
+        == goal_runtime_module.MAX_GOAL_JOURNAL_APPEND_INTENT_BYTES
+    )
+    assert (
+        goal_runtime_module.GoalJournalAppendIntent.model_validate(
+            maximum_append_intent.model_dump(mode="json")
+        )
+        == maximum_append_intent
+    )
+    assert maximum_append_intent.next_head_manifest.entry_count == (
+        goal_runtime_module.MAX_GOAL_JOURNAL_ENTRIES
+    )
     assert len(maximum_event.proof_refs) == (
         goal_runtime_module.MAX_RUN_EVENT_PROOF_REFS
     )
@@ -8241,11 +8723,11 @@ def test_goal_read_rejects_same_idempotency_cross_request_approval_substitution(
     tampered = tampered_draft.model_copy(
         update={"entry_hash_ref": service.goals._entry_hash(tampered_draft)}  # noqa: SLF001
     )
-    service.goals._write_entries([tampered])  # noqa: SLF001
+    _replace_goal_journal_for_tamper(service, [tampered])
 
     with pytest.raises(
         GoalRuntimeCorruptionError,
-        match="GOAL_JOURNAL_ROLLBACK_DETECTED",
+        match="GOAL_MUTATION_APPROVAL_PROVENANCE_MISMATCH",
     ):
         GoalRuntimeService(tmp_path).goal_lifecycle_read_model()
 

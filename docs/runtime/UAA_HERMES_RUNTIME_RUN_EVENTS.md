@@ -20,9 +20,14 @@ deterministic entry refs on every read. A separately replaced head manifest
 anchors the exact entry count, terminal entry hash, and full idempotency-set
 fingerprint. The first journal commit is preceded by a durable genesis intent
 that binds the exact first entry, journal image, and head manifest; interrupted
-first commits can recover only that independently bound candidate. An
-unanchored first journal, a truncated prefix, or a journal/head disagreement
-fails closed.
+first commits can recover only that independently bound candidate. Every later
+append likewise installs a generic durable intent binding the old head, exact
+next entry, full next journal image hash, and next head before replacing the
+journal. Controlled recovery validates the exact typed mutation payload,
+resulting snapshot transition, and approval-ledger provenance under the
+approval-to-journal lock order before advancing either head. An unanchored
+first journal, an unbound one-entry-ahead journal, a truncated prefix, a copied
+approval binding, or a journal/head/intent disagreement fails closed.
 Goal text is accepted only under the explicit
 `operator_authored_redacted_summary_only` posture and rejects multiline,
 prompt-like, response-like, or secret-like raw-content shapes before durable
@@ -192,6 +197,13 @@ reclaimed under the same writer lock before capacity is counted. After mission
 admission and immediately before adapter dispatch, the Core revalidates
 capacity and refreshes that exact lease; a request delayed behind other mission
 locks therefore fails before execution or receives a fresh bounded guarantee.
+The durable adapter-start marker is also an ownership claim: exactly one caller
+may cross a receiptless adapter boundary, while concurrent exact replays observe
+an in-progress result and do not execute the adapter. Command dispatch
+revalidates the current authority lease and operator safe-disable state inside
+the same locked mutation that records that claim. Historical invocations that
+predate the dispatch protocol can replay only an already-durable immutable
+receipt; receiptless legacy records remain fail closed.
 Mutating API and CLI paths reconcile already-durable RuntimeGateway receipts
 idempotently after a process interruption. Reconciliation reads the tombstone
 index once and selects only records whose exact projection keys remain absent;
@@ -246,6 +258,11 @@ surfaces fail closed while that intent is present; the next controlled
 mutation may finish only that exact precommitted generation. Unanchored
 one-entry-ahead ledgers, prefix rollback after revocation, mismatched intents,
 and replay of an intent against a later head are rejected.
+Before a goal mutation writes its journal entry, the submission store reserves
+the worst-case encoded bytes for the next independent journal anchor as well as
+every pending terminal submission outcome. The submission lock remains held
+through journal append and anchor convergence, so a near-capacity anchor cannot
+fail after the goal generation has already committed.
 Control Center approval preparation supplies the exact submission ref and
 durably records the complete typed submission envelope before returning the
 approval request. A lost prepare response or process restart can therefore

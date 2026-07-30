@@ -351,7 +351,7 @@ def _prepare_adapter_dispatch(
 ) -> None:
     if pre_adapter_dispatch is not None:
         pre_adapter_dispatch(record)
-    store.mark_adapter_dispatch_started(
+    claim = store.mark_adapter_dispatch_started(
         record.invocation_ref,
         protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
         idempotency_ref=_hash_ref(
@@ -361,7 +361,12 @@ def _prepare_adapter_dispatch(
                 "operation": "adapter-dispatch-started",
             },
         ),
+        command_gateway_validated=True,
     )
+    if not claim.acquired:
+        raise RuntimeInvocationStorageError(
+            "RUNTIME_ADAPTER_DISPATCH_ALREADY_CLAIMED"
+        )
 
 
 def invoke_governed_command(

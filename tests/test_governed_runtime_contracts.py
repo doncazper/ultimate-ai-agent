@@ -5851,3 +5851,177 @@ def test_local_model_boundary_rejection_retries_before_attempt_marker(
     assert retried.record.receipt is not None
     assert retried.record.adapter_dispatch_started is True
     assert len(transport.calls) == 1
+
+
+def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect the bounded repository status.",
+    )
+    idempotency_ref = "idempotency-ref:adapter-dispatch-owner"
+    created = store.create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref=idempotency_ref,
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    )
+    marker_idempotency_ref = "idempotency-ref:adapter-dispatch-owner:marker"
+    barrier = threading.Barrier(2)
+    claims: list[runtime_storage.RuntimeAdapterDispatchClaim] = []
+    adapter_calls: list[str] = []
+
+    def compete_for_dispatch() -> None:
+        barrier.wait(timeout=5)
+        claim = store.mark_adapter_dispatch_started(
+            created.record.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=marker_idempotency_ref,
+            command_gateway_validated=True,
+        )
+        claims.append(claim)
+        if claim.acquired:
+            adapter_calls.append(claim.record.invocation_ref)
+
+    threads = [threading.Thread(target=compete_for_dispatch) for _index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert sorted(claim.acquired for claim in claims) == [False, True]
+    assert adapter_calls == [created.record.invocation_ref]
+    assert all(
+        claim.record.adapter_dispatch_started is True for claim in claims
+    )
+
+
+@pytest.mark.parametrize("posture", ["safe-disable", "lease-revoked"])
+def test_command_dispatch_revalidates_current_authority_under_store_lock(
+    tmp_path: Path,
+    posture: str,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect status only while current authority remains active.",
+    )
+    created = store.create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:dispatch-current-authority",
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    )
+    if posture == "safe-disable":
+        store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:dispatch-current-authority-revoked"
+            ),
+            idempotency_ref="idempotency-ref:dispatch-current-authority:disable",
+        )
+    else:
+        store._explicit_active_authority_leases = []  # noqa: SLF001
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_AUTHORITY_REVOKED",
+    ):
+        store.mark_adapter_dispatch_started(
+            created.record.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=(
+                "idempotency-ref:dispatch-current-authority:marker"
+            ),
+            command_gateway_validated=True,
+        )
+    assert (
+        store.get_invocation(created.record.invocation_ref).adapter_dispatch_started
+        is False
+    )
+
+
+def test_legacy_protocol_accepts_only_immutable_receipt_replay(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    command_request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect one legacy committed runtime receipt.",
+    )
+    idempotency_ref = "idempotency-ref:legacy-committed-protocol"
+    completed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    ).record
+    assert completed.receipt is not None
+    invocation_request = runtime_command_invocation_request(command_request)
+
+    with store._exclusive_mutation():  # noqa: SLF001
+        store._records[completed.invocation_ref] = completed.model_copy(  # noqa: SLF001
+            update={"adapter_dispatch_protocol_ref": None}
+        )
+        replay = store._create_invocation_loaded(  # noqa: SLF001
+            invocation_request,
+            idempotency_ref=idempotency_ref,
+            command_gateway_validated=True,
+            adapter_dispatch_protocol_ref=(
+                runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+            ),
+        )
+    assert replay.replayed is True
+    assert replay.record.receipt == completed.receipt
+    assert calls == 1
+
+    receiptless_store = _runtime_store_with_workspace_execute(
+        tmp_path / "receiptless"
+    )
+    pending = receiptless_store.create_invocation(
+        invocation_request,
+        idempotency_ref="idempotency-ref:legacy-receiptless-protocol",
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    ).record
+    with receiptless_store._exclusive_mutation():  # noqa: SLF001
+        receiptless_store._records[pending.invocation_ref] = (  # noqa: SLF001
+            pending.model_copy(update={"adapter_dispatch_protocol_ref": None})
+        )
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH",
+        ):
+            receiptless_store._create_invocation_loaded(  # noqa: SLF001
+                invocation_request,
+                idempotency_ref=(
+                    "idempotency-ref:legacy-receiptless-protocol"
+                ),
+                command_gateway_validated=True,
+                adapter_dispatch_protocol_ref=(
+                    runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+                ),
+            )
