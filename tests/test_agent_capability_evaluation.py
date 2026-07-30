@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import sys
@@ -281,6 +282,43 @@ def test_new_entrypoints_resolve_current_worktree_without_pythonpath() -> None:
         assert result.returncode == 0, result.stderr.decode(errors="replace")
 
 
+def test_runner_falls_back_to_verified_owned_members_on_group_permission_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_group = 12345
+    sent: list[tuple[int, signal.Signals]] = []
+
+    def deny_group_signal(
+        _process_group: int,
+        _signal: signal.Signals,
+    ) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(
+        runner.os,
+        "killpg",
+        deny_group_signal,
+    )
+    monkeypatch.setattr(
+        runner,
+        "_owned_live_process_group_members",
+        lambda _process_group: (12345, 12346),
+    )
+    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: process_group)
+    monkeypatch.setattr(
+        runner.os,
+        "kill",
+        lambda pid, sig: sent.append((pid, sig)),
+    )
+
+    runner._signal_process_group(process_group, signal.SIGTERM)
+
+    assert sent == [
+        (12345, signal.SIGTERM),
+        (12346, signal.SIGTERM),
+    ]
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS sandbox canaries")
 def test_runner_enforces_output_network_and_process_tree_bounds(
     tmp_path: Path,
@@ -384,11 +422,8 @@ print(json.dumps(payload))
 
     observed: dict[str, object] = {}
     # Bound the outer test harness separately from the unchanged inner safety
-    # timeout so process startup contention cannot mask the asserted outcome.
-    # Keep the outer harness bounded but independent from loaded-shard scheduling.
-    # The asserted output, network, and three-second process-tree limits below
-    # remain unchanged.
-    probe_timeout_seconds = 90
+    # timeout so a wedged probe cannot stall the suite.
+    probe_timeout_seconds = 30
     try:
         for mode in ("output", "timeout"):
             result = subprocess.run(
