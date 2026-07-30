@@ -426,6 +426,9 @@ def invoke_governed_command(
             invocation_request,
             idempotency_ref=idempotency_ref,
             command_gateway_validated=blocked_error is None,
+            action_inbox_envelope_required=(
+                entry.exact_action_inbox_approval_required
+            ),
             adapter_dispatch_protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
         )
         record = created.record
@@ -434,6 +437,16 @@ def invoke_governed_command(
         if created.replayed:
             if record.receipt is not None:
                 return _completed_command_replay_result(record)
+            if (
+                record.adapter_dispatch_started
+                and record.adapter_dispatch_protocol_ref
+                == ADAPTER_DISPATCH_PROTOCOL_REF
+            ):
+                return _in_progress_command_replay_result(
+                    store=store,
+                    invocation_request=invocation_request,
+                    idempotency_ref=idempotency_ref,
+                )
             if not _retryable_pre_dispatch_record(record):
                 return _record_blocked_command_result(
                     store=store,

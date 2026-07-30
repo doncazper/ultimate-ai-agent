@@ -6,6 +6,7 @@ import os
 import secrets
 import stat
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
@@ -76,6 +77,8 @@ RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
 RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON = "runtime_gateway_safe_disable_state.json"
 RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES = 16_384
 RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
+RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS = 1.0
+RUNTIME_GATEWAY_LOCK_POLL_SECONDS = 0.01
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
     "prompt_text",
@@ -920,6 +923,7 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        action_inbox_envelope_required: bool = True,
         adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         with self._exclusive_mutation():
@@ -928,6 +932,7 @@ class RuntimeInvocationStore:
                 idempotency_ref=idempotency_ref,
                 local_model_gateway_validated=local_model_gateway_validated,
                 command_gateway_validated=command_gateway_validated,
+                action_inbox_envelope_required=action_inbox_envelope_required,
                 adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
             )
 
@@ -938,6 +943,7 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        action_inbox_envelope_required: bool = True,
         adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -955,6 +961,11 @@ class RuntimeInvocationStore:
                 existing.payload_fingerprint_ref,
             )
             if existing_fingerprint != payload_fingerprint_ref:
+                raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
+            if (
+                existing.approval_requirement.action_inbox_envelope_required
+                != action_inbox_envelope_required
+            ):
                 raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
             if (
                 adapter_dispatch_protocol_ref is not None
@@ -995,7 +1006,13 @@ class RuntimeInvocationStore:
             invocation_ref=invocation_ref,
             request=storage_request,
             policy_decision=policy_decision,
-            approval_requirement=policy_decision.approval_requirement,
+            approval_requirement=policy_decision.approval_requirement.model_copy(
+                update={
+                    "action_inbox_envelope_required": (
+                        action_inbox_envelope_required
+                    )
+                }
+            ),
             payload_fingerprint_ref=payload_fingerprint_ref,
             idempotency_ref=idempotency_ref,
             adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
@@ -1069,41 +1086,6 @@ class RuntimeInvocationStore:
                     "RUNTIME_ADAPTER_DISPATCH_STATE_INVALID"
                 )
             if command_gateway_validated is not None:
-                if action_inbox_envelope_ref is not None:
-                    validate_execution_ref(
-                        action_inbox_envelope_ref,
-                        "action_inbox_envelope_ref",
-                    )
-                    if action_inbox_approval_ref is None:
-                        raise RuntimeInvocationStorageError(
-                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
-                        )
-                    validate_execution_ref(
-                        action_inbox_approval_ref,
-                        "action_inbox_approval_ref",
-                    )
-                    envelope = record.action_inbox_envelope
-                    if (
-                        envelope is None
-                        or envelope.action_envelope_ref
-                        != action_inbox_envelope_ref
-                        or envelope.approval_ref != action_inbox_approval_ref
-                        or envelope.decision
-                        != RuntimeActionInboxApprovalDecision.approve.value
-                        or envelope.status
-                        != RuntimeInvocationStatus.approved_pending_execution.value
-                        or record.status
-                        != RuntimeInvocationStatus.approved_pending_execution.value
-                        or not envelope.approval_validated
-                        or not envelope.authority_scope_allowed
-                        or envelope.safe_disable_active
-                        or envelope.scope_mismatch
-                        or envelope.runtime_profile_weaker_or_disabled
-                        or envelope.expires_at <= utc_now()
-                    ):
-                        raise RuntimeInvocationStorageError(
-                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
-                        )
                 current_policy = build_policy_decision(
                     record.request,
                     invocation_ref=record.invocation_ref,
@@ -1120,6 +1102,50 @@ class RuntimeInvocationStore:
                     raise RuntimeInvocationStorageError(
                         "RUNTIME_COMMAND_DISPATCH_AUTHORITY_REVOKED"
                     )
+                if (
+                    command_gateway_validated
+                    and record.approval_requirement.action_inbox_envelope_required
+                ):
+                    envelope = record.action_inbox_envelope
+                    if envelope is None:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
+                    effective_envelope_ref = (
+                        action_inbox_envelope_ref
+                        or envelope.action_envelope_ref
+                    )
+                    effective_approval_ref = (
+                        action_inbox_approval_ref or envelope.approval_ref
+                    )
+                    validate_execution_ref(
+                        effective_envelope_ref,
+                        "action_inbox_envelope_ref",
+                    )
+                    validate_execution_ref(
+                        effective_approval_ref,
+                        "action_inbox_approval_ref",
+                    )
+                    if (
+                        envelope.action_envelope_ref
+                        != effective_envelope_ref
+                        or envelope.approval_ref != effective_approval_ref
+                        or envelope.decision
+                        != RuntimeActionInboxApprovalDecision.approve.value
+                        or envelope.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or record.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or not envelope.approval_validated
+                        or not envelope.authority_scope_allowed
+                        or envelope.safe_disable_active
+                        or envelope.scope_mismatch
+                        or envelope.runtime_profile_weaker_or_disabled
+                        or envelope.expires_at <= utc_now()
+                    ):
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
             updated = record.model_copy(
                 update={
                     "adapter_dispatch_started": True,
@@ -2319,7 +2345,14 @@ class RuntimeInvocationStore:
     def _exclusive_mutation(self):
         directory_fd = -1
         lock_fd = -1
-        with self._process_lock:
+        process_lock_acquired = self._process_lock.acquire(
+            timeout=RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS
+        )
+        if not process_lock_acquired:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        try:
             try:
                 opened = _open_runtime_gateway_state_dir(
                     self.state_dir,
@@ -2346,7 +2379,22 @@ class RuntimeInvocationStore:
                     raise RuntimeInvocationStorageError(
                         "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
                     )
-                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                lock_deadline = (
+                    time.monotonic() + RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS
+                )
+                while True:
+                    try:
+                        fcntl.flock(
+                            lock_fd,
+                            fcntl.LOCK_EX | fcntl.LOCK_NB,
+                        )
+                        break
+                    except BlockingIOError as exc:
+                        if time.monotonic() >= lock_deadline:
+                            raise RuntimeInvocationStorageError(
+                                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                            ) from exc
+                        time.sleep(RUNTIME_GATEWAY_LOCK_POLL_SECONDS)
                 self._mutation_directory_fds.append(directory_fd)
                 try:
                     self._reload()
@@ -2373,6 +2421,8 @@ class RuntimeInvocationStore:
                     os.close(lock_fd)
                 if directory_fd >= 0:
                     os.close(directory_fd)
+        finally:
+            self._process_lock.release()
 
     def _active_mutation_directory_fd(self) -> int:
         if not self._mutation_directory_fds:

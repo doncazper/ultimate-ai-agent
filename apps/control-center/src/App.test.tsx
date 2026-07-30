@@ -10988,11 +10988,36 @@ describe("Web Control Center shell", () => {
   });
 
   it.each([
-    ["committed", "rejected", "A backend-owned goal submission is durably committed"],
-    ["rejected", "committed", "The backend durably rejected"],
+    [
+      "committed",
+      "rejected",
+      "2026-07-28T00:00:20Z",
+      "2026-07-28T00:00:10Z",
+      "A backend-owned goal submission is durably committed",
+    ],
+    [
+      "rejected",
+      "committed",
+      "2026-07-28T00:00:20Z",
+      "2026-07-28T00:00:10Z",
+      "The backend durably rejected",
+    ],
+    [
+      "committed",
+      "rejected",
+      "",
+      "not-a-timestamp",
+      "The backend durably rejected",
+    ],
   ] as const)(
     "reports the latest resolved goal submission for %s then %s admission order",
-    async (firstStatus, lastStatus, expectedNotice) => {
+    async (
+      firstStatus,
+      lastStatus,
+      firstResolvedAt,
+      lastResolvedAt,
+      expectedNotice,
+    ) => {
       const goalRef = `goal-ref:sha256:${"6".repeat(64)}`;
       const record = (
         status: "committed" | "rejected",
@@ -11101,8 +11126,8 @@ describe("Web Control Center shell", () => {
               .goal_mutation_submissions,
           ),
           records: [
-            record(firstStatus, 1, "2026-07-28T00:00:20Z"),
-            record(lastStatus, 2, "2026-07-28T00:00:10Z"),
+            record(firstStatus, 1, firstResolvedAt),
+            record(lastStatus, 2, lastResolvedAt),
           ],
           pending_count: 0,
           committed_count:
@@ -19225,6 +19250,12 @@ describe("Web Control Center shell", () => {
       API_ENDPOINTS.runtimeSmokeReportValidate,
     );
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.controlCenterChatTurns);
+    expect(READ_ENDPOINTS).not.toContain(
+      API_ENDPOINTS.runtimeGoalApprovalPrepareCreate,
+    );
+    expect(READ_ENDPOINTS).not.toContain(
+      API_ENDPOINTS.runtimeGoalApprovalRevoke,
+    );
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
     expect(API_ENDPOINTS.turnRouterPreview).toBe(
       "/control-center/turn-router/preview",

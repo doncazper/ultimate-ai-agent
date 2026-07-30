@@ -951,6 +951,7 @@ __all__ = [
     "RunEventStreamSummary",
     "build_exact_goal_mutation_approval_request",
     "build_exact_goal_mutation_approval_request_spec",
+    "terminal_goal_submission_rejection_reason_ref",
     "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF",
     "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF",
     "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF",

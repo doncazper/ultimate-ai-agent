@@ -151,6 +151,13 @@ function approvalSpecsEqual(
   );
 }
 
+function terminalSubmissionResolutionTime(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+): number {
+  const parsed = Date.parse(record.resolved_at ?? "");
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
 function hydratePendingGoalMutationApproval(
   pending: PendingGoalMutation,
   record: RuntimeGoalMutationSubmissionRecoveryRecord,
@@ -262,6 +269,29 @@ function terminalSubmissionMatchesPending(
   return (
     (record.status === "committed" || record.status === "rejected") &&
     submissionMatchesPending(record, pending)
+  );
+}
+
+function pendingGoalMutationsEqual(
+  left: PendingGoalMutation | null,
+  right: PendingGoalMutation,
+): boolean {
+  return (
+    left !== null &&
+    left.operation === right.operation &&
+    ("goalRef" in left ? left.goalRef : null) ===
+      ("goalRef" in right ? right.goalRef : null) &&
+    left.idempotencyRef === right.idempotencyRef &&
+    left.submissionEvidenceRef === right.submissionEvidenceRef &&
+    left.submissionRef === right.submissionRef &&
+    left.approvalRequestRef === right.approvalRequestRef &&
+    left.approvalRef === right.approvalRef &&
+    left.approvalStatus === right.approvalStatus &&
+    JSON.stringify(left.request) === JSON.stringify(right.request) &&
+    ((left.approvalSpec === null && right.approvalSpec === null) ||
+      (left.approvalSpec !== null &&
+        right.approvalSpec !== null &&
+        approvalSpecsEqual(left.approvalSpec, right.approvalSpec)))
   );
 }
 
@@ -426,7 +456,11 @@ export function RuntimeReadinessPanel({
         );
         return;
       }
-      setPendingGoalMutation(recovered);
+      setPendingGoalMutation((current) =>
+        pendingGoalMutationsEqual(current, recovered)
+          ? current
+          : recovered,
+      );
       if (record.operation === "create") {
         const request = record.request_payload as RuntimeGoalCreateRequest;
         setGoalObjective(request.objective);
@@ -460,8 +494,8 @@ export function RuntimeReadinessPanel({
         )
         .sort((left, right) => {
           const resolvedOrder =
-            Date.parse(left.resolved_at ?? "") -
-            Date.parse(right.resolved_at ?? "");
+            terminalSubmissionResolutionTime(left) -
+            terminalSubmissionResolutionTime(right);
           return resolvedOrder !== 0
             ? resolvedOrder
             : left.submission_ref.localeCompare(right.submission_ref);
@@ -492,39 +526,35 @@ export function RuntimeReadinessPanel({
           "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
         );
       }
-      setPendingGoalMutation((current) => {
-        if (current !== null) {
-          const matchingRefRecords =
-            runEvents.goal_mutation_submissions.records.filter(
-              (record) =>
-                (record.status === "committed" ||
-                  record.status === "rejected") &&
-                record.submission_ref === current.submissionRef,
-            );
-          if (
-            matchingRefRecords.length === 1 &&
-            terminalSubmissionMatchesPending(
-              matchingRefRecords[0],
-              current,
-            ) &&
-            (matchingRefRecords[0].status === "rejected" ||
-              runEvents.goal_lifecycle.goals.some(
-                (goal) =>
-                  goal.goal_ref ===
-                  matchingRefRecords[0].committed_goal_ref,
-              ))
-          ) {
-            return null;
-          }
-          if (matchingRefRecords.length > 0) {
-            setGoalReadCurrent(false);
-            setGoalNotice(
-              "Goal submission recovery binding is inconsistent and remains blocked.",
-            );
-          }
+      if (pendingGoalMutation !== null) {
+        const matchingRefRecords =
+          runEvents.goal_mutation_submissions.records.filter(
+            (record) =>
+              (record.status === "committed" ||
+                record.status === "rejected") &&
+              record.submission_ref === pendingGoalMutation.submissionRef,
+          );
+        const exactTerminalMatch =
+          matchingRefRecords.length === 1 &&
+          terminalSubmissionMatchesPending(
+            matchingRefRecords[0],
+            pendingGoalMutation,
+          ) &&
+          (matchingRefRecords[0].status === "rejected" ||
+            runEvents.goal_lifecycle.goals.some(
+              (goal) =>
+                goal.goal_ref ===
+                matchingRefRecords[0].committed_goal_ref,
+            ));
+        if (exactTerminalMatch) {
+          setPendingGoalMutation(null);
+        } else if (matchingRefRecords.length > 0) {
+          setGoalReadCurrent(false);
+          setGoalNotice(
+            "Goal submission recovery binding is inconsistent and remains blocked.",
+          );
         }
-        return current;
-      });
+      }
     }
     const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
     setSelectedGoalRef((current) =>
@@ -534,7 +564,7 @@ export function RuntimeReadinessPanel({
         ? current
         : firstGoalRef,
     );
-  }, [runEvents, runEventsBackendOwned]);
+  }, [pendingGoalMutation, runEvents, runEventsBackendOwned]);
   const goalMutationReady =
     mutationBinding !== null && runEventsBackendOwned && goalReadCurrent;
   const selectedGoal = runtimeGoalEvents.goal_lifecycle.goals.find(

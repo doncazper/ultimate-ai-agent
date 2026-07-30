@@ -321,8 +321,6 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeCapabilityDiscovery,
   API_ENDPOINTS.runtimeRunEvents,
   API_ENDPOINTS.runtimeGoals,
-  API_ENDPOINTS.runtimeGoalApprovalPrepareCreate,
-  API_ENDPOINTS.runtimeGoalApprovalRevoke,
   API_ENDPOINTS.runtimeApprovalBridge,
   API_ENDPOINTS.runtimeStreamingProgress,
   API_ENDPOINTS.runtimeProfiles,

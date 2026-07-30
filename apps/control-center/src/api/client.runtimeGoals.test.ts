@@ -564,13 +564,13 @@ describe("proof-backed runtime goal mutations", () => {
   });
 
   it.each([
-    ["GOAL_VERSION_CONFLICT", "conflict"],
-    ["GOAL_NOT_FOUND", "not_found"],
-    ["GOAL_MUTATION_APPROVAL_EXPIRED", "authorization_error"],
-    ["GOAL_REQUEST_REF_INVALID", "validation_error"],
+    ["GOAL_VERSION_CONFLICT", "conflict", 409],
+    ["GOAL_NOT_FOUND", "not_found", 404],
+    ["GOAL_MUTATION_APPROVAL_EXPIRED", "authorization_error", 403],
+    ["GOAL_REQUEST_REF_INVALID", "validation_error", 400],
   ])(
-    "classifies durable HTTP 200 terminal failure %s for authoritative recovery",
-    async (code, category) => {
+    "classifies durable terminal failure %s for authoritative recovery regardless of HTTP %s",
+    async (code, category, status) => {
       vi.stubGlobal(
         "fetch",
         vi.fn(async () =>
@@ -585,7 +585,7 @@ describe("proof-backed runtime goal mutations", () => {
               },
             }),
             {
-              status: 200,
+              status,
               headers: { "Content-Type": "application/json" },
             },
           ),

@@ -7,15 +7,34 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    GOAL_RUNTIME_STATE_DIR_ENV,
     RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF,
     RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF,
     RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF,
     RuntimeRunEventsReadModel,
     build_runtime_run_events_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RUNTIME_GATEWAY_STATE_DIR_ENV,
+)
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_goal_runtime_state(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        GOAL_RUNTIME_STATE_DIR_ENV,
+        str(tmp_path / "goal-runtime"),
+    )
+    monkeypatch.setenv(
+        RUNTIME_GATEWAY_STATE_DIR_ENV,
+        str(tmp_path / "runtime-gateway"),
+    )
 
 
 def test_runtime_run_events_are_durable_local_replay_only() -> None:

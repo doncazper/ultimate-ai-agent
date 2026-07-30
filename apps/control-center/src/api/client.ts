@@ -10463,7 +10463,6 @@ async function postRuntimeGoalMutation(
       throw new RuntimeGoalMutationValidationError(safeFailureMessage);
     }
     if (
-      response.status === 200 &&
       submissionRef !== null &&
       isDurableGoalMutationTerminalFailure(data.error)
     ) {

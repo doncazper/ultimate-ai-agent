@@ -6,6 +6,7 @@ import { mockControlCenterData } from "./mocks/controlCenterData";
 const mocked = vi.hoisted(() => ({
   controlCenterState: {} as unknown,
   truthState: {} as unknown,
+  truthEnabled: false,
 }));
 
 vi.mock("./hooks/useControlCenterData", () => ({
@@ -13,7 +14,10 @@ vi.mock("./hooks/useControlCenterData", () => ({
 }));
 
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
-  useCriticalBackendTruth: () => mocked.truthState,
+  useCriticalBackendTruth: (enabled: boolean) => {
+    mocked.truthEnabled = enabled;
+    return mocked.truthState;
+  },
 }));
 
 import { App } from "./App";
@@ -69,11 +73,23 @@ beforeEach(() => {
     lastVerified,
     retry: vi.fn(),
   };
+  mocked.truthEnabled = false;
 });
 
 afterEach(() => cleanup());
 
 describe("critical backend truth boundary", () => {
+  it("loads backend truth before rendering the runtime mutation surface", () => {
+    window.history.pushState({}, "", "/runtime");
+
+    render(<App />);
+
+    expect(mocked.truthEnabled).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "Runtime readiness" }),
+    ).toBeInTheDocument();
+  });
+
   it("hides critical product content when the truth envelope is stale", () => {
     mocked.truthState = {
       status: "degraded",

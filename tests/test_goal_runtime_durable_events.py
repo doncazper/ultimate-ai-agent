@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import threading
 from contextlib import contextmanager
@@ -10,6 +11,7 @@ from pathlib import Path
 import pytest
 
 import ultimate_ai_agent.core.runtime_gateway.goal_runtime as goal_runtime_module
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.runtime_gateway.command import invoke_governed_command
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeAuthority,
@@ -8646,6 +8648,44 @@ def test_goal_runtime_lock_uses_pinned_root_across_path_exchange(
     assert not (
         substituted_dir / ".locks" / "goal-journal.lock"
     ).exists()
+
+
+def test_file_single_writer_lock_reenters_across_path_and_parent_entrypoints(
+    tmp_path: Path,
+) -> None:
+    lock_dir = tmp_path / ".locks"
+    manager = FileSingleWriterLockManager(lock_dir)
+    parent_descriptor = None
+    completed = threading.Event()
+    errors: list[BaseException] = []
+
+    def acquire_both_entrypoints() -> None:
+        nonlocal parent_descriptor
+        try:
+            with manager.acquire("shared-writer"):
+                parent_descriptor = os.open(
+                    tmp_path,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                with manager.acquire_from_parent(
+                    parent_descriptor,
+                    lock_dir.name,
+                    "shared-writer",
+                ):
+                    completed.set()
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+        finally:
+            if parent_descriptor is not None:
+                os.close(parent_descriptor)
+
+    worker = threading.Thread(target=acquire_both_entrypoints, daemon=True)
+    worker.start()
+    worker.join(timeout=2)
+
+    assert completed.is_set()
+    assert not worker.is_alive()
+    assert errors == []
 
 
 def test_exact_submission_retry_repairs_bound_genesis_intent(

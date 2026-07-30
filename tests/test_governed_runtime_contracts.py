@@ -83,6 +83,34 @@ ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
 
 
+def _hold_runtime_gateway_store_lock(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(
+        state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK,
+        os.O_RDWR | os.O_CREAT,
+        0o600,
+    )
+    try:
+        runtime_storage.fcntl.flock(
+            descriptor,
+            runtime_storage.fcntl.LOCK_EX,
+        )
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        runtime_storage.fcntl.flock(
+            descriptor,
+            runtime_storage.fcntl.LOCK_UN,
+        )
+        os.close(descriptor)
+
+
 def _run_cross_process_command_owner(
     state_dir: Path,
     started_path: Path,
@@ -879,6 +907,50 @@ def test_runtime_store_mutation_lock_rejects_symlinked_state_root_ancestor(
         RuntimeInvocationStore(state_dir).list_invocations_locked()
 
     assert not (real_parent / "runtime" / "runtime_gateway_invocations.lock").exists()
+
+
+def test_runtime_store_lock_contention_fails_closed_within_bounded_wait(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    started_path = tmp_path / "lock-started"
+    release_path = tmp_path / "lock-release"
+    process = multiprocessing.Process(
+        target=_hold_runtime_gateway_store_lock,
+        args=(state_dir, started_path, release_path),
+    )
+    process.start()
+    deadline = time.monotonic() + 5
+    while not started_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert started_path.exists()
+    monkeypatch.setattr(
+        runtime_storage,
+        "RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS",
+        0.05,
+    )
+    monkeypatch.setattr(
+        runtime_storage,
+        "RUNTIME_GATEWAY_LOCK_POLL_SECONDS",
+        0.001,
+    )
+
+    started = time.monotonic()
+    try:
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+        ):
+            RuntimeInvocationStore(state_dir).list_invocations_locked()
+        assert time.monotonic() - started < 1
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        process.join(timeout=5)
+        if process.is_alive():  # pragma: no cover - cleanup on failure
+            process.terminate()
+            process.join(timeout=1)
+    assert process.exitcode == 0
 
 
 def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admission(
@@ -3856,10 +3928,10 @@ def test_runtime_gateway_command_replay_without_receipt_does_not_spawn_again(
 
     assert len(calls) == 1
     assert replay.replayed is True
-    assert replay.record.status == "execution_blocked"
-    assert replay.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
-    assert replay.record.receipt is not None
-    assert replay.record.receipt.command_execution_performed is False
+    assert replay.record.status == "pending_approval"
+    assert replay.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    assert replay.record.receipt is None
+    assert replay.record.adapter_dispatch_started is True
 
 
 def test_runtime_gateway_safe_disable_blocks_command_before_runner(
@@ -5967,7 +6039,6 @@ def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> Non
             created.record.invocation_ref,
             protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
             idempotency_ref=marker_idempotency_ref,
-            command_gateway_validated=True,
         )
         claims.append(claim)
         if claim.acquired:
@@ -5984,6 +6055,116 @@ def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> Non
     assert adapter_calls == [created.record.invocation_ref]
     assert all(
         claim.record.adapter_dispatch_started is True for claim in claims
+    )
+
+
+def test_started_readonly_command_retry_preserves_unknown_attempt_without_receipt(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def fail_after_start(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("bounded runner failed after process start")
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Preserve unknown truth after a started read-only command.",
+    )
+    adapter = GovernedCommandRuntimeAdapter(
+        workspace_root=ROOT,
+        runner=fail_after_start,
+    )
+    idempotency_ref = "idempotency-ref:started-readonly-command-retry"
+    with pytest.raises(
+        RuntimeError,
+        match="bounded runner failed after process start",
+    ):
+        runtime_command.invoke_governed_command(
+            store=store,
+            adapter=adapter,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+
+    retried = runtime_command.invoke_governed_command(
+        store=store,
+        adapter=adapter,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert calls == 1
+    assert retried.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    assert retried.replayed is True
+    assert retried.record.adapter_dispatch_started is True
+    assert retried.record.receipt is None
+
+
+def test_command_dispatch_derives_and_revalidates_durable_approval_envelope(
+    tmp_path: Path,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    prepared = store.prepare_adapter_dispatch_protocol(
+        approved.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-derived:prepare",
+    )
+
+    claim = store.mark_adapter_dispatch_started(
+        prepared.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-derived",
+        command_gateway_validated=True,
+    )
+
+    assert claim.acquired is True
+    assert claim.record.adapter_dispatch_started is True
+
+
+def test_command_dispatch_rejects_missing_required_durable_approval_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=_approved_runtime_command_request(),
+    )
+    prepared = store.prepare_adapter_dispatch_protocol(
+        approved.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-missing:prepare",
+    )
+    original_get_invocation = store.get_invocation
+
+    def without_envelope(invocation_ref: str) -> RuntimeInvocationRecord:
+        record = original_get_invocation(invocation_ref)
+        return record.model_copy(update={"action_inbox_envelope": None})
+
+    monkeypatch.setattr(store, "get_invocation", without_envelope)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED",
+    ):
+        store.mark_adapter_dispatch_started(
+            prepared.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref="idempotency-ref:dispatch-envelope-missing:marker",
+            command_gateway_validated=True,
+        )
+    monkeypatch.setattr(store, "get_invocation", original_get_invocation)
+    assert (
+        store.get_invocation(prepared.invocation_ref).adapter_dispatch_started
+        is False
     )
 
 
@@ -6303,6 +6484,7 @@ def test_legacy_protocol_accepts_only_immutable_receipt_replay(
             invocation_request,
             idempotency_ref=idempotency_ref,
             command_gateway_validated=True,
+            action_inbox_envelope_required=False,
             adapter_dispatch_protocol_ref=(
                 runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
             ),
