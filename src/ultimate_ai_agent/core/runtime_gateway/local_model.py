@@ -484,7 +484,10 @@ class RuntimeGateway:
                         )
                     ),
                 )
-            if result.record.action_inbox_envelope is not None:
+            if (
+                result.record.action_inbox_envelope is not None
+                and runtime_invocation_has_committed_receipt(result.record)
+            ):
                 updated = self.store.mark_action_inbox_execution_receipt(
                     result.record.invocation_ref,
                     idempotency_ref=_operation_idempotency_ref(
@@ -519,6 +522,14 @@ class RuntimeGateway:
         idempotency_ref: str,
     ) -> RuntimeLocalModelGatewayResult:
         existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        if (
+            existing is not None
+            and _receipt_proves_in_progress_local_model_attempt(existing)
+        ):
+            return self._invoke_local_model(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
         with self.goal_runtime_service.runtime_projection_guard(
             existing,
             operation_idempotency_ref=idempotency_ref,
@@ -609,6 +620,19 @@ class RuntimeGateway:
             and not record.adapter_dispatch_started
             and record.receipt is None
         )
+        in_progress_attempt_replay = bool(
+            created.replayed
+            and record.adapter_dispatch_started
+            and _receipt_proves_in_progress_local_model_attempt(record)
+        )
+        if in_progress_attempt_replay:
+            return RuntimeLocalModelGatewayResult(
+                record=record,
+                request_byte_count=_request_byte_count(request),
+                error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS",
+                replayed=True,
+                local_model_runtime_enabled=runtime_enabled,
+            )
         if created.replayed and not retryable_pre_dispatch_replay:
             replay_runtime_disabled = self.store.operator_safe_disable_active()
             replay_runtime_enabled = self._runtime_local_model_enabled()
@@ -1207,6 +1231,19 @@ def _receipt_proves_completed_local_model_attempt(
         and receipt.invocation_status == RuntimeInvocationStatus.receipt_recorded.value
         and metadata is not None
         and not metadata.attempt_outcome_unknown
+    )
+
+
+def _receipt_proves_in_progress_local_model_attempt(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    receipt = record.receipt
+    metadata = receipt.model_receipt_metadata if receipt is not None else None
+    return bool(
+        record.adapter_dispatch_started
+        and receipt is not None
+        and metadata is not None
+        and metadata.attempt_outcome_unknown
     )
 
 

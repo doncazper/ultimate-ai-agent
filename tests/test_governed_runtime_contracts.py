@@ -5000,8 +5000,9 @@ def test_runtime_gateway_persists_unknown_attempt_marker_before_transport(
 
     assert calls == 1
     assert replay.replayed is True
-    assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
-    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS"
+    assert replay.record.status == marker.status
+    assert replay.record.policy_decision == marker.policy_decision
     assert replay.record.receipt == marker.receipt
 
 
@@ -5172,13 +5173,24 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     first = threading.Thread(target=invoke_first)
     first.start()
     assert transport_started.wait(timeout=5)
+    marker = store.get_invocation_for_idempotency(idempotency_ref)
+    assert marker is not None
+    assert marker.receipt is not None
+    assert marker.receipt.model_receipt_metadata is not None
+    assert marker.receipt.model_receipt_metadata.attempt_outcome_unknown is True
     duplicate = gateway.invoke_local_model(
         request,
         idempotency_ref=idempotency_ref,
     )
     assert duplicate.replayed is True
-    assert duplicate.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
-    assert duplicate.record.policy_decision.allowed_to_execute is False
+    assert duplicate.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS"
+    assert duplicate.record.status == marker.status
+    assert duplicate.record.policy_decision == marker.policy_decision
+    assert duplicate.record.receipt == marker.receipt
+    persisted_during_attempt = store.get_invocation(duplicate.record.invocation_ref)
+    assert persisted_during_attempt.status == marker.status
+    assert persisted_during_attempt.policy_decision == marker.policy_decision
+    assert persisted_during_attempt.receipt == marker.receipt
 
     release_transport.set()
     first.join(timeout=5)
@@ -6084,6 +6096,91 @@ def test_overlapping_approved_command_retry_reports_in_progress_without_receipt(
     assert len(owner_results) == 1
     assert owner_results[0].record.receipt is not None
     assert owner_results[0].record.receipt.command_execution_performed is True
+    assert calls == 1
+
+
+def test_overlapping_action_inbox_retry_links_only_the_terminal_receipt(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    calls = 0
+    owner_results: list[RuntimeCommandGatewayResult] = []
+    owner_errors: list[BaseException] = []
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_APPROVED_OUTPUT",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    execution_idempotency_ref = "idempotency-ref:action-inbox-command-overlap"
+
+    def run_owner() -> None:
+        try:
+            owner_results.append(
+                gateway.execute_approved_command(
+                    approved.invocation_ref,
+                    exact_request,
+                    execute_request,
+                    idempotency_ref=execution_idempotency_ref,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            owner_errors.append(exc)
+
+    owner = threading.Thread(target=run_owner)
+    owner.start()
+    assert runner_started.wait(timeout=5)
+    duplicate = gateway.execute_approved_command(
+        approved.invocation_ref,
+        exact_request,
+        execute_request,
+        idempotency_ref=execution_idempotency_ref,
+    )
+    try:
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert duplicate.record.action_inbox_envelope is not None
+        assert duplicate.record.action_inbox_envelope.receipt_refs == []
+        assert calls == 1
+    finally:
+        release_runner.set()
+        owner.join(timeout=10)
+
+    assert owner.is_alive() is False
+    assert owner_errors == []
+    assert len(owner_results) == 1
+    terminal = owner_results[0].record
+    assert terminal.receipt is not None
+    assert terminal.action_inbox_envelope is not None
+    assert terminal.action_inbox_envelope.receipt_refs == [
+        terminal.receipt.receipt_ref
+    ]
     assert calls == 1
 
 
