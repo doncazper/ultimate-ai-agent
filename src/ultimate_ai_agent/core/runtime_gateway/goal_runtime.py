@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     MAX_RUNTIME_GOAL_VERSION,
     MAX_RUNTIME_RECEIPT_EVIDENCE_REFS,
     RuntimeCriterionVerificationBinding,
+    RuntimeInvocationStatus,
     runtime_invocation_has_committed_receipt,
 )
 from ultimate_ai_agent.core.time import utc_now
@@ -393,9 +394,20 @@ def _runtime_invocation_has_projectable_terminal_receipt(
 ) -> bool:
     """Keep durable in-flight replay markers out of terminal event projection."""
 
-    if not runtime_invocation_has_committed_receipt(record):
-        return False
     receipt = record.receipt
+    if receipt is None:
+        return False
+    terminal_receipt = runtime_invocation_has_committed_receipt(record) or (
+        receipt.invocation_status
+        == RuntimeInvocationStatus.execution_blocked.value
+        and record.status
+        in {
+            RuntimeInvocationStatus.execution_blocked.value,
+            RuntimeInvocationStatus.safe_disabled.value,
+        }
+    )
+    if not terminal_receipt:
+        return False
     metadata = receipt.model_receipt_metadata if receipt is not None else None
     return metadata is None or not metadata.attempt_outcome_unknown
 
@@ -8031,17 +8043,23 @@ class GoalRuntimeService:
         if self.runtime_invocation_state_dir is not None:
             from ultimate_ai_agent.core.runtime_gateway.storage import (
                 RuntimeInvocationStore,
+                RuntimeInvocationStorageError,
             )
 
             runtime_store = RuntimeInvocationStore(
                 self.runtime_invocation_state_dir
             )
             if _path_generation(runtime_store.path)[0]:
-                committed_records = [
-                    record
-                    for record in runtime_store.list_invocations_locked()
-                    if _runtime_invocation_has_projectable_terminal_receipt(record)
-                ]
+                try:
+                    committed_records = [
+                        record
+                        for record in runtime_store.list_invocations_locked()
+                        if _runtime_invocation_has_projectable_terminal_receipt(record)
+                    ]
+                except RuntimeInvocationStorageError as exc:
+                    raise GoalRuntimeError(
+                        "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+                    ) from exc
                 if committed_records:
                     self.sync_runtime_invocations(
                         committed_records,

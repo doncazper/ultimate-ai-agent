@@ -3458,6 +3458,39 @@ def test_blocked_receipt_refreshes_expired_projection_reservation_before_commit(
     assert result.error_category == "RUNTIME_COMMAND_SAFE_DISABLED"
     assert result.record.receipt is not None
     assert refresh_times == [now]
+    assert [
+        event.event_kind
+        for event in service.events.replay(result.record.invocation_ref).events
+    ] == ["run_started", "failed_terminal"]
+
+
+def test_aggregate_read_normalizes_symlinked_runtime_invocation_ledger(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtime"
+    store = RuntimeInvocationStore(runtime_dir)
+    store.create_invocation(
+        RuntimeInvocationRequest(
+            requested_authority="local_model",
+            requested_profile="sealed",
+            input_ref="runtime-input-ref:aggregate-symlink",
+            safe_summary="Create bounded runtime ledger evidence.",
+        ),
+        idempotency_ref="idempotency-ref:aggregate-symlink:create",
+    )
+    external = tmp_path / "substituted-runtime-invocations.jsonl"
+    store.path.replace(external)
+    store.path.symlink_to(external)
+
+    with pytest.raises(
+        GoalRuntimeError,
+        match="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+    ):
+        GoalRuntimeService.for_runtime_store(runtime_dir).aggregate_read_snapshot(
+            run_ref=None,
+            after_sequence=0,
+            limit=10,
+        )
 
 
 def test_runtime_projection_refresh_failure_prevents_adapter_dispatch(
