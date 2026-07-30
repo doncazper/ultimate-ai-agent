@@ -966,7 +966,63 @@ class RuntimeInvocationStore:
                 existing.approval_requirement.action_inbox_envelope_required
                 != action_inbox_envelope_required
             ):
-                raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
+                legacy_readonly_pre_dispatch = bool(
+                    existing.request.requested_authority
+                    == RuntimeAuthority.allowlisted_command.value
+                    and existing.request.action_ref
+                    == "action-ref:runtime-command-git_status"
+                    and command_gateway_validated
+                    and existing.approval_requirement.action_inbox_envelope_required
+                    and not action_inbox_envelope_required
+                    and adapter_dispatch_protocol_ref is not None
+                    and existing.adapter_dispatch_protocol_ref
+                    == adapter_dispatch_protocol_ref
+                    and not existing.adapter_dispatch_started
+                    and existing.receipt is None
+                )
+                if not legacy_readonly_pre_dispatch:
+                    raise RuntimeInvocationConflictError(
+                        "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+                    )
+                existing = existing.model_copy(
+                    update={
+                        "approval_requirement": (
+                            existing.approval_requirement.model_copy(
+                                update={
+                                    "action_inbox_envelope_required": False,
+                                }
+                            )
+                        ),
+                        "updated_at": utc_now(),
+                    }
+                )
+                migration_idempotency_ref = _hash_ref(
+                    "idempotency-ref",
+                    {
+                        "base_idempotency_ref": idempotency_ref,
+                        "operation": (
+                            "legacy-readonly-action-inbox-requirement-migrated"
+                        ),
+                    },
+                )
+                migration_fingerprint_ref = _hash_ref(
+                    "runtime-operation-fingerprint-ref",
+                    {
+                        "operation": (
+                            "legacy-readonly-action-inbox-requirement-migrated"
+                        ),
+                        "invocation_ref": existing.invocation_ref,
+                        "adapter_dispatch_protocol_ref": (
+                            adapter_dispatch_protocol_ref
+                        ),
+                    },
+                )
+                self._append(
+                    "legacy_readonly_action_inbox_requirement_migrated",
+                    existing,
+                    entry_idempotency_ref=migration_idempotency_ref,
+                    payload_fingerprint_ref=migration_fingerprint_ref,
+                )
             if (
                 adapter_dispatch_protocol_ref is not None
                 and existing.adapter_dispatch_protocol_ref

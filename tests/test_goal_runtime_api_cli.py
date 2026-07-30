@@ -378,6 +378,8 @@ def test_operator_goal_writes_report_storage_interruption_as_unknown_outcome(
     assert body["data"]["reconciliation_required"] is True
     assert body["data"]["exact_idempotent_retry_required"] is True
     assert body["data"]["idempotency_ref"] == idempotency_ref
+    if service_method == "create_goal":
+        assert body["trace_id"] == idempotency_ref
     if service_method == "decide_goal_mutation_approval":
         assert body["data"]["approval_request_ref"] == expected_ref
     elif expected_ref is not None:

@@ -9601,9 +9601,23 @@ def test_compacted_commit_identity_replays_exactly_and_blocks_substitution(
     for substituted_kwargs in substituted_requests:
         with pytest.raises(
             GoalIdempotencyConflictError,
-            match="GOAL_(?:IDEMPOTENCY|SUBMISSION_BINDING)_CONFLICT",
+            match=r"GOAL_(?:IDEMPOTENCY|SUBMISSION_BINDING)_CONFLICT",
         ):
             restarted.record_goal_mutation_submission(**substituted_kwargs)
+
+    malformed_evidence_request = original_request.model_copy(
+        update={"evidence_refs": []}
+    )
+    with pytest.raises(
+        ValueError,
+        match="GOAL_SUBMISSION_EVIDENCE_BINDING_REQUIRED",
+    ):
+        restarted.goal_mutation_submission_record_for_request(
+            operation="create",
+            goal_ref=None,
+            request=malformed_evidence_request,
+            idempotency_ref=str(first_kwargs["idempotency_ref"]),
+        )
 
     first_tombstone["committed_goal_ref"] = (
         "goal-ref:compacted-commit-persisted-tamper"

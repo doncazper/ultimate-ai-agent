@@ -6522,3 +6522,71 @@ def test_legacy_protocol_accepts_only_immutable_receipt_replay(
                     runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
                 ),
             )
+
+
+def test_legacy_readonly_pre_dispatch_retry_migrates_requirement_and_executes_once(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    command_request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Resume one exact legacy read-only command.",
+    )
+    invocation_request = runtime_command_invocation_request(command_request)
+    idempotency_ref = "idempotency-ref:legacy-readonly-pre-dispatch"
+    legacy_store = _runtime_store_with_workspace_execute(tmp_path)
+    legacy = legacy_store.create_invocation(
+        invocation_request,
+        idempotency_ref=idempotency_ref,
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    ).record
+    assert legacy.approval_requirement.action_inbox_envelope_required is True
+    assert legacy.adapter_dispatch_started is False
+    assert legacy.receipt is None
+
+    restarted_store = _runtime_store_with_workspace_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=restarted_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    completed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    ).record
+
+    assert calls == 1
+    assert completed.receipt is not None
+    assert (
+        completed.approval_requirement.action_inbox_envelope_required
+        is False
+    )
+    durable = _runtime_store_with_workspace_execute(tmp_path).get_invocation(
+        legacy.invocation_ref
+    )
+    assert durable.receipt == completed.receipt
+    assert durable.approval_requirement.action_inbox_envelope_required is False
+
+    replayed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert replayed.replayed is True
+    assert replayed.record.receipt == completed.receipt
+    assert calls == 1

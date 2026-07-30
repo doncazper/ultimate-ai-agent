@@ -5168,8 +5168,8 @@ class _GoalMutationSubmissionStore:
                     validated.evidence_refs
                 )
                 if len(evidence_refs) != 1:
-                    raise GoalRuntimeCorruptionError(
-                        "GOAL_SUBMISSION_MUTATION_BINDING_MISMATCH"
+                    raise ValueError(
+                        "GOAL_SUBMISSION_EVIDENCE_BINDING_REQUIRED"
                     )
                 expected_fingerprint = _sha256_ref(
                     "request-fingerprint-ref:goal-mutation-submission",

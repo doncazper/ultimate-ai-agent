@@ -385,7 +385,10 @@ print(json.dumps(payload))
     observed: dict[str, object] = {}
     # Bound the outer test harness separately from the unchanged inner safety
     # timeout so process startup contention cannot mask the asserted outcome.
-    probe_timeout_seconds = 30
+    # Keep the outer harness bounded but independent from loaded-shard scheduling.
+    # The asserted output, network, and three-second process-tree limits below
+    # remain unchanged.
+    probe_timeout_seconds = 90
     try:
         for mode in ("output", "timeout"):
             result = subprocess.run(

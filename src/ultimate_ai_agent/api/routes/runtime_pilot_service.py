@@ -1564,7 +1564,9 @@ def post_api_runtime_goal(
     except OSError:
         return _goal_runtime_storage_failure(
             "api_runtime_goal_create",
-            x_uaa_goal_submission_ref or "idempotency-ref:goal-create-unknown",
+            x_uaa_goal_submission_ref
+            or idempotency_ref
+            or _safe_goal_failure_trace("goal-create"),
             submission_ref=x_uaa_goal_submission_ref,
             idempotency_ref=idempotency_ref,
             approval_ref=x_uaa_goal_approval_ref,

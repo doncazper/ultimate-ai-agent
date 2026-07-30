@@ -1221,7 +1221,10 @@ export function RuntimeReadinessPanel({
         );
       }
       const recovery = await refreshGoalState(preparedPending);
-      if (recovery !== "approval_terminal") {
+      if (
+        recovery !== "approval_terminal" &&
+        recovery !== "rejected"
+      ) {
         throw new Error(
           "The exact goal mutation denial is not durably reconciled and remains uncertain.",
         );
@@ -1276,13 +1279,18 @@ export function RuntimeReadinessPanel({
         );
       }
       const recovery = await refreshGoalState(approvedPending);
-      if (recovery !== "approval_terminal") {
+      if (
+        recovery !== "approval_terminal" &&
+        recovery !== "rejected"
+      ) {
         throw new Error(
           "The exact goal mutation revocation is not durably reconciled and remains uncertain.",
         );
       }
       setGoalNotice(
-        "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
+        recovery === "rejected"
+          ? "The exact goal mutation approval was revoked; the linked submission was durably rejected and no goal mutation ran."
+          : "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
       );
     } catch (error) {
       setPendingGoalMutation({

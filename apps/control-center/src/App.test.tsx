@@ -9811,7 +9811,7 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: true,
-              result: runtimeGoalPreparedRecoveryRunEvents(
+              result: runtimeGoalRejectedRecoveryRunEvents(
                 prepared,
                 "denied",
               ),
@@ -9871,7 +9871,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create local goal" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
   });
 
   it("blocks mutation retry while exact approval revocation is uncertain", async () => {
@@ -9937,7 +9937,7 @@ describe("Web Control Center shell", () => {
           return new Response(
             JSON.stringify({
               ok: true,
-              result: runtimeGoalPreparedRecoveryRunEvents(
+              result: runtimeGoalRejectedRecoveryRunEvents(
                 prepared,
                 "revoked",
               ),
@@ -9995,14 +9995,14 @@ describe("Web Control Center shell", () => {
     );
     expect(
       await screen.findByText(
-        "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
+        "The exact goal mutation approval was revoked; the linked submission was durably rejected and no goal mutation ran.",
       ),
     ).toBeInTheDocument();
     expect(revocationCallCount).toBe(2);
     expect(mutationCallCount).toBe(1);
     expect(
       screen.getByRole("button", { name: "Create local goal" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
   });
 
   it.each(["create", "edit", "transition"] as const)(
@@ -20652,6 +20652,34 @@ function runtimeGoalPreparedRecoveryRunEvents(
       pending_count: 1,
       committed_count: 0,
       rejected_count: 0,
+    },
+  };
+}
+
+function runtimeGoalRejectedRecoveryRunEvents(
+  prepared: RuntimeGoalPreparedRecoveryIdentity,
+  posture: "denied" | "revoked",
+) {
+  const pending = runtimeGoalPreparedRecoveryRunEvents(
+    prepared,
+    posture,
+  );
+  const [record] = pending.goal_mutation_submissions.records;
+  return {
+    ...pending,
+    goal_mutation_submissions: {
+      ...pending.goal_mutation_submissions,
+      records: [
+        {
+          ...record,
+          status: "rejected" as const,
+          rejection_reason_ref:
+            `reason-ref:goal-mutation-rejected:approval-${posture}`,
+          resolved_at: "2026-07-28T00:00:01Z",
+        },
+      ],
+      pending_count: 0,
+      rejected_count: 1,
     },
   };
 }
