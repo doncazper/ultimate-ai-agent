@@ -18,8 +18,8 @@ def main() -> int:
     failures: list[str] = []
     read_model = build_runtime_run_events_read_model()
 
-    if read_model.status != "proposal_read_model_only":
-        failures.append("runtime run events must remain proposal/read-model only")
+    if read_model.status != "durable_local_replay":
+        failures.append("runtime run events must expose durable local replay")
     if read_model.authority_state_route_ref != "GET /api/runtime/authority-state":
         failures.append("run events must expose AuthorityState route parity")
     if (
@@ -35,8 +35,8 @@ def main() -> int:
         failures.append("run creation adapter must remain explicitly unsupported")
     if not read_model.uaa_controls_authority:
         failures.append("UAA must remain the authority owner")
-    if not read_model.no_mutation_routes_registered:
-        failures.append("Phase 03 must not register mutation routes")
+    if not read_model.no_runtime_control_routes_registered:
+        failures.append("delegated runtime control routes must remain unregistered")
     if any(
         (
             read_model.create_run_route_enabled,
@@ -46,12 +46,21 @@ def main() -> int:
         )
     ):
         failures.append("run create/stop/approval/live stream flags must stay disabled")
-    if read_model.completed_run_count != 0:
-        failures.append("Phase 03 must not claim completed delegated runs")
     if read_model.proposal_count != len(read_model.run_proposals):
         failures.append("proposal count drifted from run proposals")
-    if read_model.approval_wait_count != 1:
-        failures.append("expected one approval-wait proposal")
+    expected_approval_wait_count = sum(
+        event.event_kind == "approval_wait_entered"
+        for event in read_model.event_previews
+    )
+    if read_model.approval_wait_count != expected_approval_wait_count:
+        failures.append("approval-wait count drifted from durable events")
+    expected_completed_run_count = sum(
+        stream.successful_receipt_recorded
+        or stream.terminal_event_kind == "completion_verified"
+        for stream in read_model.stream_summaries
+    )
+    if read_model.completed_run_count != expected_completed_run_count:
+        failures.append("completed-run count drifted from durable receipt truth")
     if any(
         proposal.uaa_durable_run_state == "completed"
         for proposal in read_model.run_proposals

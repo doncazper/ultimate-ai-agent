@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from scripts.dev import uaa_runtime
 import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
+import ultimate_ai_agent.core.runtime_gateway.storage as runtime_storage
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -28,8 +29,10 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeCommandExecutionRequest,
     RuntimeCommandGatewayResult,
     RuntimeCommandRunResult,
+    RuntimeCriterionVerificationBinding,
     RuntimeGateway,
     RuntimeInvocationConflictError,
+    RuntimeInvocationRecord,
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
@@ -45,6 +48,9 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
     HERMES_CLI_ENV,
     HERMES_INTERFACE_MODE_ENABLED_ENV,
+)
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    GoalRuntimeCorruptionError,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
@@ -75,6 +81,34 @@ from tests.authority_helpers import (
 
 ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
+
+
+def _hold_runtime_gateway_store_lock(
+    state_dir: Path,
+    started_path: Path,
+    release_path: Path,
+) -> None:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(
+        state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK,
+        os.O_RDWR | os.O_CREAT,
+        0o600,
+    )
+    try:
+        runtime_storage.fcntl.flock(
+            descriptor,
+            runtime_storage.fcntl.LOCK_EX,
+        )
+        started_path.write_text("started", encoding="utf-8")
+        deadline = time.monotonic() + 10
+        while not release_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        runtime_storage.fcntl.flock(
+            descriptor,
+            runtime_storage.fcntl.LOCK_UN,
+        )
+        os.close(descriptor)
 
 
 def _run_cross_process_command_owner(
@@ -152,8 +186,7 @@ def _probe_command_execution_byte_range(
         try:
             runtime_command.fcntl.lockf(
                 descriptor,
-                runtime_command.fcntl.LOCK_EX
-                | runtime_command.fcntl.LOCK_NB,
+                runtime_command.fcntl.LOCK_EX | runtime_command.fcntl.LOCK_NB,
                 1,
                 offset,
                 os.SEEK_SET,
@@ -208,7 +241,9 @@ def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationSt
     )
 
 
-def _runtime_store_with_provider_model_execute(tmp_path: Path) -> RuntimeInvocationStore:
+def _runtime_store_with_provider_model_execute(
+    tmp_path: Path,
+) -> RuntimeInvocationStore:
     return RuntimeInvocationStore(
         tmp_path,
         active_authority_leases=[provider_model_execute_authority_lease()],
@@ -294,7 +329,9 @@ def test_hermes_cli_chat_records_authority_refs_when_allowed(
     assert receipt.authority_policy_receipt_ref
 
 
-def _runtime_request(summary: str = "safe governed runtime summary") -> RuntimeInvocationRequest:
+def _runtime_request(
+    summary: str = "safe governed runtime summary",
+) -> RuntimeInvocationRequest:
     return RuntimeInvocationRequest(
         requested_authority="local_model",
         requested_profile="sealed",
@@ -313,21 +350,27 @@ def test_runtime_profiles_default_to_sealed_and_do_not_execute() -> None:
     assert payload["model_call_enabled"] is False
     assert payload["command_execution_enabled"] is False
     assert payload["approval_required_for_execution"] is True
-    assert "authority-ref:runtime-local-model-loopback-phase-03" in payload[
-        "implemented_authority_refs"
-    ]
-    assert "authority-ref:runtime-allowlisted-readonly-command-phase-04" in payload[
-        "implemented_authority_refs"
-    ]
-    assert "blocked-authority:runtime-unrestricted-command-execution" in payload[
-        "blocked_authority_refs"
-    ]
-    assert "blocked-authority:runtime-command-execution-without-gateway-allowlist" in (
-        payload["blocked_authority_refs"]
+    assert (
+        "authority-ref:runtime-local-model-loopback-phase-03"
+        in payload["implemented_authority_refs"]
+    )
+    assert (
+        "authority-ref:runtime-allowlisted-readonly-command-phase-04"
+        in payload["implemented_authority_refs"]
+    )
+    assert (
+        "blocked-authority:runtime-unrestricted-command-execution"
+        in payload["blocked_authority_refs"]
+    )
+    assert (
+        "blocked-authority:runtime-command-execution-without-gateway-allowlist"
+        in (payload["blocked_authority_refs"])
     )
 
 
-def test_generic_runtime_policy_does_not_enable_local_model_without_gateway_validation() -> None:
+def test_generic_runtime_policy_does_not_enable_local_model_without_gateway_validation() -> (
+    None
+):
     request = RuntimeInvocationRequest(
         requested_authority="local_model",
         requested_profile="local-runtime",
@@ -356,7 +399,9 @@ def test_generic_runtime_policy_does_not_enable_local_model_without_gateway_vali
     assert allowed.allowed_to_execute is True
 
 
-def test_generic_runtime_policy_does_not_enable_command_without_gateway_validation() -> None:
+def test_generic_runtime_policy_does_not_enable_command_without_gateway_validation() -> (
+    None
+):
     request = RuntimeInvocationRequest(
         requested_authority="allowlisted_command",
         requested_profile="local-runtime",
@@ -424,7 +469,9 @@ def test_runtime_contracts_reject_unsafe_persistence_and_extra_router_fields() -
 def test_runtime_receipts_cannot_claim_execution() -> None:
     request = _runtime_request()
     payload_ref = runtime_payload_fingerprint_ref(request)
-    invocation_ref = runtime_invocation_ref("idempotency-ref:runtime-contract", payload_ref)
+    invocation_ref = runtime_invocation_ref(
+        "idempotency-ref:runtime-contract", payload_ref
+    )
     decision = build_policy_decision(request, invocation_ref=invocation_ref)
 
     with pytest.raises(ValidationError):
@@ -437,7 +484,64 @@ def test_runtime_receipts_cannot_claim_execution() -> None:
         )
 
 
-def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(tmp_path: Path) -> None:
+def test_runtime_criterion_verifier_provenance_requires_exact_terminal_goal() -> None:
+    binding = RuntimeCriterionVerificationBinding(
+        goal_ref="goal-ref:criterion-provenance",
+        goal_version=2,
+        criterion_ref="criterion-ref:criterion-provenance:one",
+        proof_ref="proof-ref:criterion-provenance:one",
+        verifier_ref="verifier-ref:criterion-provenance",
+        evaluator_receipt_ref="receipt-ref:evaluator:criterion-provenance:one",
+    )
+    request = _runtime_request()
+    payload_ref = runtime_payload_fingerprint_ref(request)
+    invocation_ref = runtime_invocation_ref(
+        "idempotency-ref:criterion-provenance",
+        payload_ref,
+    )
+    decision = build_policy_decision(request, invocation_ref=invocation_ref)
+    with pytest.raises(
+        ValidationError,
+        match="RUNTIME_CRITERION_VERIFICATION_TERMINAL_RECEIPT_REQUIRED",
+    ):
+        RuntimeInvocationReceipt(
+            receipt_ref="runtime-receipt-ref:criterion-provenance",
+            invocation_ref=invocation_ref,
+            policy_decision_ref=decision.policy_decision_ref,
+            invocation_status=RuntimeInvocationStatus.execution_blocked,
+            criterion_verification_bindings=[binding],
+        )
+
+    receipt = RuntimeInvocationReceipt(
+        receipt_ref="runtime-receipt-ref:criterion-provenance",
+        invocation_ref=invocation_ref,
+        policy_decision_ref=decision.policy_decision_ref,
+        invocation_status=RuntimeInvocationStatus.receipt_recorded,
+        criterion_verification_bindings=[binding],
+    )
+    with pytest.raises(
+        ValidationError,
+        match="RUNTIME_CRITERION_VERIFICATION_GOAL_BINDING_MISMATCH",
+    ):
+        RuntimeInvocationRecord.model_validate(
+            {
+                "invocation_ref": invocation_ref,
+                "request": request.model_dump(mode="json"),
+                "policy_decision": decision.model_dump(mode="json"),
+                "approval_requirement": (
+                    decision.approval_requirement.model_dump(mode="json")
+                ),
+                "receipt": receipt.model_dump(mode="json"),
+                "payload_fingerprint_ref": payload_ref,
+                "idempotency_ref": "idempotency-ref:criterion-provenance",
+                "status": RuntimeInvocationStatus.receipt_recorded,
+            }
+        )
+
+
+def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(
+    tmp_path: Path,
+) -> None:
     store = RuntimeInvocationStore(
         tmp_path,
         active_authority_leases=[workspace_execute_authority_lease()],
@@ -459,9 +563,13 @@ def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(tmp_path:
 
     changed = _runtime_request("safe governed runtime summary changed")
     with pytest.raises(RuntimeInvocationConflictError):
-        store.create_invocation(changed, idempotency_ref="idempotency-ref:runtime-store")
+        store.create_invocation(
+            changed, idempotency_ref="idempotency-ref:runtime-store"
+        )
 
-    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(encoding="utf-8")
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
     assert "operator provided summary should not persist" not in persisted
     for forbidden in [
         "raw prompt",
@@ -475,7 +583,9 @@ def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(tmp_path:
         assert forbidden not in persisted
 
 
-def test_runtime_store_records_blocked_execute_and_detects_tampering(tmp_path: Path) -> None:
+def test_runtime_store_records_blocked_execute_and_detects_tampering(
+    tmp_path: Path,
+) -> None:
     store = _runtime_store_with_workspace_execute(tmp_path)
     created = store.create_invocation(
         _runtime_request(),
@@ -494,7 +604,9 @@ def test_runtime_store_records_blocked_execute_and_detects_tampering(tmp_path: P
     path = tmp_path / "runtime_gateway_invocations.jsonl"
     text = path.read_text(encoding="utf-8")
     assert "operator execute summary should not persist" not in text
-    path.write_text(text.replace("execution_blocked", "receipt_recorded", 1), encoding="utf-8")
+    path.write_text(
+        text.replace("execution_blocked", "receipt_recorded", 1), encoding="utf-8"
+    )
 
     with pytest.raises(RuntimeInvocationStorageError):
         RuntimeInvocationStore(tmp_path).list_invocations()
@@ -508,7 +620,9 @@ def test_runtime_store_replays_mutating_operation_idempotency(tmp_path: Path) ->
     )
     invocation_ref = created.record.invocation_ref
 
-    approval = RuntimeApprovalBindingRequest(approval_ref="approval-ref:runtime-mutation")
+    approval = RuntimeApprovalBindingRequest(
+        approval_ref="approval-ref:runtime-mutation"
+    )
     first_approval = store.bind_approval(
         invocation_ref,
         approval,
@@ -554,7 +668,9 @@ def test_runtime_store_replays_mutating_operation_idempotency(tmp_path: Path) ->
     assert "operator execute replay summary should not persist" not in persisted
 
 
-def test_runtime_store_safe_disable_sidecar_requires_durable_ledger(tmp_path: Path) -> None:
+def test_runtime_store_safe_disable_sidecar_requires_durable_ledger(
+    tmp_path: Path,
+) -> None:
     store = RuntimeInvocationStore(tmp_path)
     state = store.safe_disable(
         RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-safe-disable-sidecar"),
@@ -602,9 +718,7 @@ def test_runtime_store_safe_disable_replay_returns_original_without_rollback(
     assert store.operator_safe_disable_state() == second
     assert RuntimeInvocationStore(tmp_path).operator_safe_disable_state() == second
     sidecar = json.loads(
-        (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON).read_text(encoding="utf-8")
     )
     assert sidecar["reason_ref"] == "reason-ref:safe-disable-second"
 
@@ -775,6 +889,161 @@ def test_runtime_store_rejects_sidecar_with_symlinked_present_ledger(
         match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
     ):
         RuntimeInvocationStore(target_dir).operator_safe_disable_active()
+
+
+def test_runtime_store_mutation_lock_rejects_symlinked_state_root_ancestor(
+    tmp_path: Path,
+) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    state_dir = linked_parent / "runtime"
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        RuntimeInvocationStore(state_dir).list_invocations_locked()
+
+    assert not (real_parent / "runtime" / "runtime_gateway_invocations.lock").exists()
+
+
+def test_runtime_store_lock_contention_fails_closed_within_bounded_wait(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    started_path = tmp_path / "lock-started"
+    release_path = tmp_path / "lock-release"
+    process = multiprocessing.Process(
+        target=_hold_runtime_gateway_store_lock,
+        args=(state_dir, started_path, release_path),
+    )
+    process.start()
+    deadline = time.monotonic() + 5
+    while not started_path.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert started_path.exists()
+    monkeypatch.setattr(
+        runtime_storage,
+        "RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS",
+        0.05,
+    )
+    monkeypatch.setattr(
+        runtime_storage,
+        "RUNTIME_GATEWAY_LOCK_POLL_SECONDS",
+        0.001,
+    )
+
+    started = time.monotonic()
+    try:
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+        ):
+            RuntimeInvocationStore(state_dir).list_invocations_locked()
+        assert time.monotonic() - started < 1
+    finally:
+        release_path.write_text("release", encoding="utf-8")
+        process.join(timeout=5)
+        if process.is_alive():  # pragma: no cover - cleanup on failure
+            process.terminate()
+            process.join(timeout=1)
+    assert process.exitcode == 0
+
+
+def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    preserved_dir = tmp_path / "runtime-preserved"
+    store = RuntimeInvocationStore(state_dir)
+    real_open = os.open
+    exchanged = False
+
+    def exchanging_open(
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal exchanged
+        if (
+            not exchanged
+            and path == runtime_storage.RUNTIME_GATEWAY_LOCK
+            and dir_fd is not None
+        ):
+            exchanged = True
+            state_dir.rename(preserved_dir)
+            state_dir.mkdir(mode=0o700)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", exchanging_open)
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
+    ):
+        store.list_invocations_locked()
+
+    assert exchanged is True
+    assert (
+        preserved_dir / runtime_storage.RUNTIME_GATEWAY_LOCK
+    ).is_file()
+    assert not (state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK).exists()
+
+
+def test_runtime_store_uses_pinned_state_root_descriptor_for_first_ledger_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "runtime"
+    preserved_dir = tmp_path / "runtime-preserved"
+    substituted_dir = tmp_path / "runtime-substituted"
+    store = RuntimeInvocationStore(state_dir)
+    original_append = store._append_ledger_line  # noqa: SLF001
+    exchanged = False
+
+    def exchange_then_append(encoded_line: bytes) -> None:
+        nonlocal exchanged
+        if not exchanged:
+            exchanged = True
+            state_dir.rename(preserved_dir)
+            state_dir.mkdir(mode=0o700)
+        original_append(encoded_line)
+
+    monkeypatch.setattr(store, "_append_ledger_line", exchange_then_append)
+    try:
+        result = store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:pinned-state-root-first-write"
+            ),
+            idempotency_ref="idempotency-ref:pinned-state-root-first-write",
+        )
+
+        assert exchanged is True
+        assert result.active is True
+        assert (
+            preserved_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
+        ).is_file()
+        assert (
+            preserved_dir
+            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        ).is_file()
+        assert not (
+            state_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
+        ).exists()
+        assert not (
+            state_dir
+            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+        ).exists()
+    finally:
+        if state_dir.exists():
+            state_dir.rename(substituted_dir)
+        if preserved_dir.exists():
+            preserved_dir.rename(state_dir)
 
 
 def test_runtime_store_ledger_read_rejects_inode_substitution_between_stat_and_open(
@@ -977,7 +1246,9 @@ def test_runtime_store_ledger_append_rechecks_inode_after_directory_fsync(
         match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
     ):
         RuntimeInvocationStore(tmp_path).safe_disable(
-            RuntimeSafeDisableRequest(reason_ref="reason-ref:ledger-directory-fsync-race"),
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:ledger-directory-fsync-race"
+            ),
             idempotency_ref="idempotency-ref:ledger-directory-fsync-race",
         )
     assert substituted is True
@@ -1090,16 +1361,16 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path),
         local_model_adapter=LocalModelRuntimeAdapter(
-            transport_factory=lambda request: FakeM164GatewayTransport("UAA_LOCAL_RUNTIME_OK")
+            transport_factory=lambda request: FakeM164GatewayTransport(
+                "UAA_LOCAL_RUNTIME_OK"
+            )
         ),
         local_model_runtime_enabled=True,
     )
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[
-            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
-        ],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
         max_preview_chars=40,
@@ -1146,7 +1417,9 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("UAA_LOCAL_RUNTIME_OK")
@@ -1161,9 +1434,7 @@ def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[
-            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
-        ],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
         max_preview_chars=40,
@@ -1271,7 +1542,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("LOCAL_MODEL_REPLAY_OK")
@@ -1287,9 +1560,7 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[
-            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
-        ],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
         allow_bounded_preview=True,
         max_preview_chars=40,
@@ -1299,7 +1570,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_re_evaluates_poli
         idempotency_ref="idempotency-ref:runtime-local-model-replay-policy",
     )
     store.safe_disable(
-        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-replay-safe-disable"),
+        RuntimeSafeDisableRequest(
+            reason_ref="reason-ref:runtime-local-model-replay-safe-disable"
+        ),
         idempotency_ref="idempotency-ref:runtime-local-model-replay-safe-disable",
     )
     with pytest.raises(
@@ -1354,7 +1627,9 @@ def test_runtime_gateway_local_model_replay_after_authority_revocation_fails_clo
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("LOCAL_MODEL_AUTHORITY_REPLAY_OK")
@@ -1457,9 +1732,7 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
     )
     replacement = provider_model_execute_authority_lease().model_copy(
-        update={
-            "lease_ref": "authority-lease-ref:test-provider-model-replacement"
-        }
+        update={"lease_ref": "authority-lease-ref:test-provider-model-replacement"}
     )
     monkeypatch.setattr(
         store,
@@ -1532,7 +1805,9 @@ def test_runtime_gateway_local_model_replay_returns_revalidated_authority(
         idempotency_ref="idempotency-ref:runtime-local-model-replacement-authority",
     )
     assert stable_replay.record.updated_at == revalidated_again.record.updated_at
-    assert stable_replay.record.policy_decision == revalidated_again.record.policy_decision
+    assert (
+        stable_replay.record.policy_decision == revalidated_again.record.policy_decision
+    )
     assert stable_replay.record.receipt == revalidated_again.record.receipt
     assert stable_replay.record.replay_count == revalidated_again.record.replay_count
     assert ledger_path.read_bytes() == before_stable_replay
@@ -1858,19 +2133,18 @@ def test_runtime_gateway_local_model_replay_key_binds_exact_durable_receipt(
         first.record.invocation_ref,
         replacement,
         idempotency_ref="idempotency-ref:runtime-local-model-receipt-key-write",
-        payload_fingerprint_ref=(
-            "runtime-operation-fingerprint-ref:receipt-key-write"
-        ),
+        payload_fingerprint_ref=("runtime-operation-fingerprint-ref:receipt-key-write"),
     )
-    replacement_replay = gateway.invoke_local_model(
-        request,
-        idempotency_ref=idempotency_ref,
-    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_TRUSTED_SOURCE_BINDING_MISMATCH",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
 
     assert calls == 1
-    assert replacement_replay.replayed is True
-    assert replacement_replay.record.receipt == replacement
-    assert replacement_replay.record.receipt != replay.record.receipt
 
 
 def test_runtime_gateway_blocked_replay_revalidates_before_equal_posture_return(
@@ -1942,7 +2216,9 @@ def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("SHOULD_NOT_RUN_ON_BLOCKED_REPLAY")
@@ -1984,7 +2260,9 @@ def test_runtime_gateway_local_model_replay_uses_original_posture_fingerprint(
     assert replay.record.receipt.model_call_performed is False
 
 
-def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path) -> None:
+def test_runtime_gateway_local_model_call_is_disabled_by_default(
+    tmp_path: Path,
+) -> None:
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path),
         local_model_adapter=LocalModelRuntimeAdapter(
@@ -1994,9 +2272,7 @@ def test_runtime_gateway_local_model_call_is_disabled_by_default(tmp_path: Path)
     request = RuntimeLocalModelCallRequest(
         base_url="http://127.0.0.1:8080",
         model_ref="uaa-local-runtime",
-        messages=[
-            RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
-        ],
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
         safe_summary="Run local model runtime as an untrusted proposal.",
     )
 
@@ -2065,14 +2341,18 @@ def test_runtime_gateway_blocks_unconfigured_or_scoped_model_urls_without_transp
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("SHOULD_NOT_RUN")
 
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path),
-        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory
+        ),
         local_model_runtime_enabled=True,
     )
     request = RuntimeLocalModelCallRequest(
@@ -2140,8 +2420,7 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     assert result.record.receipt.command_execution_performed is True
     assert result.record.receipt.command_receipt_metadata is not None
     assert (
-        result.record.receipt.command_receipt_metadata.command_output_persisted
-        is False
+        result.record.receipt.command_receipt_metadata.command_output_persisted is False
     )
     assert result.output_summary is not None
     assert "2 bounded lines" in result.output_summary
@@ -2183,8 +2462,12 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     assert "stderr" not in persisted
 
 
-def test_governed_command_runtime_rejects_unapproved_workspace_root(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="RUNTIME_COMMAND_WORKSPACE_ROOT_NOT_ALLOWLISTED"):
+def test_governed_command_runtime_rejects_unapproved_workspace_root(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError, match="RUNTIME_COMMAND_WORKSPACE_ROOT_NOT_ALLOWLISTED"
+    ):
         GovernedCommandRuntimeAdapter(workspace_root=tmp_path)
 
 
@@ -2258,7 +2541,10 @@ def test_runtime_launcher_command_run_cli_records_receipts_and_mission_scope(
     assert matching_body["command_execution_performed"] is True
     assert matching_body["mission_ref"] == mission_ref
     assert matching_body["record"]["request"]["mission_ref"] == mission_ref
-    assert matching_body["record"]["policy_decision"]["authority_decision_outcome"] == "allow"
+    assert (
+        matching_body["record"]["policy_decision"]["authority_decision_outcome"]
+        == "allow"
+    )
     assert str(tmp_path) not in matching.stdout
     assert "stdout" not in matching.stdout
     assert "stderr" not in matching.stdout
@@ -2290,8 +2576,9 @@ def test_runtime_launcher_command_run_cli_records_receipts_and_mission_scope(
     assert missing_body["command_execution_performed"] is False
     missing_policy = missing_body["record"]["policy_decision"]
     assert missing_policy["authority_decision_outcome"] == "degrade_to_draft"
-    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
-        missing_policy["reason_codes"]
+    assert (
+        "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION"
+        in (missing_policy["reason_codes"])
     )
     assert str(tmp_path) not in missing.stdout
     assert "stdout" not in missing.stdout
@@ -2329,7 +2616,9 @@ def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_sha
         idempotency_ref="idempotency-ref:runtime-command-safe-disable-replay",
     )
     store.safe_disable(
-        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-replay-disable"),
+        RuntimeSafeDisableRequest(
+            reason_ref="reason-ref:runtime-command-replay-disable"
+        ),
         idempotency_ref="idempotency-ref:runtime-command-replay-disable",
     )
     replay = gateway.invoke_command(
@@ -2409,7 +2698,9 @@ def _test_hash_ref(prefix: str, value: object) -> str:
         separators=(",", ":"),
         ensure_ascii=True,
     )
-    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    return (
+        f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    )
 
 
 def _runtime_action_inbox_refs(
@@ -2488,7 +2779,9 @@ def _bind_runtime_action_inbox_approval(
     expires_delta: timedelta = timedelta(minutes=30),
 ):
     command_request = command_request or _approved_runtime_command_request()
-    command_intent = str(getattr(command_request.intent, "value", command_request.intent))
+    command_intent = str(
+        getattr(command_request.intent, "value", command_request.intent)
+    )
     created = store.create_invocation(
         runtime_command_invocation_request(command_request),
         idempotency_ref="idempotency-ref:runtime-action-inbox-create",
@@ -2550,11 +2843,13 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         store.list_invocations(),
         entries=store.list_entries(),
     )
-    assert approved.action_inbox_envelope.approval_ref in (
-        approved_read_model["pending_runtime_approval_refs"]
+    assert (
+        approved.action_inbox_envelope.approval_ref
+        in (approved_read_model["pending_runtime_approval_refs"])
     )
-    assert approved.action_inbox_envelope.action_envelope_ref not in (
-        approved_read_model["pending_runtime_approval_refs"]
+    assert (
+        approved.action_inbox_envelope.action_envelope_ref
+        not in (approved_read_model["pending_runtime_approval_refs"])
     )
     gateway = RuntimeGateway(
         store=store,
@@ -2653,7 +2948,10 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         ),
         (
             ["invocations", "show", result.record.invocation_ref],
-            ["Governed runtime invocation", result.record.policy_decision.policy_decision_ref],
+            [
+                "Governed runtime invocation",
+                result.record.policy_decision.policy_decision_ref,
+            ],
         ),
         (
             ["receipts", "show", result.record.receipt.receipt_ref],
@@ -2667,14 +2965,17 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         assert "safe pytest output" not in cli_output
         assert str(tmp_path) not in cli_output
 
-    assert uaa_launcher.main(
-        [
-            "runtime",
-            "--state-dir",
-            str(tmp_path),
-            "status",
-        ]
-    ) == 0
+    assert (
+        uaa_launcher.main(
+            [
+                "runtime",
+                "--state-dir",
+                str(tmp_path),
+                "status",
+            ]
+        )
+        == 0
+    )
     launcher_output = capsys.readouterr().out
     assert "Governed runtime status" in launcher_output
     assert "utility_command_receipt_recorded" in launcher_output
@@ -2696,15 +2997,18 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         "receipt_recorded",
     }.issubset(event_kinds)
 
-    assert uaa_runtime.main(
-        [
-            "--state-dir",
-            str(tmp_path),
-            "safe-disable",
-            "--idempotency-ref",
-            "idempotency-ref:runtime-cli-safe-disable-test",
-        ]
-    ) == 0
+    assert (
+        uaa_runtime.main(
+            [
+                "--state-dir",
+                str(tmp_path),
+                "safe-disable",
+                "--idempotency-ref",
+                "idempotency-ref:runtime-cli-safe-disable-test",
+            ]
+        )
+        == 0
+    )
     safe_disable_output = capsys.readouterr().out
     assert "Governed runtime safe-disable" in safe_disable_output
     assert "Safe-disable ref:" in safe_disable_output
@@ -2722,12 +3026,14 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         event["event_kind"]: event["event_ref"]
         for event in disabled_read_model["evidence_timeline"]
     }
-    assert disabled_event_refs["invocation_requested"] == stable_event_refs[
-        "invocation_requested"
-    ]
-    assert disabled_event_refs["approval_accepted"] == stable_event_refs[
-        "approval_accepted"
-    ]
+    assert (
+        disabled_event_refs["invocation_requested"]
+        == stable_event_refs["invocation_requested"]
+    )
+    assert (
+        disabled_event_refs["approval_accepted"]
+        == stable_event_refs["approval_accepted"]
+    )
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
@@ -2758,7 +3064,9 @@ def test_runtime_gateway_action_inbox_approval_uses_current_authority_lease(
         tmp_path,
         active_authority_leases=[workspace_execute_authority_lease()],
     )
-    command_intent = str(getattr(command_request.intent, "value", command_request.intent))
+    command_intent = str(
+        getattr(command_request.intent, "value", command_request.intent)
+    )
     refs = _runtime_action_inbox_refs(
         created.record,
         command_intent=command_intent,
@@ -3620,10 +3928,10 @@ def test_runtime_gateway_command_replay_without_receipt_does_not_spawn_again(
 
     assert len(calls) == 1
     assert replay.replayed is True
-    assert replay.record.status == "execution_blocked"
-    assert replay.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
-    assert replay.record.receipt is not None
-    assert replay.record.receipt.command_execution_performed is False
+    assert replay.record.status == "pending_approval"
+    assert replay.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    assert replay.record.receipt is None
+    assert replay.record.adapter_dispatch_started is True
 
 
 def test_runtime_gateway_safe_disable_blocks_command_before_runner(
@@ -3753,7 +4061,9 @@ def test_runtime_gateway_command_safe_disable_between_precheck_and_create_blocks
         if not safe_disable_recorded:
             safe_disable_recorded = True
             store.safe_disable(
-                RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-race-disable"),
+                RuntimeSafeDisableRequest(
+                    reason_ref="reason-ref:runtime-command-race-disable"
+                ),
                 idempotency_ref="idempotency-ref:runtime-command-race-disable",
             )
             return False
@@ -3958,8 +4268,7 @@ def test_runtime_gateway_command_duplicate_timeout_does_not_compete_for_receipt(
         assert duplicate.replayed is True
         assert duplicate.record.receipt is None
         assert (
-            duplicate.error_category
-            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+            duplicate.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
         )
         assert duplicate_receipt_attempted.is_set() is False
         assert calls == 1
@@ -4079,8 +4388,7 @@ def test_runtime_gateway_command_coordinates_ownership_across_processes(
         assert duplicate.record.receipt is None
         assert duplicate.record.replay_count == 1
         assert (
-            duplicate.error_category
-            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+            duplicate.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
         )
         assert duplicate_calls == []
     finally:
@@ -4168,9 +4476,7 @@ def test_runtime_gateway_command_retries_pre_reservation_lease_safely(
                         ),
                         timeout_seconds=0.01,
                     ),
-                    idempotency_ref=(
-                        "idempotency-ref:runtime-command-pre-reservation"
-                    ),
+                    idempotency_ref=("idempotency-ref:runtime-command-pre-reservation"),
                 )
             )
         except BaseException as exc:  # pragma: no cover - surfaced below
@@ -4200,8 +4506,7 @@ def test_runtime_gateway_command_execution_lock_uses_exact_byte_ranges(
 ) -> None:
     store = RuntimeInvocationStore(tmp_path)
     paths = {
-        runtime_command._command_execution_lock_path(store)
-        for _index in range(1024)
+        runtime_command._command_execution_lock_path(store) for _index in range(1024)
     }
     offsets = {
         runtime_command._command_execution_lock_offset(
@@ -4218,7 +4523,9 @@ def test_runtime_gateway_command_execution_lock_uses_exact_byte_ranges(
     assert all(0 <= offset < (1 << 63) for offset in offsets)
 
 
-def test_runtime_gateway_command_process_lock_is_python_310_weakref_compatible() -> None:
+def test_runtime_gateway_command_process_lock_is_python_310_weakref_compatible() -> (
+    None
+):
     process_lock = runtime_command._CommandExecutionProcessLock()
 
     assert "__slots__" not in type(process_lock).__dict__
@@ -4238,10 +4545,7 @@ def test_runtime_gateway_releasing_one_range_preserves_other_process_lock(
         "idempotency-ref:runtime-command-shared-file-second",
     )
     second_offset = runtime_command._command_execution_lock_offset(second_claim)
-    assert (
-        runtime_command._command_execution_lock_offset(first_claim)
-        != second_offset
-    )
+    assert runtime_command._command_execution_lock_offset(first_claim) != second_offset
 
     first_lease = runtime_command._acquire_command_execution_lease(
         store=store,
@@ -4422,11 +4726,15 @@ def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_rec
         intent="git_status",
         safe_summary="Inspect current repo status with redacted output.",
     )
-    record = RuntimeInvocationStore(tmp_path).create_invocation(
-        runtime_command_invocation_request(request),
-        idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
-        command_gateway_validated=True,
-    ).record
+    record = (
+        RuntimeInvocationStore(tmp_path)
+        .create_invocation(
+            runtime_command_invocation_request(request),
+            idempotency_ref="idempotency-ref:runtime-command-cli-in-progress",
+            command_gateway_validated=True,
+        )
+        .record
+    )
     result = RuntimeCommandGatewayResult(
         record=record,
         error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS",
@@ -4465,14 +4773,54 @@ def test_runtime_launcher_command_run_cli_reports_in_progress_replay_without_rec
     payload = json.loads(capsys.readouterr().out)
     assert payload["success"] is False
     assert payload["replayed"] is True
-    assert (
-        payload["error_category"]
-        == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
-    )
+    assert payload["error_category"] == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
     assert payload["receipt_ref"] is None
     assert payload["execution_performed"] is False
     assert payload["command_execution_performed"] is False
     assert payload["record"]["receipt"] is None
+
+
+def test_runtime_launcher_command_run_cli_redacts_storage_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _UnavailableGoalRuntime:
+        @staticmethod
+        def sync_runtime_invocations(
+            _records: object,
+            *,
+            invocation_store: object,
+        ) -> None:
+            del invocation_store
+            raise OSError("raw storage failure must stay redacted")
+
+    monkeypatch.setattr(
+        uaa_runtime,
+        "_goal_runtime_service",
+        lambda _args: _UnavailableGoalRuntime(),
+    )
+    args = argparse.Namespace(
+        intent="git_status",
+        profile="local-runtime",
+        mission_ref=None,
+        target_ref=[],
+        summary="Inspect current repo status with redacted output.",
+        timeout_seconds=5.0,
+        output_byte_limit=4096,
+        metadata_ref=[],
+        idempotency_ref="idempotency-ref:runtime-command-cli-storage-failure",
+        state_dir=str(tmp_path / "cli-state"),
+        json=True,
+    )
+
+    assert uaa_runtime._command_run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is False
+    assert payload["error_category"] == "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    assert payload["safe_refs_only"] is True
+    assert payload["raw_paths_omitted"] is True
+    assert "raw storage failure" not in json.dumps(payload)
 
 
 def test_runtime_gateway_command_nonzero_and_timeout_receipts(
@@ -4548,7 +4896,9 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("FIRST_MODEL_ATTEMPT")
@@ -4556,7 +4906,9 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
     store = _runtime_store_with_provider_model_execute(tmp_path)
     gateway = RuntimeGateway(
         store=store,
-        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory
+        ),
         local_model_runtime_enabled=True,
     )
     original_record_receipt = store.record_receipt
@@ -4580,18 +4932,14 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
 
     store.record_receipt = original_record_receipt  # type: ignore[method-assign]
     if posture_change == "lease_revoked":
-        authority_snapshots = iter(
-            ([provider_model_execute_authority_lease()], [])
-        )
+        authority_snapshots = iter(([provider_model_execute_authority_lease()], []))
         monkeypatch.setattr(
             store,
             "current_authority_leases",
             lambda: next(authority_snapshots),
         )
     else:
-        original_replay_recovery = (
-            store.record_local_model_replay_without_receipt
-        )
+        original_replay_recovery = store.record_local_model_replay_without_receipt
         safe_disable_recorded = False
 
         def racing_replay_recovery(*args: object, **kwargs: object) -> object:
@@ -4619,12 +4967,12 @@ def test_runtime_gateway_local_model_replay_without_receipt_is_atomic_and_no_tra
     assert calls == 0
     assert replay.replayed is True
     expected_status = (
-        "execution_blocked"
-        if posture_change == "lease_revoked"
-        else "safe_disabled"
+        "execution_blocked" if posture_change == "lease_revoked" else "safe_disabled"
     )
     assert replay.record.status == expected_status
-    assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    assert (
+        replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    )
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
     assert replay.record.receipt.invocation_status == "execution_blocked"
@@ -4724,8 +5072,9 @@ def test_runtime_gateway_persists_unknown_attempt_marker_before_transport(
 
     assert calls == 1
     assert replay.replayed is True
-    assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
-    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS"
+    assert replay.record.status == marker.status
+    assert replay.record.policy_decision == marker.policy_decision
     assert replay.record.receipt == marker.receipt
 
 
@@ -4896,13 +5245,31 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     first = threading.Thread(target=invoke_first)
     first.start()
     assert transport_started.wait(timeout=5)
+    marker = store.get_invocation_for_idempotency(idempotency_ref)
+    assert marker is not None
+    assert marker.receipt is not None
+    assert marker.receipt.model_receipt_metadata is not None
+    assert marker.receipt.model_receipt_metadata.attempt_outcome_unknown is True
     duplicate = gateway.invoke_local_model(
         request,
         idempotency_ref=idempotency_ref,
     )
     assert duplicate.replayed is True
-    assert duplicate.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
-    assert duplicate.record.policy_decision.allowed_to_execute is False
+    assert duplicate.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS"
+    assert duplicate.record.status == marker.status
+    assert duplicate.record.policy_decision == marker.policy_decision
+    assert duplicate.record.receipt == marker.receipt
+    persisted_during_attempt = store.get_invocation(duplicate.record.invocation_ref)
+    assert persisted_during_attempt.status == marker.status
+    assert persisted_during_attempt.policy_decision == marker.policy_decision
+    assert persisted_during_attempt.receipt == marker.receipt
+    assert gateway.goal_runtime_service.sync_runtime_invocations(
+        store.list_invocations(),
+        invocation_store=store,
+    ) == []
+    assert gateway.goal_runtime_service.events.replay(
+        marker.invocation_ref
+    ).events == []
 
     release_transport.set()
     first.join(timeout=5)
@@ -4917,6 +5284,12 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     assert durable.policy_decision.authority_lease_ref == (
         "authority-lease-ref:test-provider-model-execute"
     )
+    assert [
+        event.event_kind
+        for event in gateway.goal_runtime_service.events.replay(
+            durable.invocation_ref
+        ).events
+    ] == ["run_started", "receipt_recorded"]
 
 
 @pytest.mark.parametrize("posture_change", ["safe_disabled", "lease_revoked"])
@@ -4994,9 +5367,7 @@ def test_runtime_gateway_inflight_final_receipt_preserves_current_denial(
     assert calls == 1
     durable = store.get_invocation(invocation_refs[0])
     assert durable.status == (
-        "safe_disabled"
-        if posture_change == "safe_disabled"
-        else "execution_blocked"
+        "safe_disabled" if posture_change == "safe_disabled" else "execution_blocked"
     )
     assert durable.policy_decision.allowed_to_execute is False
     assert durable.policy_decision.adapter_execution_enabled is False
@@ -5007,9 +5378,7 @@ def test_runtime_gateway_inflight_final_receipt_preserves_current_denial(
     assert durable.receipt.model_call_performed is True
     assert durable.receipt.model_receipt_metadata is not None
     assert durable.receipt.model_receipt_metadata.error_category is None
-    assert durable.receipt.safe_disable.active is (
-        posture_change == "safe_disabled"
-    )
+    assert durable.receipt.safe_disable.active is (posture_change == "safe_disabled")
 
 
 def test_runtime_gateway_no_receipt_recovery_preserves_concurrently_arrived_receipt(
@@ -5108,7 +5477,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("SAFE_MODEL_RESPONSE")
@@ -5116,7 +5487,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
     store = RuntimeInvocationStore(tmp_path)
     gateway = RuntimeGateway(
         store=store,
-        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory
+        ),
         local_model_runtime_enabled=True,
     )
     request = RuntimeLocalModelCallRequest(
@@ -5130,7 +5503,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
         idempotency_ref="idempotency-ref:runtime-local-model-safe-disable-replay",
     )
     store.safe_disable(
-        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-replay-disable"),
+        RuntimeSafeDisableRequest(
+            reason_ref="reason-ref:runtime-local-model-replay-disable"
+        ),
         idempotency_ref="idempotency-ref:runtime-local-model-replay-disable",
     )
     replay = gateway.invoke_local_model(
@@ -5159,7 +5534,9 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
 ) -> None:
     calls = 0
 
-    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+    def transport_factory(
+        request: RuntimeLocalModelCallRequest,
+    ) -> FakeM164GatewayTransport:
         nonlocal calls
         calls += 1
         return FakeM164GatewayTransport("SHOULD_NOT_RUN")
@@ -5173,7 +5550,9 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
         if not safe_disable_recorded:
             safe_disable_recorded = True
             store.safe_disable(
-                RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-race-disable"),
+                RuntimeSafeDisableRequest(
+                    reason_ref="reason-ref:runtime-local-model-race-disable"
+                ),
                 idempotency_ref="idempotency-ref:runtime-local-model-race-disable",
             )
             return False
@@ -5182,7 +5561,9 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
     store.operator_safe_disable_active = racing_safe_disable_check  # type: ignore[method-assign]
     gateway = RuntimeGateway(
         store=store,
-        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory
+        ),
         local_model_runtime_enabled=True,
     )
 
@@ -5190,7 +5571,9 @@ def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_bl
         RuntimeLocalModelCallRequest(
             base_url="http://127.0.0.1:8080",
             model_ref="uaa-local-runtime",
-            messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
+            messages=[
+                RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
+            ],
             safe_summary="Run local model runtime as an untrusted proposal.",
         ),
         idempotency_ref="idempotency-ref:runtime-local-model-race",
@@ -5288,18 +5671,14 @@ def test_runtime_gateway_local_model_posture_change_at_transport_boundary_blocks
         )
     )
     expected_status = (
-        "safe_disabled"
-        if posture_change == "safe_disabled"
-        else "execution_blocked"
+        "safe_disabled" if posture_change == "safe_disabled" else "execution_blocked"
     )
     assert result.error_category == expected_error
     assert result.record.status == expected_status
     assert result.record.policy_decision.allowed_to_execute is False
     assert result.record.policy_decision.adapter_execution_enabled is False
     assert result.record.policy_decision.model_call_enabled is False
-    assert result.local_model_runtime_enabled is (
-        posture_change != "runtime_disabled"
-    )
+    assert result.local_model_runtime_enabled is (posture_change != "runtime_disabled")
     assert result.record.receipt is not None
     assert result.record.receipt.execution_performed is False
     assert result.record.receipt.adapter_execution_performed is False
@@ -5426,3 +5805,788 @@ def test_runtime_gateway_local_model_boundary_denial_survives_restored_posture(
         assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
             result.record.policy_decision.reason_codes
         )
+
+
+def test_approved_command_boundary_rejection_retries_exact_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path / "runtime")
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+
+    def reject_refresh(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_REFRESH_REJECTED")
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_refresh,
+    )
+    execute_request = _runtime_execute_request(approved)
+    exact_command = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    idempotency_ref = "idempotency-ref:approved-command-boundary-retry"
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.execute_approved_command(
+            approved.invocation_ref,
+            exact_command,
+            execute_request,
+            idempotency_ref=idempotency_ref,
+        )
+    assert calls == 0
+    pending = store.get_invocation(approved.invocation_ref)
+    assert pending.receipt is None
+    assert pending.adapter_dispatch_protocol_ref is not None
+    assert pending.adapter_dispatch_started is False
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        original_refresh,
+    )
+    retried = gateway.execute_approved_command(
+        approved.invocation_ref,
+        exact_command,
+        execute_request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert calls == 1
+    assert retried.record.receipt is not None
+    assert retried.record.adapter_dispatch_started is True
+
+
+def test_local_model_boundary_rejection_retries_before_attempt_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = FakeM164GatewayTransport("BOUNDARY_RETRY_OK")
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path / "runtime"),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=lambda _request: transport,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content=REDACTED_TEST_PROMPT,
+            )
+        ],
+        safe_summary="Retry only the exact pre-dispatch local request.",
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+
+    def reject_refresh(*_args: object, **_kwargs: object) -> None:
+        raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_REFRESH_REJECTED")
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_refresh,
+    )
+    idempotency_ref = "idempotency-ref:local-model-boundary-retry"
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    [pending] = gateway.store.list_invocations()
+    assert pending.receipt is None
+    assert pending.adapter_dispatch_protocol_ref is not None
+    assert pending.adapter_dispatch_started is False
+    assert transport.calls == []
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        original_refresh,
+    )
+    retried = gateway.invoke_local_model(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert retried.record.receipt is not None
+    assert retried.record.adapter_dispatch_started is True
+    assert len(transport.calls) == 1
+
+
+def test_local_model_terminal_projection_refresh_failure_preserves_unknown_marker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transport = FakeM164GatewayTransport("TERMINAL_REFRESH_REJECTED")
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path / "runtime"),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=lambda _request: transport,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(
+                role="user",
+                content=REDACTED_TEST_PROMPT,
+            )
+        ],
+        safe_summary="Preserve unknown truth after terminal refresh rejection.",
+    )
+    original_refresh = (
+        gateway.goal_runtime_service.refresh_runtime_projection_reservation
+    )
+    refresh_count = 0
+
+    def reject_terminal_refresh(*args: object, **kwargs: object) -> None:
+        nonlocal refresh_count
+        refresh_count += 1
+        if refresh_count == 2:
+            raise GoalRuntimeCorruptionError(
+                "RUN_EVENT_PROJECTION_REFRESH_REJECTED"
+            )
+        original_refresh(*args, **kwargs)
+
+    monkeypatch.setattr(
+        gateway.goal_runtime_service,
+        "refresh_runtime_projection_reservation",
+        reject_terminal_refresh,
+    )
+    with pytest.raises(
+        GoalRuntimeCorruptionError,
+        match="RUN_EVENT_PROJECTION_REFRESH_REJECTED",
+    ):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref=(
+                "idempotency-ref:local-model-terminal-refresh-rejected"
+            ),
+        )
+
+    assert refresh_count == 2
+    assert len(transport.calls) == 1
+    [marker] = gateway.store.list_invocations()
+    assert marker.receipt is not None
+    assert marker.receipt.model_receipt_metadata is not None
+    assert marker.receipt.model_receipt_metadata.attempt_outcome_unknown is True
+    assert marker.receipt.execution_performed is False
+    assert marker.receipt.model_call_performed is False
+
+
+def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect the bounded repository status.",
+    )
+    idempotency_ref = "idempotency-ref:adapter-dispatch-owner"
+    created = store.create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref=idempotency_ref,
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    )
+    marker_idempotency_ref = "idempotency-ref:adapter-dispatch-owner:marker"
+    barrier = threading.Barrier(2)
+    claims: list[runtime_storage.RuntimeAdapterDispatchClaim] = []
+    adapter_calls: list[str] = []
+
+    def compete_for_dispatch() -> None:
+        barrier.wait(timeout=5)
+        claim = store.mark_adapter_dispatch_started(
+            created.record.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=marker_idempotency_ref,
+        )
+        claims.append(claim)
+        if claim.acquired:
+            adapter_calls.append(claim.record.invocation_ref)
+
+    threads = [threading.Thread(target=compete_for_dispatch) for _index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert sorted(claim.acquired for claim in claims) == [False, True]
+    assert adapter_calls == [created.record.invocation_ref]
+    assert all(
+        claim.record.adapter_dispatch_started is True for claim in claims
+    )
+
+
+def test_started_readonly_command_retry_preserves_unknown_attempt_without_receipt(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def fail_after_start(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("bounded runner failed after process start")
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Preserve unknown truth after a started read-only command.",
+    )
+    adapter = GovernedCommandRuntimeAdapter(
+        workspace_root=ROOT,
+        runner=fail_after_start,
+    )
+    idempotency_ref = "idempotency-ref:started-readonly-command-retry"
+    with pytest.raises(
+        RuntimeError,
+        match="bounded runner failed after process start",
+    ):
+        runtime_command.invoke_governed_command(
+            store=store,
+            adapter=adapter,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+
+    retried = runtime_command.invoke_governed_command(
+        store=store,
+        adapter=adapter,
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert calls == 1
+    assert retried.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+    assert retried.replayed is True
+    assert retried.record.adapter_dispatch_started is True
+    assert retried.record.receipt is None
+
+
+def test_command_dispatch_derives_and_revalidates_durable_approval_envelope(
+    tmp_path: Path,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    prepared = store.prepare_adapter_dispatch_protocol(
+        approved.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-derived:prepare",
+    )
+
+    claim = store.mark_adapter_dispatch_started(
+        prepared.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-derived",
+        command_gateway_validated=True,
+    )
+
+    assert claim.acquired is True
+    assert claim.record.adapter_dispatch_started is True
+
+
+def test_command_dispatch_rejects_missing_required_durable_approval_envelope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=_approved_runtime_command_request(),
+    )
+    prepared = store.prepare_adapter_dispatch_protocol(
+        approved.invocation_ref,
+        protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+        idempotency_ref="idempotency-ref:dispatch-envelope-missing:prepare",
+    )
+    original_get_invocation = store.get_invocation
+
+    def without_envelope(invocation_ref: str) -> RuntimeInvocationRecord:
+        record = original_get_invocation(invocation_ref)
+        return record.model_copy(update={"action_inbox_envelope": None})
+
+    monkeypatch.setattr(store, "get_invocation", without_envelope)
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED",
+    ):
+        store.mark_adapter_dispatch_started(
+            prepared.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref="idempotency-ref:dispatch-envelope-missing:marker",
+            command_gateway_validated=True,
+        )
+    monkeypatch.setattr(store, "get_invocation", original_get_invocation)
+    assert (
+        store.get_invocation(prepared.invocation_ref).adapter_dispatch_started
+        is False
+    )
+
+
+@pytest.mark.parametrize("posture", ["safe-disable", "lease-revoked"])
+def test_command_dispatch_revalidates_current_authority_under_store_lock(
+    tmp_path: Path,
+    posture: str,
+) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect status only while current authority remains active.",
+    )
+    created = store.create_invocation(
+        runtime_command_invocation_request(request),
+        idempotency_ref="idempotency-ref:dispatch-current-authority",
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    )
+    if posture == "safe-disable":
+        store.safe_disable(
+            RuntimeSafeDisableRequest(
+                reason_ref="reason-ref:dispatch-current-authority-revoked"
+            ),
+            idempotency_ref="idempotency-ref:dispatch-current-authority:disable",
+        )
+    else:
+        store._explicit_active_authority_leases = []  # noqa: SLF001
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_AUTHORITY_REVOKED",
+    ):
+        store.mark_adapter_dispatch_started(
+            created.record.invocation_ref,
+            protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=(
+                "idempotency-ref:dispatch-current-authority:marker"
+            ),
+            command_gateway_validated=True,
+        )
+    assert (
+        store.get_invocation(created.record.invocation_ref).adapter_dispatch_started
+        is False
+    )
+
+
+def test_approved_command_dispatch_revalidates_current_action_inbox_envelope(
+    tmp_path: Path,
+) -> None:
+    calls: list[object] = []
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+
+    def deny_at_dispatch(current: RuntimeInvocationRecord) -> None:
+        refs = _runtime_action_inbox_refs(current, decision="deny")
+        store.bind_approval(
+            current.invocation_ref,
+            RuntimeApprovalBindingRequest(
+                decision="deny",
+                action_envelope_ref=refs["action_envelope_ref"],
+                exact_scope_ref=refs["exact_scope_ref"],
+                expected_payload_fingerprint_ref=current.payload_fingerprint_ref,
+                expected_policy_decision_ref=(
+                    current.policy_decision.policy_decision_ref
+                ),
+                adapter_id="governed-command-runtime-adapter",
+                command_intent="focused_pytest",
+                risk_class="medium",
+                safe_summary="Deny the exact command before adapter dispatch.",
+            ),
+            idempotency_ref="idempotency-ref:dispatch-envelope-denied",
+        )
+
+    with pytest.raises(
+        RuntimeInvocationStorageError,
+        match="RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED",
+    ):
+        runtime_command.invoke_approved_governed_command(
+            store=store,
+            adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=ROOT,
+                runner=lambda **kwargs: calls.append(kwargs),
+            ),
+            record=approved,
+            request=exact_request,
+            execute_request=execute_request,
+            idempotency_ref="idempotency-ref:dispatch-envelope-execute",
+            pre_adapter_dispatch=deny_at_dispatch,
+        )
+
+    durable = store.get_invocation(approved.invocation_ref)
+    assert durable.status == RuntimeInvocationStatus.approval_denied.value
+    assert durable.adapter_dispatch_started is False
+    assert durable.receipt is None
+    assert calls == []
+
+
+def test_overlapping_approved_command_retry_reports_in_progress_without_receipt(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    calls = 0
+    owner_results: list[RuntimeCommandGatewayResult] = []
+    owner_errors: list[BaseException] = []
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_APPROVED_OUTPUT",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+    adapter = GovernedCommandRuntimeAdapter(workspace_root=ROOT, runner=runner)
+    execution_idempotency_ref = "idempotency-ref:approved-command-overlap"
+
+    def run_owner() -> None:
+        try:
+            owner_results.append(
+                runtime_command.invoke_approved_governed_command(
+                    store=store,
+                    adapter=adapter,
+                    record=approved,
+                    request=exact_request,
+                    execute_request=execute_request,
+                    idempotency_ref=execution_idempotency_ref,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            owner_errors.append(exc)
+
+    owner = threading.Thread(target=run_owner)
+    owner.start()
+    assert runner_started.wait(timeout=5)
+    duplicate = runtime_command.invoke_approved_governed_command(
+        store=store,
+        adapter=adapter,
+        record=approved,
+        request=exact_request,
+        execute_request=execute_request,
+        idempotency_ref=execution_idempotency_ref,
+    )
+    try:
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert (
+            duplicate.error_category
+            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+        )
+        assert store.get_invocation(approved.invocation_ref).receipt is None
+        assert calls == 1
+    finally:
+        release_runner.set()
+        owner.join(timeout=10)
+
+    assert owner.is_alive() is False
+    assert owner_errors == []
+    assert len(owner_results) == 1
+    assert owner_results[0].record.receipt is not None
+    assert owner_results[0].record.receipt.command_execution_performed is True
+    assert calls == 1
+
+
+def test_overlapping_action_inbox_retry_links_only_the_terminal_receipt(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    calls = 0
+    owner_results: list[RuntimeCommandGatewayResult] = []
+    owner_errors: list[BaseException] = []
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        runner_started.set()
+        assert release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_APPROVED_OUTPUT",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    exact_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    execution_idempotency_ref = "idempotency-ref:action-inbox-command-overlap"
+
+    def run_owner() -> None:
+        try:
+            owner_results.append(
+                gateway.execute_approved_command(
+                    approved.invocation_ref,
+                    exact_request,
+                    execute_request,
+                    idempotency_ref=execution_idempotency_ref,
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            owner_errors.append(exc)
+
+    owner = threading.Thread(target=run_owner)
+    owner.start()
+    assert runner_started.wait(timeout=5)
+    duplicate = gateway.execute_approved_command(
+        approved.invocation_ref,
+        exact_request,
+        execute_request,
+        idempotency_ref=execution_idempotency_ref,
+    )
+    try:
+        assert duplicate.replayed is True
+        assert duplicate.record.receipt is None
+        assert duplicate.record.action_inbox_envelope is not None
+        assert duplicate.record.action_inbox_envelope.receipt_refs == []
+        assert calls == 1
+    finally:
+        release_runner.set()
+        owner.join(timeout=10)
+
+    assert owner.is_alive() is False
+    assert owner_errors == []
+    assert len(owner_results) == 1
+    terminal = owner_results[0].record
+    assert terminal.receipt is not None
+    assert terminal.action_inbox_envelope is not None
+    assert terminal.action_inbox_envelope.receipt_refs == [
+        terminal.receipt.receipt_ref
+    ]
+    assert calls == 1
+
+
+def test_legacy_protocol_accepts_only_immutable_receipt_replay(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    command_request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect one legacy committed runtime receipt.",
+    )
+    idempotency_ref = "idempotency-ref:legacy-committed-protocol"
+    completed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    ).record
+    assert completed.receipt is not None
+    invocation_request = runtime_command_invocation_request(command_request)
+
+    with store._exclusive_mutation():  # noqa: SLF001
+        store._records[completed.invocation_ref] = completed.model_copy(  # noqa: SLF001
+            update={"adapter_dispatch_protocol_ref": None}
+        )
+        replay = store._create_invocation_loaded(  # noqa: SLF001
+            invocation_request,
+            idempotency_ref=idempotency_ref,
+            command_gateway_validated=True,
+            action_inbox_envelope_required=False,
+            adapter_dispatch_protocol_ref=(
+                runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+            ),
+        )
+    assert replay.replayed is True
+    assert replay.record.receipt == completed.receipt
+    assert calls == 1
+
+    receiptless_store = _runtime_store_with_workspace_execute(
+        tmp_path / "receiptless"
+    )
+    pending = receiptless_store.create_invocation(
+        invocation_request,
+        idempotency_ref="idempotency-ref:legacy-receiptless-protocol",
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    ).record
+    with receiptless_store._exclusive_mutation():  # noqa: SLF001
+        receiptless_store._records[pending.invocation_ref] = (  # noqa: SLF001
+            pending.model_copy(update={"adapter_dispatch_protocol_ref": None})
+        )
+        with pytest.raises(
+            RuntimeInvocationStorageError,
+            match="RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH",
+        ):
+            receiptless_store._create_invocation_loaded(  # noqa: SLF001
+                invocation_request,
+                idempotency_ref=(
+                    "idempotency-ref:legacy-receiptless-protocol"
+                ),
+                command_gateway_validated=True,
+                adapter_dispatch_protocol_ref=(
+                    runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+                ),
+            )
+
+
+def test_legacy_readonly_pre_dispatch_retry_migrates_requirement_and_executes_once(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def runner(**_kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        calls += 1
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    command_request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Resume one exact legacy read-only command.",
+    )
+    invocation_request = runtime_command_invocation_request(command_request)
+    idempotency_ref = "idempotency-ref:legacy-readonly-pre-dispatch"
+    legacy_store = _runtime_store_with_workspace_execute(tmp_path)
+    legacy = legacy_store.create_invocation(
+        invocation_request,
+        idempotency_ref=idempotency_ref,
+        command_gateway_validated=True,
+        adapter_dispatch_protocol_ref=(
+            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
+        ),
+    ).record
+    assert legacy.approval_requirement.action_inbox_envelope_required is True
+    assert legacy.adapter_dispatch_started is False
+    assert legacy.receipt is None
+
+    restarted_store = _runtime_store_with_workspace_execute(tmp_path)
+    gateway = RuntimeGateway(
+        store=restarted_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    completed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    ).record
+
+    assert calls == 1
+    assert completed.receipt is not None
+    assert (
+        completed.approval_requirement.action_inbox_envelope_required
+        is False
+    )
+    durable = _runtime_store_with_workspace_execute(tmp_path).get_invocation(
+        legacy.invocation_ref
+    )
+    assert durable.receipt == completed.receipt
+    assert durable.approval_requirement.action_inbox_envelope_required is False
+
+    replayed = gateway.invoke_command(
+        command_request,
+        idempotency_ref=idempotency_ref,
+    )
+    assert replayed.replayed is True
+    assert replayed.record.receipt == completed.receipt
+    assert calls == 1

@@ -904,7 +904,184 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the safe-ref runtime run events read model as JSON.",
     )
+    run_events.add_argument(
+        "--run-ref",
+        default=None,
+        help="Replay one accepted local run ref; omit for the durable index.",
+    )
+    run_events.add_argument(
+        "--after-sequence",
+        type=int,
+        default=0,
+        help="Return retained events after this monotonic sequence.",
+    )
+    run_events.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Bounded replay page size from 1 through 100.",
+    )
     run_events.set_defaults(func=_inspect_run_events)
+
+    goals_list = subparsers.add_parser(
+        "goals-list",
+        help="List durable proof-backed goals without mutation.",
+    )
+    goals_list.add_argument(
+        "--include-cleared",
+        action="store_true",
+        help="Include soft-cleared durable goal records.",
+    )
+    goals_list.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    goals_list.set_defaults(func=_goals_list)
+
+    goal_show = subparsers.add_parser(
+        "goal-show",
+        help="Inspect one durable proof-backed goal.",
+    )
+    goal_show.add_argument("goal_ref", help="Stable safe goal ref.")
+    goal_show.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    goal_show.set_defaults(func=_goal_show)
+
+    goal_approval_prepare = subparsers.add_parser(
+        "goal-approval-prepare",
+        help="Persist one exact pending goal-mutation approval request.",
+    )
+    goal_approval_prepare.add_argument(
+        "goal_operation",
+        choices=("create", "edit", "transition"),
+        help="Exact goal mutation operation to bind.",
+    )
+    goal_approval_prepare.add_argument(
+        "--goal-ref",
+        default=None,
+        help="Required stable goal ref for edit or transition.",
+    )
+    goal_approval_prepare.add_argument(
+        "--request-json",
+        required=True,
+        help="Inline bounded operation-specific request JSON.",
+    )
+    goal_approval_prepare.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Stable exact request idempotency ref.",
+    )
+    goal_approval_prepare.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    goal_approval_prepare.set_defaults(func=_goal_approval_prepare)
+
+    goal_approval_decide = subparsers.add_parser(
+        "goal-approval-decide",
+        help="Record one explicit approve or deny decision for a prepared request.",
+    )
+    goal_approval_decide.add_argument(
+        "approval_request_ref",
+        help="Stable prepared approval request ref.",
+    )
+    goal_approval_decide.add_argument(
+        "approval_decision",
+        choices=("approve", "deny"),
+        help="Exact operator decision.",
+    )
+    goal_approval_decide.add_argument(
+        "--reason-ref",
+        required=True,
+        help="Safe decision reason ref.",
+    )
+    goal_approval_decide.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    goal_approval_decide.set_defaults(func=_goal_approval_decide)
+
+    goal_approval_revoke = subparsers.add_parser(
+        "goal-approval-revoke",
+        help="Revoke one exact previously approved goal mutation.",
+    )
+    goal_approval_revoke.add_argument(
+        "approval_ref",
+        help="Stable exact approval ref.",
+    )
+    goal_approval_revoke.add_argument(
+        "--reason-ref",
+        required=True,
+        help="Safe revocation reason ref.",
+    )
+    goal_approval_revoke.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    goal_approval_revoke.set_defaults(func=_goal_approval_revoke)
+
+    goal_create = subparsers.add_parser(
+        "goal-create",
+        help="Create one exact local proof-backed goal metadata record.",
+    )
+    goal_create.add_argument(
+        "--request-json",
+        required=True,
+        help="Inline bounded GoalCreateRequest JSON.",
+    )
+    goal_create.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Stable exact request idempotency ref.",
+    )
+    goal_create.add_argument(
+        "--approval-ref",
+        required=True,
+        help="Exact independently approved mutation ref.",
+    )
+    goal_create.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    goal_create.set_defaults(func=_goal_create)
+
+    goal_edit = subparsers.add_parser(
+        "goal-edit",
+        help="Edit one exact local goal with optimistic version matching.",
+    )
+    goal_edit.add_argument("goal_ref", help="Stable safe goal ref.")
+    goal_edit.add_argument(
+        "--request-json",
+        required=True,
+        help="Inline bounded GoalEditRequest JSON.",
+    )
+    goal_edit.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Stable exact request idempotency ref.",
+    )
+    goal_edit.add_argument(
+        "--approval-ref",
+        required=True,
+        help="Exact independently approved mutation ref.",
+    )
+    goal_edit.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    goal_edit.set_defaults(func=_goal_edit)
+
+    goal_transition = subparsers.add_parser(
+        "goal-transition",
+        help="Apply one exact versioned goal lifecycle transition.",
+    )
+    goal_transition.add_argument("goal_ref", help="Stable safe goal ref.")
+    goal_transition.add_argument(
+        "--request-json",
+        required=True,
+        help="Inline bounded GoalTransitionRequest JSON.",
+    )
+    goal_transition.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Stable exact request idempotency ref.",
+    )
+    goal_transition.add_argument(
+        "--approval-ref",
+        required=True,
+        help="Exact independently approved mutation ref.",
+    )
+    goal_transition.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
+    goal_transition.set_defaults(func=_goal_transition)
 
     approval_bridge = subparsers.add_parser(
         "inspect-approval-bridge",

@@ -117,12 +117,12 @@
       }
     },
     "current_mutating_route_count": {
-      "const": 111
+      "const": 119
     },
     "current_mutating_routes": {
       "type": "array",
-      "minItems": 111,
-      "maxItems": 111,
+      "minItems": 119,
+      "maxItems": 119,
       "items": {
         "$ref": "#/$defs/mutating_route"
       }

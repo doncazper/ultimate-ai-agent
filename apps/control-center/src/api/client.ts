@@ -93,6 +93,13 @@ import type {
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
   RuntimeRunEventsReadModel,
+  RuntimePersistentGoal,
+  RuntimeGoalCreateRequest,
+  RuntimeGoalEditRequest,
+  RuntimeGoalMutationResult,
+  RuntimeGoalMutationApprovalDecision,
+  RuntimeGoalMutationApprovalRequestSpec,
+  RuntimeGoalTransitionRequest,
   RuntimeStagedOrchestrationReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -163,6 +170,10 @@ import {
   memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
+  runtimeGoalEditEndpoint,
+  runtimeGoalApprovalDecisionEndpoint,
+  runtimeGoalApprovalPrepareEndpoint,
+  runtimeGoalTransitionEndpoint,
 } from "./endpoints";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 import {
@@ -2422,6 +2433,16 @@ export async function loadControlCenterData(
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
+      route: API_ENDPOINTS.runtimeRunEvents,
+      surfaceLabel: "Durable goals and run events",
+      backendRouteRef: "GET /api/runtime/run-events",
+      endpointReturned: runtimeRunEvents !== undefined,
+      usedFallback: runtimeRunEventsFallbackUsed,
+      warningRefs: runtimeRunEventsFallbackUsed
+        ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+        : [],
+    }),
+    routeReadStateInput({
       route: "/start",
       surfaceLabel: "Start Here",
       backendRouteRef: "GET /control-center/start-here/summary",
@@ -2616,6 +2637,9 @@ export async function loadControlCenterData(
         "GET /api/runtime/hermes/context-pack",
         "GET /api/runtime/capability-discovery",
         "GET /api/runtime/run-events",
+        "POST /api/runtime/goals",
+        "POST /api/runtime/goals/{goal_ref}/edit",
+        "POST /api/runtime/goals/{goal_ref}/transition",
         "GET /api/runtime/approval-bridge",
         "GET /api/runtime/streaming-progress",
         "GET /api/runtime/profiles",
@@ -8980,9 +9004,15 @@ function isSafeSkillMarketplaceRedactionArray(
 }
 
 function isBoundedDisplayText(value: unknown, maxLength: number): value is string {
-  return (
-    typeof value === "string" && value.length > 0 && value.length <= maxLength
-  );
+  if (typeof value !== "string") {
+    return false;
+  }
+  const codePointLength = Array.from(value).length;
+  return codePointLength > 0 && codePointLength <= maxLength;
+}
+
+function containsTerminalControlCharacters(value: string): boolean {
+  return /[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
 function isSafeRuntimeRunEvents(
@@ -8992,7 +9022,11 @@ function isSafeRuntimeRunEvents(
     value === undefined ||
     !Array.isArray(value.lifecycle_mappings) ||
     !Array.isArray(value.run_proposals) ||
-    !Array.isArray(value.event_previews)
+    !Array.isArray(value.event_previews) ||
+    !Array.isArray(value.stream_summaries) ||
+    value.goal_lifecycle === undefined ||
+    !Array.isArray(value.goal_lifecycle.goals) ||
+    !isSafeRuntimeGoalMutationSubmissions(value.goal_mutation_submissions)
   ) {
     return false;
   }
@@ -9012,7 +9046,7 @@ function isSafeRuntimeRunEvents(
   ];
   return (
     value.schema_version === "runtime_run_events.v1" &&
-    value.status === "proposal_read_model_only" &&
+    value.status === "durable_local_replay" &&
     value.route_ref === "GET /api/runtime/run-events" &&
     value.cli_ref === "uaa runtime inspect-run-events" &&
     isSafeTrustAuthorityRef(value.snapshot_ref) &&
@@ -9039,14 +9073,54 @@ function isSafeRuntimeRunEvents(
     ) &&
     value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.uaa_controls_authority === true &&
-    value.no_mutation_routes_registered === true &&
+    value.no_runtime_control_routes_registered === true &&
     value.safe_refs_only === true &&
     value.proposal_count === value.run_proposals.length &&
     value.approval_wait_count ===
-      value.run_proposals.filter(
-        (proposal) => proposal.uaa_durable_run_state === "approval_wait",
+      value.event_previews.filter(
+        (event) => event.event_kind === "approval_wait_entered",
       ).length &&
-    value.completed_run_count === 0 &&
+    value.completed_run_count ===
+      value.stream_summaries.filter(
+        (stream) =>
+          stream.successful_receipt_recorded ||
+          stream.terminal_event_kind === "completion_verified",
+      ).length &&
+    value.stream_summaries.every(
+      (stream) =>
+        Number.isSafeInteger(stream.first_retained_sequence) &&
+        stream.first_retained_sequence >= 1 &&
+        Number.isSafeInteger(stream.last_sequence) &&
+        stream.last_sequence >= stream.first_retained_sequence &&
+        Number.isSafeInteger(stream.retained_event_count) &&
+        stream.retained_event_count >= 1 &&
+        typeof stream.successful_receipt_recorded === "boolean",
+    ) &&
+    value.stream_count === value.stream_summaries.length &&
+    value.retained_event_count ===
+      value.stream_summaries.reduce(
+        (count, stream) => count + stream.retained_event_count,
+        0,
+      ) &&
+    value.durable_event_source === true &&
+    value.cursor_replay_supported === true &&
+    value.bounded_retention_enabled === true &&
+    value.goal_lifecycle.status === "durable_local_proof_backed" &&
+    value.goal_lifecycle.goal_count === value.goal_lifecycle.goals.length &&
+    value.goal_lifecycle.verified_complete_count ===
+      value.goal_lifecycle.goals.filter(
+        (goal) => goal.state === "verified_complete",
+      ).length &&
+    value.goal_lifecycle.completion_verification_state ===
+      "blocked_missing_trusted_criterion_evaluator" &&
+    value.goal_lifecycle.completion_verification_available === false &&
+    isSafeTrustAuthorityRef(
+      value.goal_lifecycle.completion_verification_blocked_reason_ref,
+    ) &&
+    value.goal_lifecycle.runtime_execution_enabled === false &&
+    value.goal_lifecycle.model_output_authoritative === false &&
+    value.goal_lifecycle.safe_refs_only === true &&
+    value.goal_lifecycle.goals.every(isSafeRuntimePersistentGoal) &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.proof_refs) &&
     isNonEmptyStringArray(value.next_safe_action_refs) &&
@@ -9067,14 +9141,1461 @@ function isSafeRuntimeRunEvents(
         isNonEmptyStringArray(proposal.proof_refs) &&
         isNonEmptyStringArray(proposal.blocked_authority_refs),
     ) &&
-    value.event_previews.every(
-      (event) =>
-        event.runtime_payload_persisted === false &&
-        event.raw_log_persisted === false &&
-        event.raw_prompt_persisted === false &&
-        event.raw_response_persisted === false,
-    ) &&
+    value.event_previews.every(isSafeRuntimeRunEventPreview) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeGoalMutationSubmissions(
+  value: RuntimeRunEventsReadModel["goal_mutation_submissions"] | undefined,
+): boolean {
+  if (
+    value === undefined ||
+    value.schema_version !==
+      "goal_mutation_submission_recovery_read_model.v1" ||
+    !Array.isArray(value.records) ||
+    value.records.length > 64 ||
+    value.pending_count !==
+      value.records.filter((record) => record.status === "pending").length ||
+    value.committed_count !==
+      value.records.filter((record) => record.status === "committed").length ||
+    value.rejected_count !==
+      value.records.filter((record) => record.status === "rejected").length ||
+    value.backend_owned !== true ||
+    value.exact_retry_required !== true ||
+    value.raw_request_content_persisted !== false ||
+    value.redacted_goal_metadata_only !== true
+  ) {
+    return false;
+  }
+  return value.records.every((record) => {
+    const request = record.request_payload;
+    const requestPayloadValid =
+      record.operation === "create"
+        ? isSafeRuntimeGoalCreateRequest(request)
+        : record.operation === "edit"
+          ? isSafeRuntimeGoalEditRequest(request)
+          : record.operation === "transition"
+            ? isSafeRuntimeGoalTransitionRequest(request)
+            : false;
+    const evidenceRefs = isPlainRecord(request) ? request.evidence_refs : undefined;
+    const goalBindingValid =
+      record.operation === "create"
+        ? record.goal_ref === null || record.goal_ref === undefined
+        : typeof record.goal_ref === "string" &&
+          isSafeTrustAuthorityRef(record.goal_ref);
+    const commitBindingValid =
+      record.status === "committed"
+        ? typeof record.committed_goal_ref === "string" &&
+          isSafeTrustAuthorityRef(record.committed_goal_ref) &&
+          (record.rejection_reason_ref === null ||
+            record.rejection_reason_ref === undefined) &&
+          typeof record.resolved_at === "string" &&
+          Number.isFinite(Date.parse(record.resolved_at))
+        : record.committed_goal_ref === null ||
+          record.committed_goal_ref === undefined;
+    const rejectionBindingValid =
+      record.status === "rejected"
+        ? typeof record.rejection_reason_ref === "string" &&
+          isSafeTrustAuthorityRef(record.rejection_reason_ref) &&
+          typeof record.resolved_at === "string" &&
+          Number.isFinite(Date.parse(record.resolved_at))
+        : record.status === "committed"
+          ? record.rejection_reason_ref === null ||
+            record.rejection_reason_ref === undefined
+          : (record.rejection_reason_ref === null ||
+              record.rejection_reason_ref === undefined) &&
+            (record.resolved_at === null || record.resolved_at === undefined);
+    const approvalRecoveryValid =
+      isSafeRuntimeGoalMutationSubmissionApprovalRecovery(record);
+    return (
+      record.schema_version === "goal_mutation_submission_recovery.v1" &&
+      ["create", "edit", "transition"].includes(record.operation) &&
+      requestPayloadValid &&
+      goalBindingValid &&
+      commitBindingValid &&
+      rejectionBindingValid &&
+      isSafeTrustAuthorityRef(record.submission_ref) &&
+      isSafeTrustAuthorityRef(record.idempotency_ref) &&
+      isSafeTrustAuthorityRef(record.submission_evidence_ref) &&
+      isSafeTrustAuthorityRef(record.request_fingerprint_ref) &&
+      typeof record.recorded_at === "string" &&
+      Number.isFinite(Date.parse(record.recorded_at)) &&
+      Array.isArray(evidenceRefs) &&
+      evidenceRefs.length <= 32 &&
+      evidenceRefs.filter(
+        (ref) => ref === record.submission_evidence_ref,
+      ).length === 1 &&
+      evidenceRefs.every(isSafeTrustAuthorityRef) &&
+      approvalRecoveryValid
+    );
+  });
+}
+
+function goalMutationApprovalSpecsEqual(
+  left: RuntimeGoalMutationApprovalRequestSpec,
+  right: RuntimeGoalMutationApprovalRequestSpec,
+): boolean {
+  return (
+    left.schema_version === right.schema_version &&
+    left.operation === right.operation &&
+    left.subject_ref === right.subject_ref &&
+    left.idempotency_ref === right.idempotency_ref &&
+    left.request_fingerprint_ref === right.request_fingerprint_ref &&
+    left.mutation_request_fingerprint_ref ===
+      right.mutation_request_fingerprint_ref &&
+    left.exact_scope_ref === right.exact_scope_ref &&
+    left.approval_request_ref === right.approval_request_ref &&
+    left.approval_ref === right.approval_ref &&
+    left.operator_actor_ref === right.operator_actor_ref &&
+    left.requested_at === right.requested_at &&
+    left.expires_at === right.expires_at
+  );
+}
+
+function stringArraysEqual(left: unknown, right: string[]): boolean {
+  return (
+    Array.isArray(left) &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function isSafeRuntimeGoalMutationApprovalGrant(
+  value: unknown,
+  spec: RuntimeGoalMutationApprovalRequestSpec,
+  decisionActorRef: string,
+  expectedStatus: "granted" | "revoked",
+): boolean {
+  if (!isPlainRecord(value)) return false;
+  const classification = value.data_classification;
+  const metadata = value.metadata;
+  const allowedKeys = new Set([
+    "approval_ref",
+    "approval_request_id",
+    "run_id",
+    "subject_type",
+    "subject_id",
+    "granted_to_actor_id",
+    "approved_by_actor_id",
+    "approved_actions",
+    "approved_resource_refs",
+    "risk_level",
+    "data_classification",
+    "purpose",
+    "status",
+    "created_at",
+    "expires_at",
+    "revoked_at",
+    "event_ref",
+    "trace_id",
+    "metadata",
+  ]);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    value.approval_ref === spec.approval_ref &&
+    value.approval_request_id === spec.approval_request_ref &&
+    isSafeTrustAuthorityRef(value.run_id) &&
+    value.subject_type === "kernel_task" &&
+    value.subject_id === spec.subject_ref &&
+    value.granted_to_actor_id === spec.operator_actor_ref &&
+    value.approved_by_actor_id === decisionActorRef &&
+    stringArraysEqual(value.approved_actions, [
+      `goal_mutation_${spec.operation}`,
+    ]) &&
+    stringArraysEqual(value.approved_resource_refs, [
+      spec.subject_ref,
+      spec.exact_scope_ref,
+      spec.request_fingerprint_ref,
+      spec.mutation_request_fingerprint_ref,
+      spec.idempotency_ref,
+    ]) &&
+    value.risk_level === "low" &&
+    isPlainRecord(classification) &&
+    classification.classification === "user_private" &&
+    classification.source === "goal-runtime-exact-local-mutation" &&
+    classification.reason === "Goal metadata remains local and redacted." &&
+    stringArraysEqual(classification.allowed_sinks, ["local-goal-journal"]) &&
+    stringArraysEqual(classification.forbidden_sinks, [
+      "provider",
+      "network",
+      "runtime-execution",
+    ]) &&
+    classification.requires_redaction === true &&
+    value.purpose ===
+      "Record one exact local proof-backed goal metadata mutation; runtime execution and standing authority remain disabled." &&
+    value.status === expectedStatus &&
+    typeof value.created_at === "string" &&
+    Number.isFinite(Date.parse(value.created_at)) &&
+    value.expires_at === spec.expires_at &&
+    (expectedStatus === "revoked"
+      ? typeof value.revoked_at === "string" &&
+        Number.isFinite(Date.parse(value.revoked_at))
+      : value.revoked_at === null || value.revoked_at === undefined) &&
+    isSafeTrustAuthorityRef(value.event_ref) &&
+    value.trace_id === spec.approval_request_ref &&
+    isPlainRecord(metadata) &&
+    Object.keys(metadata).length === 1 &&
+    metadata.approval_mode === "local_dev"
+  );
+}
+
+function isSafeRuntimeGoalMutationSubmissionApprovalRecovery(
+  record: RuntimeRunEventsReadModel["goal_mutation_submissions"]["records"][number],
+): boolean {
+  const recovery = record.approval_recovery;
+  if (
+    !isPlainRecord(recovery) ||
+    recovery.schema_version !==
+      "goal_mutation_approval_recovery.v1" ||
+    recovery.authoritative_current !== true ||
+    ![
+      "missing",
+      "pending",
+      "approved",
+      "expired",
+      "denied",
+      "revoked",
+    ].includes(String(recovery.posture))
+  ) {
+    return false;
+  }
+  const approvalRequest = recovery.approval_request;
+  const latestDecision = recovery.latest_decision;
+  if (recovery.posture === "missing") {
+    return (
+      (approvalRequest === null || approvalRequest === undefined) &&
+      (latestDecision === null || latestDecision === undefined)
+    );
+  }
+  if (!isSafeRuntimeGoalMutationApprovalRequestSpec(approvalRequest)) {
+    return false;
+  }
+  const expectedOperation =
+    record.operation === "transition" && isPlainRecord(record.request_payload)
+      ? `transition-${String(record.request_payload.transition)}`
+      : record.operation;
+  const expectedSubject =
+    record.operation === "create" ? "goal-ref:new" : record.goal_ref;
+  if (
+    approvalRequest.operation !== expectedOperation ||
+    approvalRequest.subject_ref !== expectedSubject ||
+    approvalRequest.idempotency_ref !== record.idempotency_ref
+  ) {
+    return false;
+  }
+  if (recovery.posture === "pending") {
+    return (
+      latestDecision === null || latestDecision === undefined
+    );
+  }
+  if (recovery.posture === "expired" && latestDecision == null) {
+    return true;
+  }
+  if (
+    !isSafeRuntimeGoalMutationApprovalDecision(latestDecision) ||
+    !goalMutationApprovalSpecsEqual(approvalRequest, latestDecision.spec)
+  ) {
+    return false;
+  }
+  const terminalDecisionActorBound =
+    latestDecision.status === "expired"
+      ? latestDecision.decision_actor_ref ===
+        "operator-ref:goal-runtime-expiration-recovery"
+      : latestDecision.decision_actor_ref === "operator-ref:local-user";
+  const terminalDecisionBound =
+    isSafeTrustAuthorityRef(latestDecision.decision_reason_ref) &&
+    terminalDecisionActorBound &&
+    typeof latestDecision.decided_at === "string" &&
+    Number.isFinite(Date.parse(latestDecision.decided_at));
+  if (recovery.posture === "approved") {
+    return (
+      latestDecision.status === "approved" &&
+      terminalDecisionBound &&
+      isSafeRuntimeGoalMutationApprovalGrant(
+        latestDecision.approval_grant,
+        approvalRequest,
+        latestDecision.decision_actor_ref as string,
+        "granted",
+      )
+    );
+  }
+  if (recovery.posture === "expired") {
+    return (
+      (latestDecision.status === "expired" &&
+        terminalDecisionBound &&
+        (latestDecision.approval_grant === null ||
+          latestDecision.approval_grant === undefined)) ||
+      (latestDecision.status === "approved" &&
+        terminalDecisionBound &&
+        isSafeRuntimeGoalMutationApprovalGrant(
+          latestDecision.approval_grant,
+          approvalRequest,
+          latestDecision.decision_actor_ref as string,
+          "granted",
+        ))
+    );
+  }
+  if (recovery.posture === "denied") {
+    return (
+      latestDecision.status === "denied" &&
+      terminalDecisionBound &&
+      (latestDecision.approval_grant === null ||
+        latestDecision.approval_grant === undefined)
+    );
+  }
+  return (
+    latestDecision.status === "revoked" &&
+    terminalDecisionBound &&
+    isSafeRuntimeGoalMutationApprovalGrant(
+      latestDecision.approval_grant,
+      approvalRequest,
+      latestDecision.decision_actor_ref as string,
+      "revoked",
+    )
+  );
+}
+
+function isSafeRuntimeGoalRequestText(value: unknown): value is string {
+  const lowered = typeof value === "string" ? value.trim().toLowerCase() : "";
+  const rawContentMarkers = [
+    "prompt:",
+    "response:",
+    "transcript:",
+    "system:",
+    "developer:",
+    "assistant:",
+    "user:",
+    "tool:",
+    "model:",
+    "<|system|>",
+    "<|developer|>",
+    "<|user|>",
+    "<|assistant|>",
+    "<|tool|>",
+  ];
+  return (
+    isBoundedDisplayText(value, 1200) &&
+    !containsTerminalControlCharacters(String(value)) &&
+    !containsSecretLike(value) &&
+    !containsAbsoluteLocalPath(String(value)) &&
+    !rawContentMarkers.some((marker) => lowered.includes(marker)) &&
+    !["summarize ", "translate ", "respond to "].some((prefix) =>
+      lowered.startsWith(prefix),
+    )
+  );
+}
+
+function isSafeRuntimeGoalRequestTexts(
+  value: unknown,
+  required = false,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    (!required || value.length > 0) &&
+    value.every(isSafeRuntimeGoalRequestText)
+  );
+}
+
+function isSafeRuntimeGoalRequestRefs(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(isSafeTrustAuthorityRef)
+  );
+}
+
+function isSafeRuntimeGoalBudget(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const deadlineValid =
+    value.deadline_at === null ||
+    value.deadline_at === undefined ||
+    (typeof value.deadline_at === "string" &&
+      Number.isFinite(Date.parse(value.deadline_at)));
+  return (
+    Number.isSafeInteger(value.operation_limit) &&
+    Number(value.operation_limit) >= 1 &&
+    Number(value.operation_limit) <= 10_000 &&
+    Number.isSafeInteger(value.cost_budget_microusd) &&
+    Number(value.cost_budget_microusd) >= 0 &&
+    Number(value.cost_budget_microusd) <= 10_000_000_000 &&
+    deadlineValid
+  );
+}
+
+function hasRuntimeGoalMutationValue(value: unknown): boolean {
+  return value !== undefined && value !== null;
+}
+
+function isSafeRuntimeGoalLinks(value: unknown): boolean {
+  return (
+    isPlainRecord(value) &&
+    isSafeRuntimeGoalRequestRefs(value.plan_refs) &&
+    isSafeRuntimeGoalRequestRefs(value.run_refs) &&
+    isSafeRuntimeGoalRequestRefs(value.action_inbox_refs) &&
+    isSafeRuntimeGoalRequestRefs(value.work_board_refs)
+  );
+}
+
+function isSafeRuntimeGoalCreateRequest(
+  value: unknown,
+): value is RuntimeGoalCreateRequest {
+  if (!isPlainRecord(value)) return false;
+  const allowedKeys = new Set([
+    "text_redaction_posture",
+    "objective",
+    "desired_outcome",
+    "success_criteria",
+    "constraints",
+    "in_scope_resource_refs",
+    "stop_condition",
+    "budget",
+    "links",
+    "evidence_refs",
+  ]);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    value.text_redaction_posture ===
+      "operator_authored_redacted_summary_only" &&
+    isSafeRuntimeGoalRequestText(value.objective) &&
+    isSafeRuntimeGoalRequestText(value.desired_outcome) &&
+    isSafeRuntimeGoalRequestTexts(value.success_criteria, true) &&
+    isSafeRuntimeGoalRequestTexts(value.constraints) &&
+    isSafeRuntimeGoalRequestRefs(value.in_scope_resource_refs) &&
+    isSafeRuntimeGoalRequestText(value.stop_condition) &&
+    isSafeRuntimeGoalBudget(value.budget) &&
+    isSafeRuntimeGoalLinks(value.links) &&
+    isSafeRuntimeGoalRequestRefs(value.evidence_refs)
+  );
+}
+
+function isSafeRuntimeGoalEditRequest(
+  value: unknown,
+): value is RuntimeGoalEditRequest {
+  if (!isPlainRecord(value)) return false;
+  const allowedKeys = new Set([
+    "expected_version",
+    "text_redaction_posture",
+    "objective",
+    "desired_outcome",
+    "success_criteria",
+    "constraints",
+    "in_scope_resource_refs",
+    "stop_condition",
+    "budget",
+    "links",
+    "evidence_refs",
+  ]);
+  const mutationKeys = [
+    "objective",
+    "desired_outcome",
+    "success_criteria",
+    "constraints",
+    "in_scope_resource_refs",
+    "stop_condition",
+    "budget",
+    "links",
+    "evidence_refs",
+  ];
+  const textKeys = [
+    "objective",
+    "desired_outcome",
+    "success_criteria",
+    "constraints",
+    "stop_condition",
+  ];
+  const hasTextMutation = textKeys.some((key) =>
+    hasRuntimeGoalMutationValue(value[key]),
+  );
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    Number.isSafeInteger(value.expected_version) &&
+    Number(value.expected_version) >= 1 &&
+    Number(value.expected_version) <= 4096 &&
+    mutationKeys.some((key) => hasRuntimeGoalMutationValue(value[key])) &&
+    (hasTextMutation
+      ? value.text_redaction_posture ===
+        "operator_authored_redacted_summary_only"
+      : !hasRuntimeGoalMutationValue(value.text_redaction_posture)) &&
+    (!hasRuntimeGoalMutationValue(value.objective) ||
+      isSafeRuntimeGoalRequestText(value.objective)) &&
+    (!hasRuntimeGoalMutationValue(value.desired_outcome) ||
+      isSafeRuntimeGoalRequestText(value.desired_outcome)) &&
+    (!hasRuntimeGoalMutationValue(value.success_criteria) ||
+      isSafeRuntimeGoalRequestTexts(value.success_criteria, true)) &&
+    (!hasRuntimeGoalMutationValue(value.constraints) ||
+      isSafeRuntimeGoalRequestTexts(value.constraints)) &&
+    (!hasRuntimeGoalMutationValue(value.in_scope_resource_refs) ||
+      isSafeRuntimeGoalRequestRefs(value.in_scope_resource_refs)) &&
+    (!hasRuntimeGoalMutationValue(value.stop_condition) ||
+      isSafeRuntimeGoalRequestText(value.stop_condition)) &&
+    (!hasRuntimeGoalMutationValue(value.budget) ||
+      isSafeRuntimeGoalBudget(value.budget)) &&
+    (!hasRuntimeGoalMutationValue(value.links) ||
+      isSafeRuntimeGoalLinks(value.links)) &&
+    (!hasRuntimeGoalMutationValue(value.evidence_refs) ||
+      isSafeRuntimeGoalRequestRefs(value.evidence_refs))
+  );
+}
+
+function isSafeRuntimeGoalCompletionEvidence(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const allowedKeys = new Set([
+    "goal_ref",
+    "goal_version",
+    "run_ref",
+    "receipt_ref",
+    "proof_ref",
+    "criterion_proof_refs",
+    "evidence_ref",
+    "verifier_ref",
+  ]);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    isSafeTrustAuthorityRef(value.goal_ref) &&
+    Number.isSafeInteger(value.goal_version) &&
+    Number(value.goal_version) >= 1 &&
+    Number(value.goal_version) <= 4096 &&
+    isSafeTrustAuthorityRef(value.run_ref) &&
+    isSafeTrustAuthorityRef(value.receipt_ref) &&
+    isSafeTrustAuthorityRef(value.proof_ref) &&
+    isSafeRuntimeGoalRequestRefs(value.criterion_proof_refs) &&
+    value.criterion_proof_refs.length > 0 &&
+    isSafeTrustAuthorityRef(value.evidence_ref) &&
+    isSafeTrustAuthorityRef(value.verifier_ref)
+  );
+}
+
+function isSafeRuntimeGoalTransitionRequest(
+  value: unknown,
+): value is RuntimeGoalTransitionRequest {
+  if (!isPlainRecord(value)) return false;
+  const allowedKeys = new Set([
+    "expected_version",
+    "transition",
+    "reason_ref",
+    "evidence_refs",
+    "completion_evidence",
+  ]);
+  const transition = String(value.transition);
+  const completionEvidenceValid =
+    transition === "verify_completion"
+      ? isSafeRuntimeGoalCompletionEvidence(value.completion_evidence)
+      : !hasRuntimeGoalMutationValue(value.completion_evidence);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    Number.isSafeInteger(value.expected_version) &&
+    Number(value.expected_version) >= 1 &&
+    Number(value.expected_version) <= 4096 &&
+    [
+      "pause",
+      "resume",
+      "block",
+      "wait",
+      "cancel",
+      "clear",
+      "restore",
+      "request_completion",
+      "verify_completion",
+    ].includes(String(value.transition)) &&
+    isSafeTrustAuthorityRef(value.reason_ref) &&
+    (!hasRuntimeGoalMutationValue(value.evidence_refs) ||
+      isSafeRuntimeGoalRequestRefs(value.evidence_refs)) &&
+    completionEvidenceValid
+  );
+}
+
+function isSafeRuntimeRunEventPreview(
+  event: RuntimeRunEventsReadModel["event_previews"][number],
+): boolean {
+  const allowedKinds = new Set([
+    "run_proposed",
+    "approval_wait_entered",
+    "event_stream_preview",
+    "stop_requested_preview",
+    "proof_bound",
+    "goal_linked",
+    "plan_linked",
+    "run_started",
+    "approval_resumed",
+    "worker_restart_recovered",
+    "allowed_local_action_recorded",
+    "receipt_recorded",
+    "evidence_linked",
+    "completion_verified",
+    "cancellation_requested",
+    "cancelled",
+    "failed_retryable",
+    "failed_terminal",
+    "dead_lettered",
+  ]);
+  const terminalKinds = new Set([
+    "receipt_recorded",
+    "completion_verified",
+    "cancelled",
+    "failed_terminal",
+    "dead_lettered",
+  ]);
+  const synthesizedPresenceProofRef =
+    "proof-ref:runtime-run-events:redacted-event-presence";
+  const safeRef = (value: unknown): value is string =>
+    typeof value === "string" &&
+    value.length <= 320 &&
+    isSafeTrustAuthorityRef(value);
+  const safeRefs = (value: unknown, maximum: number) =>
+    Array.isArray(value) &&
+    value.length <= maximum &&
+    value.every(safeRef);
+  const criterionBindingsValid =
+    Array.isArray(event.criterion_verifier_bindings) &&
+    event.criterion_verifier_bindings.length <= 32 &&
+    event.criterion_verifier_bindings.every(
+      (binding) =>
+        isSafeTrustAuthorityRef(binding.goal_ref) &&
+        Number.isSafeInteger(binding.goal_version) &&
+        binding.goal_version >= 1 &&
+        binding.goal_version <= 4096 &&
+        isSafeTrustAuthorityRef(binding.criterion_ref) &&
+        isSafeTrustAuthorityRef(binding.proof_ref) &&
+        isSafeTrustAuthorityRef(binding.verifier_ref) &&
+        isSafeTrustAuthorityRef(binding.evaluator_receipt_ref),
+    );
+  const hasDurableSequence = event.sequence !== null && event.sequence !== undefined;
+  const durableFieldsValid = hasDurableSequence
+    ? Number.isSafeInteger(event.sequence) &&
+      Number(event.sequence) >= 1 &&
+      typeof event.recorded_at === "string" &&
+      Number.isFinite(Date.parse(event.recorded_at)) &&
+      safeRef(event.event_hash_ref) &&
+      (event.predecessor_hash_ref === null ||
+        event.predecessor_hash_ref === undefined ||
+        safeRef(event.predecessor_hash_ref))
+    : (event.recorded_at === null || event.recorded_at === undefined) &&
+      (event.event_hash_ref === null || event.event_hash_ref === undefined) &&
+      (event.predecessor_hash_ref === null ||
+        event.predecessor_hash_ref === undefined);
+  const proofBindingValid =
+    event.proof_refs.length > 0
+      ? event.proof_ref === event.proof_refs[0]
+      : !terminalKinds.has(event.event_kind) &&
+        event.proof_ref === synthesizedPresenceProofRef;
+  const operationBindingsValid =
+    (event.event_kind !== "goal_linked" ||
+      (event.goal_ref !== null &&
+        event.goal_ref !== undefined &&
+        safeRef(event.goal_ref))) &&
+    (event.event_kind !== "plan_linked" ||
+      (event.plan_ref !== null &&
+        event.plan_ref !== undefined &&
+        safeRef(event.plan_ref)));
+  return (
+    allowedKinds.has(event.event_kind) &&
+    safeRef(event.event_ref) &&
+    safeRef(event.runtime_run_ref) &&
+    safeRef(event.uaa_durable_run_ref) &&
+    safeRef(event.proof_ref) &&
+    isBoundedDisplayText(event.safe_summary, 1200) &&
+    !containsTerminalControlCharacters(event.safe_summary) &&
+    !containsSecretLike(event.safe_summary) &&
+    !containsAbsoluteLocalPath(event.safe_summary) &&
+    event.redaction_status === "redacted_safe_ref_only" &&
+    safeRefs(event.proof_refs, 97) &&
+    safeRefs(event.receipt_refs, 33) &&
+    criterionBindingsValid &&
+    proofBindingValid &&
+    (!terminalKinds.has(event.event_kind) ||
+      (event.proof_refs.length > 0 && event.receipt_refs.length > 0)) &&
+    (event.goal_ref === null ||
+      event.goal_ref === undefined ||
+      safeRef(event.goal_ref)) &&
+    (event.plan_ref === null ||
+      event.plan_ref === undefined ||
+      safeRef(event.plan_ref)) &&
+    operationBindingsValid &&
+    durableFieldsValid &&
+    event.runtime_payload_persisted === false &&
+    event.raw_log_persisted === false &&
+    event.raw_prompt_persisted === false &&
+    event.raw_response_persisted === false
+  );
+}
+
+function isSafeRuntimePersistentGoal(goal: RuntimePersistentGoal): boolean {
+  if (
+    !isPlainRecord(goal) ||
+    !isPlainRecord(goal.links) ||
+    !isPlainRecord(goal.budget)
+  ) {
+    return false;
+  }
+  const allowedStates = new Set<RuntimePersistentGoal["state"]>([
+    "active",
+    "paused",
+    "blocked",
+    "waiting",
+    "complete_requested",
+    "verified_complete",
+    "cancelled",
+    "cleared",
+  ]);
+  const safeText = (value: unknown) =>
+    isBoundedDisplayText(value, 1200) &&
+    !containsTerminalControlCharacters(String(value)) &&
+    !containsSecretLike(value) &&
+    !containsAbsoluteLocalPath(String(value));
+  const safeRefs = (value: unknown) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    value.every(isSafeTrustAuthorityRef);
+  const safeTexts = (value: unknown, required = false) =>
+    Array.isArray(value) &&
+    value.length <= 32 &&
+    (!required || value.length > 0) &&
+    value.every(safeText);
+  const completionRefs = [
+    goal.completion_run_ref,
+    goal.completion_evidence_ref,
+    goal.completion_receipt_ref,
+    goal.completion_proof_ref,
+    goal.completion_verifier_ref,
+    goal.completion_source_goal_version,
+  ];
+  const noCompletionRefs = completionRefs.every(
+    (ref) => ref === null || ref === undefined,
+  );
+  const exactCompletionRefs = completionRefs.slice(0, -1).every(
+    (ref) => typeof ref === "string" && isSafeTrustAuthorityRef(ref),
+  ) &&
+    Number.isSafeInteger(goal.completion_source_goal_version) &&
+    Number(goal.completion_source_goal_version) >= 1 &&
+    Number(goal.completion_source_goal_version) <= 4096;
+  const noCompletionPlan =
+    goal.completion_plan_ref === null ||
+    goal.completion_plan_ref === undefined;
+  const exactCompletionPlan =
+    typeof goal.completion_plan_ref === "string" &&
+    isSafeTrustAuthorityRef(goal.completion_plan_ref) &&
+    Array.isArray(goal.links.plan_refs) &&
+    goal.links.plan_refs.includes(goal.completion_plan_ref);
+  const completionPlanValid =
+    exactCompletionRefs &&
+    Array.isArray(goal.links.plan_refs) &&
+    goal.links.plan_refs.length
+      ? exactCompletionPlan
+      : noCompletionPlan;
+  const criterionProofRefsValid =
+    safeRefs(goal.completion_criterion_proof_refs) &&
+    (goal.state === "verified_complete" ||
+    (goal.state === "cleared" && exactCompletionRefs)
+      ? goal.completion_criterion_proof_refs.length ===
+        goal.success_criteria.length
+      : goal.completion_criterion_proof_refs.length === 0);
+  const criterionBindingsValid =
+    Array.isArray(goal.completion_criterion_verifier_bindings) &&
+    goal.completion_criterion_verifier_bindings.length <= 32 &&
+    (goal.state === "verified_complete" ||
+    (goal.state === "cleared" && exactCompletionRefs)
+      ? goal.completion_criterion_verifier_bindings.length ===
+          goal.success_criteria.length &&
+        goal.completion_criterion_verifier_bindings.every(
+          (binding, index) =>
+            isPlainRecord(binding) &&
+            binding.goal_ref === goal.goal_ref &&
+            binding.goal_version === goal.completion_source_goal_version &&
+            isSafeTrustAuthorityRef(binding.criterion_ref) &&
+            binding.proof_ref === goal.completion_criterion_proof_refs[index] &&
+            binding.verifier_ref === goal.completion_verifier_ref &&
+            isSafeTrustAuthorityRef(binding.evaluator_receipt_ref),
+        )
+      : goal.completion_criterion_verifier_bindings.length === 0);
+  const completionPostureValid =
+    goal.state === "verified_complete"
+      ? exactCompletionRefs &&
+        completionPlanValid &&
+        criterionProofRefsValid &&
+        criterionBindingsValid
+      : goal.state === "cleared"
+        ? (noCompletionRefs && noCompletionPlan) ||
+          (exactCompletionRefs &&
+            completionPlanValid &&
+            criterionProofRefsValid &&
+            criterionBindingsValid)
+        : noCompletionRefs &&
+          noCompletionPlan &&
+          criterionProofRefsValid &&
+          criterionBindingsValid;
+
+  return (
+    goal.schema_version === "persistent_goal.v1" &&
+    goal.contract_ref === "contract-ref:proof-backed-goals-durable-events:v1" &&
+    isSafeTrustAuthorityRef(goal.goal_ref) &&
+    goal.text_redaction_posture ===
+      "operator_authored_redacted_summary_only" &&
+    safeText(goal.objective) &&
+    safeText(goal.desired_outcome) &&
+    safeText(goal.stop_condition) &&
+    safeTexts(goal.success_criteria, true) &&
+    safeTexts(goal.constraints) &&
+    safeRefs(goal.in_scope_resource_refs) &&
+    safeRefs(goal.evidence_refs) &&
+    safeRefs(goal.links.plan_refs) &&
+    safeRefs(goal.links.run_refs) &&
+    safeRefs(goal.links.action_inbox_refs) &&
+    safeRefs(goal.links.work_board_refs) &&
+    allowedStates.has(goal.state) &&
+    Number.isSafeInteger(goal.version) &&
+    goal.version >= 1 &&
+    goal.version <= 4096 &&
+    Number.isSafeInteger(goal.budget.operation_limit) &&
+    goal.budget.operation_limit >= 1 &&
+    Number.isSafeInteger(goal.budget.cost_budget_microusd) &&
+    goal.budget.cost_budget_microusd >= 0 &&
+    completionPostureValid &&
+    goal.safe_refs_only === true &&
+    goal.model_output_authoritative === false
+  );
+}
+
+function isSafeRuntimeGoalMutationResult(
+  value: RuntimeGoalMutationResult | undefined,
+): value is RuntimeGoalMutationResult {
+  if (!isPlainRecord(value)) return false;
+  const { goal, approval_binding: approval } = value;
+  if (!isPlainRecord(goal) || !isPlainRecord(approval)) return false;
+  return (
+    isSafeRuntimePersistentGoal(goal as unknown as RuntimePersistentGoal) &&
+    approval.schema_version === "goal_mutation_approval_binding.v1" &&
+    approval.approval_validated === true &&
+    approval.standing_authority_granted === false &&
+    isSafeTrustAuthorityRef(approval.approval_ref) &&
+    isSafeTrustAuthorityRef(approval.approval_request_ref) &&
+    isSafeTrustAuthorityRef(approval.approval_decision_ref) &&
+    isSafeTrustAuthorityRef(approval.approval_ledger_entry_hash_ref) &&
+    isSafeTrustAuthorityRef(approval.exact_scope_ref) &&
+    isSafeTrustAuthorityRef(approval.request_fingerprint_ref)
+  );
+}
+
+export async function fetchRuntimeRunEvents(
+  expectedBinding: BackendTruthReadBinding | null = null,
+): Promise<RuntimeRunEventsReadModel> {
+  const payload = await readEnvelope<RuntimeRunEventsReadModel>(
+    API_ENDPOINTS.runtimeRunEvents,
+    defaultControlCenterReadLimiter,
+    expectedBinding,
+  );
+  if (!isSafeRuntimeRunEvents(payload)) {
+    throw new Error("Runtime goal/event state failed safe validation.");
+  }
+  return payload;
+}
+
+type RuntimeGoalMutationIdentityMaterial =
+  | {
+      operation: "create";
+      goalRef: null;
+      request: RuntimeGoalCreateRequest;
+    }
+  | {
+      operation: "edit";
+      goalRef: string;
+      request: RuntimeGoalEditRequest;
+    }
+  | {
+      operation: "transition";
+      goalRef: string;
+      request: RuntimeGoalTransitionRequest;
+    };
+
+const RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN =
+  "uaa.control-center.runtime-goal-mutation-idempotency.v1";
+const RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN =
+  "uaa.control-center.runtime-goal-create-submission.v1";
+const RUNTIME_GOAL_UPDATE_SUBMISSION_DOMAIN =
+  "uaa.control-center.runtime-goal-update-submission.v1";
+const RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX =
+  "evidence-ref:control-center-goal-create-submission:sha256:";
+const RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX =
+  "evidence-ref:control-center-goal-update-submission:";
+
+function newRuntimeGoalMutationSubmissionRef(): string {
+  const randomUuid = globalThis.crypto?.randomUUID;
+  if (randomUuid === undefined) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_UNAVAILABLE");
+  }
+  return `submission-ref:control-center-goal-mutation:${randomUuid.call(globalThis.crypto)}`;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle === undefined) {
+    throw new Error("RUNTIME_GOAL_MUTATION_DIGEST_UNAVAILABLE");
+  }
+  try {
+    const bytes = new TextEncoder().encode(value);
+    const digest = await subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  } catch {
+    throw new Error("RUNTIME_GOAL_MUTATION_DIGEST_UNAVAILABLE");
+  }
+}
+
+export async function runtimeGoalMutationIdempotencyRef(
+  material: RuntimeGoalMutationIdentityMaterial,
+): Promise<string> {
+  if (
+    (material.operation === "create" && material.goalRef !== null) ||
+    (material.operation !== "create" &&
+      (typeof material.goalRef !== "string" ||
+        !isSafeTrustAuthorityRef(material.goalRef)))
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_MUTATION_IDENTITY_DOMAIN,
+    operation: material.operation,
+    goal_ref: material.goalRef,
+    request: material.request,
+  });
+  const digest = await sha256Hex(canonicalIntent);
+  return `idempotency-ref:control-center-goal-${material.operation}:sha256:${digest}`;
+}
+
+export async function prepareRuntimeGoalCreateSubmission(
+  request: RuntimeGoalCreateRequest,
+  submissionRef: string = newRuntimeGoalMutationSubmissionRef(),
+): Promise<{
+  request: RuntimeGoalCreateRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+  submissionRef: string;
+}> {
+  if (!isSafeTrustAuthorityRef(submissionRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  const evidenceRefs = request.evidence_refs.filter(
+    (ref) => !ref.startsWith(RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX),
+  );
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_CREATE_SUBMISSION_DOMAIN,
+    submission_ref: submissionRef,
+    request: {
+      ...request,
+      evidence_refs: evidenceRefs,
+    },
+  });
+  const intentDigest = await sha256Hex(canonicalIntent);
+  const submissionEvidenceRef =
+    `${RUNTIME_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX}${intentDigest}`;
+  const submissionRequest: RuntimeGoalCreateRequest = {
+    ...request,
+    evidence_refs: [...evidenceRefs, submissionEvidenceRef],
+  };
+  return {
+    request: submissionRequest,
+    idempotencyRef: await runtimeGoalMutationIdempotencyRef({
+      operation: "create",
+      goalRef: null,
+      request: submissionRequest,
+    }),
+    submissionEvidenceRef,
+    submissionRef,
+  };
+}
+
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "edit",
+  goalRef: string,
+  request: RuntimeGoalEditRequest,
+  submissionRef?: string,
+): Promise<{
+  request: RuntimeGoalEditRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+  submissionRef: string;
+}>;
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "transition",
+  goalRef: string,
+  request: RuntimeGoalTransitionRequest,
+  submissionRef?: string,
+): Promise<{
+  request: RuntimeGoalTransitionRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+  submissionRef: string;
+}>;
+export async function prepareRuntimeGoalUpdateSubmission(
+  operation: "edit" | "transition",
+  goalRef: string,
+  request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest,
+  submissionRef: string = newRuntimeGoalMutationSubmissionRef(),
+): Promise<{
+  request: RuntimeGoalEditRequest | RuntimeGoalTransitionRequest;
+  idempotencyRef: string;
+  submissionEvidenceRef: string;
+  submissionRef: string;
+}> {
+  if (!isSafeTrustAuthorityRef(goalRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  if (!isSafeTrustAuthorityRef(submissionRef)) {
+    throw new Error("RUNTIME_GOAL_MUTATION_IDENTITY_INVALID");
+  }
+  const evidenceRefs = (request.evidence_refs ?? []).filter(
+    (ref) =>
+      !ref.startsWith(RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX),
+  );
+  const canonicalIntent = stableStringifyForIdempotency({
+    domain: RUNTIME_GOAL_UPDATE_SUBMISSION_DOMAIN,
+    submission_ref: submissionRef,
+    operation,
+    goal_ref: goalRef,
+    request: {
+      ...request,
+      evidence_refs: evidenceRefs,
+    },
+  });
+  const intentDigest = await sha256Hex(canonicalIntent);
+  const submissionEvidenceRef =
+    `${RUNTIME_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX}${operation}:` +
+    `sha256:${intentDigest}`;
+  const submissionRequest = {
+    ...request,
+    evidence_refs: [...evidenceRefs, submissionEvidenceRef],
+  };
+  return {
+    request: submissionRequest,
+    idempotencyRef: await runtimeGoalMutationIdempotencyRef({
+      operation,
+      goalRef,
+      request: submissionRequest,
+    } as RuntimeGoalMutationIdentityMaterial),
+    submissionEvidenceRef,
+    submissionRef,
+  };
+}
+
+function isSafeRuntimeGoalMutationApprovalRequestSpec(
+  value: unknown,
+): value is RuntimeGoalMutationApprovalRequestSpec {
+  if (!isPlainRecord(value)) return false;
+  return (
+    value.schema_version === "goal_mutation_approval_request.v2" &&
+    typeof value.operation === "string" &&
+    value.operation.length > 0 &&
+    value.operation.length <= 80 &&
+    isSafeTrustAuthorityRef(value.subject_ref) &&
+    isSafeTrustAuthorityRef(value.idempotency_ref) &&
+    isSafeTrustAuthorityRef(value.request_fingerprint_ref) &&
+    isSafeTrustAuthorityRef(value.mutation_request_fingerprint_ref) &&
+    isSafeTrustAuthorityRef(value.exact_scope_ref) &&
+    isSafeTrustAuthorityRef(value.approval_request_ref) &&
+    isSafeTrustAuthorityRef(value.approval_ref) &&
+    value.operator_actor_ref === "operator-ref:local-user" &&
+    typeof value.requested_at === "string" &&
+    Number.isFinite(Date.parse(value.requested_at)) &&
+    typeof value.expires_at === "string" &&
+    Number.isFinite(Date.parse(value.expires_at)) &&
+    Date.parse(value.expires_at) > Date.parse(value.requested_at)
+  );
+}
+
+function isSafeRuntimeGoalMutationApprovalDecision(
+  value: unknown,
+): value is RuntimeGoalMutationApprovalDecision {
+  if (!isPlainRecord(value)) return false;
+  return (
+    value.schema_version === "goal_mutation_approval_ledger.v2" &&
+    isSafeRuntimeGoalMutationApprovalRequestSpec(value.spec) &&
+    ["pending", "approved", "denied", "revoked", "expired"].includes(
+      String(value.status),
+    ) &&
+    isSafeTrustAuthorityRef(value.entry_hash_ref) &&
+    (value.previous_entry_hash_ref === null ||
+      value.previous_entry_hash_ref === undefined ||
+      isSafeTrustAuthorityRef(value.previous_entry_hash_ref)) &&
+    (value.decision_reason_ref === null ||
+      value.decision_reason_ref === undefined ||
+      isSafeTrustAuthorityRef(value.decision_reason_ref)) &&
+    (value.decision_actor_ref === null ||
+      value.decision_actor_ref === undefined ||
+      isSafeTrustAuthorityRef(value.decision_actor_ref)) &&
+    (value.decided_at === null ||
+      value.decided_at === undefined ||
+      (typeof value.decided_at === "string" &&
+        Number.isFinite(Date.parse(value.decided_at))))
+  );
+}
+
+export async function prepareRuntimeGoalMutationApproval(
+  material: RuntimeGoalMutationIdentityMaterial,
+  idempotencyRef: string,
+  submissionRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationApprovalRequestSpec> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  if (
+    !isSafeTrustAuthorityRef(idempotencyRef) ||
+    !isSafeTrustAuthorityRef(submissionRef)
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_SUBMISSION_REF_INVALID");
+  }
+  const endpoint =
+    material.operation === "create"
+      ? API_ENDPOINTS.runtimeGoalApprovalPrepareCreate
+      : runtimeGoalApprovalPrepareEndpoint(
+          material.operation,
+          material.goalRef,
+        );
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders(
+      withBackendTruthMutationHeaders(
+        {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyRef,
+          "X-UAA-Goal-Submission-Ref": submissionRef,
+        },
+        binding,
+      ),
+    ),
+    body: JSON.stringify(material.request),
+  });
+  const payload = (await readJsonSafely(response)) as ResultEnvelope<{
+    approval_request: RuntimeGoalMutationApprovalRequestSpec;
+  }>;
+  const data = payload.result ?? payload.data;
+  const success = payload.ok ?? payload.success;
+  const spec = data?.approval_request;
+  if (
+    !response.ok ||
+    success !== true ||
+    !isSafeRuntimeGoalMutationApprovalRequestSpec(spec) ||
+    spec.idempotency_ref !== idempotencyRef
+  ) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          payload,
+          "The exact goal mutation approval request failed safely.",
+        ),
+      ),
+    );
+  }
+  return spec;
+}
+
+export async function decideRuntimeGoalMutationApproval(
+  approvalRequestRef: string,
+  decision: "approve" | "deny",
+  reasonRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationApprovalDecision> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  if (
+    !isSafeTrustAuthorityRef(approvalRequestRef) ||
+    !isSafeTrustAuthorityRef(reasonRef)
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_APPROVAL_REF_INVALID");
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${runtimeGoalApprovalDecisionEndpoint(approvalRequestRef)}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": `idempotency-ref:goal-approval-decision:${approvalRequestRef}`,
+          },
+          binding,
+        ),
+      ),
+      body: JSON.stringify({
+        decision,
+        decision_reason_ref: reasonRef,
+      }),
+    },
+  );
+  const payload = (await readJsonSafely(response)) as ResultEnvelope<{
+    approval_decision: RuntimeGoalMutationApprovalDecision;
+  }>;
+  const data = payload.result ?? payload.data;
+  const success = payload.ok ?? payload.success;
+  const result = data?.approval_decision;
+  if (
+    !response.ok ||
+    success !== true ||
+    !isSafeRuntimeGoalMutationApprovalDecision(result) ||
+    result.spec.approval_request_ref !== approvalRequestRef ||
+    result.status !== (decision === "approve" ? "approved" : "denied")
+  ) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          payload,
+          "The exact goal mutation approval decision failed safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+export async function revokeRuntimeGoalMutationApproval(
+  approvalRef: string,
+  reasonRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationApprovalDecision> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  if (
+    !isSafeTrustAuthorityRef(approvalRef) ||
+    !isSafeTrustAuthorityRef(reasonRef)
+  ) {
+    throw new Error("RUNTIME_GOAL_MUTATION_APPROVAL_REF_INVALID");
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeGoalApprovalRevoke}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": `idempotency-ref:goal-approval-revoke:${approvalRef}`,
+          },
+          binding,
+        ),
+      ),
+      body: JSON.stringify({
+        approval_ref: approvalRef,
+        decision_reason_ref: reasonRef,
+      }),
+    },
+  );
+  const payload = (await readJsonSafely(response)) as ResultEnvelope<{
+    approval_decision: RuntimeGoalMutationApprovalDecision;
+  }>;
+  const data = payload.result ?? payload.data;
+  const success = payload.ok ?? payload.success;
+  const result = data?.approval_decision;
+  if (
+    !response.ok ||
+    success !== true ||
+    !isSafeRuntimeGoalMutationApprovalDecision(result) ||
+    result.spec.approval_ref !== approvalRef ||
+    result.status !== "revoked"
+  ) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          payload,
+          "The exact goal mutation approval revocation failed safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+async function postRuntimeGoalMutation(
+  endpoint: string,
+  request:
+    | RuntimeGoalCreateRequest
+    | RuntimeGoalEditRequest
+    | RuntimeGoalTransitionRequest,
+  idempotencyRef: string,
+  approvalRef: string,
+  submissionRef: string | null,
+  binding: BackendTruthReadBinding | null,
+): Promise<RuntimeGoalMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders(
+      withBackendTruthMutationHeaders(
+        {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyRef,
+          "X-UAA-Goal-Approval-Ref": approvalRef,
+          ...(submissionRef === null
+            ? {}
+            : { "X-UAA-Goal-Submission-Ref": submissionRef }),
+        },
+        binding,
+      ),
+    ),
+    body: JSON.stringify(request),
+  });
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<RuntimeGoalMutationResult>;
+  const result = data.result ?? data.data;
+  const success = data.ok ?? data.success;
+  const safeFailureMessage = sanitizeForDisplay(
+    extractErrorMessage(
+      data,
+      "The proof-backed goal mutation failed safely.",
+    ),
+  );
+  if (
+    !response.ok ||
+    success !== true ||
+    !isSafeRuntimeGoalMutationResult(result)
+  ) {
+    if (response.status === 422) {
+      throw new RuntimeGoalMutationValidationError(safeFailureMessage);
+    }
+    if (
+      submissionRef !== null &&
+      isDurableGoalMutationTerminalFailure(data.error)
+    ) {
+      throw new RuntimeGoalMutationTerminalRejectionError(
+        safeFailureMessage,
+        data.error?.code as string,
+      );
+    }
+    throw new Error(safeFailureMessage);
+  }
+  return result;
+}
+
+const DURABLE_GOAL_MUTATION_VALIDATION_FAILURE_CODES = new Set([
+  "GOAL_REQUEST_REF_INVALID",
+  "GOAL_STORE_CAPACITY_EXCEEDED",
+  "GOAL_JOURNAL_CAPACITY_EXCEEDED",
+  "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE",
+  "GOAL_REQUEST_VALIDATION_FAILED",
+  "GOAL_MUTATION_APPROVAL_DENIED",
+  "GOAL_MUTATION_APPROVAL_REVOKED",
+  "GOAL_MUTATION_APPROVAL_EXPIRED",
+  "GOAL_MUTATION_APPROVAL_SCOPE_MISMATCH",
+  "GOAL_MUTATION_APPROVAL_BINDING_MISMATCH",
+]);
+
+function isDurableGoalMutationTerminalFailure(
+  error: ResultEnvelope<unknown>["error"],
+): boolean {
+  if (
+    error === undefined ||
+    typeof error.code !== "string" ||
+    error.retryable !== false
+  ) {
+    return false;
+  }
+  return (
+    error.category === "not_found" ||
+    error.category === "conflict" ||
+    error.category === "authorization_error" ||
+    (error.category === "validation_error" &&
+      DURABLE_GOAL_MUTATION_VALIDATION_FAILURE_CODES.has(error.code))
+  );
+}
+
+export class RuntimeGoalMutationValidationError extends Error {
+  readonly deterministicClientOnlyRejection = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "RuntimeGoalMutationValidationError";
+  }
+}
+
+export function isRuntimeGoalMutationValidationError(
+  error: unknown,
+): error is RuntimeGoalMutationValidationError {
+  return (
+    error instanceof RuntimeGoalMutationValidationError &&
+    error.deterministicClientOnlyRejection
+  );
+}
+
+export class RuntimeGoalMutationTerminalRejectionError extends Error {
+  readonly durableSubmissionRejected = true;
+  readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "RuntimeGoalMutationTerminalRejectionError";
+    this.code = code;
+  }
+}
+
+export function isRuntimeGoalMutationTerminalRejectionError(
+  error: unknown,
+): error is RuntimeGoalMutationTerminalRejectionError {
+  return (
+    error instanceof RuntimeGoalMutationTerminalRejectionError &&
+    error.durableSubmissionRejected
+  );
+}
+
+export async function createRuntimeGoal(
+  request: RuntimeGoalCreateRequest,
+  idempotencyRef: string,
+  approvalRef: string,
+  binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    API_ENDPOINTS.runtimeGoals,
+    request,
+    idempotencyRef,
+    approvalRef,
+    submissionRef,
+    binding,
+  );
+}
+
+export async function editRuntimeGoal(
+  goalRef: string,
+  request: RuntimeGoalEditRequest,
+  idempotencyRef: string,
+  approvalRef: string,
+  binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    runtimeGoalEditEndpoint(goalRef),
+    request,
+    idempotencyRef,
+    approvalRef,
+    submissionRef,
+    binding,
+  );
+}
+
+export async function transitionRuntimeGoal(
+  goalRef: string,
+  request: RuntimeGoalTransitionRequest,
+  idempotencyRef: string,
+  approvalRef: string,
+  binding: BackendTruthReadBinding | null,
+  submissionRef: string | null = null,
+): Promise<RuntimeGoalMutationResult> {
+  return postRuntimeGoalMutation(
+    runtimeGoalTransitionEndpoint(goalRef),
+    request,
+    idempotencyRef,
+    approvalRef,
+    submissionRef,
+    binding,
   );
 }
 
@@ -13735,6 +15256,56 @@ function isSafeTrustAuthorityDomainCoverage(value: unknown): boolean {
   );
 }
 
+const CANONICAL_SAFE_REF_RE =
+  /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/;
+const ABSOLUTE_LOCAL_PATH_PATTERNS = [
+  /(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/][^\s"')>\],;]*/,
+  /(?:^|[^A-Za-z0-9])\\\\[^\\\s]+\\[^\s"')>\],;]+/,
+  /\bfile:(?:\/\/|%2f)/i,
+];
+const POSIX_ABSOLUTE_PATH_CANDIDATE_RE =
+  /\/(?:\/)?[^\s"')>\],;]+/g;
+const CANONICAL_SAFE_REF_TOKEN_RE =
+  /[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*/g;
+const NETWORK_URI_TOKEN_RE =
+  /(?<![A-Za-z0-9_.:@-])\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s"')>\],;]+/g;
+
+function containsAbsoluteLocalPath(value: string): boolean {
+  if (ABSOLUTE_LOCAL_PATH_PATTERNS.some((pattern) => pattern.test(value))) {
+    return true;
+  }
+  const safeRefSpans = [...value.matchAll(CANONICAL_SAFE_REF_TOKEN_RE)].map(
+    (match) => [match.index, match.index + match[0].length] as const,
+  );
+  const networkUriSpans = [...value.matchAll(NETWORK_URI_TOKEN_RE)].map(
+    (match) => [match.index, match.index + match[0].length] as const,
+  );
+  for (const match of value.matchAll(POSIX_ABSOLUTE_PATH_CANDIDATE_RE)) {
+    const slashIndex = match.index;
+    const predecessor = slashIndex > 0 ? value[slashIndex - 1] : "";
+    if (/^[A-Za-z0-9]$/.test(predecessor)) {
+      continue;
+    }
+    if (
+      networkUriSpans.some(
+        ([start, end]) => start <= slashIndex && slashIndex < end,
+      )
+    ) {
+      continue;
+    }
+    if (
+      "._-@_".includes(predecessor) &&
+      safeRefSpans.some(
+        ([start, end]) => start <= slashIndex && slashIndex < end,
+      )
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 function isSafeTrustAuthorityRef(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0) {
     return false;
@@ -13747,10 +15318,10 @@ function isSafeTrustAuthorityRef(value: unknown): value is string {
   ) {
     return false;
   }
-  if (value.includes("@") || value.includes("\\") || value.includes(" ")) {
+  if (value.includes("\\") || value.includes(" ")) {
     return false;
   }
-  return /^[A-Za-z0-9:_./-]+$/.test(value);
+  return CANONICAL_SAFE_REF_RE.test(value);
 }
 
 function isSafeTrustAuthorityTierSummary(value: unknown): boolean {

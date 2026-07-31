@@ -9,7 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT  # noqa: E402
+from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 
 
 def _current_version(root: Path = ROOT) -> str:
@@ -186,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-MAX_SCOPED_FRONTEND_POST_HELPERS = 21
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 25
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -945,10 +948,23 @@ def verify(root: Path = ROOT) -> list[str]:
         for fragment in ["chatTurnReceiptEndpoint", "chatTurnHandoffEndpoint"]:
             if fragment not in text:
                 failures.append(f"Chat durable receipt endpoint helper is missing: {fragment}")
+        for fragment in [
+            "runtimeGoalApprovalPrepareCreate:",
+            '"/api/runtime/goals/approval-requests/create"',
+            "runtimeGoalApprovalRevoke:",
+            '"/api/runtime/goals/approval-requests/revoke"',
+            "runtimeGoalApprovalPrepareEndpoint",
+            "runtimeGoalApprovalDecisionEndpoint",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    "goal mutation approval endpoint helper is missing: "
+                    f"{fragment}"
+                )
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if not 1 <= post_count <= MAX_SCOPED_FRONTEND_POST_HELPERS:
+        if post_count != EXPECTED_SCOPED_FRONTEND_POST_HELPERS:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -958,6 +974,23 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client missing scoped web evidence attach helper")
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        for fragment in [
+            "postRuntimeGoalMutation",
+            "prepareRuntimeGoalMutationApproval",
+            "decideRuntimeGoalMutationApproval",
+            "revokeRuntimeGoalMutationApproval",
+            "API_ENDPOINTS.runtimeGoals",
+            "API_ENDPOINTS.runtimeGoalApprovalPrepareCreate",
+            "API_ENDPOINTS.runtimeGoalApprovalRevoke",
+            "runtimeGoalApprovalPrepareEndpoint",
+            "runtimeGoalApprovalDecisionEndpoint",
+            "runtimeGoalEditEndpoint(goalRef)",
+            "runtimeGoalTransitionEndpoint(goalRef)",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    f"frontend client missing scoped proof-backed goal mutation: {fragment}"
+                )
         for fragment in [
             "isSafeActionInboxWorkQueueReadModel",
             "isSafeActionInboxWorkQueueWorkItem",
@@ -1507,12 +1540,13 @@ def _frontend_route_doc_failures(root: Path) -> list[str]:
     if "exact route proof" not in lowered:
         failures.append("frontend routes doc must explain `ship` is rendered as exact route proof")
     expected_count_fragment = (
-        f"current backend path count is `{EXPECTED_OPENAPI_PATH_COUNT}`"
+        f"current backend path count is `{EXPECTED_OPENAPI_PATH_COUNT}` "
+        f"with `{EXPECTED_ROUTE_COUNT}` manifest route operations"
     )
-    if expected_count_fragment not in lowered:
+    if expected_count_fragment not in compact:
         failures.append(
-            "frontend routes doc current backend path count must match "
-            f"{EXPECTED_OPENAPI_PATH_COUNT}"
+            "frontend routes doc current backend path/operation counts must match "
+            f"{EXPECTED_OPENAPI_PATH_COUNT}/{EXPECTED_ROUTE_COUNT}"
         )
     for stale_count in ["current backend path count is `150`", "current backend path count is `151`"]:
         if stale_count in compact:

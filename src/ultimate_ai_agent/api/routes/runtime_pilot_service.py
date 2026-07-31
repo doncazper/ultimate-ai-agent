@@ -136,16 +136,42 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeExecuteRequest,
     RuntimeSafeDisableRequest,
 )
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX,
+    CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX,
+    GoalCreateRequest,
+    GoalEditRequest,
+    GoalIdempotencyConflictError,
+    GoalMutationApprovalDecisionRequest,
+    GoalMutationApprovalRevokeRequest,
+    GoalMutationSubmissionOperation,
+    GoalMutationSubmissionRecord,
+    GoalNotFoundError,
+    GoalRuntimeCorruptionError,
+    GoalRuntimeError,
+    GoalRuntimeService,
+    GoalTransitionDeniedError,
+    GoalTransitionKind,
+    GoalTransitionRequest,
+    GoalVersionConflictError,
+    build_goal_mutation_approval_decision_idempotency_ref,
+    build_goal_mutation_approval_revoke_idempotency_ref,
+    terminal_goal_submission_rejection_reason_ref,
+    validate_execution_ref,
+)
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationStorageError,
+)
 
 
 router = APIRouter(prefix="/api/runtime", tags=["governed-runtime"])
 _REGISTERED_ATTR = "_uaa_governed_runtime_routes_registered"
 _RuntimeStoreGetter = Callable[[], RuntimeInvocationStore]
 _runtime_store_getter: _RuntimeStoreGetter | None = None
-_MissionFailureServiceGetter = Callable[
-    [], AuthorityMissionFailureManagementService
-]
+_MissionFailureServiceGetter = Callable[[], AuthorityMissionFailureManagementService]
 _mission_failure_service_getter: _MissionFailureServiceGetter | None = None
+_GoalRuntimeServiceGetter = Callable[[], GoalRuntimeService]
+_goal_runtime_service_getter: _GoalRuntimeServiceGetter | None = None
 
 
 def _default_runtime_store() -> RuntimeInvocationStore:
@@ -168,6 +194,30 @@ def _mission_failure_service() -> AuthorityMissionFailureManagementService:
     if _mission_failure_service_getter is None:
         return AuthorityMissionFailureManagementService()
     return _mission_failure_service_getter()
+
+
+def _goal_runtime_service() -> GoalRuntimeService:
+    if _goal_runtime_service_getter is None:
+        return GoalRuntimeService.for_runtime_store(_runtime_store().state_dir)
+    return _goal_runtime_service_getter()
+
+
+def _runtime_gateway() -> RuntimeGateway:
+    runtime_store = _runtime_store()
+    goal_service = (
+        _goal_runtime_service_getter()
+        if _goal_runtime_service_getter is not None
+        else GoalRuntimeService.for_runtime_store(runtime_store.state_dir)
+    )
+    gateway = RuntimeGateway(
+        store=runtime_store,
+        goal_runtime_service=goal_service,
+    )
+    goal_service.sync_runtime_invocations(
+        runtime_store.list_invocations(),
+        invocation_store=runtime_store,
+    )
+    return gateway
 
 
 def _idempotency_ref(
@@ -391,8 +441,10 @@ def get_api_runtime_capability_discovery() -> ResultEnvelope:
 @router.get("/tool-registry", response_model=ResultEnvelope)
 def get_api_runtime_tool_registry() -> ResultEnvelope:
     authority_state = _authority_store().build_state_read_model()
-    read_model = build_runtime_tool_registry_availability_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
+    read_model = (
+        build_runtime_tool_registry_availability_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        )
     )
     return ResultEnvelope(
         success=True,
@@ -463,8 +515,10 @@ def get_api_runtime_prompt_stability_tiers() -> ResultEnvelope:
 @router.get("/context-budget-pressure", response_model=ResultEnvelope)
 def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
     authority_state = _authority_store().build_state_read_model()
-    read_model = build_runtime_context_budget_pressure_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
+    read_model = (
+        build_runtime_context_budget_pressure_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        )
     )
     return ResultEnvelope(
         success=True,
@@ -480,8 +534,10 @@ def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
 @router.get("/hardline-command-blocklist", response_model=ResultEnvelope)
 def get_api_runtime_hardline_command_blocklist() -> ResultEnvelope:
     authority_state = _authority_store().build_state_read_model()
-    read_model = build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
+    read_model = (
+        build_runtime_hardline_command_blocklist_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+        )
     )
     return ResultEnvelope(
         success=True,
@@ -919,19 +975,857 @@ def get_api_runtime_checkpoint_rollback() -> ResultEnvelope:
     )
 
 
-@router.get("/run-events", response_model=ResultEnvelope)
-def get_api_runtime_run_events() -> ResultEnvelope:
-    authority_state = _authority_store().build_state_read_model()
-    read_model = build_runtime_run_events_read_model_from_authority_catalog(
-        authority_decision_catalog=authority_state.decision_catalog,
+def _goal_runtime_failure(
+    operation: str,
+    trace_id: str,
+    exc: GoalRuntimeError,
+) -> ResultEnvelope:
+    if isinstance(exc, GoalNotFoundError):
+        code = "GOAL_NOT_FOUND"
+        category = ErrorCategory.not_found
+        retryable = False
+    elif isinstance(
+        exc,
+        (
+            GoalVersionConflictError,
+            GoalIdempotencyConflictError,
+        ),
+    ):
+        code = str(exc)
+        category = ErrorCategory.conflict
+        retryable = False
+    elif isinstance(exc, GoalRuntimeCorruptionError):
+        code = str(exc)
+        category = ErrorCategory.internal_error
+        retryable = False
+    elif isinstance(exc, GoalTransitionDeniedError):
+        code = str(exc)
+        category = ErrorCategory.authorization_error
+        retryable = False
+    else:
+        code = str(exc) or "GOAL_RUNTIME_VALIDATION_FAILED"
+        category = ErrorCategory.validation_error
+        retryable = False
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GoalRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code=code,
+            category=category,
+            safe_message="The proof-backed goal operation failed safely.",
+            severity=Severity.medium,
+            retryable=retryable,
+            details_redacted=True,
+            source="GoalRuntimeAPI",
+        ),
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
     )
+
+
+def _goal_runtime_storage_failure(
+    operation: str,
+    trace_id: str,
+    *,
+    submission_ref: str | None = None,
+    idempotency_ref: str | None = None,
+    approval_request_ref: str | None = None,
+    approval_ref: str | None = None,
+) -> ResultEnvelope:
+    """Return a redacted unknown-outcome envelope without resolving a submission."""
+
+    def safe_ref(value: str | None, field_name: str) -> str | None:
+        if value is None:
+            return None
+        try:
+            validate_execution_ref(value, field_name)
+        except ValueError:
+            return None
+        return value
+
+    refs = {
+        key: safe_value
+        for key, value in (
+            ("submission_ref", submission_ref),
+            ("idempotency_ref", idempotency_ref),
+            ("approval_request_ref", approval_request_ref),
+            ("approval_ref", approval_ref),
+        )
+        if (safe_value := safe_ref(value, key)) is not None
+    }
+    safe_trace_id = safe_ref(trace_id, "trace_id") or _safe_goal_failure_trace(
+        "storage-unavailable"
+    )
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GoalRuntimeAPI",
+        trace_id=safe_trace_id,
+        error=ErrorEnvelope(
+            code="GOAL_RUNTIME_STORAGE_UNAVAILABLE",
+            category=ErrorCategory.internal_error,
+            safe_message=(
+                "Durable goal storage became unavailable; reconcile durable state "
+                "and retry only the exact same idempotent operation."
+            ),
+            severity=Severity.high,
+            retryable=True,
+            details_redacted=True,
+            source="GoalRuntimeAPI",
+        ),
+        data={
+            "execution_outcome": "unknown_after_storage_interruption",
+            "mutation_performed": None,
+            "reconciliation_required": True,
+            "exact_idempotent_retry_required": True,
+            **refs,
+        },
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+def _persist_terminal_goal_submission_rejection(
+    *,
+    service: GoalRuntimeService | None,
+    submission: GoalMutationSubmissionRecord | None,
+    failure: GoalRuntimeError,
+) -> GoalRuntimeError:
+    reason_ref = terminal_goal_submission_rejection_reason_ref(failure)
+    if service is None or submission is None or reason_ref is None:
+        return failure
+    try:
+        service.reject_goal_mutation_submission(
+            submission_ref=submission.submission_ref,
+            request_fingerprint_ref=submission.request_fingerprint_ref,
+            rejection_reason_ref=reason_ref,
+        )
+    except (GoalRuntimeError, OSError, ValueError):
+        return GoalRuntimeError("GOAL_SUBMISSION_REJECTION_PERSISTENCE_FAILED")
+    return failure
+
+
+def _safe_goal_failure_trace(operation: str) -> str:
+    return f"failure-trace-ref:goal-runtime:{operation}"
+
+
+def _runtime_projection_failure(
+    operation: str,
+    trace_id: str,
+    exc: GoalRuntimeError | OSError,
+) -> ResultEnvelope:
+    code = (
+        str(exc) or "RUNTIME_DURABLE_EVENT_PROJECTION_FAILED"
+        if isinstance(exc, GoalRuntimeError)
+        else "GOAL_RUNTIME_STORAGE_UNAVAILABLE"
+    )
+    execution_truth: dict[str, object] = {
+        "execution_outcome": "unknown_after_projection_failure",
+        "execution_performed": None,
+        "model_call_performed": None,
+        "command_execution_performed": None,
+        "invocation_ref": None,
+        "receipt_ref": None,
+        "retry_allowed": False,
+    }
+    try:
+        record = _runtime_store().get_invocation_for_idempotency(trace_id)
+    except (OSError, RuntimeInvocationStorageError, ValueError):
+        record = None
+        invocation_lookup_succeeded = False
+    else:
+        invocation_lookup_succeeded = True
+    if invocation_lookup_succeeded and record is None:
+        execution_truth.update(
+            {
+                "execution_outcome": "not_started",
+                "execution_performed": False,
+                "model_call_performed": False,
+                "command_execution_performed": False,
+                "retry_allowed": True,
+            }
+        )
+    if record is not None:
+        execution_truth["invocation_ref"] = record.invocation_ref
+        if record.receipt is not None:
+            metadata = record.receipt.model_receipt_metadata
+            if metadata is not None and metadata.attempt_outcome_unknown:
+                execution_truth.update(
+                    {
+                        "execution_outcome": (
+                            "attempt_outcome_unknown_after_projection_failure"
+                        ),
+                        "receipt_ref": record.receipt.receipt_ref,
+                    }
+                )
+            else:
+                execution_truth.update(
+                    {
+                        "execution_outcome": "durable_receipt_recovered",
+                        "execution_performed": record.receipt.execution_performed,
+                        "model_call_performed": (
+                            record.receipt.model_call_performed
+                        ),
+                        "command_execution_performed": (
+                            record.receipt.command_execution_performed
+                        ),
+                        "receipt_ref": record.receipt.receipt_ref,
+                    }
+                )
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="GovernedRuntimeAPI",
+        trace_id=trace_id,
+        error=ErrorEnvelope(
+            code=code,
+            category=ErrorCategory.internal_error,
+            safe_message=(
+                "The governed runtime durable-event projection failed closed."
+            ),
+            severity=Severity.high,
+            retryable=bool(execution_truth["retry_allowed"]),
+            details_redacted=True,
+            source="GovernedRuntimeAPI",
+        ),
+        data=execution_truth,
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.get("/goals", response_model=ResultEnvelope)
+def get_api_runtime_goals(
+    include_cleared: bool = Query(default=False),
+) -> ResultEnvelope:
+    try:
+        read_model = _goal_runtime_service().goal_lifecycle_read_model(
+            include_cleared=include_cleared
+        )
+    except GoalRuntimeError as exc:
+        return _goal_runtime_failure(
+            "api_runtime_goals",
+            "goal-read-model-ref:unavailable",
+            exc,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goals",
+        service="GoalRuntimeAPI",
+        trace_id="goal-read-model-ref:durable-local",
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:goal-runtime:durable-journal"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/goals/{goal_ref}", response_model=ResultEnvelope)
+def get_api_runtime_goal(goal_ref: str) -> ResultEnvelope:
+    try:
+        goal, mutation_provenance = _goal_runtime_service().goal_with_provenance(
+            goal_ref
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal",
+            _safe_goal_failure_trace("goal-read"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal",
+        service="GoalRuntimeAPI",
+        trace_id=goal.goal_ref,
+        data={
+            "goal": goal.model_dump(mode="json"),
+            "mutation_provenance": mutation_provenance.model_dump(mode="json"),
+        },
+        evidence=[{"evidence_ref": "evidence-ref:goal-runtime:durable-journal"}],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+def _goal_mutation_approval_prepare_result(
+    *,
+    operation: GoalMutationSubmissionOperation,
+    goal_ref: str | None,
+    request: GoalCreateRequest | GoalEditRequest | GoalTransitionRequest,
+    idempotency_ref: str,
+    submission_ref: str | None,
+) -> ResultEnvelope:
+    submission: GoalMutationSubmissionRecord | None = None
+    try:
+        reserved_prefix = (
+            CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX
+            if operation == "create"
+            else CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX
+        )
+        if submission_ref is None and any(
+            ref.startswith(reserved_prefix)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        service = _goal_runtime_service()
+        if submission_ref is not None:
+            submission = service.record_goal_mutation_submission(
+                submission_ref=submission_ref,
+                operation=operation,
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        spec = service.prepare_goal_mutation_approval(
+            operation=operation,
+            goal_ref=goal_ref,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_prepare",
+            submission_ref
+            or _safe_goal_failure_trace("goal-approval-prepare"),
+            submission_ref=submission_ref,
+            idempotency_ref=idempotency_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_prepare",
+            _safe_goal_failure_trace("goal-approval-prepare"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_prepare",
+        service="GoalRuntimeAPI",
+        trace_id=spec.approval_request_ref,
+        data={
+            "approval_request": spec.model_dump(mode="json"),
+            "submission_recovery": (
+                submission.model_dump(mode="json")
+                if submission is not None
+                else None
+            ),
+            "mutation_performed": False,
+            "approval_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-request-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/approval-requests/create", response_model=ResultEnvelope)
+def post_api_runtime_goal_approval_prepare_create(
+    request: GoalCreateRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="create",
+        goal_ref=None,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+        submission_ref=x_uaa_goal_submission_ref,
+    )
+
+
+@router.post(
+    "/goals/{goal_ref}/approval-requests/edit",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_prepare_edit(
+    goal_ref: str,
+    request: GoalEditRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="edit",
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+        submission_ref=x_uaa_goal_submission_ref,
+    )
+
+
+@router.post(
+    "/goals/{goal_ref}/approval-requests/transition",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_prepare_transition(
+    goal_ref: str,
+    request: GoalTransitionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+) -> ResultEnvelope:
+    return _goal_mutation_approval_prepare_result(
+        operation="transition",
+        goal_ref=goal_ref,
+        request=request,
+        idempotency_ref=_idempotency_ref(
+            x_uaa_idempotency_key, x_uaa_idempotency_ref
+        ),
+        submission_ref=x_uaa_goal_submission_ref,
+    )
+
+
+@router.post(
+    "/goals/approval-requests/{approval_request_ref}/decision",
+    response_model=ResultEnvelope,
+)
+def post_api_runtime_goal_approval_decision(
+    approval_request_ref: str,
+    request: GoalMutationApprovalDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    idempotency_ref: str | None = None
+    try:
+        idempotency_ref = _idempotency_ref(
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        )
+        if idempotency_ref != build_goal_mutation_approval_decision_idempotency_ref(
+            approval_request_ref
+        ):
+            raise GoalIdempotencyConflictError(
+                "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+            )
+        entry = _goal_runtime_service().decide_goal_mutation_approval(
+            approval_request_ref=approval_request_ref,
+            decision=request.decision,
+            decision_reason_ref=request.decision_reason_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_decision",
+            approval_request_ref,
+            idempotency_ref=idempotency_ref,
+            approval_request_ref=approval_request_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_decision",
+            _safe_goal_failure_trace("goal-approval-decision"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_decision",
+        service="GoalRuntimeAPI",
+        trace_id=entry.entry_hash_ref,
+        data={
+            "approval_decision": entry.model_dump(mode="json"),
+            "mutation_performed": False,
+            "standing_authority_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-decision-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/approval-requests/revoke", response_model=ResultEnvelope)
+def post_api_runtime_goal_approval_revoke(
+    request: GoalMutationApprovalRevokeRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    idempotency_ref: str | None = None
+    try:
+        idempotency_ref = _idempotency_ref(
+            x_uaa_idempotency_key,
+            x_uaa_idempotency_ref,
+        )
+        if idempotency_ref != build_goal_mutation_approval_revoke_idempotency_ref(
+            request.approval_ref
+        ):
+            raise GoalIdempotencyConflictError(
+                "GOAL_MUTATION_APPROVAL_IDEMPOTENCY_MISMATCH"
+            )
+        entry = _goal_runtime_service().revoke_goal_mutation_approval(
+            approval_ref=request.approval_ref,
+            decision_reason_ref=request.decision_reason_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_approval_revoke",
+            request.approval_ref,
+            idempotency_ref=idempotency_ref,
+            approval_ref=request.approval_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_approval_revoke",
+            _safe_goal_failure_trace("goal-approval-revoke"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_approval_revoke",
+        service="GoalRuntimeAPI",
+        trace_id=entry.entry_hash_ref,
+        data={
+            "approval_decision": entry.model_dump(mode="json"),
+            "mutation_performed": False,
+            "standing_authority_granted": False,
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:approval-revocation-ledger"}
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals", response_model=ResultEnvelope)
+def post_api_runtime_goal(
+    request: GoalCreateRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
+) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
+    try:
+        idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_CREATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            submission = service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="create",
+                goal_ref=None,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        goal, approval = service.create_goal(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_create",
+            x_uaa_goal_submission_ref
+            or idempotency_ref
+            or _safe_goal_failure_trace("goal-create"),
+            submission_ref=x_uaa_goal_submission_ref,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_create",
+            "idempotency-ref:goal-create-invalid",
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_create",
+        service="GoalRuntimeAPI",
+        trace_id=goal.goal_ref,
+        data={
+            "goal": goal.model_dump(mode="json"),
+            "approval_binding": approval.model_dump(mode="json"),
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:exact-local-approval"},
+            {"evidence_ref": "evidence-ref:goal-runtime:durable-journal"},
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/{goal_ref}/edit", response_model=ResultEnvelope)
+def post_api_runtime_goal_edit(
+    goal_ref: str,
+    request: GoalEditRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
+) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
+    try:
+        idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in (request.evidence_refs or [])
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            submission = service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="edit",
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        goal, approval = service.edit_goal(
+            goal_ref,
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_edit",
+            x_uaa_goal_submission_ref or _safe_goal_failure_trace("goal-edit"),
+            submission_ref=x_uaa_goal_submission_ref,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_edit",
+            _safe_goal_failure_trace("goal-edit"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_edit",
+        service="GoalRuntimeAPI",
+        trace_id=goal.goal_ref,
+        data={
+            "goal": goal.model_dump(mode="json"),
+            "approval_binding": approval.model_dump(mode="json"),
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:exact-local-approval"},
+            {"evidence_ref": "evidence-ref:goal-runtime:durable-journal"},
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/goals/{goal_ref}/transition", response_model=ResultEnvelope)
+def post_api_runtime_goal_transition(
+    goal_ref: str,
+    request: GoalTransitionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+    x_uaa_goal_submission_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-submission-ref"
+    ),
+    x_uaa_goal_approval_ref: str | None = Header(
+        default=None, alias="x-uaa-goal-approval-ref"
+    ),
+) -> ResultEnvelope:
+    service: GoalRuntimeService | None = None
+    submission: GoalMutationSubmissionRecord | None = None
+    idempotency_ref: str | None = None
+    try:
+        idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+        if x_uaa_goal_submission_ref is None and any(
+            ref.startswith(CONTROL_CENTER_GOAL_UPDATE_SUBMISSION_EVIDENCE_PREFIX)
+            for ref in request.evidence_refs
+        ):
+            raise GoalRuntimeError("GOAL_SUBMISSION_REF_REQUIRED")
+        if x_uaa_goal_approval_ref is None:
+            raise GoalTransitionDeniedError("GOAL_MUTATION_APPROVAL_REQUIRED")
+        service = _goal_runtime_service()
+        if x_uaa_goal_submission_ref is not None:
+            submission = service.record_goal_mutation_submission(
+                submission_ref=x_uaa_goal_submission_ref,
+                operation="transition",
+                goal_ref=goal_ref,
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        if request.transition == GoalTransitionKind.verify_completion.value:
+            raise GoalTransitionDeniedError(
+                "GOAL_COMPLETION_TRUSTED_EVALUATOR_UNAVAILABLE"
+            )
+        goal, approval = service.transition_goal(
+            goal_ref,
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except OSError:
+        return _goal_runtime_storage_failure(
+            "api_runtime_goal_transition",
+            x_uaa_goal_submission_ref
+            or _safe_goal_failure_trace("goal-transition"),
+            submission_ref=x_uaa_goal_submission_ref,
+            idempotency_ref=idempotency_ref,
+            approval_ref=x_uaa_goal_approval_ref,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("GOAL_REQUEST_REF_INVALID")
+        )
+        failure = _persist_terminal_goal_submission_rejection(
+            service=service,
+            submission=submission,
+            failure=failure,
+        )
+        return _goal_runtime_failure(
+            "api_runtime_goal_transition",
+            _safe_goal_failure_trace("goal-transition"),
+            failure,
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_goal_transition",
+        service="GoalRuntimeAPI",
+        trace_id=goal.goal_ref,
+        data={
+            "goal": goal.model_dump(mode="json"),
+            "approval_binding": approval.model_dump(mode="json"),
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:goal-runtime:exact-local-approval"},
+            {"evidence_ref": "evidence-ref:goal-runtime:durable-journal"},
+        ],
+        redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.get("/run-events", response_model=ResultEnvelope)
+def get_api_runtime_run_events(
+    run_ref: str | None = Query(default=None, min_length=1, max_length=320),
+    after_sequence: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> ResultEnvelope:
+    authority_state = _authority_store().build_state_read_model()
+    try:
+        goal_service = _goal_runtime_service()
+        read_model = build_runtime_run_events_read_model_from_authority_catalog(
+            authority_decision_catalog=authority_state.decision_catalog,
+            service=goal_service,
+            run_ref=run_ref,
+            after_sequence=after_sequence,
+            limit=limit,
+        )
+    except (GoalRuntimeError, ValueError) as exc:
+        failure = (
+            exc
+            if isinstance(exc, GoalRuntimeError)
+            else GoalRuntimeError("RUN_EVENT_REQUEST_REF_INVALID")
+        )
+        return _goal_runtime_failure(
+            "api_runtime_run_events",
+            _safe_goal_failure_trace("run-event-read"),
+            failure,
+        )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_run_events",
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[{"evidence_ref": "evidence-ref:runtime-run-events:phase-03"}],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-run-events:phase-04"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -1859,7 +2753,7 @@ def post_api_runtime_local_model_call(
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
-        result = RuntimeGateway(store=_runtime_store()).invoke_local_model(
+        result = _runtime_gateway().invoke_local_model(
             request,
             idempotency_ref=idempotency_ref,
         )
@@ -1879,6 +2773,12 @@ def post_api_runtime_local_model_call(
                 source="GovernedRuntimeAPI",
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    except (GoalRuntimeError, OSError) as exc:
+        return _runtime_projection_failure(
+            "api_runtime_local_model_call",
+            idempotency_ref,
+            exc,
         )
     receipt = result.record.receipt
     metadata = receipt.model_receipt_metadata if receipt else None
@@ -1942,7 +2842,7 @@ def post_api_runtime_command_run(
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
-        result = RuntimeGateway(store=_runtime_store()).invoke_command(
+        result = _runtime_gateway().invoke_command(
             request,
             idempotency_ref=idempotency_ref,
         )
@@ -1962,6 +2862,12 @@ def post_api_runtime_command_run(
                 source="GovernedRuntimeAPI",
             ),
             redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    except (GoalRuntimeError, OSError) as exc:
+        return _runtime_projection_failure(
+            "api_runtime_command_run",
+            idempotency_ref,
+            exc,
         )
     receipt = result.record.receipt
     metadata = receipt.command_receipt_metadata if receipt else None
@@ -2212,7 +3118,7 @@ def post_api_runtime_invocations_id_execute(
     if request.command_request is not None:
         try:
             command_request = RuntimeCommandExecutionRequest(**request.command_request)
-            result = RuntimeGateway(store=_runtime_store()).execute_approved_command(
+            result = _runtime_gateway().execute_approved_command(
                 id,
                 command_request,
                 request,
@@ -2236,6 +3142,12 @@ def post_api_runtime_invocations_id_execute(
                     source="GovernedRuntimeAPI",
                 ),
                 redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+            )
+        except (GoalRuntimeError, OSError) as exc:
+            return _runtime_projection_failure(
+                "api_runtime_invocation_execute",
+                idempotency_ref,
+                exc,
             )
         except ValidationError:
             return ResultEnvelope(
@@ -2430,8 +3342,11 @@ def register_governed_runtime_routes(
     *,
     runtime_store_getter: _RuntimeStoreGetter | None = None,
     mission_failure_service_getter: _MissionFailureServiceGetter | None = None,
+    goal_runtime_service_getter: _GoalRuntimeServiceGetter | None = None,
 ) -> None:
+    global _goal_runtime_service_getter
     global _mission_failure_service_getter, _runtime_store_getter
     _runtime_store_getter = runtime_store_getter
     _mission_failure_service_getter = mission_failure_service_getter
+    _goal_runtime_service_getter = goal_runtime_service_getter
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)

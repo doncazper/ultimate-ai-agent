@@ -40,6 +40,7 @@ from ultimate_ai_agent.core.evals import (  # noqa: E402
 
 NETWORK_SANDBOX_PROFILE = "(version 1)(allow default)(deny network*)"
 MAX_CAPTURE_BYTES = 1_000_000
+MAX_PROCESS_GROUP_INSPECTION_BYTES = 1_000_000
 SUITE_TIMEOUT_SECONDS = 900
 
 
@@ -361,6 +362,31 @@ def evaluation_source_digest_at_commit(commit: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def evaluation_source_commit_is_ancestor(commit: str) -> bool:
+    if len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
+        raise ValueError("exact evaluation source commit is required")
+    executable = _trusted_executable("git")
+    result = subprocess.run(
+        (executable, "merge-base", "--is-ancestor", commit, "HEAD"),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise ValueError("evaluation source ancestry could not be established")
+
+
 def repository_commit() -> str:
     executable = _trusted_executable("git")
     result = subprocess.run(
@@ -478,15 +504,98 @@ def _child_environment(temp_root: Path) -> dict[str, str]:
     }
 
 
+def _owned_live_process_group_members(process_group: int) -> tuple[int, ...]:
+    ps = Path("/bin/ps")
+    if process_group <= 0 or not ps.is_file() or ps.is_symlink():
+        raise RuntimeError("capability evaluation process group is uninspectable")
+    try:
+        completed = subprocess.run(
+            (str(ps), "-axo", "pid=,pgid=,uid=,state="),
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "capability evaluation process group is uninspectable"
+        ) from exc
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > MAX_PROCESS_GROUP_INSPECTION_BYTES
+    ):
+        raise RuntimeError("capability evaluation process group is uninspectable")
+    try:
+        lines = completed.stdout.decode("ascii", errors="strict").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(
+            "capability evaluation process group is uninspectable"
+        ) from exc
+    live_members: list[int] = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) != 4:
+            raise RuntimeError(
+                "capability evaluation process group is uninspectable"
+            )
+        try:
+            pid, pgid, uid = (int(value) for value in parts[:3])
+        except ValueError as exc:
+            raise RuntimeError(
+                "capability evaluation process group is uninspectable"
+            ) from exc
+        if pgid != process_group or parts[3].startswith("Z"):
+            continue
+        if pid <= 0 or uid != os.getuid():
+            raise RuntimeError(
+                "capability evaluation process group ownership is unproven"
+            )
+        live_members.append(pid)
+    return tuple(sorted(set(live_members)))
+
+
+def _signal_process_group(
+    process_group: int,
+    sig: signal.Signals,
+) -> None:
+    try:
+        os.killpg(process_group, sig)
+        return
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        members = _owned_live_process_group_members(process_group)
+    except OSError as exc:
+        raise RuntimeError(
+            "capability evaluation process group signaling failed"
+        ) from exc
+    for pid in members:
+        try:
+            if os.getpgid(pid) != process_group:
+                continue
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            continue
+        except PermissionError as exc:
+            raise RuntimeError(
+                "capability evaluation process group ownership is unproven"
+            ) from exc
+        except OSError as exc:
+            raise RuntimeError(
+                "capability evaluation process group signaling failed"
+            ) from exc
+
+
 def _terminate(process: subprocess.Popen[bytes]) -> None:
     posix_process_group = os.name == "posix"
-    try:
-        if posix_process_group:
-            os.killpg(process.pid, signal.SIGTERM)
-        else:
+    if posix_process_group:
+        _signal_process_group(process.pid, signal.SIGTERM)
+    else:
+        try:
             process.terminate()
-    except ProcessLookupError:
-        pass
+        except ProcessLookupError:
+            pass
     try:
         process.wait(timeout=2)
     except subprocess.TimeoutExpired:
@@ -495,13 +604,13 @@ def _terminate(process: subprocess.Popen[bytes]) -> None:
     # Reaping the group leader does not prove that descendants in the isolated
     # process group have exited. Always follow the bounded grace period with a
     # group-wide kill so a timed-out evaluator cannot leave a child behind.
-    try:
-        if posix_process_group:
-            os.killpg(process.pid, signal.SIGKILL)
-        else:
+    if posix_process_group:
+        _signal_process_group(process.pid, signal.SIGKILL)
+    else:
+        try:
             process.kill()
-    except ProcessLookupError:
-        pass
+        except ProcessLookupError:
+            pass
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:

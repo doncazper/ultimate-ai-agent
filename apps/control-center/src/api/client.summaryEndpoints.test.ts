@@ -538,6 +538,11 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.runtimeRunEvents.stop_run_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.approval_resolution_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.completed_run_count).toBe(0);
+    expect(data.runtimeRunEvents.status).toBe("durable_local_replay");
+    expect(data.runtimeRunEvents.durable_event_source).toBe(true);
+    expect(data.runtimeRunEvents.cursor_replay_supported).toBe(true);
+    expect(data.runtimeRunEvents.goal_lifecycle.goals).toEqual([]);
+    expect(data.runtimeRunEvents.event_previews).toEqual([]);
     expect(data.runtimeRunEvents.authority_state_mapping_ref).toBe(
       "lane-ref:runtime-run-events-read-model",
     );
@@ -549,9 +554,43 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
       "GET /api/runtime/run-events",
     );
+    expect(data.routeStates[API_ENDPOINTS.runtimeRunEvents].state).toBe(
+      "mock_fallback",
+    );
+    expect(
+      data.routeStates[API_ENDPOINTS.runtimeRunEvents].backendRouteRefs,
+    ).toContain("GET /api/runtime/run-events");
     expect(data.connection.state).toBe("degraded");
     expect(data.connection.usingMockData).toBe(true);
     expect(data.connection.warnings).toContain("RUNTIME_RUN_EVENTS_MOCK_FALLBACK");
+  });
+
+  it("marks invalid runtime run events as degraded durable state", async () => {
+    const routeData = baseRouteData();
+    routeData[API_ENDPOINTS.runtimeRunEvents] = {};
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.routeStates[API_ENDPOINTS.runtimeRunEvents].state).toBe(
+      "degraded",
+    );
+    expect(data.routeStates[API_ENDPOINTS.runtimeRunEvents].warningRefs).toContain(
+      "RUNTIME_RUN_EVENTS_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks validated runtime run events as backend-owned durable state", async () => {
+    stubControlCenterFetch(baseRouteData());
+
+    const data = await loadControlCenterData();
+
+    expect(data.routeStates[API_ENDPOINTS.runtimeRunEvents].state).toBe(
+      "backend_owned",
+    );
+    expect(data.routeStates[API_ENDPOINTS.runtimeRunEvents].warningRefs).toEqual(
+      [],
+    );
   });
 
   it("marks missing runtime approval bridge as non-authoritative fallback", async () => {

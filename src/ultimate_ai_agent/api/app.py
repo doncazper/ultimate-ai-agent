@@ -270,6 +270,9 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
     "/api/runtime/authority-leases",
     "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
+    "/api/runtime/goals",
+    "/api/runtime/goals/approval-requests/create",
+    "/api/runtime/goals/approval-requests/revoke",
 }
 _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
     r"^/control-center/chat/turns/[^/]+/handoff$"
@@ -280,6 +283,12 @@ _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
     r"accept|correct|reject|defer|merge|supersede|expire|forget-request"
     r")"
     r"|context-packs/[^/]+/action-proposal"
+    r")$"
+)
+_CONTROL_CENTER_BOUND_GOAL_MUTATION_RE = re.compile(
+    r"^/api/runtime/goals/(?:"
+    r"[^/]+/(?:edit|transition|approval-requests/(?:edit|transition))"
+    r"|approval-requests/[^/]+/decision"
     r")$"
 )
 _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE = re.compile(
@@ -889,6 +898,7 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_GOAL_MUTATION_RE.fullmatch(path) is None
     ):
         return False
     return bool(

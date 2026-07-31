@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,6 +22,15 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
 from ultimate_ai_agent.core.runtime_gateway.delegation import (
     RUNTIME_DELEGATION_CONTROL_CENTER_REF,
 )
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import (
+    DurableCriterionVerifierBinding,
+    DurableRunEvent,
+    GoalLifecycleReadModel,
+    GoalMutationSubmissionRecoveryReadModel,
+    GoalRuntimeService,
+    RunEventReplayReadModel,
+    RunEventStreamSummary,
+)
 
 
 RUNTIME_RUN_EVENTS_CONTRACT_REF = "contract-ref:runtime-run-events:v1"
@@ -39,9 +49,7 @@ RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state
 RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF = (
     "repo-local-command:uaa-runtime-inspect-authority-state"
 )
-RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF = (
-    "lane-ref:runtime-run-events-read-model"
-)
+RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF = "lane-ref:runtime-run-events-read-model"
 _AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
@@ -83,6 +91,20 @@ class RuntimeRunEventKind(str, Enum):
     event_stream_preview = "event_stream_preview"
     stop_requested_preview = "stop_requested_preview"
     proof_bound = "proof_bound"
+    goal_linked = "goal_linked"
+    plan_linked = "plan_linked"
+    run_started = "run_started"
+    approval_resumed = "approval_resumed"
+    worker_restart_recovered = "worker_restart_recovered"
+    allowed_local_action_recorded = "allowed_local_action_recorded"
+    receipt_recorded = "receipt_recorded"
+    evidence_linked = "evidence_linked"
+    completion_verified = "completion_verified"
+    cancellation_requested = "cancellation_requested"
+    cancelled = "cancelled"
+    failed_retryable = "failed_retryable"
+    failed_terminal = "failed_terminal"
+    dead_lettered = "dead_lettered"
 
 
 class RuntimeRunLifecycleMapping(BaseModel):
@@ -139,6 +161,18 @@ class RuntimeRunEventPreview(BaseModel):
     proof_ref: str
     redaction_status: str = "redacted_safe_ref_only"
     safe_summary: str
+    sequence: int | None = Field(default=None, ge=1)
+    recorded_at: datetime | None = None
+    predecessor_hash_ref: str | None = None
+    event_hash_ref: str | None = None
+    proof_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    criterion_verifier_bindings: list[DurableCriterionVerifierBinding] = Field(
+        default_factory=list,
+        max_length=32,
+    )
+    goal_ref: str | None = None
+    plan_ref: str | None = None
     runtime_payload_persisted: bool = False
     raw_log_persisted: bool = False
     raw_prompt_persisted: bool = False
@@ -155,6 +189,17 @@ class RuntimeRunEventPreview(BaseModel):
             (self.proof_ref, "proof_ref"),
         ]:
             validate_execution_ref(value, field_name)
+        for value, field_name in [
+            (self.predecessor_hash_ref, "predecessor_hash_ref"),
+            (self.event_hash_ref, "event_hash_ref"),
+            (self.goal_ref, "goal_ref"),
+            (self.plan_ref, "plan_ref"),
+        ]:
+            if value is not None:
+                validate_execution_ref(value, field_name)
+        for field_name in ("proof_refs", "receipt_refs"):
+            for ref in getattr(self, field_name):
+                validate_execution_ref(ref, field_name)
         validate_safe_execution_text(self.redaction_status, "redaction_status")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         if any(
@@ -245,7 +290,7 @@ class RuntimeRunEventsReadModel(BaseModel):
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     runtime_identity_ref: str = "runtime-identity-ref:hermes-agent:optional-target"
     adapter_ref: str = "runtime-delegation-adapter:hermes-agent"
-    status: str = "proposal_read_model_only"
+    status: str = "durable_local_replay"
     authority_state_route_ref: str
     authority_state_cli_ref: str
     authority_state_mapping_ref: str
@@ -262,6 +307,15 @@ class RuntimeRunEventsReadModel(BaseModel):
     )
     run_proposals: list[RuntimeRunProposalReadModel]
     event_previews: list[RuntimeRunEventPreview]
+    goal_lifecycle: GoalLifecycleReadModel
+    goal_mutation_submissions: GoalMutationSubmissionRecoveryReadModel
+    stream_summaries: list[RunEventStreamSummary] = Field(default_factory=list)
+    replay: RunEventReplayReadModel | None = None
+    stream_count: int = 0
+    retained_event_count: int = 0
+    durable_event_source: bool = True
+    cursor_replay_supported: bool = True
+    bounded_retention_enabled: bool = True
     proposal_count: int
     approval_wait_count: int
     completed_run_count: int = 0
@@ -271,7 +325,7 @@ class RuntimeRunEventsReadModel(BaseModel):
     live_event_stream_enabled: bool = False
     uaa_controls_authority: bool = True
     control_center_talks_directly_to_runtime: bool = False
-    no_mutation_routes_registered: bool = True
+    no_runtime_control_routes_registered: bool = True
     safe_refs_only: bool = True
     raw_prompt_persisted: bool = False
     raw_response_persisted: bool = False
@@ -284,12 +338,14 @@ class RuntimeRunEventsReadModel(BaseModel):
     proof_refs: list[str] = Field(default_factory=list)
     next_safe_action_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
-        "Runtime runs, events, stop posture, and approval waits are UAA-owned "
-        "proposal/read models only; no delegated runtime run is created or stopped."
+        "Proof-backed goals and accepted local run events are persisted in "
+        "bounded hash-chained journals with cursor replay; live transport and "
+        "external runtime control remain blocked."
     )
     redactions_applied: list[str] = Field(
-        default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
-        + ["runtime_event_payload_omitted"]
+        default_factory=lambda: (
+            list(GOVERNED_RUNTIME_REDACTIONS) + ["runtime_event_payload_omitted"]
+        )
     )
 
     model_config = ConfigDict(extra="forbid")
@@ -344,14 +400,25 @@ class RuntimeRunEventsReadModel(BaseModel):
             raise ValueError("RUNTIME_RUN_EVENT_PROPOSAL_COUNT_DRIFT")
         expected_approval_wait = sum(
             1
-            for proposal in self.run_proposals
-            if proposal.uaa_durable_run_state
-            == RuntimeUaaDurableRunState.approval_wait.value
+            for event in self.event_previews
+            if event.event_kind == RuntimeRunEventKind.approval_wait_entered.value
         )
         if self.approval_wait_count != expected_approval_wait:
             raise ValueError("RUNTIME_RUN_EVENT_APPROVAL_WAIT_COUNT_DRIFT")
-        if self.completed_run_count != 0:
-            raise ValueError("RUNTIME_RUN_EVENT_FAKE_COMPLETION_DENIED")
+        expected_completed = sum(
+            stream.successful_receipt_recorded
+            or stream.terminal_event_kind
+            == RuntimeRunEventKind.completion_verified.value
+            for stream in self.stream_summaries
+        )
+        if self.completed_run_count != expected_completed:
+            raise ValueError("RUNTIME_RUN_EVENT_COMPLETION_COUNT_DRIFT")
+        if self.stream_count != len(self.stream_summaries):
+            raise ValueError("RUNTIME_RUN_EVENT_STREAM_COUNT_DRIFT")
+        if self.retained_event_count != sum(
+            stream.retained_event_count for stream in self.stream_summaries
+        ):
+            raise ValueError("RUNTIME_RUN_EVENT_RETAINED_COUNT_DRIFT")
         denied_flags = {
             "create_run_route_enabled": self.create_run_route_enabled,
             "stop_run_route_enabled": self.stop_run_route_enabled,
@@ -375,10 +442,16 @@ class RuntimeRunEventsReadModel(BaseModel):
             )
         if not self.uaa_controls_authority:
             raise ValueError("RUNTIME_RUN_EVENT_UAA_AUTHORITY_REQUIRED")
-        if not self.no_mutation_routes_registered:
-            raise ValueError("RUNTIME_RUN_EVENT_MUTATION_ROUTE_DENIED")
+        if not self.no_runtime_control_routes_registered:
+            raise ValueError("RUNTIME_RUN_EVENT_CONTROL_ROUTE_DENIED")
         if not self.safe_refs_only:
             raise ValueError("RUNTIME_RUN_EVENT_SAFE_REFS_REQUIRED")
+        if not (
+            self.durable_event_source
+            and self.cursor_replay_supported
+            and self.bounded_retention_enabled
+        ):
+            raise ValueError("RUNTIME_RUN_EVENT_DURABILITY_REQUIRED")
         return self
 
 
@@ -396,93 +469,45 @@ def _mapping(
     )
 
 
-def _sample_events() -> list[RuntimeRunEventPreview]:
-    run_ref = RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF
-    durable_ref = RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF
-    return [
-        RuntimeRunEventPreview(
-            event_ref="runtime-run-event-ref:hermes-agent:proposal-created",
-            event_kind=RuntimeRunEventKind.run_proposed,
-            runtime_run_ref=run_ref,
-            uaa_durable_run_ref=durable_ref,
-            proof_ref="proof-ref:runtime-run-events:proposal-created",
-            safe_summary=(
-                "UAA can represent a delegated runtime run proposal without "
-                "submitting it to the runtime."
-            ),
-        ),
-        RuntimeRunEventPreview(
-            event_ref="runtime-run-event-ref:hermes-agent:approval-wait-entered",
-            event_kind=RuntimeRunEventKind.approval_wait_entered,
-            runtime_run_ref=run_ref,
-            uaa_durable_run_ref=durable_ref,
-            proof_ref="proof-ref:runtime-run-events:approval-wait",
-            safe_summary=(
-                "Approval-wait state is visible as proposal metadata; resolving "
-                "the wait remains blocked until an exact approval lane exists."
-            ),
-        ),
-        RuntimeRunEventPreview(
-            event_ref="runtime-run-event-ref:hermes-agent:stop-preview-blocked",
-            event_kind=RuntimeRunEventKind.stop_requested_preview,
-            runtime_run_ref=run_ref,
-            uaa_durable_run_ref=durable_ref,
-            proof_ref="proof-ref:runtime-run-events:stop-posture",
-            safe_summary=(
-                "Stop posture is represented as a blocked/proof-required preview, "
-                "not an executable runtime stop."
-            ),
-        ),
-    ]
-
-
-def build_runtime_run_events_read_model() -> RuntimeRunEventsReadModel:
+def build_runtime_run_events_read_model(
+    *,
+    service: GoalRuntimeService | None = None,
+    run_ref: str | None = None,
+    after_sequence: int = 0,
+    limit: int = 100,
+) -> RuntimeRunEventsReadModel:
     authority_entry = _authority_entry(authority_decision_catalog=None)
     return build_runtime_run_events_read_model_from_authority_catalog(
-        authority_decision_catalog=[authority_entry]
+        authority_decision_catalog=[authority_entry],
+        service=service,
+        run_ref=run_ref,
+        after_sequence=after_sequence,
+        limit=limit,
     )
 
 
 def build_runtime_run_events_read_model_from_authority_catalog(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+    *,
+    service: GoalRuntimeService | None = None,
+    run_ref: str | None = None,
+    after_sequence: int = 0,
+    limit: int = 100,
 ) -> RuntimeRunEventsReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
-    events = _sample_events()
-    proposal = RuntimeRunProposalReadModel(
-        proposal_ref="runtime-run-proposal-ref:hermes-agent:approval-wait-sample",
-        runtime_run_ref=RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF,
-        uaa_durable_run_ref=RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF,
-        runtime_state=RuntimeExternalRunLifecycleState.approval_wait,
-        uaa_durable_run_state=RuntimeUaaDurableRunState.approval_wait,
-        event_refs=[event.event_ref for event in events],
-        proof_refs=[
-            "proof-ref:runtime-run-events:lifecycle-mapping",
-            "proof-ref:runtime-run-events:approval-wait",
-            "proof-ref:runtime-run-events:stop-posture",
-        ],
-        receipt_refs=[
-            "receipt-plan-ref:runtime-run-events:create-run-future",
-            "receipt-plan-ref:runtime-run-events:stop-future",
-            "receipt-plan-ref:runtime-run-events:approval-resolution-future",
-        ],
-        blocked_authority_refs=[
-            *GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
-            "blocked-authority:runtime-run-create-route",
-            "blocked-authority:runtime-run-stop-execution",
-            "blocked-authority:runtime-run-approval-resolution",
-            "blocked-authority:runtime-run-live-event-stream",
-        ],
-        next_safe_action_refs=[
-            "next-safe-action-ref:runtime-run-events:bind-idempotent-create-approval",
-            "next-safe-action-ref:runtime-run-events:add-redacted-event-stream",
-            "next-safe-action-ref:runtime-run-events:prove-cancellation-receipt",
-            "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
-        ],
-        safe_summary=(
-            "Sample delegated runtime run is held in approval-wait proposal state; "
-            "no runtime run exists and no stop or approval resolution was sent."
-        ),
+    runtime_service = service or GoalRuntimeService.from_env()
+    (
+        replay,
+        durable_events,
+        stream_summaries,
+        goal_lifecycle,
+        goal_mutation_submissions,
+    ) = runtime_service.aggregate_read_snapshot(
+        run_ref=run_ref,
+        after_sequence=after_sequence,
+        limit=limit,
     )
+    events = [_durable_event_preview(event) for event in durable_events]
     mappings = [
         _mapping(
             RuntimeExternalRunLifecycleState.proposed,
@@ -548,9 +573,13 @@ def build_runtime_run_events_read_model_from_authority_catalog(
     return RuntimeRunEventsReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(
             lifecycle_mappings=mappings,
-            run_proposals=[proposal],
+            run_proposals=[],
             event_previews=events,
             authority_entry=authority_entry,
+            goal_lifecycle=goal_lifecycle,
+            goal_mutation_submissions=goal_mutation_submissions,
+            stream_summaries=stream_summaries,
+            replay=replay,
         ),
         authority_state_route_ref=RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF,
         authority_state_cli_ref=RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF,
@@ -565,10 +594,27 @@ def build_runtime_run_events_read_model_from_authority_catalog(
         authority_state_reason_refs=list(authority_entry.decision.reason_refs),
         unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         lifecycle_mappings=mappings,
-        run_proposals=[proposal],
+        run_proposals=[],
         event_previews=events,
-        proposal_count=1,
-        approval_wait_count=1,
+        goal_lifecycle=goal_lifecycle,
+        goal_mutation_submissions=goal_mutation_submissions,
+        stream_summaries=stream_summaries,
+        replay=replay,
+        stream_count=len(stream_summaries),
+        retained_event_count=sum(
+            stream.retained_event_count for stream in stream_summaries
+        ),
+        proposal_count=0,
+        approval_wait_count=sum(
+            event.event_kind == RuntimeRunEventKind.approval_wait_entered.value
+            for event in events
+        ),
+        completed_run_count=sum(
+            stream.successful_receipt_recorded
+            or stream.terminal_event_kind
+            == RuntimeRunEventKind.completion_verified.value
+            for stream in stream_summaries
+        ),
         blocked_authority_refs=[
             *GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
             "blocked-authority:runtime-run-create-route",
@@ -579,13 +625,14 @@ def build_runtime_run_events_read_model_from_authority_catalog(
         proof_refs=[
             "proof-ref:runtime-run-events:lifecycle-mapping",
             "proof-ref:runtime-run-events:event-ref-grammar",
-            "proof-ref:runtime-run-events:no-mutation-routes",
+            "proof-ref:runtime-run-events:durable-hash-chain",
+            "proof-ref:runtime-run-events:bounded-cursor-replay",
+            "proof-ref:runtime-run-events:no-runtime-control-routes",
         ],
         next_safe_action_refs=[
-            "next-safe-action-ref:runtime-run-events:bind-idempotent-create-approval",
-            "next-safe-action-ref:runtime-run-events:add-redacted-event-stream",
-            "next-safe-action-ref:runtime-run-events:prove-cancellation-receipt",
-            "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+            "next-safe-action-ref:runtime-run-events:inspect-durable-replay",
+            "next-safe-action-ref:runtime-run-events:verify-goal-receipt-binding",
+            "next-safe-action-ref:runtime-run-events:keep-live-transport-blocked",
         ],
     )
 
@@ -596,6 +643,10 @@ def _snapshot_hash_ref(
     run_proposals: list[RuntimeRunProposalReadModel],
     event_previews: list[RuntimeRunEventPreview],
     authority_entry: AuthorityDecisionCatalogEntry,
+    goal_lifecycle: GoalLifecycleReadModel,
+    goal_mutation_submissions: GoalMutationSubmissionRecoveryReadModel,
+    stream_summaries: list[RunEventStreamSummary],
+    replay: RunEventReplayReadModel | None,
 ) -> str:
     payload = {
         "contract_ref": RUNTIME_RUN_EVENTS_CONTRACT_REF,
@@ -611,9 +662,40 @@ def _snapshot_hash_ref(
             proposal.model_dump(mode="json") for proposal in run_proposals
         ],
         "event_previews": [event.model_dump(mode="json") for event in event_previews],
+        "goal_lifecycle": goal_lifecycle.model_dump(mode="json"),
+        "goal_mutation_submissions": goal_mutation_submissions.model_dump(mode="json"),
+        "stream_summaries": [
+            summary.model_dump(mode="json") for summary in stream_summaries
+        ],
+        "replay": replay.model_dump(mode="json") if replay is not None else None,
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     return f"snapshot-hash-ref:runtime-run-events:{digest[:16]}"
+
+
+def _durable_event_preview(event: DurableRunEvent) -> RuntimeRunEventPreview:
+    proof_ref = (
+        event.proof_refs[0]
+        if event.proof_refs
+        else "proof-ref:runtime-run-events:redacted-event-presence"
+    )
+    return RuntimeRunEventPreview(
+        event_ref=event.event_ref,
+        event_kind=event.event_kind,
+        runtime_run_ref=event.run_ref,
+        uaa_durable_run_ref=event.run_ref,
+        proof_ref=proof_ref,
+        safe_summary=event.safe_summary,
+        sequence=event.sequence,
+        recorded_at=event.recorded_at,
+        predecessor_hash_ref=event.predecessor_hash_ref,
+        event_hash_ref=event.event_hash_ref,
+        proof_refs=event.proof_refs,
+        receipt_refs=event.receipt_refs,
+        criterion_verifier_bindings=event.criterion_verifier_bindings,
+        goal_ref=event.goal_ref,
+        plan_ref=event.plan_ref,
+    )
 
 
 def _authority_entry(

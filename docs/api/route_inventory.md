@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `337` OpenAPI paths and `338` manifest route operations.
+Current generated contract snapshot: `346` OpenAPI paths and `348` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -521,13 +521,24 @@ mapping/decision refs, unsupported adapter refs, proof, verifier, and blocked
 authority refs only; rollback execution, broad filesystem snapshots, Git
 mutation, raw path/content persistence, and production authority remain
 blocked.
-`GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
-Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
-state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
-stop posture, approval-wait proposals, and the AuthorityState mapping/catalog/
-decision/reason/unsupported-adapter refs for
-`lane-ref:runtime-run-events-read-model`. It does not create delegated runs,
-stop delegated runs, resolve runtime approvals, or stream live events.
+`GET /api/runtime/run-events` exposes the protected parity-gap Phase 04 durable
+event source for accepted local run types, including bounded hash-chained event
+refs, monotonic sequences, cursor replay, explicit unknown/stale/retention-loss
+posture, goal lifecycle state, proof/receipt refs, stream summaries, and the
+AuthorityState mapping/catalog/decision/reason/unsupported-adapter refs for
+`lane-ref:runtime-run-events-read-model`. `GET /api/runtime/goals` and
+`GET /api/runtime/goals/{goal_ref}` inspect the same persistent goal journal.
+The approval prepare, decision, and revoke POST routes persist a two-step,
+request-scoped authority ledger without performing a goal mutation. The goal
+create, edit, and transition POST routes are protected, idempotent local
+metadata mutations with optimistic versions and must consume the exact approved
+ledger binding. Approval decision/revoke idempotency headers are deterministic
+functions of the approval request/ref and are never cosmetic. Completion
+requests are supported, while verified completion fails closed until a trusted
+criterion-evaluator receipt producer is separately authorized; caller refs do
+not establish evaluator provenance. The routes do not create delegated runs,
+stop runs, resolve mission approvals, grant standing authority, or enable live
+event transport.
 `GET /api/runtime/approval-bridge` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 04 approval bridge posture for approval
 envelopes, Action Inbox projection refs, proof refs, denial/timeout/scope-

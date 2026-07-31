@@ -231,6 +231,7 @@ describe("backend truth validation", () => {
   it("identifies only the critical product truth routes", () => {
     expect(isCriticalControlCenterPath("/today")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/activity-trust")).toBe(true);
+    expect(isCriticalControlCenterPath("/runtime")).toBe(true);
     expect(isCriticalControlCenterPath("/settings")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/crm")).toBe(false);
     expect(isCriticalControlCenterPath("/news")).toBe(false);

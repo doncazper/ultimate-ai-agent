@@ -39,6 +39,7 @@ const CRITICAL_FRONTEND_PATHS = new Set([
   "/setup",
   "/chat",
   "/runs",
+  "/runtime",
   "/settings",
   "/workspace/settings",
   "/workspace",

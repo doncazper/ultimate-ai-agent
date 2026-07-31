@@ -6,6 +6,7 @@ import os
 import secrets
 import stat
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
@@ -76,6 +77,8 @@ RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
 RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON = "runtime_gateway_safe_disable_state.json"
 RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES = 16_384
 RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
+RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS = 1.0
+RUNTIME_GATEWAY_LOCK_POLL_SECONDS = 0.01
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
     "prompt_text",
@@ -166,11 +169,117 @@ class RuntimeInvocationStoreResult:
     replayed: bool = False
 
 
+@dataclass(frozen=True)
+class RuntimeAdapterDispatchClaim:
+    """One durable adapter-boundary claim and its single-call ownership."""
+
+    record: RuntimeInvocationRecord
+    acquired: bool
+
+
 def runtime_gateway_state_dir() -> Path:
     configured = os.getenv(RUNTIME_GATEWAY_STATE_DIR_ENV, "").strip()
     if configured:
         return Path(configured)
     return Path(".uaa") / "runtime-gateway"
+
+
+_RUNTIME_GATEWAY_STATE_DIR_IDENTITIES: dict[str, tuple[int, int]] = {}
+_RUNTIME_GATEWAY_STATE_DIR_IDENTITIES_LOCK = threading.RLock()
+
+
+def _runtime_gateway_state_dir_key(state_dir: Path) -> str:
+    return os.path.abspath(os.fspath(state_dir))
+
+
+def _open_runtime_gateway_state_dir(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> tuple[int, tuple[int, int]] | None:
+    """Open and retain the exact validated state-root directory descriptor."""
+
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        raise OSError("runtime gateway state directory guard unavailable")
+    absolute = Path(_runtime_gateway_state_dir_key(state_dir))
+    if absolute == Path(absolute.anchor):
+        raise OSError("runtime gateway state directory cannot be a filesystem root")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    descriptor = os.open(absolute.anchor, flags)
+    try:
+        for component in absolute.parts[1:]:
+            if component in {"", ".", ".."}:
+                raise OSError("runtime gateway state directory component is invalid")
+            try:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                if not create:
+                    return None
+                try:
+                    os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = next_descriptor
+        opened = os.fstat(descriptor)
+        linked = os.lstat(absolute)
+        identity = (opened.st_dev, opened.st_ino)
+        if (
+            not stat.S_ISDIR(opened.st_mode)
+            or not stat.S_ISDIR(linked.st_mode)
+            or stat.S_ISLNK(linked.st_mode)
+            or identity != (linked.st_dev, linked.st_ino)
+        ):
+            raise OSError("runtime gateway state directory identity mismatch")
+        if create:
+            os.fchmod(descriptor, 0o700)
+        retained_descriptor = descriptor
+        descriptor = -1
+        return retained_descriptor, identity
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _runtime_gateway_state_dir_chain_identity(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> tuple[int, int] | None:
+    opened = _open_runtime_gateway_state_dir(state_dir, create=create)
+    if opened is None:
+        return None
+    descriptor, identity = opened
+    try:
+        return identity
+    finally:
+        os.close(descriptor)
+
+
+def _bind_runtime_gateway_state_dir_identity(
+    state_dir: Path,
+    identity: tuple[int, int] | None,
+) -> None:
+    key = _runtime_gateway_state_dir_key(state_dir)
+    with _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES_LOCK:
+        expected = _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES.get(key)
+        if identity is None:
+            if expected is not None:
+                raise OSError("runtime gateway state directory disappeared")
+            return
+        if expected is not None and expected != identity:
+            raise OSError("runtime gateway state directory changed")
+        _RUNTIME_GATEWAY_STATE_DIR_IDENTITIES.setdefault(key, identity)
+
+
+def _validate_runtime_gateway_state_dir(
+    state_dir: Path,
+    *,
+    create: bool,
+) -> None:
+    identity = _runtime_gateway_state_dir_chain_identity(state_dir, create=create)
+    _bind_runtime_gateway_state_dir_identity(state_dir, identity)
 
 
 def _canonical_json(value: Any) -> str:
@@ -739,6 +848,7 @@ class RuntimeInvocationStore:
         self._loaded_ledger_identity: tuple[int, int] | None = None
         self._loaded = False
         self._process_lock = threading.RLock()
+        self._mutation_directory_fds: list[int] = []
 
     def capabilities_storage_ref(self) -> str:
         return _hash_ref("runtime-storage-ref", {"path": RUNTIME_GATEWAY_JSONL})
@@ -754,6 +864,15 @@ class RuntimeInvocationStore:
     def list_invocations(self) -> list[RuntimeInvocationRecord]:
         self._load()
         return sorted(self._records.values(), key=lambda record: record.created_at.isoformat())
+
+    def list_invocations_locked(self) -> list[RuntimeInvocationRecord]:
+        """Reload and return one exact durable invocation generation."""
+
+        with self._exclusive_mutation():
+            return sorted(
+                self._records.values(),
+                key=lambda record: record.created_at.isoformat(),
+            )
 
     def list_entries(self) -> list[RuntimeGatewayStorageEntry]:
         self._load()
@@ -804,6 +923,8 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        action_inbox_envelope_required: bool = True,
+        adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         with self._exclusive_mutation():
             return self._create_invocation_loaded(
@@ -811,6 +932,8 @@ class RuntimeInvocationStore:
                 idempotency_ref=idempotency_ref,
                 local_model_gateway_validated=local_model_gateway_validated,
                 command_gateway_validated=command_gateway_validated,
+                action_inbox_envelope_required=action_inbox_envelope_required,
+                adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
             )
 
     def _create_invocation_loaded(
@@ -820,8 +943,15 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
         command_gateway_validated: bool = False,
+        action_inbox_envelope_required: bool = True,
+        adapter_dispatch_protocol_ref: str | None = None,
     ) -> RuntimeInvocationStoreResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
+        if adapter_dispatch_protocol_ref is not None:
+            validate_execution_ref(
+                adapter_dispatch_protocol_ref,
+                "adapter_dispatch_protocol_ref",
+            )
         payload_fingerprint_ref = runtime_payload_fingerprint_ref(request)
         existing_ref = self._idempotency_index.get(idempotency_ref)
         if existing_ref:
@@ -832,6 +962,79 @@ class RuntimeInvocationStore:
             )
             if existing_fingerprint != payload_fingerprint_ref:
                 raise RuntimeInvocationConflictError("RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT")
+            if (
+                existing.approval_requirement.action_inbox_envelope_required
+                != action_inbox_envelope_required
+            ):
+                legacy_readonly_pre_dispatch = bool(
+                    existing.request.requested_authority
+                    == RuntimeAuthority.allowlisted_command.value
+                    and existing.request.action_ref
+                    == "action-ref:runtime-command-git_status"
+                    and command_gateway_validated
+                    and existing.approval_requirement.action_inbox_envelope_required
+                    and not action_inbox_envelope_required
+                    and adapter_dispatch_protocol_ref is not None
+                    and existing.adapter_dispatch_protocol_ref
+                    == adapter_dispatch_protocol_ref
+                    and not existing.adapter_dispatch_started
+                    and existing.receipt is None
+                )
+                if not legacy_readonly_pre_dispatch:
+                    raise RuntimeInvocationConflictError(
+                        "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT"
+                    )
+                existing = existing.model_copy(
+                    update={
+                        "approval_requirement": (
+                            existing.approval_requirement.model_copy(
+                                update={
+                                    "action_inbox_envelope_required": False,
+                                }
+                            )
+                        ),
+                        "updated_at": utc_now(),
+                    }
+                )
+                migration_idempotency_ref = _hash_ref(
+                    "idempotency-ref",
+                    {
+                        "base_idempotency_ref": idempotency_ref,
+                        "operation": (
+                            "legacy-readonly-action-inbox-requirement-migrated"
+                        ),
+                    },
+                )
+                migration_fingerprint_ref = _hash_ref(
+                    "runtime-operation-fingerprint-ref",
+                    {
+                        "operation": (
+                            "legacy-readonly-action-inbox-requirement-migrated"
+                        ),
+                        "invocation_ref": existing.invocation_ref,
+                        "adapter_dispatch_protocol_ref": (
+                            adapter_dispatch_protocol_ref
+                        ),
+                    },
+                )
+                self._append(
+                    "legacy_readonly_action_inbox_requirement_migrated",
+                    existing,
+                    entry_idempotency_ref=migration_idempotency_ref,
+                    payload_fingerprint_ref=migration_fingerprint_ref,
+                )
+            if (
+                adapter_dispatch_protocol_ref is not None
+                and existing.adapter_dispatch_protocol_ref
+                != adapter_dispatch_protocol_ref
+                and not (
+                    existing.adapter_dispatch_protocol_ref is None
+                    and existing.receipt is not None
+                )
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH"
+                )
             replayed = existing.model_copy(update={"replay_count": existing.replay_count + 1})
             self._records[existing_ref] = replayed
             return RuntimeInvocationStoreResult(record=replayed, replayed=True)
@@ -859,9 +1062,16 @@ class RuntimeInvocationStore:
             invocation_ref=invocation_ref,
             request=storage_request,
             policy_decision=policy_decision,
-            approval_requirement=policy_decision.approval_requirement,
+            approval_requirement=policy_decision.approval_requirement.model_copy(
+                update={
+                    "action_inbox_envelope_required": (
+                        action_inbox_envelope_required
+                    )
+                }
+            ),
             payload_fingerprint_ref=payload_fingerprint_ref,
             idempotency_ref=idempotency_ref,
+            adapter_dispatch_protocol_ref=adapter_dispatch_protocol_ref,
             safe_disable=(
                 operator_safe_disable
                 if operator_safe_disable.active
@@ -889,6 +1099,176 @@ class RuntimeInvocationStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
         return RuntimeInvocationStoreResult(record=record, replayed=False)
+
+    def mark_adapter_dispatch_started(
+        self,
+        invocation_ref: str,
+        *,
+        protocol_ref: str,
+        idempotency_ref: str,
+        command_gateway_validated: bool | None = None,
+        action_inbox_envelope_ref: str | None = None,
+        action_inbox_approval_ref: str | None = None,
+    ) -> RuntimeAdapterDispatchClaim:
+        """Durably cross the exact adapter-attempt boundary once."""
+
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(protocol_ref, "protocol_ref")
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "adapter_dispatch_started",
+                    "invocation_ref": invocation_ref,
+                    "protocol_ref": protocol_ref,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return RuntimeAdapterDispatchClaim(
+                    record=replayed,
+                    acquired=False,
+                )
+            if (
+                record.adapter_dispatch_protocol_ref != protocol_ref
+                or record.adapter_dispatch_started
+                or record.receipt is not None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_STATE_INVALID"
+                )
+            if command_gateway_validated is not None:
+                current_policy = build_policy_decision(
+                    record.request,
+                    invocation_ref=record.invocation_ref,
+                    approval_ref=record.approval_requirement.approval_ref,
+                    status=RuntimeInvocationStatus(record.status),
+                    command_gateway_validated=command_gateway_validated,
+                    active_authority_leases=self.current_authority_leases(),
+                    kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
+                )
+                if (
+                    self._canonical_safe_disable_state.active
+                    or not current_policy.allowed_to_execute
+                ):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_COMMAND_DISPATCH_AUTHORITY_REVOKED"
+                    )
+                if (
+                    command_gateway_validated
+                    and record.approval_requirement.action_inbox_envelope_required
+                ):
+                    envelope = record.action_inbox_envelope
+                    if envelope is None:
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
+                    effective_envelope_ref = (
+                        action_inbox_envelope_ref
+                        or envelope.action_envelope_ref
+                    )
+                    effective_approval_ref = (
+                        action_inbox_approval_ref or envelope.approval_ref
+                    )
+                    validate_execution_ref(
+                        effective_envelope_ref,
+                        "action_inbox_envelope_ref",
+                    )
+                    validate_execution_ref(
+                        effective_approval_ref,
+                        "action_inbox_approval_ref",
+                    )
+                    if (
+                        envelope.action_envelope_ref
+                        != effective_envelope_ref
+                        or envelope.approval_ref != effective_approval_ref
+                        or envelope.decision
+                        != RuntimeActionInboxApprovalDecision.approve.value
+                        or envelope.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or record.status
+                        != RuntimeInvocationStatus.approved_pending_execution.value
+                        or not envelope.approval_validated
+                        or not envelope.authority_scope_allowed
+                        or envelope.safe_disable_active
+                        or envelope.scope_mismatch
+                        or envelope.runtime_profile_weaker_or_disabled
+                        or envelope.expires_at <= utc_now()
+                    ):
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_COMMAND_DISPATCH_APPROVAL_REVOKED"
+                        )
+            updated = record.model_copy(
+                update={
+                    "adapter_dispatch_started": True,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "adapter_dispatch_started",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return RuntimeAdapterDispatchClaim(
+                record=updated,
+                acquired=True,
+            )
+
+    def prepare_adapter_dispatch_protocol(
+        self,
+        invocation_ref: str,
+        *,
+        protocol_ref: str,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord:
+        """Bind an undispatched prepared invocation to the boundary protocol."""
+
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(protocol_ref, "protocol_ref")
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "adapter_dispatch_protocol_prepared",
+                    "invocation_ref": invocation_ref,
+                    "protocol_ref": protocol_ref,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            if record.adapter_dispatch_protocol_ref == protocol_ref:
+                return record
+            if (
+                record.adapter_dispatch_protocol_ref is not None
+                or record.adapter_dispatch_started
+                or record.receipt is not None
+            ):
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_ADAPTER_DISPATCH_PROTOCOL_MISMATCH"
+                )
+            updated = record.model_copy(
+                update={
+                    "adapter_dispatch_protocol_ref": protocol_ref,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "adapter_dispatch_protocol_prepared",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
 
     def bind_approval(
         self,
@@ -1673,7 +2053,6 @@ class RuntimeInvocationStore:
             )
         payload = state.model_dump(mode="json")
         _validate_storage_payload(payload, "runtime_safe_disable_state")
-        self.state_dir.mkdir(parents=True, exist_ok=True)
         encoded = _canonical_json(payload).encode("utf-8")
         if len(encoded) > RUNTIME_GATEWAY_SAFE_DISABLE_STATE_MAX_BYTES:
             raise RuntimeInvocationStorageError(
@@ -1684,14 +2063,10 @@ class RuntimeInvocationStore:
                 "RUNTIME_SAFE_DISABLE_STATE_GUARD_UNAVAILABLE"
             )
 
-        directory_fd = -1
+        directory_fd = self._active_mutation_directory_fd()
         temporary_fd = -1
         temporary_name: str | None = None
         try:
-            directory_fd = os.open(
-                self.state_dir,
-                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-            )
             directory_info = os.fstat(directory_fd)
             if not stat.S_ISDIR(directory_info.st_mode):
                 raise RuntimeInvocationStorageError(
@@ -1754,8 +2129,6 @@ class RuntimeInvocationStore:
                     os.unlink(temporary_name, dir_fd=directory_fd)
                 except FileNotFoundError:
                     pass
-            if directory_fd >= 0:
-                os.close(directory_fd)
 
     def _load_operator_safe_disable_state(self) -> RuntimeSafeDisableState:
         if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
@@ -1869,6 +2242,7 @@ class RuntimeInvocationStore:
         directory_fd = -1
         ledger_fd = -1
         try:
+            _validate_runtime_gateway_state_dir(self.state_dir, create=False)
             try:
                 directory_fd = os.open(
                     self.state_dir,
@@ -2025,10 +2399,59 @@ class RuntimeInvocationStore:
 
     @contextmanager
     def _exclusive_mutation(self):
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        with self._process_lock:
-            with self.lock_path.open("a", encoding="utf-8") as lock_handle:
-                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        directory_fd = -1
+        lock_fd = -1
+        process_lock_acquired = self._process_lock.acquire(
+            timeout=RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS
+        )
+        if not process_lock_acquired:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        try:
+            try:
+                opened = _open_runtime_gateway_state_dir(
+                    self.state_dir,
+                    create=True,
+                )
+                if opened is None:
+                    raise OSError("runtime gateway state directory missing")
+                directory_fd, identity = opened
+                _bind_runtime_gateway_state_dir_identity(
+                    self.state_dir,
+                    identity,
+                )
+                lock_fd = os.open(
+                    RUNTIME_GATEWAY_LOCK,
+                    os.O_RDWR
+                    | os.O_CREAT
+                    | os.O_NOFOLLOW
+                    | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+                lock_info = os.fstat(lock_fd)
+                if not stat.S_ISREG(lock_info.st_mode):
+                    raise RuntimeInvocationStorageError(
+                        "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                    )
+                lock_deadline = (
+                    time.monotonic() + RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS
+                )
+                while True:
+                    try:
+                        fcntl.flock(
+                            lock_fd,
+                            fcntl.LOCK_EX | fcntl.LOCK_NB,
+                        )
+                        break
+                    except BlockingIOError as exc:
+                        if time.monotonic() >= lock_deadline:
+                            raise RuntimeInvocationStorageError(
+                                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                            ) from exc
+                        time.sleep(RUNTIME_GATEWAY_LOCK_POLL_SECONDS)
+                self._mutation_directory_fds.append(directory_fd)
                 try:
                     self._reload()
                     yield
@@ -2036,7 +2459,44 @@ class RuntimeInvocationStore:
                     self._loaded = False
                     raise
                 finally:
-                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+                    active_directory_fd = self._mutation_directory_fds.pop()
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                    if active_directory_fd != directory_fd:
+                        self._loaded = False
+                        raise RuntimeInvocationStorageError(
+                            "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                        )
+            except RuntimeInvocationStorageError:
+                raise
+            except OSError as exc:
+                raise RuntimeInvocationStorageError(
+                    "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+                ) from exc
+            finally:
+                if lock_fd >= 0:
+                    os.close(lock_fd)
+                if directory_fd >= 0:
+                    os.close(directory_fd)
+        finally:
+            self._process_lock.release()
+
+    def _active_mutation_directory_fd(self) -> int:
+        if not self._mutation_directory_fds:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        directory_fd = self._mutation_directory_fds[-1]
+        try:
+            directory_info = os.fstat(directory_fd)
+        except OSError as exc:
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            ) from exc
+        if not stat.S_ISDIR(directory_info.st_mode):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_STORAGE_LEDGER_PATH_INVALID"
+            )
+        return directory_fd
 
     def _idempotent_operation_replay(
         self,
@@ -2068,15 +2528,10 @@ class RuntimeInvocationStore:
             raise RuntimeInvocationStorageError(
                 "RUNTIME_STORAGE_LEDGER_GUARD_UNAVAILABLE"
             )
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        directory_fd = -1
+        directory_fd = self._active_mutation_directory_fd()
         ledger_fd = -1
         created = False
         try:
-            directory_fd = os.open(
-                self.state_dir,
-                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-            )
             open_flags = (
                 os.O_WRONLY
                 | os.O_APPEND
@@ -2168,8 +2623,6 @@ class RuntimeInvocationStore:
         finally:
             if ledger_fd >= 0:
                 os.close(ledger_fd)
-            if directory_fd >= 0:
-                os.close(directory_fd)
 
     def _append(
         self,

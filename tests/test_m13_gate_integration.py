@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
 
 
@@ -64,6 +66,10 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "API_ENDPOINTS.localChatCompletions",
         "API_ENDPOINTS.turnRouterPreview",
         "API_ENDPOINTS.controlCenterWebEvidenceAttach",
+        "postRuntimeGoalMutation",
+        "prepareRuntimeGoalMutationApproval",
+        "decideRuntimeGoalMutationApproval",
+        "revokeRuntimeGoalMutationApproval",
     }
     assert client.count('method: "POST"') == len(allowed_post_targets)
     for target in allowed_post_targets:
@@ -71,6 +77,70 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
     assert "requestRedactedLocalChatProbe" in client
     assert "responseVisible: false" in client
     assert "stream: false" in client
+
+
+@pytest.mark.parametrize(
+    ("helper_name", "expected_target", "substituted_target"),
+    [
+        (
+            "prepareRuntimeGoalMutationApproval",
+            "API_ENDPOINTS.runtimeGoalApprovalPrepareCreate",
+            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
+        ),
+        (
+            "decideRuntimeGoalMutationApproval",
+            "runtimeGoalApprovalDecisionEndpoint(approvalRequestRef)",
+            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
+        ),
+        (
+            "revokeRuntimeGoalMutationApproval",
+            "API_ENDPOINTS.runtimeGoalApprovalRevoke",
+            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
+        ),
+    ],
+)
+def test_m13_rejects_goal_helper_destination_substitution(
+    tmp_path: Path,
+    helper_name: str,
+    expected_target: str,
+    substituted_target: str,
+) -> None:
+    source_root = ROOT / "apps/control-center/src"
+    fixture_root = tmp_path / "apps/control-center/src/api"
+    fixture_root.mkdir(parents=True)
+    (fixture_root / "endpoints.ts").write_text(
+        (source_root / "api/endpoints.ts").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    client = (source_root / "api/client.ts").read_text(encoding="utf-8")
+    helper_start = client.index(f"function {helper_name}")
+    next_export = client.find("\nexport ", helper_start + 1)
+    helper_end = len(client) if next_export < 0 else next_export
+    helper = client[helper_start:helper_end]
+    assert expected_target in helper
+    mutated_helper = helper.replace(expected_target, substituted_target, 1)
+    assert mutated_helper != helper
+    (fixture_root / "client.ts").write_text(
+        client[:helper_start] + mutated_helper + client[helper_end:],
+        encoding="utf-8",
+    )
+    criterion = next(
+        item
+        for item in default_foundation_gate_criteria()
+        if item.criterion_id == "m13_action_preview_ui_posts_only_to_preview"
+    )
+
+    result = FoundationGateEvaluator(
+        root=tmp_path
+    ).check_m13_action_preview_ui_posts_only_to_preview(criterion)
+
+    assert result.status == "failed"
+    assert any(
+        failure.startswith(
+            f"frontend client exact POST binding mismatch: {helper_name}"
+        )
+        for failure in result.failures
+    )
 
 
 def test_frontend_package_has_only_local_shell_dependencies() -> None:

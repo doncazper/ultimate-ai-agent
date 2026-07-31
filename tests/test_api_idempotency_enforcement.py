@@ -12,12 +12,31 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
     ]
 
     assert mutating_routes
+    generic_mutating_routes = [
+        route
+        for route in mutating_routes
+        if route["path"]
+        not in {
+            "/api/runtime/goals",
+            "/api/runtime/goals/{goal_ref}/edit",
+            "/api/runtime/goals/{goal_ref}/transition",
+            "/api/runtime/goals/approval-requests/create",
+            "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+            "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+            (
+                "/api/runtime/goals/approval-requests/"
+                "{approval_request_ref}/decision"
+            ),
+            "/api/runtime/goals/approval-requests/revoke",
+        }
+    ]
     assert all(
         route["idempotency_enforcement"] == "header_shape_gate_only"
-        for route in mutating_routes
+        for route in generic_mutating_routes
     )
     assert all(
-        route["durable_idempotency_owner_ref"] is None for route in mutating_routes
+        route["durable_idempotency_owner_ref"] is None
+        for route in generic_mutating_routes
     )
 
 
@@ -28,10 +47,64 @@ def test_exact_web_evidence_lane_reports_its_route_owned_receipt_store() -> None
         for route in manifest["routes"]
         if route["path"] == "/control-center/web-evidence/attach"
     )
-
     assert route["idempotency_enforcement"] == "route_owned_durable_replay"
     assert route["durable_idempotency_owner_ref"] == (
         "idempotency-owner:control-center-web-evidence-receipt-store:v1"
+    )
+
+
+def test_goal_mutations_report_the_hash_chained_journal_replay_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    routes = [
+        route
+        for route in manifest["routes"]
+        if route["path"]
+        in {
+            "/api/runtime/goals",
+            "/api/runtime/goals/{goal_ref}/edit",
+            "/api/runtime/goals/{goal_ref}/transition",
+        }
+        and route["method"] == "POST"
+    ]
+
+    assert len(routes) == 3
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes
+    )
+    assert all(
+        route["durable_idempotency_owner_ref"] == "idempotency-owner:goal-journal:v1"
+        for route in routes
+    )
+
+
+def test_goal_approval_mutations_report_the_hash_chained_ledger_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    expected_paths = {
+        "/api/runtime/goals/approval-requests/create",
+        "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+        "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+        (
+            "/api/runtime/goals/approval-requests/"
+            "{approval_request_ref}/decision"
+        ),
+        "/api/runtime/goals/approval-requests/revoke",
+    }
+    routes = [
+        route
+        for route in manifest["routes"]
+        if route["path"] in expected_paths and route["method"] == "POST"
+    ]
+
+    assert {route["path"] for route in routes} == expected_paths
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes
+    )
+    assert all(
+        route["durable_idempotency_owner_ref"]
+        == "idempotency-owner:goal-mutation-approval-ledger:v1"
+        for route in routes
     )
 
 

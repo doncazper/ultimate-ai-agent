@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
@@ -29,7 +29,9 @@ GOVERNED_RUNTIME_CONTRACT_REF = "contract-ref:governed-runtime-pilot:v1"
 GOVERNED_RUNTIME_DEFAULT_PROFILE = "sealed"
 GOVERNED_RUNTIME_CAPABILITIES_REF = "capability-ref:governed-runtime-pilot"
 GOVERNED_RUNTIME_SAFE_DISABLE_REF = "safe-disable-ref:governed-runtime-pilot"
-GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF = "safe-disable-posture-ref:governed-runtime-pilot"
+GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF = (
+    "safe-disable-posture-ref:governed-runtime-pilot"
+)
 GOVERNED_RUNTIME_ROLLBACK_REF = "rollback-ref:governed-runtime-pilot:disable-profile"
 GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS = (
     "blocked-authority:runtime-unrestricted-command-execution",
@@ -56,6 +58,10 @@ GOVERNED_RUNTIME_REDACTIONS = (
     "environment_omitted",
     "sensitive_material_omitted",
 )
+MAX_RUNTIME_RECEIPT_EVIDENCE_REFS = 32
+MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS = 32
+MAX_RUNTIME_GOAL_VERSION = 4096
+MAX_RUNTIME_EXECUTION_REF_LENGTH = 320
 
 
 class RuntimeProfile(str, Enum):
@@ -110,8 +116,12 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
     approval_validation_ref: str | None = None
     approval_ref_is_identifier_only: bool = True
     risk_class: Literal["safe", "low", "medium", "high", "critical"] = "medium"
-    expires_at: datetime = Field(default_factory=lambda: utc_now() + timedelta(minutes=30))
-    decision: RuntimeActionInboxApprovalDecision = RuntimeActionInboxApprovalDecision.approve
+    expires_at: datetime = Field(
+        default_factory=lambda: utc_now() + timedelta(minutes=30)
+    )
+    decision: RuntimeActionInboxApprovalDecision = (
+        RuntimeActionInboxApprovalDecision.approve
+    )
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.pending_approval
     idempotency_ref: str = Field(..., min_length=1)
     rollback_ref: str = GOVERNED_RUNTIME_ROLLBACK_REF
@@ -138,7 +148,9 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
     blocked_reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
-    safe_summary: str = "Action Inbox runtime approval envelope stores exact safe refs only."
+    safe_summary: str = (
+        "Action Inbox runtime approval envelope stores exact safe refs only."
+    )
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -193,11 +205,20 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
-        if self.command_intent is None and self.requested_authority == RuntimeAuthority.allowlisted_command.value:
+        if (
+            self.command_intent is None
+            and self.requested_authority == RuntimeAuthority.allowlisted_command.value
+        ):
             raise ValueError("RUNTIME_ACTION_INBOX_COMMAND_INTENT_REQUIRED")
-        if self.approval_validated and self.decision != RuntimeActionInboxApprovalDecision.approve.value:
+        if (
+            self.approval_validated
+            and self.decision != RuntimeActionInboxApprovalDecision.approve.value
+        ):
             raise ValueError("RUNTIME_ACTION_INBOX_APPROVED_DECISION_REQUIRED")
-        if self.execution_performed and self.status != RuntimeInvocationStatus.receipt_recorded.value:
+        if (
+            self.execution_performed
+            and self.status != RuntimeInvocationStatus.receipt_recorded.value
+        ):
             raise ValueError("RUNTIME_ACTION_INBOX_EXECUTION_STATUS_REQUIRED")
         return self
 
@@ -226,7 +247,9 @@ class RuntimeArtifactRef(BaseModel):
 class RuntimeRollbackRef(BaseModel):
     rollback_ref: str = GOVERNED_RUNTIME_ROLLBACK_REF
     safe_disable_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_REF
-    safe_summary: str = "Runtime pilot rollback is profile downgrade and safe-disable only."
+    safe_summary: str = (
+        "Runtime pilot rollback is profile downgrade and safe-disable only."
+    )
     rollback_available: bool = True
     rollback_executed: bool = False
 
@@ -462,15 +485,53 @@ class RuntimeInvocationRequest(BaseModel):
         return self
 
 
+class RuntimeCriterionVerificationBinding(BaseModel):
+    """Trusted evaluator provenance for one exact goal success criterion."""
+
+    goal_ref: str = Field(..., min_length=1)
+    goal_version: StrictInt = Field(..., ge=1, le=MAX_RUNTIME_GOAL_VERSION)
+    criterion_ref: str = Field(..., min_length=1)
+    proof_ref: str = Field(..., min_length=1)
+    verifier_ref: str = Field(..., min_length=1)
+    evaluator_receipt_ref: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "RuntimeCriterionVerificationBinding":
+        for value, field_name in (
+            (self.goal_ref, "goal_ref"),
+            (self.criterion_ref, "criterion_ref"),
+            (self.proof_ref, "proof_ref"),
+            (self.verifier_ref, "verifier_ref"),
+            (self.evaluator_receipt_ref, "evaluator_receipt_ref"),
+        ):
+            if len(value) > MAX_RUNTIME_EXECUTION_REF_LENGTH:
+                raise ValueError(f"{field_name} exceeds the bounded ref length")
+            validate_execution_ref(value, field_name)
+        return self
+
+
 class RuntimeInvocationReceipt(BaseModel):
     receipt_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
     policy_decision_ref: str = Field(..., min_length=1)
-    invocation_status: RuntimeInvocationStatus = RuntimeInvocationStatus.execution_blocked
+    invocation_status: RuntimeInvocationStatus = (
+        RuntimeInvocationStatus.execution_blocked
+    )
     artifact_refs: list[RuntimeArtifactRef] = Field(default_factory=list)
     rollback: RuntimeRollbackRef = Field(default_factory=RuntimeRollbackRef)
-    safe_disable: RuntimeSafeDisableState = Field(default_factory=RuntimeSafeDisableState)
-    evidence_refs: list[str] = Field(default_factory=list)
+    safe_disable: RuntimeSafeDisableState = Field(
+        default_factory=RuntimeSafeDisableState
+    )
+    evidence_refs: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_RUNTIME_RECEIPT_EVIDENCE_REFS,
+    )
+    criterion_verification_bindings: list[RuntimeCriterionVerificationBinding] = Field(
+        default_factory=list,
+        max_length=MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS,
+    )
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS)
     )
@@ -486,7 +547,9 @@ class RuntimeInvocationReceipt(BaseModel):
     connector_write_performed: bool = False
     browser_automation_performed: bool = False
     model_output_non_authoritative: bool = True
-    safe_summary: str = "Runtime invocation receipt recorded a governed runtime attempt."
+    safe_summary: str = (
+        "Runtime invocation receipt recorded a governed runtime attempt."
+    )
     created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -498,9 +561,28 @@ class RuntimeInvocationReceipt(BaseModel):
             (self.invocation_ref, "invocation_ref"),
             (self.policy_decision_ref, "policy_decision_ref"),
         ]:
+            if len(value) > MAX_RUNTIME_EXECUTION_REF_LENGTH:
+                raise ValueError(f"{field_name} exceeds the bounded ref length")
             validate_execution_ref(value, field_name)
         for ref in self.evidence_refs:
+            if len(ref) > MAX_RUNTIME_EXECUTION_REF_LENGTH:
+                raise ValueError("evidence_ref exceeds the bounded ref length")
             validate_execution_ref(ref, "evidence_ref")
+        binding_keys = {
+            (
+                binding.goal_ref,
+                binding.goal_version,
+                binding.criterion_ref,
+            )
+            for binding in self.criterion_verification_bindings
+        }
+        if len(binding_keys) != len(self.criterion_verification_bindings):
+            raise ValueError("RUNTIME_CRITERION_VERIFICATION_BINDING_DUPLICATE")
+        if (
+            self.criterion_verification_bindings
+            and self.invocation_status != RuntimeInvocationStatus.receipt_recorded.value
+        ):
+            raise ValueError("RUNTIME_CRITERION_VERIFICATION_TERMINAL_RECEIPT_REQUIRED")
         for ref in self.blocked_authority_refs:
             validate_execution_ref(ref, "blocked_authority_ref")
         for redaction in self.redactions_applied:
@@ -510,11 +592,15 @@ class RuntimeInvocationReceipt(BaseModel):
             if self.connector_write_performed or self.browser_automation_performed:
                 raise ValueError("RUNTIME_NON_MODEL_AUTHORITY_NOT_ALLOWED")
             if self.command_execution_performed:
-                raise ValueError("RUNTIME_COMMAND_AND_MODEL_EXECUTION_MUTUALLY_EXCLUSIVE")
+                raise ValueError(
+                    "RUNTIME_COMMAND_AND_MODEL_EXECUTION_MUTUALLY_EXCLUSIVE"
+                )
             if not self.model_output_non_authoritative:
                 raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
             if self.command_receipt_metadata is not None:
-                raise ValueError("RUNTIME_COMMAND_AND_MODEL_METADATA_MUTUALLY_EXCLUSIVE")
+                raise ValueError(
+                    "RUNTIME_COMMAND_AND_MODEL_METADATA_MUTUALLY_EXCLUSIVE"
+                )
             if self.model_receipt_metadata.attempt_outcome_unknown and any(
                 (
                     self.execution_performed,
@@ -522,7 +608,9 @@ class RuntimeInvocationReceipt(BaseModel):
                     self.model_call_performed,
                 )
             ):
-                raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_EXECUTION_INVALID")
+                raise ValueError(
+                    "RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_EXECUTION_INVALID"
+                )
         if self.command_receipt_metadata is not None:
             if (
                 self.connector_write_performed
@@ -701,14 +789,17 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
             raise ValueError("RUNTIME_MODEL_SIDE_EFFECT_DENIED")
         if self.error_category:
             validate_safe_execution_text(self.error_category, "error_category")
-        if self.attempt_outcome_unknown != (
-            self.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN"
-        ) or self.attempt_outcome_unknown and (
-            self.status_code is not None
-            or self.response_received
-            or self.response_byte_count != 0
-            or self.response_truncated
-            or self.bounded_preview_returned
+        if (
+            self.attempt_outcome_unknown
+            != (self.error_category == "RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN")
+            or self.attempt_outcome_unknown
+            and (
+                self.status_code is not None
+                or self.response_received
+                or self.response_byte_count != 0
+                or self.response_truncated
+                or self.bounded_preview_returned
+            )
         ):
             raise ValueError("RUNTIME_MODEL_ATTEMPT_OUTCOME_UNKNOWN_INVALID")
         return self
@@ -717,7 +808,9 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
 class RuntimeApprovalBindingRequest(BaseModel):
     approval_ref: str | None = Field(default=None, min_length=1)
     approval_scope_ref: str = "approval-scope-ref:governed-runtime-exact-envelope"
-    decision: RuntimeActionInboxApprovalDecision = RuntimeActionInboxApprovalDecision.approve
+    decision: RuntimeActionInboxApprovalDecision = (
+        RuntimeActionInboxApprovalDecision.approve
+    )
     action_envelope_ref: str | None = None
     exact_scope_ref: str | None = None
     expected_payload_fingerprint_ref: str | None = None
@@ -816,7 +909,11 @@ class RuntimeInvocationRecord(BaseModel):
     receipt: RuntimeInvocationReceipt | None = None
     payload_fingerprint_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)
-    safe_disable: RuntimeSafeDisableState = Field(default_factory=RuntimeSafeDisableState)
+    adapter_dispatch_protocol_ref: str | None = None
+    adapter_dispatch_started: bool = False
+    safe_disable: RuntimeSafeDisableState = Field(
+        default_factory=RuntimeSafeDisableState
+    )
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.blocked
     replay_count: int = Field(default=0, ge=0)
     created_at: datetime = Field(default_factory=utc_now)
@@ -832,9 +929,42 @@ class RuntimeInvocationRecord(BaseModel):
             (self.idempotency_ref, "idempotency_ref"),
         ]:
             validate_execution_ref(value, field_name)
+        if self.adapter_dispatch_protocol_ref is not None:
+            validate_execution_ref(
+                self.adapter_dispatch_protocol_ref,
+                "adapter_dispatch_protocol_ref",
+            )
+        if (
+            self.adapter_dispatch_started
+            and self.adapter_dispatch_protocol_ref is None
+        ):
+            raise ValueError("RUNTIME_ADAPTER_DISPATCH_PROTOCOL_REQUIRED")
         if self.receipt and self.receipt.invocation_ref != self.invocation_ref:
             raise ValueError("RUNTIME_RECEIPT_INVOCATION_REF_MISMATCH")
+        if self.receipt and self.receipt.criterion_verification_bindings:
+            if self.request.mission_ref is None or any(
+                binding.goal_ref != self.request.mission_ref
+                for binding in self.receipt.criterion_verification_bindings
+            ):
+                raise ValueError("RUNTIME_CRITERION_VERIFICATION_GOAL_BINDING_MISMATCH")
         return self
+
+
+def runtime_invocation_has_committed_receipt(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    """Derive commitment from immutable terminal receipt evidence."""
+
+    receipt = record.receipt
+    return bool(
+        receipt is not None
+        and receipt.invocation_status == RuntimeInvocationStatus.receipt_recorded.value
+        and record.status
+        in {
+            RuntimeInvocationStatus.receipt_recorded.value,
+            RuntimeInvocationStatus.safe_disabled.value,
+        }
+    )
 
 
 class RuntimeCapabilities(BaseModel):
@@ -859,7 +989,9 @@ class RuntimeCapabilities(BaseModel):
     model_call_enabled: bool = False
     command_execution_enabled: bool = False
     approval_required_for_execution: bool = True
-    safe_disable: RuntimeSafeDisableState = Field(default_factory=RuntimeSafeDisableState)
+    safe_disable: RuntimeSafeDisableState = Field(
+        default_factory=RuntimeSafeDisableState
+    )
     implemented_authority_refs: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS)
     )
@@ -894,8 +1026,12 @@ class RuntimeCapabilities(BaseModel):
 
 
 def _stable_ref(prefix: str, payload: Any) -> str:
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    canonical = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
+    return (
+        f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    )
 
 
 def runtime_payload_fingerprint_ref(request: RuntimeInvocationRequest) -> str:
@@ -918,7 +1054,9 @@ def runtime_invocation_ref(idempotency_ref: str, payload_fingerprint_ref: str) -
 
 def runtime_policy_decision_ref(invocation_ref: str) -> str:
     validate_execution_ref(invocation_ref, "invocation_ref")
-    return _stable_ref("runtime-policy-decision-ref", {"invocation_ref": invocation_ref})
+    return _stable_ref(
+        "runtime-policy-decision-ref", {"invocation_ref": invocation_ref}
+    )
 
 
 def runtime_receipt_ref(invocation_ref: str, status: RuntimeInvocationStatus) -> str:
@@ -1077,14 +1215,15 @@ def build_policy_decision(
         reason_codes.append(
             f"AUTHORITY_LEASE_DECISION_{str(authority_decision.outcome).upper()}"
         )
-        if (
-            authority_decision.outcome != AuthorityDecisionOutcome.allow.value
-            and (local_model_gateway_validated or command_gateway_validated)
+        if authority_decision.outcome != AuthorityDecisionOutcome.allow.value and (
+            local_model_gateway_validated or command_gateway_validated
         ):
             reason_codes.append("AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION")
     return RuntimePolicyDecision(
         policy_decision_ref=runtime_policy_decision_ref(invocation_ref),
-        profile=profile if local_model_enabled or command_enabled else RuntimeProfile.sealed,
+        profile=profile
+        if local_model_enabled or command_enabled
+        else RuntimeProfile.sealed,
         requested_authority=request.requested_authority,
         invocation_status=status,
         allowed_to_execute=local_model_enabled or command_enabled,
@@ -1109,9 +1248,7 @@ def build_policy_decision(
             authority_decision.capability if authority_decision is not None else None
         ),
         authority_required_mode=(
-            authority_decision.required_mode
-            if authority_decision is not None
-            else None
+            authority_decision.required_mode if authority_decision is not None else None
         ),
         authority_reason_refs=(
             list(authority_decision.reason_refs)
@@ -1177,7 +1314,10 @@ def build_blocked_receipt(
             RuntimeArtifactRef(
                 artifact_ref=_stable_ref(
                     "runtime-artifact-ref",
-                    {"invocation_ref": record.invocation_ref, "kind": "blocked-receipt"},
+                    {
+                        "invocation_ref": record.invocation_ref,
+                        "kind": "blocked-receipt",
+                    },
                 ),
                 artifact_kind="blocked_runtime_receipt",
                 safe_summary="Blocked runtime receipt stores safe refs only.",
@@ -1287,7 +1427,10 @@ def build_command_receipt(
             RuntimeArtifactRef(
                 artifact_ref=_stable_ref(
                     "runtime-artifact-ref",
-                    {"invocation_ref": record.invocation_ref, "kind": "command-receipt"},
+                    {
+                        "invocation_ref": record.invocation_ref,
+                        "kind": "command-receipt",
+                    },
                 ),
                 artifact_kind="allowlisted_command_runtime_receipt",
                 safe_summary="Command runtime receipt stores safe refs and redacted counts only.",

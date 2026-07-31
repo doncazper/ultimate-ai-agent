@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `337`.
+Current OpenAPI path count: `346`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `338`
-- OpenAPI paths: `337`
+- Manifest route operations: `348`
+- OpenAPI paths: `346`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -28,7 +28,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
-| `governed-runtime` | 63 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:60, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
+| `governed-runtime` | 73 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:70, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -84,6 +84,16 @@ validate the exact request-scoped authority boundary.
 | GET | `/api/runtime/delegation-adapter` | `get_api_runtime_delegation_adapter` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/doctor-diagnostics` | `get_api_runtime_doctor_diagnostics` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/goals` | `get_api_runtime_goals` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals` | `post_api_runtime_goals` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/create` | `post_api_runtime_goals_approval_requests_create` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/{approval_request_ref}/decision` | `post_api_runtime_goals_approval_requests_approval_request_ref_decision` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/approval-requests/revoke` | `post_api_runtime_goals_approval_requests_revoke` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/goals/{goal_ref}` | `get_api_runtime_goals_goal_ref` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/approval-requests/edit` | `post_api_runtime_goals_goal_ref_approval_requests_edit` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/approval-requests/transition` | `post_api_runtime_goals_goal_ref_approval_requests_transition` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/edit` | `post_api_runtime_goals_goal_ref_edit` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/goals/{goal_ref}/transition` | `post_api_runtime_goals_goal_ref_transition` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/hardline-command-blocklist` | `get_api_runtime_hardline_command_blocklist` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/hermes/chat` | `post_api_runtime_hermes_chat` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/hermes/context-pack` | `get_api_runtime_hermes_context_pack` | `local_dev_workspace_only` | no | future | yes |

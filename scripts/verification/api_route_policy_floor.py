@@ -22,6 +22,17 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/api/runtime/authority-missions/dead-letter-recovery"),
         ("POST", "/api/runtime/command/run"),
         ("POST", "/api/runtime/hermes/chat"),
+        ("POST", "/api/runtime/goals"),
+        ("POST", "/api/runtime/goals/approval-requests/create"),
+        (
+            "POST",
+            "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
+        ),
+        ("POST", "/api/runtime/goals/approval-requests/revoke"),
+        ("POST", "/api/runtime/goals/{goal_ref}/approval-requests/edit"),
+        ("POST", "/api/runtime/goals/{goal_ref}/approval-requests/transition"),
+        ("POST", "/api/runtime/goals/{goal_ref}/edit"),
+        ("POST", "/api/runtime/goals/{goal_ref}/transition"),
         ("POST", "/api/runtime/invocations"),
         ("POST", "/api/runtime/invocations/{id}/approve"),
         ("POST", "/api/runtime/invocations/{id}/execute"),
@@ -170,9 +181,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 139
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 147
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "481896cc2d9d9cbdd2da53cfb4fc2b00267b342af5d50aea85a4c8825cf455a4"
+    "fa7515fed2df9a42dc3ba65257cb307bca0a99cce2e8c3b7a35b09aa9c3e907a"
 )
 
 

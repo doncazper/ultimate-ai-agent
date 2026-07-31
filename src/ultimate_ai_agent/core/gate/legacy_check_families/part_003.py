@@ -1,6 +1,78 @@
 from __future__ import annotations
 
+import re
+
 from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
+
+
+def _typescript_function_body(source: str, function_name: str) -> str | None:
+    """Return one named function body without accepting an ambiguous match."""
+
+    matches = list(
+        re.finditer(
+            rf"\bfunction\s+{re.escape(function_name)}\s*\(",
+            source,
+        )
+    )
+    if len(matches) != 1:
+        return None
+    opening = source.find("{", matches[0].end())
+    if opening < 0:
+        return None
+    depth = 1
+    index = opening + 1
+    quote: str | None = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    while index < len(source):
+        character = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+        if line_comment:
+            if character == "\n":
+                line_comment = False
+            index += 1
+            continue
+        if block_comment:
+            if character == "*" and following == "/":
+                block_comment = False
+                index += 2
+            else:
+                index += 1
+            continue
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            index += 1
+            continue
+        if character == "/" and following == "/":
+            line_comment = True
+            index += 2
+            continue
+        if character == "/" and following == "*":
+            block_comment = True
+            index += 2
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+            index += 1
+            continue
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1 : index]
+        index += 1
+    return None
+
+
+def _compact_typescript(source: str) -> str:
+    return "".join(source.split())
 
 
 class FoundationGateLegacyChecksPart003Mixin:
@@ -1345,6 +1417,10 @@ class FoundationGateLegacyChecksPart003Mixin:
             "API_ENDPOINTS.localChatCompletions",
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
             "API_ENDPOINTS.turnRouterPreview",
+            "postRuntimeGoalMutation",
+            "prepareRuntimeGoalMutationApproval",
+            "decideRuntimeGoalMutationApproval",
+            "revokeRuntimeGoalMutationApproval",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:
@@ -1363,6 +1439,54 @@ class FoundationGateLegacyChecksPart003Mixin:
         post_count = client.count('method: "POST"')
         if post_count != len(allowed_post_targets):
             failures.append(f"unexpected frontend POST declaration count: {post_count}")
+        exact_goal_post_bindings = {
+            "prepareRuntimeGoalMutationApproval": (
+                "constendpoint=material.operation===\"create\""
+                "?API_ENDPOINTS.runtimeGoalApprovalPrepareCreate"
+                ":runtimeGoalApprovalPrepareEndpoint("
+                "material.operation,material.goalRef,);",
+                "fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,"
+                '{method:"POST"',
+            ),
+            "decideRuntimeGoalMutationApproval": (
+                "fetch(`${API_BASE_POLICY.baseUrl}"
+                "${runtimeGoalApprovalDecisionEndpoint(approvalRequestRef)}`,"
+                '{method:"POST"',
+            ),
+            "revokeRuntimeGoalMutationApproval": (
+                "fetch(`${API_BASE_POLICY.baseUrl}"
+                "${API_ENDPOINTS.runtimeGoalApprovalRevoke}`,"
+                '{method:"POST"',
+            ),
+            "postRuntimeGoalMutation": (
+                "fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,"
+                '{method:"POST"',
+            ),
+            "createRuntimeGoal": (
+                "postRuntimeGoalMutation(API_ENDPOINTS.runtimeGoals,request,",
+            ),
+            "editRuntimeGoal": (
+                "postRuntimeGoalMutation(runtimeGoalEditEndpoint(goalRef),request,",
+            ),
+            "transitionRuntimeGoal": (
+                "postRuntimeGoalMutation("
+                "runtimeGoalTransitionEndpoint(goalRef),request,",
+            ),
+        }
+        for helper, required_fragments in exact_goal_post_bindings.items():
+            body = _typescript_function_body(client, helper)
+            if body is None:
+                failures.append(
+                    f"frontend client has ambiguous scoped POST helper: {helper}"
+                )
+                continue
+            compact_body = _compact_typescript(body)
+            for fragment in required_fragments:
+                if compact_body.count(fragment) != 1:
+                    failures.append(
+                        "frontend client exact POST binding mismatch: "
+                        f"{helper} -> {fragment}"
+                    )
         return self._result(
             criterion,
             failures,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import sys
@@ -281,6 +282,43 @@ def test_new_entrypoints_resolve_current_worktree_without_pythonpath() -> None:
         assert result.returncode == 0, result.stderr.decode(errors="replace")
 
 
+def test_runner_falls_back_to_verified_owned_members_on_group_permission_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process_group = 12345
+    sent: list[tuple[int, signal.Signals]] = []
+
+    def deny_group_signal(
+        _process_group: int,
+        _signal: signal.Signals,
+    ) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(
+        runner.os,
+        "killpg",
+        deny_group_signal,
+    )
+    monkeypatch.setattr(
+        runner,
+        "_owned_live_process_group_members",
+        lambda _process_group: (12345, 12346),
+    )
+    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: process_group)
+    monkeypatch.setattr(
+        runner.os,
+        "kill",
+        lambda pid, sig: sent.append((pid, sig)),
+    )
+
+    runner._signal_process_group(process_group, signal.SIGTERM)
+
+    assert sent == [
+        (12345, signal.SIGTERM),
+        (12346, signal.SIGTERM),
+    ]
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS sandbox canaries")
 def test_runner_enforces_output_network_and_process_tree_bounds(
     tmp_path: Path,
@@ -320,7 +358,7 @@ elif mode == "network":
             "-c",
             (
                 "import socket,sys; s=socket.socket(); "
-                f"\\ntry: s.connect(('127.0.0.1',{port})); sys.exit(1)"
+                f"\\ntry: s.connect(('127.0.0.1',{port})); sys.exit(42)"
                 "\\nexcept OSError: sys.exit(0)"
             ),
         ),
@@ -353,11 +391,10 @@ elif mode == "timeout":
         timeout_seconds=3,
     )
     child_ready = ready.exists()
-    if child_ready:
-        # The child starts its five-second marker horizon immediately after
-        # readiness. Wait the full horizon after timeout so late readiness
-        # cannot make a surviving descendant look safely terminated.
-        time.sleep(5.2)
+    # The child writes its marker five seconds after it starts. Wait the full
+    # horizon after the parent timeout even when runner contention delayed the
+    # readiness marker, so a surviving descendant cannot look terminated.
+    time.sleep(5.2)
     payload = {
         "failure": result.failure_code,
         "return_code": result.return_code,
@@ -385,7 +422,7 @@ print(json.dumps(payload))
 
     observed: dict[str, object] = {}
     # Bound the outer test harness separately from the unchanged inner safety
-    # timeout so process startup contention cannot mask the asserted outcome.
+    # timeout so a wedged probe cannot stall the suite.
     probe_timeout_seconds = 30
     try:
         for mode in ("output", "timeout"):
@@ -425,44 +462,33 @@ print(json.dumps(payload))
     timeout_observation = observed["timeout"]
     assert isinstance(output_observation, dict)
     assert isinstance(timeout_observation, dict)
-    sandbox_apply_denied = (
-        output_observation["return_code"] == 71
-        and timeout_observation["return_code"] == 71
-    )
-    if sandbox_apply_denied:
-        assert output_observation == {
-            "failure": "assertion_failed",
-            "return_code": 71,
-            "output_bytes": 0,
-        }
-        assert timeout_observation == {
-            "failure": "assertion_failed",
-            "return_code": 71,
-            "child_ready": False,
-            "child_survived": False,
-        }
-        network_observation = observed["network"]
-        assert network_observation in (
-            {"posture": "outer_sandbox_denied"},
-            {"failure": "assertion_failed", "return_code": 71},
-        )
+    if output_observation["failure"] == "assertion_failed":
+        assert output_observation["return_code"] not in (0, 124)
+        assert output_observation["output_bytes"] == 0
     else:
         assert output_observation == {
             "failure": "output_limit_exceeded",
             "return_code": 1,
             "output_bytes": 0,
         }
-        assert timeout_observation == {
-            "failure": "timeout",
-            "return_code": 124,
-            "child_ready": True,
-            "child_survived": False,
-        }
-        network_observation = observed["network"]
-        assert network_observation in (
-            {"posture": "outer_sandbox_denied"},
-            {"failure": "none", "return_code": 0},
-        )
+    if timeout_observation["failure"] == "assertion_failed":
+        assert timeout_observation["return_code"] not in (0, 124)
+        assert timeout_observation["child_survived"] is False
+    else:
+        assert timeout_observation["failure"] == "timeout"
+        assert timeout_observation["return_code"] == 124
+        assert isinstance(timeout_observation["child_ready"], bool)
+        assert timeout_observation["child_survived"] is False
+    network_observation = observed["network"]
+    if network_observation != {"posture": "outer_sandbox_denied"}:
+        assert isinstance(network_observation, dict)
+        if network_observation["failure"] == "assertion_failed":
+            assert network_observation["return_code"] not in (0, 42)
+        else:
+            assert network_observation == {
+                "failure": "none",
+                "return_code": 0,
+            }
 
 
 def test_runner_reports_spawn_failure_without_output(

@@ -38,7 +38,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 83,
     "none": 16,
-    "local_dev_workspace_only": 184,
+    "local_dev_workspace_only": 194,
     "governed_network_read_only": 6,
     "authenticated_connector_mutation": 25,
     "destructive_local_sensitive": 4,
@@ -74,6 +74,35 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/api/runtime/authority-missions/cancel"): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-missions/dead-letter-recovery"): "mutating_requires_authority",
     ("POST", "/api/runtime/command/run"): "mutating_requires_authority",
+    ("POST", "/api/runtime/goals"): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/approval-requests/create",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/approval-requests/revoke",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/{goal_ref}/edit",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/goals/{goal_ref}/transition",
+    ): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/approve"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/execute"): "mutating_requires_authority",
     ("POST", "/api/runtime/local-model/call"): "mutating_requires_authority",

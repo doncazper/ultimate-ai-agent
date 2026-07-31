@@ -32,16 +32,20 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeProfile,
     build_local_model_receipt,
     build_policy_decision,
+    runtime_invocation_has_committed_receipt,
     runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.command import (
+    ADAPTER_DISPATCH_PROTOCOL_REF,
     GovernedCommandRuntimeAdapter,
     RuntimeCommandExecutionRequest,
     RuntimeCommandGatewayResult,
     invoke_governed_command,
     invoke_approved_governed_command,
 )
+from ultimate_ai_agent.core.runtime_gateway.goal_runtime import GoalRuntimeService
 from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationNotFoundError,
     RuntimeInvocationStorageError,
     RuntimeInvocationStore,
     active_runtime_authority_leases,
@@ -60,7 +64,9 @@ RUNTIME_LOCAL_MODEL_ENABLED_VALUES = {"1", "true", "yes", "on", "local-runtime"}
 
 class RuntimeLocalModelMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
-    content: str = Field(..., min_length=1, max_length=LOCAL_MODEL_RUNTIME_MAX_MESSAGE_CHARS)
+    content: str = Field(
+        ..., min_length=1, max_length=LOCAL_MODEL_RUNTIME_MAX_MESSAGE_CHARS
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -77,8 +83,12 @@ class RuntimeLocalModelCallRequest(BaseModel):
     mission_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=500)
     allow_bounded_preview: bool = False
-    max_preview_chars: int = Field(default=0, ge=0, le=LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS)
-    timeout_seconds: float = Field(default=10.0, gt=0, le=LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS)
+    max_preview_chars: int = Field(
+        default=0, ge=0, le=LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS
+    )
+    timeout_seconds: float = Field(
+        default=10.0, gt=0, le=LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS
+    )
     max_response_bytes: int = Field(
         default=16_000,
         gt=0,
@@ -147,6 +157,7 @@ class RuntimeLocalModelGatewayResult(BaseModel):
 
 @dataclass(frozen=True)
 class _LocalModelTransportBoundaryPosture:
+    record: RuntimeInvocationRecord
     runtime_enabled: bool
     gateway_error_category: str | None
     blocked_error_category: str | None
@@ -158,6 +169,14 @@ class _LocalModelTransportBoundaryBlocked(RuntimeError):
     def __init__(self, posture: _LocalModelTransportBoundaryPosture) -> None:
         super().__init__(posture.blocked_error_category)
         self.posture = posture
+
+
+class _LocalModelTransportBoundaryRejected(RuntimeError):
+    """Preserve a pre-transport guard failure outside adapter parsing errors."""
+
+    def __init__(self, cause: Exception) -> None:
+        super().__init__("RUNTIME_LOCAL_MODEL_TRANSPORT_BOUNDARY_REJECTED")
+        self.cause = cause
 
 
 @dataclass(frozen=True)
@@ -175,8 +194,9 @@ class _AdapterAttempt:
 
 
 class RuntimeLocalModelTransportFactory(Protocol):
-    def __call__(self, request: RuntimeLocalModelCallRequest) -> M164GatewayTransport:
-        ...
+    def __call__(
+        self, request: RuntimeLocalModelCallRequest
+    ) -> M164GatewayTransport: ...
 
 
 class _GuardedM164GatewayTransport:
@@ -197,7 +217,10 @@ class _GuardedM164GatewayTransport:
         *,
         api_key: str | None = None,
     ) -> dict[str, object]:
-        posture = self._guard()
+        try:
+            posture = self._guard()
+        except Exception as exc:
+            raise _LocalModelTransportBoundaryRejected(exc) from exc
         self.boundary_posture = posture
         if posture.blocked_error_category is not None:
             raise _LocalModelTransportBoundaryBlocked(posture)
@@ -221,9 +244,7 @@ class LocalModelRuntimeAdapter:
         self,
         request: RuntimeLocalModelCallRequest,
         *,
-        pre_transport_guard: Callable[
-            [], _LocalModelTransportBoundaryPosture
-        ]
+        pre_transport_guard: Callable[[], _LocalModelTransportBoundaryPosture]
         | None = None,
     ) -> _AdapterAttempt:
         request_byte_count = _request_byte_count(request)
@@ -270,6 +291,8 @@ class LocalModelRuntimeAdapter:
                 transport_performed=False,
                 boundary_posture=exc.posture,
             )
+        except _LocalModelTransportBoundaryRejected as exc:
+            raise exc.cause
         except (ValueError, ValidationError) as exc:
             return _AdapterAttempt(
                 request_byte_count=request_byte_count,
@@ -325,6 +348,7 @@ class RuntimeGateway:
         local_model_adapter: LocalModelRuntimeAdapter | None = None,
         command_adapter: GovernedCommandRuntimeAdapter | None = None,
         local_model_runtime_enabled: bool | None = None,
+        goal_runtime_service: GoalRuntimeService | None = None,
     ) -> None:
         self.store = store or RuntimeInvocationStore(
             active_authority_leases=active_runtime_authority_leases()
@@ -332,6 +356,58 @@ class RuntimeGateway:
         self.local_model_adapter = local_model_adapter or LocalModelRuntimeAdapter()
         self.command_adapter = command_adapter or GovernedCommandRuntimeAdapter()
         self._local_model_runtime_enabled = local_model_runtime_enabled
+        self.goal_runtime_service = (
+            goal_runtime_service
+            or GoalRuntimeService.for_runtime_store(self.store.state_dir)
+        )
+        self.goal_runtime_service.bind_runtime_invocation_store(self.store)
+
+    def _committed_replay_available(self, idempotency_ref: str) -> bool:
+        record = self.store.get_invocation_for_idempotency_locked(idempotency_ref)
+        return bool(
+            record is not None and runtime_invocation_has_committed_receipt(record)
+        )
+
+    def _refresh_projection_at_adapter_boundary(
+        self,
+        *,
+        reservation_ref: str,
+        idempotency_ref: str,
+        expected_record: RuntimeInvocationRecord,
+    ) -> None:
+        """Refresh one new dispatch from exact locked invocation truth."""
+
+        locked_record = self.store.get_invocation_for_idempotency_locked(
+            idempotency_ref
+        )
+        if locked_record is None:
+            locked_record = next(
+                (
+                    candidate
+                    for candidate in self.store.list_invocations_locked()
+                    if candidate.invocation_ref == expected_record.invocation_ref
+                ),
+                None,
+            )
+        if (
+            locked_record is None
+            or locked_record.invocation_ref != expected_record.invocation_ref
+            or locked_record.payload_fingerprint_ref
+            != expected_record.payload_fingerprint_ref
+            or (
+                expected_record.receipt is None
+                and locked_record.receipt is not None
+            )
+            or _receipt_proves_completed_local_model_attempt(locked_record)
+        ):
+            raise RuntimeInvocationStorageError(
+                "RUNTIME_INVOCATION_ADAPTER_BOUNDARY_MISMATCH"
+            )
+        self.goal_runtime_service.refresh_runtime_projection_reservation(
+            reservation_ref,
+            None,
+            operation_idempotency_ref=idempotency_ref,
+        )
 
     def invoke_command(
         self,
@@ -339,12 +415,47 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        return invoke_governed_command(
-            store=self.store,
-            adapter=self.command_adapter,
-            request=request,
-            idempotency_ref=idempotency_ref,
-        )
+        existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        with self.goal_runtime_service.runtime_projection_guard(
+            existing,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    existing is not None
+                    and runtime_invocation_has_committed_receipt(existing)
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
+                ),
+            ):
+                result = invoke_governed_command(
+                    store=self.store,
+                    adapter=self.command_adapter,
+                    request=request,
+                    idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
+                    pre_terminal_receipt=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
+                )
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                invocation_store=self.store,
+                reservation_ref=reservation_ref,
+            )
+        return result
 
     def execute_approved_command(
         self,
@@ -354,43 +465,140 @@ class RuntimeGateway:
         *,
         idempotency_ref: str,
     ) -> RuntimeCommandGatewayResult:
-        record = self.store.get_invocation(invocation_ref)
-        result = invoke_approved_governed_command(
-            store=self.store,
-            adapter=self.command_adapter,
-            record=record,
-            request=request,
-            execute_request=execute_request,
-            idempotency_ref=idempotency_ref,
-        )
-        if result.record.action_inbox_envelope is None:
-            return result
-        updated = self.store.mark_action_inbox_execution_receipt(
-            result.record.invocation_ref,
-            idempotency_ref=_operation_idempotency_ref(
-                idempotency_ref,
-                "action-inbox-execution-receipt",
-            ),
-            payload_fingerprint_ref=_operation_fingerprint_ref(
-                result.record.invocation_ref,
-                {
-                    "operation": "action_inbox_execution_receipt",
-                    "receipt_ref": (
-                        result.record.receipt.receipt_ref
-                        if result.record.receipt
-                        else "runtime-receipt-ref:missing"
+        try:
+            record = self.store.get_invocation(invocation_ref)
+        except RuntimeInvocationNotFoundError:
+            self.goal_runtime_service.assert_runtime_mission_goal_exists(
+                request.mission_ref
+            )
+            raise
+        with self.goal_runtime_service.runtime_projection_guard(
+            record,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    runtime_invocation_has_committed_receipt(record)
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
+                ),
+            ):
+                result = invoke_approved_governed_command(
+                    store=self.store,
+                    adapter=self.command_adapter,
+                    record=record,
+                    request=request,
+                    execute_request=execute_request,
+                    idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda current: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=current,
+                        )
                     ),
-                    "status": result.record.status,
-                },
-            ),
-        )
-        return result.model_copy(update={"record": updated})
+                    pre_terminal_receipt=lambda current: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=current,
+                        )
+                    ),
+                )
+            if (
+                result.record.action_inbox_envelope is not None
+                and runtime_invocation_has_committed_receipt(result.record)
+            ):
+                updated = self.store.mark_action_inbox_execution_receipt(
+                    result.record.invocation_ref,
+                    idempotency_ref=_operation_idempotency_ref(
+                        idempotency_ref,
+                        "action-inbox-execution-receipt",
+                    ),
+                    payload_fingerprint_ref=_operation_fingerprint_ref(
+                        result.record.invocation_ref,
+                        {
+                            "operation": "action_inbox_execution_receipt",
+                            "receipt_ref": (
+                                result.record.receipt.receipt_ref
+                                if result.record.receipt
+                                else "runtime-receipt-ref:missing"
+                            ),
+                            "status": result.record.status,
+                        },
+                    ),
+                )
+                result = result.model_copy(update={"record": updated})
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                invocation_store=self.store,
+                reservation_ref=reservation_ref,
+            )
+        return result
 
     def invoke_local_model(
         self,
         request: RuntimeLocalModelCallRequest,
         *,
         idempotency_ref: str,
+    ) -> RuntimeLocalModelGatewayResult:
+        existing = self.store.get_invocation_for_idempotency(idempotency_ref)
+        if (
+            existing is not None
+            and _receipt_proves_in_progress_local_model_attempt(existing)
+        ):
+            return self._invoke_local_model(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+        with self.goal_runtime_service.runtime_projection_guard(
+            existing,
+            operation_idempotency_ref=idempotency_ref,
+        ) as reservation_ref:
+            with self.goal_runtime_service.runtime_mission_execution_guard(
+                request.mission_ref,
+                allow_committed_replay=(
+                    existing is not None
+                    and runtime_invocation_has_committed_receipt(existing)
+                ),
+                committed_replay_lookup=lambda: self._committed_replay_available(
+                    idempotency_ref
+                ),
+            ):
+                result = self._invoke_local_model(
+                    request,
+                    idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
+                    pre_terminal_receipt=lambda record: (
+                        self._refresh_projection_at_adapter_boundary(
+                            reservation_ref=reservation_ref,
+                            idempotency_ref=idempotency_ref,
+                            expected_record=record,
+                        )
+                    ),
+                )
+            self.goal_runtime_service.record_accepted_runtime_invocation(
+                result.record,
+                invocation_store=self.store,
+                reservation_ref=reservation_ref,
+            )
+        return result
+
+    def _invoke_local_model(
+        self,
+        request: RuntimeLocalModelCallRequest,
+        *,
+        idempotency_ref: str,
+        pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
+        pre_terminal_receipt: Callable[[RuntimeInvocationRecord], None] | None = None,
     ) -> RuntimeLocalModelGatewayResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
         runtime_disabled = self.store.operator_safe_disable_active()
@@ -428,11 +636,35 @@ class RuntimeGateway:
             invocation_request,
             idempotency_ref=idempotency_ref,
             local_model_gateway_validated=blocked_error is None,
+            adapter_dispatch_protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
         )
         record = created.record
-        if blocked_error is None and record.status == RuntimeInvocationStatus.safe_disabled.value:
+        if (
+            blocked_error is None
+            and record.status == RuntimeInvocationStatus.safe_disabled.value
+        ):
             blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
-        if created.replayed:
+        retryable_pre_dispatch_replay = bool(
+            created.replayed
+            and record.adapter_dispatch_protocol_ref
+            == ADAPTER_DISPATCH_PROTOCOL_REF
+            and not record.adapter_dispatch_started
+            and record.receipt is None
+        )
+        in_progress_attempt_replay = bool(
+            created.replayed
+            and record.adapter_dispatch_started
+            and _receipt_proves_in_progress_local_model_attempt(record)
+        )
+        if in_progress_attempt_replay:
+            return RuntimeLocalModelGatewayResult(
+                record=record,
+                request_byte_count=_request_byte_count(request),
+                error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS",
+                replayed=True,
+                local_model_runtime_enabled=runtime_enabled,
+            )
+        if created.replayed and not retryable_pre_dispatch_replay:
             replay_runtime_disabled = self.store.operator_safe_disable_active()
             replay_runtime_enabled = self._runtime_local_model_enabled()
             replay_endpoint_error = _validate_loopback_endpoint(request)
@@ -480,17 +712,13 @@ class RuntimeGateway:
                 status=replay_status,
                 local_model_gateway_validated=replay_gateway_validated,
                 active_authority_leases=self.store.current_authority_leases(),
-                kill_switch_engaged=(
-                    self.store.authority_lease_kill_switch_engaged()
-                ),
+                kill_switch_engaged=(self.store.authority_lease_kill_switch_engaged()),
             )
             if (
                 replay_blocked_error is None
                 and not replay_policy_decision.allowed_to_execute
             ):
-                replay_blocked_error = (
-                    "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
-                )
+                replay_blocked_error = "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
                 replay_status = RuntimeInvocationStatus.execution_blocked
             replay_policy_decision = replay_policy_decision.model_copy(
                 update={
@@ -577,6 +805,8 @@ class RuntimeGateway:
                 error_category="RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
                 safe_summary="Local model runtime replay was blocked before transport.",
             )
+            if pre_terminal_receipt is not None:
+                pre_terminal_receipt(record)
             recovery = self.store.record_local_model_replay_without_receipt(
                 record.invocation_ref,
                 metadata,
@@ -593,9 +823,11 @@ class RuntimeGateway:
                 ),
             )
             if recovery.replayed:
-                return self.invoke_local_model(
+                return self._invoke_local_model(
                     request,
                     idempotency_ref=idempotency_ref,
+                    pre_adapter_dispatch=pre_adapter_dispatch,
+                    pre_terminal_receipt=pre_terminal_receipt,
                 )
             updated = recovery.record
             return RuntimeLocalModelGatewayResult(
@@ -628,10 +860,14 @@ class RuntimeGateway:
                 model_call_performed=False,
                 status=RuntimeInvocationStatus.execution_blocked,
             )
+            if pre_terminal_receipt is not None:
+                pre_terminal_receipt(record)
             updated = self.store.record_receipt(
                 record.invocation_ref,
                 receipt,
-                idempotency_ref=_operation_idempotency_ref(idempotency_ref, "local-model-blocked"),
+                idempotency_ref=_operation_idempotency_ref(
+                    idempotency_ref, "local-model-blocked"
+                ),
                 payload_fingerprint_ref=_operation_fingerprint_ref(
                     record.invocation_ref,
                     {
@@ -647,52 +883,30 @@ class RuntimeGateway:
                 local_model_runtime_enabled=runtime_enabled,
             )
 
-        attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
-            model_ref=request.model_ref,
-            endpoint_ref=_endpoint_ref(request.base_url),
-            profile=record.policy_decision.profile,
-            request_byte_count=_request_byte_count(request),
-            response_byte_count=0,
-            status_code=None,
-            response_received=False,
-            response_truncated=False,
-            bounded_preview_returned=False,
-            bounded_preview_persisted=False,
-            error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
-            attempt_outcome_unknown=True,
-            safe_summary=(
-                "Local model transport attempt was authorized; outcome is not yet known."
-            ),
-        )
-        attempt_marker = build_local_model_receipt(
+        record, dispatch_acquired = self._prepare_local_model_adapter_dispatch(
             record,
-            metadata=attempt_marker_metadata,
-            execution_performed=False,
-            model_call_performed=False,
-            status=RuntimeInvocationStatus.receipt_recorded,
+            request,
+            idempotency_ref=idempotency_ref,
+            pre_adapter_dispatch=pre_adapter_dispatch,
         )
-        record = self.store.record_receipt(
-            record.invocation_ref,
-            attempt_marker,
-            idempotency_ref=_operation_idempotency_ref(
-                idempotency_ref,
-                "local-model-attempt-marker",
-            ),
-            payload_fingerprint_ref=_operation_fingerprint_ref(
-                record.invocation_ref,
-                {
-                    "operation": "local_model_attempt_marker",
-                    "metadata": attempt_marker_metadata.model_dump(mode="json"),
-                },
-            ),
-        )
+        if not dispatch_acquired:
+            return RuntimeLocalModelGatewayResult(
+                record=record,
+                request_byte_count=_request_byte_count(request),
+                error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_IN_PROGRESS",
+                replayed=True,
+                local_model_runtime_enabled=runtime_enabled,
+            )
         attempt = self.local_model_adapter.invoke(
             request,
-            pre_transport_guard=lambda: (
-                self._local_model_transport_boundary_posture(record, request)
+            pre_transport_guard=lambda: self._local_model_transport_boundary_posture(
+                record,
+                request,
             ),
         )
         boundary_posture = attempt.boundary_posture
+        if boundary_posture is not None:
+            record = boundary_posture.record
         attempt_policy_decision = (
             boundary_posture.policy_decision
             if boundary_posture is not None
@@ -742,10 +956,14 @@ class RuntimeGateway:
                 else RuntimeInvocationStatus.receipt_recorded
             ),
         )
+        if pre_terminal_receipt is not None:
+            pre_terminal_receipt(record)
         updated = self.store.record_receipt(
             record.invocation_ref,
             receipt,
-            idempotency_ref=_operation_idempotency_ref(idempotency_ref, "local-model-receipt"),
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref, "local-model-receipt"
+            ),
             payload_fingerprint_ref=_operation_fingerprint_ref(
                 record.invocation_ref,
                 {
@@ -779,11 +997,77 @@ class RuntimeGateway:
             ),
         )
 
+    def _prepare_local_model_adapter_dispatch(
+        self,
+        record: RuntimeInvocationRecord,
+        request: RuntimeLocalModelCallRequest,
+        *,
+        idempotency_ref: str,
+        pre_adapter_dispatch: Callable[[RuntimeInvocationRecord], None] | None = None,
+    ) -> tuple[RuntimeInvocationRecord, bool]:
+        """Persist the exact attempt boundary before constructing an adapter."""
+
+        if pre_adapter_dispatch is not None:
+            pre_adapter_dispatch(record)
+        claim = self.store.mark_adapter_dispatch_started(
+            record.invocation_ref,
+            protocol_ref=ADAPTER_DISPATCH_PROTOCOL_REF,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "adapter-dispatch-started",
+            ),
+        )
+        record = claim.record
+        if not claim.acquired:
+            return record, False
+        attempt_marker_metadata = RuntimeLocalModelReceiptMetadata(
+            model_ref=request.model_ref,
+            endpoint_ref=_endpoint_ref(request.base_url),
+            profile=record.policy_decision.profile,
+            request_byte_count=_request_byte_count(request),
+            response_byte_count=0,
+            status_code=None,
+            response_received=False,
+            response_truncated=False,
+            bounded_preview_returned=False,
+            bounded_preview_persisted=False,
+            error_category="RUNTIME_LOCAL_MODEL_ATTEMPT_OUTCOME_UNKNOWN",
+            attempt_outcome_unknown=True,
+            safe_summary=(
+                "Local model transport attempt was authorized; outcome is not yet known."
+            ),
+        )
+        attempt_marker = build_local_model_receipt(
+            record,
+            metadata=attempt_marker_metadata,
+            execution_performed=False,
+            model_call_performed=False,
+            status=RuntimeInvocationStatus.receipt_recorded,
+        )
+        record = self.store.record_receipt(
+            record.invocation_ref,
+            attempt_marker,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "local-model-attempt-marker",
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                record.invocation_ref,
+                {
+                    "operation": "local_model_attempt_marker",
+                    "metadata": attempt_marker_metadata.model_dump(mode="json"),
+                },
+            ),
+        )
+        return record, True
+
     def _local_model_transport_boundary_posture(
         self,
         record: RuntimeInvocationRecord,
         request: RuntimeLocalModelCallRequest,
     ) -> _LocalModelTransportBoundaryPosture:
+        """Revalidate live authority immediately before the transport send."""
+
         runtime_disabled = self.store.operator_safe_disable_active()
         runtime_enabled = self._runtime_local_model_enabled()
         gateway_error = _blocked_error_category(
@@ -822,6 +1106,7 @@ class RuntimeGateway:
                 update={"invocation_status": status}
             )
         return _LocalModelTransportBoundaryPosture(
+            record=record,
             runtime_enabled=runtime_enabled,
             gateway_error_category=gateway_error,
             blocked_error_category=blocked_error,
@@ -893,7 +1178,9 @@ class RuntimeGateway:
         return local_model_runtime_enabled()
 
 
-def _default_transport_factory(request: RuntimeLocalModelCallRequest) -> M164GatewayTransport:
+def _default_transport_factory(
+    request: RuntimeLocalModelCallRequest,
+) -> M164GatewayTransport:
     return StdlibM164LlamaCppGatewayTransport(
         timeout_seconds=request.timeout_seconds,
         max_response_bytes=request.max_response_bytes,
@@ -940,8 +1227,7 @@ def _request_byte_count(request: RuntimeLocalModelCallRequest) -> int:
                 "model": request.model_ref,
                 "message_count": len(request.messages),
                 "message_bytes": [
-                    len(message.content.encode("utf-8"))
-                    for message in request.messages
+                    len(message.content.encode("utf-8")) for message in request.messages
                 ],
                 "stream": False,
             }
@@ -957,7 +1243,9 @@ def _runtime_invocation_request(
     prompt_ref = _prompt_ref(request)
     return RuntimeInvocationRequest(
         requested_authority=RuntimeAuthority.local_model,
-        requested_profile=RuntimeProfile.sealed if force_sealed else request.requested_profile,
+        requested_profile=RuntimeProfile.sealed
+        if force_sealed
+        else request.requested_profile,
         input_ref=prompt_ref,
         mission_ref=request.mission_ref,
         safe_summary=request.safe_summary,
@@ -978,10 +1266,22 @@ def _receipt_proves_completed_local_model_attempt(
     metadata = receipt.model_receipt_metadata if receipt is not None else None
     return bool(
         receipt is not None
-        and receipt.invocation_status
-        == RuntimeInvocationStatus.receipt_recorded.value
+        and receipt.invocation_status == RuntimeInvocationStatus.receipt_recorded.value
         and metadata is not None
         and not metadata.attempt_outcome_unknown
+    )
+
+
+def _receipt_proves_in_progress_local_model_attempt(
+    record: RuntimeInvocationRecord,
+) -> bool:
+    receipt = record.receipt
+    metadata = receipt.model_receipt_metadata if receipt is not None else None
+    return bool(
+        record.adapter_dispatch_started
+        and receipt is not None
+        and metadata is not None
+        and metadata.attempt_outcome_unknown
     )
 
 
@@ -1037,7 +1337,9 @@ def _prompt_ref(request: RuntimeLocalModelCallRequest) -> str:
         {
             "model_ref": request.model_ref,
             "message_count": len(request.messages),
-            "messages": [message.model_dump(mode="json") for message in request.messages],
+            "messages": [
+                message.model_dump(mode="json") for message in request.messages
+            ],
         },
     )
 

@@ -93,6 +93,11 @@ export const API_ENDPOINTS = {
   runtimeHermesContextPack: "/api/runtime/hermes/context-pack",
   runtimeCapabilityDiscovery: "/api/runtime/capability-discovery",
   runtimeRunEvents: "/api/runtime/run-events",
+  runtimeGoals: "/api/runtime/goals",
+  runtimeGoalApprovalPrepareCreate:
+    "/api/runtime/goals/approval-requests/create",
+  runtimeGoalApprovalRevoke:
+    "/api/runtime/goals/approval-requests/revoke",
   runtimeApprovalBridge: "/api/runtime/approval-bridge",
   runtimeStreamingProgress: "/api/runtime/streaming-progress",
   runtimeProfiles: "/api/runtime/profiles",
@@ -205,6 +210,31 @@ export function communicationsReceiptEndpoint(receiptRef: string): string {
   return `/control-center/communications/receipts/${encodeURIComponent(receiptRef)}`;
 }
 
+export function runtimeGoalEndpoint(goalRef: string): string {
+  return `/api/runtime/goals/${encodeURIComponent(goalRef)}`;
+}
+
+export function runtimeGoalEditEndpoint(goalRef: string): string {
+  return `${runtimeGoalEndpoint(goalRef)}/edit`;
+}
+
+export function runtimeGoalTransitionEndpoint(goalRef: string): string {
+  return `${runtimeGoalEndpoint(goalRef)}/transition`;
+}
+
+export function runtimeGoalApprovalPrepareEndpoint(
+  operation: "edit" | "transition",
+  goalRef: string,
+): string {
+  return `${runtimeGoalEndpoint(goalRef)}/approval-requests/${operation}`;
+}
+
+export function runtimeGoalApprovalDecisionEndpoint(
+  approvalRequestRef: string,
+): string {
+  return `/api/runtime/goals/approval-requests/${encodeURIComponent(approvalRequestRef)}/decision`;
+}
+
 export function isActionDecisionEndpoint(endpoint: string): boolean {
   return /^\/control-center\/actions\/[^/]+\/(approve|edit|reject|defer)$/.test(
     endpoint,
@@ -290,6 +320,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeHermesContextPack,
   API_ENDPOINTS.runtimeCapabilityDiscovery,
   API_ENDPOINTS.runtimeRunEvents,
+  API_ENDPOINTS.runtimeGoals,
   API_ENDPOINTS.runtimeApprovalBridge,
   API_ENDPOINTS.runtimeStreamingProgress,
   API_ENDPOINTS.runtimeProfiles,

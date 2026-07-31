@@ -1,4 +1,6 @@
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import type {
+  ControlCenterRouteReadState,
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
   RuntimeBackgroundJobsReadModel,
@@ -16,6 +18,7 @@ import type {
   RuntimeMessagingGatewayPostureReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimePluginMetadataPostureReadModel,
+  RuntimePersistentGoal,
   RuntimeSkillMarketplacePostureReadModel,
   RuntimeSubagentIsolationReadModel,
   RuntimeSessionContinuityReadModel,
@@ -34,9 +37,409 @@ import type {
   RuntimeVirtualProviderMoaReadModel,
   RuntimeVoiceMediaPostureReadModel,
   RuntimeWorktreePerAgentReadModel,
+  RuntimeGoalTransitionKind,
+  RuntimeGoalCreateRequest,
+  RuntimeGoalEditRequest,
+  RuntimeGoalMutationApprovalDecision,
+  RuntimeGoalMutationApprovalRequestSpec,
+  RuntimeGoalMutationSubmissionRecoveryRecord,
+  RuntimeGoalTransitionRequest,
 } from "../api/types";
+import {
+  createRuntimeGoal,
+  decideRuntimeGoalMutationApproval,
+  editRuntimeGoal,
+  fetchRuntimeRunEvents,
+  isRuntimeGoalMutationTerminalRejectionError,
+  isRuntimeGoalMutationValidationError,
+  prepareRuntimeGoalCreateSubmission,
+  prepareRuntimeGoalMutationApproval,
+  revokeRuntimeGoalMutationApproval,
+  prepareRuntimeGoalUpdateSubmission,
+  transitionRuntimeGoal,
+} from "../api/client";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
+
+type PendingGoalMutationApprovalState = {
+  approvalSpec: RuntimeGoalMutationApprovalRequestSpec | null;
+  approvalRequestRef: string | null;
+  approvalRef: string | null;
+  approvalStatus:
+    | "pending"
+    | "approved"
+    | "approval_uncertain"
+    | "denial_uncertain"
+    | "revocation_uncertain"
+    | "expired"
+    | "denied"
+    | "revoked"
+    | null;
+};
+
+type PendingGoalMutation = (
+  | {
+      operation: "create";
+      request: RuntimeGoalCreateRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+      submissionRef: string;
+    }
+  | {
+      operation: "edit";
+      goalRef: string;
+      request: RuntimeGoalEditRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+      submissionRef: string;
+    }
+  | {
+      operation: "transition";
+      goalRef: string;
+      request: RuntimeGoalTransitionRequest;
+      idempotencyRef: string;
+      submissionEvidenceRef: string;
+      submissionRef: string;
+    }
+) & PendingGoalMutationApprovalState;
+
+function approvalDecisionMatchesPending(
+  decision: RuntimeGoalMutationApprovalDecision,
+  pending: PendingGoalMutation,
+  expectedStatus: "approved" | "denied" | "revoked",
+): boolean {
+  const expected = pending.approvalSpec;
+  const actual = decision.spec;
+  return (
+    expected !== null &&
+    decision.status === expectedStatus &&
+    actual.schema_version === expected.schema_version &&
+    actual.operation === expected.operation &&
+    actual.subject_ref === expected.subject_ref &&
+    actual.idempotency_ref === expected.idempotency_ref &&
+    actual.request_fingerprint_ref === expected.request_fingerprint_ref &&
+    actual.mutation_request_fingerprint_ref ===
+      expected.mutation_request_fingerprint_ref &&
+    actual.exact_scope_ref === expected.exact_scope_ref &&
+    actual.approval_request_ref === expected.approval_request_ref &&
+    actual.approval_ref === expected.approval_ref &&
+    actual.operator_actor_ref === expected.operator_actor_ref &&
+    actual.requested_at === expected.requested_at &&
+    actual.expires_at === expected.expires_at
+  );
+}
+
+function approvalSpecsEqual(
+  left: RuntimeGoalMutationApprovalRequestSpec,
+  right: RuntimeGoalMutationApprovalRequestSpec,
+): boolean {
+  return (
+    left.schema_version === right.schema_version &&
+    left.operation === right.operation &&
+    left.subject_ref === right.subject_ref &&
+    left.idempotency_ref === right.idempotency_ref &&
+    left.request_fingerprint_ref === right.request_fingerprint_ref &&
+    left.mutation_request_fingerprint_ref ===
+      right.mutation_request_fingerprint_ref &&
+    left.exact_scope_ref === right.exact_scope_ref &&
+    left.approval_request_ref === right.approval_request_ref &&
+    left.approval_ref === right.approval_ref &&
+    left.operator_actor_ref === right.operator_actor_ref &&
+    left.requested_at === right.requested_at &&
+    left.expires_at === right.expires_at
+  );
+}
+
+function terminalSubmissionResolutionTime(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+): number {
+  const parsed = Date.parse(record.resolved_at ?? "");
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function hydratePendingGoalMutationApproval(
+  pending: PendingGoalMutation,
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+): PendingGoalMutation | null {
+  const recovery = record.approval_recovery;
+  if (
+    recovery === null ||
+    recovery === undefined ||
+    recovery.authoritative_current !== true
+  ) {
+    return null;
+  }
+  if (recovery.posture === "missing") {
+    return {
+      ...pending,
+      approvalSpec: null,
+      approvalRequestRef: null,
+      approvalRef: null,
+      approvalStatus: null,
+    };
+  }
+  const spec = recovery.approval_request;
+  const decision = recovery.latest_decision;
+  if (
+    spec === null ||
+    spec === undefined
+  ) {
+    return null;
+  }
+  const expectedOperation =
+    pending.operation === "transition"
+      ? `transition-${pending.request.transition}`
+      : pending.operation;
+  const expectedSubject =
+    pending.operation === "create" ? "goal-ref:new" : pending.goalRef;
+  if (
+    spec.operation !== expectedOperation ||
+    spec.subject_ref !== expectedSubject ||
+    spec.idempotency_ref !== pending.idempotencyRef
+  ) {
+    return null;
+  }
+  if (recovery.posture === "pending") {
+    if (decision !== null && decision !== undefined) {
+      return null;
+    }
+    return {
+      ...pending,
+      approvalSpec: spec,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: recovery.posture,
+    };
+  }
+  if (
+    recovery.posture === "expired" &&
+    (decision === null || decision === undefined)
+  ) {
+    return {
+      ...pending,
+      approvalSpec: spec,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: recovery.posture,
+    };
+  }
+  if (
+    decision === null ||
+    decision === undefined ||
+    !approvalSpecsEqual(spec, decision.spec)
+  ) {
+    return null;
+  }
+  const decisionStatusMatches =
+    recovery.posture === "expired"
+      ? decision.status === "expired" || decision.status === "approved"
+      : decision.status === recovery.posture;
+  if (!decisionStatusMatches) {
+    return null;
+  }
+  return {
+    ...pending,
+    approvalSpec: spec,
+    approvalRequestRef: spec.approval_request_ref,
+    approvalRef: spec.approval_ref,
+    approvalStatus: recovery.posture,
+  };
+}
+
+function submissionMatchesPending(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+  pending: PendingGoalMutation,
+): boolean {
+  const pendingGoalRef =
+    pending.operation === "create" ? null : pending.goalRef;
+  return (
+    record.submission_ref === pending.submissionRef &&
+    record.operation === pending.operation &&
+    (record.goal_ref ?? null) === pendingGoalRef &&
+    record.idempotency_ref === pending.idempotencyRef &&
+    record.submission_evidence_ref === pending.submissionEvidenceRef
+  );
+}
+
+function terminalSubmissionMatchesPending(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+  pending: PendingGoalMutation,
+): boolean {
+  return (
+    (record.status === "committed" || record.status === "rejected") &&
+    submissionMatchesPending(record, pending)
+  );
+}
+
+function pendingGoalMutationsEqual(
+  left: PendingGoalMutation | null,
+  right: PendingGoalMutation,
+): boolean {
+  return (
+    left !== null &&
+    left.operation === right.operation &&
+    ("goalRef" in left ? left.goalRef : null) ===
+      ("goalRef" in right ? right.goalRef : null) &&
+    left.idempotencyRef === right.idempotencyRef &&
+    left.submissionEvidenceRef === right.submissionEvidenceRef &&
+    left.submissionRef === right.submissionRef &&
+    left.approvalRequestRef === right.approvalRequestRef &&
+    left.approvalRef === right.approvalRef &&
+    left.approvalStatus === right.approvalStatus &&
+    JSON.stringify(left.request) === JSON.stringify(right.request) &&
+    ((left.approvalSpec === null && right.approvalSpec === null) ||
+      (left.approvalSpec !== null &&
+        right.approvalSpec !== null &&
+        approvalSpecsEqual(left.approvalSpec, right.approvalSpec)))
+  );
+}
+
+type GoalMutationSubmissionReconciliation =
+  | {
+      posture: "pending";
+      pending: PendingGoalMutation;
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "approval_terminal";
+      pending: PendingGoalMutation;
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "committed" | "rejected";
+      record: RuntimeGoalMutationSubmissionRecoveryRecord;
+    }
+  | {
+      posture: "current";
+      record: RuntimeGoalMutationSubmissionRecoveryRecord | null;
+    };
+
+function pendingGoalMutationFromRecoveryRecord(
+  record: RuntimeGoalMutationSubmissionRecoveryRecord,
+): PendingGoalMutation {
+  if (record.operation === "create") {
+    return {
+      operation: "create",
+      request: record.request_payload as RuntimeGoalCreateRequest,
+      idempotencyRef: record.idempotency_ref,
+      submissionEvidenceRef: record.submission_evidence_ref,
+      submissionRef: record.submission_ref,
+      approvalSpec: null,
+      approvalRequestRef: null,
+      approvalRef: null,
+      approvalStatus: null,
+    };
+  }
+  if (record.goal_ref === null || record.goal_ref === undefined) {
+    throw new Error(
+      "Goal submission recovery binding is inconsistent and remains blocked.",
+    );
+  }
+  if (record.operation === "edit") {
+    return {
+      operation: "edit",
+      goalRef: record.goal_ref,
+      request: record.request_payload as RuntimeGoalEditRequest,
+      idempotencyRef: record.idempotency_ref,
+      submissionEvidenceRef: record.submission_evidence_ref,
+      submissionRef: record.submission_ref,
+      approvalSpec: null,
+      approvalRequestRef: null,
+      approvalRef: null,
+      approvalStatus: null,
+    };
+  }
+  return {
+    operation: "transition",
+    goalRef: record.goal_ref,
+    request: record.request_payload as RuntimeGoalTransitionRequest,
+    idempotencyRef: record.idempotency_ref,
+    submissionEvidenceRef: record.submission_evidence_ref,
+    submissionRef: record.submission_ref,
+    approvalSpec: null,
+    approvalRequestRef: null,
+    approvalRef: null,
+    approvalStatus: null,
+  };
+}
+
+function reconcileGoalMutationSubmissions(
+  records: RuntimeGoalMutationSubmissionRecoveryRecord[],
+  expected: PendingGoalMutation | null = null,
+): GoalMutationSubmissionReconciliation {
+  const pendingRecords = records.filter(
+    (record) => record.status === "pending",
+  );
+  if (pendingRecords.length > 1) {
+    throw new Error(
+      "Multiple backend-owned goal submissions require CLI inspection before mutation can continue.",
+    );
+  }
+  if (pendingRecords.length === 1) {
+    const record = pendingRecords[0];
+    const identity = pendingGoalMutationFromRecoveryRecord(record);
+    if (expected !== null && !submissionMatchesPending(record, expected)) {
+      throw new Error(
+        "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    const recovered = hydratePendingGoalMutationApproval(
+      expected ?? identity,
+      record,
+    );
+    if (recovered === null) {
+      throw new Error(
+        "Goal submission approval recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    return {
+      posture:
+        recovered.approvalStatus === "denied" ||
+        recovered.approvalStatus === "revoked" ||
+        recovered.approvalStatus === "expired"
+          ? "approval_terminal"
+          : "pending",
+      pending: recovered,
+      record,
+    };
+  }
+
+  const terminalRecords = records.filter(
+    (record) =>
+      record.status === "committed" || record.status === "rejected",
+  );
+  if (expected !== null) {
+    const matches = terminalRecords.filter(
+      (record) => record.submission_ref === expected.submissionRef,
+    );
+    if (
+      matches.length !== 1 ||
+      !terminalSubmissionMatchesPending(matches[0], expected)
+    ) {
+      throw new Error(
+        "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    return matches[0].status === "committed"
+      ? { posture: "committed", record: matches[0] }
+      : { posture: "rejected", record: matches[0] };
+  }
+
+  const latestTerminal = terminalRecords
+    .slice()
+    .sort((left, right) => {
+      const leftResolvedAt = terminalSubmissionResolutionTime(left);
+      const rightResolvedAt = terminalSubmissionResolutionTime(right);
+      return leftResolvedAt !== rightResolvedAt
+        ? leftResolvedAt - rightResolvedAt
+        : left.submission_ref.localeCompare(right.submission_ref);
+    })
+    .at(-1);
+  return latestTerminal === undefined
+    ? { posture: "current", record: null }
+    : { posture: "current", record: latestTerminal };
+}
 
 export function RuntimeReadinessPanel({
   report,
@@ -46,6 +449,7 @@ export function RuntimeReadinessPanel({
   hermesContextPack,
   capabilityDiscovery,
   runEvents,
+  runEventsReadState,
   approvalBridge,
   streamingProgress,
   profiles,
@@ -82,6 +486,7 @@ export function RuntimeReadinessPanel({
   hermesContextPack: HermesContextPackReadModel;
   capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runEvents: RuntimeRunEventsReadModel;
+  runEventsReadState?: ControlCenterRouteReadState;
   approvalBridge: RuntimeApprovalBridgeReadModel;
   streamingProgress: RuntimeStreamingProgressReadModel;
   profiles: RuntimeProfileIsolationReadModel;
@@ -111,6 +516,798 @@ export function RuntimeReadinessPanel({
   pluginMetadataPosture: RuntimePluginMetadataPostureReadModel;
   skillMarketplacePosture: RuntimeSkillMarketplacePostureReadModel;
 }) {
+  const mutationBinding = useBackendTruthMutationBinding();
+  const runEventsBackendOwned =
+    runEventsReadState?.state === "backend_owned";
+  const [runtimeGoalEvents, setRuntimeGoalEvents] = useState(runEvents);
+  const [goalReadCurrent, setGoalReadCurrent] = useState(
+    runEventsBackendOwned,
+  );
+  const [goalObjective, setGoalObjective] = useState("");
+  const [goalOutcome, setGoalOutcome] = useState("");
+  const [goalSuccessCriterion, setGoalSuccessCriterion] = useState("");
+  const [goalStopCondition, setGoalStopCondition] = useState("");
+  const [selectedGoalRef, setSelectedGoalRef] = useState(
+    runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "",
+  );
+  const [editedObjective, setEditedObjective] = useState("");
+  const [goalMutationBusy, setGoalMutationBusy] = useState(false);
+  const [pendingGoalMutation, setPendingGoalMutation] =
+    useState<PendingGoalMutation | null>(null);
+  const pendingGoalMutationRef = useRef<PendingGoalMutation | null>(null);
+  pendingGoalMutationRef.current = pendingGoalMutation;
+  const runEventsBackendOwnedRef = useRef(runEventsBackendOwned);
+  runEventsBackendOwnedRef.current = runEventsBackendOwned;
+  const [goalNotice, setGoalNotice] = useState(
+    "Goal mutations require the exact local backend, a current truth binding, and current durable goal state.",
+  );
+  useEffect(() => {
+    setRuntimeGoalEvents(runEvents);
+    try {
+      const reconciliation = reconcileGoalMutationSubmissions(
+        runEvents.goal_mutation_submissions.records,
+        pendingGoalMutationRef.current,
+      );
+      if (
+        reconciliation.posture === "pending" ||
+        reconciliation.posture === "approval_terminal"
+      ) {
+        const { pending, record } = reconciliation;
+        setPendingGoalMutation((current) =>
+          pendingGoalMutationsEqual(current, pending) ? current : pending,
+        );
+        if (record.operation === "create") {
+          const request = record.request_payload as RuntimeGoalCreateRequest;
+          setGoalObjective(request.objective);
+          setGoalOutcome(request.desired_outcome);
+          setGoalSuccessCriterion(request.success_criteria[0] ?? "");
+          setGoalStopCondition(request.stop_condition);
+        } else if (record.operation === "edit") {
+          const request = record.request_payload as RuntimeGoalEditRequest;
+          setEditedObjective(request.objective ?? "");
+        }
+        if (record.goal_ref) setSelectedGoalRef(record.goal_ref);
+        setGoalReadCurrent(runEventsBackendOwnedRef.current);
+        setGoalNotice(
+          reconciliation.posture === "approval_terminal"
+            ? "The recovered exact goal mutation approval is terminal; the pending identity remains blocked."
+            : pending.approvalStatus === "approved"
+              ? "Recovered an exact backend-owned pending goal submission with a current authoritative approval; submit reuses its original request and identity."
+              : pending.approvalStatus === "pending"
+                ? "Recovered an exact backend-owned pending goal submission awaiting its authoritative approval decision."
+                : "Recovered an exact backend-owned pending goal submission; approval preparation reuses its original request and identity.",
+        );
+      } else {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(runEventsBackendOwnedRef.current);
+        const terminal = reconciliation.record;
+        if (terminal?.status === "committed") {
+          const committedGoal = runEvents.goal_lifecycle.goals.find(
+            (goal) => goal.goal_ref === terminal.committed_goal_ref,
+          );
+          if (committedGoal === undefined) {
+            throw new Error(
+              "Goal submission recovery state is inconsistent and remains blocked.",
+            );
+          }
+          setSelectedGoalRef(committedGoal.goal_ref);
+          setGoalNotice(
+            "A backend-owned goal submission is durably committed; no retry is required.",
+          );
+        } else if (terminal?.status === "rejected") {
+          setGoalNotice(
+            "The backend durably rejected the prior goal submission; revise the request before submitting a new identity.",
+          );
+        }
+      }
+    } catch (error) {
+      setPendingGoalMutation(null);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal submission recovery binding is inconsistent and remains blocked.",
+      );
+    }
+    const firstGoalRef = runEvents.goal_lifecycle.goals[0]?.goal_ref ?? "";
+    setSelectedGoalRef((current) =>
+      runEvents.goal_lifecycle.goals.some(
+        (goal) => goal.goal_ref === current,
+      )
+        ? current
+        : firstGoalRef,
+    );
+  }, [runEvents]);
+  const goalMutationReady =
+    mutationBinding !== null && runEventsBackendOwned && goalReadCurrent;
+  const selectedGoal = runtimeGoalEvents.goal_lifecycle.goals.find(
+    (goal) => goal.goal_ref === selectedGoalRef,
+  );
+  const createMutationReady =
+    goalMutationReady && pendingGoalMutation === null;
+  const editMutationReady =
+    goalMutationReady && pendingGoalMutation === null;
+  const availableGoalTransitions: RuntimeGoalTransitionKind[] =
+    selectedGoal === undefined
+      ? []
+      : selectedGoal.state === "active"
+        ? ["pause", "block", "wait", "request_completion", "cancel", "clear"]
+        : selectedGoal.state === "paused"
+          ? ["resume", "cancel", "clear"]
+          : selectedGoal.state === "blocked"
+            ? ["resume", "wait", "cancel", "clear"]
+            : selectedGoal.state === "waiting"
+              ? ["resume", "block", "cancel", "clear"]
+              : selectedGoal.state === "complete_requested"
+                ? ["resume", "block", "cancel", "clear"]
+                : selectedGoal.state === "verified_complete" ||
+                    selectedGoal.state === "cancelled"
+                  ? ["clear"]
+                  : selectedGoal.state === "cleared"
+                    ? ["restore"]
+                  : [];
+
+  async function refreshGoalState(
+    pendingMutation: PendingGoalMutation | null = pendingGoalMutation,
+  ): Promise<
+    | "current"
+    | "committed"
+    | "rejected"
+    | "retry_exact"
+    | "approval_recovered"
+    | "approval_terminal"
+  > {
+    try {
+      const refreshed = await fetchRuntimeRunEvents(mutationBinding);
+      setRuntimeGoalEvents(refreshed);
+      const reconciliation = reconcileGoalMutationSubmissions(
+        refreshed.goal_mutation_submissions.records,
+        pendingMutation,
+      );
+      const terminalSubmission =
+        reconciliation.posture === "committed" ||
+        reconciliation.posture === "rejected"
+          ? reconciliation.record
+          : reconciliation.posture === "current"
+            ? reconciliation.record
+            : undefined;
+      const recoveredPending =
+        reconciliation.posture === "pending" ||
+        reconciliation.posture === "approval_terminal"
+          ? reconciliation.pending
+          : null;
+      const committedGoal =
+        terminalSubmission?.status !== "committed"
+          ? undefined
+          : refreshed.goal_lifecycle.goals.find(
+              (goal) =>
+                goal.goal_ref === terminalSubmission.committed_goal_ref,
+            );
+      if (
+        terminalSubmission?.status === "committed" &&
+        committedGoal === undefined
+      ) {
+        throw new Error(
+          "Goal submission recovery state is inconsistent and remains blocked.",
+        );
+      }
+      const rejectedSubmission =
+        terminalSubmission?.status === "rejected"
+          ? terminalSubmission
+          : undefined;
+      if (committedGoal !== undefined) {
+        setPendingGoalMutation(null);
+        setSelectedGoalRef(committedGoal.goal_ref);
+        if (pendingMutation?.operation === "create") {
+          setGoalObjective("");
+          setGoalOutcome("");
+          setGoalSuccessCriterion("");
+          setGoalStopCondition("");
+        } else if (pendingMutation?.operation === "edit") {
+          setEditedObjective("");
+        }
+      } else if (rejectedSubmission !== undefined) {
+        setPendingGoalMutation(null);
+      } else {
+        setPendingGoalMutation(recoveredPending);
+      }
+      setGoalReadCurrent(true);
+      return pendingMutation === null
+        ? "current"
+        : committedGoal !== undefined
+          ? "committed"
+          : rejectedSubmission !== undefined
+            ? "rejected"
+            : reconciliation.posture === "approval_terminal"
+              ? "approval_terminal"
+            : recoveredPending?.approvalStatus === "approved"
+              ? "approval_recovered"
+              : recoveredPending !== null
+                ? "retry_exact"
+                : "current";
+    } catch (error) {
+      setGoalReadCurrent(false);
+      throw error;
+    }
+  }
+
+  async function refreshGoalStateFromControl() {
+    if (mutationBinding === null || !runEventsBackendOwned) {
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        "Goal refresh is blocked until backend truth is current.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      const outcome = await refreshGoalState();
+      setGoalNotice(
+        outcome === "committed"
+          ? "The pending goal mutation was confirmed in authoritative durable state."
+          : outcome === "rejected"
+            ? "The pending goal mutation was durably rejected; revise the request before submitting a new identity."
+          : outcome === "approval_recovered"
+            ? "The exact pending goal mutation has a current authoritative approval; submit will reuse it without another decision."
+          : outcome === "approval_terminal"
+            ? "The exact pending goal mutation has an expired or terminal approval and remains blocked."
+          : outcome === "retry_exact"
+            ? "The pending goal mutation was not observed; retry will reuse its exact request and idempotency identity."
+            : "Authoritative durable goal state refreshed from the backend.",
+      );
+    } catch (error) {
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Authoritative durable goal refresh failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  function applyGoalSnapshot(goal: RuntimePersistentGoal) {
+    setRuntimeGoalEvents((current) => {
+      const existingIndex = current.goal_lifecycle.goals.findIndex(
+        (candidate) => candidate.goal_ref === goal.goal_ref,
+      );
+      const goals =
+        existingIndex === -1
+          ? [goal, ...current.goal_lifecycle.goals]
+          : current.goal_lifecycle.goals.map((candidate, index) =>
+              index === existingIndex ? goal : candidate,
+            );
+      return {
+        ...current,
+        goal_lifecycle: {
+          ...current.goal_lifecycle,
+          goals,
+          goal_count: goals.length,
+          active_count: goals.filter(
+            (candidate) => candidate.state === "active",
+          ).length,
+          completion_requested_count: goals.filter(
+            (candidate) => candidate.state === "complete_requested",
+          ).length,
+          verified_complete_count: goals.filter(
+            (candidate) => candidate.state === "verified_complete",
+          ).length,
+        },
+      };
+    });
+    setSelectedGoalRef(goal.goal_ref);
+  }
+
+  async function stageGoalMutationApproval(
+    pending: PendingGoalMutation,
+  ): Promise<PendingGoalMutation> {
+    if (mutationBinding === null) {
+      throw new Error("Goal mutation approval requires current backend truth.");
+    }
+    const spec = await prepareRuntimeGoalMutationApproval(
+      pending.operation === "create"
+        ? {
+            operation: "create",
+            goalRef: null,
+            request: pending.request,
+          }
+        : pending.operation === "edit"
+          ? {
+              operation: "edit",
+              goalRef: pending.goalRef,
+              request: pending.request,
+            }
+          : {
+              operation: "transition",
+              goalRef: pending.goalRef,
+              request: pending.request,
+            },
+      pending.idempotencyRef,
+      pending.submissionRef,
+      mutationBinding,
+    );
+    return {
+      ...pending,
+      approvalSpec: spec,
+      approvalRequestRef: spec.approval_request_ref,
+      approvalRef: spec.approval_ref,
+      approvalStatus: "pending",
+    };
+  }
+
+  async function retryPendingGoalMutationApprovalPreparation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalStatus !== null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice(
+        "No exact backend-owned goal mutation is available for approval preparation retry.",
+      );
+      return;
+    }
+    const retainedPending = pendingGoalMutation;
+    setGoalMutationBusy(true);
+    try {
+      const staged = await stageGoalMutationApproval(retainedPending);
+      setPendingGoalMutation(staged);
+      setGoalReadCurrent(true);
+      setGoalNotice(
+        "The exact recovered goal mutation approval is prepared and awaits an explicit operator decision.",
+      );
+    } catch (error) {
+      setPendingGoalMutation(retainedPending);
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Exact goal mutation approval preparation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function createGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!createMutationReady || mutationBinding === null) {
+      setGoalNotice(
+        "Goal creation is blocked until backend truth and durable goal state are current.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      const request: RuntimeGoalCreateRequest = {
+        text_redaction_posture:
+          "operator_authored_redacted_summary_only",
+        objective: goalObjective,
+        desired_outcome: goalOutcome,
+        success_criteria: [goalSuccessCriterion],
+        constraints: [
+          "No external execution, standing authority, or unverified completion.",
+        ],
+        in_scope_resource_refs: [],
+        stop_condition: goalStopCondition,
+        budget: {
+          operation_limit: 25,
+          cost_budget_microusd: 0,
+        },
+        links: {
+          plan_refs: [],
+          run_refs: [],
+          action_inbox_refs: [],
+          work_board_refs: [],
+        },
+        evidence_refs: [],
+      };
+      const submission = await prepareRuntimeGoalCreateSubmission(request);
+      const staged = await stageGoalMutationApproval({
+        operation: "create",
+        ...submission,
+        approvalSpec: null,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
+      });
+      setPendingGoalMutation(staged);
+      setGoalNotice(
+        "Exact goal creation is prepared and awaits an explicit operator approval.",
+      );
+    } catch (error) {
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal creation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function saveGoalObjective() {
+    if (
+      !editMutationReady ||
+      mutationBinding === null ||
+      selectedGoal === undefined
+    ) {
+      setGoalNotice(
+        "Goal editing is blocked until backend truth and durable goal state are current.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      const submission = await prepareRuntimeGoalUpdateSubmission(
+        "edit",
+        selectedGoal.goal_ref,
+        {
+          expected_version: selectedGoal.version,
+          text_redaction_posture:
+            "operator_authored_redacted_summary_only",
+          objective: editedObjective,
+          evidence_refs: [],
+        },
+      );
+      const staged = await stageGoalMutationApproval({
+        operation: "edit",
+        goalRef: selectedGoal.goal_ref,
+        ...submission,
+        approvalSpec: null,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
+      });
+      setPendingGoalMutation(staged);
+      setGoalNotice(
+        "The exact goal edit is prepared and awaits an explicit operator approval.",
+      );
+    } catch (error) {
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
+      setGoalNotice(
+        error instanceof Error ? error.message : "Goal edit failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function transitionGoal(transition: RuntimeGoalTransitionKind) {
+    if (
+      !goalMutationReady ||
+      mutationBinding === null ||
+      selectedGoal === undefined ||
+      (pendingGoalMutation !== null &&
+        (pendingGoalMutation.operation !== "transition" ||
+          pendingGoalMutation.goalRef !== selectedGoal.goal_ref ||
+          pendingGoalMutation.request.transition !== transition))
+    ) {
+      setGoalNotice(
+        "Goal transition is blocked until backend truth and durable goal state are current.",
+      );
+      return;
+    }
+    setGoalMutationBusy(true);
+    try {
+      const request: RuntimeGoalTransitionRequest = {
+        expected_version: selectedGoal.version,
+        transition,
+        reason_ref:
+          `reason-ref:control-center-goal-${transition}:` +
+          `${selectedGoal.goal_ref}:v${selectedGoal.version}`,
+        evidence_refs: [
+          `evidence-ref:control-center-goal-${transition}:` +
+            `${selectedGoal.goal_ref}:v${selectedGoal.version}`,
+        ],
+      };
+      const submission =
+        pendingGoalMutation?.operation === "transition"
+          ? pendingGoalMutation
+          : await prepareRuntimeGoalUpdateSubmission(
+              "transition",
+              selectedGoal.goal_ref,
+              request,
+            );
+      const staged = await stageGoalMutationApproval({
+        operation: "transition",
+        goalRef: selectedGoal.goal_ref,
+        ...submission,
+        approvalSpec: null,
+        approvalRequestRef: null,
+        approvalRef: null,
+        approvalStatus: null,
+      });
+      setGoalNotice(
+        "The exact goal transition is prepared and awaits an explicit operator approval.",
+      );
+      setPendingGoalMutation(staged);
+    } catch (error) {
+      if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else {
+        setGoalReadCurrent(false);
+      }
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "Goal transition failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function approveAndSubmitPendingGoalMutation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalRequestRef === null ||
+      pendingGoalMutation.approvalRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice(
+        "No exact prepared goal mutation is available for approval.",
+      );
+      return;
+    }
+    const approvalRequestRef = pendingGoalMutation.approvalRequestRef;
+    setGoalMutationBusy(true);
+    const preparedPending = pendingGoalMutation;
+    let approvedPending =
+      preparedPending.approvalStatus === "approved"
+        ? preparedPending
+        : null;
+    try {
+      if (approvedPending === null) {
+        const decision = await decideRuntimeGoalMutationApproval(
+          approvalRequestRef,
+          "approve",
+          "reason-ref:control-center-goal-mutation-explicit-approval",
+          mutationBinding,
+        );
+        if (
+          !approvalDecisionMatchesPending(
+            decision,
+            preparedPending,
+            "approved",
+          )
+        ) {
+          throw new Error(
+            "The exact goal mutation approval decision binding mismatched and remains uncertain.",
+          );
+        }
+        approvedPending = {
+          ...preparedPending,
+          approvalStatus: "approved",
+        };
+        setPendingGoalMutation(approvedPending);
+      }
+      const result =
+        approvedPending.operation === "create"
+          ? await createRuntimeGoal(
+              approvedPending.request,
+              approvedPending.idempotencyRef,
+              approvedPending.approvalRef as string,
+              mutationBinding,
+              approvedPending.submissionRef,
+            )
+          : approvedPending.operation === "edit"
+            ? await editRuntimeGoal(
+                approvedPending.goalRef,
+                approvedPending.request,
+                approvedPending.idempotencyRef,
+                approvedPending.approvalRef as string,
+                mutationBinding,
+                approvedPending.submissionRef,
+              )
+            : await transitionRuntimeGoal(
+                approvedPending.goalRef,
+                approvedPending.request,
+                approvedPending.idempotencyRef,
+                approvedPending.approvalRef as string,
+                mutationBinding,
+                approvedPending.submissionRef,
+              );
+      setPendingGoalMutation(null);
+      applyGoalSnapshot(result.goal);
+      if (approvedPending.operation === "create") {
+        setGoalObjective("");
+        setGoalOutcome("");
+        setGoalSuccessCriterion("");
+        setGoalStopCondition("");
+      } else if (approvedPending.operation === "edit") {
+        setEditedObjective("");
+      }
+      try {
+        await refreshGoalState(null);
+      } catch {
+        setGoalNotice(
+          "The exact mutation was accepted, but authoritative refresh failed. " +
+            "The accepted backend snapshot remains visible.",
+        );
+        return;
+      }
+      setGoalNotice(
+        `The exact approved goal mutation committed at version ${result.goal.version}.`,
+      );
+    } catch (error) {
+      if (
+        isRuntimeGoalMutationTerminalRejectionError(error) &&
+        approvedPending !== null
+      ) {
+        try {
+          const recovery = await refreshGoalState(approvedPending);
+          if (recovery !== "rejected") {
+            throw new Error(
+              "The terminal goal mutation failure was not confirmed in durable state.",
+            );
+          }
+          setGoalNotice(
+            `${error.message} The durable rejection was confirmed; revise the request before submitting a new identity.`,
+          );
+          return;
+        } catch (recoveryError) {
+          setPendingGoalMutation(approvedPending);
+          setGoalReadCurrent(false);
+          setGoalNotice(
+            recoveryError instanceof Error
+              ? recoveryError.message
+              : "The terminal goal mutation failure could not be reconciled safely.",
+          );
+          return;
+        }
+      } else if (isRuntimeGoalMutationValidationError(error)) {
+        setPendingGoalMutation(null);
+        setGoalReadCurrent(true);
+      } else if (approvedPending === null) {
+        setPendingGoalMutation({
+          ...preparedPending,
+          approvalStatus: "approval_uncertain",
+        });
+        setGoalReadCurrent(false);
+      } else {
+        setPendingGoalMutation(approvedPending);
+        setGoalReadCurrent(false);
+      }
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact approved goal mutation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function denyPendingGoalMutation() {
+    if (
+      pendingGoalMutation === null ||
+      pendingGoalMutation.approvalRequestRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice("No exact prepared goal mutation is available to deny.");
+      return;
+    }
+    const approvalRequestRef = pendingGoalMutation.approvalRequestRef;
+    setGoalMutationBusy(true);
+    const preparedPending = pendingGoalMutation;
+    try {
+      const decision = await decideRuntimeGoalMutationApproval(
+        approvalRequestRef,
+        "deny",
+        "reason-ref:control-center-goal-mutation-explicit-denial",
+        mutationBinding,
+      );
+      if (
+        !approvalDecisionMatchesPending(
+          decision,
+          preparedPending,
+          "denied",
+        )
+      ) {
+        throw new Error(
+          "The exact goal mutation denial decision binding mismatched and remains uncertain.",
+        );
+      }
+      const recovery = await refreshGoalState(preparedPending);
+      if (
+        recovery !== "approval_terminal" &&
+        recovery !== "rejected"
+      ) {
+        throw new Error(
+          "The exact goal mutation denial is not durably reconciled and remains uncertain.",
+        );
+      }
+      setGoalNotice(
+        "The exact goal mutation approval was denied; no goal mutation ran.",
+      );
+    } catch (error) {
+      setPendingGoalMutation({
+        ...preparedPending,
+        approvalStatus: "denial_uncertain",
+      });
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact goal mutation denial failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
+  async function revokePendingGoalMutationApproval() {
+    if (
+      (pendingGoalMutation?.approvalStatus !== "approved" &&
+        pendingGoalMutation?.approvalStatus !== "revocation_uncertain") ||
+      pendingGoalMutation.approvalRef === null ||
+      mutationBinding === null
+    ) {
+      setGoalNotice("No exact approved goal mutation is available to revoke.");
+      return;
+    }
+    const approvalRef = pendingGoalMutation.approvalRef;
+    setGoalMutationBusy(true);
+    const approvedPending = pendingGoalMutation;
+    try {
+      const decision = await revokeRuntimeGoalMutationApproval(
+        approvalRef,
+        "reason-ref:control-center-goal-mutation-explicit-revocation",
+        mutationBinding,
+      );
+      if (
+        !approvalDecisionMatchesPending(
+          decision,
+          approvedPending,
+          "revoked",
+        )
+      ) {
+        throw new Error(
+          "The exact goal mutation revocation decision binding mismatched and remains uncertain.",
+        );
+      }
+      const recovery = await refreshGoalState(approvedPending);
+      if (
+        recovery !== "approval_terminal" &&
+        recovery !== "rejected"
+      ) {
+        throw new Error(
+          "The exact goal mutation revocation is not durably reconciled and remains uncertain.",
+        );
+      }
+      setGoalNotice(
+        recovery === "rejected"
+          ? "The exact goal mutation approval was revoked; the linked submission was durably rejected and no goal mutation ran."
+          : "The exact goal mutation approval was revoked; its durable pending identity remains blocked.",
+      );
+    } catch (error) {
+      setPendingGoalMutation({
+        ...approvedPending,
+        approvalStatus: "revocation_uncertain",
+      });
+      setGoalReadCurrent(false);
+      setGoalNotice(
+        error instanceof Error
+          ? error.message
+          : "The exact goal mutation approval revocation failed safely.",
+      );
+    } finally {
+      setGoalMutationBusy(false);
+    }
+  }
+
   const booleans = [
     ["Production readiness claim", report.production_ready],
     ["Reviewed local model runtime evidence", report.real_model_runtime_ready],
@@ -3737,63 +4934,79 @@ export function RuntimeReadinessPanel({
         <div className="panel-heading compact-heading">
           <div>
             <p className="eyebrow">Runs and events</p>
-            <h3>Approval-wait proposal lane</h3>
+            <h3>Proof-backed goals and durable replay</h3>
           </div>
-          <span className="status-pill compact">{runEvents.status}</span>
+          <span className="status-pill compact">{runtimeGoalEvents.status}</span>
         </div>
-        <p>{runEvents.safe_summary}</p>
+        <p>{runtimeGoalEvents.safe_summary}</p>
         <dl className="detail-grid">
           <div>
             <dt>Route</dt>
-            <dd>{runEvents.route_ref}</dd>
+            <dd>{runtimeGoalEvents.route_ref}</dd>
           </div>
           <div>
             <dt>CLI</dt>
-            <dd>{runEvents.cli_ref}</dd>
+            <dd>{runtimeGoalEvents.cli_ref}</dd>
           </div>
           <div>
             <dt>Authority</dt>
-            <dd>{runEvents.authority_state_route_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_route_ref}</dd>
           </div>
           <div>
             <dt>Capability mapping</dt>
-            <dd>{runEvents.authority_state_mapping_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_mapping_ref}</dd>
           </div>
           <div>
             <dt>Decision</dt>
-            <dd>{runEvents.authority_state_decision_outcome}</dd>
+            <dd>{runtimeGoalEvents.authority_state_decision_outcome}</dd>
           </div>
           <div>
             <dt>Decision ref</dt>
-            <dd>{runEvents.authority_state_decision_ref}</dd>
+            <dd>{runtimeGoalEvents.authority_state_decision_ref}</dd>
           </div>
           <div>
             <dt>Approval waits</dt>
-            <dd>{runEvents.approval_wait_count}</dd>
+            <dd>{runtimeGoalEvents.approval_wait_count}</dd>
+          </div>
+          <div>
+            <dt>Goals</dt>
+            <dd>{runtimeGoalEvents.goal_lifecycle.goal_count}</dd>
+          </div>
+          <div>
+            <dt>Verified goals</dt>
+            <dd>{runtimeGoalEvents.goal_lifecycle.verified_complete_count}</dd>
+          </div>
+          <div>
+            <dt>Durable streams</dt>
+            <dd>{runtimeGoalEvents.stream_count}</dd>
+          </div>
+          <div>
+            <dt>Retained events</dt>
+            <dd>{runtimeGoalEvents.retained_event_count}</dd>
           </div>
           <div>
             <dt>Completed runs</dt>
-            <dd>{runEvents.completed_run_count}</dd>
+            <dd>{runtimeGoalEvents.completed_run_count}</dd>
           </div>
           <div>
             <dt>Create route</dt>
-            <dd>{runEvents.create_run_route_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.create_run_route_enabled ? "enabled" : "blocked"}</dd>
           </div>
           <div>
             <dt>Stop route</dt>
-            <dd>{runEvents.stop_run_route_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.stop_run_route_enabled ? "enabled" : "blocked"}</dd>
           </div>
           <div>
             <dt>Approval resolution</dt>
             <dd>
-              {runEvents.approval_resolution_route_enabled
+              {runtimeGoalEvents.approval_resolution_route_enabled
                 ? "enabled"
                 : "blocked"}
             </dd>
           </div>
           <div>
             <dt>Live event stream</dt>
-            <dd>{runEvents.live_event_stream_enabled ? "enabled" : "blocked"}</dd>
+            <dd>{runtimeGoalEvents.live_event_stream_enabled ? "enabled" : "blocked"}</dd>
           </div>
         </dl>
         <div className="table-wrap">
@@ -3807,7 +5020,7 @@ export function RuntimeReadinessPanel({
               </tr>
             </thead>
             <tbody>
-              {runEvents.lifecycle_mappings.slice(0, 6).map((mapping) => (
+              {runtimeGoalEvents.lifecycle_mappings.slice(0, 6).map((mapping) => (
                 <tr key={`${mapping.runtime_state}-${mapping.uaa_durable_run_state}`}>
                   <td>{mapping.runtime_state}</td>
                   <td>{mapping.uaa_durable_run_state}</td>
@@ -3818,33 +5031,299 @@ export function RuntimeReadinessPanel({
             </tbody>
           </table>
         </div>
-        <h4>Run proposals</h4>
+        <h4>Goal lifecycle controls</h4>
+        <p className="section-copy">
+          These controls mutate local goal metadata only. They do not start a
+          run, mint standing authority, or verify completion without an exact
+          durable receipt and proof.
+        </p>
+        {!goalMutationReady ? (
+          <p className="section-copy">
+            Goal mutations are blocked until GET /api/runtime/run-events
+            returns current backend-owned durable state.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          disabled={
+            goalMutationBusy ||
+            mutationBinding === null ||
+            !runEventsBackendOwned
+          }
+          onClick={refreshGoalStateFromControl}
+        >
+          Refresh durable goal state
+        </button>
+        <form className="preview-form" onSubmit={createGoal}>
+          <label>
+            Objective
+            <input
+              required
+              maxLength={1200}
+              value={goalObjective}
+              onChange={(event) => setGoalObjective(event.target.value)}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            />
+          </label>
+          <label>
+            Desired outcome
+            <input
+              required
+              maxLength={1200}
+              value={goalOutcome}
+              onChange={(event) => setGoalOutcome(event.target.value)}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            />
+          </label>
+          <label>
+            Success criterion
+            <input
+              required
+              maxLength={1200}
+              value={goalSuccessCriterion}
+              onChange={(event) =>
+                setGoalSuccessCriterion(event.target.value)
+              }
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            />
+          </label>
+          <label>
+            Stop condition
+            <input
+              required
+              maxLength={1200}
+              value={goalStopCondition}
+              onChange={(event) => setGoalStopCondition(event.target.value)}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={goalMutationBusy || !createMutationReady}
+          >
+            Create local goal
+          </button>
+        </form>
+        <div className="preview-form">
+          <label>
+            Selected durable goal
+            <select
+              value={selectedGoalRef}
+              onChange={(event) => {
+                setSelectedGoalRef(event.target.value);
+                setEditedObjective("");
+              }}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            >
+              <option value="">No goal selected</option>
+              {runtimeGoalEvents.goal_lifecycle.goals.map((goal) => (
+                <option key={goal.goal_ref} value={goal.goal_ref}>
+                  {goal.state} · v{goal.version} · {goal.objective}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Refined objective
+            <input
+              maxLength={1200}
+              placeholder={selectedGoal?.objective ?? "Select a goal"}
+              value={editedObjective}
+              onChange={(event) => setEditedObjective(event.target.value)}
+              disabled={!goalMutationReady || pendingGoalMutation !== null}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={
+              goalMutationBusy ||
+              !editMutationReady ||
+              selectedGoal === undefined ||
+              (pendingGoalMutation === null &&
+                editedObjective.trim().length === 0)
+            }
+            onClick={saveGoalObjective}
+          >
+            Save objective
+          </button>
+          {availableGoalTransitions.map((transition) => (
+            <button
+              key={transition}
+              type="button"
+              disabled={
+                goalMutationBusy ||
+                !goalMutationReady ||
+                pendingGoalMutation !== null
+              }
+              onClick={() => transitionGoal(transition)}
+            >
+              {transition.replaceAll("_", " ")}
+            </button>
+          ))}
+        </div>
+        {pendingGoalMutation?.approvalStatus === null ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The backend retained the exact pending mutation, but its approval
+              preparation was not durably observed. Retry reuses the same request,
+              submission, and idempotency identity.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={retryPendingGoalMutationApprovalPreparation}
+            >
+              Retry exact approval preparation
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "pending" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              Review the exact prepared {pendingGoalMutation.operation} request.
+              Approval is request-scoped, expires, and grants no standing
+              authority.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Approve and submit exact mutation
+            </button>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={denyPendingGoalMutation}
+            >
+              Deny exact mutation
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "approval_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact approval decision outcome is uncertain. No mutation can
+              run until the same idempotent decision is durably confirmed by
+              Python Core.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Retry exact approval decision
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "denial_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact denial decision outcome is uncertain. No mutation can
+              run while the durable denial remains unconfirmed.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={denyPendingGoalMutation}
+            >
+              Retry exact denial decision
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "approved" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact approval is retained while the mutation outcome remains
+              ambiguous. Refresh durable state or revoke this request-scoped
+              approval before preparing a different mutation.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={approveAndSubmitPendingGoalMutation}
+            >
+              Retry exact approved mutation
+            </button>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={revokePendingGoalMutationApproval}
+            >
+              Revoke exact mutation approval
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "revocation_uncertain" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The exact revocation outcome is uncertain. Mutation retry remains
+              blocked until Python Core durably confirms the same revocation.
+            </p>
+            <button
+              type="button"
+              disabled={goalMutationBusy || mutationBinding === null}
+              onClick={revokePendingGoalMutationApproval}
+            >
+              Retry exact revocation
+            </button>
+          </div>
+        ) : null}
+        {pendingGoalMutation?.approvalStatus === "expired" ||
+        pendingGoalMutation?.approvalStatus === "denied" ||
+        pendingGoalMutation?.approvalStatus === "revoked" ? (
+          <div className="preview-form">
+            <p className="section-copy">
+              The authoritative approval posture is{" "}
+              {pendingGoalMutation.approvalStatus}. This exact pending identity
+              cannot authorize a mutation; inspect durable state before preparing
+              a revised request.
+            </p>
+          </div>
+        ) : null}
+        <p className="form-message" role="status">
+          {goalNotice}
+        </p>
+        {selectedGoal?.state === "complete_requested" ? (
+          <p className="section-copy">
+            Verified completion is blocked on every surface until a trusted
+            criterion evaluator can produce exact durable evaluator receipts.
+            The API and CLI fail closed with the same redacted blocked code.
+          </p>
+        ) : null}
+        <h4>Durable goals</h4>
         <ul className="compact-list">
-          {runEvents.run_proposals.map((proposal) => (
-            <li key={proposal.proposal_ref}>
-              {proposal.runtime_run_ref}: {proposal.uaa_durable_run_state}; stop{" "}
-              {proposal.stop_posture}; approval{" "}
-              {proposal.approval_resolution_posture}
+          {runtimeGoalEvents.goal_lifecycle.goals.length === 0 ? (
+            <li>No durable goals recorded.</li>
+          ) : null}
+          {runtimeGoalEvents.goal_lifecycle.goals.map((goal) => (
+            <li key={goal.goal_ref}>
+              {goal.goal_ref}: {goal.state}; version {goal.version}; runs{" "}
+              {goal.links.run_refs.length}
             </li>
           ))}
         </ul>
-        <h4>Event previews</h4>
+        <h4>Durable event replay</h4>
         <ul className="compact-list">
-          {runEvents.event_previews.map((event) => (
+          {runtimeGoalEvents.event_previews.length === 0 ? (
+            <li>No accepted local run events recorded.</li>
+          ) : null}
+          {runtimeGoalEvents.event_previews.map((event) => (
             <li key={event.event_ref}>
-              {event.event_kind}: {event.event_ref} {" -> "} {event.proof_ref}
+              {event.sequence ?? "?"}. {event.event_kind}: {event.event_ref}{" "}
+              {" -> "} {event.proof_ref}
             </li>
           ))}
         </ul>
         <h4>Unsupported adapters</h4>
         <ul className="compact-list">
-          {runEvents.unsupported_adapter_refs.slice(0, 5).map((ref) => (
+          {runtimeGoalEvents.unsupported_adapter_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
         <h4>Authority reason</h4>
         <ul className="compact-list">
-          {runEvents.authority_state_reason_refs.slice(0, 3).map((ref) => (
+          {runtimeGoalEvents.authority_state_reason_refs.slice(0, 3).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

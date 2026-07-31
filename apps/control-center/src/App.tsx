@@ -482,6 +482,7 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
     "/settings",
   ],
   "/runs": ["/runs", "/settings"],
+  "/runtime": ["/runtime"],
   "/settings": [
     ...FOUNDER_LOOP_SPINE_ROUTE_KEYS,
     "/critical/dashboard-read-model",

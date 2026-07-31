@@ -176,6 +176,34 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "exact approved persisted reorder" in caveat.lower()
         for caveat in by_path["/work-board"]["product_language_caveats"]
     )
+    assert by_path["/runtime"]["approval_required"] is True
+    assert by_path["/runtime"]["route_classification"] == "mixed"
+    assert {
+        (route["method"], route["path"])
+        for route in by_path["/runtime"]["backend_routes"]
+        if route["route_classification"] == "mutating_requires_authority"
+    } == {
+        ("POST", "/api/runtime/goals"),
+        ("POST", "/api/runtime/goals/approval-requests/create"),
+        ("POST", "/api/runtime/goals/approval-requests/revoke"),
+        (
+            "POST",
+            (
+                "/api/runtime/goals/approval-requests/"
+                "{approval_request_ref}/decision"
+            ),
+        ),
+        (
+            "POST",
+            "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+        ),
+        (
+            "POST",
+            "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+        ),
+        ("POST", "/api/runtime/goals/{goal_ref}/edit"),
+        ("POST", "/api/runtime/goals/{goal_ref}/transition"),
+    }
     assert by_path["/today"]["status"] == "partial"
     assert (
         by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
