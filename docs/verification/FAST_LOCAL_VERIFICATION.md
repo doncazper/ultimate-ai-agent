@@ -42,6 +42,17 @@ repository-scoped runner's owner-only fence cannot block a different local
 account. Complete pytest and TypeScript verification use separate host-wide
 locks and separate attempt ledgers, so those independent resource classes may
 run concurrently while duplicate work within either class still fails closed.
+During the compatibility window, both current resource locks also hold a
+shared lease on the legacy `active.lock`; pre-change runners require that lease
+exclusively, so an already-running legacy command drains before current work
+starts and a later legacy command cannot overlap it. Current pytest and
+TypeScript commands can still overlap because both use the shared legacy lease
+plus distinct exclusive resource locks. TypeScript admission checks and mirrors
+its exact start into the legacy `attempts.json` under a separate migration lock
+before writing its resource-bound ledger, while complete-pytest records retain
+the legacy four-field hash shape. Exact retries are therefore visible in both
+directions without letting the two current resource classes overwrite one
+another.
 Starting one consumes the single attempt for its own resource class, SHA, and
 dependency state inside its execution plane. Local and GitHub planes may each
 produce one independently bound attempt for the same tree; the shared physical

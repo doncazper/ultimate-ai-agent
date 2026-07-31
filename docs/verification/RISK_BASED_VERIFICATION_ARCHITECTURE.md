@@ -439,6 +439,19 @@ contract recognizes a private identity only to validate and reject
 substitutions consistently; private diagnosis still cannot execute either
 exclusive merge-gate resource or create a gating attempt.
 
+The resource-lock split retains a bounded cross-version transition. Current
+complete-pytest and TypeScript runners first hold a shared lease on the legacy
+`active.lock`, while pre-split runners require that same inode exclusively.
+Legacy work therefore drains before either current resource starts and cannot
+enter while current work is active; current pytest and TypeScript may still
+overlap through their distinct exclusive resource locks. A short
+`attempts-migration.lock` serializes access to the legacy `attempts.json`.
+Complete-pytest continues to write its legacy-compatible four-field record, and
+TypeScript checks then mirrors its exact start into that ledger before writing
+the explicit resource-bound TypeScript ledger. A crash between those writes
+fails closed through the legacy record, and a pre-change exact retry observes
+the same consumed SHA, plane, and resource fingerprint.
+
 The stable `make test-sharded`, `make test-sharded-profile`, and
 `make frontend-check` entry points now invoke the same canonical lane runner
 with the `local` execution surface. They validate a clean exact SHA and consume
