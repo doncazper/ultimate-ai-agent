@@ -42,6 +42,24 @@ def test_familiarity_contract_is_explicit(fragment: str) -> None:
     assert fragment in text
 
 
+def test_policy_denial_precedence_is_required(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "`familiar_authority_blocked` when the current PolicyEngine or applicable\n"
+            "   safety boundary denies the exact request",
+            "`familiar_authority_blocked` when a known effect has an existing lane",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
 def test_missing_queue_gate_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -32,6 +32,11 @@ PLAN_REQUIRED = (
     "`outcome_uncertain`",
     "approval cannot mint or broaden authority",
     "do not request an approval that cannot authorize it",
+    "the current PolicyEngine or applicable",
+    "`familiar_authority_blocked` when the current PolicyEngine or applicable\n"
+    "   safety boundary denies the exact request",
+    "Policy and safety denials are not approval-required outcomes",
+    "override them or turn them into a proposal",
     "direct-chat false-positive tool selection at or below 2%",
     "recall of an applicable capability at or above 95%",
     "blind paired scoring on the accepted ordinary-chat corpus",

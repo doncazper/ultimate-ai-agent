@@ -182,7 +182,7 @@ The canonical operator-visible states are:
 | `familiar_input_required` | The exact capability is known and available, but one or more required typed inputs are missing or invalid | Ask only for the missing safe input fields; do not construct an executable proposal |
 | `familiar_unavailable` | The capability is known but is disabled, unhealthy, stale, or absent in the current environment | Explain the bounded limitation and offer safe alternatives |
 | `familiar_requires_approval` | Relevance and inputs are known, an exact graduated authority lane already exists, and execution requires its exact approval | Preview scope and request only that existing exact approval; approval cannot mint or broaden authority |
-| `familiar_authority_blocked` | Relevance and inputs are known, but no currently graduated exact authority lane covers the requested effect | Keep the effect blocked and expose the exact future promotion prerequisite; do not request an approval that cannot authorize it |
+| `familiar_authority_blocked` | Relevance and inputs are known, but the current PolicyEngine or applicable safety boundary denies the exact request, or no currently graduated exact authority lane covers the requested effect | Keep the effect blocked and preserve the exact policy/safety reason or future promotion prerequisite; do not request an approval that cannot authorize it or override the denial |
 | `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification or choose a reversible no-effect response |
 | `novel_unsupported` | No current capability contract adequately covers the requested effect | Do not invent a tool; identify the unsupported need |
 | `outcome_uncertain` | A proposal or execution began but durable terminal proof is missing or inconsistent | Fail closed, preserve evidence, and expose recovery posture |
@@ -194,16 +194,17 @@ paths, or provider payloads.
 
 The states are a derived operator view over separate typed dimensions:
 terminal-proof posture, interpretation cardinality, capability identity,
-authority-lane posture, availability, input completeness, approval posture,
-and proposal readiness. Implementations must retain those dimensions rather
-than overwrite them with a single confidence score. When more than one state
-predicate is true, the following fail-closed precedence is mandatory:
+policy/safety decision posture, authority-lane posture, availability, input
+completeness, approval posture, and proposal readiness. Implementations must
+retain those dimensions rather than overwrite them with a single confidence
+score. When more than one state predicate is true, the following fail-closed precedence is mandatory:
 
 1. `outcome_uncertain` when work began and exact durable terminal proof is
    absent or inconsistent;
 2. `ambiguous` when materially different interpretations remain;
-3. `familiar_authority_blocked` when a known requested effect has no graduated
-   exact authority lane;
+3. `familiar_authority_blocked` when the current PolicyEngine or applicable
+   safety boundary denies the exact request, or when a known requested effect
+   has no graduated exact authority lane;
 4. `familiar_unavailable` when the known capability is not currently usable;
 5. `familiar_input_required` when the exact usable capability still lacks
    required typed inputs;
@@ -214,8 +215,10 @@ predicate is true, the following fail-closed precedence is mandatory:
 8. `novel_unsupported`.
 
 This ordering prevents an input question or approval request from obscuring a
-stronger ambiguity, authority, availability, or recovery block. TAW-02 must
-encode the dimensions and precedence as a table-driven decision contract.
+stronger ambiguity, policy/safety, authority, availability, or recovery block.
+Policy and safety denials are not approval-required outcomes: approval cannot
+override them or turn them into a proposal. TAW-02 must encode the dimensions
+and precedence as a table-driven decision contract.
 
 ## 5. Capability Understanding
 
