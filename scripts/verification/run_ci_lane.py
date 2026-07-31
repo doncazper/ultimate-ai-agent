@@ -168,7 +168,10 @@ def _wall_duration_ms(started_at: str, completed_at: str) -> int:
 
     started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
     completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
-    return max(0, int((completed - started).total_seconds() * 1_000))
+    duration_ms = int((completed - started).total_seconds() * 1_000)
+    if duration_ms < 0:
+        raise ValueError("verification receipt completion precedes its start")
+    return duration_ms
 
 
 def _git_head(repo: Path) -> str:
