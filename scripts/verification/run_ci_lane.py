@@ -1726,6 +1726,15 @@ def run_lane(
         if pre_execution_identity is not None
         else pytest_resource_attempt_fingerprint
     )
+    exclusive_resource_ref: str | None = None
+    if pre_execution_identity is not None:
+        exclusive_resource_ref = pre_execution_identity.exclusive_resource_ref
+    elif lane_ref == "ci-pytest-shards":
+        exclusive_resource_ref = "resource-ref:complete-pytest"
+    if (exclusive_resource_attempt_fingerprint is None) != (
+        exclusive_resource_ref is None
+    ):
+        raise ValueError("exclusive resource execution binding is incomplete")
 
     def validate_typed_prestart() -> None:
         if full_plan_before is None:
@@ -1792,6 +1801,7 @@ def run_lane(
             repository_sha=repository_sha,
             attempt_scope=full_suite_lock_mode,
             resource_attempt_fingerprint=exclusive_resource_attempt_fingerprint,
+            resource_ref=exclusive_resource_ref,
         )
         if exclusive_resource_attempt_fingerprint is not None
         else FullSuiteLock(

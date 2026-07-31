@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
@@ -9,7 +10,7 @@ import stat
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from scripts.verification.ci_fallback_contracts import (
     MAX_LEDGER_BYTES,
@@ -22,10 +23,52 @@ from scripts.verification.ci_fallback_contracts import (
 
 
 FULL_SUITE_SHARED_DIRECTORY = Path("/tmp/uaa-ci-full-suite.v3")
-FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "active.lock"
+LEGACY_FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "active.lock"
+FULL_SUITE_LOCK_PATH = FULL_SUITE_SHARED_DIRECTORY / "complete-pytest.lock"
 FULL_SUITE_ATTEMPT_PATH = FULL_SUITE_SHARED_DIRECTORY / "attempts.json"
+LEGACY_FULL_SUITE_ATTEMPT_LOCK_PATH = (
+    FULL_SUITE_SHARED_DIRECTORY / "attempts-migration.lock"
+)
+TYPESCRIPT_TYPECHECK_LOCK_PATH = (
+    FULL_SUITE_SHARED_DIRECTORY / "typescript-typecheck.lock"
+)
+TYPESCRIPT_TYPECHECK_ATTEMPT_PATH = (
+    FULL_SUITE_SHARED_DIRECTORY / "typescript-typecheck-attempts.json"
+)
 SHARED_FULL_SUITE_DIRECTORY_MODE = 0o770
 SHARED_FULL_SUITE_FILE_MODE = 0o660
+FULL_SUITE_RESOURCE_REFS = frozenset(
+    {
+        "resource-ref:complete-pytest",
+        "resource-ref:typescript-typecheck",
+    }
+)
+FULL_SUITE_RESOURCE_LOCK_NAMES = frozenset(
+    {FULL_SUITE_LOCK_PATH.name, TYPESCRIPT_TYPECHECK_LOCK_PATH.name}
+)
+FULL_SUITE_RESOURCE_ATTEMPT_PATHS = frozenset(
+    {
+        FULL_SUITE_ATTEMPT_PATH,
+        TYPESCRIPT_TYPECHECK_ATTEMPT_PATH,
+    }
+)
+FULL_SUITE_RESOURCE_ATTEMPT_NAMES = frozenset(
+    path.name for path in FULL_SUITE_RESOURCE_ATTEMPT_PATHS
+)
+LEGACY_ATTEMPT_MIGRATION_WAIT_SECONDS = 5.0
+
+
+def _full_suite_path_identity(path: Path) -> Path:
+    """Return one normalized path identity without exposing the raw path."""
+
+    try:
+        return path.resolve(strict=False)
+    except (OSError, RuntimeError):
+        raise ValueError("full-suite path identity is unavailable") from None
+
+
+def _same_full_suite_path(left: Path, right: Path) -> bool:
+    return _full_suite_path_identity(left) == _full_suite_path_identity(right)
 
 
 class FullSuiteLockUnavailableError(RuntimeError):
@@ -34,6 +77,74 @@ class FullSuiteLockUnavailableError(RuntimeError):
 
 class FullSuiteAttemptAlreadyRecordedError(RuntimeError):
     """Raised when an execution plane already consumed its exact-SHA attempt."""
+
+
+def full_suite_resource_paths(
+    resource_ref: str,
+    *,
+    root: Path = FULL_SUITE_SHARED_DIRECTORY,
+) -> tuple[Path, Path]:
+    """Return the independent lock and attempt ledger for one resource class."""
+
+    if resource_ref == "resource-ref:complete-pytest":
+        return root / "complete-pytest.lock", root / "attempts.json"
+    if resource_ref == "resource-ref:typescript-typecheck":
+        return (
+            root / "typescript-typecheck.lock",
+            root / "typescript-typecheck-attempts.json",
+        )
+    raise ValueError("full-suite resource ref is invalid")
+
+
+def _validate_full_suite_resource_path_binding(
+    *,
+    resource_ref: str,
+    lock_path: Path,
+    attempt_path: Path,
+) -> None:
+    """Fail closed when a recognized resource lock is paired incorrectly."""
+
+    recognized_lock_name = lock_path.name in FULL_SUITE_RESOURCE_LOCK_NAMES
+    recognized_attempt_name = (
+        attempt_path.name in FULL_SUITE_RESOURCE_ATTEMPT_NAMES
+    )
+    canonical_lock_path = any(
+        _same_full_suite_path(lock_path, canonical_path)
+        for canonical_path in {
+            FULL_SUITE_LOCK_PATH,
+            TYPESCRIPT_TYPECHECK_LOCK_PATH,
+        }
+    )
+    canonical_attempt_path = any(
+        _same_full_suite_path(attempt_path, canonical_path)
+        for canonical_path in FULL_SUITE_RESOURCE_ATTEMPT_PATHS
+    )
+    if (
+        not recognized_lock_name
+        and not recognized_attempt_name
+        and not canonical_lock_path
+        and not canonical_attempt_path
+    ):
+        return
+    binding_root = (
+        FULL_SUITE_SHARED_DIRECTORY
+        if canonical_lock_path or canonical_attempt_path
+        else lock_path.parent
+    )
+    expected_lock_path, expected_attempt_path = full_suite_resource_paths(
+        resource_ref,
+        root=binding_root,
+    )
+    if (
+        lock_path.name != expected_lock_path.name
+        or not _same_full_suite_path(lock_path.parent, binding_root)
+    ):
+        raise ValueError("full-suite lock path does not match resource ref")
+    if (
+        attempt_path.name != expected_attempt_path.name
+        or not _same_full_suite_path(attempt_path.parent, lock_path.parent)
+    ):
+        raise ValueError("full-suite attempt path does not match resource ref")
 
 
 def _prepare_shared_full_suite_directory(path: Path) -> None:
@@ -87,6 +198,48 @@ def _open_shared_full_suite_file(path: Path) -> int:
             "host-wide full-suite coordination is unsafe"
         )
     return descriptor
+
+
+def _open_full_suite_coordination_file(
+    path: Path,
+    *,
+    shared_across_accounts: bool,
+) -> int:
+    if shared_across_accounts:
+        _prepare_shared_full_suite_directory(path.parent)
+        return _open_shared_full_suite_file(path)
+    flags = os.O_RDWR | os.O_CREAT
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    info = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or info.st_uid != os.getuid()
+        or info.st_mode & 0o077
+    ):
+        os.close(descriptor)
+        raise ValueError("private full-suite lock is unsafe")
+    return descriptor
+
+
+def _acquire_full_suite_flock(
+    descriptor: int,
+    operation: int,
+    *,
+    deadline: float,
+) -> None:
+    while True:
+        try:
+            fcntl.flock(descriptor, operation | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                raise FullSuiteLockUnavailableError(
+                    "a full-suite run is already active"
+                ) from None
+            time.sleep(min(0.25, max(0.01, deadline - time.monotonic())))
 
 
 class AttemptLedger:
@@ -420,60 +573,164 @@ class AttemptLedger:
 class FullSuiteLock:
     def __init__(
         self,
-        path: Path = FULL_SUITE_LOCK_PATH,
+        path: Path | None = None,
         *,
         wait_seconds: float = 0,
         repository_sha: str | None = None,
         attempt_scope: str = "private",
         resource_attempt_fingerprint: str | None = None,
-        attempt_path: Path = FULL_SUITE_ATTEMPT_PATH,
+        attempt_path: Path | None = None,
         shared_across_accounts: bool | None = None,
+        resource_ref: str = "resource-ref:complete-pytest",
     ) -> None:
+        if resource_ref not in FULL_SUITE_RESOURCE_REFS:
+            raise ValueError("full-suite resource ref is invalid")
+        resource_lock_path, resource_attempt_path = full_suite_resource_paths(
+            resource_ref
+        )
+        if path is None:
+            path = resource_lock_path
+        elif any(
+            _same_full_suite_path(path, canonical_path)
+            for canonical_path in {
+                FULL_SUITE_LOCK_PATH,
+                TYPESCRIPT_TYPECHECK_LOCK_PATH,
+            }
+        ) and (
+            not _same_full_suite_path(path, resource_lock_path)
+        ):
+            raise ValueError("full-suite lock path does not match resource ref")
+        if attempt_path is None:
+            if _same_full_suite_path(path, resource_lock_path):
+                attempt_path = resource_attempt_path
+            elif path.name in FULL_SUITE_RESOURCE_LOCK_NAMES:
+                _, attempt_path = full_suite_resource_paths(
+                    resource_ref,
+                    root=path.parent,
+                )
+            else:
+                attempt_path = path.with_name(f"{path.name}.attempts.json")
+        elif any(
+            _same_full_suite_path(attempt_path, canonical_path)
+            for canonical_path in {
+                FULL_SUITE_ATTEMPT_PATH,
+                TYPESCRIPT_TYPECHECK_ATTEMPT_PATH,
+            }
+        ) and (
+            not _same_full_suite_path(attempt_path, resource_attempt_path)
+        ):
+            raise ValueError("full-suite attempt path does not match resource ref")
+        _validate_full_suite_resource_path_binding(
+            resource_ref=resource_ref,
+            lock_path=path,
+            attempt_path=attempt_path,
+        )
         self.path = path
         self.wait_seconds = wait_seconds
         self.repository_sha = repository_sha
         self.attempt_scope = attempt_scope
         self.resource_attempt_fingerprint = resource_attempt_fingerprint
         self.attempt_path = attempt_path
+        self.resource_ref = resource_ref
         self.shared_across_accounts = (
-            path == FULL_SUITE_LOCK_PATH
+            any(
+                _same_full_suite_path(path, canonical_path)
+                for canonical_path in {
+                    FULL_SUITE_LOCK_PATH,
+                    TYPESCRIPT_TYPECHECK_LOCK_PATH,
+                }
+            )
             if shared_across_accounts is None
             else shared_across_accounts
         )
+        expected_lock_path, expected_attempt_path = full_suite_resource_paths(
+            resource_ref,
+            root=path.parent,
+        )
+        self.legacy_transition_path = (
+            path.parent / LEGACY_FULL_SUITE_LOCK_PATH.name
+            if (
+                path.name == expected_lock_path.name
+                and attempt_path.name == expected_attempt_path.name
+                and _same_full_suite_path(attempt_path.parent, path.parent)
+            )
+            else None
+        )
+        self.legacy_attempt_path = (
+            path.parent / FULL_SUITE_ATTEMPT_PATH.name
+            if self.legacy_transition_path is not None
+            else None
+        )
+        self.legacy_attempt_lock_path = (
+            path.parent / LEGACY_FULL_SUITE_ATTEMPT_LOCK_PATH.name
+            if self.legacy_transition_path is not None
+            else None
+        )
         self.descriptor: int | None = None
+        self.legacy_descriptor: int | None = None
 
     def __enter__(self) -> FullSuiteLock:
-        if self.shared_across_accounts:
-            _prepare_shared_full_suite_directory(self.path.parent)
-            descriptor = _open_shared_full_suite_file(self.path)
-        else:
-            flags = os.O_RDWR | os.O_CREAT
-            if hasattr(os, "O_NOFOLLOW"):
-                flags |= os.O_NOFOLLOW
-            descriptor = os.open(self.path, flags, 0o600)
-            info = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(info.st_mode)
-                or info.st_nlink != 1
-                or info.st_uid != os.getuid()
-                or info.st_mode & 0o077
-            ):
-                os.close(descriptor)
-                raise ValueError("private full-suite lock is unsafe")
         deadline = time.monotonic() + self.wait_seconds
-        while True:
-            try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    os.close(descriptor)
-                    raise FullSuiteLockUnavailableError(
-                        "a full-suite run is already active"
-                    ) from None
-                time.sleep(min(0.25, max(0.01, deadline - time.monotonic())))
+        legacy_descriptor: int | None = None
+        descriptor: int | None = None
+        try:
+            if self.legacy_transition_path is not None:
+                legacy_descriptor = _open_full_suite_coordination_file(
+                    self.legacy_transition_path,
+                    shared_across_accounts=self.shared_across_accounts,
+                )
+                _acquire_full_suite_flock(
+                    legacy_descriptor,
+                    fcntl.LOCK_SH,
+                    deadline=deadline,
+                )
+            descriptor = _open_full_suite_coordination_file(
+                self.path,
+                shared_across_accounts=self.shared_across_accounts,
+            )
+            _acquire_full_suite_flock(
+                descriptor,
+                fcntl.LOCK_EX,
+                deadline=deadline,
+            )
+        except BaseException:
+            if descriptor is not None:
+                os.close(descriptor)
+            if legacy_descriptor is not None:
+                fcntl.flock(legacy_descriptor, fcntl.LOCK_UN)
+                os.close(legacy_descriptor)
+            raise
+        self.legacy_descriptor = legacy_descriptor
         self.descriptor = descriptor
         return self
+
+    @contextmanager
+    def _legacy_attempt_ledger_guard(self) -> Iterator[None]:
+        if self.legacy_attempt_lock_path is None:
+            yield
+            return
+        descriptor = _open_full_suite_coordination_file(
+            self.legacy_attempt_lock_path,
+            shared_across_accounts=self.shared_across_accounts,
+        )
+        try:
+            _acquire_full_suite_flock(
+                descriptor,
+                fcntl.LOCK_EX,
+                deadline=(
+                    time.monotonic()
+                    + max(
+                        self.wait_seconds,
+                        LEGACY_ATTEMPT_MIGRATION_WAIT_SECONDS,
+                    )
+                ),
+            )
+            try:
+                yield
+            finally:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
 
     def _validate_attempt_identity(self) -> None:
         if self.descriptor is None:
@@ -500,15 +757,25 @@ class FullSuiteLock:
                 "full-suite attempt requires an exact resource fingerprint"
             )
 
-    def _read_attempt_records(self) -> list[dict[str, str]]:
+    def _read_attempt_records(
+        self,
+        *,
+        path: Path | None = None,
+        allow_legacy_unbound: bool | None = None,
+    ) -> list[dict[str, str]]:
+        ledger_path = self.attempt_path if path is None else path
+        if allow_legacy_unbound is None:
+            allow_legacy_unbound = (
+                self.resource_ref == "resource-ref:complete-pytest"
+            )
         if self.shared_across_accounts:
-            _prepare_shared_full_suite_directory(self.attempt_path.parent)
-            descriptor = _open_shared_full_suite_file(self.attempt_path)
+            _prepare_shared_full_suite_directory(ledger_path.parent)
+            descriptor = _open_shared_full_suite_file(ledger_path)
         else:
             flags = os.O_RDWR | os.O_CREAT
             if hasattr(os, "O_NOFOLLOW"):
                 flags |= os.O_NOFOLLOW
-            descriptor = os.open(self.attempt_path, flags, 0o600)
+            descriptor = os.open(ledger_path, flags, 0o600)
         try:
             info = os.fstat(descriptor)
             private_file_unsafe = (
@@ -534,6 +801,31 @@ class FullSuiteLock:
             for record in records:
                 if not isinstance(record, dict):
                     raise ValueError("full-suite attempt ledger is corrupt")
+                recorded_resource_ref = record.get("resource_ref")
+                legacy_unbound_record = (
+                    recorded_resource_ref is None
+                    and allow_legacy_unbound
+                    and set(record)
+                    == {
+                        "repository_sha",
+                        "attempt_scope",
+                        "resource_attempt_fingerprint",
+                        "attempt_ref",
+                    }
+                )
+                current_resource_record = (
+                    recorded_resource_ref == self.resource_ref
+                    and set(record)
+                    == {
+                        "repository_sha",
+                        "attempt_scope",
+                        "resource_ref",
+                        "resource_attempt_fingerprint",
+                        "attempt_ref",
+                    }
+                )
+                if not legacy_unbound_record and not current_resource_record:
+                    raise ValueError("full-suite attempt ledger is corrupt")
                 base = {
                     "repository_sha": record.get("repository_sha"),
                     "attempt_scope": record.get("attempt_scope"),
@@ -541,6 +833,8 @@ class FullSuiteLock:
                         "resource_attempt_fingerprint"
                     ),
                 }
+                if current_resource_record:
+                    base["resource_ref"] = recorded_resource_ref
                 expected = "attempt-ref:ci:" + hashlib.sha256(
                     json.dumps(base, sort_keys=True, separators=(",", ":")).encode()
                 ).hexdigest()
@@ -559,46 +853,35 @@ class FullSuiteLock:
         finally:
             os.close(descriptor)
 
-    def _assert_attempt_available(self, records: list[dict[str, str]]) -> None:
-        key = (self.repository_sha, self.resource_attempt_fingerprint)
-        if any(
-            (
-                record.get("repository_sha"),
-                record.get("resource_attempt_fingerprint"),
-            )
-            == key
-            for record in records
-        ):
-            raise FullSuiteAttemptAlreadyRecordedError(
-                "full suite resource was already attempted for this exact state"
-            )
-
-    def ensure_start_available(self) -> None:
-        self._validate_attempt_identity()
-        if self.repository_sha is None:
-            return
-        self._assert_attempt_available(self._read_attempt_records())
-
-    def record_start(self) -> None:
-        self._validate_attempt_identity()
-        if self.repository_sha is None:
-            return
-        records = self._read_attempt_records()
-        self._assert_attempt_available(records)
+    def _attempt_record(self, *, include_resource_ref: bool) -> dict[str, str]:
         record = {
-            "repository_sha": self.repository_sha,
+            "repository_sha": str(self.repository_sha),
             "attempt_scope": self.attempt_scope,
-            "resource_attempt_fingerprint": self.resource_attempt_fingerprint,
+            "resource_attempt_fingerprint": str(
+                self.resource_attempt_fingerprint
+            ),
         }
+        if include_resource_ref:
+            record["resource_ref"] = self.resource_ref
         record["attempt_ref"] = "attempt-ref:ci:" + hashlib.sha256(
             json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-        records = [*records[-(MAX_LEDGER_RECORDS - 1) :], record]
-        encoded = json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
+        return record
+
+    def _write_attempt_records(
+        self,
+        path: Path,
+        records: list[dict[str, str]],
+    ) -> None:
+        encoded = json.dumps(
+            records,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
         descriptor, temp_name = tempfile.mkstemp(
-            prefix=f"{self.attempt_path.name}.",
+            prefix=f"{path.name}.",
             suffix=".tmp",
-            dir=self.attempt_path.parent,
+            dir=path.parent,
         )
         temp_path = Path(temp_name)
         try:
@@ -611,8 +894,8 @@ class FullSuiteLock:
             os.fsync(descriptor)
             os.close(descriptor)
             descriptor = -1
-            os.replace(temp_path, self.attempt_path)
-            directory_descriptor = os.open(self.attempt_path.parent, os.O_RDONLY)
+            os.replace(temp_path, path)
+            directory_descriptor = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_descriptor)
             finally:
@@ -622,8 +905,109 @@ class FullSuiteLock:
                 os.close(descriptor)
             temp_path.unlink(missing_ok=True)
 
+    def _append_attempt_record(
+        self,
+        *,
+        path: Path,
+        records: list[dict[str, str]],
+        include_resource_ref: bool,
+    ) -> None:
+        record = self._attempt_record(
+            include_resource_ref=include_resource_ref,
+        )
+        next_records = [*records[-(MAX_LEDGER_RECORDS - 1) :], record]
+        self._write_attempt_records(path, next_records)
+
+    def _assert_attempt_available(self, records: list[dict[str, str]]) -> None:
+        key = (
+            self.repository_sha,
+            self.attempt_scope,
+            self.resource_attempt_fingerprint,
+        )
+        if any(
+            (
+                record.get("repository_sha"),
+                record.get("attempt_scope"),
+                record.get("resource_attempt_fingerprint"),
+            )
+            == key
+            for record in records
+        ):
+            raise FullSuiteAttemptAlreadyRecordedError(
+                "full suite resource was already attempted for this exact scoped state"
+            )
+
+    def ensure_start_available(self) -> None:
+        self._validate_attempt_identity()
+        if self.repository_sha is None:
+            return
+        if self.resource_ref == "resource-ref:typescript-typecheck":
+            self._assert_attempt_available(self._read_attempt_records())
+            if self.legacy_attempt_path is not None:
+                with self._legacy_attempt_ledger_guard():
+                    legacy_records = self._read_attempt_records(
+                        path=self.legacy_attempt_path,
+                        allow_legacy_unbound=True,
+                    )
+                    self._assert_attempt_available(legacy_records)
+            return
+        if self.legacy_attempt_path is not None:
+            with self._legacy_attempt_ledger_guard():
+                self._assert_attempt_available(self._read_attempt_records())
+            return
+        self._assert_attempt_available(self._read_attempt_records())
+
+    def record_start(self) -> None:
+        self._validate_attempt_identity()
+        if self.repository_sha is None:
+            return
+        if self.resource_ref == "resource-ref:typescript-typecheck":
+            records = self._read_attempt_records()
+            self._assert_attempt_available(records)
+            if self.legacy_attempt_path is not None:
+                with self._legacy_attempt_ledger_guard():
+                    legacy_records = self._read_attempt_records(
+                        path=self.legacy_attempt_path,
+                        allow_legacy_unbound=True,
+                    )
+                    self._assert_attempt_available(legacy_records)
+                    self._append_attempt_record(
+                        path=self.legacy_attempt_path,
+                        records=legacy_records,
+                        include_resource_ref=False,
+                    )
+            self._append_attempt_record(
+                path=self.attempt_path,
+                records=records,
+                include_resource_ref=True,
+            )
+            return
+        if self.legacy_attempt_path is not None:
+            with self._legacy_attempt_ledger_guard():
+                records = self._read_attempt_records()
+                self._assert_attempt_available(records)
+                self._append_attempt_record(
+                    path=self.attempt_path,
+                    records=records,
+                    include_resource_ref=False,
+                )
+            return
+        records = self._read_attempt_records()
+        self._assert_attempt_available(records)
+        self._append_attempt_record(
+            path=self.attempt_path,
+            records=records,
+            include_resource_ref=(
+                self.resource_ref != "resource-ref:complete-pytest"
+            ),
+        )
+
     def __exit__(self, *_args: object) -> None:
         if self.descriptor is not None:
             fcntl.flock(self.descriptor, fcntl.LOCK_UN)
             os.close(self.descriptor)
             self.descriptor = None
+        if self.legacy_descriptor is not None:
+            fcntl.flock(self.legacy_descriptor, fcntl.LOCK_UN)
+            os.close(self.legacy_descriptor)
+            self.legacy_descriptor = None
