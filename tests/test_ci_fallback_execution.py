@@ -873,8 +873,11 @@ def test_safe_subprocess_real_signal_reaps_descendants(
         "from scripts.verification.ci_fallback_execution import _safe_subprocess;"
         'child=("import pathlib,signal,subprocess,sys,time;"'
         "+\"p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);\""
-        "+\"pathlib.Path(sys.argv[1]).write_text(str(p.pid),encoding='ascii');\""
         '+\"signal.signal(signal.SIGTERM,lambda *_:(p.wait(timeout=5),sys.exit(0)));\"'
+        "+\"ready=pathlib.Path(sys.argv[1]);\""
+        "+\"temporary=ready.with_suffix('.tmp');\""
+        "+\"temporary.write_text(str(p.pid),encoding='ascii');\""
+        "+\"temporary.replace(ready);\""
         '+"time.sleep(60)");'
         "rc,_,_=_safe_subprocess((sys.executable,'-c',child,sys.argv[1]),"
         "cwd=pathlib.Path(sys.argv[3]),timeout=60);"
