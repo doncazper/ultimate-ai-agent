@@ -302,8 +302,8 @@ def test_lane_receipt_rejects_backward_wall_clock(
     _patch_lane(monkeypatch, (command,))
     observed_times = iter(
         (
-            "2026-07-15T00:01:00Z",
-            "2026-07-15T00:00:00Z",
+            "2026-07-15T00:00:00.000001Z",
+            "2026-07-15T00:00:00.000000Z",
         )
     )
     monkeypatch.setattr(runner, "_utc_now", lambda: next(observed_times))

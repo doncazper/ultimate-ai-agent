@@ -168,9 +168,9 @@ def _wall_duration_ms(started_at: str, completed_at: str) -> int:
 
     started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
     completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
-    duration_ms = int((completed - started).total_seconds() * 1_000)
-    if duration_ms < 0:
+    if completed < started:
         raise ValueError("verification receipt completion precedes its start")
+    duration_ms = int((completed - started).total_seconds() * 1_000)
     return duration_ms
 
 
