@@ -235,6 +235,106 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
     )
 
 
+def test_lane_receipt_duration_tracks_wall_clock_across_host_sleep(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,))
+    observed_times = iter(
+        (
+            "2026-07-15T00:00:00Z",
+            "2026-07-15T00:01:00Z",
+        )
+    )
+    observed_monotonic = iter((100.0, 101.0))
+    monkeypatch.setattr(runner, "_utc_now", lambda: next(observed_times))
+    monkeypatch.setattr(
+        runner.time,
+        "perf_counter",
+        lambda: next(observed_monotonic),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda command, **_kwargs: {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": f"result-ref:ci:{'b' * 64}",
+            "redaction_status": "content_free_output_metadata_only",
+        },
+    )
+
+    receipt = runner.run_lane(
+        "test-lane",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+    )
+
+    assert receipt["started_at"] == "2026-07-15T00:00:00Z"
+    assert receipt["completed_at"] == "2026-07-15T00:01:00Z"
+    assert receipt["duration_ms"] == 60_000
+
+
+def test_lane_receipt_rejects_backward_wall_clock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = CommandSpec(
+        "command:test.pass",
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        (),
+        "test",
+        10,
+    )
+    _patch_lane(monkeypatch, (command,))
+    observed_times = iter(
+        (
+            "2026-07-15T00:00:00.000001Z",
+            "2026-07-15T00:00:00.000000Z",
+        )
+    )
+    monkeypatch.setattr(runner, "_utc_now", lambda: next(observed_times))
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda command, **_kwargs: {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": "a" * 64,
+            "result_ref": f"result-ref:ci:{'b' * 64}",
+            "redaction_status": "content_free_output_metadata_only",
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="verification receipt completion precedes its start",
+    ):
+        runner.run_lane(
+            "test-lane",
+            repository_sha=SHA,
+            temp_root=tmp_path / "temp",
+        )
+
+
 def test_lane_runner_binds_exact_comparison_base_to_plan_command_and_environment(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -163,6 +163,17 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _wall_duration_ms(started_at: str, completed_at: str) -> int:
+    """Bind receipt duration to the same suspend-aware clock as its timestamps."""
+
+    started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+    if completed < started:
+        raise ValueError("verification receipt completion precedes its start")
+    duration_ms = int((completed - started).total_seconds() * 1_000)
+    return duration_ms
+
+
 def _git_head(repo: Path) -> str:
     completed = subprocess.run(
         ("git", "rev-parse", "HEAD"),
@@ -1785,7 +1796,6 @@ def run_lane(
             raise ValueError("verification execution identity changed before start")
 
     started_at = _utc_now()
-    started = time.perf_counter()
     results: list[dict[str, Any]] = []
     pytest_collection_payload: dict[str, Any] | None = None
     frontend_collection_payload: dict[str, Any] | None = None
@@ -2065,6 +2075,7 @@ def run_lane(
         legacy_status = "cancelled"
     elif any(result.get("status") == "timed_out" for result in results):
         legacy_status = "timed_out"
+    completed_at = _utc_now()
     receipt = {
         "schema_version": "uaa_ci_lane_receipt.v1",
         "profile_ref": PROFILE_REF,
@@ -2072,8 +2083,8 @@ def run_lane(
         "lane_ref": lane_ref,
         "plan": asdict(plan),
         "started_at": started_at,
-        "completed_at": _utc_now(),
-        "duration_ms": max(0, int((time.perf_counter() - started) * 1000)),
+        "completed_at": completed_at,
+        "duration_ms": _wall_duration_ms(started_at, completed_at),
         "status": legacy_status,
         "command_results": results,
         "github_gate_satisfied": False,
