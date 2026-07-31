@@ -4,9 +4,12 @@ from pathlib import Path
 
 import pytest
 
+from scripts.run_agent_capability_evaluation import evaluation_source_paths
 from scripts.verification.verification_contracts import VerificationRiskTier, VerificationUnit
 from scripts.verification.verification_risk import ChangeKind, ChangeRecord
 from scripts.verification.verification_selection import (
+    EXACT_SOURCE_TEST_OWNERSHIP,
+    GOAT_EVIDENCE_SOURCE_PATHS,
     select_owned_test_refs,
     select_verification,
 )
@@ -81,8 +84,40 @@ def test_canonical_selection_is_deterministic_and_dependency_closed() -> None:
     assert "risk-focused-pytest" in first.selected_unit_refs
     assert first.selected_test_refs == (
         "tests/test_agent_capability_evaluation.py",
+        "tests/test_goat_comparison_findings.py",
     )
     assert len(first.selection_fingerprint) == 64
+
+
+def test_goat_evidence_sources_have_exact_affected_test_ownership() -> None:
+    assert GOAT_EVIDENCE_SOURCE_PATHS == evaluation_source_paths()
+    for source_path in GOAT_EVIDENCE_SOURCE_PATHS:
+        assert "tests/test_goat_comparison_findings.py" in (
+            EXACT_SOURCE_TEST_OWNERSHIP[source_path]
+        )
+    for registry_path in (
+        "scripts/run_agent_capability_evaluation.py",
+        "scripts/run_uaa_runtime_phase09_benchmark.py",
+    ):
+        assert "tests/test_verification_selection.py" in (
+            EXACT_SOURCE_TEST_OWNERSHIP[registry_path]
+        )
+
+
+def test_cross_surface_ownership_schedules_affected_pytest() -> None:
+    selection = select_verification(
+        (_change("apps/control-center/src/App.test.tsx"),),
+        verification_dag=_dag(),
+        full_unit_refs=FULL_REFS,
+        repo=ROOT,
+    )
+
+    assert selection.risk_tier is VerificationRiskTier.TIER_2
+    assert "risk-focused-pytest" in selection.selected_unit_refs
+    assert "risk-frontend-tests" in selection.selected_unit_refs
+    assert selection.selected_test_refs == (
+        "tests/test_goat_comparison_findings.py",
+    )
 
 
 def test_full_selection_closes_declared_dependencies() -> None:
