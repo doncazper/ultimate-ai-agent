@@ -73,6 +73,10 @@ PLAN_REQUIRED = (
     "  candidate-first",
     "one cache and warm-state protocol that is applied identically",
     "cache/warm-state receipt for each pair",
+    "Each warm metric uses at least 1,000 independent measured turns per class",
+    "each cold-build metric uses at least 200 independent clean constructions",
+    "p95/p99 point estimate and its one-sided simultaneous 95% upper confidence\n"
+    "  bound must clear the applicable budget",
     "same frozen user case, model artifact, tokenizer, context\n"
     "limit, sampler settings, and seed",
     "sealed accepted-current direct-chat system\n"
@@ -88,6 +92,8 @@ PLAN_REQUIRED = (
     "cold catalog construction, and every refresh must be model- and",
     "content-free discovery probe over the cached compact catalog before a turn can",
     "paraphrases that do not match a",
+    "sole discovery-metric exemption",
+    "exact Tier 0 receipt and constraints from section 3.4",
     "`possible-tool-intent-sentinel:v1`",
     "`capability_evidence_unavailable`",
     "at most 8 candidate manifests as a non-overridable ceiling",
@@ -111,14 +117,16 @@ PLAN_REQUIRED = (
     "case-clustered estimator",
     "direct-chat false-positive-selection numerator",
     "select any tool/effect capability",
-    "any non-Tier-0 discovery or manifest\n"
-    "hydration, including silent discovery or hydration followed by a direct\n"
-    "answer",
+    "any Tier 1 compact discovery beyond the\n"
+    "single mandatory content-free arbitration probe, or any Tier 2 manifest\n"
+    "hydration",
     "Selection of the\n"
-    "built-in direct-chat capability alone is exempt only when the result remains\n"
-    "Tier 0 with zero discovery, zero hydrated manifests",
-    "cannot exempt selection of any tool/effect\ncapability",
+    "built-in direct-chat capability alone is exempt only when the result\n"
+    "remains Tier 0 with no later discovery, zero hydrated manifests",
+    "neither exemption can hide selection of\nany tool/effect capability",
     "false-block numerator",
+    "regardless of whether that case also selected a\n"
+    "capability or contributes to the false-positive-selection numerator",
     "Final route/proposal exact-match is case-level",
     "full\nordered proposal graph",
     "canonical ordered set\n"
@@ -171,6 +179,10 @@ PLAN_REQUIRED = (
     "pinned synthetic-generator ref and version",
     "development corpus and a sealed, label-hidden acceptance holdout",
     "TAW-07 may iterate only on the\n  development corpus",
+    "acceptance holdout exposes only a commitment hash and independent custodian ref",
+    "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
+    "inaccessible to TAW-07 developers",
+    "exact candidate artifact and configuration hash are immutably locked",
     "Evaluate the sealed acceptance holdout exactly once for promotion",
     "rerun with a revised candidate under the same acceptance\n  cycle",
     "samples are exploratory only and\n"
@@ -220,8 +232,11 @@ PLAN_REQUIRED = (
     "active-mode harness",
     "Every active-mode route, familiarity state, canonical\n"
     "decision-evidence fingerprint, proposal-graph fingerprint, policy/scope refs,\n"
-    "and null/non-null proposal posture must exactly match the qualified shadow\n"
-    "decision artifact",
+    "null/non-null proposal posture, routing tier, prompt-format version, exact\n"
+    "candidate model-visible payload fingerprint, context fingerprint, and ordered\n"
+    "hydrated-manifest ref/hash set",
+    "canonical empty manifest set and the exact content-free arbitration-probe\n"
+    "receipt",
     "requires a revised candidate plus a complete shadow and active replay",
     "complete zero-tolerance artifact census also covers every active-mode replay\n"
     "artifact",
@@ -246,6 +261,7 @@ PLAN_REQUIRED = (
     "`ask_for_required_input` only with `familiar_input_required`",
     "`report_unavailable` only with `familiar_unavailable`",
     "`blocked_authority` only\nwith `familiar_authority_blocked`",
+    "Ask one focused clarification through `ask_clarifying_question`; do not choose another route",
     "`blocked_capability_evidence` only with\n"
     "`capability_evidence_unavailable`",
     "`report_unsupported` only with\n`novel_unsupported`",

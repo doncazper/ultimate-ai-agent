@@ -746,6 +746,10 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "  candidate-first",
         "one cache and warm-state protocol that is applied identically",
         "cache/warm-state receipt for each pair",
+        "Each warm metric uses at least 1,000 independent measured turns per class",
+        "each cold-build metric uses at least 200 independent clean constructions",
+        "p95/p99 point estimate and its one-sided simultaneous 95% upper confidence\n"
+        "  bound must clear the applicable budget",
         "sealed accepted-current direct-chat system\n"
         "payload and prompt-format version",
         "exact candidate\nmodel-visible system payload and prompt-format version",
@@ -753,6 +757,10 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "baseline or strip candidate context from UAA",
         "development corpus and a sealed, label-hidden acceptance holdout",
         "TAW-07 may iterate only on the\n  development corpus",
+        "acceptance holdout exposes only a commitment hash and independent custodian ref",
+        "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
+        "inaccessible to TAW-07 developers",
+        "exact candidate artifact and configuration hash are immutably locked",
         "Evaluate the sealed acceptance holdout exactly once for promotion",
         "rerun with a revised candidate under the same acceptance\n  cycle",
         "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
@@ -869,8 +877,11 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "active-mode harness",
         "Every active-mode route, familiarity state, canonical\n"
         "decision-evidence fingerprint, proposal-graph fingerprint, policy/scope refs,\n"
-        "and null/non-null proposal posture must exactly match the qualified shadow\n"
-        "decision artifact",
+        "null/non-null proposal posture, routing tier, prompt-format version, exact\n"
+        "candidate model-visible payload fingerprint, context fingerprint, and ordered\n"
+        "hydrated-manifest ref/hash set",
+        "canonical empty manifest set and the exact content-free arbitration-probe\n"
+        "receipt",
         "requires a revised candidate plus a complete shadow and active replay",
         "complete zero-tolerance artifact census also covers every active-mode replay\n"
         "artifact",
@@ -884,13 +895,18 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "TAW-08 requires exactly zero\n"
         "numerator events in both the shadow and active-mode populations",
         "select any tool/effect capability",
-        "any non-Tier-0 discovery or manifest\n"
-        "hydration, including silent discovery or hydration followed by a direct\n"
-        "answer",
+        "sole discovery-metric exemption",
+        "exact Tier 0 receipt and constraints from section 3.4",
+        "any Tier 1 compact discovery beyond the\n"
+        "single mandatory content-free arbitration probe, or any Tier 2 manifest\n"
+        "hydration",
         "Selection of the\n"
-        "built-in direct-chat capability alone is exempt only when the result remains\n"
-        "Tier 0 with zero discovery, zero hydrated manifests",
-        "cannot exempt selection of any tool/effect\ncapability",
+        "built-in direct-chat capability alone is exempt only when the result\n"
+        "remains Tier 0 with no later discovery, zero hydrated manifests",
+        "neither exemption can hide selection of\nany tool/effect capability",
+        "regardless of whether that case also selected a\n"
+        "capability or contributes to the false-positive-selection numerator",
+        "Ask one focused clarification through `ask_clarifying_question`; do not choose another route",
         "fails closed only as\n"
         "`blocked_capability_evidence`/`capability_evidence_unavailable`, never as\n"
         "`novel_unsupported` or `familiar_unavailable`",

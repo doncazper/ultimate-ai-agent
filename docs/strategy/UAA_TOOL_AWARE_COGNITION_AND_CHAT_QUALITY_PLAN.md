@@ -134,6 +134,12 @@ executable code, raw catalog content, or provider/model call to the chat model.
 The probe has a hard entry/byte/time budget and returns only safe candidate refs
 and scores. A confirmed direct-chat turn then enters Tier 0 with zero manifest
 hydration, zero tool-schema context, and zero additional model calls.
+This mandatory content-free arbitration probe is a Tier 0 control-plane substep,
+not Tier 1 compact discovery, and is the sole discovery-metric exemption. The
+exemption requires a receipt proving the pinned probe version, hard budgets,
+model-free/content-free input, no manifest or schema hydration, no model-visible
+catalog material, and immediate Tier 0 commitment; any later search, retry,
+candidate expansion, or manifest hydration is Tier 1 or Tier 2 and is counted.
 
 The accepted router also owns a versioned, model-free
 `possible-tool-intent-sentinel:v1`. It is a small, content-safe grammar over
@@ -190,7 +196,7 @@ The canonical operator-visible states are:
 | `familiar_requires_approval` | Relevance and inputs are known, an exact graduated authority lane already exists, and execution requires its exact approval | Preview scope and request only that existing exact approval; approval cannot mint or broaden authority |
 | `familiar_authority_blocked` | The current PolicyEngine or applicable safety boundary denies the request, including before capability selection, or a known requested effect has no currently graduated exact authority lane | Keep the effect blocked and preserve the exact policy/safety reason or future promotion prerequisite; do not request an approval that cannot authorize it or override the denial |
 | `capability_evidence_unavailable` | A possible tool intent is detected, but the bounded catalog/index evidence is missing, corrupt, stale, or over budget, so capability identity cannot be established safely | Preserve the content-free evidence failure reason, do not claim that a capability is known or unsupported, and do not propose, request approval, or execute |
-| `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification or choose a reversible no-effect response |
+| `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification through `ask_clarifying_question`; do not choose another route, proposal, approval, or execution posture |
 | `novel_unsupported` | No current capability contract adequately covers the requested effect | Do not invent a tool; identify the unsupported need |
 | `outcome_uncertain` | A proposal or execution began but durable terminal proof is missing or inconsistent | Fail closed, preserve evidence, and expose recovery posture |
 
@@ -293,6 +299,17 @@ The implementation must meet explicit budgets on supported development Macs:
 - compact capability shortlist: warm p95 at or below 50 ms;
 - cold catalog build or refresh: p95 at or below 150 ms for the accepted
   baseline catalog;
+- TAW-00 predeclares one measurement protocol for router overhead, shortlist
+  retrieval, and cold catalog construction per supported hardware/backend class.
+  Each warm metric uses at least 1,000 independent measured turns per class and
+  each cold-build metric uses at least 200 independent clean constructions per
+  class, or a larger count required by the recorded power calculation. The
+  protocol fixes warm-up exclusion, cache/reset state, randomized execution
+  order, monotonic clock, percentile estimator, bootstrap method, and
+  Holm-adjusted familywise alpha of 0.05 before results are observed. Both the
+  p95/p99 point estimate and its one-sided simultaneous 95% upper confidence
+  bound must clear the applicable budget; an under-counted, dependent,
+  selectively excluded, or infrastructure-invalid sample set fails TAW-08;
 - Tier 0 exposes zero tool manifests;
 - Tier 2 hydrates at most 8 candidate manifests as a non-overridable ceiling;
   configuration may lower but never raise it;
@@ -395,18 +412,22 @@ does not. Each of the five state-specific point estimates and simultaneous
 lower confidence bounds is reported separately.
 The direct-chat false-positive-selection numerator is the count of adjudicated
 ordinary-chat cases that select any tool/effect capability, non-null proposal,
-approval request, execution route, or any non-Tier-0 discovery or manifest
-hydration, including silent discovery or hydration followed by a direct
-answer; its denominator is every adjudicated ordinary-chat case across the
-same six catalog-state reports used by the false-block gate. Selection of the
-built-in direct-chat capability alone is exempt only when the result remains
-Tier 0 with zero discovery, zero hydrated manifests, and no proposal, approval
-request, or execution route; it cannot exempt selection of any tool/effect
-capability.
+approval request, execution route, any Tier 1 compact discovery beyond the
+single mandatory content-free arbitration probe, or any Tier 2 manifest
+hydration, including silent discovery or hydration followed by a direct answer;
+its denominator is every adjudicated ordinary-chat case across the same six
+catalog-state reports used by the false-block gate. The initial probe is exempt
+only with its exact Tier 0 receipt and constraints from section 3.4.
+Selection of the
+built-in direct-chat capability alone is exempt only when the result
+remains Tier 0 with no later discovery, zero hydrated manifests, and no proposal,
+approval request, or execution route; neither exemption can hide selection of
+any tool/effect capability.
 The false-block numerator is the count in each report that returns any
-non-Tier-0 blocking posture without a selection, and each denominator is every
-ordinary-chat case evaluated in that catalog state. Zero-result cases cannot be
-excluded from either metric. The unsupported-request false-support numerator is
+non-Tier-0 blocking posture, regardless of whether that case also selected a
+capability or contributes to the false-positive-selection numerator, and each
+denominator is every ordinary-chat case evaluated in that catalog state.
+Zero-result cases cannot be excluded from either metric. The unsupported-request false-support numerator is
 the count of adjudicated unsupported requests that selects any capability,
 emits a non-null proposal, requests approval, chooses an execution route, or
 otherwise claims that a capability supports the requested effect. A policy or
@@ -546,10 +567,19 @@ unscanned, unreadable, or unsafe artifact invalidates the census rather than
 shrinking the denominator, and TAW-08 requires exactly zero numerator events.
 
 Every durable evaluation case must be exactly reproducible without operator
-content. The corpus stores a pinned synthetic-generator ref and version,
-deterministic seed, content-safe parameter refs, category/rubric refs, and the
-expected generated-content hash. The generator reconstructs the exact
-synthetic system/user payload locally and the verifier rejects hash drift.
+content.
+The development corpus stores a pinned synthetic-generator ref and version,
+deterministic seed, content-safe parameter refs, category/rubric refs,
+and the expected generated-content hash. Before final candidate lock, the
+acceptance holdout exposes only a commitment hash and independent custodian ref;
+its generator seed, parameter refs, generated cases, case hashes, and labels are
+inaccessible to TAW-07 developers and the candidate-building environment. After
+the exact candidate artifact and configuration hash are immutably locked, the
+custodian releases the sealed inputs only to the isolated one-time acceptance
+evaluator. After the acceptance decision, a redacted reproducibility packet may
+publish the generator ref/version, seed, content-safe parameters, case refs, and
+expected hashes so the generator reconstructs the exact synthetic system/user
+payload locally and the verifier rejects hash drift.
 Operator corrections may inform a separately reviewed synthetic
 transformation, but neither the correction nor a reversible encoding of it may
 become generator input or repository data.
@@ -572,12 +602,17 @@ testing candidate error or unsupported requests in isolation.
 Before promotion, the complete accepted corpus is replayed through a no-effect
 active-mode harness. Every active-mode route, familiarity state, canonical
 decision-evidence fingerprint, proposal-graph fingerprint, policy/scope refs,
-and null/non-null proposal posture must exactly match the qualified shadow
-decision artifact for the same case. Any mismatch invalidates promotion and
+null/non-null proposal posture, routing tier, prompt-format version, exact
+candidate model-visible payload fingerprint, context fingerprint, and ordered
+hydrated-manifest ref/hash set must exactly match the qualified shadow and
+paired-acceptance candidate artifact for the same case. Tier 0 requires the
+canonical empty manifest set and the exact content-free arbitration-probe
+receipt. Any extra, missing, reordered, or changed payload/context component or
+other mismatch invalidates promotion and
 requires a revised candidate plus a complete shadow and active replay. The
 complete zero-tolerance artifact census also covers every active-mode replay
-artifact; representative end-to-end journeys cannot substitute for this
-full-corpus equivalence proof.
+artifact; representative end-to-end
+journeys cannot substitute for this full-corpus equivalence proof.
 
 The all-outcome-uncertain fail-closed census denominator is every accepted
 corpus case in which proposal or execution work began and exact durable
@@ -862,8 +897,10 @@ proportional post-merge verification, and cleanup.
 - Before implementation begins, TAW-00 splits the reproducible synthetic corpus
   into a development corpus and a sealed, label-hidden acceptance holdout with
   immutable case refs and content hashes. TAW-07 may iterate only on the
-  development corpus and must not inspect holdout labels, expected decisions,
-  or per-case results.
+  development corpus and must not access the holdout generator seed, parameters,
+  generated inputs, case hashes, labels, expected decisions, or per-case results;
+  only the commitment hash and custodian ref are visible until final candidate
+  lock.
 - Run the full development evaluation corpus, performance budgets,
   context-budget tests, fault injection, and stale-cache recovery.
 - Run blind paired ordinary-chat scoring against the frozen direct-local-model
