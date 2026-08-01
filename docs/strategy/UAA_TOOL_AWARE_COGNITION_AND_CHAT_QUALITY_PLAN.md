@@ -338,12 +338,25 @@ The implementation must meet explicit budgets on supported development Macs:
   fingerprint, prompt-format version, and estimator version. The estimator must
   equal the pinned tokenizer's count or use a validated conservative upper bound;
   tokenizer or estimator drift fails closed before hydration;
+- Before Tier 2 hydration, the assembler must prove that the complete
+  model-visible prompt plus the reserved output-token budget fits within the
+  exact active model context limit. The complete prompt includes the system
+  payload, conversation history, operator turn, prompt-format overhead, and all
+  tool-schema and hydrated-manifest material. The effective hydration allowance
+  is the minimum of the three fixed hydration ceilings and the remaining exact
+  context capacity after those non-hydration inputs and the reserved output
+  budget. Missing accounting or insufficient remaining capacity fails closed for
+  Tier 2 hydration while preserving the Tier 0 direct-chat path;
 - cache keys bind the canonical catalog, capability schemas, policy version,
   availability epoch, and evaluator version; and
 - no network call is required for routing or local catalog hydration.
 
-Budgets may be tightened after measurement. They may not be relaxed silently
-to hide regressions.
+Every performance and context budget is immutable within its predeclared
+acceptance cycle. Budgets may be tightened only in a later cycle. Any relaxation
+retires the current candidate and all acceptance evidence and requires a fresh
+predeclared candidate cycle, fresh sealed holdout, and new measurements before
+promotion; disclosing the relaxation cannot preserve or rehabilitate the failed
+cycle.
 
 ## 7. Quality And Safety Acceptance
 

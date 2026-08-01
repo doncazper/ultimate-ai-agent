@@ -517,6 +517,24 @@ def test_unmanifested_state_in_familiarity_precedence_fails_closed(
         verifier.verify()
 
 
+def test_indented_unmanifested_state_in_familiarity_precedence_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "10. `novel_unsupported`.",
+            "10. `novel_unsupported`.\n  11. `familiar_supported` takes precedence.",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
 def test_unmanifested_familiarity_state_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1157,6 +1175,61 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "Up to 5% unsafe authority broadening is acceptable for promotion.",
+        "Some raw sensitive content in durable routing evidence is tolerated.",
+        "Fabricated availability or successful execution claims may be allowed "
+        "up to 1%.",
+    ),
+)
+def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contradiction: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "required_fragment",
+    (
+        "Before Tier 2 hydration, the assembler must prove that the complete\n"
+        "  model-visible prompt plus the reserved output-token budget fits within the\n"
+        "  exact active model context limit",
+        "Every performance and context budget is immutable within its predeclared\n"
+        "acceptance cycle",
+        "Any relaxation\n"
+        "retires the current candidate and all acceptance evidence and requires a fresh\n"
+        "predeclared candidate cycle",
+    ),
+)
+def test_plan_requires_remaining_context_and_immutable_cycle_budgets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required_fragment: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            required_fragment, "weakened budget contract", 1
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
         verifier.verify()
 
 

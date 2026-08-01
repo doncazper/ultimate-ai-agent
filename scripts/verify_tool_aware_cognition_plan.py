@@ -100,6 +100,14 @@ PLAN_REQUIRED = (
     "`capability_evidence_unavailable`",
     "at most 8 candidate manifests as a non-overridable ceiling",
     "`min(4096, floor(model_context_tokens * 0.05))`",
+    "Before Tier 2 hydration, the assembler must prove that the complete\n"
+    "  model-visible prompt plus the reserved output-token budget fits within the\n"
+    "  exact active model context limit",
+    "Every performance and context budget is immutable within its predeclared\n"
+    "acceptance cycle",
+    "Any relaxation\n"
+    "retires the current candidate and all acceptance evidence and requires a fresh\n"
+    "predeclared candidate cycle",
     "top-3 capability hit rate at or above 80%",
     "top-3 capability hit-rate numerator",
     "supported tool-required final route/proposal exact-match at or above 90%",
@@ -722,6 +730,24 @@ ZERO_TOLERANCE_LINES = (
     "- fabricated availability or successful execution claims: zero;",
     "- raw sensitive content in durable routing evidence: zero;",
 )
+ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
+    r"\b(?:(?:up to|at most|no more than)\s+)?"
+    r"(?:(?!0+(?:\.0+)?\s*%)(?:\d+(?:\.\d+)?)\s*%|"
+    r"non[- ]zero|some|one or more)\s+"
+    r"(?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)"
+    r"(?:\s+\w+){0,8}\s+(?:is|are|may be|can be)\s+"
+    r"(?:acceptable|allowed|permitted|tolerated)\b",
+    r"\b(?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)"
+    r"(?:\s+\w+){0,8}\s+(?:may|can)\s+(?:be\s+)?"
+    r"(?:accepted|allowed|permitted|tolerated)\s+(?:up to\s+)?"
+    r"(?!0+(?:\.0+)?\s*%)(?:\d+(?:\.\d+)?)\s*%",
+)
 
 
 def _read(path: Path) -> str:
@@ -798,7 +824,7 @@ def _verify_familiarity_precedence(text: str) -> None:
     if any(text.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
         raise RuntimeError("familiarity precedence has duplicate declarations")
     numbered_entries = tuple(
-        re.findall(r"^(\d+)\.\s+`([^`]+)`", block, flags=re.MULTILINE)
+        re.findall(r"^[ ]{0,3}(\d+)\.\s+`([^`]+)`", block, flags=re.MULTILINE)
     )
     expected_entries = (
         ("1", "outcome_uncertain"),
@@ -813,7 +839,7 @@ def _verify_familiarity_precedence(text: str) -> None:
         ("10", "novel_unsupported"),
     )
     all_numbered_entries = tuple(
-        re.findall(r"^(\d+)\.\s+", block, flags=re.MULTILINE)
+        re.findall(r"^[ ]{0,3}(\d+)\.\s+", block, flags=re.MULTILINE)
     )
     if numbered_entries != expected_entries or len(all_numbered_entries) != len(
         expected_entries
@@ -821,10 +847,14 @@ def _verify_familiarity_precedence(text: str) -> None:
         raise RuntimeError("familiarity precedence has unmanifested entries")
     state_pattern = "|".join(re.escape(state) for state in FAMILIARITY_STATES)
     all_numbered_states = tuple(
-        re.findall(rf"^\d+\. `({state_pattern})`", text, flags=re.MULTILINE)
+        re.findall(
+            rf"^[ ]{{0,3}}\d+\. `({state_pattern})`", text, flags=re.MULTILINE
+        )
     )
     block_numbered_states = tuple(
-        re.findall(rf"^\d+\. `({state_pattern})`", block, flags=re.MULTILINE)
+        re.findall(
+            rf"^[ ]{{0,3}}\d+\. `({state_pattern})`", block, flags=re.MULTILINE
+        )
     )
     if all_numbered_states != block_numbered_states or len(block_numbered_states) != 10:
         raise RuntimeError("familiarity precedence has competing declarations")
@@ -857,6 +887,11 @@ def _verify_zero_tolerance_lines(text: str) -> None:
         matches = [line for line in lines if label in line.lower()]
         if matches != [required]:
             raise RuntimeError("plan zero-tolerance gate is invalid")
+    if any(
+        re.search(pattern, text, flags=re.IGNORECASE)
+        for pattern in ZERO_TOLERANCE_CONTRADICTION_PATTERNS
+    ):
+        raise RuntimeError("plan zero-tolerance gate is invalid")
 
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
