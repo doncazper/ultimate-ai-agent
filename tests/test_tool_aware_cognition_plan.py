@@ -148,6 +148,9 @@ def test_equivalent_authority_contradictions_are_rejected(
         "Public distribution is now enabled.",
         "This system provides broad autonomy.",
         "Unrestricted autonomy is active.",
+        "UAA is production ready and open for public beta.",
+        "Ultimate AI Agent is ready for public release.",
+        "The Ultimate AI Agent provides broad autonomy.",
     ),
 )
 @pytest.mark.parametrize(
@@ -233,6 +236,8 @@ def test_authority_negation_does_not_escape_its_clause(
         "This program is not production ready.",
         "Public beta is not open.",
         "Broad autonomy is not enabled.",
+        "UAA is not production ready.",
+        "Ultimate AI Agent is not ready for public release.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -288,6 +293,21 @@ def test_missing_phase_heading_fails_even_when_phase_token_remains(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan phase headings is missing"):
+        verifier.verify()
+
+
+def test_unmanifested_phase_heading_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\n### TAW-09 — Extra implementation phase\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
         verifier.verify()
 
 
@@ -585,8 +605,8 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
 @pytest.mark.parametrize(
     "required_fragment",
     (
-        "canonical ordered set\nof requested typed-field refs",
-        "clarification contract/version",
+        "canonical ordered set\n"
+        "of requested typed-field refs, the clarification contract/version, and every",
         "incorrect, or sensitive requested field is a mismatch",
         "For `familiar_unavailable` and `familiar_authority_blocked` cases, exact match\n"
         "additionally requires the canonical capability and operation identity",
@@ -685,9 +705,20 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
         "canonical decision-evidence fingerprint over the\n"
         "resolved capability and operation identity, availability evidence and decision\n"
-        "refs, policy/safety decision refs, canonical attempt and execution refs,\n"
-        "exact receipt refs, terminal-proof contract/version refs, safe recovery or\n"
+        "refs, policy/safety decision refs, canonical requested typed-field refs,\n"
+        "clarification contract/version, canonical attempt and execution refs, exact\n"
+        "receipt refs, terminal-proof contract/version refs, safe recovery or\n"
         "reconciliation evidence refs, and safe reason codes",
+        "supported tool-required final route/proposal exact-match at or above 90%",
+        "The per-catalog supported tool-required final route/proposal exact-match\n"
+        "numerator is every adjudicated supported tool-required case",
+        "denominator is every adjudicated supported tool-required case evaluated in that\n"
+        "catalog state",
+        "Zero-result cases contribute zero exact matches and cannot be\n"
+        "dropped",
+        "an expected\n"
+        "fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`\n"
+        "route counts as correct",
         "required for blocked and unavailable outcomes even when their proposal graph is\n"
         "null",
         "for `outcome_uncertain` outcomes even when terminal proof is missing\n"

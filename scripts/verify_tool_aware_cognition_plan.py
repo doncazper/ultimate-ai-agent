@@ -87,6 +87,16 @@ PLAN_REQUIRED = (
     "`min(4096, floor(model_context_tokens * 0.05))`",
     "top-3 capability hit rate at or above 80%",
     "top-3 capability hit-rate numerator",
+    "supported tool-required final route/proposal exact-match at or above 90%",
+    "The per-catalog supported tool-required final route/proposal exact-match\n"
+    "numerator is every adjudicated supported tool-required case",
+    "denominator is every adjudicated supported tool-required case evaluated in that\n"
+    "catalog state",
+    "Zero-result cases contribute zero exact matches and cannot be\n"
+    "dropped",
+    "an expected\n"
+    "fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`\n"
+    "route counts as correct",
     "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
     "Each required ref in a\n"
     "multi-capability case contributes separately",
@@ -100,8 +110,8 @@ PLAN_REQUIRED = (
     "false-block numerator",
     "Final route/proposal exact-match is case-level",
     "full\nordered proposal graph",
-    "canonical ordered set\nof requested typed-field refs",
-    "clarification contract/version",
+    "canonical ordered set\n"
+    "of requested typed-field refs, the clarification contract/version, and every",
     "incorrect, or sensitive requested field is a mismatch",
     "For `familiar_unavailable` and `familiar_authority_blocked` cases, exact match\n"
     "additionally requires the canonical capability and operation identity",
@@ -165,8 +175,9 @@ PLAN_REQUIRED = (
     "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
     "canonical decision-evidence fingerprint over the\n"
     "resolved capability and operation identity, availability evidence and decision\n"
-    "refs, policy/safety decision refs, canonical attempt and execution refs,\n"
-    "exact receipt refs, terminal-proof contract/version refs, safe recovery or\n"
+    "refs, policy/safety decision refs, canonical requested typed-field refs,\n"
+    "clarification contract/version, canonical attempt and execution refs, exact\n"
+    "receipt refs, terminal-proof contract/version refs, safe recovery or\n"
     "reconciliation evidence refs, and safe reason codes",
     "required for blocked and unavailable outcomes even when their proposal graph is\n"
     "null",
@@ -274,15 +285,15 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
-    r"\b(?:this|the) (?:plan|program|product|system|release) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
     r"ready for public (?:beta|release|distribution))\b",
-    r"\b(?:this|the) (?:plan|program|product|system|release) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:open|available|launched|released) for "
     r"(?:public beta|public release|public distribution)\b",
     r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
     r"(?:open|available|launched|ready|enabled|complete)\b",
-    r"\b(?:this|the) (?:plan|program|product|system|release) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
     r"(?:has|have|provides?|offers?|delivers?|supports?|enables?) (?:now )?"
     r"(?:broad|unrestricted|full) autonomy\b",
     r"\b(?:broad|unrestricted|full) autonomy (?:is|are) (?:now )?"
@@ -439,6 +450,14 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
     positions = [text.index(fragment) for fragment in fragments]
     if positions != sorted(positions):
         raise RuntimeError(f"{label} is not in required order")
+
+
+def _verify_exact_phase_headings(text: str) -> None:
+    found = tuple(re.findall(r"^### TAW-\d{2} — .+$", text, flags=re.MULTILINE))
+    if found != PHASE_HEADINGS:
+        raise RuntimeError(
+            "plan phase headings is missing or contains unmanifested entries"
+        )
 
 
 def _verify_zero_tolerance_lines(text: str) -> None:
@@ -636,7 +655,7 @@ def verify() -> dict[str, object]:
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")
 
-    _require_ordered("plan phase headings", plan, PHASE_HEADINGS)
+    _verify_exact_phase_headings(plan)
     _require_ordered("familiarity precedence", plan, FAMILIARITY_PRECEDENCE)
 
     return {

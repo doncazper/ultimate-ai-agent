@@ -340,6 +340,10 @@ Minimum release thresholds:
 - top-3 capability hit rate at or above 80%, final route/proposal exact-match at
   or above 90% overall, and final exact-match at or above 85% in every
   predeclared capability and risk category;
+- supported tool-required final route/proposal exact-match at or above 90%
+  separately in healthy, missing, corrupt, stale, and over-budget catalog
+  states, with the one-sided simultaneous 95% lower bound clearing 90% for
+  every denominator; none of those five rates may be pooled or omitted;
 - every supported product language separately clears the same routing,
   ordinary-chat selection/block, unsupported-request, and paired direct-chat
   quality gates; a pooled multilingual result cannot satisfy a language stratum;
@@ -371,6 +375,16 @@ excluded from this recall denominator and remain covered by the false-positive
 and unsupported-state metrics. Its confidence bound uses a predeclared
 case-clustered estimator so refs from one composed request are not treated as
 independent samples.
+The per-catalog supported tool-required final route/proposal exact-match
+numerator is every adjudicated supported tool-required case whose final route
+and proposal satisfy the complete case-level exact-match contract; its
+denominator is every adjudicated supported tool-required case evaluated in that
+catalog state. Zero-result cases contribute zero exact matches and cannot be
+dropped. In missing, corrupt, stale, and over-budget states, an expected
+fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`
+route counts as correct, while a proposal, approval request, or execution route
+does not. Each of the five state-specific point estimates and simultaneous
+lower confidence bounds is reported separately.
 The direct-chat false-positive-selection numerator is the count of adjudicated
 ordinary-chat cases that select any tool/effect capability, non-null proposal,
 approval request, or execution route; its denominator is every adjudicated
@@ -569,8 +583,9 @@ dependency edges, exact target or recipient refs, and schema-normalized typed
 arguments, including the canonical null-graph fingerprint.
 Each envelope also carries a canonical decision-evidence fingerprint over the
 resolved capability and operation identity, availability evidence and decision
-refs, policy/safety decision refs, canonical attempt and execution refs,
-exact receipt refs, terminal-proof contract/version refs, safe recovery or
+refs, policy/safety decision refs, canonical requested typed-field refs,
+clarification contract/version, canonical attempt and execution refs, exact
+receipt refs, terminal-proof contract/version refs, safe recovery or
 reconciliation evidence refs, and safe reason codes. That fingerprint is
 required for blocked and unavailable outcomes even when their proposal graph is
 null, and for `outcome_uncertain` outcomes even when terminal proof is missing
