@@ -190,6 +190,22 @@ PLAN_REQUIRED = (
     "unsafe authority broadening: zero",
     "fabricated availability or successful execution claims: zero",
     "raw sensitive content in durable routing evidence: zero",
+    "An exhaustive durable-evidence safety census covers every artifact instance",
+    "routing and shadow\n"
+    "logs, traces, decision envelopes, receipts, reports, fixtures, generated corpus\n"
+    "records, benchmark artifacts, caches, and failure diagnostics",
+    "The denominator\n"
+    "is every artifact instance in that closed manifest; the numerator is every\n"
+    "instance containing raw prompt or response content",
+    "An unmanifested,\n"
+    "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
+    "shrinking the denominator",
+    "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
+    "ordinary-chat dimensions",
+    "any other unscored pair invalidates\n"
+    "qualification; it cannot be excluded from the paired denominator",
+    "TAW-08 fails unless every sealed\n"
+    "pair is scored without changing or reselecting the acceptance population",
     "`legacy-router-normalization:v1`",
     "Route and familiarity state are one invariant",
     "`approval_required` only with `familiar_requires_approval`",
@@ -291,6 +307,8 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:open|available|launched|released) for "
     r"(?:public beta|public release|public distribution)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"(?:now )?in (?:a )?public beta\b",
     r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
     r"(?:open|available|launched|ready|enabled|complete)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
@@ -453,7 +471,7 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 
 def _verify_exact_phase_headings(text: str) -> None:
-    found = tuple(re.findall(r"^### TAW-\d{2} — .+$", text, flags=re.MULTILINE))
+    found = tuple(re.findall(r"^#{1,6}\s+TAW-\d+.*$", text, flags=re.MULTILINE))
     if found != PHASE_HEADINGS:
         raise RuntimeError(
             "plan phase headings is missing or contains unmanifested entries"

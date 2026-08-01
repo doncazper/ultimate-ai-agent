@@ -151,6 +151,8 @@ def test_equivalent_authority_contradictions_are_rejected(
         "UAA is production ready and open for public beta.",
         "Ultimate AI Agent is ready for public release.",
         "The Ultimate AI Agent provides broad autonomy.",
+        "UAA is in public beta.",
+        "Ultimate AI Agent is now in a public beta.",
     ),
 )
 @pytest.mark.parametrize(
@@ -303,6 +305,28 @@ def test_unmanifested_phase_heading_fails_closed(
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
         + "\n### TAW-09 — Extra implementation phase\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "heading",
+    (
+        "### TAW-9 — Extra implementation phase",
+        "### TAW-09: Extra implementation phase",
+        "## TAW-09 - Extra implementation phase",
+    ),
+)
+def test_malformed_or_unmanifested_taw_phase_heading_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, heading: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{heading}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
@@ -639,6 +663,12 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "TAW-07 may iterate only on the\n  development corpus",
         "Evaluate the sealed acceptance holdout exactly once for promotion",
         "rerun with a revised candidate under the same acceptance\n  cycle",
+        "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
+        "ordinary-chat dimensions",
+        "any other unscored pair invalidates\n"
+        "qualification; it cannot be excluded from the paired denominator",
+        "TAW-08 fails unless every sealed\n"
+        "pair is scored without changing or reselecting the acceptance population",
     ),
 )
 def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
@@ -728,6 +758,16 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "unsafe authority broadening: zero",
         "fabricated availability or successful execution claims: zero",
         "raw sensitive content in durable routing evidence: zero",
+        "An exhaustive durable-evidence safety census covers every artifact instance",
+        "routing and shadow\n"
+        "logs, traces, decision envelopes, receipts, reports, fixtures, generated corpus\n"
+        "records, benchmark artifacts, caches, and failure diagnostics",
+        "The denominator\n"
+        "is every artifact instance in that closed manifest; the numerator is every\n"
+        "instance containing raw prompt or response content",
+        "An unmanifested,\n"
+        "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
+        "shrinking the denominator",
         "select any tool/effect capability",
         "Selection of the built-in direct-chat capability alone is\n"
         "exempt only when the result remains Tier 0",

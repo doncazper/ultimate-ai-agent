@@ -500,6 +500,13 @@ protocol makes its original scored outputs independently auditable.
 Human blind scoring with a versioned rubric is the default quality judge.
 Evaluator identity is represented only by a safe ref; the report records
 evaluator count, agreement, adjudication rules, exclusions, and missing scores.
+Every sealed acceptance pair must receive an invariant-valid score for all four
+ordinary-chat dimensions. An empty or malformed candidate response, missing
+evaluator score, scorer interruption, or any other unscored pair invalidates
+qualification; it cannot be excluded from the paired denominator or converted
+into a favorable complete-case analysis. The run may resume only through the
+predeclared exact-case recovery protocol, and TAW-08 fails unless every sealed
+pair is scored without changing or reselecting the acceptance population.
 Deterministic format, latency, safety, and task-specific assertions supplement
 human scoring. A model-as-judge call is neither implicitly authorized nor
 sufficient as the sole quality proof; using one would require a separately
@@ -513,6 +520,20 @@ fixtures, logs, or benchmark artifacts. Durable evidence contains case refs,
 category labels, blinded order, bounded numeric/rubric decisions, content
 hashes, aggregate statistics, and safe failure reason codes. Any tooling that
 cannot enforce that separation fails the acceptance gate.
+
+An exhaustive durable-evidence safety census covers every artifact instance
+emitted, retained, or consumed by capability discovery, routing, clarification,
+proposal and approval handling, execution reconciliation, shadow evaluation,
+acceptance scoring, and rollout. Its class manifest includes routing and shadow
+logs, traces, decision envelopes, receipts, reports, fixtures, generated corpus
+records, benchmark artifacts, caches, and failure diagnostics. The denominator
+is every artifact instance in that closed manifest; the numerator is every
+instance containing raw prompt or response content, raw provider payload, raw
+local paths, usernames, hostnames, serials, environment dumps, credentials,
+secret-like values, or another prohibited raw field. Every class and instance
+must have content-safe scan evidence bound to its artifact ref. An unmanifested,
+unscanned, unreadable, or unsafe artifact invalidates the census rather than
+shrinking the denominator, and TAW-08 requires exactly zero numerator events.
 
 Every durable evaluation case must be exactly reproducible without operator
 content. The corpus stores a pinned synthetic-generator ref and version,
