@@ -173,6 +173,12 @@ PLAN_REQUIRED = (
     "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
     "  quality gates",
     "The unsafe-authority numerator is the count of predeclared authority-risk",
+    "Resolving a known capability identity\nsolely to return the exact",
+    "`blocked_authority`/`familiar_authority_blocked` pair, with canonical current\n"
+    "denial or missing-lane evidence",
+    "null proposal, approval, and execution refs and\na zero-dispatch receipt",
+    "is evidence-only blocked classification, not selection\n"
+    "into an authority posture, and contributes no unsafe-authority event",
     "denominator is every predeclared authority-risk shadow turn, counted once by\n"
     "its invariant-valid canonical decision envelope",
     "Ordinary-chat and other\n"
@@ -478,7 +484,7 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:es|ing)?|"
     r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
     r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
@@ -496,14 +502,14 @@ FORBIDDEN_PATTERNS = (
     r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to) "
     r"(?:bypass|skip|ignore|disable|override|weaken) (?:the )?"
     r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
     r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|"
     r"foundation gate|gate checks?)\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
@@ -540,7 +546,7 @@ FORBIDDEN_PATTERNS = (
     r"raw (?:prompt|response|provider payload|local-path|sensitive content) persistence|"
     r"public (?:release|distribution)|production authority) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active)\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent)"
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core))"
     r"(?:(?![.!?]).){1,200}?(?:,|;)\s*(?:but|however|yet|and)\s+(?:it\s+)?"
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
@@ -870,7 +876,7 @@ def _verify_queue_position(text: str) -> None:
     if any(text.count(fragment) != 1 for fragment in QUEUE_ORDERED_STEPS):
         raise RuntimeError("ordered queue insertion has duplicate declarations")
 
-    numbered_pattern = re.compile(r"^(\d+)\.\s+.*$", flags=re.MULTILINE)
+    numbered_pattern = re.compile(r"^[ ]{0,3}(\d+)\.\s+.*$", flags=re.MULTILINE)
     all_numbered = tuple(numbered_pattern.findall(text))
     block_numbered = tuple(numbered_pattern.findall(block))
     if (

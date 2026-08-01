@@ -194,6 +194,20 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         assert verifier._find_forbidden_authority_claims(claim)
 
 
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "The CLI can fetch the public web.",
+        "The API can write to connectors.",
+        "The Python Agent Core can execute plugins.",
+    ),
+)
+def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
 def test_every_structured_denied_authority_class_has_passive_status_coverage() -> None:
     passive_claims = {
         "runtime_model_or_provider_calls": "Runtime provider calls are active.",
@@ -626,6 +640,25 @@ def test_competing_queue_order_declaration_fails_closed(
         + "\n## Competing Position\n\n"
         + "1. Compare against Goat before the cognition work.\n"
         + "2. Run the cognition work later.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="ordered queue insertion"):
+        verifier.verify()
+
+
+def test_indented_competing_queue_order_declaration_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        verifier.QUEUE.read_text(encoding="utf-8").replace(
+            "\n\nThis position prevents",
+            "\n  5. Run the final comparison before TAW acceptance."
+            "\n\nThis position prevents",
+            1,
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "QUEUE", queue)
