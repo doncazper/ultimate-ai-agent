@@ -19,6 +19,7 @@ TRUTH_PACKET = ROOT / "docs" / "roadmap" / "PRODUCT_RELEASE_TRUTH_PACKET.md"
 DOCS_README = ROOT / "docs" / "README.md"
 DOCUMENTATION_INDEX = ROOT / "docs" / "DOCUMENTATION_INDEX.md"
 MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
+PLAN_STATUS_LINE = "Status: User-authorized implementation plan and ordered queue insertion."
 
 PLAN_REQUIRED = (
     "This program extends the accepted Turn Contract Router",
@@ -184,6 +185,12 @@ PLAN_REQUIRED = (
     "per-state result cannot substitute for an intersection result",
     "Missing or underpowered language or intersection evidence is a failed TAW-08\n"
     "gate",
+    "TAW-00 also freezes the complete supported local-model configuration matrix",
+    "Every supported configuration is a\nmandatory evaluation stratum",
+    "every stratum must independently clear those\ngates",
+    "A favorable configuration cannot qualify or generalize to another\n"
+    "supported configuration",
+    "Missing or underpowered configuration evidence is a\nfailed TAW-08 gate",
     "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
     "  quality gates",
     "The unsafe-authority numerator is the count of predeclared authority-risk",
@@ -662,8 +669,10 @@ FORBIDDEN_PATTERNS = (
     r"(?:has|have|supports?|enables?|provides?|offers?) (?:now )?"
     r"production authority\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
-    r"(?:logs?|stores?|records?|retains?|saves?) raw "
-    r"(?:prompts?|responses?(?: content)?|provider payloads?|local paths?|sensitive content)\b",
+    r"(?:logs?|stores?|records?|retains?|saves?) (?:raw )?"
+    r"(?:prompts?|responses?(?: content)?|provider payloads?|local paths?|"
+    r"logs?|log content|usernames?|hostnames?|serials?|environment dumps?|"
+    r"credential material|secret-like values?|sensitive content)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -674,6 +683,7 @@ FORBIDDEN_PATTERNS = (
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
+    "This program does not authorize:",
     "- new runtime model/provider calls;",
     "- web fetching or browser automation;",
     "- connector writes;",
@@ -686,7 +696,9 @@ AUTHORITY_DENIALS = (
     "- spending or purchases;",
     "- billing/account changes or credential creation;",
     "- policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;",
-    "- raw prompt, response, provider payload, or local-path persistence;",
+    "- raw prompt, response, provider payload, local-path, log-content, username,",
+    "  hostname, serial, environment-dump, credential-material, or secret-like-value",
+    "  persistence;",
     "- supported binary distribution; or",
     "- public release, production authority, or claims of human-like",
 )
@@ -987,6 +999,23 @@ def _verify_zero_tolerance_lines(text: str) -> None:
         raise RuntimeError("plan zero-tolerance gate is invalid")
 
 
+def _verify_plan_lifecycle_and_authority_boundary(text: str) -> None:
+    status_lines = tuple(re.findall(r"^Status:.*$", text, flags=re.MULTILINE))
+    if status_lines != (PLAN_STATUS_LINE,):
+        raise RuntimeError("plan lifecycle status is invalid")
+
+    start = "## 12. Explicit Non-Goals\n\n"
+    end = "\n\n## 13. Definition Of Done"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise RuntimeError("plan authority boundary is invalid")
+    block = text.split(start, 1)[1].split(end, 1)[0]
+    if not block.startswith("This program does not authorize:\n\n"):
+        raise RuntimeError("plan authority boundary is invalid")
+    bounded = start + block
+    if any(bounded.count(fragment) != 1 for fragment in AUTHORITY_DENIALS):
+        raise RuntimeError("plan authority boundary is missing required fragments")
+
+
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
@@ -1157,7 +1186,7 @@ def verify() -> dict[str, object]:
     manifest = _read_manifest()
     _require("plan", plan, PLAN_REQUIRED)
     _verify_zero_tolerance_lines(plan)
-    _require("plan authority boundary", plan, AUTHORITY_DENIALS)
+    _verify_plan_lifecycle_and_authority_boundary(plan)
     _require("queue insertion", queue, QUEUE_REQUIRED)
     _verify_queue_position(queue)
     _require("current board", board, BOARD_REQUIRED)

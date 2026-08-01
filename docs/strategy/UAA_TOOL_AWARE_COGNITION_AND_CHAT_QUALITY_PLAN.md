@@ -611,6 +611,17 @@ every applicable intersection metric in the predeclared Holm-adjusted family.
 Missing or underpowered language or intersection evidence is a failed TAW-08
 gate rather than permission to pool it into a larger stratum.
 
+TAW-00 also freezes the complete supported local-model configuration matrix:
+model artifact, backend/runtime, tokenizer and context limit, inference
+settings, and prompt-format version. Every supported configuration is a
+mandatory evaluation stratum for the applicable routing and paired
+ordinary-chat quality gates, and every stratum must independently clear those
+gates. A favorable configuration cannot qualify or generalize to another
+supported configuration. Missing or underpowered configuration evidence is a
+failed TAW-08 gate; a non-reproducible configuration remains explicitly
+unaccepted unless the separately reviewed output-verification protocol in
+section 7.1 makes its original scored outputs independently auditable.
+
 ### 7.1 Evaluation governance
 
 The ordinary-chat comparison must be a true paired test. Baseline and UAA
@@ -1218,7 +1229,9 @@ This program does not authorize:
 - spending or purchases;
 - billing/account changes or credential creation;
 - policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;
-- raw prompt, response, provider payload, or local-path persistence;
+- raw prompt, response, provider payload, local-path, log-content, username,
+  hostname, serial, environment-dump, credential-material, or secret-like-value
+  persistence;
 - supported binary distribution; or
 - public release, production authority, or claims of human-like
   self-awareness.

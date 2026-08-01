@@ -378,6 +378,75 @@ def test_authority_negation_does_not_escape_its_clause(
         verifier.verify()
 
 
+def test_plan_authority_denial_lead_in_is_exact_and_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "This program does not authorize:",
+            "This program now authorizes:",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan authority boundary is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "status",
+    (
+        "Status: Implemented, accepted, complete, and shipped.",
+        "Status: User-authorized implementation plan and ordered queue insertion.\n"
+        "Status: Implemented, accepted, complete, and shipped.",
+    ),
+)
+def test_plan_lifecycle_status_is_exact_and_unique(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            verifier.PLAN_STATUS_LINE,
+            status,
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan lifecycle status is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "UAA stores usernames and environment dumps.",
+        "The runtime records hostnames and serials.",
+        "The system retains raw log content.",
+        "The product saves credential material and secret-like values.",
+    ),
+)
+def test_every_prohibited_sensitive_persistence_claim_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
 @pytest.mark.parametrize(
     "denial",
     (
@@ -1103,6 +1172,12 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
             "per-state result cannot substitute for an intersection result",
             "Missing or underpowered language or intersection evidence is a failed TAW-08\n"
             "gate",
+            "TAW-00 also freezes the complete supported local-model configuration matrix",
+            "Every supported configuration is a\nmandatory evaluation stratum",
+            "every stratum must independently clear those\ngates",
+            "A favorable configuration cannot qualify or generalize to another\n"
+            "supported configuration",
+            "Missing or underpowered configuration evidence is a\nfailed TAW-08 gate",
             "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
             "  catalog state, with exactly zero observed false-block events in each missing,\n"
             "  corrupt, stale, and over-budget catalog state",
