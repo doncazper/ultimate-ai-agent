@@ -92,6 +92,16 @@ PLAN_REQUIRED = (
     "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
     "Holm-adjusted familywise alpha of 0.05 across all routing",
     "one-sided simultaneous 95% upper confidence",
+    "TAW-00 freezes the complete supported product-language set",
+    "Every supported language is a mandatory\n"
+    "evaluation stratum",
+    "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
+    "  quality gates",
+    "The unsafe-authority numerator is the count of predeclared authority-risk",
+    "denominator is every predeclared authority-risk shadow turn, counted once by\n"
+    "its invariant-valid canonical decision envelope",
+    "Ordinary-chat and other\n"
+    "non-authority-risk turns are excluded from that denominator",
     "both 50 ms and 5%",
     "paired\n  bootstrap estimator and Holm-adjusted familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
@@ -375,28 +385,33 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
-            claim = match.group(0)
-            # Active grants are inherently affirmative: a denial elsewhere in the
-            # sentence cannot negate "this program grants ...". Passive claims may
-            # be the tail of an explicit "No A, B, or C is enabled" denial list,
-            # but a contrastive/new subject clause ends that scope.
-            if re.match(r"(?:this|the) (?:plan|program)\b", claim, re.IGNORECASE):
-                present.append(pattern)
-                break
             sentence_start = max(
                 text.rfind(marker, 0, match.start()) for marker in (".", "!", "?")
             )
             prefix = text[sentence_start + 1 : match.start()]
-            resets = list(
-                re.finditer(
-                    r"(?:;|\b(?:but|however|yet|nevertheless|whereas)\b|"
-                    r",\s*(?:and\s+)?(?=(?:this|the)\s+(?:plan|program)\b))",
-                    prefix,
-                    flags=re.IGNORECASE,
+            tail = prefix.rstrip()
+            direct_denial = re.search(r"\bno\s*$", tail, re.IGNORECASE) is not None
+            coordinated_denial = False
+            if re.search(r"\b(?:or|nor)\s*$", tail, re.IGNORECASE):
+                denial_starts = list(
+                    re.finditer(
+                        r"(?:^|[:;])\s*(?:no|neither)\b",
+                        tail,
+                        flags=re.IGNORECASE,
+                    )
                 )
-            )
-            scoped_prefix = prefix[resets[-1].end() :] if resets else prefix
-            if re.search(r"\bno\b", scoped_prefix, flags=re.IGNORECASE):
+                if denial_starts:
+                    denial_items = tail[denial_starts[-1].end() :]
+                    coordinated_denial = re.search(
+                        r"\b(?:is|are|was|were|does|do|did|has|have|had|"
+                        r"may|can|will|shall|must)\b",
+                        denial_items,
+                        flags=re.IGNORECASE,
+                    ) is None
+            # A match is exempt only when its own passive subject is directly
+            # negated or is the final item in an explicit noun-list denial. The
+            # mere presence of "no" elsewhere never negates an affirmative match.
+            if direct_denial or coordinated_denial:
                 continue
             present.append(pattern)
             break

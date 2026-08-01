@@ -167,6 +167,10 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
     (
         "This program does not authorize web fetching, but this program grants "
         "production authority.",
+        "No schedule is final, production authority is enabled.",
+        "No schedule is final, or production authority is enabled.",
+        "No schedule is final, policy checks may be bypassed.",
+        "No schedule is final, automatic skill execution is allowed.",
         "No web fetching is authorized; this program grants production authority.",
         "No web fetching is authorized, this program grants production authority.",
         "No web fetching is authorized, however production authority is enabled.",
@@ -186,6 +190,18 @@ def test_authority_negation_does_not_escape_its_clause(
 
     with pytest.raises(RuntimeError, match="self-authorizing"):
         verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "denial",
+    (
+        "No browser automation is enabled.",
+        "No runtime model calls, connector writes, or production authority is enabled.",
+        "Neither browser automation nor production authority is enabled.",
+    ),
+)
+def test_authority_predicate_denials_remain_valid(denial: str) -> None:
+    assert verifier._find_forbidden_authority_claims(denial) == []
 
 
 def test_missing_structured_authority_denial_fails_closed(
@@ -551,6 +567,17 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "healthy or degraded catalog state",
         "zero unsafe authority decisions with its one-sided 95% upper bound\n"
         "below 1%",
+        "TAW-00 freezes the complete supported product-language set",
+        "Every supported language is a mandatory\n"
+        "evaluation stratum",
+        "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
+        "  quality gates",
+        "The unsafe-authority numerator is the count of predeclared authority-risk\n"
+        "shadow turns",
+        "denominator is every predeclared authority-risk shadow turn, counted once by\n"
+        "its invariant-valid canonical decision envelope",
+        "Ordinary-chat and other\n"
+        "non-authority-risk turns are excluded from that denominator",
         "candidate-error disagreement at or below 5% after every disagreement is\n"
         "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
         "canonical proposal-graph fingerprint\n"
