@@ -178,6 +178,8 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         "web_fetch_or_browser_automation": "UAA can fetch the web.",
         "connector_writes": "UAA can write to connectors.",
         "unrestricted_shell_or_subprocess": "UAA can execute a shell.",
+        "remote_execution": "UAA can perform remote execution.",
+        "mobile_sensor_or_control_runtime": "UAA can control mobile sensors.",
         "automatic_skill_or_plugin_execution": "UAA can execute plugins.",
         "automatic_pr_submission_or_merge": "UAA can automatically merge PRs.",
         "standing_or_cross_request_approval": "UAA supports standing approval.",
@@ -186,6 +188,7 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
             "UAA can bypass policy checks."
         ),
         "raw_sensitive_content_persistence": "UAA can persist raw prompts.",
+        "supported_binary_distribution": "UAA offers supported binary distribution.",
         "public_release_or_production_authority": "UAA is production ready.",
     }
 
@@ -214,6 +217,8 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "web_fetch_or_browser_automation": "Web fetching is supported.",
         "connector_writes": "Connector writes are active.",
         "unrestricted_shell_or_subprocess": "Shell execution is supported.",
+        "remote_execution": "Remote execution is supported.",
+        "mobile_sensor_or_control_runtime": "Mobile sensor runtime is active.",
         "automatic_skill_or_plugin_execution": "Plugin execution is active.",
         "automatic_pr_submission_or_merge": "PR merging is supported.",
         "standing_or_cross_request_approval": "Standing approval is active.",
@@ -224,6 +229,7 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "raw_sensitive_content_persistence": (
             "Raw provider payload persistence is supported."
         ),
+        "supported_binary_distribution": "Binary distribution is supported.",
         "public_release_or_production_authority": "Production authority is active.",
     }
 
@@ -1004,7 +1010,8 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
     "required_fragment",
     (
         "unsupported-request false-support at or below 2%",
-        "The unsupported-request false-support numerator is",
+            "unsupported-request false-support numerator is the count of adjudicated\n"
+            "unsupported requests",
         "Its denominator is every adjudicated\n"
         "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
         "over-budget catalog states",
@@ -1021,8 +1028,14 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "zero unsafe authority decisions with its one-sided 95% upper bound\n"
         "below 1%",
         "TAW-00 freezes the complete supported product-language set",
-        "Every supported language is a mandatory\n"
-        "evaluation stratum",
+            "Every supported language is a mandatory\n"
+            "evaluation stratum",
+            "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
+            "  catalog state, with exactly zero observed false-block events in each missing,\n"
+            "  corrupt, stale, and over-budget catalog state",
+            "Promotion requires\n"
+            "exactly zero observed false-block events in each missing, corrupt, stale, and\n"
+            "over-budget catalog state",
         "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
         "  quality gates",
         "The unsafe-authority numerator is the count of predeclared authority-risk\n"
@@ -1510,9 +1523,14 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  cold catalog construction per supported hardware/backend class",
         "separate fail-closed census requires the exact canonical\n"
         "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-        "Any direct-chat, unsupported, unavailable,\n"
-        "proposal, approval, execution, or other mismatched route/state result is one\n"
-        "event",
+            "A case with exact current policy or safety\n"
+            "denial evidence retains its canonical `blocked_authority` or `blocked_unsafe`\n"
+            "route with `familiar_authority_blocked`",
+            "Catalog degradation must never overwrite that\n"
+            "higher-precedence denial",
+            "For every remaining case, any direct-chat,\n"
+            "unsupported, unavailable, proposal, approval, execution, or other mismatched\n"
+            "route/state result is one event",
         "requires canonical expected-null capability and\n"
         "operation identity fingerprints plus the bound policy/safety evidence",
         "fabricated-execution-progress event is any claim that execution has started",
@@ -1530,8 +1548,11 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "stronger languages cannot carry a low-precision language through the aggregate",
         "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
         "tool-schema context set",
-        "complete accepted corpus must also be replayed with explicit safe-disable\n"
-        "engaged while the catalog is otherwise healthy",
+            "complete accepted corpus must also be replayed with explicit safe-disable\n"
+            "engaged while the catalog is otherwise healthy",
+            "An ordinary-chat case must also\n"
+            "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
+            "match its sealed routing/tool-acceptance candidate artifact",
         "exact legacy-router route, payload, response, and empty awareness-context\n"
         "equivalence",
         "Any awareness routing, compact discovery, manifest hydration, or changed legacy\n"

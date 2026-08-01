@@ -45,11 +45,17 @@ PLAN_REQUIRED = (
     "This false-positive-selection gate applies independently\n"
     "  to the overall, healthy, missing, corrupt, stale, and over-budget catalog\n"
     "  populations; none of those six rates may be pooled or omitted",
-    "ordinary-chat false-block posture at or below 2%",
+    "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
+    "  catalog state, with exactly zero observed false-block events in each missing,\n"
+    "  corrupt, stale, and over-budget catalog state",
     "counts as an ordinary-chat false block",
-    "all twelve reported\n  selection/block rates",
+    "all twelve reported selection/block rates",
+    "Promotion requires\n"
+    "exactly zero observed false-block events in each missing, corrupt, stale, and\n"
+    "over-budget catalog state",
     "unsupported-request false-support at or below 2%",
-    "The unsupported-request false-support numerator is",
+    "unsupported-request false-support numerator is the count of adjudicated\n"
+    "unsupported requests",
     "Its denominator is every adjudicated\n"
     "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
     "over-budget catalog states",
@@ -277,6 +283,9 @@ PLAN_REQUIRED = (
     "null/non-null proposal posture, routing tier, prompt-format version, exact\n"
     "candidate model-visible payload fingerprint, context fingerprint, and ordered\n"
     "hydrated-manifest ref/hash set",
+    "An ordinary-chat case must also\n"
+    "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
+    "match its sealed routing/tool-acceptance candidate artifact",
     "canonical empty manifest set and the exact content-free arbitration-probe\n"
     "receipt",
     "requires a revised candidate plus a complete shadow and active replay",
@@ -439,9 +448,14 @@ PLAN_REQUIRED = (
     "  300 ms",
     "separate fail-closed census requires the exact canonical\n"
     "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-    "Any direct-chat, unsupported, unavailable,\n"
-    "proposal, approval, execution, or other mismatched route/state result is one\n"
-    "event",
+    "A case with exact current policy or safety\n"
+    "denial evidence retains its canonical `blocked_authority` or `blocked_unsafe`\n"
+    "route with `familiar_authority_blocked`",
+    "Catalog degradation must never overwrite that\n"
+    "higher-precedence denial",
+    "For every remaining case, any direct-chat,\n"
+    "unsupported, unavailable, proposal, approval, execution, or other mismatched\n"
+    "route/state result is one event",
     "requires canonical expected-null capability and\n"
     "operation identity fingerprints plus the bound policy/safety evidence",
     "For every tool-facing case in the complete active acceptance corpus, every\n"
@@ -614,6 +628,17 @@ FORBIDDEN_PATTERNS = (
     r"(?:broad|unrestricted|full) autonomy\b",
     r"\b(?:broad|unrestricted|full) autonomy (?:is|are) (?:now )?"
     r"(?:enabled|available|active|supported|complete)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
+    r"(?:perform(?:s|ing)? remote execution|remote execution|"
+    r"control(?:s|ling)? mobile sensors?|mobile (?:sensor|control) runtime|"
+    r"supported binary distribution|binary distribution)\b",
+    r"\b(?:remote execution|mobile (?:sensor|control) runtime|"
+    r"mobile sensor control|supported binary distribution|binary distribution) "
+    r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
@@ -621,12 +646,15 @@ AUTHORITY_DENIALS = (
     "- web fetching or browser automation;",
     "- connector writes;",
     "- unrestricted shell or subprocess execution;",
+    "- remote execution;",
+    "- mobile sensor or control runtime;",
     "- automatic skill/plugin import or execution;",
     "- automatic PR submission or merging;",
     "- standing or cross-request approval;",
     "- billing/account changes or credential creation;",
     "- policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;",
-    "- raw prompt, response, provider payload, or local-path persistence; or",
+    "- raw prompt, response, provider payload, or local-path persistence;",
+    "- supported binary distribution; or",
     "- public release, production authority, or claims of human-like",
 )
 PHASE_HEADINGS = (
@@ -739,12 +767,15 @@ DENIED_AUTHORITY_KEYS = (
     "web_fetch_or_browser_automation",
     "connector_writes",
     "unrestricted_shell_or_subprocess",
+    "remote_execution",
+    "mobile_sensor_or_control_runtime",
     "automatic_skill_or_plugin_execution",
     "automatic_pr_submission_or_merge",
     "standing_or_cross_request_approval",
     "billing_account_or_credential_changes",
     "policy_approval_route_openapi_redaction_or_gate_bypass",
     "raw_sensitive_content_persistence",
+    "supported_binary_distribution",
     "public_release_or_production_authority",
 )
 

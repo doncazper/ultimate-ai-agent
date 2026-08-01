@@ -7,12 +7,15 @@
     "web_fetch_or_browser_automation": false,
     "connector_writes": false,
     "unrestricted_shell_or_subprocess": false,
+    "remote_execution": false,
+    "mobile_sensor_or_control_runtime": false,
     "automatic_skill_or_plugin_execution": false,
     "automatic_pr_submission_or_merge": false,
     "standing_or_cross_request_approval": false,
     "billing_account_or_credential_changes": false,
     "policy_approval_route_openapi_redaction_or_gate_bypass": false,
     "raw_sensitive_content_persistence": false,
+    "supported_binary_distribution": false,
     "public_release_or_production_authority": false
   },
   "pre_goat_insertion": {
