@@ -697,9 +697,10 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
     r"(?:perform(?:s|ing)? remote execution|remote execution|"
+    r"(?:run|execute)(?:s|d|ing)? commands? (?:on|against) remote (?:machines?|hosts?|systems?)|"
     r"control(?:s|ling)? mobile sensors?|mobile (?:sensor|control) runtime|"
+    r"distribut(?:e|es|ed|ing) supported (?:binaries?|binary files?)|"
     r"supported binary distribution|binary distribution)\b",
     r"\b(?:remote execution|mobile (?:sensor|control) runtime|"
     r"mobile sensor control|supported binary distribution|binary distribution) "
@@ -906,6 +907,13 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:\s+\w+){0,8}\s+(?:may|can)\s+(?:be\s+)?"
     r"(?:accepted|allowed|permitted|tolerated)\s+(?:up to\s+)?"
     r"(?!0+(?:\.0+)?\s*%)(?:\d+(?:\.\d+)?)\s*%",
+    r"\b(?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)"
+    r"(?:\s+\w+){0,8}\s+(?:(?:is|are|may be|can be)\s+"
+    r"(?:acceptable|allowed|permitted|tolerated)|"
+    r"(?:may|can)\s+(?:be\s+)?accepted)\b",
 )
 
 

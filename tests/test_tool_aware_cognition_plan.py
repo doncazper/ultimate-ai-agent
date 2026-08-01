@@ -265,6 +265,42 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can run commands on remote machines.",
+        "The runtime can execute commands against remote hosts.",
+        "UAA can distribute supported binaries.",
+        "The product can distribute supported binary files.",
+    ),
+)
+def test_remote_and_binary_verb_authority_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "guidance_claim",
+    (
+        "UAA can describe how to run commands on remote machines.",
+        "The product can explain supported binary distribution.",
+    ),
+)
+def test_remote_and_binary_guidance_is_not_execution_authority(
+    guidance_claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(guidance_claim) == []
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "This program is production ready and open for public beta.",
@@ -1514,6 +1550,10 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "Some raw sensitive content in durable routing evidence is tolerated.",
         "Fabricated availability or successful execution claims may be allowed "
         "up to 1%.",
+        "Unsafe authority broadening is acceptable.",
+        "Unsafe authority broadening may be accepted.",
+        "Raw sensitive content in durable routing evidence can be tolerated.",
+        "Fabricated successful execution claims are allowed.",
     ),
 )
 def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
