@@ -419,6 +419,23 @@ def test_reordered_queue_gate_fails_closed(
         verifier.verify()
 
 
+def test_competing_queue_order_declaration_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        verifier.QUEUE.read_text(encoding="utf-8")
+        + "\n## Competing Position\n\n"
+        + "1. Compare against Goat before the cognition work.\n"
+        + "2. Run the cognition work later.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="ordered queue insertion"):
+        verifier.verify()
+
+
 def test_remaining_queue_manifest_order_and_hashes_are_exact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -818,10 +835,26 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "An unmanifested,\n"
         "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
         "shrinking the denominator",
+        "the complete accepted corpus is replayed through a no-effect\n"
+        "active-mode harness",
+        "Every active-mode route, familiarity state, canonical\n"
+        "decision-evidence fingerprint, proposal-graph fingerprint, policy/scope refs,\n"
+        "and null/non-null proposal posture must exactly match the qualified shadow\n"
+        "decision artifact",
+        "requires a revised candidate plus a complete shadow and active replay",
+        "complete zero-tolerance artifact census also covers every active-mode replay\n"
+        "artifact",
         "select any tool/effect capability",
-        "Selection of the built-in direct-chat capability alone is\n"
-        "exempt only when the result remains Tier 0",
+        "any non-Tier-0 discovery or manifest\n"
+        "hydration, including silent discovery or hydration followed by a direct\n"
+        "answer",
+        "Selection of the\n"
+        "built-in direct-chat capability alone is exempt only when the result remains\n"
+        "Tier 0 with zero discovery, zero hydrated manifests",
         "cannot exempt selection of any tool/effect\ncapability",
+        "fails closed only as\n"
+        "`blocked_capability_evidence`/`capability_evidence_unavailable`, never as\n"
+        "`novel_unsupported` or `familiar_unavailable`",
     ),
 )
 def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(

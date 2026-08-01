@@ -109,8 +109,12 @@ PLAN_REQUIRED = (
     "case-clustered estimator",
     "direct-chat false-positive-selection numerator",
     "select any tool/effect capability",
-    "Selection of the built-in direct-chat capability alone is\n"
-    "exempt only when the result remains Tier 0",
+    "any non-Tier-0 discovery or manifest\n"
+    "hydration, including silent discovery or hydration followed by a direct\n"
+    "answer",
+    "Selection of the\n"
+    "built-in direct-chat capability alone is exempt only when the result remains\n"
+    "Tier 0 with zero discovery, zero hydrated manifests",
     "cannot exempt selection of any tool/effect\ncapability",
     "false-block numerator",
     "Final route/proposal exact-match is case-level",
@@ -205,6 +209,15 @@ PLAN_REQUIRED = (
     "An unmanifested,\n"
     "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
     "shrinking the denominator",
+    "the complete accepted corpus is replayed through a no-effect\n"
+    "active-mode harness",
+    "Every active-mode route, familiarity state, canonical\n"
+    "decision-evidence fingerprint, proposal-graph fingerprint, policy/scope refs,\n"
+    "and null/non-null proposal posture must exactly match the qualified shadow\n"
+    "decision artifact",
+    "requires a revised candidate plus a complete shadow and active replay",
+    "complete zero-tolerance artifact census also covers every active-mode replay\n"
+    "artifact",
     "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
     "ordinary-chat dimensions",
     "any other unscored pair invalidates\n"
@@ -260,7 +273,9 @@ PLAN_REQUIRED = (
     "evidence-only shadow mode",
     "explicit safe-disable boundary",
     "ordinary chat unavailable",
-    "fails closed as unsupported or unavailable",
+    "fails closed only as\n"
+    "`blocked_capability_evidence`/`capability_evidence_unavailable`, never as\n"
+    "`novel_unsupported` or `familiar_unavailable`",
     "corrupt-index fallback",
     "PR count follows contract and risk seams rather than a fixed",
     "must remain isolated and cannot be hidden inside a delivery group",
@@ -534,6 +549,26 @@ def _verify_familiarity_precedence(text: str) -> None:
         raise RuntimeError("familiarity precedence has competing declarations")
 
 
+def _verify_queue_position(text: str) -> None:
+    start = "## Position\n\n"
+    end = "\n\n## Execution Rules"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise RuntimeError("ordered queue insertion position is invalid")
+    block = text.split(start, 1)[1].split(end, 1)[0]
+    _require_ordered("ordered queue insertion", block, QUEUE_ORDERED_STEPS)
+    if any(text.count(fragment) != 1 for fragment in QUEUE_ORDERED_STEPS):
+        raise RuntimeError("ordered queue insertion has duplicate declarations")
+
+    numbered_pattern = re.compile(r"^(\d+)\.\s+.*$", flags=re.MULTILINE)
+    all_numbered = tuple(numbered_pattern.findall(text))
+    block_numbered = tuple(numbered_pattern.findall(block))
+    if (
+        all_numbered != block_numbered
+        or block_numbered != ("1", "2", "3", "4")
+    ):
+        raise RuntimeError("ordered queue insertion has competing declarations")
+
+
 def _verify_zero_tolerance_lines(text: str) -> None:
     lines = [line.strip() for line in text.splitlines()]
     for required in ZERO_TOLERANCE_LINES:
@@ -713,7 +748,7 @@ def verify() -> dict[str, object]:
     _verify_zero_tolerance_lines(plan)
     _require("plan authority boundary", plan, AUTHORITY_DENIALS)
     _require("queue insertion", queue, QUEUE_REQUIRED)
-    _require_ordered("ordered queue insertion", queue, QUEUE_ORDERED_STEPS)
+    _verify_queue_position(queue)
     _require("current board", board, BOARD_REQUIRED)
     _require("canonical roadmap", roadmap, ROADMAP_REQUIRED)
     _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)
