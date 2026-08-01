@@ -408,6 +408,11 @@ applicable availability or policy/safety decision refs or fingerprints, and
 every applicable safe reason code. A matching route/state with missing,
 different, or unbound blocked-decision evidence is a mismatch even when the
 canonical proposal graph is null.
+For `outcome_uncertain` cases, exact match additionally requires the canonical
+attempt and execution refs, exact receipt refs, terminal-proof contract/version
+refs, and safe recovery or reconciliation evidence refs, including canonical
+missing/inconsistent sentinels where durable proof is absent. A route/state or
+proposal match bound to a different attempt or recovery posture is a mismatch.
 Quality reporting must show that hit rate, top-k retrieval precision/recall,
 final route/proposal exact-match, the confusion matrix, and per-category
 failures, not only one aggregate score. It must also identify the exact model artifact,
@@ -453,9 +458,15 @@ to pool that language into a larger stratum.
 ### 7.1 Evaluation governance
 
 The ordinary-chat comparison must be a true paired test. Baseline and UAA
-outputs use the same model artifact, tokenizer, system/user payload, context
+outputs use the same frozen user case, model artifact, tokenizer, context
 limit, sampler settings, and seed when the backend supports deterministic
-seeding. Pair order and display labels are randomized for scoring. If the
+seeding. The baseline runs the sealed accepted-current direct-chat system
+payload and prompt-format version, while UAA runs the exact candidate
+model-visible system payload and prompt-format version, including its routing
+metadata and bounded hydrated capability context. Both payload fingerprints
+are recorded; the harness must not inject the candidate wrapper into the
+baseline or strip candidate context from UAA. Pair order and display labels are
+randomized for scoring. If the
 backend cannot reproduce a seeded response, the benchmark uses a predeclared
 number of repeated paired samples and reports the additional variance instead
 of selecting favorable generations, but those samples are exploratory only and
@@ -538,9 +549,13 @@ dependency edges, exact target or recipient refs, and schema-normalized typed
 arguments, including the canonical null-graph fingerprint.
 Each envelope also carries a canonical decision-evidence fingerprint over the
 resolved capability and operation identity, availability evidence and decision
-refs, policy/safety decision refs, and safe reason codes. That fingerprint is
+refs, policy/safety decision refs, canonical attempt and execution refs,
+exact receipt refs, terminal-proof contract/version refs, safe recovery or
+reconciliation evidence refs, and safe reason codes. That fingerprint is
 required for blocked and unavailable outcomes even when their proposal graph is
-null. `D` is the count whose final canonical route, familiarity state,
+null, and for `outcome_uncertain` outcomes even when terminal proof is missing
+or inconsistent. `D` is the count whose final canonical route, familiarity
+state,
 proposal ref, canonical proposal-graph fingerprint, or canonical
 decision-evidence fingerprint differs. Independent
 blinded adjudication partitions every member of `D` into `A` (the accepted

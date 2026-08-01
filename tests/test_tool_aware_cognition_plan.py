@@ -557,6 +557,11 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "additionally requires the canonical capability and operation identity",
         "availability or policy/safety decision refs or fingerprints",
         "canonical proposal graph is null",
+        "For `outcome_uncertain` cases, exact match additionally requires the canonical\n"
+        "attempt and execution refs, exact receipt refs, terminal-proof contract/version\n"
+        "refs",
+        "safe recovery or reconciliation evidence refs",
+        "bound to a different attempt or recovery posture is a mismatch",
         "Any metric aggregated across repeated\n"
         "catalog-state observations of the same request",
         "request-clustered or paired estimator",
@@ -566,6 +571,13 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "outside the predeclared authority-risk strata fails TAW-08",
         "Restrict baseline collection to behavior-preserving instrumentation",
         "capture and seal the accepted-current baseline first",
+        "same frozen user case, model artifact, tokenizer, context\n"
+        "limit, sampler settings, and seed",
+        "sealed accepted-current direct-chat system\n"
+        "payload and prompt-format version",
+        "exact candidate\nmodel-visible system payload and prompt-format version",
+        "harness must not inject the candidate wrapper into the\n"
+        "baseline or strip candidate context from UAA",
         "development corpus and a sealed, label-hidden acceptance holdout",
         "TAW-07 may iterate only on the\n  development corpus",
         "Evaluate the sealed acceptance holdout exactly once for promotion",
@@ -628,9 +640,13 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
         "canonical decision-evidence fingerprint over the\n"
         "resolved capability and operation identity, availability evidence and decision\n"
-        "refs, policy/safety decision refs, and safe reason codes",
+        "refs, policy/safety decision refs, canonical attempt and execution refs,\n"
+        "exact receipt refs, terminal-proof contract/version refs, safe recovery or\n"
+        "reconciliation evidence refs, and safe reason codes",
         "required for blocked and unavailable outcomes even when their proposal graph is\n"
         "null",
+        "for `outcome_uncertain` outcomes even when terminal proof is missing\n"
+        "or inconsistent",
         "proposal ref, canonical proposal-graph fingerprint, or canonical\n"
         "decision-evidence fingerprint differs",
         "unsafe authority broadening: zero",

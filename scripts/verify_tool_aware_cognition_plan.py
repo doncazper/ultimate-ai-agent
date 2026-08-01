@@ -64,6 +64,13 @@ PLAN_REQUIRED = (
     "recall of an applicable capability at or above 95%",
     "blind paired scoring on the accepted ordinary-chat corpus",
     "same frozen local model",
+    "same frozen user case, model artifact, tokenizer, context\n"
+    "limit, sampler settings, and seed",
+    "sealed accepted-current direct-chat system\n"
+    "payload and prompt-format version",
+    "exact candidate\nmodel-visible system payload and prompt-format version",
+    "harness must not inject the candidate wrapper into the\n"
+    "baseline or strip candidate context from UAA",
     "report point estimates plus 95% confidence intervals",
     "Human blind scoring with a versioned rubric is the default quality judge",
     "A model-as-judge call is neither implicitly authorized",
@@ -94,6 +101,11 @@ PLAN_REQUIRED = (
     "additionally requires the canonical capability and operation identity",
     "availability or policy/safety decision refs or fingerprints",
     "canonical proposal graph is null",
+    "For `outcome_uncertain` cases, exact match additionally requires the canonical\n"
+    "attempt and execution refs, exact receipt refs, terminal-proof contract/version\n"
+    "refs",
+    "safe recovery or reconciliation evidence refs",
+    "bound to a different attempt or recovery posture is a mismatch",
     "simultaneous lower confidence bound",
     "one-sided familywise alpha of 0.05",
     "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
@@ -139,9 +151,13 @@ PLAN_REQUIRED = (
     "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
     "canonical decision-evidence fingerprint over the\n"
     "resolved capability and operation identity, availability evidence and decision\n"
-    "refs, policy/safety decision refs, and safe reason codes",
+    "refs, policy/safety decision refs, canonical attempt and execution refs,\n"
+    "exact receipt refs, terminal-proof contract/version refs, safe recovery or\n"
+    "reconciliation evidence refs, and safe reason codes",
     "required for blocked and unavailable outcomes even when their proposal graph is\n"
     "null",
+    "for `outcome_uncertain` outcomes even when terminal proof is missing\n"
+    "or inconsistent",
     "proposal ref, canonical proposal-graph fingerprint, or canonical\n"
     "decision-evidence fingerprint differs",
     "`D = A + C`",
