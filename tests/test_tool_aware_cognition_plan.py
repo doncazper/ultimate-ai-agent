@@ -193,6 +193,30 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         assert verifier._find_forbidden_authority_claims(claim)
 
 
+def test_every_structured_denied_authority_class_has_passive_status_coverage() -> None:
+    passive_claims = {
+        "runtime_model_or_provider_calls": "Runtime provider calls are active.",
+        "web_fetch_or_browser_automation": "Web fetching is supported.",
+        "connector_writes": "Connector writes are active.",
+        "unrestricted_shell_or_subprocess": "Shell execution is supported.",
+        "automatic_skill_or_plugin_execution": "Plugin execution is active.",
+        "automatic_pr_submission_or_merge": "PR merging is supported.",
+        "standing_or_cross_request_approval": "Standing approval is active.",
+        "billing_account_or_credential_changes": "Credential creation is supported.",
+        "policy_approval_route_openapi_redaction_or_gate_bypass": (
+            "Policy bypass is active."
+        ),
+        "raw_sensitive_content_persistence": (
+            "Raw provider payload persistence is supported."
+        ),
+        "public_release_or_production_authority": "Production authority is active.",
+    }
+
+    assert tuple(passive_claims) == verifier.DENIED_AUTHORITY_KEYS
+    for claim in passive_claims.values():
+        assert verifier._find_forbidden_authority_claims(claim)
+
+
 @pytest.mark.parametrize(
     "contradiction",
     (
@@ -426,6 +450,7 @@ def test_unmanifested_phase_heading_fails_closed(
 @pytest.mark.parametrize(
     "heading",
     (
+        "### TAW-X — Hidden implementation phase",
         "### TAW-9 — Extra implementation phase",
         "### TAW-09: Extra implementation phase",
         "## TAW-09 - Extra implementation phase",

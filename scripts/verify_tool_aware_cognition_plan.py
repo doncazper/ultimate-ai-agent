@@ -496,10 +496,16 @@ FORBIDDEN_PATTERNS = (
     r"(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
-    r"\b(?:(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
+    r"\b(?:(?:runtime )?(?:model|provider) calls?|"
+    r"web fetching|browser automation|connector writes?|"
+    r"(?:unrestricted )?(?:shell|subprocess) execution|"
+    r"(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
     r"(?:automatic )?(?:pull request|PR) (?:submission|merge|merging)|"
     r"(?:standing|cross-request) approval|billing or account changes?|"
-    r"credential creation|raw (?:prompt|response|provider payload|local-path|sensitive content) persistence) "
+    r"credential creation|"
+    r"(?:policy|approval|route|openapi|redaction|foundation gate) bypass|"
+    r"raw (?:prompt|response|provider payload|local-path|sensitive content) persistence|"
+    r"public (?:release|distribution)|production authority) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent)"
     r"(?:(?![.!?]).){1,200}?(?:,|;)\s*(?:but|however|yet|and)\s+(?:it\s+)?"
@@ -708,7 +714,7 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 def _verify_exact_phase_headings(text: str) -> None:
     found = tuple(
-        re.findall(r"^[ ]{0,3}(#{1,6}\s+TAW-\d+.*)$", text, flags=re.MULTILINE)
+        re.findall(r"^[ ]{0,3}(#{1,6}\s+TAW-[^\r\n]*)$", text, flags=re.MULTILINE)
     )
     if found != PHASE_HEADINGS:
         raise RuntimeError(
