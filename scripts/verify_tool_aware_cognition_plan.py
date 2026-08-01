@@ -20,6 +20,7 @@ DOCS_README = ROOT / "docs" / "README.md"
 DOCUMENTATION_INDEX = ROOT / "docs" / "DOCUMENTATION_INDEX.md"
 MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
 PLAN_STATUS_LINE = "Status: User-authorized implementation plan and ordered queue insertion."
+QUEUE_STATUS_LINE = "Status: Ordered, user-authorized queue item."
 
 PLAN_REQUIRED = (
     "This program extends the accepted Turn Contract Router",
@@ -551,7 +552,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:automatically )?(?:import(?:s|ing)?|activat(?:e|es|ing)|execut(?:e|es|ing)) (?:skills?|plugins?)|"
     r"(?:automatically )?(?:submit(?:s|ting)?|merg(?:e|es|ing)) (?:pull requests?|PRs?)|"
     r"(?:us(?:e|es|ing)|grant(?:s|ing)?) (?:a )?(?:standing|cross-request) approval|"
-    r"(?:chang(?:e|es|ing)|modif(?:y|ies|ying)) (?:billing|accounts?)|"
+    r"(?:chang(?:e|es|ing)|modif(?:y|ies|ying)|creat(?:e|es|ing)|"
+    r"manag(?:e|es|ing)|delet(?:e|es|ing)) (?:billing(?: accounts?)?|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
@@ -584,7 +586,8 @@ FORBIDDEN_PATTERNS = (
     r"automatic (?:pull request|PR) (?:submission|merge|merging)|"
     r"(?:use|grant)(?:s|ing)? (?:a )?(?:standing|cross-request) approval|"
     r"(?:standing|cross-request) approval|"
-    r"(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
+    r"(?:change|modify|create|manage|delete)(?:s|ing)? "
+    r"(?:billing(?: accounts?)?|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
@@ -598,6 +601,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
     r"(?:automatic )?(?:pull request|PR) (?:submission|merge|merging)|"
     r"(?:standing|cross-request) approval|billing or account changes?|"
+    r"(?:billing(?: account)?|account) "
+    r"(?:creation|management|deletion|changes?)|"
     r"credential creation|"
     r"(?:policy|approval|route|openapi|redaction|foundation gate) bypass|"
     r"raw (?:prompt|response|provider payload|local-path|sensitive content) persistence|"
@@ -620,7 +625,9 @@ FORBIDDEN_PATTERNS = (
     r"(?:automatically )?(?:submit(?:s|ting)?|merg(?:e|es|ing)) (?:pull requests?|PRs?)|"
     r"automatic (?:pull request|PR) (?:submission|merge|merging)|"
     r"(?:use|grant)(?:s|ing)? (?:a )?(?:standing|cross-request) approval|"
-    r"(?:standing|cross-request) approval|(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
+    r"(?:standing|cross-request) approval|"
+    r"(?:change|modify|create|manage|delete)(?:s|ing)? "
+    r"(?:billing(?: accounts?)?|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
@@ -1016,7 +1023,16 @@ def _verify_plan_lifecycle_and_authority_boundary(text: str) -> None:
         raise RuntimeError("plan authority boundary is missing required fragments")
 
 
+def _verify_queue_lifecycle(text: str) -> None:
+    status_lines = tuple(re.findall(r"^Status:.*$", text, flags=re.MULTILINE))
+    if status_lines != (QUEUE_STATUS_LINE,):
+        raise RuntimeError("queue lifecycle status is invalid")
+
+
 def _find_forbidden_authority_claims(text: str) -> list[str]:
+    # Markdown wrapping is presentation-only. Scan one whitespace-normalized
+    # prose stream so line breaks cannot split an otherwise forbidden claim.
+    text = re.sub(r"\s+", " ", text)
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
@@ -1188,6 +1204,7 @@ def verify() -> dict[str, object]:
     _verify_zero_tolerance_lines(plan)
     _verify_plan_lifecycle_and_authority_boundary(plan)
     _require("queue insertion", queue, QUEUE_REQUIRED)
+    _verify_queue_lifecycle(queue)
     _verify_queue_position(queue)
     _require("current board", board, BOARD_REQUIRED)
     _require("canonical roadmap", roadmap, ROADMAP_REQUIRED)

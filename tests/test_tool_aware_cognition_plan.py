@@ -423,6 +423,69 @@ def test_plan_lifecycle_status_is_exact_and_unique(
 
 
 @pytest.mark.parametrize(
+    "status",
+    (
+        "Status: Complete, implemented, accepted, and shipped.",
+        "Status: TAW-08 accepted; queue may proceed.",
+        "Status: Ordered, user-authorized queue item.\n"
+        "Status: Complete, implemented, accepted, and shipped.",
+    ),
+)
+def test_queue_lifecycle_status_is_exact_and_unique(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        verifier.QUEUE.read_text(encoding="utf-8").replace(
+            verifier.QUEUE_STATUS_LINE,
+            status,
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="queue lifecycle status is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can\nfetch the public web.",
+        "UAA can create\nbilling accounts.",
+    ),
+)
+def test_wrapped_forbidden_authority_claims_are_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can create billing accounts.",
+        "UAA can manage billing accounts.",
+        "UAA can delete billing accounts.",
+        "Billing account creation is supported.",
+        "Billing account management is active.",
+        "Billing account deletion is enabled.",
+    ),
+)
+def test_billing_account_authority_predicates_are_rejected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "UAA stores usernames and environment dumps.",
