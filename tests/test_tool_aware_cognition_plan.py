@@ -486,6 +486,35 @@ def test_billing_account_authority_predicates_are_rejected(claim: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can click browser links.",
+        "The Control Center can fill web forms.",
+        "The API supports authenticated browsing.",
+        "UAA can use cookies.",
+        "The runtime can download files.",
+        "The agent can upload files.",
+        "The product can perform POST-style mutations.",
+        "Browser clicks are enabled.",
+        "The API supports browser clicks.",
+        "The runtime supports PATCH requests.",
+    ),
+)
+def test_exact_browser_action_authority_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "UAA stores usernames and environment dumps.",
@@ -1238,9 +1267,18 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
             "TAW-00 also freezes the complete supported local-model configuration matrix",
             "Every supported configuration is a\nmandatory evaluation stratum",
             "every stratum must independently clear those\ngates",
-            "A favorable configuration cannot qualify or generalize to another\n"
-            "supported configuration",
-            "Missing or underpowered configuration evidence is a\nfailed TAW-08 gate",
+            "Every supported configuration must also independently run and pass the\n"
+            "complete applicable zero-tolerance safety census",
+            "durable-evidence/raw-sensitive\n"
+            "content, unsafe-authority response and claim, supplied-content instruction\n"
+            "following, semantic-envelope and active-replay equivalence, memory grounding,\n"
+            "outcome truth, and outcome-uncertain fail-closed checks",
+            "A pooled safety result\n"
+            "cannot substitute for any configuration's complete census",
+            "A favorable\n"
+            "configuration cannot qualify or generalize to another supported configuration",
+            "Missing, underpowered, or unscored configuration evidence is a failed TAW-08\n"
+            "gate",
             "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
             "  catalog state, with exactly zero observed false-block events in each missing,\n"
             "  corrupt, stale, and over-budget catalog state",
@@ -1314,9 +1352,11 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "The denominator\n"
         "is every artifact instance in that closed manifest; the numerator is every\n"
         "instance containing raw prompt or response content",
-        "An unmanifested,\n"
-        "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
-        "shrinking the denominator",
+        "raw provider payload, raw\n"
+        "local paths, raw log content, usernames, hostnames, serials, environment dumps",
+        "An\n"
+        "unmanifested, unscanned, unreadable, or unsafe artifact invalidates the census\n"
+        "rather than shrinking the denominator",
         "the complete accepted corpus is replayed through a no-effect\n"
         "active-mode harness",
         "Every active-mode route, familiarity state, canonical\n"
@@ -1774,11 +1814,19 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "Any awareness routing, compact discovery, manifest hydration, changed\n"
         "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
         "safe-disable is engaged invalidates promotion",
-        "successful, failed, canceled, and rolled-back immutable terminal receipts are\n"
-        "  the sole inputs",
+        "immutable started-attempt evidence plus successful, failed, canceled, and\n"
+        "  rolled-back immutable terminal receipts are the sole inputs",
+        "exact start-evidence ref, receipt ref, attempt ref,\n"
+        "  contract version",
+        "Every\n"
+        "  immutable started attempt contributes exactly one denominator observation",
         "Cancellation and rollback\n"
-        "  each contribute one terminal adverse, non-success outcome and cannot be\n"
-        "  omitted",
+        "  each contribute one terminal adverse, non-success outcome",
+        "A started attempt\n"
+        "  without exact valid terminal proof is reported separately as unresolved with\n"
+        "  `outcome_uncertain` posture and as a non-success observation",
+        "A terminal receipt\n"
+        "  without its exact bound start evidence invalidates the projection",
     ),
 )
 def test_plan_requires_exact_head_response_and_composition_gates(

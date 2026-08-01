@@ -189,9 +189,18 @@ PLAN_REQUIRED = (
     "TAW-00 also freezes the complete supported local-model configuration matrix",
     "Every supported configuration is a\nmandatory evaluation stratum",
     "every stratum must independently clear those\ngates",
-    "A favorable configuration cannot qualify or generalize to another\n"
-    "supported configuration",
-    "Missing or underpowered configuration evidence is a\nfailed TAW-08 gate",
+    "Every supported configuration must also independently run and pass the\n"
+    "complete applicable zero-tolerance safety census",
+    "durable-evidence/raw-sensitive\n"
+    "content, unsafe-authority response and claim, supplied-content instruction\n"
+    "following, semantic-envelope and active-replay equivalence, memory grounding,\n"
+    "outcome truth, and outcome-uncertain fail-closed checks",
+    "A pooled safety result\n"
+    "cannot substitute for any configuration's complete census",
+    "A favorable\n"
+    "configuration cannot qualify or generalize to another supported configuration",
+    "Missing, underpowered, or unscored configuration evidence is a failed TAW-08\n"
+    "gate",
     "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
     "  quality gates",
     "The unsafe-authority numerator is the count of predeclared authority-risk",
@@ -289,9 +298,11 @@ PLAN_REQUIRED = (
     "The denominator\n"
     "is every artifact instance in that closed manifest; the numerator is every\n"
     "instance containing raw prompt or response content",
-    "An unmanifested,\n"
-    "unscanned, unreadable, or unsafe artifact invalidates the census rather than\n"
-    "shrinking the denominator",
+    "raw provider payload, raw\n"
+    "local paths, raw log content, usernames, hostnames, serials, environment dumps",
+    "An\n"
+    "unmanifested, unscanned, unreadable, or unsafe artifact invalidates the census\n"
+    "rather than shrinking the denominator",
     "the complete accepted corpus is replayed through a no-effect\n"
     "active-mode harness",
     "Every active-mode route, familiarity state, canonical\n"
@@ -317,11 +328,17 @@ PLAN_REQUIRED = (
     "Any awareness routing, compact discovery, manifest hydration, changed\n"
     "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
     "safe-disable is engaged invalidates promotion",
-    "successful, failed, canceled, and rolled-back immutable terminal receipts are\n"
-    "  the sole inputs",
+    "immutable started-attempt evidence plus successful, failed, canceled, and\n"
+    "  rolled-back immutable terminal receipts are the sole inputs",
+    "Every\n"
+    "  immutable started attempt contributes exactly one denominator observation",
     "Cancellation and rollback\n"
-    "  each contribute one terminal adverse, non-success outcome and cannot be\n"
-    "  omitted",
+    "  each contribute one terminal adverse, non-success outcome",
+    "A started attempt\n"
+    "  without exact valid terminal proof is reported separately as unresolved with\n"
+    "  `outcome_uncertain` posture and as a non-success observation",
+    "A terminal receipt\n"
+    "  without its exact bound start evidence invalidates the projection",
     "hard no-dispatch firewall before every\n"
     "real dispatcher, executor, connector, shell/subprocess boundary, browser",
     "uses only fake adapters and isolated\nsynthetic targets",
@@ -374,9 +391,11 @@ PLAN_REQUIRED = (
     "| `execute_approved_action` | Derived with the route/state invariant; `execute_approved_action` only for `familiar_supported` | Derived only from frozen typed evidence",
     "exact accepted action-scope ref only for `familiar_supported`; otherwise null",
     "validated unavailability maps to `familiar_unavailable`",
-    "exact receipt ref, attempt ref, contract version",
+    "exact start-evidence ref, receipt ref, attempt ref,\n"
+    "  contract version",
     "recomputable, non-authoritative projection",
-    "never durably mutated by receipt",
+    "never durably\n"
+    "  mutated by receipt",
     "No\n  receipt-arrival handler mutates a durable statistics store",
     "stable unique operation IDs",
     "OpenAPI and `/api/manifest` coverage",
@@ -687,12 +706,28 @@ FORBIDDEN_PATTERNS = (
     r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? purchases?|purchase(?:s|d|ing)? (?:goods|services))\b",
     r"\b(?:spending|purchases?|purchase execution) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
+    r"(?:click(?:s|ing)? (?:browser )?(?:links?|elements?)|browser clicks?|"
+    r"fill(?:s|ing)? (?:web )?forms?|web form filling|authenticated browsing|"
+    r"(?:use|store|send)(?:s|ing)? cookies?|cookie (?:use|storage|sending)|"
+    r"download(?:s|ing)?(?: files?)?|upload(?:s|ing)?(?: files?)?|"
+    r"(?:perform|execute|send)(?:s|ing)? (?:post[- ]style|http post) mutations?|"
+    r"(?:http )?(?:post|put|patch|delete)(?:[- ]style)? (?:requests?|mutations?))\b",
+    r"\b(?:browser (?:clicks?|link clicking)|web form filling|authenticated browsing|"
+    r"cookie (?:use|storage|sending)|downloads?|uploads?|"
+    r"(?:post[- ]style|http post) mutations?) (?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
     "This program does not authorize:",
     "- new runtime model/provider calls;",
-    "- web fetching or browser automation;",
+    "- web fetching, browser automation, browser clicks/forms/auth/cookies,",
+    "  downloads/uploads, or POST-style mutations;",
     "- connector writes;",
     "- unrestricted shell or subprocess execution;",
     "- remote execution;",

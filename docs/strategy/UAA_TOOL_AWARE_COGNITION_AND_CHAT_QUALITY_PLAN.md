@@ -616,11 +616,17 @@ model artifact, backend/runtime, tokenizer and context limit, inference
 settings, and prompt-format version. Every supported configuration is a
 mandatory evaluation stratum for the applicable routing and paired
 ordinary-chat quality gates, and every stratum must independently clear those
-gates. A favorable configuration cannot qualify or generalize to another
-supported configuration. Missing or underpowered configuration evidence is a
-failed TAW-08 gate; a non-reproducible configuration remains explicitly
-unaccepted unless the separately reviewed output-verification protocol in
-section 7.1 makes its original scored outputs independently auditable.
+gates. Every supported configuration must also independently run and pass the
+complete applicable zero-tolerance safety census: durable-evidence/raw-sensitive
+content, unsafe-authority response and claim, supplied-content instruction
+following, semantic-envelope and active-replay equivalence, memory grounding,
+outcome truth, and outcome-uncertain fail-closed checks. A pooled safety result
+cannot substitute for any configuration's complete census. A favorable
+configuration cannot qualify or generalize to another supported configuration.
+Missing, underpowered, or unscored configuration evidence is a failed TAW-08
+gate; a non-reproducible configuration remains explicitly unaccepted unless the
+separately reviewed output-verification protocol in section 7.1 makes its
+original scored outputs independently auditable.
 
 ### 7.1 Evaluation governance
 
@@ -681,11 +687,12 @@ logs, traces, decision envelopes, receipts, reports, fixtures, generated corpus
 records, benchmark artifacts, caches, and failure diagnostics. The denominator
 is every artifact instance in that closed manifest; the numerator is every
 instance containing raw prompt or response content, raw provider payload, raw
-local paths, usernames, hostnames, serials, environment dumps, credentials,
-secret-like values, or another prohibited raw field. Every class and instance
-must have content-safe scan evidence bound to its artifact ref. An unmanifested,
-unscanned, unreadable, or unsafe artifact invalidates the census rather than
-shrinking the denominator, and TAW-08 requires exactly zero numerator events.
+local paths, raw log content, usernames, hostnames, serials, environment dumps,
+credentials, secret-like values, or another prohibited raw field. Every class
+and instance must have content-safe scan evidence bound to its artifact ref. An
+unmanifested, unscanned, unreadable, or unsafe artifact invalidates the census
+rather than shrinking the denominator, and TAW-08 requires exactly zero
+numerator events.
 
 Every durable evaluation case must be exactly reproducible without operator
 content.
@@ -967,16 +974,20 @@ run rather than disappearing from `N`.
 
 “Learning” in this program means improving governed data and tests:
 
-- successful, failed, canceled, and rolled-back immutable terminal receipts are
-  the sole inputs to a
+- immutable started-attempt evidence plus successful, failed, canceled, and
+  rolled-back immutable terminal receipts are the sole inputs to a
   recomputable, non-authoritative projection of bounded capability outcome
-  statistics keyed by exact receipt ref, attempt ref, contract version, and
-  safe environment class; the projection is never durably mutated by receipt
-  arrival, exact replay is deduplicated, and conflicting reuse invalidates the
-  projection and produces auditable evidence. Success and failure each
+  statistics keyed by exact start-evidence ref, receipt ref, attempt ref,
+  contract version, and safe environment class; the projection is never durably
+  mutated by receipt arrival, exact replay is deduplicated, and conflicting
+  reuse invalidates the projection and produces auditable evidence. Every
+  immutable started attempt contributes exactly one denominator observation. Success and failure each
   contribute one outcome in their canonical class. Cancellation and rollback
-  each contribute one terminal adverse, non-success outcome and cannot be
-  omitted from health, reliability, or familiarity evidence. Any future
+  each contribute one terminal adverse, non-success outcome. A started attempt
+  without exact valid terminal proof is reported separately as unresolved with
+  `outcome_uncertain` posture and as a non-success observation; it cannot be
+  dropped from health, reliability, or familiarity evidence. A terminal receipt
+  without its exact bound start evidence invalidates the projection. Any future
   persisted materialization is a separate exact PolicyEngine- and LocalApprovalAuthority-
   bound mutation lane with idempotency, rollback, and redaction tests;
 - operator corrections become safe-ref-only review candidates and must be
@@ -1218,7 +1229,8 @@ authority, the phase must stop at the exact minimal proposal and evidence.
 This program does not authorize:
 
 - new runtime model/provider calls;
-- web fetching or browser automation;
+- web fetching, browser automation, browser clicks/forms/auth/cookies,
+  downloads/uploads, or POST-style mutations;
 - connector writes;
 - unrestricted shell or subprocess execution;
 - remote execution;
