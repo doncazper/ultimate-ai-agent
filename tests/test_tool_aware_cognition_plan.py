@@ -330,6 +330,11 @@ def test_plan_requires_evidence_bound_legacy_tool_mapping_and_api_contracts(
             "| `prepare_tool_or_action` | Derived with the route/state invariant; `prepare_tool_or_action` only for `familiar_supported` | Derived only from frozen typed evidence",
             "| `prepare_tool_or_action` | `prepare_tool_or_action` | `familiar_supported`",
         )
+        .replace(
+            "and an exact catalog/index-evidence-unavailable posture maps to `capability_evidence_unavailable`; absent or contradictory evidence makes the envelope invalid | null |",
+            "absent or contradictory evidence makes the envelope invalid | null |",
+            1,
+        )
         .replace("stable unique operation IDs", "API route names")
         .replace("OpenAPI and `/api/manifest` coverage", "API documentation"),
         encoding="utf-8",
@@ -359,6 +364,26 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
             "`approval_required` may retain any normalized state",
         )
         .replace(
+            "`ask_for_required_input` only with `familiar_input_required`",
+            "`ask_for_required_input` may retain any normalized state",
+        )
+        .replace(
+            "`report_unavailable` only with `familiar_unavailable`",
+            "`report_unavailable` may retain any normalized state",
+        )
+        .replace(
+            "`blocked_authority` only\nwith `familiar_authority_blocked`",
+            "`blocked_authority` may retain any normalized state",
+        )
+        .replace(
+            "`report_unsupported` only with\n`novel_unsupported`",
+            "`report_unsupported` may retain any normalized state",
+        )
+        .replace(
+            "`report_outcome_uncertain` only with\n`outcome_uncertain`",
+            "`report_outcome_uncertain` may retain any normalized state",
+        )
+        .replace(
             "| `answer_with_reviewed_memory`, `draft_or_plan` | Derived with the route/state invariant; unchanged accepted route only for `familiar_supported`",
             "| `answer_with_reviewed_memory`, `draft_or_plan` | unchanged accepted route",
         )
@@ -381,6 +406,14 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
         .replace(
             "| `execute_approved_action` | Derived with the route/state invariant; `execute_approved_action` only for `familiar_supported` | Derived only from frozen typed evidence",
             "| `execute_approved_action` | `execute_approved_action` | `familiar_supported`",
+        )
+        .replace(
+            "| Any accepted contract after proposal or execution work began when exact durable terminal proof is absent or inconsistent | `report_outcome_uncertain` | `outcome_uncertain`",
+            "| Any accepted contract after proposal or execution work began | `report_unavailable` | `outcome_uncertain`",
+        )
+        .replace(
+            "| Any possible-tool-intent turn whose valid, current bounded catalog proves that no capability contract adequately covers the requested effect | `report_unsupported` | `novel_unsupported` | null |",
+            "| Any possible-tool-intent turn with no match | `report_unavailable` | `novel_unsupported` | null |",
         ),
         encoding="utf-8",
     )
@@ -446,6 +479,12 @@ def test_plan_requires_exact_applicable_capability_recall_population(
         .replace(
             "direct-chat false-positive tool selection at or below 2% overall",
             "direct-chat false-positive tool selection is reported overall",
+        )
+        .replace(
+            "This false-positive-selection gate applies independently\n"
+            "  to the overall, healthy, missing, corrupt, stale, and over-budget catalog\n"
+            "  populations; none of those six rates may be pooled or omitted",
+            "False-positive selection is reported for the combined population",
         )
         .replace(
             "all twelve reported\n  selection/block rates",
