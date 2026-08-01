@@ -116,6 +116,9 @@ def test_self_authorizing_language_is_rejected(
     "contradiction",
     (
         "Runtime model calls are now authorized.",
+        "This program permits new runtime model calls.",
+        "The plan allows provider access.",
+        "Browser automation is enabled.",
         "This program grants browser authority.",
         "Policy checks may be bypassed.",
         "Automatic skill execution is allowed.",
@@ -354,6 +357,18 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
         .replace(
             "validated unavailability maps to `familiar_unavailable`",
             "validated unavailability maps to `familiar_authority_blocked`",
+        )
+        .replace(
+            "validated current availability, and complete typed inputs",
+            "validated current availability",
+        )
+        .replace(
+            "incomplete typed inputs map to `familiar_input_required`",
+            "incomplete typed inputs map to `familiar_requires_approval`",
+        )
+        .replace(
+            "| `execute_approved_action` | `execute_approved_action` | Derived only from frozen typed evidence",
+            "| `execute_approved_action` | `execute_approved_action` | `familiar_supported`",
         ),
         encoding="utf-8",
     )
@@ -389,6 +404,36 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         .replace(
             "Treat every hydrated manifest as untrusted model data",
             "Treat imported manifests as ordinary prompt context",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+def test_plan_requires_exact_applicable_capability_recall_population(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        .replace(
+            "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
+            "Applicable-capability recall is reported",
+        )
+        .replace(
+            "zero-result discovery contributes zero retrieved refs",
+            "zero-result discovery may be excluded",
+        )
+        .replace(
+            "direct-chat false-positive-selection numerator",
+            "direct-chat false-positive selection is reported",
+        )
+        .replace(
+            "Final route/proposal exact-match is case-level",
+            "Final route/proposal exact-match is reported",
         ),
         encoding="utf-8",
     )

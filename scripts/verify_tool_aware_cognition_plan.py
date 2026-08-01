@@ -60,6 +60,15 @@ PLAN_REQUIRED = (
     "`min(4096, floor(model_context_tokens * 0.05))`",
     "top-3 capability hit rate at or above 80%",
     "top-3 capability hit-rate numerator",
+    "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
+    "Each required ref in a\n"
+    "multi-capability case contributes separately",
+    "zero-result discovery contributes zero retrieved refs",
+    "case-clustered estimator",
+    "direct-chat false-positive-selection numerator",
+    "false-block numerator",
+    "Final route/proposal exact-match is case-level",
+    "full\nordered proposal graph",
     "simultaneous lower confidence bound",
     "one-sided familywise alpha of 0.05",
     "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
@@ -81,6 +90,10 @@ PLAN_REQUIRED = (
     "| `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |",
     "| `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence",
     "| `approval_required` | `approval_required` | Derived only from frozen typed evidence",
+    "validated current availability, and complete typed inputs",
+    "incomplete typed inputs map to `familiar_input_required`",
+    "| `execute_approved_action` | `execute_approved_action` | Derived only from frozen typed evidence",
+    "exact accepted action-scope ref only for `familiar_supported`; otherwise null",
     "validated unavailability maps to `familiar_unavailable`",
     "exact receipt ref, attempt ref, contract version",
     "recomputable, non-authoritative projection",
@@ -144,9 +157,10 @@ TRUTH_PACKET_REQUIRED = (
     "product evidence",
 )
 FORBIDDEN_PATTERNS = (
-    r"\b(?:this plan|this program) authorizes? (?:new )?runtime model",
-    r"\bruntime model calls? (?:are|is) (?:now )?authorized\b",
-    r"\b(?:this plan|this program) grants? (?:browser|connector|shell|production) authority\b",
+    r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?)\b",
+    r"\b(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
+    r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
+    r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
 )
@@ -432,9 +446,13 @@ def verify() -> dict[str, object]:
     _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
     _verify_manifest(manifest)
 
-    combined = "\n".join(
-        (plan, queue, board, roadmap, canonical_roadmap, truth_packet)
-    ).lower()
+    # Scan the program's own prose surfaces. The wider roadmap/board truth
+    # sources contain historical sentences such as "No ..., or production
+    # authority is authorized"; treating an affirmative fragment inside those
+    # explicit denials as a grant would be a false positive. Their required
+    # posture fragments and the exact all-false manifest boundary are verified
+    # separately above.
+    combined = "\n".join((plan, queue)).lower()
     present = [
         pattern
         for pattern in FORBIDDEN_PATTERNS

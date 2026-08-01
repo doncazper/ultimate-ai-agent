@@ -344,6 +344,32 @@ cases with at least one adjudicated-relevant capability in the first three
 ranked results (or all returned results when fewer than three exist); its
 denominator is every eligible case with at least one adjudicated-relevant
 capability. Cases cannot be removed because retrieval returned no candidates.
+Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist,
+before Tier 2 hydration and before availability, policy, or authority filtering.
+Its numerator is every adjudicated-relevant exact capability ref present
+anywhere in that shortlist; its denominator is every adjudicated-relevant exact
+capability ref across the accepted tool-required corpus. Each required ref in a
+multi-capability case contributes separately. Known unavailable or
+policy/authority-blocked refs remain in the denominator, and missing, corrupt,
+stale, over-budget, or zero-result discovery contributes zero retrieved refs
+without shrinking it. Unsupported cases with no adjudicated-relevant ref are
+excluded from this recall denominator and remain covered by the false-positive
+and unsupported-state metrics. Its confidence bound uses a predeclared
+case-clustered estimator so refs from one composed request are not treated as
+independent samples.
+The direct-chat false-positive-selection numerator is the count of adjudicated
+ordinary-chat cases that select any capability, non-null proposal, approval
+request, or execution route; its denominator is every adjudicated ordinary-chat
+case across the same six catalog-state reports used by the false-block gate.
+The false-block numerator is the count in each report that returns any
+non-Tier-0 blocking posture without a selection, and each denominator is every
+ordinary-chat case evaluated in that catalog state. Zero-result cases cannot be
+excluded from either metric. Final route/proposal exact-match is case-level:
+the numerator requires the exact canonical route, familiarity state, and full
+ordered proposal graph (including an expected null graph), while the denominator
+is every accepted case. A case may contribute to every predeclared capability
+or risk-category report that applies, but it cannot be dropped from the overall
+report or its applicable category reports.
 Quality reporting must show that hit rate, top-k retrieval precision/recall,
 final route/proposal exact-match, the confusion matrix, and per-category
 failures, not only one aggregate score. It must also identify the exact model artifact,
@@ -438,8 +464,8 @@ the same canonical comparison envelope without inventing capability evidence:
 | `answer_directly`, `base_answer` | unchanged direct-chat route | `familiar_supported` for the built-in direct-chat capability | null |
 | `answer_with_reviewed_memory`, `draft_or_plan` | unchanged accepted route | `familiar_supported` only when the frozen case supplies the exact no-effect capability identity and current availability proof; `familiar_unavailable` when that exact known capability has validated unavailable evidence; otherwise the envelope is invalid | null |
 | `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence: `familiar_supported` requires exact capability identity, current availability, complete inputs, and proposal readiness; missing inputs map to `familiar_input_required`, validated unavailability maps to `familiar_unavailable`, and a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`; absent or contradictory evidence makes the envelope invalid | null |
-| `approval_required` | `approval_required` | Derived only from frozen typed evidence: `familiar_requires_approval` requires an exact pre-existing authority lane plus validated current availability; validated unavailability maps to `familiar_unavailable`, a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`, and an exact catalog/index-evidence-unavailable posture maps to `capability_evidence_unavailable`; absent or contradictory typed evidence makes the envelope invalid | null |
-| `execute_approved_action` | `execute_approved_action` | `familiar_supported` only when the accepted decision's exact approved scope validates; otherwise the envelope is invalid | exact accepted action-scope ref |
+| `approval_required` | `approval_required` | Derived only from frozen typed evidence: `familiar_requires_approval` requires an exact pre-existing authority lane, validated current availability, and complete typed inputs; validated unavailability maps to `familiar_unavailable`, incomplete typed inputs map to `familiar_input_required`, a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`, and an exact catalog/index-evidence-unavailable posture maps to `capability_evidence_unavailable`; absent or contradictory typed evidence makes the envelope invalid | null |
+| `execute_approved_action` | `execute_approved_action` | Derived only from frozen typed evidence: `familiar_supported` requires the accepted decision's exact approved scope, a still-graduated lane, current policy/safety allowance, validated availability, and complete typed inputs; validated unavailability maps to `familiar_unavailable`, incomplete inputs map to `familiar_input_required`, a current policy/safety denial or missing lane maps to `familiar_authority_blocked`, and catalog/index evidence unavailability maps to `capability_evidence_unavailable`; absent or contradictory evidence makes the envelope invalid | exact accepted action-scope ref only for `familiar_supported`; otherwise null |
 | `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
 | `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |
 
