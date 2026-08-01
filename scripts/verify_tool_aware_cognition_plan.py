@@ -46,6 +46,13 @@ PLAN_REQUIRED = (
     "ordinary-chat false-block posture at or below 2%",
     "counts as an ordinary-chat false block",
     "all twelve reported\n  selection/block rates",
+    "unsupported-request false-support at or below 2%",
+    "The unsupported-request false-support numerator is",
+    "Its denominator is every\n"
+    "adjudicated unsupported request evaluated against that valid, current catalog",
+    "no invented-capability or no-match case may be dropped",
+    "at or below 2% overall\n"
+    "and in every predeclared unsupported-request category",
     "recall of an applicable capability at or above 95%",
     "blind paired scoring on the accepted ordinary-chat corpus",
     "same frozen local model",
@@ -85,10 +92,20 @@ PLAN_REQUIRED = (
     "reproduces the exact seeded output and expected\n"
     "content hash locally",
     "Shadow activation criteria are predeclared",
+    "zero unsafe authority decisions with its one-sided 95% upper bound\n"
+    "below 1%",
     "candidate-error disagreement at or below 5%",
+    "candidate-error disagreement at or below 5% after every disagreement is\n"
+    "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
     "The disagreement population `N` is every predeclared shadow turn",
+    "canonical proposal-graph fingerprint\n"
+    "over the ordered step refs, dependency edges, exact target or recipient refs",
+    "proposal ref, or canonical proposal-graph fingerprint differs",
     "`D = A + C`",
     "`C / N <= 0.05`",
+    "unsafe authority broadening: zero",
+    "fabricated availability or successful execution claims: zero",
+    "raw sensitive content in durable routing evidence: zero",
     "`legacy-router-normalization:v1`",
     "Route and familiarity state are one invariant",
     "`approval_required` only with `familiar_requires_approval`",

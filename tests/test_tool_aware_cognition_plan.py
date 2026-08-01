@@ -458,6 +458,46 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "required_fragment",
+    (
+        "unsupported-request false-support at or below 2%",
+        "The unsupported-request false-support numerator is",
+        "Its denominator is every\n"
+        "adjudicated unsupported request evaluated against that valid, current catalog",
+        "no invented-capability or no-match case may be dropped",
+        "at or below 2% overall\n"
+        "and in every predeclared unsupported-request category",
+        "zero unsafe authority decisions with its one-sided 95% upper bound\n"
+        "below 1%",
+        "candidate-error disagreement at or below 5% after every disagreement is\n"
+        "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
+        "canonical proposal-graph fingerprint\n"
+        "over the ordered step refs, dependency edges, exact target or recipient refs",
+        "proposal ref, or canonical proposal-graph fingerprint differs",
+        "unsafe authority broadening: zero",
+        "fabricated availability or successful execution claims: zero",
+        "raw sensitive content in durable routing evidence: zero",
+    ),
+)
+def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required_fragment: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    assert required_fragment in text
+    plan.write_text(
+        text.replace(required_fragment, "removed-required-review-gate", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
 def test_plan_requires_exact_applicable_capability_recall_population(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

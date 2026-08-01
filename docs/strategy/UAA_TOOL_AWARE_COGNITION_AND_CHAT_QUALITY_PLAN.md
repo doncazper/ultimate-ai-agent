@@ -330,6 +330,8 @@ Minimum release thresholds:
   one-sided simultaneous 95% upper bound clearing 2% for every denominator and
   Holm-adjusted familywise alpha of 0.05 across all twelve reported
   selection/block rates;
+- unsupported-request false-support at or below 2%, with its one-sided
+  simultaneous 95% upper bound at or below 2%;
 - recall of an applicable capability at or above 95% on the accepted
   tool-required corpus;
 - top-3 capability hit rate at or above 80%, final route/proposal exact-match at
@@ -370,7 +372,15 @@ case across the same six catalog-state reports used by the false-block gate.
 The false-block numerator is the count in each report that returns any
 non-Tier-0 blocking posture without a selection, and each denominator is every
 ordinary-chat case evaluated in that catalog state. Zero-result cases cannot be
-excluded from either metric. Final route/proposal exact-match is case-level:
+excluded from either metric. The unsupported-request false-support numerator is
+the count of adjudicated unsupported requests evaluated against a valid,
+current catalog that either selects a capability, emits a non-null proposal,
+requests approval, chooses an execution route, or fails to return the exact
+`report_unsupported`/`novel_unsupported` pair. Its denominator is every
+adjudicated unsupported request evaluated against that valid, current catalog;
+no invented-capability or no-match case may be dropped. The metric is reported
+overall and for every predeclared unsupported-request category.
+Final route/proposal exact-match is case-level:
 the numerator requires the exact canonical route, familiarity state, and full
 ordered proposal graph (including an expected null graph), while the denominator
 is every accepted case. A case may contribute to every predeclared capability
@@ -393,10 +403,13 @@ Routing-quality promotion uses one-sided simultaneous 95% lower confidence
 bounds, not point estimates. The applicable-capability recall bound must clear
 95%, the top-3 hit-rate bound must clear 80%, the overall final exact-match
 bound must clear 90%, and every predeclared capability and risk category's
-final exact-match bound must clear 85%. TAW-00 must predeclare the binomial or
-paired estimator and Holm-adjusted familywise alpha of 0.05 across all routing
-metrics, capability categories, and risk categories before results are
-observed. An interval that crosses a threshold is a failed promotion gate.
+final exact-match bound must clear 85%. The unsupported-request false-support
+rate's one-sided simultaneous 95% upper bound must be at or below 2% overall
+and in every predeclared unsupported-request category. TAW-00 must predeclare
+the binomial or paired estimator and Holm-adjusted familywise alpha of 0.05 across all routing
+metrics, capability categories, risk categories, and
+unsupported-request categories before results are observed. An interval that
+crosses a threshold is a failed promotion gate.
 
 ### 7.1 Evaluation governance
 
@@ -446,22 +459,31 @@ the simultaneous one-sided 95% upper bounds for direct-chat false-positive
 tool selection and ordinary-chat false-block posture at or below 2% overall
 and separately for healthy, missing, corrupt, stale, and over-budget catalog
 states; zero unsafe authority decisions with its one-sided 95% upper bound
-below 1%; candidate-error disagreement at or below 5% after every disagreement
-is adjudicated; and all final selection and per-category thresholds above.
+below 1%; the unsupported-request false-support simultaneous upper bounds at or
+below 2% overall and per predeclared unsupported-request category;
+candidate-error disagreement at or below 5% after every disagreement is
+adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%;
+and all final selection and per-category thresholds above. The upper-bound
+family uses the predeclared Holm-adjusted familywise alpha of 0.05 rather than
+testing candidate error or unsupported requests in isolation.
 
 The disagreement population `N` is every predeclared shadow turn for which both
 the accepted router and candidate produced invariant-valid canonical decision
 envelopes. An infrastructure-invalid envelope invalidates the run rather than
-shrinking `N`. `D` is the count whose final canonical route, familiarity state,
-or proposal ref differs. Independent blinded adjudication partitions every
-member of `D` into `A` (the accepted router was wrong and the candidate
-corrected it) or `C` (the candidate was wrong); unresolved or mixed cases make
-promotion fail. The identities `D = A + C`, raw disagreement `D / N`,
-candidate-correction rate `A / N`, and gated candidate-error disagreement
-`C / N` are all reported. Adjudicated-correct candidate improvements therefore
-remain visible in raw disagreement but do not count as candidate errors; the
-promotion ceiling is exactly `C / N <= 0.05`. Shadow evidence remains
-content-free and cannot change responses or authority.
+shrinking `N`. Each envelope carries a canonical proposal-graph fingerprint
+over the ordered step refs, dependency edges, exact target or recipient refs,
+and schema-normalized typed arguments, including the canonical null-graph
+fingerprint. `D` is the count whose final canonical route, familiarity state,
+proposal ref, or canonical proposal-graph fingerprint differs. Independent
+blinded adjudication partitions every member of `D` into `A` (the accepted
+router was wrong and the candidate corrected it) or `C` (the candidate was
+wrong); unresolved or mixed cases make promotion fail. The identities `D = A + C`,
+raw disagreement `D / N`, candidate-correction rate `A / N`, and gated
+candidate-error disagreement `C / N` are all reported. Adjudicated-correct
+candidate improvements therefore remain visible in raw disagreement but do not
+count as candidate errors; both the point estimate `C / N <= 0.05` and its
+one-sided simultaneous 95% upper bound at or below 5% are required. Shadow
+evidence remains content-free and cannot change responses or authority.
 
 Before shadow collection, TAW-00 freezes
 `legacy-router-normalization:v1`. It converts the accepted `TurnDecision` into
