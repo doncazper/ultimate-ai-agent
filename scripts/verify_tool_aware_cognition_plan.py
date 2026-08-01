@@ -375,15 +375,28 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            claim = match.group(0)
+            # Active grants are inherently affirmative: a denial elsewhere in the
+            # sentence cannot negate "this program grants ...". Passive claims may
+            # be the tail of an explicit "No A, B, or C is enabled" denial list,
+            # but a contrastive/new subject clause ends that scope.
+            if re.match(r"(?:this|the) (?:plan|program)\b", claim, re.IGNORECASE):
+                present.append(pattern)
+                break
             sentence_start = max(
                 text.rfind(marker, 0, match.start()) for marker in (".", "!", "?")
             )
             prefix = text[sentence_start + 1 : match.start()]
-            if re.search(
-                r"\b(?:no|not|never|without|non-authorizing)\b",
-                prefix,
-                flags=re.IGNORECASE,
-            ):
+            resets = list(
+                re.finditer(
+                    r"(?:;|\b(?:but|however|yet|nevertheless|whereas)\b|"
+                    r",\s*(?:and\s+)?(?=(?:this|the)\s+(?:plan|program)\b))",
+                    prefix,
+                    flags=re.IGNORECASE,
+                )
+            )
+            scoped_prefix = prefix[resets[-1].end() :] if resets else prefix
+            if re.search(r"\bno\b", scoped_prefix, flags=re.IGNORECASE):
                 continue
             present.append(pattern)
             break

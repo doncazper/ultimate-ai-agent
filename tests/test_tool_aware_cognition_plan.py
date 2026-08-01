@@ -162,6 +162,32 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
         verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "This program does not authorize web fetching, but this program grants "
+        "production authority.",
+        "No web fetching is authorized; this program grants production authority.",
+        "No web fetching is authorized, this program grants production authority.",
+        "No web fetching is authorized, however production authority is enabled.",
+    ),
+)
+def test_authority_negation_does_not_escape_its_clause(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
 def test_missing_structured_authority_denial_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
