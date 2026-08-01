@@ -329,6 +329,41 @@ PLAN_REQUIRED = (
     "must remain isolated and cannot be hidden inside a delivery group",
     "Restrict baseline collection to behavior-preserving instrumentation",
     "capture and seal the accepted-current baseline first",
+    "Every requested effect in a composed request must have one explicit canonical\n"
+    "node with a supported, blocked, unsupported, or clarification-required posture",
+    "cannot silently omit blocked or unsupported nodes or propose or execute a\n"
+    "reduced supported subset unless the operator explicitly confirms an exact scope",
+    "token accounting binds the exact active backend, tokenizer artifact and\n"
+    "  fingerprint, prompt-format version, and estimator version",
+    "tokenizer or estimator drift fails closed before hydration",
+    "For capability-required cases in every missing, corrupt, stale, and over-budget\n"
+    "catalog state, a separate fail-closed census counts any direct-chat fallthrough",
+    "requires exactly zero events in every state; the 90% route threshold cannot\n"
+    "absorb a degraded-catalog fallthrough",
+    "evaluated for every clarification-emitting case\n"
+    "in the complete shadow and active-replay corpus",
+    "Each question must ask for the adjudicated\n"
+    "required safe fields and contain no unrelated, misleading, sensitive, or\n"
+    "contradictory guidance; an invalid or unscored response invalidates the run",
+    "After any failed acceptance cycle, the disclosed holdout population is\n"
+    "permanently retired from promotion use",
+    "requires a fresh,\n"
+    "independently committed holdout and custodian receipt created before the revised\n"
+    "candidate is built",
+    "identical response-and-claim census evaluates every emitted\n"
+    "active-mode response",
+    "assertions that approval is unnecessary or a\n"
+    "blocked effect is permitted even when route and decision fingerprints match",
+    "separate supplied-content instruction census evaluates every accepted case",
+    "without an explicit operator adoption bound\n"
+    "to the effect and scope—is one event",
+    "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
+    "adjudicated selected memory refs, review-status and provenance evidence",
+    "canonical expected-null memory fingerprint",
+    "Lock a content-addressed manifest of every acceptance-affecting routing file",
+    "merged tree must equal that manifest exactly before TAW-08 completion",
+    "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
+    "  cannot be reused",
 )
 QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",
