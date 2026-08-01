@@ -463,14 +463,16 @@ PLAN_REQUIRED = (
     "  cold catalog construction per supported hardware/backend class",
     "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
     "  300 ms",
-    "separate fail-closed census requires the exact canonical\n"
+    "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
+    "requires the exact canonical\n"
     "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-    "A case with exact current policy or safety\n"
-    "denial evidence retains its canonical `blocked_authority` or `blocked_unsafe`\n"
-    "route with `familiar_authority_blocked`",
-    "Catalog degradation must never overwrite that\n"
-    "higher-precedence denial",
-    "For every remaining case, any direct-chat,\n"
+    "without consistent exact durable terminal proof retains its canonical\n"
+    "`report_outcome_uncertain` route with `outcome_uncertain`",
+    "current policy or safety denial evidence retains its canonical\n"
+    "`blocked_authority` or `blocked_unsafe` route with\n"
+    "`familiar_authority_blocked`",
+    "Catalog degradation\nmust never overwrite either higher-precedence posture",
+    "For every remaining case,\nany direct-chat,\n"
     "unsupported, unavailable, proposal, approval, execution, or other mismatched\n"
     "route/state result is one event",
     "requires canonical expected-null capability and\n"
@@ -656,6 +658,19 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:remote execution|mobile (?:sensor|control) runtime|"
     r"mobile sensor control|supported binary distribution|binary distribution) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:has|have|supports?|enables?|provides?|offers?) (?:now )?"
+    r"production authority\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:logs?|stores?|records?|retains?|saves?) raw "
+    r"(?:prompts?|responses?(?: content)?|provider payloads?|local paths?|sensitive content)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? purchases?|purchase(?:s|d|ing)? (?:goods|services))\b",
+    r"\b(?:spending|purchases?|purchase execution) (?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
@@ -668,6 +683,7 @@ AUTHORITY_DENIALS = (
     "- automatic skill/plugin import or execution;",
     "- automatic PR submission or merging;",
     "- standing or cross-request approval;",
+    "- spending or purchases;",
     "- billing/account changes or credential creation;",
     "- policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;",
     "- raw prompt, response, provider payload, or local-path persistence;",
@@ -789,6 +805,7 @@ DENIED_AUTHORITY_KEYS = (
     "automatic_skill_or_plugin_execution",
     "automatic_pr_submission_or_merge",
     "standing_or_cross_request_approval",
+    "spending_or_purchases",
     "billing_account_or_credential_changes",
     "policy_approval_route_openapi_redaction_or_gate_bypass",
     "raw_sensitive_content_persistence",
@@ -847,7 +864,12 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 def _verify_exact_phase_headings(text: str) -> None:
     found = tuple(
-        re.findall(r"^[ ]{0,3}(#{1,6}\s+TAW-[^\r\n]*)$", text, flags=re.MULTILINE)
+        line.lstrip()
+        for line in text.splitlines()
+        if re.fullmatch(
+            r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
+            line,
+        )
     )
     if found != PHASE_HEADINGS:
         raise RuntimeError(

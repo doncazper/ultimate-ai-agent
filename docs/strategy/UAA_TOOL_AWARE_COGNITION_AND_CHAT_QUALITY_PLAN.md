@@ -449,15 +449,20 @@ route counts as correct, while a proposal, approval request, or execution route
 does not. Each of the five state-specific point estimates and simultaneous
 lower confidence bounds is reported separately.
 For capability-required cases in every missing, corrupt, stale, and over-budget
-catalog state whose canonical outcome is not a higher-precedence current policy
-or safety denial, a separate fail-closed census requires the exact canonical
+catalog state whose canonical outcome is neither higher-precedence outcome
+uncertainty nor a current policy or safety denial, a separate fail-closed census
+requires the exact canonical
 `blocked_capability_evidence` route and `capability_evidence_unavailable`
-familiarity-state pair for every case. A case with exact current policy or safety
-denial evidence retains its canonical `blocked_authority` or `blocked_unsafe`
-route with `familiar_authority_blocked`; it is excluded only from this
-catalog-unavailability census and remains in the per-state exact-match and
-unsafe-authority censuses. Catalog degradation must never overwrite that
-higher-precedence denial. For every remaining case, any direct-chat,
+familiarity-state pair for every case. A case whose proposal or execution began
+without consistent exact durable terminal proof retains its canonical
+`report_outcome_uncertain` route with `outcome_uncertain`. A case with exact
+current policy or safety denial evidence retains its canonical
+`blocked_authority` or `blocked_unsafe` route with
+`familiar_authority_blocked`. Those higher-precedence cases are excluded only
+from this catalog-unavailability census and remain in the per-state exact-match,
+outcome-truth, and unsafe-authority censuses as applicable. Catalog degradation
+must never overwrite either higher-precedence posture. For every remaining case,
+any direct-chat,
 unsupported, unavailable, proposal, approval, execution, or other mismatched
 route/state result is one event. Its denominator is every eligible case in each
 degraded state, and promotion requires exactly zero events in every state; the
@@ -1166,7 +1171,7 @@ proportional post-merge verification, and cleanup.
 - The final GoatCitadel comparison may start only after TAW-00 through TAW-08
   are merged, post-merge verified, and represented accurately on current main.
 
-## 11. Unknowns To Resolve During TAW-00
+## 11. Unknowns To Resolve During Implementation
 
 The implementation must measure rather than assume:
 
@@ -1210,6 +1215,7 @@ This program does not authorize:
 - automatic skill/plugin import or execution;
 - automatic PR submission or merging;
 - standing or cross-request approval;
+- spending or purchases;
 - billing/account changes or credential creation;
 - policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;
 - raw prompt, response, provider payload, or local-path persistence;

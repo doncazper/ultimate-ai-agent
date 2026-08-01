@@ -12,6 +12,7 @@
     "automatic_skill_or_plugin_execution": false,
     "automatic_pr_submission_or_merge": false,
     "standing_or_cross_request_approval": false,
+    "spending_or_purchases": false,
     "billing_account_or_credential_changes": false,
     "policy_approval_route_openapi_redaction_or_gate_bypass": false,
     "raw_sensitive_content_persistence": false,

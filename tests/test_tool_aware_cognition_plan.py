@@ -137,7 +137,15 @@ def test_self_authorizing_language_is_rejected(
         "UAA will automatically submit pull requests.",
         "UAA supports standing approval.",
         "UAA can change billing accounts and create credentials.",
+        "UAA can spend money.",
+        "The API can make purchases.",
+        "Spending is now enabled.",
         "UAA can persist raw prompts.",
+        "UAA logs raw prompts.",
+        "The CLI stores raw response content.",
+        "The API records raw provider payloads.",
+        "UAA has production authority.",
+        "The Python Agent Core supports production authority.",
         "Plugin execution is enabled.",
         "PR merging is authorized.",
         "Raw provider payload persistence is allowed.",
@@ -183,6 +191,7 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         "automatic_skill_or_plugin_execution": "UAA can execute plugins.",
         "automatic_pr_submission_or_merge": "UAA can automatically merge PRs.",
         "standing_or_cross_request_approval": "UAA supports standing approval.",
+        "spending_or_purchases": "UAA can spend money.",
         "billing_account_or_credential_changes": "UAA can change billing accounts.",
         "policy_approval_route_openapi_redaction_or_gate_bypass": (
             "UAA can bypass policy checks."
@@ -238,6 +247,7 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "automatic_skill_or_plugin_execution": "Plugin execution is active.",
         "automatic_pr_submission_or_merge": "PR merging is supported.",
         "standing_or_cross_request_approval": "Standing approval is active.",
+        "spending_or_purchases": "Spending is enabled.",
         "billing_account_or_credential_changes": "Credential creation is supported.",
         "policy_approval_route_openapi_redaction_or_gate_bypass": (
             "Policy bypass is active."
@@ -498,6 +508,8 @@ def test_unmanifested_phase_heading_fails_closed(
         "### TAW-09: Extra implementation phase",
         "## TAW-09 - Extra implementation phase",
         "   ### TAW-09 — Extra implementation phase",
+        "### Phase TAW-09 — Extra acceptance phase",
+        "### Workstream TAW-09 — Extra acceptance phase",
     ),
 )
 def test_malformed_or_unmanifested_taw_phase_heading_fails_closed(
@@ -1582,16 +1594,18 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  discovery probe or tool-intent sentinel",
         "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
         "  cold catalog construction per supported hardware/backend class",
-        "separate fail-closed census requires the exact canonical\n"
+        "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
+        "requires the exact canonical\n"
         "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-            "A case with exact current policy or safety\n"
-            "denial evidence retains its canonical `blocked_authority` or `blocked_unsafe`\n"
-            "route with `familiar_authority_blocked`",
-            "Catalog degradation must never overwrite that\n"
-            "higher-precedence denial",
-            "For every remaining case, any direct-chat,\n"
-            "unsupported, unavailable, proposal, approval, execution, or other mismatched\n"
-            "route/state result is one event",
+        "without consistent exact durable terminal proof retains its canonical\n"
+        "`report_outcome_uncertain` route with `outcome_uncertain`",
+        "current policy or safety denial evidence retains its canonical\n"
+        "`blocked_authority` or `blocked_unsafe` route with\n"
+        "`familiar_authority_blocked`",
+        "Catalog degradation\nmust never overwrite either higher-precedence posture",
+        "For every remaining case,\nany direct-chat,\n"
+        "unsupported, unavailable, proposal, approval, execution, or other mismatched\n"
+        "route/state result is one event",
         "requires canonical expected-null capability and\n"
         "operation identity fingerprints plus the bound policy/safety evidence",
         "fabricated-execution-progress event is any claim that execution has started",
