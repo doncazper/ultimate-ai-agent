@@ -15,7 +15,7 @@ def test_tool_aware_cognition_plan_is_complete_and_queue_gated() -> None:
         "normal_chat_fast_path_required": True,
         "direct_chat_quality_non_inferiority_required": True,
         "local_model_preservation_required": True,
-        "documented_familiarity_state_count": 8,
+        "documented_familiarity_state_count": 9,
         "goat_comparison_gate_documented": True,
         "evaluation_governance_required": True,
         "reversible_rollout_required": True,
@@ -32,6 +32,7 @@ def test_tool_aware_cognition_plan_is_complete_and_queue_gated() -> None:
         "`familiar_unavailable`",
         "`familiar_requires_approval`",
         "`familiar_authority_blocked`",
+        "`capability_evidence_unavailable`",
         "`ambiguous`",
         "`novel_unsupported`",
         "`outcome_uncertain`",
@@ -70,12 +71,12 @@ def test_policy_denial_must_precede_ambiguity(
         "   safety boundary denies the exact request;"
     )
     ambiguity = (
-        "3. `ambiguous` when materially different interpretations remain after the\n"
+        "4. `ambiguous` when materially different interpretations remain after the\n"
         "   policy and safety screen;"
     )
     plan.write_text(
-        text.replace(policy, ambiguity.replace("3.", "2.", 1)).replace(
-            ambiguity, policy.replace("2.", "3.", 1), 1
+        text.replace(policy, ambiguity.replace("4.", "2.", 1)).replace(
+            ambiguity, policy.replace("2.", "4.", 1), 1
         ),
         encoding="utf-8",
     )
@@ -308,6 +309,26 @@ def test_plan_requires_blocked_unsafe_mapping_and_nondurable_statistics(
             "recomputable, non-authoritative projection",
             "bounded durable store",
         ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+def test_plan_requires_evidence_bound_legacy_tool_mapping_and_api_contracts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        .replace(
+            "| `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence",
+            "| `prepare_tool_or_action` | `prepare_tool_or_action` | `familiar_supported`",
+        )
+        .replace("stable unique operation IDs", "API route names")
+        .replace("OpenAPI and `/api/manifest` coverage", "API documentation"),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)

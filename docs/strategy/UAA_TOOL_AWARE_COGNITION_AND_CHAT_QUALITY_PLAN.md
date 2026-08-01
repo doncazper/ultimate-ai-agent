@@ -182,7 +182,8 @@ The canonical operator-visible states are:
 | `familiar_input_required` | The exact capability is known and available, but one or more required typed inputs are missing or invalid | Ask only for the missing safe input fields; do not construct an executable proposal |
 | `familiar_unavailable` | The capability is known but is disabled, unhealthy, stale, or absent in the current environment | Explain the bounded limitation and offer safe alternatives |
 | `familiar_requires_approval` | Relevance and inputs are known, an exact graduated authority lane already exists, and execution requires its exact approval | Preview scope and request only that existing exact approval; approval cannot mint or broaden authority |
-| `familiar_authority_blocked` | Relevance and inputs are known, but the current PolicyEngine or applicable safety boundary denies the exact request, or no currently graduated exact authority lane covers the requested effect | Keep the effect blocked and preserve the exact policy/safety reason or future promotion prerequisite; do not request an approval that cannot authorize it or override the denial |
+| `familiar_authority_blocked` | The current PolicyEngine or applicable safety boundary denies the request, including before capability selection, or a known requested effect has no currently graduated exact authority lane | Keep the effect blocked and preserve the exact policy/safety reason or future promotion prerequisite; do not request an approval that cannot authorize it or override the denial |
+| `capability_evidence_unavailable` | A possible tool intent is detected, but the bounded catalog/index evidence is missing, corrupt, stale, or over budget, so capability identity cannot be established safely | Preserve the content-free evidence failure reason, do not claim that a capability is known or unsupported, and do not propose, request approval, or execute |
 | `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification or choose a reversible no-effect response |
 | `novel_unsupported` | No current capability contract adequately covers the requested effect | Do not invent a tool; identify the unsupported need |
 | `outcome_uncertain` | A proposal or execution began but durable terminal proof is missing or inconsistent | Fail closed, preserve evidence, and expose recovery posture |
@@ -203,18 +204,20 @@ score. When more than one state predicate is true, the following fail-closed pre
    absent or inconsistent;
 2. `familiar_authority_blocked` when the current PolicyEngine or applicable
    safety boundary denies the exact request;
-3. `ambiguous` when materially different interpretations remain after the
+3. `capability_evidence_unavailable` when the possible-tool-intent sentinel is
+   positive but bounded catalog/index evidence cannot be validated;
+4. `ambiguous` when materially different interpretations remain after the
    policy and safety screen;
-4. `familiar_authority_blocked` when a known requested effect has no graduated
+5. `familiar_authority_blocked` when a known requested effect has no graduated
    exact authority lane;
-5. `familiar_unavailable` when the known capability is not currently usable;
-6. `familiar_input_required` when the exact usable capability still lacks
+6. `familiar_unavailable` when the known capability is not currently usable;
+7. `familiar_input_required` when the exact usable capability still lacks
    required typed inputs;
-7. `familiar_requires_approval` when complete inputs bind an existing exact
+8. `familiar_requires_approval` when complete inputs bind an existing exact
    lane that requires approval;
-8. `familiar_supported` when the exact no-effect answer or governed proposal is
+9. `familiar_supported` when the exact no-effect answer or governed proposal is
    ready; otherwise
-9. `novel_unsupported`.
+10. `novel_unsupported`.
 
 This ordering prevents ambiguity, an input question, or an approval request
 from obscuring a stronger policy/safety, authority, availability, or recovery
@@ -406,7 +409,8 @@ the same canonical comparison envelope without inventing capability evidence:
 | Accepted `turn_contract` | Canonical route | Canonical familiarity state | Canonical proposal ref |
 |---|---|---|---|
 | `answer_directly`, `base_answer` | unchanged direct-chat route | `familiar_supported` for the built-in direct-chat capability | null |
-| `answer_with_reviewed_memory`, `draft_or_plan`, `prepare_tool_or_action` | unchanged accepted route | `familiar_supported` | null |
+| `answer_with_reviewed_memory`, `draft_or_plan` | unchanged accepted route | `familiar_supported` only when the frozen case supplies the exact no-effect capability identity and current availability proof; `familiar_unavailable` when that exact known capability has validated unavailable evidence; otherwise the envelope is invalid | null |
+| `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence: `familiar_supported` requires exact capability identity, current availability, complete inputs, and proposal readiness; missing inputs map to `familiar_input_required`, validated unavailability maps to `familiar_unavailable`, and a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`; absent or contradictory evidence makes the envelope invalid | null |
 | `approval_required` | `approval_required` | `familiar_requires_approval` only when the frozen case supplies an exact pre-existing authority lane and its availability proof; otherwise `familiar_authority_blocked` | null |
 | `execute_approved_action` | `execute_approved_action` | `familiar_supported` only when the accepted decision's exact approved scope validates; otherwise the envelope is invalid | exact accepted action-scope ref |
 | `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
@@ -538,9 +542,10 @@ proportional post-merge verification, and cleanup.
 ### TAW-05 — Outcome evidence and governed improvement
 
 - Bind attempts to exact durable terminal receipts.
-- Add versioned, redacted outcome statistics using receipt- and attempt-keyed
-  idempotent updates that are auditable, rollback-aware, and immune to retry or
-  recovery replay inflation.
+- Add versioned, redacted, receipt- and attempt-keyed outcome statistics only
+  as a recomputable, non-authoritative projection of immutable receipts; exact
+  replay is deduplicated and conflicting reuse invalidates the projection. No
+  receipt-arrival handler mutates a durable statistics store.
 - Accept operator corrections only as safe refs; require reviewed synthetic or
   fully redacted transformation and a content-safety verifier before an eval
   fixture can become durable.
@@ -552,6 +557,9 @@ proportional post-merge verification, and cleanup.
 
 - Add human-readable route/familiarity inspection to CLI and API.
 - Add a Control Center surface only if it consumes the same backend read model.
+- For every diagnostic API route, preserve stable unique operation IDs, update
+  OpenAPI and `/api/manifest` coverage, declare route side-effect
+  classification, and prove CLI/API parity against the shared Python Core.
 - Hide routine machinery from ordinary chat while making limitations and
   required approvals clear when relevant.
 - Validate redaction and bounded evidence.
