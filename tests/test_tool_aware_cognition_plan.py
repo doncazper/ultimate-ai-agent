@@ -507,6 +507,10 @@ def test_billing_account_authority_predicates_are_rejected(claim: str) -> None:
         "Browser button clicking is supported.",
         "Website authentication is active.",
         "Cookie management is available.",
+        "The API supports form submission.",
+        "UAA supports browser authentication.",
+        "Form submission is active.",
+        "Browser authentication is enabled.",
     ),
 )
 def test_exact_browser_action_authority_claims_fail_full_verifier(
@@ -521,6 +525,18 @@ def test_exact_browser_action_authority_claims_fail_full_verifier(
 
     with pytest.raises(RuntimeError, match="self-authorizing"):
         verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "guidance_claim",
+    (
+        "The API supports guidance for web form submission.",
+        "UAA can describe cookie management.",
+        "The agent can explain browser authentication.",
+    ),
+)
+def test_browser_guidance_is_not_execution_authority(guidance_claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(guidance_claim) == []
 
 
 @pytest.mark.parametrize(
@@ -1829,9 +1845,18 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  contract version",
         "Every\n"
         "  immutable started attempt contributes exactly one attempt-inventory observation",
-        "bounded completion and reconciliation window",
+        "The frozen capability contract defines a\n"
+        "  bounded completion and reconciliation window from the immutable start\n"
+        "  timestamp, including its duration, clock source, and as-of cutoff",
+        "That window must equal the reviewed completion SLA and must not exceed the\n"
+        "  repository-wide hard maximum established outside the capability contract in\n"
+        "  accepted evaluation policy",
+        "Promotion tests reject a missing, invalid, or\n"
+        "  over-cap window; such a window grants no live-attempt denominator exclusion",
         "Still-live attempts inside that window are reported separately and excluded from\n"
         "  outcome-rate denominators",
+        "Their operator-visible route/state remains\n"
+        "  `report_outcome_uncertain`/`outcome_uncertain` under the mandatory precedence",
         "Cancellation and rollback\n"
         "  each contribute one terminal adverse, non-success outcome",
         "A started attempt that exceeds the bound\n"

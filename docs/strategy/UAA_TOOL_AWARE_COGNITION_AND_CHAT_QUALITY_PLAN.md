@@ -198,7 +198,7 @@ The canonical operator-visible states are:
 | `capability_evidence_unavailable` | A possible tool intent is detected, but the bounded catalog/index evidence is missing, corrupt, stale, or over budget, so capability identity cannot be established safely | Preserve the content-free evidence failure reason, do not claim that a capability is known or unsupported, and do not propose, request approval, or execute |
 | `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification through `ask_clarifying_question`; do not choose another route, proposal, approval, or execution posture |
 | `novel_unsupported` | No current capability contract adequately covers the requested effect | Do not invent a tool; identify the unsupported need |
-| `outcome_uncertain` | A proposal or execution began but durable terminal proof is missing or inconsistent | Fail closed, preserve evidence, and expose recovery posture |
+| `outcome_uncertain` | A proposal or execution began but operator-visible durable terminal proof is missing or inconsistent, including while an attempt remains inside its statistical reconciliation window | Fail closed, preserve evidence, and expose recovery posture |
 
 The assessment must include a stable reason-code set and the fingerprints of
 the catalog, selected manifests, policy snapshot, and applicable evaluation
@@ -985,9 +985,15 @@ run rather than disappearing from `N`.
   The frozen capability contract defines a
   bounded completion and reconciliation window from the immutable start
   timestamp, including its duration, clock source, and as-of cutoff.
+  That window must equal the reviewed completion SLA and must not exceed the
+  repository-wide hard maximum established outside the capability contract in
+  accepted evaluation policy. Promotion tests reject a missing, invalid, or
+  over-cap window; such a window grants no live-attempt denominator exclusion.
   Still-live attempts inside that window are reported separately and excluded from
-  outcome-rate denominators; they cannot be labeled successful, failed, or
-  `outcome_uncertain`. Success and failure each contribute one outcome in their
+  outcome-rate denominators; they cannot be labeled successful or failed in the
+  statistical projection. Their operator-visible route/state remains
+  `report_outcome_uncertain`/`outcome_uncertain` under the mandatory precedence
+  until exact terminal proof arrives. Success and failure each contribute one outcome in their
   canonical class. Cancellation and rollback
   each contribute one terminal adverse, non-success outcome. A started attempt that exceeds the bound
   without exact valid terminal proof is reported separately as unresolved with

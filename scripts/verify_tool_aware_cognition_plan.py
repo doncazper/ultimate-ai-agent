@@ -332,9 +332,18 @@ PLAN_REQUIRED = (
     "  rolled-back immutable terminal receipts are the sole inputs",
     "Every\n"
     "  immutable started attempt contributes exactly one attempt-inventory observation",
-    "bounded completion and reconciliation window",
+    "The frozen capability contract defines a\n"
+    "  bounded completion and reconciliation window from the immutable start\n"
+    "  timestamp, including its duration, clock source, and as-of cutoff",
+    "That window must equal the reviewed completion SLA and must not exceed the\n"
+    "  repository-wide hard maximum established outside the capability contract in\n"
+    "  accepted evaluation policy",
+    "Promotion tests reject a missing, invalid, or\n"
+    "  over-cap window; such a window grants no live-attempt denominator exclusion",
     "Still-live attempts inside that window are reported separately and excluded from\n"
     "  outcome-rate denominators",
+    "Their operator-visible route/state remains\n"
+    "  `report_outcome_uncertain`/`outcome_uncertain` under the mandatory precedence",
     "Cancellation and rollback\n"
     "  each contribute one terminal adverse, non-success outcome",
     "A started attempt that exceeds the bound\n"
@@ -714,18 +723,18 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
     r"(?:click(?:s|ed|ing)? (?:browser )?(?:links?|elements?|buttons?|controls?)|browser clicks?|"
-    r"(?:fill(?:s|ed|ing)?|submit(?:s|ted|ting)?) (?:web )?forms?|web form (?:filling|submission)|"
-    r"authenticated browsing|(?:log(?:s|ged|ging)? in|authenticat(?:e|es|ed|ing)) (?:to )?(?:websites?|sites?)|"
+    r"(?:fill(?:s|ed|ing)?|submit(?:s|ted|ting)?) (?:web )?forms?|(?:web )?form (?:filling|submission)|"
+    r"authenticated browsing|browser authentication|"
+    r"(?:log(?:s|ged|ging)? in|authenticat(?:e|es|ed|ing)) (?:to )?(?:websites?|sites?)|"
     r"(?:use|uses|used|using|store|stores|stored|storing|send|sends|sent|sending|"
     r"manage|manages|managed|managing|set|sets|setting|delete|deletes|deleted|deleting) cookies?|"
     r"cookie (?:use|storage|sending|management)|"
     r"download(?:s|ing)?(?: files?)?|upload(?:s|ing)?(?: files?)?|"
     r"(?:perform|execute|send)(?:s|ing)? (?:post[- ]style|http post) mutations?|"
     r"(?:http )?(?:post|put|patch|delete)(?:[- ]style)? (?:requests?|mutations?))\b",
-    r"\b(?:browser (?:clicks?|link clicking|button clicking|control activation)|web form (?:filling|submission)|"
-    r"authenticated browsing|website (?:login|authentication)|"
+    r"\b(?:browser (?:clicks?|link clicking|button clicking|control activation)|(?:web )?form (?:filling|submission)|"
+    r"authenticated browsing|(?:website|browser) (?:login|authentication)|"
     r"cookie (?:use|storage|sending|management)|downloads?|uploads?|"
     r"(?:post[- ]style|http post) mutations?) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
