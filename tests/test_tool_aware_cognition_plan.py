@@ -327,7 +327,7 @@ def test_plan_requires_evidence_bound_legacy_tool_mapping_and_api_contracts(
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
         .replace(
-            "| `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence",
+            "| `prepare_tool_or_action` | Derived with the route/state invariant; `prepare_tool_or_action` only for `familiar_supported` | Derived only from frozen typed evidence",
             "| `prepare_tool_or_action` | `prepare_tool_or_action` | `familiar_supported`",
         )
         .replace("stable unique operation IDs", "API route names")
@@ -351,7 +351,19 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
             "Implement eight canonical familiarity states",
         )
         .replace(
-            "| `approval_required` | `approval_required` | Derived only from frozen typed evidence",
+            "Route and familiarity state are one invariant",
+            "Route and familiarity state are independent labels",
+        )
+        .replace(
+            "`approval_required` only with `familiar_requires_approval`",
+            "`approval_required` may retain any normalized state",
+        )
+        .replace(
+            "| `answer_with_reviewed_memory`, `draft_or_plan` | Derived with the route/state invariant; unchanged accepted route only for `familiar_supported`",
+            "| `answer_with_reviewed_memory`, `draft_or_plan` | unchanged accepted route",
+        )
+        .replace(
+            "| `approval_required` | Derived with the route/state invariant; `approval_required` only for `familiar_requires_approval` | Derived only from frozen typed evidence",
             "| `approval_required` | `approval_required` | `familiar_requires_approval`",
         )
         .replace(
@@ -367,7 +379,7 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
             "incomplete typed inputs map to `familiar_requires_approval`",
         )
         .replace(
-            "| `execute_approved_action` | `execute_approved_action` | Derived only from frozen typed evidence",
+            "| `execute_approved_action` | Derived with the route/state invariant; `execute_approved_action` only for `familiar_supported` | Derived only from frozen typed evidence",
             "| `execute_approved_action` | `execute_approved_action` | `familiar_supported`",
         ),
         encoding="utf-8",
@@ -430,6 +442,14 @@ def test_plan_requires_exact_applicable_capability_recall_population(
         .replace(
             "direct-chat false-positive-selection numerator",
             "direct-chat false-positive selection is reported",
+        )
+        .replace(
+            "direct-chat false-positive tool selection at or below 2% overall",
+            "direct-chat false-positive tool selection is reported overall",
+        )
+        .replace(
+            "all twelve reported\n  selection/block rates",
+            "all reported selection/block rates",
         )
         .replace(
             "Final route/proposal exact-match is case-level",
