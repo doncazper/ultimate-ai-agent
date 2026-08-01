@@ -66,6 +66,11 @@ PLAN_REQUIRED = (
     "same frozen local model",
     "timing each side's actual model-visible payload",
     "Both payload fingerprints are recorded",
+    "predeclares a counterbalanced\n"
+    "  execution order with half of the pairs baseline-first and half\n"
+    "  candidate-first",
+    "one cache and warm-state protocol that is applied identically",
+    "cache/warm-state receipt for each pair",
     "same frozen user case, model artifact, tokenizer, context\n"
     "limit, sampler settings, and seed",
     "sealed accepted-current direct-chat system\n"
@@ -308,7 +313,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:now )?(?:open|available|launched|released) for "
     r"(?:public beta|public release|public distribution)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
-    r"(?:now )?in (?:a )?public beta\b",
+    r"(?:(?!(?:not|never)\b)\w+\s+){0,2}(?:in|entering|live in|running in) "
+    r"(?:a )?public beta\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:has|have) "
+    r"(?:(?!(?:not|never)\b)\w+\s+){0,2}"
+    r"(?:entered|joined|launched|opened|started|begun) (?:a )?public beta\b",
     r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
     r"(?:open|available|launched|ready|enabled|complete)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
@@ -341,6 +350,17 @@ PHASE_HEADINGS = (
     "### TAW-06 — Operator diagnostics",
     "### TAW-07 — Quality, latency, and adversarial hardening",
     "### TAW-08 — Acceptance and GoatCitadel precondition",
+)
+FAMILIARITY_STATES = (
+    "familiar_supported",
+    "familiar_input_required",
+    "familiar_unavailable",
+    "familiar_requires_approval",
+    "familiar_authority_blocked",
+    "capability_evidence_unavailable",
+    "ambiguous",
+    "novel_unsupported",
+    "outcome_uncertain",
 )
 FAMILIARITY_PRECEDENCE = (
     "1. `outcome_uncertain` when work began",
@@ -471,11 +491,47 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 
 def _verify_exact_phase_headings(text: str) -> None:
-    found = tuple(re.findall(r"^#{1,6}\s+TAW-\d+.*$", text, flags=re.MULTILINE))
+    found = tuple(
+        re.findall(r"^[ ]{0,3}(#{1,6}\s+TAW-\d+.*)$", text, flags=re.MULTILINE)
+    )
     if found != PHASE_HEADINGS:
         raise RuntimeError(
             "plan phase headings is missing or contains unmanifested entries"
         )
+
+
+def _verify_familiarity_states(text: str) -> None:
+    start = "The canonical operator-visible states are:\n\n"
+    end = "\n\nThe assessment must include"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise RuntimeError("canonical familiarity state table is invalid")
+    table = text.split(start, 1)[1].split(end, 1)[0]
+    found = tuple(re.findall(r"^\|\s*`([^`]+)`\s*\|", table, flags=re.MULTILINE))
+    if found != FAMILIARITY_STATES:
+        raise RuntimeError("canonical familiarity state set is invalid")
+
+
+def _verify_familiarity_precedence(text: str) -> None:
+    start = (
+        "When more than one state predicate is true, the following fail-closed "
+        "precedence is mandatory:\n\n"
+    )
+    end = "\n\nThis ordering prevents"
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise RuntimeError("familiarity precedence is invalid")
+    block = text.split(start, 1)[1].split(end, 1)[0]
+    _require_ordered("familiarity precedence", block, FAMILIARITY_PRECEDENCE)
+    if any(text.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
+        raise RuntimeError("familiarity precedence has duplicate declarations")
+    state_pattern = "|".join(re.escape(state) for state in FAMILIARITY_STATES)
+    all_numbered_states = tuple(
+        re.findall(rf"^\d+\. `({state_pattern})`", text, flags=re.MULTILINE)
+    )
+    block_numbered_states = tuple(
+        re.findall(rf"^\d+\. `({state_pattern})`", block, flags=re.MULTILINE)
+    )
+    if all_numbered_states != block_numbered_states or len(block_numbered_states) != 10:
+        raise RuntimeError("familiarity precedence has competing declarations")
 
 
 def _verify_zero_tolerance_lines(text: str) -> None:
@@ -674,7 +730,8 @@ def verify() -> dict[str, object]:
         raise RuntimeError(f"self-authorizing language found: {present}")
 
     _verify_exact_phase_headings(plan)
-    _require_ordered("familiarity precedence", plan, FAMILIARITY_PRECEDENCE)
+    _verify_familiarity_states(plan)
+    _verify_familiarity_precedence(plan)
 
     return {
         "status": "passed",
@@ -682,7 +739,7 @@ def verify() -> dict[str, object]:
         "normal_chat_fast_path_required": True,
         "direct_chat_quality_non_inferiority_required": True,
         "local_model_preservation_required": True,
-        "documented_familiarity_state_count": 9,
+        "documented_familiarity_state_count": len(FAMILIARITY_STATES),
         "goat_comparison_gate_documented": True,
         "evaluation_governance_required": True,
         "reversible_rollout_required": True,

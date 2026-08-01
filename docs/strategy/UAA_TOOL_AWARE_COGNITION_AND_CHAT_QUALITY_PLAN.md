@@ -281,7 +281,13 @@ The implementation must meet explicit budgets on supported development Macs:
   bound on the paired UAA-minus-baseline p95 TTFT difference must be at most
   both 50 ms and 5% of that class's baseline p95; TAW-00 predeclares the paired
   bootstrap estimator and Holm-adjusted familywise alpha of 0.05 across all
-  supported classes before measurements begin;
+  supported classes before measurements begin. For every supported
+  hardware/backend class, the harness also predeclares a counterbalanced
+  execution order with half of the pairs baseline-first and half
+  candidate-first (and a deterministic seeded assignment for any odd pair),
+  plus one cache and warm-state protocol that is applied identically before
+  both sides of every pair. The report records the realized order and the
+  cache/warm-state receipt for each pair;
 - compact capability shortlist: warm p95 at or below 50 ms;
 - cold catalog build or refresh: p95 at or below 150 ms for the accepted
   baseline catalog;

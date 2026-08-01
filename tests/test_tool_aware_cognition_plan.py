@@ -153,6 +153,8 @@ def test_equivalent_authority_contradictions_are_rejected(
         "The Ultimate AI Agent provides broad autonomy.",
         "UAA is in public beta.",
         "Ultimate AI Agent is now in a public beta.",
+        "UAA has entered public beta.",
+        "Ultimate AI Agent is currently in public beta.",
     ),
 )
 @pytest.mark.parametrize(
@@ -239,6 +241,8 @@ def test_authority_negation_does_not_escape_its_clause(
         "Public beta is not open.",
         "Broad autonomy is not enabled.",
         "UAA is not production ready.",
+        "UAA is not currently in public beta.",
+        "UAA has not entered public beta.",
         "Ultimate AI Agent is not ready for public release.",
     ),
 )
@@ -319,6 +323,7 @@ def test_unmanifested_phase_heading_fails_closed(
         "### TAW-9 — Extra implementation phase",
         "### TAW-09: Extra implementation phase",
         "## TAW-09 - Extra implementation phase",
+        "   ### TAW-09 — Extra implementation phase",
     ),
 )
 def test_malformed_or_unmanifested_taw_phase_heading_fails_closed(
@@ -332,6 +337,46 @@ def test_malformed_or_unmanifested_taw_phase_heading_fails_closed(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+def test_competing_familiarity_precedence_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\n## Competing familiarity precedence\n\n"
+        + "1. `familiar_requires_approval` before policy review;\n"
+        + "2. `familiar_authority_blocked` after approval.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
+def test_unmanifested_familiarity_state_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    marker = (
+        "| `outcome_uncertain` | A proposal or execution began but durable terminal "
+        "proof is missing or inconsistent | Fail closed, preserve evidence, and expose "
+        "recovery posture |"
+    )
+    extra = (
+        marker
+        + "\n| `familiar_magic` | An unmanifested state | Do not accept hidden drift |"
+    )
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(marker, extra, 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="canonical familiarity state set"):
         verifier.verify()
 
 
@@ -654,6 +699,11 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "limit, sampler settings, and seed",
         "timing each side's actual model-visible payload",
         "Both payload fingerprints are recorded",
+        "predeclares a counterbalanced\n"
+        "  execution order with half of the pairs baseline-first and half\n"
+        "  candidate-first",
+        "one cache and warm-state protocol that is applied identically",
+        "cache/warm-state receipt for each pair",
         "sealed accepted-current direct-chat system\n"
         "payload and prompt-format version",
         "exact candidate\nmodel-visible system payload and prompt-format version",
