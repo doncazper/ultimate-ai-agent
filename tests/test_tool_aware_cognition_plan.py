@@ -792,9 +792,10 @@ def test_unmanifested_familiarity_state_fails_closed(
 ) -> None:
     plan = tmp_path / "plan.md"
     marker = (
-        "| `outcome_uncertain` | A proposal or execution began but durable terminal "
-        "proof is missing or inconsistent | Fail closed, preserve evidence, and expose "
-        "recovery posture |"
+        "| `outcome_uncertain` | A proposal or execution began but operator-visible "
+        "durable terminal proof is missing or inconsistent, including while an attempt "
+        "remains inside its statistical reconciliation window | Fail closed, preserve "
+        "evidence, and expose recovery posture |"
     )
     extra = (
         marker
@@ -815,9 +816,10 @@ def test_unquoted_familiarity_state_fails_closed(
 ) -> None:
     plan = tmp_path / "plan.md"
     marker = (
-        "| `outcome_uncertain` | A proposal or execution began but durable terminal "
-        "proof is missing or inconsistent | Fail closed, preserve evidence, and expose "
-        "recovery posture |"
+        "| `outcome_uncertain` | A proposal or execution began but operator-visible "
+        "durable terminal proof is missing or inconsistent, including while an attempt "
+        "remains inside its statistical reconciliation window | Fail closed, preserve "
+        "evidence, and expose recovery posture |"
     )
     extra = marker + "\n| familiar_magic | An unmanifested state | Fail closed |"
     plan.write_text(
