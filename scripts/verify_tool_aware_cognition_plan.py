@@ -254,6 +254,19 @@ PLAN_REQUIRED = (
     "requires a revised candidate plus a complete shadow and active replay",
     "complete zero-tolerance artifact census also covers every active-mode replay\n"
     "artifact",
+    "hard no-dispatch firewall before every\n"
+    "real dispatcher, executor, connector, shell/subprocess boundary, browser",
+    "uses only fake adapters and isolated\nsynthetic targets",
+    "`execute_approved_action` is normalized and assessed but\nnever dispatched",
+    "immutable zero-execution receipt and per-adapter zero-event\ncounter manifest",
+    "every accepted replay case produced zero\n"
+    "dispatch attempts and zero external or durable side effects",
+    "Every ordinary-chat response emitted by the active harness",
+    "exact response-hash equality\nwith the qualified paired-candidate response",
+    "blinded independent rescoring of the\n"
+    "emitted active response on all four ordinary-chat dimensions",
+    "empty, truncated, missing, or semantically unrelated\n"
+    "ordinary-chat response invalidates the replay",
     "The all-outcome-uncertain fail-closed census denominator is every accepted\n"
     "corpus case in which proposal or execution work began and exact durable\n"
     "terminal proof is absent or inconsistent",
@@ -742,6 +755,28 @@ def _verify_familiarity_precedence(text: str) -> None:
     _require_ordered("familiarity precedence", block, FAMILIARITY_PRECEDENCE)
     if any(text.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
         raise RuntimeError("familiarity precedence has duplicate declarations")
+    numbered_entries = tuple(
+        re.findall(r"^(\d+)\.\s+`([^`]+)`", block, flags=re.MULTILINE)
+    )
+    expected_entries = (
+        ("1", "outcome_uncertain"),
+        ("2", "familiar_authority_blocked"),
+        ("3", "capability_evidence_unavailable"),
+        ("4", "ambiguous"),
+        ("5", "familiar_authority_blocked"),
+        ("6", "familiar_unavailable"),
+        ("7", "familiar_input_required"),
+        ("8", "familiar_requires_approval"),
+        ("9", "familiar_supported"),
+        ("10", "novel_unsupported"),
+    )
+    all_numbered_entries = tuple(
+        re.findall(r"^(\d+)\.\s+", block, flags=re.MULTILINE)
+    )
+    if numbered_entries != expected_entries or len(all_numbered_entries) != len(
+        expected_entries
+    ):
+        raise RuntimeError("familiarity precedence has unmanifested entries")
     state_pattern = "|".join(re.escape(state) for state in FAMILIARITY_STATES)
     all_numbered_states = tuple(
         re.findall(rf"^\d+\. `({state_pattern})`", text, flags=re.MULTILINE)

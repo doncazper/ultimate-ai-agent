@@ -677,6 +677,28 @@ complete zero-tolerance artifact census also covers every active-mode replay
 artifact; representative end-to-end
 journeys cannot substitute for this full-corpus equivalence proof.
 
+The active-mode harness must install a hard no-dispatch firewall before every
+real dispatcher, executor, connector, shell/subprocess boundary, browser
+adapter, and other side-effect adapter. It uses only fake adapters and isolated
+synthetic targets. `execute_approved_action` is normalized and assessed but
+never dispatched. An immutable zero-execution receipt and per-adapter zero-event
+counter manifest must prove that every accepted replay case produced zero
+dispatch attempts and zero external or durable side effects. A missing receipt,
+nonzero counter, reachable real adapter, or attempted dispatch invalidates the
+entire replay; the unsafe-authority census cannot excuse an otherwise in-scope
+mutation.
+
+Every ordinary-chat response emitted by the active harness is also part of the
+equivalence proof. A reproducible backend requires exact response-hash equality
+with the qualified paired-candidate response for the same case. A predeclared
+non-reproducible backend instead requires blinded independent rescoring of the
+emitted active response on all four ordinary-chat dimensions, with the same
+complete-population and simultaneous confidence-bound non-inferiority gates as
+paired acceptance. An empty, truncated, missing, or semantically unrelated
+ordinary-chat response invalidates the replay. Durable evidence stores only
+content-safe refs, hashes, scores, and adjudication receipts, never raw response
+content.
+
 The all-outcome-uncertain fail-closed census denominator is every accepted
 corpus case in which proposal or execution work began and exact durable
 terminal proof is absent or inconsistent, counted exactly once in shadow mode

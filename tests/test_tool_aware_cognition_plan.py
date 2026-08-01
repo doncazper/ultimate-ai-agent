@@ -463,6 +463,28 @@ def test_competing_familiarity_precedence_fails_closed(
         verifier.verify()
 
 
+def test_unmanifested_state_in_familiarity_precedence_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    marker = (
+        "3. `capability_evidence_unavailable` when the possible-tool-intent sentinel is\n"
+    )
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            marker,
+            "3. `familiar_magic` when an unmanifested predicate is true;\n"
+            + marker.replace("3.", "4.", 1),
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
 def test_unmanifested_familiarity_state_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1039,6 +1061,42 @@ def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(
     assert required_fragment in text
     plan.write_text(
         text.replace(required_fragment, "removed-required-review-gate", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "required_fragment",
+    (
+        "hard no-dispatch firewall before every\n"
+        "real dispatcher, executor, connector, shell/subprocess boundary, browser",
+        "uses only fake adapters and isolated\nsynthetic targets",
+        "`execute_approved_action` is normalized and assessed but\nnever dispatched",
+        "immutable zero-execution receipt and per-adapter zero-event\n"
+        "counter manifest",
+        "Every ordinary-chat response emitted by the active harness",
+        "exact response-hash equality\n"
+        "with the qualified paired-candidate response",
+        "blinded independent rescoring of the\n"
+        "emitted active response on all four ordinary-chat dimensions",
+        "empty, truncated, missing, or semantically unrelated\n"
+        "ordinary-chat response invalidates the replay",
+    ),
+)
+def test_active_replay_safety_and_response_proof_is_required(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required_fragment: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    assert required_fragment in text
+    plan.write_text(
+        text.replace(required_fragment, "removed-active-replay-proof", 1),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
