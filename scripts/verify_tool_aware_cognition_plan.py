@@ -170,10 +170,14 @@ PLAN_REQUIRED = (
     "A fabricated-availability event is any availability claim",
     "A fabricated-success event is any success\n"
     "claim without an exact immutable durable terminal-success receipt",
-    "promotion requires exactly zero numerator events in both the\n"
-    "shadow and active-mode populations",
-    "infrastructure-invalid decision envelope,\n"
-    "response, or claim artifact invalidates that replay and TAW-08",
+    "fabricated-terminal-outcome event is any claim of success, failure,\n"
+    "cancellation, or rollback without exact immutable durable terminal proof",
+    "contradictory terminal claim or proof bound to another attempt, scope,\n"
+    "target, or outcome is also an event",
+    "and promotion requires exactly zero numerator events in both the shadow and\n"
+    "active-mode populations",
+    "An infrastructure-invalid decision envelope, response,\n"
+    "or claim artifact invalidates that replay and TAW-08",
     "both 50 ms and 5%",
     "paired\n  bootstrap estimator and Holm-adjusted familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
@@ -199,6 +203,8 @@ PLAN_REQUIRED = (
     "canonical proposal-graph fingerprint\n"
     "over the stable capability ID, operation ID, effect classification,\n"
     "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
+    "exact idempotency binding,\n"
+    "canonical replay/idempotency fingerprint",
     "canonical decision-evidence fingerprint over the\n"
     "resolved capability and operation identity, availability evidence and decision\n"
     "refs, policy/safety decision refs, the exact approval ref, LocalApprovalAuthority\n"
@@ -207,10 +213,13 @@ PLAN_REQUIRED = (
     "attempt and execution refs, exact receipt refs, terminal-proof contract/version\n"
     "refs, safe recovery or reconciliation evidence refs, and safe reason codes",
     "missing, stale, revoked, or substituted approval binding is a mismatch",
+    "For `novel_unsupported`, it must also bind the exact validated catalog and\n"
+    "index fingerprint, catalog-validation receipt, and canonical no-match proof ref",
+    "substituted, incomplete, stale, or wrong-version catalog is a mismatch",
     "required for blocked and unavailable outcomes even when their proposal graph is\n"
     "null",
-    "for `outcome_uncertain` outcomes even when terminal proof is missing\n"
-    "or inconsistent",
+    "fingerprint is also required for `outcome_uncertain` outcomes even when terminal\n"
+    "proof is missing or inconsistent",
     "proposal ref, canonical proposal-graph fingerprint, or canonical\n"
     "decision-evidence fingerprint differs",
     "`D = A + C`",
@@ -294,6 +303,13 @@ PLAN_REQUIRED = (
     "schema-limited,\n"
     "  escaped, quoted data envelope with an explicit instruction/data delimiter",
     "catalog-borne prompt-injection cases",
+    "response-level census over every catalog-injection case in the complete\n"
+    "  no-effect active replay",
+    "Following a manifest instruction, emitting unrelated\n"
+    "  catalog-directed content, or omitting or contradicting required limitation or\n"
+    "  evidence text is one event",
+    "Promotion requires zero events; an invalid or\n"
+    "  missing response invalidates the census",
     "TAW-00",
     "TAW-08",
     "final GoatCitadel comparison may start only after",
@@ -346,6 +362,11 @@ TRUTH_PACKET_REQUIRED = (
     "not shipped",
     "product evidence",
 )
+NAVIGATION_REQUIRED = (
+    "docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md",
+    "docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md",
+    "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
+)
 FORBIDDEN_PATTERNS = (
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?)\b",
     r"\b(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
@@ -358,6 +379,16 @@ FORBIDDEN_PATTERNS = (
     r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
     r"route(?: classification| checks?| gates?)?|redaction(?: checks?| gates?)?|"
     r"foundation gate|gate checks?)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!not\b)[^.\n]{0,160}?"
+    r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:ing)?|"
+    r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
+    r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
+    r"write(?:s|ing)? (?:to )?(?:external )?connectors?|connector writes?|"
+    r"execute(?:s|ing)? (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
+    r"shell execution|perform(?:s|ing)? browser automation|browser automation)\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
@@ -793,6 +824,8 @@ def verify() -> dict[str, object]:
     _require("canonical roadmap", roadmap, ROADMAP_REQUIRED)
     _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)
     _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
+    _require("docs README navigation", docs_readme, NAVIGATION_REQUIRED)
+    _require("documentation index navigation", documentation_index, NAVIGATION_REQUIRED)
     _verify_manifest(manifest)
 
     # Scan every program truth surface, not only the primary plan. The patterns

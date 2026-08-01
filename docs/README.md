@@ -3,7 +3,9 @@
 Tool-aware cognition and normal-chat quality are governed by
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` and its
 ordered pre-Goat queue record,
-`docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`. This program
+`docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`, and immutable
+remaining-queue manifest,
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. This program
 extends the existing Turn Contract Router, preserves the local model as UAA's
 language/reasoning engine, and grants no runtime authority by itself.
 
