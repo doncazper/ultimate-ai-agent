@@ -1030,6 +1030,12 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "TAW-00 freezes the complete supported product-language set",
             "Every supported language is a mandatory\n"
             "evaluation stratum",
+            "Within each language and every applicable language-by-catalog-state\n"
+            "intersection, the applicable simultaneous bounds must independently clear",
+            "A pooled per-language result or pooled\n"
+            "per-state result cannot substitute for an intersection result",
+            "Missing or underpowered language or intersection evidence is a failed TAW-08\n"
+            "gate",
             "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
             "  catalog state, with exactly zero observed false-block events in each missing,\n"
             "  corrupt, stale, and over-budget catalog state",
@@ -1553,10 +1559,14 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
             "An ordinary-chat case must also\n"
             "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
             "match its sealed routing/tool-acceptance candidate artifact",
-        "exact legacy-router route, payload, response, and empty awareness-context\n"
-        "equivalence",
-        "Any awareness routing, compact discovery, manifest hydration, or changed legacy\n"
-        "payload while safe-disable is engaged invalidates promotion",
+        "exact legacy-router route, payload, response, empty awareness-context, and\n"
+        "complete durable-evidence artifact-set and fingerprint equivalence",
+        "No\n"
+        "awareness-specific decision envelope or other durable record may appear in the\n"
+        "safe-disabled artifact set",
+        "Any awareness routing, compact discovery, manifest hydration, changed\n"
+        "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
+        "safe-disable is engaged invalidates promotion",
     ),
 )
 def test_plan_requires_exact_head_response_and_composition_gates(

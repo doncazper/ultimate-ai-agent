@@ -591,15 +591,17 @@ TAW-00 freezes the complete supported product-language set before cases or
 candidate results are observed. Every supported language is a mandatory
 evaluation stratum with predeclared, power-justified counts for ordinary chat,
 tool-required routing, unsupported requests, and paired direct-chat quality.
-Within each language, the applicable simultaneous bounds must independently
-clear the 95% recall, 80% top-3 hit-rate, 90% final exact-match, 2%
+Within each language and every applicable language-by-catalog-state
+intersection, the applicable simultaneous bounds must independently clear the
+95% recall, 80% top-3 hit-rate, 90% final exact-match, 2%
 false-positive-selection, healthy and overall 2% false-block, 2% unsupported
-false-support, and `-5 percentage-point` non-inferiority thresholds, while each
-degraded catalog state must have exactly zero observed ordinary-chat false-block
-events in that language. TAW-00 includes every
-per-language metric in the predeclared Holm-adjusted family. Missing or
-underpowered language evidence is a failed TAW-08 gate rather than permission
-to pool that language into a larger stratum.
+false-support, and `-5 percentage-point` non-inferiority thresholds. Each
+degraded catalog state must also have exactly zero observed ordinary-chat
+false-block events in every language. A pooled per-language result or pooled
+per-state result cannot substitute for an intersection result. TAW-00 includes
+every applicable intersection metric in the predeclared Holm-adjusted family.
+Missing or underpowered language or intersection evidence is a failed TAW-08
+gate rather than permission to pool it into a larger stratum.
 
 ### 7.1 Evaluation governance
 
@@ -731,11 +733,14 @@ journeys cannot substitute for this full-corpus equivalence proof.
 
 The complete accepted corpus must also be replayed with explicit safe-disable
 engaged while the catalog is otherwise healthy. Every case must prove
-exact legacy-router route, payload, response, and empty awareness-context
-equivalence,
+exact legacy-router route, payload, response, empty awareness-context, and
+complete durable-evidence artifact-set and fingerprint equivalence. No
+awareness-specific decision envelope or other durable record may appear in the
+safe-disabled artifact set,
 with the same hard no-dispatch fence and zero-event receipts used by the active
-replay. Any awareness routing, compact discovery, manifest hydration, or changed legacy
-payload while safe-disable is engaged invalidates promotion. Sampled
+replay. Any awareness routing, compact discovery, manifest hydration, changed
+legacy payload, or changed durable-evidence artifact or fingerprint while
+safe-disable is engaged invalidates promotion. Sampled
 recovery journeys cannot replace this complete safe-disabled denominator.
 
 The active-mode harness must install a hard no-dispatch firewall before every

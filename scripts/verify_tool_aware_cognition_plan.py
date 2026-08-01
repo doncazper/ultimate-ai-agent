@@ -176,6 +176,12 @@ PLAN_REQUIRED = (
     "TAW-00 freezes the complete supported product-language set",
     "Every supported language is a mandatory\n"
     "evaluation stratum",
+    "Within each language and every applicable language-by-catalog-state\n"
+    "intersection, the applicable simultaneous bounds must independently clear",
+    "A pooled per-language result or pooled\n"
+    "per-state result cannot substitute for an intersection result",
+    "Missing or underpowered language or intersection evidence is a failed TAW-08\n"
+    "gate",
     "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
     "  quality gates",
     "The unsafe-authority numerator is the count of predeclared authority-risk",
@@ -293,10 +299,14 @@ PLAN_REQUIRED = (
     "artifact",
     "complete accepted corpus must also be replayed with explicit safe-disable\n"
     "engaged while the catalog is otherwise healthy",
-    "exact legacy-router route, payload, response, and empty awareness-context\n"
-    "equivalence",
-    "Any awareness routing, compact discovery, manifest hydration, or changed legacy\n"
-    "payload while safe-disable is engaged invalidates promotion",
+    "exact legacy-router route, payload, response, empty awareness-context, and\n"
+    "complete durable-evidence artifact-set and fingerprint equivalence",
+    "No\n"
+    "awareness-specific decision envelope or other durable record may appear in the\n"
+    "safe-disabled artifact set",
+    "Any awareness routing, compact discovery, manifest hydration, changed\n"
+    "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
+    "safe-disable is engaged invalidates promotion",
     "hard no-dispatch firewall before every\n"
     "real dispatcher, executor, connector, shell/subprocess boundary, browser",
     "uses only fake adapters and isolated\nsynthetic targets",
