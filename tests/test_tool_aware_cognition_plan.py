@@ -498,6 +498,15 @@ def test_billing_account_authority_predicates_are_rejected(claim: str) -> None:
         "Browser clicks are enabled.",
         "The API supports browser clicks.",
         "The runtime supports PATCH requests.",
+        "UAA can submit web forms.",
+        "UAA can click browser buttons.",
+        "UAA can log in to websites.",
+        "UAA can manage cookies.",
+        "UAA can authenticate to websites.",
+        "Web form submission is enabled.",
+        "Browser button clicking is supported.",
+        "Website authentication is active.",
+        "Cookie management is available.",
     ),
 )
 def test_exact_browser_action_authority_claims_fail_full_verifier(
@@ -1819,12 +1828,16 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "exact start-evidence ref, receipt ref, attempt ref,\n"
         "  contract version",
         "Every\n"
-        "  immutable started attempt contributes exactly one denominator observation",
+        "  immutable started attempt contributes exactly one attempt-inventory observation",
+        "bounded completion and reconciliation window",
+        "Still-live attempts inside that window are reported separately and excluded from\n"
+        "  outcome-rate denominators",
         "Cancellation and rollback\n"
         "  each contribute one terminal adverse, non-success outcome",
-        "A started attempt\n"
+        "A started attempt that exceeds the bound\n"
         "  without exact valid terminal proof is reported separately as unresolved with\n"
-        "  `outcome_uncertain` posture and as a non-success observation",
+        "  `outcome_uncertain` posture and as a non-success observation in every health,\n"
+        "  reliability, and familiarity outcome-rate denominator",
         "A terminal receipt\n"
         "  without its exact bound start evidence invalidates the projection",
     ),

@@ -981,12 +981,21 @@ run rather than disappearing from `N`.
   contract version, and safe environment class; the projection is never durably
   mutated by receipt arrival, exact replay is deduplicated, and conflicting
   reuse invalidates the projection and produces auditable evidence. Every
-  immutable started attempt contributes exactly one denominator observation. Success and failure each
-  contribute one outcome in their canonical class. Cancellation and rollback
-  each contribute one terminal adverse, non-success outcome. A started attempt
+  immutable started attempt contributes exactly one attempt-inventory observation.
+  The frozen capability contract defines a
+  bounded completion and reconciliation window from the immutable start
+  timestamp, including its duration, clock source, and as-of cutoff.
+  Still-live attempts inside that window are reported separately and excluded from
+  outcome-rate denominators; they cannot be labeled successful, failed, or
+  `outcome_uncertain`. Success and failure each contribute one outcome in their
+  canonical class. Cancellation and rollback
+  each contribute one terminal adverse, non-success outcome. A started attempt that exceeds the bound
   without exact valid terminal proof is reported separately as unresolved with
-  `outcome_uncertain` posture and as a non-success observation; it cannot be
-  dropped from health, reliability, or familiarity evidence. A terminal receipt
+  `outcome_uncertain` posture and as a non-success observation in every health,
+  reliability, and familiarity outcome-rate denominator; it cannot be dropped
+  from outcome evidence. The projection publishes attempt-inventory count,
+  still-live count, unresolved-overdue count, terminal count, the frozen bound,
+  and the as-of cutoff so operators can reconcile the populations. A terminal receipt
   without its exact bound start evidence invalidates the projection. Any future
   persisted materialization is a separate exact PolicyEngine- and LocalApprovalAuthority-
   bound mutation lane with idempotency, rollback, and redaction tests;

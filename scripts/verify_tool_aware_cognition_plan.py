@@ -331,12 +331,16 @@ PLAN_REQUIRED = (
     "immutable started-attempt evidence plus successful, failed, canceled, and\n"
     "  rolled-back immutable terminal receipts are the sole inputs",
     "Every\n"
-    "  immutable started attempt contributes exactly one denominator observation",
+    "  immutable started attempt contributes exactly one attempt-inventory observation",
+    "bounded completion and reconciliation window",
+    "Still-live attempts inside that window are reported separately and excluded from\n"
+    "  outcome-rate denominators",
     "Cancellation and rollback\n"
     "  each contribute one terminal adverse, non-success outcome",
-    "A started attempt\n"
+    "A started attempt that exceeds the bound\n"
     "  without exact valid terminal proof is reported separately as unresolved with\n"
-    "  `outcome_uncertain` posture and as a non-success observation",
+    "  `outcome_uncertain` posture and as a non-success observation in every health,\n"
+    "  reliability, and familiarity outcome-rate denominator",
     "A terminal receipt\n"
     "  without its exact bound start evidence invalidates the projection",
     "hard no-dispatch firewall before every\n"
@@ -711,14 +715,18 @@ FORBIDDEN_PATTERNS = (
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
-    r"(?:click(?:s|ing)? (?:browser )?(?:links?|elements?)|browser clicks?|"
-    r"fill(?:s|ing)? (?:web )?forms?|web form filling|authenticated browsing|"
-    r"(?:use|store|send)(?:s|ing)? cookies?|cookie (?:use|storage|sending)|"
+    r"(?:click(?:s|ed|ing)? (?:browser )?(?:links?|elements?|buttons?|controls?)|browser clicks?|"
+    r"(?:fill(?:s|ed|ing)?|submit(?:s|ted|ting)?) (?:web )?forms?|web form (?:filling|submission)|"
+    r"authenticated browsing|(?:log(?:s|ged|ging)? in|authenticat(?:e|es|ed|ing)) (?:to )?(?:websites?|sites?)|"
+    r"(?:use|uses|used|using|store|stores|stored|storing|send|sends|sent|sending|"
+    r"manage|manages|managed|managing|set|sets|setting|delete|deletes|deleted|deleting) cookies?|"
+    r"cookie (?:use|storage|sending|management)|"
     r"download(?:s|ing)?(?: files?)?|upload(?:s|ing)?(?: files?)?|"
     r"(?:perform|execute|send)(?:s|ing)? (?:post[- ]style|http post) mutations?|"
     r"(?:http )?(?:post|put|patch|delete)(?:[- ]style)? (?:requests?|mutations?))\b",
-    r"\b(?:browser (?:clicks?|link clicking)|web form filling|authenticated browsing|"
-    r"cookie (?:use|storage|sending)|downloads?|uploads?|"
+    r"\b(?:browser (?:clicks?|link clicking|button clicking|control activation)|web form (?:filling|submission)|"
+    r"authenticated browsing|website (?:login|authentication)|"
+    r"cookie (?:use|storage|sending|management)|downloads?|uploads?|"
     r"(?:post[- ]style|http post) mutations?) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
