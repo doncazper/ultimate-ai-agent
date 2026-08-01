@@ -141,6 +141,18 @@ def test_self_authorizing_language_is_rejected(
         "Plugin execution is enabled.",
         "PR merging is authorized.",
         "Raw provider payload persistence is allowed.",
+        "UAA fetches the public web.",
+        "UAA calls a runtime provider.",
+        "The system writes to external connectors.",
+        "The runtime executes an unrestricted subprocess.",
+        "The runtime performs browser automation.",
+        "UAA executes plugins.",
+        "The agent submits pull requests.",
+        "The product uses standing approval.",
+        "The system changes billing accounts.",
+        "The runtime creates credentials.",
+        "UAA bypasses approval validation.",
+        "The product persists raw provider payloads.",
     ),
 )
 def test_equivalent_authority_contradictions_are_rejected(
@@ -315,6 +327,9 @@ def test_authority_negation_does_not_escape_its_clause(
         "UAA can explain why it can't execute plugins.",
         "UAA cannot fetch the web, but can explain why it cannot execute plugins.",
         "The runtime cannot write to connectors; however it cannot execute a shell.",
+        "UAA does not fetch the public web.",
+        "UAA never executes plugins.",
+        "The runtime no longer performs browser automation.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -461,6 +476,26 @@ def test_unmanifested_familiarity_state_fails_closed(
         marker
         + "\n| `familiar_magic` | An unmanifested state | Do not accept hidden drift |"
     )
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(marker, extra, 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="canonical familiarity state set"):
+        verifier.verify()
+
+
+def test_unquoted_familiarity_state_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    marker = (
+        "| `outcome_uncertain` | A proposal or execution began but durable terminal "
+        "proof is missing or inconsistent | Fail closed, preserve evidence, and expose "
+        "recovery posture |"
+    )
+    extra = marker + "\n| familiar_magic | An unmanifested state | Fail closed |"
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8").replace(marker, extra, 1),
         encoding="utf-8",
@@ -1251,6 +1286,13 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  100 ms",
         "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
         "  300 ms",
+        "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
+        "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
+        "end-to-end supported tool-turn time to first token, from Tier 1 routing through\n"
+        "  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
+        "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
+        "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
+        "  cold catalog construction per supported hardware/backend class",
         "separate fail-closed census requires the exact canonical\n"
         "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
         "Any direct-chat, unsupported, unavailable,\n"

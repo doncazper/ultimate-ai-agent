@@ -304,17 +304,23 @@ The implementation must meet explicit budgets on supported development Macs:
   cache/warm-state receipt for each pair;
 - compact capability shortlist: warm p95 at or below 50 ms and p99 at or below
   100 ms;
+- Tier 2 manifest read, schema validation, and schema-limited rendering at the
+  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms;
+- end-to-end supported tool-turn time to first token, from Tier 1 routing through
+  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model
+  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms for every
+  supported hardware/backend class. The measurement uses the exact hydrated
+  model-visible payload and stops only when the first model token is available;
 - cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
   300 ms for the accepted baseline catalog;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
-  retrieval, and cold catalog construction per supported hardware/backend class.
-  Each warm metric uses at least 1,000 independent measured turns per class and
+  retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and
+  cold catalog construction per supported hardware/backend class. Each warm metric uses at least 1,000 independent measured turns per class and
   each cold-build metric uses at least 200 independent clean constructions per
-  class, or a larger count required by the recorded power calculation. The
-  protocol fixes warm-up exclusion, cache/reset state, randomized execution
-  order, monotonic clock, percentile estimator, bootstrap method, and
-  Holm-adjusted familywise alpha of 0.05 before results are observed. Both the
-  p95/p99 point estimate and its one-sided simultaneous 95% upper confidence
+  class, or a larger count required by the recorded power calculation. The protocol
+  fixes warm-up exclusion, cache/reset state, randomized execution order,
+  monotonic clock, percentile estimator, bootstrap method, and Holm-adjusted familywise
+  alpha of 0.05 before results are observed. Both the p95/p99 point estimate and its one-sided simultaneous 95% upper confidence
   bound must clear the applicable budget; an under-counted, dependent,
   selectively excluded, or infrastructure-invalid sample set fails TAW-08;
 - Tier 0 exposes zero tool manifests;
@@ -890,8 +896,10 @@ proportional post-merge verification, and cleanup.
   corpus, blinded scoring, and statistical benchmark layers. Do not conflate
   capability-task success with ordinary-chat quality.
 - Record baseline routing accuracy, paired same-model ordinary-chat quality,
-  time to first token, routing latency, catalog scale, and current failure
-  categories under frozen model, inference, and prompt-format identities.
+  direct-chat time to first token, routing latency, Tier 2 manifest-hydration
+  latency, end-to-end supported tool-turn time to first token, catalog scale,
+  and current failure categories under frozen model, inference, and
+  prompt-format identities.
 - Restrict baseline collection to behavior-preserving instrumentation and
   frozen inference controls. Do not change routing, prompts, model-visible
   formatting, policy, or operator-visible runtime behavior before the accepted

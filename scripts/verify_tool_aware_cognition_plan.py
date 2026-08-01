@@ -367,6 +367,13 @@ PLAN_REQUIRED = (
     "  cannot be reused",
     "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
     "  100 ms",
+    "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
+    "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
+    "end-to-end supported tool-turn time to first token, from Tier 1 routing through\n"
+    "  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
+    "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
+    "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
+    "  cold catalog construction per supported hardware/backend class",
     "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
     "  300 ms",
     "separate fail-closed census requires the exact canonical\n"
@@ -431,6 +438,24 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:es|ing)?|"
+    r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
+    r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
+    r"writ(?:e|es|ing) (?:to )?(?:external )?connectors?|connector writes?|"
+    r"execut(?:e|es|ing) (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
+    r"perform(?:s|ing)? browser automation|"
+    r"(?:automatically )?(?:import(?:s|ing)?|activat(?:e|es|ing)|execut(?:e|es|ing)) (?:skills?|plugins?)|"
+    r"(?:automatically )?(?:submit(?:s|ting)?|merg(?:e|es|ing)) (?:pull requests?|PRs?)|"
+    r"(?:us(?:e|es|ing)|grant(?:s|ing)?) (?:a )?(?:standing|cross-request) approval|"
+    r"(?:chang(?:e|es|ing)|modif(?:y|ies|ying)) (?:billing|accounts?)|"
+    r"creat(?:e|es|ing) credentials?|"
+    r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
+    r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
+    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
+    r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to) "
     r"(?:bypass|skip|ignore|disable|override|weaken) (?:the )?"
@@ -684,8 +709,24 @@ def _verify_familiarity_states(text: str) -> None:
     if text.count(start) != 1 or text.count(end) != 1:
         raise RuntimeError("canonical familiarity state table is invalid")
     table = text.split(start, 1)[1].split(end, 1)[0]
-    found = tuple(re.findall(r"^\|\s*`([^`]+)`\s*\|", table, flags=re.MULTILINE))
-    if found != FAMILIARITY_STATES:
+    rows = tuple(line.strip() for line in table.splitlines() if line.strip())
+    if len(rows) != len(FAMILIARITY_STATES) + 2:
+        raise RuntimeError("canonical familiarity state set is invalid")
+    if rows[0] != "| State | Meaning | Required behavior |" or re.fullmatch(
+        r"\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|",
+        rows[1],
+    ) is None:
+        raise RuntimeError("canonical familiarity state set is invalid")
+    found: list[str] = []
+    for row in rows[2:]:
+        match = re.fullmatch(
+            r"\|\s*`([^`|]+)`\s*\|\s*[^|]+\|\s*[^|]+\|",
+            row,
+        )
+        if match is None:
+            raise RuntimeError("canonical familiarity state set is invalid")
+        found.append(match.group(1))
+    if tuple(found) != FAMILIARITY_STATES:
         raise RuntimeError("canonical familiarity state set is invalid")
 
 
