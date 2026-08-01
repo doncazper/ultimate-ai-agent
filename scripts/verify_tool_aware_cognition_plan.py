@@ -59,6 +59,8 @@ PLAN_REQUIRED = (
     "Its denominator is every adjudicated\n"
     "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
     "over-budget catalog states",
+    "Every unsupported-request-category-by-catalog-state intersection is\nmandatory",
+    "Missing or underpowered intersection\nevidence fails TAW-08",
     "no invented-capability, no-match, policy-denied, or\n"
     "degraded-catalog case may be dropped",
     "A policy or\n"
@@ -298,15 +300,20 @@ PLAN_REQUIRED = (
     "complete zero-tolerance artifact census also covers every active-mode replay\n"
     "artifact",
     "complete accepted corpus must also be replayed with explicit safe-disable\n"
-    "engaged while the catalog is otherwise healthy",
-    "exact legacy-router route, payload, response, empty awareness-context, and\n"
-    "complete durable-evidence artifact-set and fingerprint equivalence",
-    "No\n"
-    "awareness-specific decision envelope or other durable record may appear in the\n"
+    "engaged in the healthy, missing, corrupt, stale, and over-budget catalog states",
+    "Every case in every state must prove exact legacy-router route, payload,\n"
+    "response, empty awareness-context, and complete durable-evidence artifact-set\n"
+    "and fingerprint equivalence",
+    "No awareness-specific decision envelope or other durable record may appear in the\n"
     "safe-disabled artifact set",
     "Any awareness routing, compact discovery, manifest hydration, changed\n"
     "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
     "safe-disable is engaged invalidates promotion",
+    "successful, failed, canceled, and rolled-back immutable terminal receipts are\n"
+    "  the sole inputs",
+    "Cancellation and rollback\n"
+    "  each contribute one terminal adverse, non-success outcome and cannot be\n"
+    "  omitted",
     "hard no-dispatch firewall before every\n"
     "real dispatcher, executor, connector, shell/subprocess boundary, browser",
     "uses only fake adapters and isolated\nsynthetic targets",
@@ -613,27 +620,27 @@ FORBIDDEN_PATTERNS = (
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
     r"ready for public (?:beta|release|distribution))\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?!(?:not|never)\b)(?:now )?(?:generally available|ga)"
     r"(?: for (?:public |general )?production(?: use)?)?\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
     r"(?:has|have) (?!(?:not|never)\b)(?:now )?(?:reached|entered|launched into) "
     r"general availability\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?:now )?(?:open|available|launched|released) for "
     r"(?:public beta|public release|public distribution)\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?:(?!(?:not|never)\b)\w+\s+){0,2}(?:in|entering|live in|running in) "
     r"(?:a )?public beta\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:has|have) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:has|have) "
     r"(?:(?!(?:not|never)\b)\w+\s+){0,2}"
     r"(?:entered|joined|launched|opened|started|begun) (?:a )?public beta\b",
     r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
     r"(?:open|available|launched|ready|enabled|complete)\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
     r"(?:has|have|provides?|offers?|delivers?|supports?|enables?) (?:now )?"
     r"(?:broad|unrestricted|full) autonomy\b",
     r"\b(?:broad|unrestricted|full) autonomy (?:is|are) (?:now )?"
@@ -888,7 +895,7 @@ def _verify_familiarity_precedence(text: str) -> None:
     if any(text.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
         raise RuntimeError("familiarity precedence has duplicate declarations")
     numbered_entries = tuple(
-        re.findall(r"^[ ]{0,3}(\d+)\.\s+`([^`]+)`", block, flags=re.MULTILINE)
+        re.findall(r"^[ ]{0,3}(\d+)[.)]\s+`([^`]+)`", block, flags=re.MULTILINE)
     )
     expected_entries = (
         ("1", "outcome_uncertain"),
@@ -903,7 +910,7 @@ def _verify_familiarity_precedence(text: str) -> None:
         ("10", "novel_unsupported"),
     )
     all_numbered_entries = tuple(
-        re.findall(r"^[ ]{0,3}(\d+)\.\s+", block, flags=re.MULTILINE)
+        re.findall(r"^[ ]{0,3}(\d+)[.)]\s+", block, flags=re.MULTILINE)
     )
     if numbered_entries != expected_entries or len(all_numbered_entries) != len(
         expected_entries
@@ -912,12 +919,12 @@ def _verify_familiarity_precedence(text: str) -> None:
     state_pattern = "|".join(re.escape(state) for state in FAMILIARITY_STATES)
     all_numbered_states = tuple(
         re.findall(
-            rf"^[ ]{{0,3}}\d+\. `({state_pattern})`", text, flags=re.MULTILINE
+            rf"^[ ]{{0,3}}\d+[.)] `({state_pattern})`", text, flags=re.MULTILINE
         )
     )
     block_numbered_states = tuple(
         re.findall(
-            rf"^[ ]{{0,3}}\d+\. `({state_pattern})`", block, flags=re.MULTILINE
+            rf"^[ ]{{0,3}}\d+[.)] `({state_pattern})`", block, flags=re.MULTILINE
         )
     )
     if all_numbered_states != block_numbered_states or len(block_numbered_states) != 10:
@@ -934,7 +941,7 @@ def _verify_queue_position(text: str) -> None:
     if any(text.count(fragment) != 1 for fragment in QUEUE_ORDERED_STEPS):
         raise RuntimeError("ordered queue insertion has duplicate declarations")
 
-    numbered_pattern = re.compile(r"^[ ]{0,3}(\d+)\.\s+.*$", flags=re.MULTILINE)
+    numbered_pattern = re.compile(r"^[ ]{0,3}(\d+)[.)]\s+.*$", flags=re.MULTILINE)
     all_numbered = tuple(numbered_pattern.findall(text))
     block_numbered = tuple(numbered_pattern.findall(block))
     if (

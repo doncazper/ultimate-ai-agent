@@ -496,8 +496,11 @@ unsupported request evaluated in the healthy, missing, corrupt, stale, and
 over-budget catalog states; no invented-capability, no-match, policy-denied, or
 degraded-catalog case may be dropped. The metric is reported overall, for every
 predeclared unsupported-request category, and separately for every catalog
-state, with powered category-by-state intersections predeclared where the
-corpus supports them.
+state. Every unsupported-request-category-by-catalog-state intersection is
+mandatory and must independently clear the applicable point-estimate and
+simultaneous confidence-bound gate; pooled category-wide or state-wide results
+cannot substitute for an intersection. Missing or underpowered intersection
+evidence fails TAW-08 rather than shrinking or pooling the denominator.
 Final route/proposal exact-match is case-level:
 the numerator requires the exact canonical route, familiarity state, and full
 ordered proposal graph (including an expected null graph), while the denominator
@@ -732,10 +735,12 @@ artifact; representative end-to-end
 journeys cannot substitute for this full-corpus equivalence proof.
 
 The complete accepted corpus must also be replayed with explicit safe-disable
-engaged while the catalog is otherwise healthy. Every case must prove
-exact legacy-router route, payload, response, empty awareness-context, and
-complete durable-evidence artifact-set and fingerprint equivalence. No
-awareness-specific decision envelope or other durable record may appear in the
+engaged in the healthy, missing, corrupt, stale, and over-budget catalog states.
+Every case in every state must prove exact legacy-router route, payload,
+response, empty awareness-context, and complete durable-evidence artifact-set
+and fingerprint equivalence. Safe-disable must be consulted before awareness
+index validation or loading, so catalog degradation cannot affect this replay.
+No awareness-specific decision envelope or other durable record may appear in the
 safe-disabled artifact set,
 with the same hard no-dispatch fence and zero-event receipts used by the active
 replay. Any awareness routing, compact discovery, manifest hydration, changed
@@ -946,13 +951,17 @@ run rather than disappearing from `N`.
 
 “Learning” in this program means improving governed data and tests:
 
-- successful and failed immutable terminal receipts are the sole inputs to a
+- successful, failed, canceled, and rolled-back immutable terminal receipts are
+  the sole inputs to a
   recomputable, non-authoritative projection of bounded capability outcome
   statistics keyed by exact receipt ref, attempt ref, contract version, and
   safe environment class; the projection is never durably mutated by receipt
   arrival, exact replay is deduplicated, and conflicting reuse invalidates the
-  projection and produces auditable evidence. Any future persisted
-  materialization is a separate exact PolicyEngine- and LocalApprovalAuthority-
+  projection and produces auditable evidence. Success and failure each
+  contribute one outcome in their canonical class. Cancellation and rollback
+  each contribute one terminal adverse, non-success outcome and cannot be
+  omitted from health, reliability, or familiarity evidence. Any future
+  persisted materialization is a separate exact PolicyEngine- and LocalApprovalAuthority-
   bound mutation lane with idempotency, rollback, and redaction tests;
 - operator corrections become safe-ref-only review candidates and must be
   transformed into synthetic or fully redacted fixtures before durable eval
@@ -1121,8 +1130,9 @@ proportional post-merge verification, and cleanup.
   uncertainty.
 - Exercise shadow-to-active promotion, rollback, and corrupt-index recovery;
   separately replay the complete accepted corpus with safe-disable engaged and
-  a healthy catalog, proving exact legacy-router/payload/response equivalence
-  without changing the local model or broadening authority.
+  each healthy, missing, corrupt, stale, and over-budget catalog state, proving
+  exact legacy-router/payload/response and durable-evidence equivalence without
+  changing the local model or broadening authority.
 - Audit false positives, false negatives, ambiguity, authority separation, and
   multilingual/paraphrase behavior.
 - Audit ordinary-chat false blocks across healthy and every degraded catalog

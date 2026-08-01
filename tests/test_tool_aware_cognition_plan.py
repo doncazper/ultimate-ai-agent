@@ -211,6 +211,22 @@ def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
     assert verifier._find_forbidden_authority_claims(claim)
 
 
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "The Control Center is production ready.",
+        "Control Center is production ready.",
+        "The CLI is production ready.",
+        "The API is generally available for production use.",
+        "The Python Agent Core is ready for public release.",
+    ),
+)
+def test_first_class_operator_surfaces_cannot_claim_release_readiness(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
 def test_every_structured_denied_authority_class_has_passive_status_coverage() -> None:
     passive_claims = {
         "runtime_model_or_provider_calls": "Runtime provider calls are active.",
@@ -555,6 +571,24 @@ def test_indented_unmanifested_state_in_familiarity_precedence_fails_closed(
         verifier.verify()
 
 
+def test_parenthesized_unmanifested_state_in_familiarity_precedence_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "10. `novel_unsupported`.",
+            "10. `novel_unsupported`.\n11) `familiar_supported` takes precedence.",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
 def test_unmanifested_familiarity_state_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -662,6 +696,25 @@ def test_indented_competing_queue_order_declaration_fails_closed(
         verifier.QUEUE.read_text(encoding="utf-8").replace(
             "\n\nThis position prevents",
             "\n  5. Run the final comparison before TAW acceptance."
+            "\n\nThis position prevents",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="ordered queue insertion"):
+        verifier.verify()
+
+
+def test_parenthesized_competing_queue_order_declaration_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        verifier.QUEUE.read_text(encoding="utf-8").replace(
+            "\n\nThis position prevents",
+            "\n5) Run the final comparison before TAW acceptance."
             "\n\nThis position prevents",
             1,
         ),
@@ -1015,6 +1068,8 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "Its denominator is every adjudicated\n"
         "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
         "over-budget catalog states",
+        "Every unsupported-request-category-by-catalog-state intersection is\nmandatory",
+        "Missing or underpowered intersection\nevidence fails TAW-08",
         "no invented-capability, no-match, policy-denied, or\n"
         "degraded-catalog case may be dropped",
         "A policy or\n"
@@ -1555,18 +1610,23 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
         "tool-schema context set",
             "complete accepted corpus must also be replayed with explicit safe-disable\n"
-            "engaged while the catalog is otherwise healthy",
+            "engaged in the healthy, missing, corrupt, stale, and over-budget catalog states",
             "An ordinary-chat case must also\n"
             "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
             "match its sealed routing/tool-acceptance candidate artifact",
-        "exact legacy-router route, payload, response, empty awareness-context, and\n"
-        "complete durable-evidence artifact-set and fingerprint equivalence",
-        "No\n"
-        "awareness-specific decision envelope or other durable record may appear in the\n"
+        "Every case in every state must prove exact legacy-router route, payload,\n"
+        "response, empty awareness-context, and complete durable-evidence artifact-set\n"
+        "and fingerprint equivalence",
+        "No awareness-specific decision envelope or other durable record may appear in the\n"
         "safe-disabled artifact set",
         "Any awareness routing, compact discovery, manifest hydration, changed\n"
         "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
         "safe-disable is engaged invalidates promotion",
+        "successful, failed, canceled, and rolled-back immutable terminal receipts are\n"
+        "  the sole inputs",
+        "Cancellation and rollback\n"
+        "  each contribute one terminal adverse, non-success outcome and cannot be\n"
+        "  omitted",
     ),
 )
 def test_plan_requires_exact_head_response_and_composition_gates(
