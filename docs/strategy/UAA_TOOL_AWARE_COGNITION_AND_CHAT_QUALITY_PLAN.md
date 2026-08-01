@@ -302,9 +302,10 @@ The implementation must meet explicit budgets on supported development Macs:
   plus one cache and warm-state protocol that is applied identically before
   both sides of every pair. The report records the realized order and the
   cache/warm-state receipt for each pair;
-- compact capability shortlist: warm p95 at or below 50 ms;
-- cold catalog build or refresh: p95 at or below 150 ms for the accepted
-  baseline catalog;
+- compact capability shortlist: warm p95 at or below 50 ms and p99 at or below
+  100 ms;
+- cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
+  300 ms for the accepted baseline catalog;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
   retrieval, and cold catalog construction per supported hardware/backend class.
   Each warm metric uses at least 1,000 independent measured turns per class and
@@ -421,11 +422,13 @@ route counts as correct, while a proposal, approval request, or execution route
 does not. Each of the five state-specific point estimates and simultaneous
 lower confidence bounds is reported separately.
 For capability-required cases in every missing, corrupt, stale, and over-budget
-catalog state, a separate fail-closed census counts any direct-chat fallthrough
-instead of `blocked_capability_evidence`/`capability_evidence_unavailable` as an
+catalog state, a separate fail-closed census requires the exact canonical
+`blocked_capability_evidence` route and `capability_evidence_unavailable`
+familiarity-state pair for every case. Any direct-chat, unsupported, unavailable,
+proposal, approval, execution, or other mismatched route/state result is one
 event. Its denominator is every such case in each degraded state, and promotion
 requires exactly zero events in every state; the 90% route threshold cannot
-absorb a degraded-catalog fallthrough.
+absorb any degraded-catalog misclassification.
 The direct-chat false-positive-selection numerator is the count of adjudicated
 ordinary-chat cases that select any tool/effect capability, non-null proposal,
 approval request, execution route, any Tier 1 compact discovery beyond the
@@ -480,6 +483,11 @@ applicable availability or policy/safety decision refs or fingerprints, and
 every applicable safe reason code. A matching route/state with missing,
 different, or unbound blocked-decision evidence is a mismatch even when the
 canonical proposal graph is null.
+When policy or safety denies a request before capability selection is permitted,
+the exact-match contract instead requires canonical expected-null capability and
+operation identity fingerprints plus the bound policy/safety evidence. A
+fabricated non-null identity or a missing, substituted, or noncanonical null
+fingerprint is a mismatch.
 For `outcome_uncertain` cases, exact match additionally requires the canonical
 attempt and execution refs, exact receipt refs, terminal-proof contract/version
 refs, and safe recovery or reconciliation evidence refs, including canonical
@@ -497,6 +505,16 @@ estimator, a one-sided familywise alpha of 0.05, and Holm-adjusted inference
 across the four dimensions before candidate results are observed. A point
 estimate alone, a small sample, or an interval crossing the margin is an
 unresolved measurement gap and cannot pass TAW-08.
+
+Tier 2 hydration precision is micro-precision over the accepted tool-required
+corpus: its numerator is every hydrated exact capability ref adjudicated relevant
+to that request, and its denominator is every hydrated exact capability ref.
+Every irrelevant ref counts against precision, including extra refs returned
+after a relevant top-3 hit; empty hydration cannot shrink the recall denominator.
+The one-sided simultaneous 95% lower confidence bound must clear 80% overall and
+70% in every predeclared capability and risk category. A candidate that always
+hydrates the eight-manifest ceiling cannot pass merely because one relevant ref
+appears in its top three.
 
 Routing-quality promotion uses one-sided simultaneous 95% lower confidence
 bounds, not point estimates. The applicable-capability recall bound must clear

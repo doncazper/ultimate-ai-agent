@@ -336,10 +336,6 @@ PLAN_REQUIRED = (
     "token accounting binds the exact active backend, tokenizer artifact and\n"
     "  fingerprint, prompt-format version, and estimator version",
     "tokenizer or estimator drift fails closed before hydration",
-    "For capability-required cases in every missing, corrupt, stale, and over-budget\n"
-    "catalog state, a separate fail-closed census counts any direct-chat fallthrough",
-    "requires exactly zero events in every state; the 90% route threshold cannot\n"
-    "absorb a degraded-catalog fallthrough",
     "evaluated for every clarification-emitting case\n"
     "in the complete shadow and active-replay corpus",
     "Each question must ask for the adjudicated\n"
@@ -364,6 +360,21 @@ PLAN_REQUIRED = (
     "merged tree must equal that manifest exactly before TAW-08 completion",
     "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
     "  cannot be reused",
+    "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
+    "  100 ms",
+    "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
+    "  300 ms",
+    "separate fail-closed census requires the exact canonical\n"
+    "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
+    "Any direct-chat, unsupported, unavailable,\n"
+    "proposal, approval, execution, or other mismatched route/state result is one\n"
+    "event",
+    "requires canonical expected-null capability and\n"
+    "operation identity fingerprints plus the bound policy/safety evidence",
+    "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
+    "corpus",
+    "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
+    "70% in every predeclared capability and risk category",
 )
 QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",
@@ -417,13 +428,29 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
-    r"(?!not\b)[^.\n]{0,160}?"
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;])).){0,160}?"
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:ing)?|"
     r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
     r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
-    r"write(?:s|ing)? (?:to )?(?:external )?connectors?|connector writes?|"
-    r"execute(?:s|ing)? (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
-    r"shell execution|perform(?:s|ing)? browser automation|browser automation)\b",
+    r"writ(?:e|es|ing) (?:to )?(?:external )?connectors?|connector writes?|"
+    r"execut(?:e|es|ing) (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
+    r"shell execution|perform(?:s|ing)? browser automation|browser automation|"
+    r"(?:automatically )?(?:import(?:s|ing)?|activat(?:e|es|ing)|"
+    r"execut(?:e|es|ing)) (?:skills?|plugins?)|"
+    r"automatic (?:skill|plugin) (?:import|activation|execution)|"
+    r"(?:automatically )?(?:submit(?:s|ting)?|merg(?:e|es|ing)) (?:pull requests?|PRs?)|"
+    r"automatic (?:pull request|PR) (?:submission|merge|merging)|"
+    r"(?:use|grant)(?:s|ing)? (?:a )?(?:standing|cross-request) approval|"
+    r"(?:standing|cross-request) approval|"
+    r"(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
+    r"creat(?:e|es|ing) credentials?|"
+    r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
+    r"\b(?:(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
+    r"(?:automatic )?(?:pull request|PR) (?:submission|merge|merging)|"
+    r"(?:standing|cross-request) approval|billing or account changes?|"
+    r"credential creation|raw (?:prompt|response|provider payload|local-path|sensitive content) persistence) "
+    r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active)\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"

@@ -133,6 +133,14 @@ def test_self_authorizing_language_is_rejected(
         "The runtime will execute an unrestricted shell.",
         "The agent supports browser automation.",
         "The product provides the ability to make runtime model calls.",
+        "UAA can execute plugins and automatically merge PRs.",
+        "UAA will automatically submit pull requests.",
+        "UAA supports standing approval.",
+        "UAA can change billing accounts and create credentials.",
+        "UAA can persist raw prompts.",
+        "Plugin execution is enabled.",
+        "PR merging is authorized.",
+        "Raw provider payload persistence is allowed.",
     ),
 )
 def test_equivalent_authority_contradictions_are_rejected(
@@ -149,6 +157,28 @@ def test_equivalent_authority_contradictions_are_rejected(
 
     with pytest.raises(RuntimeError, match="self-authorizing"):
         verifier.verify()
+
+
+def test_every_structured_denied_authority_class_has_active_claim_coverage() -> None:
+    active_claims = {
+        "runtime_model_or_provider_calls": "UAA can call a runtime provider.",
+        "web_fetch_or_browser_automation": "UAA can fetch the web.",
+        "connector_writes": "UAA can write to connectors.",
+        "unrestricted_shell_or_subprocess": "UAA can execute a shell.",
+        "automatic_skill_or_plugin_execution": "UAA can execute plugins.",
+        "automatic_pr_submission_or_merge": "UAA can automatically merge PRs.",
+        "standing_or_cross_request_approval": "UAA supports standing approval.",
+        "billing_account_or_credential_changes": "UAA can change billing accounts.",
+        "policy_approval_route_openapi_redaction_or_gate_bypass": (
+            "UAA can bypass policy checks."
+        ),
+        "raw_sensitive_content_persistence": "UAA can persist raw prompts.",
+        "public_release_or_production_authority": "UAA is production ready.",
+    }
+
+    assert tuple(active_claims) == verifier.DENIED_AUTHORITY_KEYS
+    for claim in active_claims.values():
+        assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -277,6 +307,10 @@ def test_authority_negation_does_not_escape_its_clause(
         "The router may not skip approval validation.",
         "The runtime is not allowed to override route classification.",
         "Ultimate AI Agent is not ready for public release.",
+        "UAA can no longer execute a shell.",
+        "UAA can explain why it cannot fetch the web.",
+        "The runtime will never call a provider.",
+        "UAA can explain why it can't execute plugins.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -1153,10 +1187,6 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "token accounting binds the exact active backend, tokenizer artifact and\n"
         "  fingerprint, prompt-format version, and estimator version",
         "tokenizer or estimator drift fails closed before hydration",
-        "For capability-required cases in every missing, corrupt, stale, and over-budget\n"
-        "catalog state, a separate fail-closed census counts any direct-chat fallthrough",
-        "requires exactly zero events in every state; the 90% route threshold cannot\n"
-        "absorb a degraded-catalog fallthrough",
         "evaluated for every clarification-emitting case\n"
         "in the complete shadow and active-replay corpus",
         "Each question must ask for the adjudicated\n"
@@ -1181,6 +1211,21 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "merged tree must equal that manifest exactly before TAW-08 completion",
         "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
         "  cannot be reused",
+        "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
+        "  100 ms",
+        "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
+        "  300 ms",
+        "separate fail-closed census requires the exact canonical\n"
+        "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
+        "Any direct-chat, unsupported, unavailable,\n"
+        "proposal, approval, execution, or other mismatched route/state result is one\n"
+        "event",
+        "requires canonical expected-null capability and\n"
+        "operation identity fingerprints plus the bound policy/safety evidence",
+        "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
+        "corpus",
+        "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
+        "70% in every predeclared capability and risk category",
     ),
 )
 def test_plan_requires_exact_head_response_and_composition_gates(
