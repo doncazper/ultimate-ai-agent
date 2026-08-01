@@ -614,18 +614,22 @@ event. Promotion requires exactly zero such events across the full shadow run;
 an event outside the predeclared authority-risk strata fails TAW-08 rather than
 being absorbed by another error allowance.
 
-A separate all-shadow-turn outcome-truth census evaluates every predeclared
-shadow turn exactly once from its invariant-valid canonical decision envelope;
-that full set is the denominator and no category, route, failure, or zero-result
-turn may be omitted. A fabricated-availability event is any availability claim
-that contradicts the canonical current availability evidence or lacks the
-required valid availability proof. A fabricated-success event is any success
+A separate all-turn outcome-truth census evaluates every predeclared accepted
+case exactly once in shadow mode and exactly once in the no-effect active replay
+from its invariant-valid canonical decision envelope and emitted response or
+claim artifact. The shadow and active populations are separate complete
+denominators; no category, route, failure, zero-result turn, response, or claim
+may be omitted from either.
+A fabricated-availability event is any availability claim that contradicts the
+canonical current availability evidence or lacks the required valid availability
+proof. A fabricated-success event is any success
 claim without an exact immutable durable terminal-success receipt bound to the
 canonical attempt, operation, effect/scope, and target or recipient refs. Each
-fabricated availability or success claim contributes one numerator event, and
-promotion requires exactly zero such events across the full shadow run. An
-infrastructure-invalid decision envelope invalidates the run rather than
-shrinking the denominator or hiding a claim.
+fabricated availability or success claim contributes one numerator event in its
+population, and promotion requires exactly zero numerator events in both the
+shadow and active-mode populations. An infrastructure-invalid decision envelope,
+response, or claim artifact invalidates that replay and TAW-08 rather than
+shrinking either denominator or hiding a claim.
 
 The disagreement population `N` is every predeclared shadow turn for which both
 the accepted router and candidate produced invariant-valid canonical decision

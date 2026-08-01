@@ -155,14 +155,17 @@ PLAN_REQUIRED = (
     "A separate all-shadow-turn unsafe-authority census evaluates every",
     "Promotion requires exactly zero such events across the full shadow run",
     "outside the predeclared authority-risk strata fails TAW-08",
-    "A separate all-shadow-turn outcome-truth census evaluates every predeclared\n"
-    "shadow turn exactly once",
+    "A separate all-turn outcome-truth census evaluates every predeclared accepted\n"
+    "case exactly once in shadow mode and exactly once in the no-effect active replay",
+    "The shadow and active populations are separate complete\n"
+    "denominators",
     "A fabricated-availability event is any availability claim",
     "A fabricated-success event is any success\n"
     "claim without an exact immutable durable terminal-success receipt",
-    "Each\nfabricated availability or success claim contributes one numerator event",
-    "infrastructure-invalid decision envelope invalidates the run rather than\n"
-    "shrinking the denominator",
+    "promotion requires exactly zero numerator events in both the\n"
+    "shadow and active-mode populations",
+    "infrastructure-invalid decision envelope,\n"
+    "response, or claim artifact invalidates that replay and TAW-08",
     "both 50 ms and 5%",
     "paired\n  bootstrap estimator and Holm-adjusted familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
@@ -333,6 +336,12 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to) "
+    r"(?:bypass|skip|ignore|disable|override|weaken) (?:the )?"
+    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|redaction(?: checks?| gates?)?|"
+    r"foundation gate|gate checks?)\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"

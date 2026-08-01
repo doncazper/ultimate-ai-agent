@@ -121,6 +121,11 @@ def test_self_authorizing_language_is_rejected(
         "Browser automation is enabled.",
         "This program grants browser authority.",
         "Policy checks may be bypassed.",
+        "UAA can bypass policy checks.",
+        "The router may skip approval validation.",
+        "The runtime can override route classification.",
+        "The system is allowed to disable redaction checks.",
+        "The product is authorized to bypass Foundation Gate.",
         "Automatic skill execution is allowed.",
     ),
 )
@@ -260,6 +265,9 @@ def test_authority_negation_does_not_escape_its_clause(
         "UAA is not production ready.",
         "UAA is not currently in public beta.",
         "UAA has not entered public beta.",
+        "UAA cannot bypass policy checks.",
+        "The router may not skip approval validation.",
+        "The runtime is not allowed to override route classification.",
         "Ultimate AI Agent is not ready for public release.",
     ),
 )
@@ -804,14 +812,17 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "its invariant-valid canonical decision envelope",
         "Ordinary-chat and other\n"
         "non-authority-risk turns are excluded from that denominator",
-        "A separate all-shadow-turn outcome-truth census evaluates every predeclared\n"
-        "shadow turn exactly once",
+        "A separate all-turn outcome-truth census evaluates every predeclared accepted\n"
+        "case exactly once in shadow mode and exactly once in the no-effect active replay",
+        "The shadow and active populations are separate complete\n"
+        "denominators",
         "A fabricated-availability event is any availability claim",
         "A fabricated-success event is any success\n"
         "claim without an exact immutable durable terminal-success receipt",
-        "Each\nfabricated availability or success claim contributes one numerator event",
-        "infrastructure-invalid decision envelope invalidates the run rather than\n"
-        "shrinking the denominator",
+        "promotion requires exactly zero numerator events in both the\n"
+        "shadow and active-mode populations",
+        "infrastructure-invalid decision envelope,\n"
+        "response, or claim artifact invalidates that replay and TAW-08",
         "candidate-error disagreement at or below 5% after every disagreement is\n"
         "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
         "canonical proposal-graph fingerprint\n"
