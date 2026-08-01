@@ -232,6 +232,9 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "Ultimate AI Agent is now in a public beta.",
         "UAA has entered public beta.",
         "Ultimate AI Agent is currently in public beta.",
+        "UAA is generally available for production use.",
+        "Ultimate AI Agent is GA.",
+        "The product has reached general availability.",
     ),
 )
 @pytest.mark.parametrize(
@@ -339,6 +342,8 @@ def test_authority_negation_does_not_escape_its_clause(
         "UAA is not production ready.",
         "UAA is not currently in public beta.",
         "UAA has not entered public beta.",
+        "UAA is not generally available for production use.",
+        "The product has not reached general availability.",
         "UAA cannot bypass policy checks.",
         "UAA cannot fetch the web or write to connectors.",
         "The runtime may not execute a shell.",
@@ -1385,8 +1390,18 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "operation identity fingerprints plus the bound policy/safety evidence",
         "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
         "corpus",
+        "hydration-precision interval uses a request-clustered bootstrap",
+        "hydrated refs from one request are never treated as independent trials",
         "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
         "70% in every predeclared capability and risk category",
+        "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
+        "tool-schema context set",
+        "complete accepted corpus must also be replayed with explicit safe-disable\n"
+        "engaged while the catalog is otherwise healthy",
+        "exact legacy-router route, payload, response, and empty awareness-context\n"
+        "equivalence",
+        "Any awareness routing, compact discovery, manifest hydration, or changed legacy\n"
+        "payload while safe-disable is engaged invalidates promotion",
     ),
 )
 def test_plan_requires_exact_head_response_and_composition_gates(

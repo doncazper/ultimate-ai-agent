@@ -531,6 +531,12 @@ corpus: its numerator is every hydrated exact capability ref adjudicated relevan
 to that request, and its denominator is every hydrated exact capability ref.
 Every irrelevant ref counts against precision, including extra refs returned
 after a relevant top-3 hit; empty hydration cannot shrink the recall denominator.
+The hydration-precision interval uses a request-clustered bootstrap (or an
+equivalently conservative request-clustered estimator predeclared in TAW-00),
+so all hydrated refs from one request remain one sampling cluster;
+hydrated refs from one request are never treated as independent trials.
+Multi-capability and repeated catalog-state observations remain bound to their
+originating request cluster.
 The one-sided simultaneous 95% lower confidence bound must clear 80% overall and
 70% in every predeclared capability and risk category. A candidate that always
 hydrates the eight-manifest ceiling cannot pass merely because one relevant ref
@@ -573,10 +579,16 @@ limit, sampler settings, and seed when the backend supports deterministic
 seeding. The baseline runs the sealed accepted-current direct-chat system
 payload and prompt-format version, while UAA runs the exact candidate
 model-visible system payload and prompt-format version, including its routing
-metadata and bounded hydrated capability context. Both payload fingerprints
+metadata and the capability context permitted for that exact case.
+Every ordinary-chat pair requires the canonical empty hydrated-manifest and
+tool-schema context set: Tier 0 may retain its content-free arbitration receipt
+and routing metadata, but it must hydrate zero manifests and inject no tool
+schema or capability description. This empty set is part of the candidate
+payload fingerprint, not context that the harness may add or remove. Both
+payload fingerprints
 are recorded; the harness must not inject the candidate wrapper into the
-baseline or strip candidate context from UAA. Pair order and display labels are
-randomized for scoring. If the
+baseline or strip candidate context from UAA. Pair order and
+display labels are randomized for scoring. If the
 backend cannot reproduce a seeded response, the benchmark uses a predeclared
 number of repeated paired samples and reports the additional variance instead
 of selecting favorable generations, but those samples are exploratory only and
@@ -676,6 +688,15 @@ requires a revised candidate plus a complete shadow and active replay. The
 complete zero-tolerance artifact census also covers every active-mode replay
 artifact; representative end-to-end
 journeys cannot substitute for this full-corpus equivalence proof.
+
+The complete accepted corpus must also be replayed with explicit safe-disable
+engaged while the catalog is otherwise healthy. Every case must prove
+exact legacy-router route, payload, response, and empty awareness-context
+equivalence,
+with the same hard no-dispatch fence and zero-event receipts used by the active
+replay. Any awareness routing, compact discovery, manifest hydration, or changed legacy
+payload while safe-disable is engaged invalidates promotion. Sampled
+recovery journeys cannot replace this complete safe-disabled denominator.
 
 The active-mode harness must install a hard no-dispatch firewall before every
 real dispatcher, executor, connector, shell/subprocess boundary, browser
@@ -1023,8 +1044,10 @@ proportional post-merge verification, and cleanup.
 - Run blind paired ordinary-chat scoring against the frozen direct-local-model
   baseline and report per-dimension non-inferiority with statistical
   uncertainty.
-- Exercise shadow-to-active promotion, safe-disable, rollback, and corrupt-index
-  recovery without changing the local model or broadening authority.
+- Exercise shadow-to-active promotion, rollback, and corrupt-index recovery;
+  separately replay the complete accepted corpus with safe-disable engaged and
+  a healthy catalog, proving exact legacy-router/payload/response equivalence
+  without changing the local model or broadening authority.
 - Audit false positives, false negatives, ambiguity, authority separation, and
   multilingual/paraphrase behavior.
 - Audit ordinary-chat false blocks across healthy and every degraded catalog

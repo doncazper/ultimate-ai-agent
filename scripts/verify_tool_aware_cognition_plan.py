@@ -82,6 +82,8 @@ PLAN_REQUIRED = (
     "sealed accepted-current direct-chat system\n"
     "payload and prompt-format version",
     "exact candidate\nmodel-visible system payload and prompt-format version",
+    "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
+    "tool-schema context set",
     "harness must not inject the candidate wrapper into the\n"
     "baseline or strip candidate context from UAA",
     "report point estimates plus 95% confidence intervals",
@@ -154,6 +156,8 @@ PLAN_REQUIRED = (
     "Any metric aggregated across repeated\ncatalog-state observations of the same request",
     "request-clustered or paired estimator",
     "only where each independent request contributes exactly one observation",
+    "hydration-precision interval uses a request-clustered bootstrap",
+    "hydrated refs from one request are never treated as independent trials",
     "one-sided simultaneous 95% upper confidence",
     "TAW-00 freezes the complete supported product-language set",
     "Every supported language is a mandatory\n"
@@ -254,6 +258,12 @@ PLAN_REQUIRED = (
     "requires a revised candidate plus a complete shadow and active replay",
     "complete zero-tolerance artifact census also covers every active-mode replay\n"
     "artifact",
+    "complete accepted corpus must also be replayed with explicit safe-disable\n"
+    "engaged while the catalog is otherwise healthy",
+    "exact legacy-router route, payload, response, and empty awareness-context\n"
+    "equivalence",
+    "Any awareness routing, compact discovery, manifest hydration, or changed legacy\n"
+    "payload while safe-disable is engaged invalidates promotion",
     "hard no-dispatch firewall before every\n"
     "real dispatcher, executor, connector, shell/subprocess boundary, browser",
     "uses only fake adapters and isolated\nsynthetic targets",
@@ -531,6 +541,12 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
     r"ready for public (?:beta|release|distribution))\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
+    r"(?!(?:not|never)\b)(?:now )?(?:generally available|ga)"
+    r"(?: for (?:public |general )?production(?: use)?)?\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) "
+    r"(?:has|have) (?!(?:not|never)\b)(?:now )?(?:reached|entered|launched into) "
+    r"general availability\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:open|available|launched|released) for "
     r"(?:public beta|public release|public distribution)\b",
