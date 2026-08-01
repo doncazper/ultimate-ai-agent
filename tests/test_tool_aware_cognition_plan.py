@@ -60,6 +60,31 @@ def test_policy_denial_precedence_is_required(
         verifier.verify()
 
 
+def test_policy_denial_must_precede_ambiguity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    policy = (
+        "2. `familiar_authority_blocked` when the current PolicyEngine or applicable\n"
+        "   safety boundary denies the exact request;"
+    )
+    ambiguity = (
+        "3. `ambiguous` when materially different interpretations remain after the\n"
+        "   policy and safety screen;"
+    )
+    plan.write_text(
+        text.replace(policy, ambiguity.replace("3.", "2.", 1)).replace(
+            ambiguity, policy.replace("2.", "3.", 1), 1
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
 def test_missing_queue_gate_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -239,6 +264,55 @@ def test_remaining_queue_manifest_schema_and_types_are_exact(
     monkeypatch.setattr(verifier, "MANIFEST", manifest)
 
     with pytest.raises(RuntimeError, match="manifest|sequence|types"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize("nested", (False, True))
+def test_remaining_queue_manifest_rejects_duplicate_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, nested: bool
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    original = verifier.MANIFEST.read_text(encoding="utf-8")
+    if nested:
+        duplicate = original.replace(
+            '"runtime_model_or_provider_calls": false,',
+            '"runtime_model_or_provider_calls": true,\n'
+            '    "runtime_model_or_provider_calls": false,',
+            1,
+        )
+    else:
+        duplicate = original.replace(
+            '"schema_version": "uaa.remaining_queue_manifest.v1",',
+            '"schema_version": "unsafe.duplicate",\n'
+            '  "schema_version": "uaa.remaining_queue_manifest.v1",',
+            1,
+        )
+    manifest.write_text(duplicate, encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="manifest is not valid JSON"):
+        verifier.verify()
+
+
+def test_plan_requires_blocked_unsafe_mapping_and_nondurable_statistics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        .replace(
+            "| `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |",
+            "| `blocked_unsafe` | `blocked_unsafe` | `novel_unsupported` | null |",
+        )
+        .replace(
+            "recomputable, non-authoritative projection",
+            "bounded durable store",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
         verifier.verify()
 
 

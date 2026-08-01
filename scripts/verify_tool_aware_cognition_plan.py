@@ -64,7 +64,10 @@ PLAN_REQUIRED = (
     "`D = A + C`",
     "`C / N <= 0.05`",
     "`legacy-router-normalization:v1`",
+    "| `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |",
     "exact receipt ref, attempt ref, contract version",
+    "recomputable, non-authoritative projection",
+    "never durably mutated by receipt",
     "fail-closed precedence is mandatory",
     "TAW-00",
     "TAW-08",
@@ -145,6 +148,17 @@ PHASE_HEADINGS = (
     "### TAW-06 — Operator diagnostics",
     "### TAW-07 — Quality, latency, and adversarial hardening",
     "### TAW-08 — Acceptance and GoatCitadel precondition",
+)
+FAMILIARITY_PRECEDENCE = (
+    "1. `outcome_uncertain` when work began",
+    "2. `familiar_authority_blocked` when the current PolicyEngine or applicable",
+    "3. `ambiguous` when materially different interpretations remain after the",
+    "4. `familiar_authority_blocked` when a known requested effect has no graduated",
+    "5. `familiar_unavailable` when the known capability is not currently usable",
+    "6. `familiar_input_required` when the exact usable capability still lacks",
+    "7. `familiar_requires_approval` when complete inputs bind an existing exact",
+    "8. `familiar_supported` when the exact no-effect answer or governed proposal",
+    "9. `novel_unsupported`.",
 )
 QUEUE_ORDERED_STEPS = (
     "1. Finish the currently admitted PR or verification atomic unit",
@@ -271,10 +285,18 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 
 def _read_manifest() -> dict[str, object]:
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate manifest key")
+            result[key] = value
+        return result
+
     try:
-        manifest = json.loads(_read(MANIFEST))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("remaining queue manifest is not valid JSON") from exc
+        manifest = json.loads(_read(MANIFEST), object_pairs_hook=reject_duplicate_keys)
+    except (json.JSONDecodeError, ValueError):
+        raise RuntimeError("remaining queue manifest is not valid JSON") from None
     if not isinstance(manifest, dict):
         raise RuntimeError("remaining queue manifest root is invalid")
     return manifest
@@ -395,6 +417,7 @@ def verify() -> dict[str, object]:
         raise RuntimeError(f"self-authorizing language found: {present}")
 
     _require_ordered("plan phase headings", plan, PHASE_HEADINGS)
+    _require_ordered("familiarity precedence", plan, FAMILIARITY_PRECEDENCE)
 
     return {
         "status": "passed",

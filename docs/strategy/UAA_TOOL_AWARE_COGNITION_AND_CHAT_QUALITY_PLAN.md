@@ -201,21 +201,24 @@ score. When more than one state predicate is true, the following fail-closed pre
 
 1. `outcome_uncertain` when work began and exact durable terminal proof is
    absent or inconsistent;
-2. `ambiguous` when materially different interpretations remain;
-3. `familiar_authority_blocked` when the current PolicyEngine or applicable
-   safety boundary denies the exact request, or when a known requested effect
-   has no graduated exact authority lane;
-4. `familiar_unavailable` when the known capability is not currently usable;
-5. `familiar_input_required` when the exact usable capability still lacks
+2. `familiar_authority_blocked` when the current PolicyEngine or applicable
+   safety boundary denies the exact request;
+3. `ambiguous` when materially different interpretations remain after the
+   policy and safety screen;
+4. `familiar_authority_blocked` when a known requested effect has no graduated
+   exact authority lane;
+5. `familiar_unavailable` when the known capability is not currently usable;
+6. `familiar_input_required` when the exact usable capability still lacks
    required typed inputs;
-6. `familiar_requires_approval` when complete inputs bind an existing exact
+7. `familiar_requires_approval` when complete inputs bind an existing exact
    lane that requires approval;
-7. `familiar_supported` when the exact no-effect answer or governed proposal is
+8. `familiar_supported` when the exact no-effect answer or governed proposal is
    ready; otherwise
-8. `novel_unsupported`.
+9. `novel_unsupported`.
 
-This ordering prevents an input question or approval request from obscuring a
-stronger ambiguity, policy/safety, authority, availability, or recovery block.
+This ordering prevents ambiguity, an input question, or an approval request
+from obscuring a stronger policy/safety, authority, availability, or recovery
+block.
 Policy and safety denials are not approval-required outcomes: approval cannot
 override them or turn them into a proposal. TAW-02 must encode the dimensions
 and precedence as a table-driven decision contract.
@@ -407,7 +410,7 @@ the same canonical comparison envelope without inventing capability evidence:
 | `approval_required` | `approval_required` | `familiar_requires_approval` only when the frozen case supplies an exact pre-existing authority lane and its availability proof; otherwise `familiar_authority_blocked` | null |
 | `execute_approved_action` | `execute_approved_action` | `familiar_supported` only when the accepted decision's exact approved scope validates; otherwise the envelope is invalid | exact accepted action-scope ref |
 | `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
-| `blocked_unsafe` | `blocked_unsafe` | `novel_unsupported` | null |
+| `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |
 
 The adapter copies only safe refs and validated typed fields, never reclassifies
 authority, and records its normalization version in both sides' envelopes. A
@@ -420,11 +423,14 @@ run rather than disappearing from `N`.
 
 “Learning” in this program means improving governed data and tests:
 
-- successful and failed terminal receipts update bounded capability outcome
+- successful and failed immutable terminal receipts are the sole inputs to a
+  recomputable, non-authoritative projection of bounded capability outcome
   statistics keyed by exact receipt ref, attempt ref, contract version, and
-  safe environment class; replaying the same receipt/attempt is an idempotent
-  no-op, while conflicting reuse fails closed and produces auditable,
-  rollback-aware evidence;
+  safe environment class; the projection is never durably mutated by receipt
+  arrival, exact replay is deduplicated, and conflicting reuse invalidates the
+  projection and produces auditable evidence. Any future persisted
+  materialization is a separate exact PolicyEngine- and LocalApprovalAuthority-
+  bound mutation lane with idempotency, rollback, and redaction tests;
 - operator corrections become safe-ref-only review candidates and must be
   transformed into synthetic or fully redacted fixtures before durable eval
   promotion; raw correction, prompt, and response content is rejected by the
