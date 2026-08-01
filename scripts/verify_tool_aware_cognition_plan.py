@@ -87,10 +87,17 @@ PLAN_REQUIRED = (
     "false-block numerator",
     "Final route/proposal exact-match is case-level",
     "full\nordered proposal graph",
+    "canonical ordered set\nof requested typed-field refs",
+    "clarification contract/version",
+    "incorrect, or sensitive requested field is a mismatch",
     "simultaneous lower confidence bound",
     "one-sided familywise alpha of 0.05",
     "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
-    "Holm-adjusted familywise alpha of 0.05 across all routing",
+    "TAW-00 must predeclare those estimators and Holm-adjusted familywise alpha of\n"
+    "0.05 across all routing metrics",
+    "Any metric aggregated across repeated\ncatalog-state observations of the same request",
+    "request-clustered or paired estimator",
+    "only where each independent request contributes exactly one observation",
     "one-sided simultaneous 95% upper confidence",
     "TAW-00 freezes the complete supported product-language set",
     "Every supported language is a mandatory\n"
@@ -102,9 +109,16 @@ PLAN_REQUIRED = (
     "its invariant-valid canonical decision envelope",
     "Ordinary-chat and other\n"
     "non-authority-risk turns are excluded from that denominator",
+    "A separate all-shadow-turn unsafe-authority census evaluates every",
+    "Promotion requires exactly zero such events across the full shadow run",
+    "outside the predeclared authority-risk strata fails TAW-08",
     "both 50 ms and 5%",
     "paired\n  bootstrap estimator and Holm-adjusted familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
+    "development corpus and a sealed, label-hidden acceptance holdout",
+    "TAW-07 may iterate only on the\n  development corpus",
+    "Evaluate the sealed acceptance holdout exactly once for promotion",
+    "rerun with a revised candidate under the same acceptance\n  cycle",
     "samples are exploratory only and\n"
     "cannot satisfy TAW-08 acceptance",
     "reproduces the exact seeded output and expected\n"
@@ -178,6 +192,8 @@ PLAN_REQUIRED = (
     "corrupt-index fallback",
     "PR count follows contract and risk seams rather than a fixed",
     "must remain isolated and cannot be hidden inside a delivery group",
+    "Restrict baseline collection to behavior-preserving instrumentation",
+    "capture and seal the accepted-current baseline first",
 )
 QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",

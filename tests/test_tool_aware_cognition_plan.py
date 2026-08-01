@@ -550,6 +550,45 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
 @pytest.mark.parametrize(
     "required_fragment",
     (
+        "canonical ordered set\nof requested typed-field refs",
+        "clarification contract/version",
+        "incorrect, or sensitive requested field is a mismatch",
+        "Any metric aggregated across repeated\n"
+        "catalog-state observations of the same request",
+        "request-clustered or paired estimator",
+        "only where each independent request contributes exactly one observation",
+        "A separate all-shadow-turn unsafe-authority census evaluates every",
+        "Promotion requires exactly zero such events across the full shadow run",
+        "outside the predeclared authority-risk strata fails TAW-08",
+        "Restrict baseline collection to behavior-preserving instrumentation",
+        "capture and seal the accepted-current baseline first",
+        "development corpus and a sealed, label-hidden acceptance holdout",
+        "TAW-07 may iterate only on the\n  development corpus",
+        "Evaluate the sealed acceptance holdout exactly once for promotion",
+        "rerun with a revised candidate under the same acceptance\n  cycle",
+    ),
+)
+def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required_fragment: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    assert required_fragment in text
+    plan.write_text(
+        text.replace(required_fragment, "removed-required-acceptance-contract", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "required_fragment",
+    (
         "unsupported-request false-support at or below 2%",
         "The unsupported-request false-support numerator is",
         "Its denominator is every adjudicated\n"
