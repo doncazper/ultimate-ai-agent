@@ -371,6 +371,25 @@ def _verify_zero_tolerance_lines(text: str) -> None:
             raise RuntimeError("plan zero-tolerance gate is invalid")
 
 
+def _find_forbidden_authority_claims(text: str) -> list[str]:
+    present: list[str] = []
+    for pattern in FORBIDDEN_PATTERNS:
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            sentence_start = max(
+                text.rfind(marker, 0, match.start()) for marker in (".", "!", "?")
+            )
+            prefix = text[sentence_start + 1 : match.start()]
+            if re.search(
+                r"\b(?:no|not|never|without|non-authorizing)\b",
+                prefix,
+                flags=re.IGNORECASE,
+            ):
+                continue
+            present.append(pattern)
+            break
+    return present
+
+
 def _read_manifest() -> dict[str, object]:
     def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -430,7 +449,17 @@ def _verify_manifest(manifest: dict[str, object]) -> None:
     items = manifest.get("items")
     if not isinstance(items, list):
         raise RuntimeError("remaining queue item list is invalid")
-    expected_item_keys = {"position", "item_id", "title", "filename", "sha256"}
+    expected_item_keys = {
+        "position",
+        "item_id",
+        "title",
+        "filename",
+        "sha256",
+        "source_kind",
+        "source_status",
+        "source_ref",
+        "execution_status",
+    }
     actual_items: list[tuple[int, str, str, str, str]] = []
     for item in items:
         if not isinstance(item, dict) or set(item) != expected_item_keys:
@@ -440,6 +469,10 @@ def _verify_manifest(manifest: dict[str, object]) -> None:
         title = item["title"]
         filename = item["filename"]
         sha256 = item["sha256"]
+        source_kind = item["source_kind"]
+        source_status = item["source_status"]
+        source_ref = item["source_ref"]
+        execution_status = item["execution_status"]
         if (
             type(position) is not int
             or not isinstance(item_id, str)
@@ -448,6 +481,10 @@ def _verify_manifest(manifest: dict[str, object]) -> None:
             or not isinstance(filename, str)
             or not isinstance(sha256, str)
             or re.fullmatch(r"[0-9a-f]{64}", sha256) is None
+            or source_kind != "external_prompt"
+            or source_status != "not_materialized"
+            or source_ref != f"external-ref:uaa-remaining-queue:{item_id}"
+            or execution_status != "blocked_pending_exact_source"
         ):
             raise RuntimeError("remaining queue item types are invalid")
         actual_items.append((position, item_id, title, filename, sha256))
@@ -493,18 +530,12 @@ def verify() -> dict[str, object]:
     _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
     _verify_manifest(manifest)
 
-    # Scan the program's own prose surfaces. The wider roadmap/board truth
-    # sources contain historical sentences such as "No ..., or production
-    # authority is authorized"; treating an affirmative fragment inside those
-    # explicit denials as a grant would be a false positive. Their required
-    # posture fragments and the exact all-false manifest boundary are verified
-    # separately above.
-    combined = "\n".join((plan, queue)).lower()
-    present = [
-        pattern
-        for pattern in FORBIDDEN_PATTERNS
-        if re.search(pattern, combined, flags=re.IGNORECASE)
-    ]
+    # Scan every program truth surface, not only the primary plan. The patterns
+    # match affirmative grants rather than denial fragments, so the canonical
+    # safety language remains valid while a contradictory claim anywhere fails
+    # closed.
+    combined = "\n".join((plan, queue, board, roadmap, canonical_roadmap, truth_packet))
+    present = _find_forbidden_authority_claims(combined)
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")
 

@@ -140,6 +140,28 @@ def test_equivalent_authority_contradictions_are_rejected(
         verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "surface_name",
+    ("QUEUE", "BOARD", "ROADMAP", "CANONICAL_ROADMAP", "TRUTH_PACKET"),
+)
+def test_authority_contradictions_fail_on_every_program_truth_surface(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    surface_name: str,
+) -> None:
+    source = getattr(verifier, surface_name)
+    mutated = tmp_path / source.name
+    mutated.write_text(
+        source.read_text(encoding="utf-8")
+        + "\nThis program grants production authority.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, surface_name, mutated)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
 def test_missing_structured_authority_denial_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -268,6 +290,31 @@ def test_remaining_queue_manifest_schema_and_types_are_exact(
     monkeypatch.setattr(verifier, "MANIFEST", manifest)
 
     with pytest.raises(RuntimeError, match="manifest|sequence|types"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("source_kind", "repo_file"),
+        ("source_status", "available"),
+        ("source_ref", "external-ref:wrong"),
+        ("execution_status", "ready"),
+    ),
+)
+def test_remaining_queue_missing_sources_stay_execution_blocked(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    payload = verifier._read_manifest()
+    payload["items"][0][field] = value
+    manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(verifier, "MANIFEST", manifest)
+
+    with pytest.raises(RuntimeError, match="item types are invalid"):
         verifier.verify()
 
 
