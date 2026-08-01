@@ -553,6 +553,10 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "canonical ordered set\nof requested typed-field refs",
         "clarification contract/version",
         "incorrect, or sensitive requested field is a mismatch",
+        "For `familiar_unavailable` and `familiar_authority_blocked` cases, exact match\n"
+        "additionally requires the canonical capability and operation identity",
+        "availability or policy/safety decision refs or fingerprints",
+        "canonical proposal graph is null",
         "Any metric aggregated across repeated\n"
         "catalog-state observations of the same request",
         "request-clustered or paired estimator",
@@ -622,7 +626,13 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "canonical proposal-graph fingerprint\n"
         "over the stable capability ID, operation ID, effect classification,\n"
         "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
-        "proposal ref, or canonical proposal-graph fingerprint differs",
+        "canonical decision-evidence fingerprint over the\n"
+        "resolved capability and operation identity, availability evidence and decision\n"
+        "refs, policy/safety decision refs, and safe reason codes",
+        "required for blocked and unavailable outcomes even when their proposal graph is\n"
+        "null",
+        "proposal ref, canonical proposal-graph fingerprint, or canonical\n"
+        "decision-evidence fingerprint differs",
         "unsafe authority broadening: zero",
         "fabricated availability or successful execution claims: zero",
         "raw sensitive content in durable routing evidence: zero",

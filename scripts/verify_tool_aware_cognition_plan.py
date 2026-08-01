@@ -90,6 +90,10 @@ PLAN_REQUIRED = (
     "canonical ordered set\nof requested typed-field refs",
     "clarification contract/version",
     "incorrect, or sensitive requested field is a mismatch",
+    "For `familiar_unavailable` and `familiar_authority_blocked` cases, exact match\n"
+    "additionally requires the canonical capability and operation identity",
+    "availability or policy/safety decision refs or fingerprints",
+    "canonical proposal graph is null",
     "simultaneous lower confidence bound",
     "one-sided familywise alpha of 0.05",
     "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
@@ -133,7 +137,13 @@ PLAN_REQUIRED = (
     "canonical proposal-graph fingerprint\n"
     "over the stable capability ID, operation ID, effect classification,\n"
     "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
-    "proposal ref, or canonical proposal-graph fingerprint differs",
+    "canonical decision-evidence fingerprint over the\n"
+    "resolved capability and operation identity, availability evidence and decision\n"
+    "refs, policy/safety decision refs, and safe reason codes",
+    "required for blocked and unavailable outcomes even when their proposal graph is\n"
+    "null",
+    "proposal ref, canonical proposal-graph fingerprint, or canonical\n"
+    "decision-evidence fingerprint differs",
     "`D = A + C`",
     "`C / N <= 0.05`",
     "unsafe authority broadening: zero",

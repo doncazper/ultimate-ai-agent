@@ -402,6 +402,12 @@ applicable safe reason code. Matching only the route/state with an unnecessary,
 incorrect, or sensitive requested field is a mismatch. Human-readable question
 text remains transient and is evaluated through those content-free contract
 refs rather than being written into durable evidence.
+For `familiar_unavailable` and `familiar_authority_blocked` cases, exact match
+additionally requires the canonical capability and operation identity, the
+applicable availability or policy/safety decision refs or fingerprints, and
+every applicable safe reason code. A matching route/state with missing,
+different, or unbound blocked-decision evidence is a mismatch even when the
+canonical proposal graph is null.
 Quality reporting must show that hit rate, top-k retrieval precision/recall,
 final route/proposal exact-match, the confusion matrix, and per-category
 failures, not only one aggregate score. It must also identify the exact model artifact,
@@ -529,9 +535,14 @@ shrinking `N`. Each envelope carries a canonical proposal-graph fingerprint
 over the stable capability ID, operation ID, effect classification,
 contract/schema fingerprints, exact approval-scope binding, ordered step refs,
 dependency edges, exact target or recipient refs, and schema-normalized typed
-arguments, including the canonical null-graph fingerprint. `D` is the count
-whose final canonical route, familiarity state,
-proposal ref, or canonical proposal-graph fingerprint differs. Independent
+arguments, including the canonical null-graph fingerprint.
+Each envelope also carries a canonical decision-evidence fingerprint over the
+resolved capability and operation identity, availability evidence and decision
+refs, policy/safety decision refs, and safe reason codes. That fingerprint is
+required for blocked and unavailable outcomes even when their proposal graph is
+null. `D` is the count whose final canonical route, familiarity state,
+proposal ref, canonical proposal-graph fingerprint, or canonical
+decision-evidence fingerprint differs. Independent
 blinded adjudication partitions every member of `D` into `A` (the accepted
 router was wrong and the candidate corrected it) or `C` (the candidate was
 wrong); unresolved or mixed cases make promotion fail. The identities `D = A + C`,
