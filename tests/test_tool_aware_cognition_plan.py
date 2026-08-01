@@ -152,6 +152,7 @@ def test_self_authorizing_language_is_rejected(
         "The system changes billing accounts.",
         "The runtime creates credentials.",
         "UAA bypasses approval validation.",
+        "UAA can bypass OpenAPI checks.",
         "The product persists raw provider payloads.",
     ),
 )
@@ -311,6 +312,7 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
         "No web fetching is authorized, this program grants production authority.",
         "No web fetching is authorized, however production authority is enabled.",
         "UAA cannot fetch the web, but can execute plugins.",
+        "UAA cannot fetch the web, but can bypass OpenAPI checks.",
         "The runtime cannot write to connectors; however it can execute a shell.",
     ),
 )
@@ -1376,9 +1378,13 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  300 ms",
         "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
         "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
-        "end-to-end supported tool-turn time to first token, from Tier 1 routing through\n"
-        "  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
+        "end-to-end supported tool-turn time to first token, from initial ingress\n"
+        "  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,\n"
+        "  tokenizer accounting, and local-model\n"
         "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
+        "clock starts when the normalized\n"
+        "  operator turn reaches initial arbitration, including the mandatory content-free\n"
+        "  discovery probe or tool-intent sentinel",
         "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
         "  cold catalog construction per supported hardware/backend class",
         "separate fail-closed census requires the exact canonical\n"
@@ -1388,6 +1394,11 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "event",
         "requires canonical expected-null capability and\n"
         "operation identity fingerprints plus the bound policy/safety evidence",
+        "fabricated-execution-progress event is any claim that execution has started",
+        "exact immutable attempt/start evidence bound to the canonical attempt,\n"
+        "operation, effect/scope, and target or recipient refs",
+        "no-effect active\n"
+        "replay has a canonical expected-null start-evidence posture",
         "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
         "corpus",
         "hydration-precision interval uses a request-clustered bootstrap",

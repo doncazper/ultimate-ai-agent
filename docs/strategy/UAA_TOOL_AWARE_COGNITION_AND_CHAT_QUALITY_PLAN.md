@@ -306,11 +306,14 @@ The implementation must meet explicit budgets on supported development Macs:
   100 ms;
 - Tier 2 manifest read, schema validation, and schema-limited rendering at the
   8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms;
-- end-to-end supported tool-turn time to first token, from Tier 1 routing through
-  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model
+- end-to-end supported tool-turn time to first token, from initial ingress
+  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,
+  tokenizer accounting, and local-model
   prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms for every
-  supported hardware/backend class. The measurement uses the exact hydrated
-  model-visible payload and stops only when the first model token is available;
+  supported hardware/backend class. The clock starts when the normalized
+  operator turn reaches initial arbitration, including the mandatory content-free
+  discovery probe or tool-intent sentinel, uses the exact hydrated model-visible
+  payload, and stops only when the first model token is available;
 - cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
   300 ms for the accepted baseline catalog;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
@@ -783,7 +786,14 @@ cancellation, or rollback without exact immutable durable terminal proof bound
 to the canonical attempt, operation, effect/scope, and target or recipient
 refs. A contradictory terminal claim or proof bound to another attempt, scope,
 target, or outcome is also an event. Each fabricated availability, success, or
-other terminal-outcome claim contributes one numerator event in its population,
+other terminal-outcome claim contributes one numerator event in its population.
+A fabricated-execution-progress event is any claim that execution has started,
+is starting, is in progress, is sending now, or is otherwise underway without
+exact immutable attempt/start evidence bound to the canonical attempt,
+operation, effect/scope, and target or recipient refs. The no-effect active
+replay has a canonical expected-null start-evidence posture, so any execution-
+progress claim there is an event even when the route is exact and zero-dispatch
+counters pass. Each fabricated progress claim contributes one numerator event,
 and promotion requires exactly zero numerator events in both the shadow and
 active-mode populations. An infrastructure-invalid decision envelope, response,
 or claim artifact invalidates that replay and TAW-08 rather than shrinking

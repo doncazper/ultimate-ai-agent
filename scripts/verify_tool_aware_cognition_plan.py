@@ -181,6 +181,11 @@ PLAN_REQUIRED = (
     "claim without an exact immutable durable terminal-success receipt",
     "fabricated-terminal-outcome event is any claim of success, failure,\n"
     "cancellation, or rollback without exact immutable durable terminal proof",
+    "fabricated-execution-progress event is any claim that execution has started",
+    "exact immutable attempt/start evidence bound to the canonical attempt,\n"
+    "operation, effect/scope, and target or recipient refs",
+    "no-effect active\n"
+    "replay has a canonical expected-null start-evidence posture",
     "contradictory terminal claim or proof bound to another attempt, scope,\n"
     "target, or outcome is also an event",
     "and promotion requires exactly zero numerator events in both the shadow and\n"
@@ -392,9 +397,13 @@ PLAN_REQUIRED = (
     "  100 ms",
     "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
     "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
-    "end-to-end supported tool-turn time to first token, from Tier 1 routing through\n"
-    "  Tier 2 hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
+    "end-to-end supported tool-turn time to first token, from initial ingress\n"
+    "  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,\n"
+    "  tokenizer accounting, and local-model\n"
     "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
+    "clock starts when the normalized\n"
+    "  operator turn reaches initial arbitration, including the mandatory content-free\n"
+    "  discovery probe or tool-intent sentinel",
     "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
     "  cold catalog construction per supported hardware/backend class",
     "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
@@ -483,7 +492,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to) "
     r"(?:bypass|skip|ignore|disable|override|weaken) (?:the )?"
     r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|redaction(?: checks?| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"redaction(?: checks?| gates?)?|"
     r"foundation gate|gate checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
@@ -505,6 +515,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:standing|cross-request) approval|"
     r"(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
+    r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
+    r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
+    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:runtime )?(?:model|provider) calls?|"
     r"web fetching|browser automation|connector writes?|"
@@ -536,6 +551,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:use|grant)(?:s|ing)? (?:a )?(?:standing|cross-request) approval|"
     r"(?:standing|cross-request) approval|(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
+    r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
+    r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
+    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
