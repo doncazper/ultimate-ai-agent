@@ -146,7 +146,11 @@ stale, or over budget, a sentinel-positive turn returns the fail-closed
 execution; it never falls through to Tier 0. A sentinel-negative turn may use
 the accepted direct-chat fallback. This preserves ordinary chat without
 silently answering a possible tool request as if capability evidence had been
-checked.
+checked. The ordinary-chat evaluation matrix must exercise healthy, missing,
+corrupt, stale, and over-budget catalog states. In each state and overall, a
+sentinel-caused `capability_evidence_unavailable` result on an adjudicated
+ordinary-chat case counts as an ordinary-chat false block even though no tool
+was selected.
 
 No tier may automatically load executable skill code, fetch the web, invoke a
 provider, or broaden an approval.
@@ -269,7 +273,12 @@ The implementation must meet explicit budgets on supported development Macs:
   50 ms;
 - paired direct-chat time to first token is reported against the same local
   model, prompt payload, and frozen inference settings, with routing overhead
-  measured separately from model generation;
+  measured separately from model generation; for every supported
+  hardware/backend class, the one-sided simultaneous 95% upper confidence
+  bound on the paired UAA-minus-baseline p95 TTFT difference must be at most
+  both 50 ms and 5% of that class's baseline p95; TAW-00 predeclares the paired
+  bootstrap estimator and Holm-adjusted familywise alpha of 0.05 across all
+  supported classes before measurements begin;
 - compact capability shortlist: warm p95 at or below 50 ms;
 - cold catalog build or refresh: p95 at or below 150 ms for the accepted
   baseline catalog;
@@ -311,6 +320,10 @@ An accepted, versioned evaluation corpus must include:
 Minimum release thresholds:
 
 - direct-chat false-positive tool selection at or below 2%;
+- ordinary-chat false-block posture at or below 2% overall and separately for
+  healthy, missing, corrupt, stale, and over-budget catalog states, with the
+  one-sided simultaneous 95% upper bound clearing 2% for every denominator and
+  Holm-adjusted familywise alpha of 0.05 across the six reported rates;
 - recall of an applicable capability at or above 95% on the accepted
   tool-required corpus;
 - top-3 capability hit rate at or above 80%, final route/proposal exact-match at
@@ -323,8 +336,8 @@ Minimum release thresholds:
 - fabricated availability or successful execution claims: zero;
 - raw sensitive content in durable routing evidence: zero;
 - all `outcome_uncertain` cases fail closed; and
-- no statistically material chat latency regression outside the stated
-  budgets.
+- the predeclared paired TTFT confidence-bound gate passes in every supported
+  hardware/backend class.
 
 The top-3 capability hit-rate numerator is the count of eligible tool-required
 cases with at least one adjudicated-relevant capability in the first three
@@ -344,6 +357,15 @@ across the four dimensions before candidate results are observed. A point
 estimate alone, a small sample, or an interval crossing the margin is an
 unresolved measurement gap and cannot pass TAW-08.
 
+Routing-quality promotion uses one-sided simultaneous 95% lower confidence
+bounds, not point estimates. The applicable-capability recall bound must clear
+95%, the top-3 hit-rate bound must clear 80%, the overall final exact-match
+bound must clear 90%, and every predeclared capability and risk category's
+final exact-match bound must clear 85%. TAW-00 must predeclare the binomial or
+paired estimator and Holm-adjusted familywise alpha of 0.05 across all routing
+metrics, capability categories, and risk categories before results are
+observed. An interval that crosses a threshold is a failed promotion gate.
+
 ### 7.1 Evaluation governance
 
 The ordinary-chat comparison must be a true paired test. Baseline and UAA
@@ -352,7 +374,12 @@ limit, sampler settings, and seed when the backend supports deterministic
 seeding. Pair order and display labels are randomized for scoring. If the
 backend cannot reproduce a seeded response, the benchmark uses a predeclared
 number of repeated paired samples and reports the additional variance instead
-of selecting favorable generations.
+of selecting favorable generations, but those samples are exploratory only and
+cannot satisfy TAW-08 acceptance. Promotion evidence is restricted to a
+backend/configuration that reproduces the exact seeded output and expected
+content hash locally; a supported non-reproducible backend remains explicitly
+unaccepted until a separately reviewed redaction-compliant output-verification
+protocol makes its original scored outputs independently auditable.
 
 Human blind scoring with a versioned rubric is the default quality judge.
 Evaluator identity is represented only by a safe ref; the report records
@@ -520,6 +547,10 @@ proportional post-merge verification, and cleanup.
 ### TAW-03 — Progressive capability retrieval
 
 - Add cached Tier 1 compact discovery and bounded Tier 2 manifest hydration.
+- Treat every hydrated manifest as untrusted model data regardless of source:
+  bind provenance and review status, exclude unreviewed imported or A2A-derived
+  text from hydration, and render allowed metadata through a schema-limited,
+  escaped, quoted data envelope with an explicit instruction/data delimiter.
 - Rank by relevance while retaining unavailable, policy-blocked, and
   authority-blocked registered matches for familiarity classification.
 - Deterministically filter effect and schema incompatibilities before proposal
@@ -533,6 +564,9 @@ proportional post-merge verification, and cleanup.
 - Introduce the awareness decision in evidence-only shadow mode before it can
   affect model context or operator-visible routing.
 - Supply only selected typed manifests to the local model when needed.
+- Add adversarial catalog-borne prompt-injection cases covering descriptions,
+  examples, and schemas; manifest text can inform selection but cannot issue
+  instructions, alter policy, mint authority, or suppress evidence.
 - Add focused clarification for truly ambiguous material effects.
 - Prove no hidden skill activation, execution, provider call, or web fetch.
 - Add one explicit safe-disable back to the accepted legacy router; corrupt,
@@ -576,6 +610,9 @@ proportional post-merge verification, and cleanup.
   recovery without changing the local model or broadening authority.
 - Audit false positives, false negatives, ambiguity, authority separation, and
   multilingual/paraphrase behavior.
+- Audit ordinary-chat false blocks across healthy and every degraded catalog
+  state, routing confidence-bound gates, reproducible-output evidence, the
+  per-class paired TTFT margin, and catalog-borne prompt injection.
 - Batch all findings into one final candidate and rerun broad qualification
   once.
 

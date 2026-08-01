@@ -363,6 +363,41 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
         verifier.verify()
 
 
+def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        .replace(
+            "Routing-quality promotion uses one-sided simultaneous 95% lower confidence",
+            "Routing-quality promotion uses point estimates",
+        )
+        .replace(
+            "ordinary-chat false-block posture at or below 2%",
+            "ordinary-chat false blocks are reported",
+        )
+        .replace(
+            "both 50 ms and 5%",
+            "a statistically material amount",
+        )
+        .replace(
+            "samples are exploratory only and\n"
+            "cannot satisfy TAW-08 acceptance",
+            "samples can satisfy TAW-08 acceptance",
+        )
+        .replace(
+            "Treat every hydrated manifest as untrusted model data",
+            "Treat imported manifests as ordinary prompt context",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
 def test_structured_authority_boundary_cannot_enable_authority(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
