@@ -411,7 +411,7 @@ the same canonical comparison envelope without inventing capability evidence:
 | `answer_directly`, `base_answer` | unchanged direct-chat route | `familiar_supported` for the built-in direct-chat capability | null |
 | `answer_with_reviewed_memory`, `draft_or_plan` | unchanged accepted route | `familiar_supported` only when the frozen case supplies the exact no-effect capability identity and current availability proof; `familiar_unavailable` when that exact known capability has validated unavailable evidence; otherwise the envelope is invalid | null |
 | `prepare_tool_or_action` | `prepare_tool_or_action` | Derived only from frozen typed evidence: `familiar_supported` requires exact capability identity, current availability, complete inputs, and proposal readiness; missing inputs map to `familiar_input_required`, validated unavailability maps to `familiar_unavailable`, and a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`; absent or contradictory evidence makes the envelope invalid | null |
-| `approval_required` | `approval_required` | `familiar_requires_approval` only when the frozen case supplies an exact pre-existing authority lane and its availability proof; otherwise `familiar_authority_blocked` | null |
+| `approval_required` | `approval_required` | Derived only from frozen typed evidence: `familiar_requires_approval` requires an exact pre-existing authority lane plus validated current availability; validated unavailability maps to `familiar_unavailable`, a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`, and an exact catalog/index-evidence-unavailable posture maps to `capability_evidence_unavailable`; absent or contradictory typed evidence makes the envelope invalid | null |
 | `execute_approved_action` | `execute_approved_action` | `familiar_supported` only when the accepted decision's exact approved scope validates; otherwise the envelope is invalid | exact accepted action-scope ref |
 | `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
 | `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |
@@ -510,7 +510,8 @@ proportional post-merge verification, and cleanup.
 
 ### TAW-02 — Familiarity and uncertainty assessor
 
-- Implement the eight canonical familiarity states and stable reason codes.
+- Implement all nine canonical familiarity states and stable reason codes,
+  including `capability_evidence_unavailable`.
 - Keep semantic relevance separate from availability, authority, input
   completeness, and terminal outcome truth.
 - Add table-driven tamper, ambiguity, substitution, and stale-evidence tests.

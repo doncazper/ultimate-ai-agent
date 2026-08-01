@@ -337,6 +337,32 @@ def test_plan_requires_evidence_bound_legacy_tool_mapping_and_api_contracts(
         verifier.verify()
 
 
+def test_plan_requires_all_states_and_unavailable_approval_normalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        .replace(
+            "Implement all nine canonical familiarity states",
+            "Implement eight canonical familiarity states",
+        )
+        .replace(
+            "| `approval_required` | `approval_required` | Derived only from frozen typed evidence",
+            "| `approval_required` | `approval_required` | `familiar_requires_approval`",
+        )
+        .replace(
+            "validated unavailability maps to `familiar_unavailable`",
+            "validated unavailability maps to `familiar_authority_blocked`",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
 def test_structured_authority_boundary_cannot_enable_authority(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
