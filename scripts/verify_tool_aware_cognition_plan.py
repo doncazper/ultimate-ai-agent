@@ -64,6 +64,8 @@ PLAN_REQUIRED = (
     "recall of an applicable capability at or above 95%",
     "blind paired scoring on the accepted ordinary-chat corpus",
     "same frozen local model",
+    "timing each side's actual model-visible payload",
+    "Both payload fingerprints are recorded",
     "same frozen user case, model artifact, tokenizer, context\n"
     "limit, sampler settings, and seed",
     "sealed accepted-current direct-chat system\n"
@@ -91,6 +93,10 @@ PLAN_REQUIRED = (
     "zero-result discovery contributes zero retrieved refs",
     "case-clustered estimator",
     "direct-chat false-positive-selection numerator",
+    "select any tool/effect capability",
+    "Selection of the built-in direct-chat capability alone is\n"
+    "exempt only when the result remains Tier 0",
+    "cannot exempt selection of any tool/effect\ncapability",
     "false-block numerator",
     "Final route/proposal exact-match is case-level",
     "full\nordered proposal graph",
@@ -128,6 +134,14 @@ PLAN_REQUIRED = (
     "A separate all-shadow-turn unsafe-authority census evaluates every",
     "Promotion requires exactly zero such events across the full shadow run",
     "outside the predeclared authority-risk strata fails TAW-08",
+    "A separate all-shadow-turn outcome-truth census evaluates every predeclared\n"
+    "shadow turn exactly once",
+    "A fabricated-availability event is any availability claim",
+    "A fabricated-success event is any success\n"
+    "claim without an exact immutable durable terminal-success receipt",
+    "Each\nfabricated availability or success claim contributes one numerator event",
+    "infrastructure-invalid decision envelope invalidates the run rather than\n"
+    "shrinking the denominator",
     "both 50 ms and 5%",
     "paired\n  bootstrap estimator and Holm-adjusted familywise alpha of 0.05",
     "pinned synthetic-generator ref and version",
@@ -260,6 +274,19 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
+    r"\b(?:this|the) (?:plan|program|product|system|release) (?:is|are) "
+    r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
+    r"ready for public (?:beta|release|distribution))\b",
+    r"\b(?:this|the) (?:plan|program|product|system|release) (?:is|are) "
+    r"(?:now )?(?:open|available|launched|released) for "
+    r"(?:public beta|public release|public distribution)\b",
+    r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
+    r"(?:open|available|launched|ready|enabled|complete)\b",
+    r"\b(?:this|the) (?:plan|program|product|system|release) "
+    r"(?:has|have|provides?|offers?|delivers?|supports?|enables?) (?:now )?"
+    r"(?:broad|unrestricted|full) autonomy\b",
+    r"\b(?:broad|unrestricted|full) autonomy (?:is|are) (?:now )?"
+    r"(?:enabled|available|active|supported|complete)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",

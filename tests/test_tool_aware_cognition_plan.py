@@ -141,6 +141,38 @@ def test_equivalent_authority_contradictions_are_rejected(
 
 
 @pytest.mark.parametrize(
+    "contradiction",
+    (
+        "This program is production ready and open for public beta.",
+        "The product is ready for public release.",
+        "Public distribution is now enabled.",
+        "This system provides broad autonomy.",
+        "Unrestricted autonomy is active.",
+    ),
+)
+@pytest.mark.parametrize(
+    "surface_name",
+    ("PLAN", "QUEUE", "BOARD", "ROADMAP", "CANONICAL_ROADMAP", "TRUTH_PACKET"),
+)
+def test_protected_product_claims_fail_on_every_program_truth_surface(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
+    surface_name: str,
+) -> None:
+    source = getattr(verifier, surface_name)
+    mutated = tmp_path / source.name
+    mutated.write_text(
+        source.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, surface_name, mutated)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "surface_name",
     ("QUEUE", "BOARD", "ROADMAP", "CANONICAL_ROADMAP", "TRUTH_PACKET"),
 )
@@ -198,6 +230,9 @@ def test_authority_negation_does_not_escape_its_clause(
         "No browser automation is enabled.",
         "No runtime model calls, connector writes, or production authority is enabled.",
         "Neither browser automation nor production authority is enabled.",
+        "This program is not production ready.",
+        "Public beta is not open.",
+        "Broad autonomy is not enabled.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -573,6 +608,8 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "capture and seal the accepted-current baseline first",
         "same frozen user case, model artifact, tokenizer, context\n"
         "limit, sampler settings, and seed",
+        "timing each side's actual model-visible payload",
+        "Both payload fingerprints are recorded",
         "sealed accepted-current direct-chat system\n"
         "payload and prompt-format version",
         "exact candidate\nmodel-visible system payload and prompt-format version",
@@ -633,6 +670,14 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "its invariant-valid canonical decision envelope",
         "Ordinary-chat and other\n"
         "non-authority-risk turns are excluded from that denominator",
+        "A separate all-shadow-turn outcome-truth census evaluates every predeclared\n"
+        "shadow turn exactly once",
+        "A fabricated-availability event is any availability claim",
+        "A fabricated-success event is any success\n"
+        "claim without an exact immutable durable terminal-success receipt",
+        "Each\nfabricated availability or success claim contributes one numerator event",
+        "infrastructure-invalid decision envelope invalidates the run rather than\n"
+        "shrinking the denominator",
         "candidate-error disagreement at or below 5% after every disagreement is\n"
         "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
         "canonical proposal-graph fingerprint\n"
@@ -652,6 +697,10 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "unsafe authority broadening: zero",
         "fabricated availability or successful execution claims: zero",
         "raw sensitive content in durable routing evidence: zero",
+        "select any tool/effect capability",
+        "Selection of the built-in direct-chat capability alone is\n"
+        "exempt only when the result remains Tier 0",
+        "cannot exempt selection of any tool/effect\ncapability",
     ),
 )
 def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(

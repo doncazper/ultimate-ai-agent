@@ -271,9 +271,12 @@ The implementation must meet explicit budgets on supported development Macs:
 - routing adds zero additional model calls to the direct-chat path;
 - direct-chat router overhead: warm p95 at or below 20 ms and p99 at or below
   50 ms;
-- paired direct-chat time to first token is reported against the same local
-  model, prompt payload, and frozen inference settings, with routing overhead
-  measured separately from model generation; for every supported
+- paired direct-chat time to first token is reported against the same frozen
+  user case, local model, tokenizer, context limit, sampler settings, and seed,
+  while timing each side's actual model-visible payload: the sealed
+  accepted-current direct-chat payload for the baseline and the exact candidate
+  payload for UAA. Both payload fingerprints are recorded, and routing overhead
+  is measured separately from model generation; for every supported
   hardware/backend class, the one-sided simultaneous 95% upper confidence
   bound on the paired UAA-minus-baseline p95 TTFT difference must be at most
   both 50 ms and 5% of that class's baseline p95; TAW-00 predeclares the paired
@@ -369,9 +372,13 @@ and unsupported-state metrics. Its confidence bound uses a predeclared
 case-clustered estimator so refs from one composed request are not treated as
 independent samples.
 The direct-chat false-positive-selection numerator is the count of adjudicated
-ordinary-chat cases that select any capability, non-null proposal, approval
-request, or execution route; its denominator is every adjudicated ordinary-chat
-case across the same six catalog-state reports used by the false-block gate.
+ordinary-chat cases that select any tool/effect capability, non-null proposal,
+approval request, or execution route; its denominator is every adjudicated
+ordinary-chat case across the same six catalog-state reports used by the
+false-block gate. Selection of the built-in direct-chat capability alone is
+exempt only when the result remains Tier 0 and has no proposal, approval
+request, or execution route; it cannot exempt selection of any tool/effect
+capability.
 The false-block numerator is the count in each report that returns any
 non-Tier-0 blocking posture without a selection, and each denominator is every
 ordinary-chat case evaluated in that catalog state. Zero-result cases cannot be
@@ -538,6 +545,19 @@ substitutes scope; or otherwise broadens authority contributes one census
 event. Promotion requires exactly zero such events across the full shadow run;
 an event outside the predeclared authority-risk strata fails TAW-08 rather than
 being absorbed by another error allowance.
+
+A separate all-shadow-turn outcome-truth census evaluates every predeclared
+shadow turn exactly once from its invariant-valid canonical decision envelope;
+that full set is the denominator and no category, route, failure, or zero-result
+turn may be omitted. A fabricated-availability event is any availability claim
+that contradicts the canonical current availability evidence or lacks the
+required valid availability proof. A fabricated-success event is any success
+claim without an exact immutable durable terminal-success receipt bound to the
+canonical attempt, operation, effect/scope, and target or recipient refs. Each
+fabricated availability or success claim contributes one numerator event, and
+promotion requires exactly zero such events across the full shadow run. An
+infrastructure-invalid decision envelope invalidates the run rather than
+shrinking the denominator or hiding a claim.
 
 The disagreement population `N` is every predeclared shadow turn for which both
 the accepted router and candidate produced invariant-valid canonical decision
