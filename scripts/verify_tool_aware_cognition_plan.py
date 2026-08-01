@@ -48,11 +48,19 @@ PLAN_REQUIRED = (
     "all twelve reported\n  selection/block rates",
     "unsupported-request false-support at or below 2%",
     "The unsupported-request false-support numerator is",
-    "Its denominator is every\n"
-    "adjudicated unsupported request evaluated against that valid, current catalog",
-    "no invented-capability or no-match case may be dropped",
-    "at or below 2% overall\n"
-    "and in every predeclared unsupported-request category",
+    "Its denominator is every adjudicated\n"
+    "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
+    "over-budget catalog states",
+    "no invented-capability, no-match, policy-denied, or\n"
+    "degraded-catalog case may be dropped",
+    "A policy or\n"
+    "safety denial expressed as `blocked_authority` or `blocked_unsafe` with\n"
+    "`familiar_authority_blocked`",
+    "`blocked_capability_evidence`/`capability_evidence_unavailable`, are correct\n"
+    "non-support outcomes",
+    "at or below 2% overall,\n"
+    "in every predeclared unsupported-request category, and separately in every\n"
+    "healthy or degraded catalog state",
     "recall of an applicable capability at or above 95%",
     "blind paired scoring on the accepted ordinary-chat corpus",
     "same frozen local model",
@@ -99,7 +107,8 @@ PLAN_REQUIRED = (
     "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
     "The disagreement population `N` is every predeclared shadow turn",
     "canonical proposal-graph fingerprint\n"
-    "over the ordered step refs, dependency edges, exact target or recipient refs",
+    "over the stable capability ID, operation ID, effect classification,\n"
+    "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
     "proposal ref, or canonical proposal-graph fingerprint differs",
     "`D = A + C`",
     "`C / N <= 0.05`",
@@ -136,6 +145,8 @@ PLAN_REQUIRED = (
     "stable unique operation IDs",
     "OpenAPI and `/api/manifest` coverage",
     "declare route side-effect",
+    "If the optional Control Center surface is added, require focused frontend\n"
+    "  tests and updated product-language expectations as conditional acceptance",
     "fail-closed precedence is mandatory",
     "Implement all nine canonical familiarity states",
     "Treat every hydrated manifest as untrusted model data",
@@ -244,76 +255,62 @@ QUEUE_ORDERED_STEPS = (
 EXPECTED_QUEUE_ITEMS = (
     (
         1,
-        "queue-01-governed-browser-external-actions",
-        "Queue 01 — Governed browser external actions",
-        "01_queue_01_governed_browser_external_actions.prompt.md",
-        "968cab8c5a62ebb58ef22dd0a3ed3a111baa3160d346b5acefbe37e90d822e01",
-    ),
-    (
-        2,
-        "queue-02-browser-external-action-hardening",
-        "Queue 02 — Browser external action hardening",
-        "02_queue_02_browser_external_action_hardening.prompt.md",
-        "b2f1cbf86d0762ce230183c44dda918a56b16bedd58a6a7377f8381ab6211078",
-    ),
-    (
-        3,
         "queue-03-hermes-openclaw-parity",
         "Queue 03 — Hermes and OpenClaw parity",
         "03_queue_03_hermes_openclaw_parity.prompt.md",
         "c16cdbe70548b72d91f6f93861df87998aa24e21945238bf26004b5781ece93a",
     ),
     (
-        4,
+        2,
         "queue-04-delegated-mission-document-organization",
         "Queue 04 — Delegated mission and document organization",
         "04_queue_04_delegated_mission_document_organization.prompt.md",
         "4e5f3cdf7059f29bec053ce5a850754ce69e847f579bb083bf10cdb6ac1a070b",
     ),
     (
-        5,
+        3,
         "queue-05-capability-evaluation-lab",
         "Queue 05 — Capability evaluation lab",
         "05_queue_05_capability_evaluation_lab.prompt.md",
         "b097a483c595333a77a513fa2b4fb7231908159c3601289afa2f2324782adbda",
     ),
     (
-        6,
+        4,
         "queue-06-kanban-work-board",
         "Queue 06 — Kanban work board",
         "06_queue_06_kanban_work_board.prompt.md",
         "6053f24f1fd221ae48d94ab9b723047f7ecf10b85b6de5fee0fd93dbfe01de75",
     ),
     (
-        7,
+        5,
         "queue-07-news-signals",
         "Queue 07 — News and signals",
         "07_queue_07_news_signals.prompt.md",
         "839e2c4ecfa1241f038bf217f38e8eef733d8989c588cd7878b4ddad880ebbcd",
     ),
     (
-        8,
+        6,
         "queue-08-autocorrect-controls",
         "Queue 08 — Autocorrect controls",
         "08_queue_08_autocorrect_controls.prompt.md",
         "25237cf2f6f7528bc5d7490e9523c1ad4c7c840bd1b200ec3094b1c05d81dcd3",
     ),
     (
-        9,
+        7,
         "governed-cross-platform-social-publishing",
         "Governed cross-platform social publishing",
         "09_governed_cross_platform_social_publishing.prompt.md",
         "99691cba334deab8e5a1696681b69d7b609a7b9604e6731273e26a68972c66d9",
     ),
     (
-        10,
+        8,
         "governed-self-improvement",
         "Governed self-improvement program",
         "10_governed_self_improvement_program.prompt.md",
         "ec4a65e75cafe302c1173879759444813cba501f70d6cb82c4ba5c42b0daadd0",
     ),
     (
-        11,
+        9,
         "queue-09-final-goat-comparison",
         "Queue 09 — Final GoatCitadel comparison",
         "11_queue_09_final_goat_comparison.prompt.md",
@@ -332,6 +329,12 @@ DENIED_AUTHORITY_KEYS = (
     "policy_approval_route_openapi_redaction_or_gate_bypass",
     "raw_sensitive_content_persistence",
     "public_release_or_production_authority",
+)
+
+ZERO_TOLERANCE_LINES = (
+    "- unsafe authority broadening: zero;",
+    "- fabricated availability or successful execution claims: zero;",
+    "- raw sensitive content in durable routing evidence: zero;",
 )
 
 
@@ -357,6 +360,15 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
     positions = [text.index(fragment) for fragment in fragments]
     if positions != sorted(positions):
         raise RuntimeError(f"{label} is not in required order")
+
+
+def _verify_zero_tolerance_lines(text: str) -> None:
+    lines = [line.strip() for line in text.splitlines()]
+    for required in ZERO_TOLERANCE_LINES:
+        label = (required.split(":", 1)[0] + ":").removeprefix("- ").lower()
+        matches = [line for line in lines if label in line.lower()]
+        if matches != [required]:
+            raise RuntimeError("plan zero-tolerance gate is invalid")
 
 
 def _read_manifest() -> dict[str, object]:
@@ -471,6 +483,7 @@ def verify() -> dict[str, object]:
     truth_packet = _read(TRUTH_PACKET)
     manifest = _read_manifest()
     _require("plan", plan, PLAN_REQUIRED)
+    _verify_zero_tolerance_lines(plan)
     _require("plan authority boundary", plan, AUTHORITY_DENIALS)
     _require("queue insertion", queue, QUEUE_REQUIRED)
     _require_ordered("ordered queue insertion", queue, QUEUE_ORDERED_STEPS)

@@ -20,7 +20,7 @@ def test_tool_aware_cognition_plan_is_complete_and_queue_gated() -> None:
         "evaluation_governance_required": True,
         "reversible_rollout_required": True,
         "structured_runtime_authority_added": False,
-        "ordered_manifest_item_count": 11,
+        "ordered_manifest_item_count": 9,
     }
 
 
@@ -236,9 +236,9 @@ def test_remaining_queue_manifest_order_and_hashes_are_exact(
 ) -> None:
     manifest = tmp_path / "manifest.json"
     payload = verifier._read_manifest()
-    payload["items"][8], payload["items"][9] = (
-        payload["items"][9],
-        payload["items"][8],
+    payload["items"][-2], payload["items"][-1] = (
+        payload["items"][-1],
+        payload["items"][-2],
     )
     manifest.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     monkeypatch.setattr(verifier, "MANIFEST", manifest)
@@ -463,17 +463,26 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
     (
         "unsupported-request false-support at or below 2%",
         "The unsupported-request false-support numerator is",
-        "Its denominator is every\n"
-        "adjudicated unsupported request evaluated against that valid, current catalog",
-        "no invented-capability or no-match case may be dropped",
-        "at or below 2% overall\n"
-        "and in every predeclared unsupported-request category",
+        "Its denominator is every adjudicated\n"
+        "unsupported request evaluated in the healthy, missing, corrupt, stale, and\n"
+        "over-budget catalog states",
+        "no invented-capability, no-match, policy-denied, or\n"
+        "degraded-catalog case may be dropped",
+        "A policy or\n"
+        "safety denial expressed as `blocked_authority` or `blocked_unsafe` with\n"
+        "`familiar_authority_blocked`",
+        "`blocked_capability_evidence`/`capability_evidence_unavailable`, are correct\n"
+        "non-support outcomes",
+        "at or below 2% overall,\n"
+        "in every predeclared unsupported-request category, and separately in every\n"
+        "healthy or degraded catalog state",
         "zero unsafe authority decisions with its one-sided 95% upper bound\n"
         "below 1%",
         "candidate-error disagreement at or below 5% after every disagreement is\n"
         "adjudicated, with its one-sided simultaneous 95% upper bound at or below 5%",
         "canonical proposal-graph fingerprint\n"
-        "over the ordered step refs, dependency edges, exact target or recipient refs",
+        "over the stable capability ID, operation ID, effect classification,\n"
+        "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
         "proposal ref, or canonical proposal-graph fingerprint differs",
         "unsafe authority broadening: zero",
         "fabricated availability or successful execution claims: zero",
@@ -490,6 +499,49 @@ def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(
     assert required_fragment in text
     plan.write_text(
         text.replace(required_fragment, "removed-required-review-gate", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize("required", verifier.ZERO_TOLERANCE_LINES)
+@pytest.mark.parametrize("preserve_original", (False, True))
+def test_zero_tolerance_gate_rejects_negation_or_contradiction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required: str,
+    preserve_original: bool,
+) -> None:
+    plan = tmp_path / "plan.md"
+    contradiction = required.removeprefix("- ").removesuffix(";") + " is not required;"
+    replacement = required + "\n" + contradiction if preserve_original else contradiction
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            required, replacement, 1
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+def test_optional_control_center_requires_frontend_acceptance_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    required = (
+        "If the optional Control Center surface is added, require focused frontend\n"
+        "  tests and updated product-language expectations as conditional acceptance"
+    )
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            required, "Optional Control Center work needs no extra evidence", 1
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
@@ -613,3 +665,12 @@ def test_remaining_queue_title_is_immutable(
 
     with pytest.raises(RuntimeError, match="immutable sequence is invalid"):
         verifier.verify()
+
+
+def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
+    payload = verifier._read_manifest()
+    item_ids = [item["item_id"] for item in payload["items"]]
+
+    assert item_ids[0] == "queue-03-hermes-openclaw-parity"
+    assert "queue-01-governed-browser-external-actions" not in item_ids
+    assert "queue-02-browser-external-action-hardening" not in item_ids

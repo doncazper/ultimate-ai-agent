@@ -373,13 +373,20 @@ The false-block numerator is the count in each report that returns any
 non-Tier-0 blocking posture without a selection, and each denominator is every
 ordinary-chat case evaluated in that catalog state. Zero-result cases cannot be
 excluded from either metric. The unsupported-request false-support numerator is
-the count of adjudicated unsupported requests evaluated against a valid,
-current catalog that either selects a capability, emits a non-null proposal,
-requests approval, chooses an execution route, or fails to return the exact
-`report_unsupported`/`novel_unsupported` pair. Its denominator is every
-adjudicated unsupported request evaluated against that valid, current catalog;
-no invented-capability or no-match case may be dropped. The metric is reported
-overall and for every predeclared unsupported-request category.
+the count of adjudicated unsupported requests that selects any capability,
+emits a non-null proposal, requests approval, chooses an execution route, or
+otherwise claims that a capability supports the requested effect. A policy or
+safety denial expressed as `blocked_authority` or `blocked_unsafe` with
+`familiar_authority_blocked`, and a degraded-catalog denial expressed as
+`blocked_capability_evidence`/`capability_evidence_unavailable`, are correct
+non-support outcomes; neither is required to weaken into
+`report_unsupported`/`novel_unsupported`. Its denominator is every adjudicated
+unsupported request evaluated in the healthy, missing, corrupt, stale, and
+over-budget catalog states; no invented-capability, no-match, policy-denied, or
+degraded-catalog case may be dropped. The metric is reported overall, for every
+predeclared unsupported-request category, and separately for every catalog
+state, with powered category-by-state intersections predeclared where the
+corpus supports them.
 Final route/proposal exact-match is case-level:
 the numerator requires the exact canonical route, familiarity state, and full
 ordered proposal graph (including an expected null graph), while the denominator
@@ -404,8 +411,9 @@ bounds, not point estimates. The applicable-capability recall bound must clear
 95%, the top-3 hit-rate bound must clear 80%, the overall final exact-match
 bound must clear 90%, and every predeclared capability and risk category's
 final exact-match bound must clear 85%. The unsupported-request false-support
-rate's one-sided simultaneous 95% upper bound must be at or below 2% overall
-and in every predeclared unsupported-request category. TAW-00 must predeclare
+rate's one-sided simultaneous 95% upper bound must be at or below 2% overall,
+in every predeclared unsupported-request category, and separately in every
+healthy or degraded catalog state. TAW-00 must predeclare
 the binomial or paired estimator and Holm-adjusted familywise alpha of 0.05 across all routing
 metrics, capability categories, risk categories, and
 unsupported-request categories before results are observed. An interval that
@@ -471,9 +479,11 @@ The disagreement population `N` is every predeclared shadow turn for which both
 the accepted router and candidate produced invariant-valid canonical decision
 envelopes. An infrastructure-invalid envelope invalidates the run rather than
 shrinking `N`. Each envelope carries a canonical proposal-graph fingerprint
-over the ordered step refs, dependency edges, exact target or recipient refs,
-and schema-normalized typed arguments, including the canonical null-graph
-fingerprint. `D` is the count whose final canonical route, familiarity state,
+over the stable capability ID, operation ID, effect classification,
+contract/schema fingerprints, exact approval-scope binding, ordered step refs,
+dependency edges, exact target or recipient refs, and schema-normalized typed
+arguments, including the canonical null-graph fingerprint. `D` is the count
+whose final canonical route, familiarity state,
 proposal ref, or canonical proposal-graph fingerprint differs. Independent
 blinded adjudication partitions every member of `D` into `A` (the accepted
 router was wrong and the candidate corrected it) or `C` (the candidate was
@@ -664,6 +674,9 @@ proportional post-merge verification, and cleanup.
 
 - Add human-readable route/familiarity inspection to CLI and API.
 - Add a Control Center surface only if it consumes the same backend read model.
+- If the optional Control Center surface is added, require focused frontend
+  tests and updated product-language expectations as conditional acceptance
+  evidence; an unwired, UI-only, or misleading surface fails the phase.
 - For every diagnostic API route, preserve stable unique operation IDs, update
   OpenAPI and `/api/manifest` coverage, declare route side-effect
   classification, and prove CLI/API parity against the shared Python Core.

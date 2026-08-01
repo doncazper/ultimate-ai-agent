@@ -34,76 +34,62 @@
   "items": [
     {
       "position": 1,
-      "item_id": "queue-01-governed-browser-external-actions",
-      "title": "Queue 01 — Governed browser external actions",
-      "filename": "01_queue_01_governed_browser_external_actions.prompt.md",
-      "sha256": "968cab8c5a62ebb58ef22dd0a3ed3a111baa3160d346b5acefbe37e90d822e01"
-    },
-    {
-      "position": 2,
-      "item_id": "queue-02-browser-external-action-hardening",
-      "title": "Queue 02 — Browser external action hardening",
-      "filename": "02_queue_02_browser_external_action_hardening.prompt.md",
-      "sha256": "b2f1cbf86d0762ce230183c44dda918a56b16bedd58a6a7377f8381ab6211078"
-    },
-    {
-      "position": 3,
       "item_id": "queue-03-hermes-openclaw-parity",
       "title": "Queue 03 — Hermes and OpenClaw parity",
       "filename": "03_queue_03_hermes_openclaw_parity.prompt.md",
       "sha256": "c16cdbe70548b72d91f6f93861df87998aa24e21945238bf26004b5781ece93a"
     },
     {
-      "position": 4,
+      "position": 2,
       "item_id": "queue-04-delegated-mission-document-organization",
       "title": "Queue 04 — Delegated mission and document organization",
       "filename": "04_queue_04_delegated_mission_document_organization.prompt.md",
       "sha256": "4e5f3cdf7059f29bec053ce5a850754ce69e847f579bb083bf10cdb6ac1a070b"
     },
     {
-      "position": 5,
+      "position": 3,
       "item_id": "queue-05-capability-evaluation-lab",
       "title": "Queue 05 — Capability evaluation lab",
       "filename": "05_queue_05_capability_evaluation_lab.prompt.md",
       "sha256": "b097a483c595333a77a513fa2b4fb7231908159c3601289afa2f2324782adbda"
     },
     {
-      "position": 6,
+      "position": 4,
       "item_id": "queue-06-kanban-work-board",
       "title": "Queue 06 — Kanban work board",
       "filename": "06_queue_06_kanban_work_board.prompt.md",
       "sha256": "6053f24f1fd221ae48d94ab9b723047f7ecf10b85b6de5fee0fd93dbfe01de75"
     },
     {
-      "position": 7,
+      "position": 5,
       "item_id": "queue-07-news-signals",
       "title": "Queue 07 — News and signals",
       "filename": "07_queue_07_news_signals.prompt.md",
       "sha256": "839e2c4ecfa1241f038bf217f38e8eef733d8989c588cd7878b4ddad880ebbcd"
     },
     {
-      "position": 8,
+      "position": 6,
       "item_id": "queue-08-autocorrect-controls",
       "title": "Queue 08 — Autocorrect controls",
       "filename": "08_queue_08_autocorrect_controls.prompt.md",
       "sha256": "25237cf2f6f7528bc5d7490e9523c1ad4c7c840bd1b200ec3094b1c05d81dcd3"
     },
     {
-      "position": 9,
+      "position": 7,
       "item_id": "governed-cross-platform-social-publishing",
       "title": "Governed cross-platform social publishing",
       "filename": "09_governed_cross_platform_social_publishing.prompt.md",
       "sha256": "99691cba334deab8e5a1696681b69d7b609a7b9604e6731273e26a68972c66d9"
     },
     {
-      "position": 10,
+      "position": 8,
       "item_id": "governed-self-improvement",
       "title": "Governed self-improvement program",
       "filename": "10_governed_self_improvement_program.prompt.md",
       "sha256": "ec4a65e75cafe302c1173879759444813cba501f70d6cb82c4ba5c42b0daadd0"
     },
     {
-      "position": 11,
+      "position": 9,
       "item_id": "queue-09-final-goat-comparison",
       "title": "Queue 09 — Final GoatCitadel comparison",
       "filename": "11_queue_09_final_goat_comparison.prompt.md",
