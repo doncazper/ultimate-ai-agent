@@ -16,6 +16,8 @@ BOARD = ROOT / "docs" / "kanban" / "current_board.md"
 ROADMAP = ROOT / "docs" / "roadmap" / "OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md"
 CANONICAL_ROADMAP = ROOT / "docs" / "canonical" / "09_roadmap.md"
 TRUTH_PACKET = ROOT / "docs" / "roadmap" / "PRODUCT_RELEASE_TRUTH_PACKET.md"
+DOCS_README = ROOT / "docs" / "README.md"
+DOCUMENTATION_INDEX = ROOT / "docs" / "DOCUMENTATION_INDEX.md"
 MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
 
 PLAN_REQUIRED = (
@@ -184,10 +186,12 @@ PLAN_REQUIRED = (
     "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
     "canonical decision-evidence fingerprint over the\n"
     "resolved capability and operation identity, availability evidence and decision\n"
-    "refs, policy/safety decision refs, canonical requested typed-field refs,\n"
-    "clarification contract/version, canonical attempt and execution refs, exact\n"
-    "receipt refs, terminal-proof contract/version refs, safe recovery or\n"
-    "reconciliation evidence refs, and safe reason codes",
+    "refs, policy/safety decision refs, the exact approval ref, LocalApprovalAuthority\n"
+    "validation request and status refs, immutable approval-validation receipt ref,\n"
+    "canonical requested typed-field refs, clarification contract/version, canonical\n"
+    "attempt and execution refs, exact receipt refs, terminal-proof contract/version\n"
+    "refs, safe recovery or reconciliation evidence refs, and safe reason codes",
+    "missing, stale, revoked, or substituted approval binding is a mismatch",
     "required for blocked and unavailable outcomes even when their proposal graph is\n"
     "null",
     "for `outcome_uncertain` outcomes even when terminal proof is missing\n"
@@ -218,6 +222,15 @@ PLAN_REQUIRED = (
     "requires a revised candidate plus a complete shadow and active replay",
     "complete zero-tolerance artifact census also covers every active-mode replay\n"
     "artifact",
+    "The all-outcome-uncertain fail-closed census denominator is every accepted\n"
+    "corpus case in which proposal or execution work began and exact durable\n"
+    "terminal proof is absent or inconsistent",
+    "counted exactly once in shadow mode\n"
+    "and exactly once in the no-effect active replay",
+    "does not return the exact\n"
+    "`report_outcome_uncertain`/`outcome_uncertain` pair",
+    "TAW-08 requires exactly zero\n"
+    "numerator events in both the shadow and active-mode populations",
     "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
     "ordinary-chat dimensions",
     "any other unscored pair invalidates\n"
@@ -743,6 +756,8 @@ def verify() -> dict[str, object]:
     roadmap = _read(ROADMAP)
     canonical_roadmap = _read(CANONICAL_ROADMAP)
     truth_packet = _read(TRUTH_PACKET)
+    docs_readme = _read(DOCS_README)
+    documentation_index = _read(DOCUMENTATION_INDEX)
     manifest = _read_manifest()
     _require("plan", plan, PLAN_REQUIRED)
     _verify_zero_tolerance_lines(plan)
@@ -759,7 +774,18 @@ def verify() -> dict[str, object]:
     # match affirmative grants rather than denial fragments, so the canonical
     # safety language remains valid while a contradictory claim anywhere fails
     # closed.
-    combined = "\n".join((plan, queue, board, roadmap, canonical_roadmap, truth_packet))
+    combined = "\n".join(
+        (
+            plan,
+            queue,
+            board,
+            roadmap,
+            canonical_roadmap,
+            truth_packet,
+            docs_readme,
+            documentation_index,
+        )
+    )
     present = _find_forbidden_authority_claims(combined)
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")

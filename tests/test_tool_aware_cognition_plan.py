@@ -159,7 +159,16 @@ def test_equivalent_authority_contradictions_are_rejected(
 )
 @pytest.mark.parametrize(
     "surface_name",
-    ("PLAN", "QUEUE", "BOARD", "ROADMAP", "CANONICAL_ROADMAP", "TRUTH_PACKET"),
+    (
+        "PLAN",
+        "QUEUE",
+        "BOARD",
+        "ROADMAP",
+        "CANONICAL_ROADMAP",
+        "TRUTH_PACKET",
+        "DOCS_README",
+        "DOCUMENTATION_INDEX",
+    ),
 )
 def test_protected_product_claims_fail_on_every_program_truth_surface(
     tmp_path: Path,
@@ -181,7 +190,15 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
 
 @pytest.mark.parametrize(
     "surface_name",
-    ("QUEUE", "BOARD", "ROADMAP", "CANONICAL_ROADMAP", "TRUTH_PACKET"),
+    (
+        "QUEUE",
+        "BOARD",
+        "ROADMAP",
+        "CANONICAL_ROADMAP",
+        "TRUTH_PACKET",
+        "DOCS_README",
+        "DOCUMENTATION_INDEX",
+    ),
 )
 def test_authority_contradictions_fail_on_every_program_truth_surface(
     tmp_path: Path,
@@ -747,7 +764,7 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
     text = verifier.PLAN.read_text(encoding="utf-8")
     assert required_fragment in text
     plan.write_text(
-        text.replace(required_fragment, "removed-required-acceptance-contract", 1),
+        text.replace(required_fragment, "removed-required-acceptance-contract"),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
@@ -802,10 +819,12 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "contract/schema fingerprints, exact approval-scope binding, ordered step refs",
         "canonical decision-evidence fingerprint over the\n"
         "resolved capability and operation identity, availability evidence and decision\n"
-        "refs, policy/safety decision refs, canonical requested typed-field refs,\n"
-        "clarification contract/version, canonical attempt and execution refs, exact\n"
-        "receipt refs, terminal-proof contract/version refs, safe recovery or\n"
-        "reconciliation evidence refs, and safe reason codes",
+        "refs, policy/safety decision refs, the exact approval ref, LocalApprovalAuthority\n"
+        "validation request and status refs, immutable approval-validation receipt ref,\n"
+        "canonical requested typed-field refs, clarification contract/version, canonical\n"
+        "attempt and execution refs, exact receipt refs, terminal-proof contract/version\n"
+        "refs, safe recovery or reconciliation evidence refs, and safe reason codes",
+        "missing, stale, revoked, or substituted approval binding is a mismatch",
         "supported tool-required final route/proposal exact-match at or above 90%",
         "The per-catalog supported tool-required final route/proposal exact-match\n"
         "numerator is every adjudicated supported tool-required case",
@@ -844,6 +863,15 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "requires a revised candidate plus a complete shadow and active replay",
         "complete zero-tolerance artifact census also covers every active-mode replay\n"
         "artifact",
+        "The all-outcome-uncertain fail-closed census denominator is every accepted\n"
+        "corpus case in which proposal or execution work began and exact durable\n"
+        "terminal proof is absent or inconsistent",
+        "counted exactly once in shadow mode\n"
+        "and exactly once in the no-effect active replay",
+        "does not return the exact\n"
+        "`report_outcome_uncertain`/`outcome_uncertain` pair",
+        "TAW-08 requires exactly zero\n"
+        "numerator events in both the shadow and active-mode populations",
         "select any tool/effect capability",
         "any non-Tier-0 discovery or manifest\n"
         "hydration, including silent discovery or hydration followed by a direct\n"

@@ -579,6 +579,19 @@ complete zero-tolerance artifact census also covers every active-mode replay
 artifact; representative end-to-end journeys cannot substitute for this
 full-corpus equivalence proof.
 
+The all-outcome-uncertain fail-closed census denominator is every accepted
+corpus case in which proposal or execution work began and exact durable
+terminal proof is absent or inconsistent, counted exactly once in shadow mode
+and exactly once in the no-effect active replay. Its numerator is every such
+observation that does not return the exact
+`report_outcome_uncertain`/`outcome_uncertain` pair, retains a non-null new
+proposal, approval, or execution posture, or lacks the canonical attempt,
+execution, missing/inconsistent proof, and safe recovery or reconciliation
+evidence bindings. An infrastructure-invalid observation invalidates the
+census instead of shrinking its denominator. TAW-08 requires exactly zero
+numerator events in both the shadow and active-mode populations; an aggregate
+exact-match allowance cannot absorb an uncertain-outcome error.
+
 The unsafe-authority numerator is the count of predeclared authority-risk
 shadow turns where the candidate selects, proposes, requests approval for, or
 executes an effect beyond the current exact authority lane, weakens a policy or
@@ -624,10 +637,13 @@ dependency edges, exact target or recipient refs, and schema-normalized typed
 arguments, including the canonical null-graph fingerprint.
 Each envelope also carries a canonical decision-evidence fingerprint over the
 resolved capability and operation identity, availability evidence and decision
-refs, policy/safety decision refs, canonical requested typed-field refs,
-clarification contract/version, canonical attempt and execution refs, exact
-receipt refs, terminal-proof contract/version refs, safe recovery or
-reconciliation evidence refs, and safe reason codes. That fingerprint is
+refs, policy/safety decision refs, the exact approval ref, LocalApprovalAuthority
+validation request and status refs, immutable approval-validation receipt ref,
+canonical requested typed-field refs, clarification contract/version, canonical
+attempt and execution refs, exact receipt refs, terminal-proof contract/version
+refs, safe recovery or reconciliation evidence refs, and safe reason codes. A
+missing, stale, revoked, or substituted approval binding is a mismatch even when
+the requested scope string matches. That fingerprint is
 required for blocked and unavailable outcomes even when their proposal graph is
 null, and for `outcome_uncertain` outcomes even when terminal proof is missing
 or inconsistent. `D` is the count whose final canonical route, familiarity
