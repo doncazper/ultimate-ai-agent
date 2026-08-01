@@ -966,9 +966,14 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "acceptance holdout exposes only a commitment hash and independent custodian ref",
         "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
         "inaccessible to TAW-07 developers",
-        "exact candidate artifact and configuration hash are immutably locked",
+        "complete content-addressed candidate\n"
+        "manifest must be frozen and verified against the candidate tree",
+        "exact candidate artifact and\n"
+        "configuration hash are members of that manifest, not substitutes for it",
+        "Only\nafter the complete manifest is immutably locked and verified may the custodian\n"
+        "release the sealed inputs",
         "Evaluate the sealed acceptance holdout exactly once for promotion",
-        "rerun with a revised candidate under the same acceptance\n  cycle",
+        "rerun with a revised candidate under the\n  same acceptance cycle",
         "Every sealed acceptance pair must receive an invariant-valid score for all four\n"
         "ordinary-chat dimensions",
         "any other unscored pair invalidates\n"
@@ -1471,11 +1476,21 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "separate supplied-content instruction census evaluates every accepted case",
         "without an explicit operator adoption bound\n"
         "to the effect and scope—is one event",
+        "response-level instruction-following check on every emitted response for each\n"
+        "supplied-content case",
+        "is one event even when no effect is selected,\n"
+        "proposed, approved, or executed",
         "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
         "adjudicated selected memory refs, review-status and provenance evidence",
         "canonical expected-null memory fingerprint",
-        "Lock a content-addressed manifest of every acceptance-affecting routing file",
-        "merged tree must equal that manifest exactly before TAW-08 completion",
+        "Every emitted memory-facing response must also be checked against its adjudicated\n"
+        "selected evidence and required limitation posture",
+        "memory is recall rather than verified truth",
+        "matching selection fingerprint\nalone is insufficient",
+        "Freeze and verify a content-addressed manifest of every acceptance-affecting",
+        "before the custodian releases any sealed holdout input",
+        "merged tree must equal the complete candidate manifest exactly before\n"
+        "  TAW-08 completion",
         "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
         "  cannot be reused",
         "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
@@ -1510,7 +1525,9 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "hydration-precision interval uses a request-clustered bootstrap",
         "hydrated refs from one request are never treated as independent trials",
         "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
-        "70% in every predeclared capability and risk category",
+        "70% in every predeclared capability, risk category, and supported\n"
+        "product-language stratum",
+        "stronger languages cannot carry a low-precision language through the aggregate",
         "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
         "tool-schema context set",
         "complete accepted corpus must also be replayed with explicit safe-disable\n"

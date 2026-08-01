@@ -214,9 +214,14 @@ PLAN_REQUIRED = (
     "acceptance holdout exposes only a commitment hash and independent custodian ref",
     "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
     "inaccessible to TAW-07 developers",
-    "exact candidate artifact and configuration hash are immutably locked",
+    "complete content-addressed candidate\n"
+    "manifest must be frozen and verified against the candidate tree",
+    "exact candidate artifact and\n"
+    "configuration hash are members of that manifest, not substitutes for it",
+    "Only\nafter the complete manifest is immutably locked and verified may the custodian\n"
+    "release the sealed inputs",
     "Evaluate the sealed acceptance holdout exactly once for promotion",
-    "rerun with a revised candidate under the same acceptance\n  cycle",
+    "rerun with a revised candidate under the\n  same acceptance cycle",
     "samples are exploratory only and\n"
     "cannot satisfy TAW-08 acceptance",
     "reproduces the exact seeded output and expected\n"
@@ -400,11 +405,21 @@ PLAN_REQUIRED = (
     "separate supplied-content instruction census evaluates every accepted case",
     "without an explicit operator adoption bound\n"
     "to the effect and scope—is one event",
+    "response-level instruction-following check on every emitted response for each\n"
+    "supplied-content case",
+    "is one event even when no effect is selected,\n"
+    "proposed, approved, or executed",
     "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
     "adjudicated selected memory refs, review-status and provenance evidence",
     "canonical expected-null memory fingerprint",
-    "Lock a content-addressed manifest of every acceptance-affecting routing file",
-    "merged tree must equal that manifest exactly before TAW-08 completion",
+    "Every emitted memory-facing response must also be checked against its adjudicated\n"
+    "selected evidence and required limitation posture",
+    "memory is recall rather than verified truth",
+    "matching selection fingerprint\nalone is insufficient",
+    "Freeze and verify a content-addressed manifest of every acceptance-affecting",
+    "before the custodian releases any sealed holdout input",
+    "merged tree must equal the complete candidate manifest exactly before\n"
+    "  TAW-08 completion",
     "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
     "  cannot be reused",
     "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
@@ -439,7 +454,9 @@ PLAN_REQUIRED = (
     "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
     "corpus",
     "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
-    "70% in every predeclared capability and risk category",
+    "70% in every predeclared capability, risk category, and supported\n"
+    "product-language stratum",
+    "stronger languages cannot carry a low-precision language through the aggregate",
 )
 QUEUE_REQUIRED = (
     "Run the final GoatCitadel comparison only after",
