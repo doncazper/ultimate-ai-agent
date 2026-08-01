@@ -399,16 +399,21 @@ ranked results (or all returned results when fewer than three exist); its
 denominator is every eligible case with at least one adjudicated-relevant
 capability. Cases cannot be removed because retrieval returned no candidates.
 Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist,
-before Tier 2 hydration and before availability, policy, or authority filtering.
-Its numerator is every adjudicated-relevant exact capability ref present
-anywhere in that shortlist; its denominator is every adjudicated-relevant exact
-capability ref across the accepted tool-required corpus. Each required ref in a
-multi-capability case contributes separately. Known unavailable or
-policy/authority-blocked refs remain in the denominator, and missing, corrupt,
-stale, over-budget, or zero-result discovery contributes zero retrieved refs
-without shrinking it. Unsupported cases with no adjudicated-relevant ref are
-excluded from this recall denominator and remain covered by the false-positive
-and unsupported-state metrics. Its confidence bound uses a predeclared
+before Tier 2 hydration and before availability, policy, or authority filtering,
+over only the canonical healthy, validated, searchable catalog population. Its
+numerator is every adjudicated-relevant exact capability ref present anywhere in
+that shortlist; its denominator is every adjudicated-relevant exact capability
+ref across the accepted tool-required cases observed against that healthy
+catalog. Each required ref in a multi-capability case contributes separately.
+Known unavailable or policy/authority-blocked refs remain in the denominator
+when their canonical catalog is healthy, and healthy zero-result discovery
+contributes zero retrieved refs without shrinking it. Missing, corrupt, stale,
+and over-budget catalog observations are excluded only from retrieval hit-rate
+and recall denominators because they are not a searchable population; every one
+remains in the degraded-state exact-match reports and zero-tolerance fail-closed
+census. Unsupported cases with no adjudicated-relevant ref are excluded from
+this recall denominator and remain covered by the false-positive and
+unsupported-state metrics. Its confidence bound uses a predeclared
 case-clustered estimator so refs from one composed request are not treated as
 independent samples.
 The per-catalog supported tool-required final route/proposal exact-match
@@ -488,6 +493,15 @@ the exact-match contract instead requires canonical expected-null capability and
 operation identity fingerprints plus the bound policy/safety evidence. A
 fabricated non-null identity or a missing, substituted, or noncanonical null
 fingerprint is a mismatch.
+For every tool-facing case in the complete active acceptance corpus, every
+emitted operator-facing response must also be semantically checked against its
+exact canonical decision and proposal envelope: capability and operation
+identity, ordered effects and dependencies, recipients or targets, validated
+typed arguments and scope, approval/blocked/unsupported posture, and reason and
+evidence refs. The check uses a deterministic schema-aware validator or a
+predeclared blinded rubric. Any contradiction, omission, extra effect or target,
+altered scope, or unscored response invalidates the run. Only content-free
+response-contract and score refs may enter durable evidence.
 For `outcome_uncertain` cases, exact match additionally requires the canonical
 attempt and execution refs, exact receipt refs, terminal-proof contract/version
 refs, and safe recovery or reconciliation evidence refs, including canonical

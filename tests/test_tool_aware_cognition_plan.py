@@ -271,6 +271,8 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
         "No web fetching is authorized; this program grants production authority.",
         "No web fetching is authorized, this program grants production authority.",
         "No web fetching is authorized, however production authority is enabled.",
+        "UAA cannot fetch the web, but can execute plugins.",
+        "The runtime cannot write to connectors; however it can execute a shell.",
     ),
 )
 def test_authority_negation_does_not_escape_its_clause(
@@ -311,6 +313,8 @@ def test_authority_negation_does_not_escape_its_clause(
         "UAA can explain why it cannot fetch the web.",
         "The runtime will never call a provider.",
         "UAA can explain why it can't execute plugins.",
+        "UAA cannot fetch the web, but can explain why it cannot execute plugins.",
+        "The runtime cannot write to connectors; however it cannot execute a shell.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -1062,8 +1066,17 @@ def test_plan_requires_exact_applicable_capability_recall_population(
             "Applicable-capability recall is reported",
         )
         .replace(
-            "zero-result discovery contributes zero retrieved refs",
+            "healthy zero-result discovery\ncontributes zero retrieved refs",
             "zero-result discovery may be excluded",
+        )
+        .replace(
+            "over only the canonical healthy, validated, searchable catalog population",
+            "over a pooled healthy and degraded population",
+        )
+        .replace(
+            "excluded only from retrieval hit-rate\n"
+            "and recall denominators because they are not a searchable population",
+            "included in the retrieval denominator despite unavailable evidence",
         )
         .replace(
             "direct-chat false-positive-selection numerator",
@@ -1086,6 +1099,29 @@ def test_plan_requires_exact_applicable_capability_recall_population(
         .replace(
             "Final route/proposal exact-match is case-level",
             "Final route/proposal exact-match is reported",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+def test_plan_requires_every_tool_response_to_match_its_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    required = (
+        "For every tool-facing case in the complete active acceptance corpus, every\n"
+        "emitted operator-facing response must also be semantically checked against its\n"
+        "exact canonical decision and proposal envelope"
+    )
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            required,
+            "Some tool-facing responses may be sampled for semantic consistency",
+            1,
         ),
         encoding="utf-8",
     )

@@ -111,9 +111,14 @@ PLAN_REQUIRED = (
     "fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`\n"
     "route counts as correct",
     "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
-    "Each required ref in a\n"
-    "multi-capability case contributes separately",
-    "zero-result discovery contributes zero retrieved refs",
+    "over only the canonical healthy, validated, searchable catalog population",
+    "Each required ref in a multi-capability case contributes separately",
+    "healthy zero-result discovery\n"
+    "contributes zero retrieved refs",
+    "excluded only from retrieval hit-rate\n"
+    "and recall denominators because they are not a searchable population",
+    "remains in the degraded-state exact-match reports and zero-tolerance fail-closed\n"
+    "census",
     "case-clustered estimator",
     "direct-chat false-positive-selection numerator",
     "select any tool/effect capability",
@@ -371,6 +376,13 @@ PLAN_REQUIRED = (
     "event",
     "requires canonical expected-null capability and\n"
     "operation identity fingerprints plus the bound policy/safety evidence",
+    "For every tool-facing case in the complete active acceptance corpus, every\n"
+    "emitted operator-facing response must also be semantically checked against its\n"
+    "exact canonical decision and proposal envelope",
+    "ordered effects and dependencies, recipients or targets, validated\n"
+    "typed arguments and scope, approval/blocked/unsupported posture",
+    "Any contradiction, omission, extra effect or target,\n"
+    "altered scope, or unscored response invalidates the run",
     "Tier 2 hydration precision is micro-precision over the accepted tool-required\n"
     "corpus",
     "one-sided simultaneous 95% lower confidence bound must clear 80% overall and\n"
@@ -451,6 +463,26 @@ FORBIDDEN_PATTERNS = (
     r"(?:standing|cross-request) approval|billing or account changes?|"
     r"credential creation|raw (?:prompt|response|provider payload|local-path|sensitive content) persistence) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent)"
+    r"(?:(?![.!?]).){1,200}?(?:,|;)\s*(?:but|however|yet|and)\s+(?:it\s+)?"
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
+    r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:ing)?|"
+    r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
+    r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
+    r"writ(?:e|es|ing) (?:to )?(?:external )?connectors?|connector writes?|"
+    r"execut(?:e|es|ing) (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
+    r"shell execution|perform(?:s|ing)? browser automation|browser automation|"
+    r"(?:automatically )?(?:import(?:s|ing)?|activat(?:e|es|ing)|execut(?:e|es|ing)) (?:skills?|plugins?)|"
+    r"automatic (?:skill|plugin) (?:import|activation|execution)|"
+    r"(?:automatically )?(?:submit(?:s|ting)?|merg(?:e|es|ing)) (?:pull requests?|PRs?)|"
+    r"automatic (?:pull request|PR) (?:submission|merge|merging)|"
+    r"(?:use|grant)(?:s|ing)? (?:a )?(?:standing|cross-request) approval|"
+    r"(?:standing|cross-request) approval|(?:change|modify)(?:s|ing)? (?:billing|accounts?)|"
+    r"creat(?:e|es|ing) credentials?|"
+    r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
