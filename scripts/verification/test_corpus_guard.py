@@ -122,6 +122,8 @@ def _parameterized_ref(
             continue
         resolved_names.add(name)
         for binding in module_bindings.get(name, ()):
+            if binding.lineno >= node.lineno:
+                continue
             binding_nodes[(binding.lineno, binding.col_offset)] = binding
             pending_names.update(
                 child.id

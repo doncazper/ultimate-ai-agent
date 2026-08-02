@@ -243,6 +243,40 @@ def test_case(value):
     assert before[0].ref != after_mutation_reorder[0].ref
 
 
+def test_python_inventory_ignores_parameter_mutations_after_declaration() -> None:
+    path = "tests/test_sample.py"
+    before = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+
+CASES.append("two")
+""",
+    )
+    after = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+
+CASES.append("three")
+""",
+    )
+
+    assert before[0].ref == after[0].ref
+
+
 def test_python_inventory_binds_parameter_data_builder_changes() -> None:
     path = "tests/test_sample.py"
     template = """
