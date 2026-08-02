@@ -701,6 +701,21 @@ test.each(cases)("renders %s", () => {});
         )
 
 
+def test_frontend_inventory_rejects_helper_mediated_parameter_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="passed to an unproven call before collection",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const cases = [["one"], ["two"]];
+removeLast(cases);
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
 def test_frontend_parameter_binding_ignores_unrelated_initializer_changes() -> None:
     path = "apps/control-center/src/example.test.tsx"
     before = guard.parse_frontend_declarations(

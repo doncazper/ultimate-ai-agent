@@ -341,6 +341,7 @@ def _const_initializer_source(
     scan_text: str,
     name: str,
     before_offset: int,
+    proven_parameter_call_offsets: frozenset[int] | None = None,
 ) -> str | None:
     pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
     matches = [match for match in pattern.finditer(scan_text, 0, before_offset)]
@@ -389,6 +390,24 @@ def _const_initializer_source(
         raise FrontendInventoryError(
             "frontend parameterized test binding is mutated before collection"
         )
+    call_pattern = re.compile(
+        rf"(?P<callee>\b{TEST_API_NAME}(?:\s*(?:\.|\?\.)\s*{TEST_API_NAME})*|(?:\]|\)))"
+        r"\s*(?:\?\.)?\s*(?P<opening>\()"
+    )
+    proven_offsets = proven_parameter_call_offsets or frozenset()
+    for call in call_pattern.finditer(scan_text, semicolon + 1, before_offset):
+        if call.start() in proven_offsets:
+            continue
+        opening = call.start("opening")
+        call_end = _skip_balanced(text, opening)
+        if call_end > before_offset:
+            continue
+        arguments = scan_text[opening + 1 : call_end - 1]
+        if re.search(rf"\b{escaped_name}\b", arguments):
+            raise FrontendInventoryError(
+                "frontend parameterized test binding is passed to an "
+                "unproven call before collection"
+            )
     return text[match.start() : semicolon + 1]
 
 
@@ -426,6 +445,7 @@ def _bound_parameter_data(
     parameter_data: str,
     before_offset: int,
     import_binding_resolver: ImportBindingResolver | None,
+    proven_parameter_call_offsets: frozenset[int],
 ) -> str:
     if not (parameter_data.startswith("(") and parameter_data.endswith(")")):
         return parameter_data
@@ -438,6 +458,7 @@ def _bound_parameter_data(
         scan_text,
         expression,
         before_offset,
+        proven_parameter_call_offsets,
     )
     if local_source is not None:
         return local_source
@@ -545,12 +566,20 @@ def _frontend_inventory_entries(
         raw_entries.append(
             (match.start(), f"{path}::{title}", text[match.start() : declaration_end])
         )
+    parameterized_declarations = _parameterized_declarations(
+        text,
+        scan_text,
+        each_pattern,
+    )
+    parameter_call_offsets = frozenset(
+        declaration[0] for declaration in parameterized_declarations
+    )
     for (
         offset,
         raw_title,
         declaration_source,
         parameter_data,
-    ) in _parameterized_declarations(text, scan_text, each_pattern):
+    ) in parameterized_declarations:
         title = _normalized_title(raw_title)
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
@@ -560,6 +589,7 @@ def _frontend_inventory_entries(
             parameter_data,
             offset,
             import_binding_resolver,
+            parameter_call_offsets,
         )
         digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
         raw_entries.append(
