@@ -83,6 +83,9 @@ Worktree test files and the retirement ledger are read as bounded,
 single-link regular-file identities by walking every repository-relative path
 component through pinned no-follow directory descriptors; substitutions,
 symlinked parents, or mid-read identity changes fail closed.
+Historical source refs are used only when the replacement file or declaration
+is absent; unsafe, oversized, mutated, or undecodable worktree content never
+falls back to historical evidence.
 
 Retirement reasons are bounded and rejected when repository redaction rules
 detect credential-like values, raw prompt/response/log/path markers, local user

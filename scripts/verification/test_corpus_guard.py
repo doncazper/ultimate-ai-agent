@@ -79,6 +79,10 @@ class TestCorpusGuardError(RuntimeError):
     """Raised when corpus inventory or retirement evidence is invalid."""
 
 
+class TestCorpusSourceRefMissingError(RuntimeError):
+    """Raised only when a replacement source ref is absent from the worktree."""
+
+
 @dataclass(frozen=True)
 class TestDeclaration:
     ref: str
@@ -203,6 +207,7 @@ def _read_bounded_regular_text(
     max_bytes: int,
     unsafe_message: str,
     invalid_message: str,
+    missing_error: type[TestCorpusSourceRefMissingError] | None = None,
 ) -> str:
     descriptor: int | None = None
     parent_descriptor: int | None = None
@@ -246,6 +251,8 @@ def _read_bounded_regular_text(
         )
     except FileNotFoundError as exc:
         _close_quietly(descriptor, parent_descriptor)
+        if missing_error is not None:
+            raise missing_error(invalid_message) from exc
         raise TestCorpusGuardError(invalid_message) from exc
     except TestCorpusGuardError:
         _close_quietly(descriptor, parent_descriptor)
@@ -320,13 +327,19 @@ def _read_bounded_regular_text(
             os.close(parent_descriptor)
 
 
-def _read_worktree_text(repo: Path, path: str) -> str:
+def _read_worktree_text(
+    repo: Path,
+    path: str,
+    *,
+    missing_error: type[TestCorpusSourceRefMissingError] | None = None,
+) -> str:
     return _read_bounded_regular_text(
         repo,
         Path(path),
         max_bytes=MAX_TEST_FILE_BYTES,
         unsafe_message=f"test inventory file is unsafe: {path}",
         invalid_message=f"cannot read test inventory: {path}",
+        missing_error=missing_error,
     )
 
 
@@ -583,7 +596,33 @@ def _source_ref_from_text(test_ref: str, source_text: str) -> str:
 
 def _worktree_source_ref(repo: Path, test_ref: str) -> str:
     path = test_ref.split("::", 1)[0]
-    return _source_ref_from_text(test_ref, _read_worktree_text(repo, path))
+    text = _read_worktree_text(
+        repo,
+        path,
+        missing_error=TestCorpusSourceRefMissingError,
+    )
+    try:
+        return _source_ref_from_text(test_ref, text)
+    except TestCorpusEvidenceError as exc:
+        raise TestCorpusSourceRefMissingError(
+            f"replacement assertion source is missing: {test_ref}"
+        ) from exc
+
+
+def _resolve_assertion_source_ref(
+    repo: Path,
+    test_ref: str,
+    historical_source_refs: dict[str, str],
+) -> str:
+    try:
+        return _worktree_source_ref(repo, test_ref)
+    except TestCorpusSourceRefMissingError:
+        historical = historical_source_refs.get(test_ref)
+        if historical is None:
+            raise TestCorpusEvidenceError(
+                f"replacement assertion source is missing: {test_ref}"
+            ) from None
+        return historical
 
 
 def _validate_verification_envelope(
@@ -772,15 +811,7 @@ def verify_test_corpus_guard(
     historical_source_refs = _historical_source_refs(base_ledger or {})
 
     def resolve_source_ref(ref: str) -> str:
-        try:
-            return _worktree_source_ref(repo, ref)
-        except (TestCorpusGuardError, TestCorpusEvidenceError):
-            historical = historical_source_refs.get(ref)
-            if historical is None:
-                raise TestCorpusEvidenceError(
-                    f"replacement assertion source is missing: {ref}"
-                ) from None
-            return historical
+        return _resolve_assertion_source_ref(repo, ref, historical_source_refs)
 
     retirement_count = validate_retirements(
         current_refs,

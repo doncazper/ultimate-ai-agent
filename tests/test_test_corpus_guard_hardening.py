@@ -275,6 +275,27 @@ def test_repository_constructed_passed_envelope_is_not_authoritative(
         )
 
 
+def test_historical_source_ref_fallback_requires_missing_worktree_source(
+    tmp_path: Path,
+) -> None:
+    test_ref = "tests/test_sample.py::test_replacement"
+    historical = {test_ref: _source_ref(test_ref)}
+
+    assert (
+        guard._resolve_assertion_source_ref(tmp_path, test_ref, historical)
+        == (historical[test_ref])
+    )
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    external = tmp_path / "external.py"
+    external.write_text("def test_replacement(): pass\n", encoding="utf-8")
+    (tests_dir / "test_sample.py").symlink_to(external)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="file is unsafe"):
+        guard._resolve_assertion_source_ref(tmp_path, test_ref, historical)
+
+
 def test_worktree_inventory_reader_rejects_symlinked_parent(
     tmp_path: Path,
 ) -> None:
