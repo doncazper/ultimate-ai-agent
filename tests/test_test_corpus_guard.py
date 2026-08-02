@@ -181,6 +181,94 @@ def test_case(value):
     assert before[0].ref != after[0].ref
 
 
+def test_python_inventory_binds_module_parameter_mutations() -> None:
+    path = "tests/test_sample.py"
+    before = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+CASES += ["two"]
+CASES.append("three")
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+    )
+    after_augassign_removal = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+CASES.append("three")
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+    )
+    after_append_removal = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+CASES += ["two"]
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+    )
+    after_mutation_reorder = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+CASES = ["one"]
+CASES.append("three")
+CASES += ["two"]
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+    )
+
+    assert before[0].ref != after_augassign_removal[0].ref
+    assert before[0].ref != after_append_removal[0].ref
+    assert before[0].ref != after_mutation_reorder[0].ref
+
+
+def test_python_inventory_binds_parameter_data_builder_changes() -> None:
+    path = "tests/test_sample.py"
+    template = """
+import pytest
+
+def build_cases():
+    return {cases}
+
+CASES = build_cases()
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard.parse_python_declarations(
+        path,
+        template.format(cases='["one", "two"]'),
+    )
+    after = guard.parse_python_declarations(
+        path,
+        template.format(cases='["one"]'),
+    )
+
+    assert before[0].ref != after[0].ref
+
+
 def test_python_source_ref_hashes_only_the_replacement_declaration() -> None:
     test_ref = "tests/test_sample.py::test_replacement"
     before = """

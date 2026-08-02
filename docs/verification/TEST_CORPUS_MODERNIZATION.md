@@ -26,7 +26,8 @@ evidence-aware rather than globally one-task-at-a-time.
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python and
 Control Center `.test`/`.spec` declarations, including inherited pytest class
-tests, Python parameterization bound to canonical decorator syntax,
+tests, Python parameterization bound to canonical decorator syntax and ordered
+module-level parameter-data assignments or mutations,
 parameterized frontend titles, supported runner import aliases, and extended
 test APIs. Changes to a Python parameter set change its stable declaration ref,
 so removing a collected case cannot retain the prior inventory identity.

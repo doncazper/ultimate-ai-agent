@@ -93,7 +93,7 @@ class TestDeclaration:
 def _parameterized_ref(
     raw_ref: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
-    module_bindings: dict[str, ast.AST],
+    module_bindings: dict[str, tuple[ast.AST, ...]],
 ) -> str:
     decorators = tuple(
         decorator
@@ -115,25 +115,24 @@ def _parameterized_ref(
         if isinstance(child, ast.Name)
     }
     resolved_names: set[str] = set()
-    binding_parts: list[str] = []
+    binding_nodes: dict[tuple[int, int], ast.AST] = {}
     while pending_names:
         name = pending_names.pop()
         if name in resolved_names:
             continue
         resolved_names.add(name)
-        binding = module_bindings.get(name)
-        if binding is None:
-            continue
-        binding_parts.append(
-            f"binding:{name}:"
-            + ast.dump(binding, annotate_fields=True, include_attributes=False)
-        )
-        pending_names.update(
-            child.id
-            for child in ast.walk(binding)
-            if isinstance(child, ast.Name) and child.id not in resolved_names
-        )
-    serialized = "\n".join([*serialized_parts, *sorted(binding_parts)])
+        for binding in module_bindings.get(name, ()):
+            binding_nodes[(binding.lineno, binding.col_offset)] = binding
+            pending_names.update(
+                child.id
+                for child in ast.walk(binding)
+                if isinstance(child, ast.Name) and child.id not in resolved_names
+            )
+    binding_parts = [
+        "binding:" + ast.dump(binding, annotate_fields=True, include_attributes=False)
+        for _position, binding in sorted(binding_nodes.items())
+    ]
+    serialized = "\n".join([*serialized_parts, *binding_parts])
     digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     return f"{raw_ref}::parametrize-sha256:{digest}"
 
@@ -166,19 +165,23 @@ def _python_inventory_entries(
 
     entries: list[tuple[str, str, str]] = []
     classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
-    module_bindings: dict[str, ast.AST] = {}
+    mutable_bindings: dict[str, list[ast.AST]] = {}
     for module_node in tree.body:
-        if isinstance(module_node, (ast.Assign, ast.AnnAssign)):
-            targets = (
-                module_node.targets
-                if isinstance(module_node, ast.Assign)
-                else [module_node.target]
-            )
-            value = module_node.value
-            if value is not None:
-                for target in targets:
-                    if isinstance(target, ast.Name):
-                        module_bindings[target.id] = value
+        if isinstance(module_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not module_node.name.startswith("test_"):
+                mutable_bindings.setdefault(module_node.name, []).append(module_node)
+            continue
+        if isinstance(module_node, ast.ClassDef):
+            mutable_bindings.setdefault(module_node.name, []).append(module_node)
+            continue
+        referenced_names = {
+            child.id for child in ast.walk(module_node) if isinstance(child, ast.Name)
+        }
+        for name in referenced_names:
+            mutable_bindings.setdefault(name, []).append(module_node)
+    module_bindings = {
+        name: tuple(statements) for name, statements in mutable_bindings.items()
+    }
 
     def collected_methods(
         class_node: ast.ClassDef,
