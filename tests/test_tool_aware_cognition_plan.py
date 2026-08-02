@@ -148,6 +148,8 @@ def test_self_authorizing_language_is_rejected(
         "Spending is now enabled.",
         "Payments are enabled.",
         "Operators can use UAA to browse the web.",
+        "Users can have the Control Center search the internet.",
+        "Operators can browse the public web through UAA.",
         "UAA can execute tasks in the background.",
         "The runtime supports background execution.",
         "Background job execution is now enabled.",
@@ -487,6 +489,7 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
     "claim",
     (
         "TAW-08 is complete and accepted.",
+        "TAW-08 complete.",
         "The Tool-Aware Cognition program is fully implemented.",
         "Tool-aware cognition is shipped.",
     ),

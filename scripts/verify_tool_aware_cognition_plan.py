@@ -767,11 +767,17 @@ NAVIGATION_REQUIRED = (
 )
 FORBIDDEN_PATTERNS = (
     r"\b(?:operators?|users?) (?:may|can|will) "
-    r"(?:use|ask|direct|instruct) (?:the )?"
-    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to "
+    r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
+    r"have (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
     r"(?:browse (?:the )?(?:public )?web|(?:access|search) (?:the )?(?:internet|web)|"
     r"fetch from (?:the )?(?:public )?web)\b",
-    r"\bTAW-(?:0[0-8]) (?:is|has been) (?:now )?(?:fully )?"
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:browse (?:the )?(?:public )?web|(?:access|search) (?:the )?(?:internet|web)) "
+    r"(?:through|via|using) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
+    r"\bTAW-(?:0[0-8]) (?:(?:is|has been) )?(?:now )?(?:fully )?"
     r"(?:implemented|accepted|complete|completed|shipped)\b",
     r"\b(?:the )?tool[- ]aware cognition(?: and chat quality)?(?: program)? "
     r"(?:is|has been) (?:now )?(?:fully )?"
