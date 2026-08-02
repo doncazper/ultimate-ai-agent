@@ -1331,10 +1331,15 @@ def _source_ref_from_text(
     test_ref: str,
     source_text: str,
     import_binding_resolver: Callable[[str, str], str | None] | None = None,
+    python_import_source_resolver: Callable[[str], str | None] | None = None,
 ) -> str:
     path = test_ref.split("::", 1)[0]
     if path.endswith(".py"):
-        entries = _python_inventory_entries(path, source_text)
+        entries = _python_inventory_entries(
+            path,
+            source_text,
+            python_import_source_resolver,
+        )
         declaration_sources = {
             declaration.ref: declaration_source
             for declaration, declaration_source in entries
@@ -1375,6 +1380,7 @@ def _worktree_source_ref(repo: Path, test_ref: str) -> str:
         test_ref,
         text,
         _frontend_import_resolver(path, read_import),
+        _python_import_resolver(read_import),
     )
 
 

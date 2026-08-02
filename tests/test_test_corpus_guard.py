@@ -1798,6 +1798,39 @@ def test_case(value):
     assert before[0].ref != after[0].ref
 
 
+def test_python_source_ref_binds_imported_parameter_module_source(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    source_path = tmp_path / "data.py"
+    source_path.write_text('CASES = ["one", "two"]\n')
+    test_path = tmp_path / "tests/test_sample.py"
+    test_path.write_text(
+        "import pytest\n"
+        "from data import CASES\n"
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): assert value\n"
+    )
+
+    before_ref = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "tests/test_sample.py",
+        test_path.read_text(),
+    )[0].ref
+    before_source_ref = guard._worktree_source_ref(tmp_path, before_ref)
+
+    source_path.write_text('CASES = ["one"]\n')
+    after_ref = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "tests/test_sample.py",
+        test_path.read_text(),
+    )[0].ref
+    after_source_ref = guard._worktree_source_ref(tmp_path, after_ref)
+
+    assert before_ref != after_ref
+    assert before_source_ref != after_source_ref
+
+
 def test_changed_python_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
