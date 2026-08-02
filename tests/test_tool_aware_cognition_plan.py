@@ -179,19 +179,9 @@ def test_self_authorizing_language_is_rejected(
     ),
 )
 def test_equivalent_authority_contradictions_are_rejected(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     contradiction: str,
 ) -> None:
-    plan = tmp_path / "plan.md"
-    plan.write_text(
-        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "PLAN", plan)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+    assert verifier._find_forbidden_authority_claims(contradiction)
 
 
 def test_every_structured_denied_authority_class_has_active_claim_coverage() -> None:
@@ -321,18 +311,8 @@ def test_every_denied_authority_class_has_product_mediated_coverage() -> None:
         "Operators can use UAA to modify local files.",
     ),
 )
-def test_product_mediation_and_filesystem_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_product_mediation_and_filesystem_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -370,18 +350,8 @@ def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
         "The runtime can operate device sensors.",
     ),
 )
-def test_ordinary_forbidden_authority_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_ordinary_forbidden_authority_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -471,6 +441,35 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
 @pytest.mark.parametrize(
     "claim",
     (
+        "Calendar event **updates** are enabled.",
+        "Calendar event `updates` are enabled.",
+        "[Calendar event updates](https://example.invalid) are enabled.",
+        "Calendar event <strong>updates</strong> are enabled.",
+        "Calendar event up<!-- presentation-only -->dates are enabled.",
+    ),
+)
+def test_markdown_cannot_hide_forbidden_authority_claims(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_markdown_authority_claim_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nCalendar event **updates** are enabled.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "The Control Center is production ready.",
         "Control Center is production ready.",
         "The CLI is production ready.",
@@ -524,18 +523,8 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "The product can distribute supported binary files.",
     ),
 )
-def test_remote_and_binary_verb_authority_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_remote_and_binary_verb_authority_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -562,18 +551,8 @@ def test_remote_and_binary_guidance_is_not_execution_authority(
         "Operators can run shell commands through UAA.",
     ),
 )
-def test_unqualified_shell_command_grants_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_unqualified_shell_command_grants_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -605,18 +584,8 @@ def test_shell_guidance_and_exact_scoped_proposals_remain_valid(
         "UAA allows operators to update calendar events.",
     ),
 )
-def test_concrete_connector_write_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_concrete_connector_write_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -643,18 +612,8 @@ def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
         "Operators will publish social posts using the API.",
     ),
 )
-def test_operator_mediated_connector_write_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_operator_mediated_connector_write_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -671,18 +630,8 @@ def test_operator_mediated_connector_write_claims_fail_full_verifier(
         "Credential reset is available.",
     ),
 )
-def test_credential_mutation_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_credential_mutation_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -695,18 +644,8 @@ def test_credential_mutation_claims_fail_full_verifier(
         "PR creation is enabled.",
     ),
 )
-def test_pull_request_creation_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_pull_request_creation_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -722,18 +661,8 @@ def test_pull_request_creation_claims_fail_full_verifier(
         "Host execution is active.",
     ),
 )
-def test_remote_access_authority_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_remote_access_authority_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -770,36 +699,8 @@ def test_new_authority_guidance_is_not_execution_authority(
         "The product has reached general availability.",
     ),
 )
-@pytest.mark.parametrize(
-    "surface_name",
-    (
-        "PLAN",
-        "QUEUE",
-        "BOARD",
-        "ROADMAP",
-        "CANONICAL_ROADMAP",
-        "TRUTH_PACKET",
-        "DOCS_README",
-        "DOCUMENTATION_INDEX",
-        "ROOT_README",
-    ),
-)
-def test_protected_product_claims_fail_on_every_program_truth_surface(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    contradiction: str,
-    surface_name: str,
-) -> None:
-    source = getattr(verifier, surface_name)
-    mutated = tmp_path / source.name
-    mutated.write_text(
-        source.read_text(encoding="utf-8") + f"\n{contradiction}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, surface_name, mutated)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_protected_product_claims_are_detected(contradiction: str) -> None:
+    assert verifier._find_forbidden_authority_claims(contradiction)
 
 
 @pytest.mark.parametrize(
@@ -816,36 +717,8 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
         "UAA can execute tasks in the background.",
     ),
 )
-@pytest.mark.parametrize(
-    "surface_name",
-    (
-        "PLAN",
-        "QUEUE",
-        "BOARD",
-        "ROADMAP",
-        "CANONICAL_ROADMAP",
-        "TRUTH_PACKET",
-        "DOCS_README",
-        "DOCUMENTATION_INDEX",
-        "ROOT_README",
-    ),
-)
-def test_authority_contradictions_fail_on_every_program_truth_surface(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    contradiction: str,
-    surface_name: str,
-) -> None:
-    source = getattr(verifier, surface_name)
-    mutated = tmp_path / source.name
-    mutated.write_text(
-        source.read_text(encoding="utf-8") + f"\n{contradiction}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, surface_name, mutated)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_authority_contradictions_are_detected(contradiction: str) -> None:
+    assert verifier._find_forbidden_authority_claims(contradiction)
 
 
 @pytest.mark.parametrize(
@@ -857,6 +730,10 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
         "Tool-aware cognition is shipped.",
     ),
 )
+def test_premature_taw_completion_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
 @pytest.mark.parametrize(
     "surface_name",
     (
@@ -871,16 +748,17 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
         "ROOT_README",
     ),
 )
-def test_premature_taw_completion_claims_fail_on_every_truth_surface(
+def test_forbidden_authority_batch_fails_on_every_program_truth_surface(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    claim: str,
     surface_name: str,
 ) -> None:
     source = getattr(verifier, surface_name)
     mutated = tmp_path / source.name
     mutated.write_text(
-        source.read_text(encoding="utf-8") + f"\n{claim}\n",
+        source.read_text(encoding="utf-8")
+        + "\nThis program grants production authority.\n"
+        + "TAW-08 is complete and accepted.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, surface_name, mutated)
@@ -907,19 +785,9 @@ def test_premature_taw_completion_claims_fail_on_every_truth_surface(
     ),
 )
 def test_authority_negation_does_not_escape_its_clause(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     contradiction: str,
 ) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{contradiction}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+    assert verifier._find_forbidden_authority_claims(contradiction)
 
 
 def test_plan_authority_denial_lead_in_is_exact_and_bounded(
@@ -1001,17 +869,9 @@ def test_queue_lifecycle_status_is_exact_and_unique(
     ),
 )
 def test_wrapped_forbidden_authority_claims_are_rejected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+    claim: str,
 ) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1057,18 +917,8 @@ def test_billing_account_authority_predicates_are_rejected(claim: str) -> None:
         "Browser authentication is enabled.",
     ),
 )
-def test_exact_browser_action_authority_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_exact_browser_action_authority_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1093,19 +943,9 @@ def test_browser_guidance_is_not_execution_authority(guidance_claim: str) -> Non
     ),
 )
 def test_every_prohibited_sensitive_persistence_claim_fails(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     contradiction: str,
 ) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{contradiction}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+    assert verifier._find_forbidden_authority_claims(contradiction)
 
 
 @pytest.mark.parametrize(
@@ -1118,18 +958,8 @@ def test_every_prohibited_sensitive_persistence_claim_fails(
         "The Control Center records raw transcripts.",
     ),
 )
-def test_raw_conversation_persistence_claims_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_raw_conversation_persistence_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1170,18 +1000,8 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "Approval reuse is enabled.",
     ),
 )
-def test_reviewed_authority_paraphrases_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
-) -> None:
-    board = tmp_path / "current_board.md"
-    board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(verifier, "BOARD", board)
-
-    with pytest.raises(RuntimeError, match="self-authorizing"):
-        verifier.verify()
+def test_reviewed_authority_paraphrases_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1925,14 +1745,35 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
     ),
 )
 def test_acceptance_contract_rejects_direct_contradictions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contradiction: str
+    contradiction: str,
 ) -> None:
-    plan = tmp_path / "plan.md"
-    plan.write_text(
-        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier._verify_acceptance_contract(contradiction)
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "The post-merge Foundation Gate may be\nskipped.",
+        "The post-merge Foundation Gate may be **skipped**.",
+        "The post-merge Foundation Gate may be [skipped](https://example.invalid).",
+    ),
+)
+def test_markdown_cannot_hide_acceptance_contradictions(contradiction: str) -> None:
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier._verify_acceptance_contract(contradiction)
+
+
+def test_wrapped_acceptance_contradiction_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nThe post-merge Foundation Gate may be\nskipped.\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(verifier, "PLAN", plan)
+    monkeypatch.setattr(verifier, "BOARD", board)
 
     with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
         verifier.verify()
@@ -2389,6 +2230,36 @@ def test_zero_tolerance_rephrasing_fails_full_verifier(
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "TAW-08 may be **approved** despite unsafe authority broadening.",
+        "TAW-08 may be `approved` despite unsafe authority broadening.",
+        "TAW-08 may be [approved](https://example.invalid) despite unsafe authority broadening.",
+    ),
+)
+def test_markdown_cannot_hide_zero_tolerance_contradictions(
+    contradiction: str,
+) -> None:
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier._verify_zero_tolerance_contradictions(contradiction)
+
+
+def test_markdown_zero_tolerance_contradiction_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nTAW-08 may be **approved** despite unsafe authority broadening.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
 
     with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
         verifier.verify()

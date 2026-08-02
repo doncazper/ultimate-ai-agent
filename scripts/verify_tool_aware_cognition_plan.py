@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from html import unescape
 import json
 import re
 import sys
@@ -22,6 +23,7 @@ ROOT_README = ROOT / "README.md"
 MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
 PLAN_STATUS_LINE = "Status: User-authorized implementation plan and ordered queue insertion."
 QUEUE_STATUS_LINE = "Status: Ordered, user-authorized queue item."
+MAX_MARKDOWN_PROSE_CHARS = 2_000_000
 
 PLAN_REQUIRED = (
     "This program extends the accepted Turn Contract Router",
@@ -1710,6 +1712,7 @@ def _verify_zero_tolerance_lines(text: str) -> None:
 
 
 def _verify_zero_tolerance_contradictions(text: str) -> None:
+    text = _normalize_markdown_prose(text)
     if any(
         re.search(pattern, text, flags=re.IGNORECASE)
         for pattern in ZERO_TOLERANCE_CONTRADICTION_PATTERNS
@@ -1718,6 +1721,7 @@ def _verify_zero_tolerance_contradictions(text: str) -> None:
 
 
 def _verify_acceptance_contract(text: str) -> None:
+    text = _normalize_markdown_prose(text)
     if any(
         re.search(pattern, text, flags=re.IGNORECASE)
         for pattern in ACCEPTANCE_CONTRADICTION_PATTERNS
@@ -1793,10 +1797,48 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
     return present
 
 
+def _normalize_markdown_prose(text: str) -> str:
+    """Return a bounded approximation of the prose Markdown renders visibly."""
+    if len(text) > MAX_MARKDOWN_PROSE_CHARS:
+        raise RuntimeError("program truth surface exceeds the prose scan bound")
+
+    # Destinations, reference definitions, comments, and tag attributes are not
+    # visible prose. Labels and element contents are, so retain those before
+    # removing presentation delimiters. Iterate links to cover nested emphasis
+    # in labels without permitting unbounded parser work.
+    normalized = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    normalized = re.sub(
+        r"^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*\S+[^\n]*$",
+        "",
+        normalized,
+        flags=re.MULTILINE,
+    )
+    inline_link = re.compile(r"!?\[([^\]\n]+)\]\([^\)\n]*\)")
+    reference_link = re.compile(r"!?\[([^\]\n]+)\]\[[^\]\n]*\]")
+    for _ in range(4):
+        updated = inline_link.sub(r"\1", normalized)
+        updated = reference_link.sub(r"\1", updated)
+        if updated == normalized:
+            break
+        normalized = updated
+    if inline_link.search(normalized) or reference_link.search(normalized):
+        raise RuntimeError("program truth surface Markdown nesting is invalid")
+
+    normalized = re.sub(r"<[^>\n]*>", "", normalized)
+    normalized = unescape(normalized)
+    normalized = re.sub(
+        r"^[ \t]{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])[ \t]+",
+        " ",
+        normalized,
+        flags=re.MULTILINE,
+    )
+    normalized = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", r"\1", normalized)
+    normalized = normalized.translate(str.maketrans("", "", "`*_~[]"))
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
 def _find_forbidden_authority_claims(text: str) -> list[str]:
-    # Markdown wrapping is presentation-only. Scan one whitespace-normalized
-    # prose stream so line breaks cannot split an otherwise forbidden claim.
-    text = re.sub(r"\s+", " ", text)
+    text = _normalize_markdown_prose(text)
     present = _scan_forbidden_authority_claims(text)
     mediated_patterns = OPERATOR_MEDIATED_PATTERNS + PRODUCT_MEDIATED_OPERATOR_PATTERNS
     for mediated_pattern in mediated_patterns:
