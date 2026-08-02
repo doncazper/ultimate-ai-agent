@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
@@ -29,6 +30,23 @@ class FrontendInventoryError(RuntimeError):
 
 
 ImportBindingResolver = Callable[[str, str], str | None]
+
+
+StaticValue = (
+    str
+    | bool
+    | int
+    | float
+    | None
+    | tuple["StaticValue", ...]
+    | dict[str, "StaticValue"]
+)
+
+
+@dataclass(frozen=True)
+class _RegistrationContext:
+    title: str
+    evidence_source: str
 
 
 def _normalized_title(value: str) -> str:
@@ -368,12 +386,11 @@ def _parameterized_declarations(
             index += 1
         if index >= len(text) or text[index] not in "\"'`":
             raise FrontendInventoryError("frontend parameterized test title is invalid")
-        title_start = index + 1
         title_end = _skip_string(text, index) - 1
         declarations.append(
             (
                 match.start(),
-                text[title_start:title_end],
+                text[index : title_end + 1],
                 text[match.start() : declaration_end],
                 text[data_start:data_end],
             )
@@ -750,12 +767,11 @@ def _conditional_declarations(
             index += 1
         if index >= len(text) or text[index] not in "\"'`":
             raise FrontendInventoryError("frontend conditional test title is invalid")
-        title_start = index + 1
         title_end = _skip_string(text, index) - 1
         declarations.append(
             (
                 match.start(),
-                text[title_start:title_end],
+                text[index : title_end + 1],
                 text[match.start() : declaration_end],
             )
         )
@@ -853,9 +869,10 @@ def _static_collection_items(collection_source: str) -> tuple[str, ...]:
     initializer_end = -1
     for match in re.finditer(rf"\bconst\s+{TEST_API_NAME}\s*=", scan_text):
         candidate = match.end()
-        while candidate < len(collection_source) and collection_source[
-            candidate
-        ].isspace():
+        while (
+            candidate < len(collection_source)
+            and collection_source[candidate].isspace()
+        ):
             candidate += 1
         if candidate < len(collection_source) and collection_source[candidate] == "[":
             initializer_start = candidate
@@ -891,12 +908,281 @@ def _static_collection_items(collection_source: str) -> tuple[str, ...]:
     return tuple(items)
 
 
-def _registration_context_source(
+def _static_string_value(source: str, start: int) -> tuple[str, int]:
+    quote = source[start]
+    if quote not in "\"'`":
+        raise FrontendInventoryError("frontend registration loop value is not static")
+    value: list[str] = []
+    index = start + 1
+    escapes = {
+        "b": "\b",
+        "f": "\f",
+        "n": "\n",
+        "r": "\r",
+        "t": "\t",
+        "v": "\v",
+        "0": "\0",
+    }
+    while index < len(source):
+        character = source[index]
+        if character == quote:
+            return "".join(value), index + 1
+        if quote == "`" and source.startswith("${", index):
+            raise FrontendInventoryError(
+                "frontend registration loop value is not a static literal"
+            )
+        if character != "\\":
+            value.append(character)
+            index += 1
+            continue
+        index += 1
+        if index >= len(source):
+            break
+        escaped = source[index]
+        if escaped in escapes:
+            value.append(escapes[escaped])
+            index += 1
+            continue
+        if escaped in "\"'`\\":
+            value.append(escaped)
+            index += 1
+            continue
+        if escaped in "xu":
+            digits = 2 if escaped == "x" else 4
+            encoded = source[index + 1 : index + 1 + digits]
+            if len(encoded) != digits or re.fullmatch(r"[0-9A-Fa-f]+", encoded) is None:
+                raise FrontendInventoryError(
+                    "frontend registration loop string escape is invalid"
+                )
+            value.append(chr(int(encoded, 16)))
+            index += digits + 1
+            continue
+        if escaped in "\r\n":
+            if (
+                escaped == "\r"
+                and index + 1 < len(source)
+                and source[index + 1] == "\n"
+            ):
+                index += 1
+            index += 1
+            continue
+        value.append(escaped)
+        index += 1
+    raise FrontendInventoryError("frontend registration loop string is unterminated")
+
+
+def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
+    index = start
+    while index < len(source) and source[index].isspace():
+        index += 1
+    if index >= len(source):
+        raise FrontendInventoryError("frontend registration loop item is empty")
+    if source[index] in "\"'`":
+        return _static_string_value(source, index)
+    if source[index] == "[":
+        values: list[StaticValue] = []
+        index += 1
+        while True:
+            while index < len(source) and source[index].isspace():
+                index += 1
+            if index < len(source) and source[index] == "]":
+                return tuple(values), index + 1
+            value, index = _static_value(source, index)
+            values.append(value)
+            while index < len(source) and source[index].isspace():
+                index += 1
+            if index >= len(source) or source[index] not in ",]":
+                raise FrontendInventoryError(
+                    "frontend registration loop array item is invalid"
+                )
+            if source[index] == "]":
+                return tuple(values), index + 1
+            index += 1
+    if source[index] == "{":
+        values: dict[str, StaticValue] = {}
+        index += 1
+        while True:
+            while index < len(source) and source[index].isspace():
+                index += 1
+            if index < len(source) and source[index] == "}":
+                return values, index + 1
+            if index >= len(source):
+                break
+            if source[index] in "\"'`":
+                key, index = _static_string_value(source, index)
+            else:
+                key_match = re.match(TEST_API_NAME, source[index:])
+                if key_match is None:
+                    break
+                key = key_match.group(0)
+                index += len(key)
+            while index < len(source) and source[index].isspace():
+                index += 1
+            if index >= len(source) or source[index] != ":":
+                break
+            value, index = _static_value(source, index + 1)
+            if key in values:
+                raise FrontendInventoryError(
+                    "frontend registration loop object keys are ambiguous"
+                )
+            values[key] = value
+            while index < len(source) and source[index].isspace():
+                index += 1
+            if index >= len(source) or source[index] not in ",}":
+                break
+            if source[index] == "}":
+                return values, index + 1
+            index += 1
+        raise FrontendInventoryError(
+            "frontend registration loop object item is invalid"
+        )
+    literal_match = re.match(
+        r"(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)\b",
+        source[index:],
+    )
+    if literal_match is None:
+        raise FrontendInventoryError("frontend registration loop item is not static")
+    literal = literal_match.group(0)
+    index += len(literal)
+    if literal == "true":
+        return True, index
+    if literal == "false":
+        return False, index
+    if literal == "null":
+        return None, index
+    return (
+        float(literal) if any(marker in literal for marker in ".eE") else int(literal)
+    ), index
+
+
+def _static_item_value(source: str) -> StaticValue:
+    value, index = _static_value(source)
+    suffix = source[index:].strip()
+    if suffix and re.fullmatch(r"as\s+const", suffix) is None:
+        raise FrontendInventoryError(
+            "frontend registration loop item is not a bounded static literal"
+        )
+    return value
+
+
+def _destructured_item_bindings(
+    binding: str, value: StaticValue
+) -> dict[str, StaticValue]:
+    if re.fullmatch(TEST_API_NAME, binding):
+        return {binding: value}
+    if not (binding.startswith("[") and binding.endswith("]")) or not isinstance(
+        value, tuple
+    ):
+        raise FrontendInventoryError(
+            "frontend registration loop binding cannot be resolved safely"
+        )
+    names = [name.strip() for name in binding[1:-1].split(",")]
+    if len(names) > len(value) or any(
+        name and re.fullmatch(TEST_API_NAME, name) is None for name in names
+    ):
+        raise FrontendInventoryError(
+            "frontend registration loop destructuring cannot be resolved safely"
+        )
+    return {name: value[index] for index, name in enumerate(names) if name}
+
+
+def _static_expression_value(
+    expression: str, bindings: dict[str, StaticValue]
+) -> StaticValue:
+    expression = expression.strip()
+    conditional = re.fullmatch(
+        rf"(?P<condition>{TEST_API_NAME}(?:\.{TEST_API_NAME})*)\s*\?\s*"
+        r"(?P<yes>(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'))\s*:\s*"
+        r"(?P<no>(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'))",
+        expression,
+    )
+    if conditional is not None:
+        condition = _static_expression_value(conditional.group("condition"), bindings)
+        if not isinstance(condition, bool):
+            raise FrontendInventoryError(
+                "frontend registration loop title condition is not boolean"
+            )
+        branch = conditional.group("yes" if condition else "no")
+        value, end = _static_string_value(branch, 0)
+        if end != len(branch):
+            raise FrontendInventoryError(
+                "frontend registration loop title condition is invalid"
+            )
+        return value
+    parts = expression.split(".")
+    if (
+        not parts
+        or re.fullmatch(TEST_API_NAME, parts[0]) is None
+        or parts[0] not in bindings
+    ):
+        raise FrontendInventoryError(
+            "frontend registration loop title expression cannot be resolved safely"
+        )
+    value = bindings[parts[0]]
+    for part in parts[1:]:
+        if (
+            re.fullmatch(TEST_API_NAME, part) is None
+            or not isinstance(value, dict)
+            or part not in value
+        ):
+            raise FrontendInventoryError(
+                "frontend registration loop title property cannot be resolved safely"
+            )
+        value = value[part]
+    if isinstance(value, (tuple, dict)):
+        raise FrontendInventoryError(
+            "frontend registration loop title value is not scalar"
+        )
+    return value
+
+
+def _title_scalar(value: StaticValue) -> str:
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "null"
+    return str(value)
+
+
+def _resolved_loop_title(title_literal: str, bindings: dict[str, StaticValue]) -> str:
+    if not title_literal or title_literal[0] not in "\"'`":
+        raise FrontendInventoryError("frontend registration loop title is invalid")
+    if title_literal[0] != "`":
+        value, end = _static_string_value(title_literal, 0)
+        if end != len(title_literal):
+            raise FrontendInventoryError("frontend registration loop title is invalid")
+        return _normalized_title(value)
+    value: list[str] = []
+    index = 1
+    while index < len(title_literal) - 1:
+        if title_literal.startswith("${", index):
+            end = _skip_balanced(title_literal, index + 1)
+            expression = title_literal[index + 2 : end - 1]
+            value.append(_title_scalar(_static_expression_value(expression, bindings)))
+            index = end
+            continue
+        if title_literal[index] == "\\":
+            fragment, end = _static_string_value(
+                f"`{title_literal[index : index + 2]}`",
+                0,
+            )
+            value.append(fragment)
+            index += 2
+            continue
+        value.append(title_literal[index])
+        index += 1
+    return _normalized_title("".join(value))
+
+
+def _registration_contexts(
     text: str,
     scan_text: str,
     offset: int,
+    title_literal: str,
     import_binding_resolver: ImportBindingResolver | None,
-) -> tuple[str, ...]:
+) -> tuple[_RegistrationContext, ...]:
     range_patterns = (
         re.compile(rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*\([^)]*\)\s*\{{"),
         re.compile(
@@ -916,7 +1202,7 @@ def _registration_context_source(
                     "frontend test registration context cannot be inventoried safely"
                 )
 
-    context_sources = [""]
+    context_bindings: list[tuple[dict[str, StaticValue], str]] = [({}, "")]
     for match in re.compile(r"\bfor\s*\(").finditer(scan_text, 0, offset):
         header_end = _skip_balanced(text, match.end() - 1)
         body_start = header_end
@@ -929,7 +1215,7 @@ def _registration_context_source(
             continue
         header = scan_text[match.start() : header_end]
         binding = re.fullmatch(
-            rf"for\s*\(\s*const\s+(?:{TEST_API_NAME}|\[[^\[\]]+\])\s+of\s+"
+            rf"for\s*\(\s*const\s+(?P<binding>{TEST_API_NAME}|\[[^\[\]]+\])\s+of\s+"
             rf"(?P<collection>{TEST_API_NAME})\s*\)",
             header,
         )
@@ -945,12 +1231,33 @@ def _registration_context_source(
             import_binding_resolver,
         )
         items = _static_collection_items(collection_source)
-        context_sources = [
-            f"{existing}\n{text[match.start() : header_end]}\nitem={item}".strip()
-            for existing in context_sources
-            for item in items
-        ]
-    return tuple(context_sources)
+        next_bindings: list[tuple[dict[str, StaticValue], str]] = []
+        for existing_bindings, existing_source in context_bindings:
+            for item in items:
+                item_bindings = _destructured_item_bindings(
+                    binding.group("binding"),
+                    _static_item_value(item),
+                )
+                if set(existing_bindings) & set(item_bindings):
+                    raise FrontendInventoryError(
+                        "frontend registration loop bindings shadow one another"
+                    )
+                next_bindings.append(
+                    (
+                        {**existing_bindings, **item_bindings},
+                        f"{existing_source}\n{text[match.start() : header_end]}\nitem={item}".strip(),
+                    )
+                )
+        context_bindings = next_bindings
+    return tuple(
+        _RegistrationContext(
+            title=_resolved_loop_title(title_literal, bindings)
+            if bindings
+            else _normalized_title(title_literal[1:-1]),
+            evidence_source=evidence_source,
+        )
+        for bindings, evidence_source in context_bindings
+    )
 
 
 def _frontend_inventory_entries(
@@ -974,19 +1281,7 @@ def _frontend_inventory_entries(
             "frontend parameterized suites cannot be inventoried safely"
         )
 
-    def context_bound_ref(raw_ref: str, context_source: str) -> str:
-        if not context_source:
-            return raw_ref
-        digest = hashlib.sha256(context_source.encode("utf-8")).hexdigest()
-        return f"{raw_ref}::registration-context-sha256:{digest}"
-
     for match in direct_pattern.finditer(scan_text):
-        context_sources = _registration_context_source(
-            text,
-            scan_text,
-            match.start(),
-            import_binding_resolver,
-        )
         declaration_end = _skip_balanced(text, match.end() - 1)
         index = match.end()
         while index < len(text) and text[index].isspace():
@@ -1002,20 +1297,27 @@ def _frontend_inventory_entries(
             ):
                 continue
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        title_start = index + 1
         title_end = _skip_string(text, index) - 1
-        title = _normalized_title(text[title_start:title_end])
-        if not title or len(title) > 500 or re.search(r"#\d+$", title):
-            raise FrontendInventoryError(f"frontend test title is invalid: {path}")
+        title_literal = text[index : title_end + 1]
+        contexts = _registration_contexts(
+            text,
+            scan_text,
+            match.start(),
+            title_literal,
+            import_binding_resolver,
+        )
         declaration_source = text[match.start() : declaration_end]
-        for context_source in context_sources:
+        for context in contexts:
+            title = context.title
+            if not title or len(title) > 500 or re.search(r"#\d+$", title):
+                raise FrontendInventoryError(f"frontend test title is invalid: {path}")
             bound_source = declaration_source
-            if context_source:
-                bound_source = f"{bound_source}\n{context_source}"
+            if context.evidence_source:
+                bound_source = f"{bound_source}\n{context.evidence_source}"
             raw_entries.append(
                 (
                     match.start(),
-                    context_bound_ref(f"{path}::{title}", context_source),
+                    f"{path}::{title}",
                     bound_source,
                 )
             )
@@ -1034,15 +1336,13 @@ def _frontend_inventory_entries(
         declaration_source,
         parameter_data,
     ) in parameterized_declarations:
-        context_sources = _registration_context_source(
+        contexts = _registration_contexts(
             text,
             scan_text,
             offset,
+            raw_title,
             import_binding_resolver,
         )
-        title = _normalized_title(raw_title)
-        if not title or len(title) > 500 or re.search(r"#\d+$", title):
-            raise FrontendInventoryError(f"frontend test title is invalid: {path}")
         bound_data = _bound_parameter_data(
             text,
             scan_text,
@@ -1052,40 +1352,41 @@ def _frontend_inventory_entries(
             parameter_call_ranges,
         )
         digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
-        for context_source in context_sources:
+        for context in contexts:
+            title = context.title
+            if not title or len(title) > 500 or re.search(r"#\d+$", title):
+                raise FrontendInventoryError(f"frontend test title is invalid: {path}")
             bound_source = declaration_source
-            if context_source:
-                bound_source = f"{bound_source}\n{context_source}"
+            if context.evidence_source:
+                bound_source = f"{bound_source}\n{context.evidence_source}"
             raw_entries.append(
                 (
                     offset,
-                    context_bound_ref(
-                        f"{path}::{title}::parameters-sha256:{digest}",
-                        context_source,
-                    ),
+                    f"{path}::{title}::parameters-sha256:{digest}",
                     bound_source,
                 )
             )
     for offset, raw_title, declaration_source in _conditional_declarations(
         text, scan_text, conditional_pattern
     ):
-        context_sources = _registration_context_source(
+        contexts = _registration_contexts(
             text,
             scan_text,
             offset,
+            raw_title,
             import_binding_resolver,
         )
-        title = _normalized_title(raw_title)
-        if not title or len(title) > 500 or re.search(r"#\d+$", title):
-            raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        for context_source in context_sources:
+        for context in contexts:
+            title = context.title
+            if not title or len(title) > 500 or re.search(r"#\d+$", title):
+                raise FrontendInventoryError(f"frontend test title is invalid: {path}")
             bound_source = declaration_source
-            if context_source:
-                bound_source = f"{bound_source}\n{context_source}"
+            if context.evidence_source:
+                bound_source = f"{bound_source}\n{context.evidence_source}"
             raw_entries.append(
                 (
                     offset,
-                    context_bound_ref(f"{path}::{title}", context_source),
+                    f"{path}::{title}",
                     bound_source,
                 )
             )

@@ -2176,7 +2176,9 @@ def test_python_inventory_rejects_ambiguous_collection_constructs(
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
-def test_frontend_inventory_preserves_unchanged_static_registration_loop_items() -> None:
+def test_frontend_inventory_preserves_unchanged_static_registration_loop_items() -> (
+    None
+):
     before = """
 const cases = [{ name: "one" }, { name: "two" }] as const;
 for (const item of cases) {
@@ -2192,6 +2194,25 @@ for (const item of cases) {
     assert len(before_refs & after_refs) == 1
     assert len(before_refs - after_refs) == 1
     assert len(after_refs - before_refs) == 1
+
+
+def test_frontend_registration_loop_identity_ignores_unused_item_fields() -> None:
+    before = """
+const cases = [{ name: "one", enabled: true }] as const;
+for (const item of cases) {
+  test(`${item.name} works`, () => {});
+}
+"""
+    after = before.replace("enabled: true", "enabled: false")
+    path = "apps/control-center/src/example.test.ts"
+    before_declarations = guard.parse_frontend_declarations(path, before)
+    after_declarations = guard.parse_frontend_declarations(path, after)
+
+    assert [item.ref for item in before_declarations] == [f"{path}::one works"]
+    assert [item.ref for item in after_declarations] == [f"{path}::one works"]
+    assert guard._source_ref_from_text(before_declarations[0].ref, before) != (
+        guard._source_ref_from_text(after_declarations[0].ref, after)
+    )
 
 
 @pytest.mark.parametrize(

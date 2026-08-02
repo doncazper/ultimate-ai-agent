@@ -35,9 +35,12 @@ identity.
 Identifier-backed frontend parameter sets bind to the preceding static `const`
 initializer or to a relative import's exported static `const` initializer.
 Nested spread and supported collection expressions bind to the same sources.
-Supported static frontend registration loops emit one declaration identity per
-collection item, preserving unchanged item identities as neighboring rows change;
-unresolved or dynamic loops fail closed. Python imported parameter data is
+Supported static frontend registration loops resolve the collected runtime title
+and emit one declaration identity per collection item. Identity binds only to
+item values read by that title, while source evidence retains the complete item,
+so unused-field changes recheck the test without falsely retiring it and unchanged
+items survive neighboring-row changes. Unresolved or dynamic loops fail closed.
+Python imported parameter data is
 bound to the exact referenced declaration and its recursively resolvable local
 dependencies. Changes to an imported initializer, including one in another test
 module, recheck the dependent test file. Dynamic, mutated, ambiguous, or
