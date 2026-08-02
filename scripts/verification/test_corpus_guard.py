@@ -85,7 +85,8 @@ TEST_FILE_PATTERNS = (
         for extension in FRONTEND_TEST_EXTENSIONS
     ),
     *(
-        f"apps/control-center/tests/**/*.{extension}"
+        f"apps/control-center/tests/**/*.{kind}.{extension}"
+        for kind in ("test", "spec")
         for extension in FRONTEND_TEST_EXTENSIONS
     ),
 )
@@ -97,6 +98,10 @@ class TestCorpusGuardError(RuntimeError):
 
 class TestCorpusSourceRefMissingError(RuntimeError):
     """Raised only when a replacement source ref is absent from the worktree."""
+
+
+class TestCorpusDeclarationMissingError(TestCorpusEvidenceError):
+    """Raised only when a readable replacement file lacks the requested declaration."""
 
 
 @dataclass(frozen=True)
@@ -224,9 +229,22 @@ def _python_module_bindings(
             add(name, module_node)
         for name in _mutation_names(module_node):
             add(name, module_node, applies_after=True)
-        for helper_name in _called_names(module_node):
+        for call in (
+            child
+            for child in ast.walk(module_node)
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+        ):
+            helper_name = call.func.id
             effects, dependencies = helper_effects(helper_name, set())
-            for affected_name in effects:
+            helper = helper_defs.get(helper_name)
+            parameter_bindings: dict[str, str] = {}
+            if helper is not None:
+                for parameter, argument in zip(helper.args.args, call.args, strict=False):
+                    root = _root_name(argument)
+                    if root is not None:
+                        parameter_bindings[parameter.arg] = root
+            for effect_name in effects:
+                affected_name = parameter_bindings.get(effect_name, effect_name)
                 add(affected_name, module_node, applies_after=True)
                 for dependency in dependencies:
                     add(
@@ -281,7 +299,11 @@ def _parametrize_aliases(tree: ast.Module) -> set[str]:
     return aliases
 
 
-def _python_import_modules(tree: ast.Module) -> dict[str, tuple[str, ...]]:
+def _python_import_modules(
+    tree: ast.Module,
+    *,
+    relative_package: str | None = None,
+) -> dict[str, tuple[str, ...]]:
     modules: dict[str, tuple[str, ...]] = {}
     for node in tree.body:
         if isinstance(node, ast.Import):
@@ -289,15 +311,309 @@ def _python_import_modules(tree: ast.Module) -> dict[str, tuple[str, ...]]:
                 modules[imported.asname or imported.name.split(".", 1)[0]] = (
                     imported.name,
                 )
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom):
             for imported in node.names:
                 if imported.name == "*":
                     continue
-                modules[imported.asname or imported.name] = (
-                    f"{node.module}.{imported.name}",
-                    node.module,
-                )
+                local = imported.asname or imported.name
+                if node.level and relative_package is None:
+                    modules[local] = ()
+                else:
+                    if node.level:
+                        package_parts = relative_package.split(".")
+                        parent_count = node.level - 1
+                        if parent_count >= len(package_parts):
+                            modules[local] = ()
+                            continue
+                        prefix = ".".join(
+                            package_parts[: len(package_parts) - parent_count]
+                        )
+                        imported_module = (
+                            f"{prefix}.{node.module}" if node.module else prefix
+                        )
+                    elif node.module is not None:
+                        imported_module = node.module
+                    else:
+                        modules[local] = ()
+                        continue
+                    modules[local] = (
+                        f"{imported_module}.{imported.name}",
+                        imported_module,
+                    )
     return modules
+
+
+def _python_star_import_modules(
+    tree: ast.Module,
+    *,
+    relative_package: str,
+) -> tuple[str, ...]:
+    modules: list[str] = []
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom) or not any(
+            imported.name == "*" for imported in node.names
+        ):
+            continue
+        if node.level:
+            package_parts = relative_package.split(".")
+            parent_count = node.level - 1
+            if parent_count >= len(package_parts):
+                continue
+            prefix = ".".join(package_parts[: len(package_parts) - parent_count])
+            module = f"{prefix}.{node.module}" if node.module else prefix
+        elif node.module is not None:
+            module = node.module
+        else:
+            continue
+        modules.append(module)
+    return tuple(modules)
+
+
+def _python_imported_binding_source(
+    module: str,
+    source: str,
+    binding_name: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+    *,
+    _seen_bindings: frozenset[tuple[str, str]] = frozenset(),
+) -> str:
+    binding_key = (module, binding_name)
+    if binding_key in _seen_bindings:
+        raise TestCorpusGuardError(
+            "transitive imported Python parameter data is circular"
+        )
+    source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
+    try:
+        tree = ast.parse(source_text, filename=module)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "imported Python parameter data cannot be inventoried safely"
+        ) from exc
+    source_path = source.split("\n", 1)[0].removeprefix("path=")
+    relative_package = module
+    if not source_path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    module_bindings = _python_module_bindings(tree)
+    imported_modules = _python_import_modules(
+        tree,
+        relative_package=relative_package,
+    )
+    star_import_modules = _python_star_import_modules(
+        tree,
+        relative_package=relative_package,
+    )
+    pending = [binding_name]
+    resolved: set[str] = set()
+    binding_nodes: dict[tuple[int, int], ast.AST] = {}
+    imported_requirements: dict[str, set[str]] = {}
+    while pending:
+        name = pending.pop()
+        if name in resolved:
+            continue
+        resolved.add(name)
+        bindings = module_bindings.get(name, ())
+        if not bindings:
+            candidates = imported_modules.get(name)
+            if candidates:
+                resolved_import = next(
+                    (
+                        (candidate, imported_source)
+                        for candidate in candidates
+                        if import_source_resolver is not None
+                        and (
+                            imported_source := import_source_resolver(candidate)
+                        )
+                        is not None
+                    ),
+                    None,
+                )
+                if resolved_import is None:
+                    return (
+                        f"module={module}\nbinding={binding_name}\n"
+                        f"external-import={','.join(candidates)};bindings={name}"
+                    )
+                imported_module, imported_source = resolved_import
+                return _python_imported_binding_source(
+                    imported_module,
+                    imported_source,
+                    _binding_name_for_resolved_import(
+                        candidates,
+                        imported_module,
+                        name,
+                    ),
+                    import_source_resolver,
+                    _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                )
+            lazy_bindings = module_bindings.get("_LAZY_EXPORT_MODULES", ())
+            lazy_modules: list[str] = []
+            for lazy_binding in lazy_bindings:
+                assignment = lazy_binding.node
+                if not isinstance(assignment, (ast.Assign, ast.AnnAssign)):
+                    continue
+                value = assignment.value
+                if not isinstance(value, ast.Dict):
+                    continue
+                for key, target in zip(value.keys, value.values, strict=True):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and key.value == name
+                        and isinstance(target, ast.Constant)
+                        and isinstance(target.value, str)
+                    ):
+                        if target.value.startswith("."):
+                            lazy_modules.append(
+                                f"{relative_package}{target.value}"
+                            )
+                        else:
+                            lazy_modules.append(target.value)
+            lazy_matches: list[str] = []
+            for lazy_module in lazy_modules:
+                if import_source_resolver is None:
+                    continue
+                lazy_source = import_source_resolver(lazy_module)
+                if lazy_source is None:
+                    continue
+                lazy_matches.append(
+                    _python_imported_binding_source(
+                        lazy_module,
+                        lazy_source,
+                        name,
+                        import_source_resolver,
+                        _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                    )
+                )
+            if len(lazy_matches) == 1:
+                return lazy_matches[0]
+            if len(lazy_matches) > 1:
+                raise TestCorpusGuardError(
+                    "imported Python parameter binding is ambiguous"
+                )
+            star_matches: list[str] = []
+            for star_module in star_import_modules:
+                if import_source_resolver is None:
+                    continue
+                star_source = import_source_resolver(star_module)
+                if star_source is None:
+                    continue
+                try:
+                    star_matches.append(
+                        _python_imported_binding_source(
+                            star_module,
+                            star_source,
+                            name,
+                            import_source_resolver,
+                            _seen_bindings=frozenset(
+                                (*_seen_bindings, binding_key)
+                            ),
+                        )
+                    )
+                except TestCorpusGuardError as exc:
+                    if "binding cannot be resolved" not in str(exc):
+                        raise
+            if len(star_matches) == 1:
+                return star_matches[0]
+            if len(star_matches) > 1:
+                raise TestCorpusGuardError(
+                    "imported Python parameter binding is ambiguous"
+                )
+            raise TestCorpusGuardError(
+                "imported Python parameter binding cannot be resolved safely"
+            )
+        for module_binding in bindings:
+            node = module_binding.node
+            binding_nodes[(node.lineno, node.col_offset)] = node
+            for root, names in _python_import_requirements(
+                node,
+                imported_modules,
+            ).items():
+                imported_requirements.setdefault(root, set()).update(names)
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Name) or child.id in resolved:
+                    continue
+                if child.id in imported_modules:
+                    continue
+                if child.id in module_bindings:
+                    pending.append(child.id)
+    serialized_parts = [
+        ast.dump(node, annotate_fields=True, include_attributes=False)
+        for _position, node in sorted(binding_nodes.items())
+    ]
+    for root, names in sorted(imported_requirements.items()):
+        candidates = imported_modules[root]
+        if not candidates:
+            raise TestCorpusGuardError(
+                "relative transitive Python parameter data cannot be inventoried safely"
+            )
+        resolved_import = next(
+            (
+                (candidate, imported_source)
+                for candidate in candidates
+                if import_source_resolver is not None
+                and (imported_source := import_source_resolver(candidate)) is not None
+            ),
+            None,
+        )
+        if resolved_import is None:
+            serialized_parts.append(
+                f"external-import={','.join(candidates)};bindings={','.join(sorted(names))}"
+            )
+            continue
+        imported_module, imported_source = resolved_import
+        for name in sorted(names):
+            serialized_parts.append(
+                _python_imported_binding_source(
+                    imported_module,
+                    imported_source,
+                    _binding_name_for_resolved_import(
+                        candidates,
+                        imported_module,
+                        name,
+                    ),
+                    import_source_resolver,
+                    _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                )
+            )
+    return (
+        f"module={module}\nbinding={binding_name}\n"
+        + "\n".join(serialized_parts)
+    )
+
+
+def _binding_name_for_resolved_import(
+    candidates: tuple[str, ...],
+    resolved_module: str,
+    referenced_name: str,
+) -> str:
+    if len(candidates) > 1 and resolved_module == candidates[-1]:
+        return candidates[0].rsplit(".", 1)[-1]
+    return referenced_name
+
+
+def _python_import_requirements(
+    value: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> dict[str, set[str]]:
+    requirements: dict[str, set[str]] = {}
+    attribute_roots: set[str] = set()
+    for child in ast.walk(value):
+        if not isinstance(child, ast.Attribute):
+            continue
+        root = _root_name(child)
+        if root in imported_modules:
+            attribute_roots.add(root)
+            current = child
+            while isinstance(current.value, ast.Attribute):
+                current = current.value
+            imported_name = current.attr
+            requirements.setdefault(root, set()).add(imported_name)
+    for child in ast.walk(value):
+        if (
+            isinstance(child, ast.Name)
+            and child.id in imported_modules
+            and child.id not in attribute_roots
+        ):
+            requirements.setdefault(child.id, set()).add(child.id)
+    return requirements
 
 
 def _parameterized_ref(
@@ -309,6 +625,7 @@ def _parameterized_ref(
     import_source_resolver: Callable[[str], str | None] | None,
     *,
     container_decorators: tuple[ast.expr, ...] = (),
+    collection_lineno: int | None = None,
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
     decorators = tuple(
@@ -350,24 +667,47 @@ def _parameterized_ref(
             if keyword.arg == "argvalues"
         )
         for value in value_nodes:
-            root = _root_name(value)
-            if root not in imported_modules:
-                continue
-            resolved_import = next(
-                (
-                    (module, source)
-                    for module in imported_modules[root]
-                    if import_source_resolver is not None
-                    and (source := import_source_resolver(module)) is not None
-                ),
-                None,
-            )
-            if resolved_import is None:
-                raise TestCorpusGuardError(
-                    "imported Python parameter data cannot be inventoried safely"
+            for root, binding_names in _python_import_requirements(
+                value, imported_modules
+            ).items():
+                candidates = imported_modules[root]
+                if not candidates:
+                    raise TestCorpusGuardError(
+                        "relative imported Python parameter data cannot be inventoried safely"
+                    )
+                resolved_import = next(
+                    (
+                        (module, source)
+                        for module in candidates
+                        if import_source_resolver is not None
+                        and (source := import_source_resolver(module)) is not None
+                    ),
+                    None,
                 )
-            module, source = resolved_import
-            serialized_parts.append(f"imported-module:{module}\n{source}")
+                if resolved_import is None:
+                    if import_source_resolver is None:
+                        raise TestCorpusGuardError(
+                            "imported Python parameter data cannot be inventoried safely"
+                        )
+                    serialized_parts.append(
+                        f"external-import={','.join(candidates)};"
+                        f"bindings={','.join(sorted(binding_names))}"
+                    )
+                    continue
+                module, source = resolved_import
+                for binding_name in sorted(binding_names):
+                    serialized_parts.append(
+                        _python_imported_binding_source(
+                            module,
+                            source,
+                            _binding_name_for_resolved_import(
+                                candidates,
+                                module,
+                                binding_name,
+                            ),
+                            import_source_resolver,
+                        )
+                    )
     pending_names = {
         child.id
         for decorator in decorators
@@ -375,6 +715,7 @@ def _parameterized_ref(
         if isinstance(child, ast.Name)
     }
     resolved_names: set[str] = set()
+    cutoff_lineno = collection_lineno or node.lineno
     binding_nodes: dict[tuple[int, int], ast.AST] = {}
     while pending_names:
         name = pending_names.pop()
@@ -386,7 +727,7 @@ def _parameterized_ref(
             (
                 (binding.node.lineno, binding.node.col_offset)
                 for binding in name_bindings
-                if binding.node.lineno >= node.lineno
+                if binding.node.lineno >= cutoff_lineno
                 and not binding.applies_after_declaration
             ),
             default=None,
@@ -395,7 +736,7 @@ def _parameterized_ref(
             binding = module_binding.node
             position = (binding.lineno, binding.col_offset)
             if (
-                binding.lineno >= node.lineno
+                binding.lineno >= cutoff_lineno
                 and not module_binding.applies_after_declaration
             ):
                 continue
@@ -513,10 +854,34 @@ def _python_inventory_entries(
             raise TestCorpusGuardError(
                 "Python tests inside module control flow cannot be inventoried safely"
             )
+        if isinstance(
+            module_node,
+            (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With, ast.AsyncWith),
+        ) and any(
+            isinstance(child, (ast.Assign, ast.AnnAssign))
+            and any(
+                isinstance(target, ast.Attribute) and target.attr == "__test__"
+                for target in (
+                    child.targets
+                    if isinstance(child, ast.Assign)
+                    else (child.target,)
+                )
+            )
+            for child in ast.walk(module_node)
+        ):
+            raise TestCorpusGuardError(
+                "Python __test__ mutation inside module control flow cannot be inventoried safely"
+            )
 
     entries: list[tuple[str, str, str]] = []
     source_lines = text.splitlines(keepends=True)
-    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    class_nodes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+    class_names = [node.name for node in class_nodes]
+    if len(class_names) != len(set(class_names)):
+        raise TestCorpusGuardError(
+            "duplicate Python class bindings cannot be inventoried safely"
+        )
+    classes = {node.name: node for node in class_nodes}
     unittest_roots = {
         imported.asname or imported.name
         for node in tree.body
@@ -556,6 +921,58 @@ def _python_inventory_entries(
     parametrize_aliases = _parametrize_aliases(tree)
     imported_modules = _python_import_modules(tree)
     disabled = _disabled_python_declarations(tree.body)
+    module_test_names = [
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("test")
+    ]
+    if len(module_test_names) != len(set(module_test_names)):
+        raise TestCorpusGuardError(
+            "duplicate Python test bindings cannot be inventoried safely"
+        )
+    for module_node in tree.body:
+        if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = (
+            module_node.targets
+            if isinstance(module_node, ast.Assign)
+            else (module_node.target,)
+        )
+        if "pytestmark" not in {
+            name for target in targets for name in _binding_target_names(target)
+        }:
+            continue
+        value = module_node.value
+        if value is not None and any(
+            isinstance(child, ast.Attribute) and child.attr == "parametrize"
+            for child in ast.walk(value)
+        ):
+            raise TestCorpusGuardError(
+                "module-level pytestmark parametrization cannot be inventoried safely"
+            )
+    if any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            isinstance(decorator, ast.Call)
+            and (
+                (
+                    isinstance(decorator.func, ast.Attribute)
+                    and decorator.func.attr == "fixture"
+                )
+                or (
+                    isinstance(decorator.func, ast.Name)
+                    and decorator.func.id == "fixture"
+                )
+            )
+            and any(keyword.arg == "params" for keyword in decorator.keywords)
+            for decorator in node.decorator_list
+        )
+        for node in tree.body
+    ):
+        raise TestCorpusGuardError(
+            "parameterized Python fixtures cannot be inventoried safely"
+        )
     declared_test_names = {
         node.name
         for node in tree.body
@@ -590,9 +1007,17 @@ def _python_inventory_entries(
             )
         methods: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
         next_visiting = {*visiting, class_node.name}
-        for base in class_node.bases:
-            if isinstance(base, ast.Name) and base.id in classes:
-                methods.update(collected_methods(classes[base.id], next_visiting))
+        local_bases = [
+            base
+            for base in class_node.bases
+            if isinstance(base, ast.Name) and base.id in classes
+        ]
+        if len(local_bases) > 1:
+            raise TestCorpusGuardError(
+                "multiple Python test class inheritance cannot be inventoried safely"
+            )
+        for base in local_bases:
+            methods.update(collected_methods(classes[base.id], next_visiting))
         disabled_methods = _disabled_python_declarations(class_node.body)
         for child in class_node.body:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -608,6 +1033,15 @@ def _python_inventory_entries(
                 )
                 for target in targets:
                     rebound.update(_binding_target_names(target))
+                if any(
+                    name.startswith("test") for name in rebound
+                ) and not (
+                    isinstance(child, (ast.Assign, ast.AnnAssign))
+                    and isinstance(child.value, ast.Constant)
+                ):
+                    raise TestCorpusGuardError(
+                        "callable Python class test-name assignment cannot be inventoried safely"
+                    )
             elif isinstance(child, ast.Delete):
                 for target in child.targets:
                     rebound.update(_binding_target_names(target))
@@ -621,8 +1055,22 @@ def _python_inventory_entries(
                 f"cannot resolve Python test class inheritance: {path}"
             )
         if any(
-            isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and child.name in {"__init__", "__new__"}
+            (
+                isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and child.name in {"__init__", "__new__"}
+            )
+            or (
+                isinstance(child, (ast.Assign, ast.AnnAssign))
+                and any(
+                    name in {"__init__", "__new__"}
+                    for target in (
+                        child.targets
+                        if isinstance(child, ast.Assign)
+                        else (child.target,)
+                    )
+                    for name in _binding_target_names(target)
+                )
+            )
             for child in class_node.body
         ):
             return True
@@ -640,6 +1088,8 @@ def _python_inventory_entries(
             )
         next_visiting = {*visiting, class_node.name}
         for base in class_node.bases:
+            if isinstance(base, ast.Name) and base.id == "object":
+                continue
             if isinstance(base, ast.Name) and base.id in classes:
                 validate_class_bases(classes[base.id], next_visiting)
                 continue
@@ -653,9 +1103,91 @@ def _python_inventory_entries(
                 "collected Python test class base cannot be resolved safely"
             )
 
+    def class_is_disabled(class_node: ast.ClassDef) -> bool:
+        value: bool | None = None
+        for child in class_node.body:
+            if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                continue
+            targets = (
+                child.targets if isinstance(child, ast.Assign) else (child.target,)
+            )
+            if "__test__" not in {
+                name for target in targets for name in _binding_target_names(target)
+            }:
+                continue
+            if not isinstance(child.value, ast.Constant) or not isinstance(
+                child.value.value, bool
+            ):
+                raise TestCorpusGuardError(
+                    "Python class __test__ binding cannot be inventoried safely"
+                )
+            value = child.value.value
+        return value is False
+
+    def fixture_decorated(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        return any(
+            (
+                isinstance(decorator, ast.Call)
+                and (
+                    (
+                        isinstance(decorator.func, ast.Attribute)
+                        and decorator.func.attr == "fixture"
+                    )
+                    or (
+                        isinstance(decorator.func, ast.Name)
+                        and decorator.func.id == "fixture"
+                    )
+                )
+            )
+            or (
+                isinstance(decorator, ast.Attribute)
+                and decorator.attr == "fixture"
+            )
+            or (isinstance(decorator, ast.Name) and decorator.id == "fixture")
+            for decorator in node.decorator_list
+        )
+
+    def effective_class_decorators(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> tuple[ast.expr, ...]:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        inherited: list[ast.expr] = []
+        for base in class_node.bases:
+            if isinstance(base, ast.Name) and base.id in classes:
+                inherited.extend(
+                    effective_class_decorators(
+                        classes[base.id],
+                        {*visiting, class_node.name},
+                    )
+                )
+        for decorator in class_node.decorator_list:
+            target = decorator.func if isinstance(decorator, ast.Call) else decorator
+            is_parametrize = (
+                isinstance(target, ast.Attribute) and target.attr == "parametrize"
+            ) or (
+                isinstance(target, ast.Name) and target.id in parametrize_aliases
+            )
+            is_static_pytest_mark = (
+                isinstance(target, ast.Attribute)
+                and _root_name(target) in {"pytest", "mark"}
+            )
+            if not is_parametrize and not is_static_pytest_mark:
+                raise TestCorpusGuardError(
+                    "Python test class decorator cannot be inventoried safely"
+                )
+        return (*inherited, *class_node.decorator_list)
+
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.name.startswith("test") and node.name not in disabled:
+            if (
+                node.name.startswith("test")
+                and node.name not in disabled
+                and not fixture_decorated(node)
+            ):
                 raw_ref = _parameterized_ref(
                     f"{path}::{node.name}",
                     node,
@@ -672,12 +1204,16 @@ def _python_inventory_entries(
             not isinstance(node, ast.ClassDef)
             or (not node.name.startswith("Test") and node.name not in unittest_classes)
             or node.name in disabled
+            or class_is_disabled(node)
         ):
             continue
         validate_class_bases(node, set())
-        if has_constructor(node, set()):
+        if node.name not in unittest_classes and has_constructor(node, set()):
             continue
+        class_decorators = effective_class_decorators(node, set())
         for method_name, method in collected_methods(node, set()).items():
+            if fixture_decorated(method):
+                continue
             raw_ref = _parameterized_ref(
                 f"{path}::{node.name}::{method_name}",
                 method,
@@ -685,7 +1221,8 @@ def _python_inventory_entries(
                 parametrize_aliases,
                 imported_modules,
                 import_source_resolver,
-                container_decorators=tuple(node.decorator_list),
+                container_decorators=class_decorators,
+                collection_lineno=node.lineno,
             )
             entries.append(
                 (raw_ref, "python_test", _python_node_source(source_lines, method))
@@ -1198,6 +1735,21 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    collection_hook_names = (
+        "collect_ignore",
+        "pytest_ignore_collect",
+        "pytest_collect_file",
+        "pytest_collection_modifyitems",
+    )
+    for path in all_changed:
+        if Path(path).name != "conftest.py":
+            continue
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if any(name in current or name in prior for name in collection_hook_names):
+            raise TestCorpusGuardError(
+                "changed pytest collection hooks cannot be inventoried safely"
+            )
     changed = {path for path in all_changed if _is_test_path(path)}
     changed_frontend_sources = {
         path
@@ -1220,9 +1772,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             }
             if dependency_candidates & changed_frontend_sources:
                 changed.add(test_path)
-    changed_python_sources = {
-        path for path in all_changed if path.endswith(".py") and not _is_test_path(path)
-    }
+    changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
         for test_path in discover_test_files(repo):
             if not test_path.endswith(".py") or test_path in changed:
@@ -1263,10 +1813,7 @@ def _is_test_path(path: str) -> bool:
         for kind in ("test", "spec")
         for extension in FRONTEND_TEST_EXTENSIONS
     )
-    return candidate.name.endswith(vitest_suffixes) or (
-        path.startswith("apps/control-center/tests/")
-        and candidate.suffix.removeprefix(".") in FRONTEND_TEST_EXTENSIONS
-    )
+    return candidate.name.endswith(vitest_suffixes)
 
 
 def _validate_test_path(path: str) -> None:
@@ -1356,7 +1903,7 @@ def _source_ref_from_text(
         except FrontendInventoryError as exc:
             raise TestCorpusEvidenceError(str(exc)) from None
     if declaration_source is None:
-        raise TestCorpusEvidenceError(
+        raise TestCorpusDeclarationMissingError(
             f"replacement assertion source is missing: {test_ref}"
         )
     return build_test_source_ref(test_ref, declaration_source)
@@ -1391,7 +1938,7 @@ def _resolve_assertion_source_ref(
 ) -> str:
     try:
         return _worktree_source_ref(repo, test_ref)
-    except TestCorpusSourceRefMissingError:
+    except (TestCorpusSourceRefMissingError, TestCorpusDeclarationMissingError):
         historical = historical_source_refs.get(test_ref)
         if historical is None:
             raise TestCorpusEvidenceError(

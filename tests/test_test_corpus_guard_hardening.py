@@ -275,7 +275,7 @@ def test_repository_constructed_passed_envelope_is_not_authoritative(
         )
 
 
-def test_historical_source_ref_fallback_requires_missing_worktree_source(
+def test_historical_source_ref_fallback_allows_missing_worktree_declaration(
     tmp_path: Path,
 ) -> None:
     test_ref = "tests/test_sample.py::test_replacement"
@@ -300,11 +300,10 @@ def test_historical_source_ref_fallback_requires_missing_worktree_source(
         "def test_neighbor(): pass\n",
         encoding="utf-8",
     )
-    with pytest.raises(
-        guard.TestCorpusEvidenceError,
-        match="replacement assertion source is missing",
-    ):
+    assert (
         guard._resolve_assertion_source_ref(tmp_path, test_ref, historical)
+        == historical[test_ref]
+    )
 
 
 def test_worktree_inventory_reader_rejects_symlinked_parent(

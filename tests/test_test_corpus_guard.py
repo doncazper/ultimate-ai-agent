@@ -1021,7 +1021,6 @@ test.runIf(enabled)("same", () => {});
 test("same", () => {});
 test("alpha", () => {});
 test("alpha", () => {});
-test("alpha#2", () => {});
 """,
     )
 
@@ -1030,8 +1029,15 @@ test("alpha#2", () => {});
         f"{path}::same#2",
         f"{path}::alpha",
         f"{path}::alpha#2",
-        f"{path}::alpha#2#2",
     ]
+
+
+def test_frontend_inventory_rejects_titles_that_collide_with_occurrence_refs() -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match="test title is invalid"):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            'test("alpha#2", () => {});',
+        )
 
 
 def test_frontend_inventory_rejects_nested_destructuring_shadowing() -> None:
@@ -1891,4 +1897,375 @@ def test_changed_frontend_test_dataset_rechecks_importing_test(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == (
         "apps/control-center/src/cases.test.ts",
         "apps/control-center/src/consumer.test.ts",
+    )
+
+
+def test_python_inventory_rejects_package_relative_parameter_import(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="relative imported Python parameter data",
+    ):
+        guard._parse_worktree_test_declarations(
+            tmp_path,
+            "tests/test_sample.py",
+            """
+import pytest
+from . import CASES
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+        )
+
+
+def test_python_inventory_binds_transitive_imported_parameter_source(
+    tmp_path: Path,
+) -> None:
+    scripts_root = tmp_path / "scripts"
+    scripts_root.mkdir()
+    (scripts_root / "data.py").write_text(
+        "from scripts.helpers import build_cases\nCASES = build_cases()\n"
+    )
+    helper_path = scripts_root / "helpers.py"
+    helper_path.write_text('def build_cases():\n    return ["one", "two"]\n')
+    test_text = """
+import pytest
+from scripts.data import CASES
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    helper_path.write_text('def build_cases():\n    return ["one"]\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_hashes_only_exact_imported_parameter_binding(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text('CASES = ["one"]\nUNRELATED = "before"\n')
+    test_text = """
+import pytest
+from data import CASES
+
+@pytest.mark.parametrize("value", list(CASES))
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('CASES = ["one"]\nUNRELATED = "after"\n')
+    unrelated = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('CASES = ["one", "two"]\nUNRELATED = "after"\n')
+    changed = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref == unrelated[0].ref
+    assert before[0].ref != changed[0].ref
+
+
+def test_python_inventory_matches_class_collection_edge_cases() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        """
+import unittest
+
+def constructor(self):
+    pass
+
+class TestPlainObject(object):
+    def test_collected(self):
+        pass
+
+class TestDisabled:
+    __test__ = False
+    def test_hidden(self):
+        pass
+
+class TestAssignedConstructor:
+    __init__ = constructor
+    def test_not_collected(self):
+        pass
+
+class CustomCase(unittest.TestCase):
+    __init__ = constructor
+    def test_unittest_collected(self):
+        pass
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::TestPlainObject::test_collected",
+        "tests/test_sample.py::CustomCase::test_unittest_collected",
+    ]
+
+
+def test_python_inventory_binds_inherited_class_parametrization_at_collection() -> None:
+    template = """
+import pytest
+
+CASES = ["one"]
+
+@pytest.mark.parametrize("value", CASES)
+class Base:
+    def test_case(self, value):
+        assert value
+
+{mutation}
+
+class TestChild(Base):
+    pass
+"""
+    before = guard.parse_python_declarations(
+        "tests/test_sample.py", template.format(mutation="")
+    )
+    after = guard.parse_python_declarations(
+        "tests/test_sample.py", template.format(mutation='CASES.append("two")')
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_helper_argument_mutation() -> None:
+    template = """
+import pytest
+
+CASES = ["one"]
+
+def add_case(values):
+    values.append("two")
+
+{mutation}
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard.parse_python_declarations(
+        "tests/test_sample.py", template.format(mutation="")
+    )
+    after = guard.parse_python_declarations(
+        "tests/test_sample.py", template.format(mutation="add_case(CASES)")
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_omits_fixture_named_like_test_and_rejects_fixture_params() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        """
+import pytest
+
+@pytest.fixture
+def test_fixture():
+    return "value"
+
+def test_collected():
+    pass
+""",
+    )
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::test_collected"
+    ]
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+
+@pytest.fixture(params=["one", "two"])
+def value(request):
+    return request.param
+
+def test_collected(value):
+    assert value
+""",
+        )
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    (
+        (
+            "class TestGroup:\n    test_alias = helper\n",
+            "class test-name assignment",
+        ),
+        (
+            "@decorate\nclass TestGroup:\n    def test_case(self): pass\n",
+            "test class decorator",
+        ),
+        (
+            "class TestGroup:\n    def test_case(self): pass\n"
+            "class TestGroup:\n    def test_other(self): pass\n",
+            "duplicate Python class bindings",
+        ),
+        (
+            "def test_case(): pass\ndef test_case(): pass\n",
+            "duplicate Python test bindings",
+        ),
+        (
+            "class First:\n    def test_first(self): pass\n"
+            "class Second:\n    def test_second(self): pass\n"
+            "class TestGroup(First, Second):\n    pass\n",
+            "multiple Python test class inheritance",
+        ),
+        (
+            "def test_case(): pass\nif enabled:\n    test_case.__test__ = False\n",
+            "__test__ mutation inside module control flow",
+        ),
+    ),
+)
+def test_python_inventory_rejects_ambiguous_collection_constructs(
+    source: str,
+    message: str,
+) -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match=message):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+def test_frontend_inventory_binds_static_registration_loop_source() -> None:
+    path = "apps/control-center/src/example.test.ts"
+    before = """
+const cases = [{ name: "one" }] as const;
+for (const item of cases) {
+  test(`${item.name} works`, () => {});
+}
+"""
+    after = before.replace('{ name: "one" }', '{ name: "one" }, { name: "two" }')
+    test_ref = guard.parse_frontend_declarations(path, before)[0].ref
+
+    assert guard._source_ref_from_text(test_ref, before) != guard._source_ref_from_text(
+        test_ref, after
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    (
+        (
+            'const cases = [["one"]]\n.slice();\n'
+            'test.each(cases)("case %s", () => {});\n',
+            "ASI continuation",
+        ),
+        (
+            'import * as runner from "vitest";\n'
+            'const { test: localTest } = runner;\n'
+            'localTest("case", () => {});\n',
+            "namespace-derived test API",
+        ),
+        (
+            'function register() { test("case", () => {}); }\nregister();\n',
+            "registration context",
+        ),
+        (
+            'for (let index = 0; index < 2; index += 1) {'
+            ' test("case", () => {}); }',
+            "registration loop",
+        ),
+    ),
+)
+def test_frontend_inventory_rejects_unproven_registration_constructs(
+    source: str,
+    message: str,
+) -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match=message):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source,
+        )
+
+
+def test_frontend_inventory_binds_nested_spread_parameter_data() -> None:
+    path = "apps/control-center/src/example.test.ts"
+    before = """
+const cases = [["one"]] as const;
+test.each([...cases])("case %s", () => {});
+"""
+    after = before.replace('[["one"]]', '[["one"], ["two"]]')
+
+    assert guard.parse_frontend_declarations(path, before)[0].ref != (
+        guard.parse_frontend_declarations(path, after)[0].ref
+    )
+
+
+def test_frontend_inventory_binds_nested_imported_parameter_data(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    source_path = source_root / "cases.ts"
+    source_path.write_text('export const CASES = [["one"]] as const;\n')
+    test_text = """
+import { CASES } from "./cases";
+test.each([...CASES])("case %s", () => {});
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "apps/control-center/src/example.test.ts",
+        test_text,
+    )
+    source_path.write_text('export const CASES = [["one"], ["two"]] as const;\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "apps/control-center/src/example.test.ts",
+        test_text,
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_changed_conftest_collection_hook_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_control_center_tests_helpers_are_not_test_files(tmp_path: Path) -> None:
+    tests_root = tmp_path / "apps/control-center/tests"
+    tests_root.mkdir(parents=True)
+    (tests_root / "ports.ts").write_text("export const port = 4173;\n")
+    (tests_root / "example.spec.ts").write_text('test("case", () => {});\n')
+
+    assert guard.discover_test_files(tmp_path) == (
+        "apps/control-center/tests/example.spec.ts",
     )

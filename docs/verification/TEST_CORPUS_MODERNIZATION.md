@@ -34,10 +34,15 @@ declaration ref, so removing a collected case cannot retain the prior inventory
 identity.
 Identifier-backed frontend parameter sets bind to the preceding static `const`
 initializer or to a relative import's exported static `const` initializer.
-Changes to an imported initializer recheck the dependent test file. Dynamic,
-mutated, ambiguous, or unresolved parameter bindings fail closed. Frontend files
-also fail closed when `it` or `test` is shadowed by a local declaration or
-non-runner import;
+Nested spread and supported collection expressions bind to the same sources,
+and statically bounded top-level `for...of` registrations bind the exact loop
+and iterable source into assertion evidence. Python imported parameter data is
+bound to the exact referenced declaration and its recursively resolvable local
+dependencies. Changes to an imported initializer, including one in another test
+module, recheck the dependent test file. Dynamic, mutated, ambiguous, or
+unresolved parameter bindings and collection-changing `conftest.py` hooks fail
+closed. Frontend files also fail closed when `it` or `test` is shadowed by a
+local declaration or non-runner import;
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

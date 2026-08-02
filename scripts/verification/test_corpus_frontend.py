@@ -243,18 +243,40 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         if match.group("module") not in RUNNER_MODULES:
             continue
         namespace = re.escape(match.group("name"))
+        if re.search(
+            rf"\b(?:const|let|var)\s*(?:\{{[^}}]*\b(?:it|test)\b[^}}]*\}}|"
+            rf"\[[^\]]*\])\s*=\s*{namespace}\b|"
+            rf"\b{namespace}\s*\[\s*['\"](?:it|test)['\"]\s*\]",
+            scan_text,
+        ):
+            raise FrontendInventoryError(
+                "frontend namespace-derived test API cannot be inventoried safely"
+            )
         if re.search(rf"\b{namespace}\s*\.\s*(?:it|test)\b", scan_text):
             raise FrontendInventoryError(
                 "frontend namespace test API cannot be inventoried safely"
             )
 
+    recognized_extensions: set[int] = set()
+    while True:
+        added = False
+        for match in EXTENSION_PATTERN.finditer(scan_text):
+            if match.group("base") in names:
+                recognized_extensions.add(match.start("alias"))
+                if match.group("alias") not in names:
+                    names.add(match.group("alias"))
+                    added = True
+        if not added:
+            break
+
     declaration_pattern = re.compile(
         r"\b(?:const|let|var|function|class)\s+(?P<name>it|test)\b"
     )
-    if declaration_pattern.search(scan_text):
-        raise FrontendInventoryError(
-            "frontend test API name is shadowed by a local declaration"
-        )
+    for match in declaration_pattern.finditer(scan_text):
+        if match.start("name") not in recognized_extensions:
+            raise FrontendInventoryError(
+                "frontend test API name is shadowed by a local declaration"
+            )
     destructuring_pattern = re.compile(
         r"\b(?:const|let|var)\s*\{(?P<bindings>[^{}]*)\}"
     )
@@ -299,24 +321,17 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
                 "frontend test API name is shadowed by a non-runner import"
             )
 
-    recognized_extensions: set[int] = set()
-    while True:
-        added = False
-        for match in EXTENSION_PATTERN.finditer(scan_text):
-            if match.group("base") in names:
-                recognized_extensions.add(match.start("base"))
-                if match.group("alias") not in names:
-                    names.add(match.group("alias"))
-                    added = True
-        if not added:
-            break
-
     api_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
     for match in re.finditer(
         rf"(?<![.\w$]){api_pattern}{TEST_MODIFIERS}\s*\.extend\b",
         scan_text,
     ):
-        if match.start() not in recognized_extensions:
+        extension_base_starts = {
+            extension.start("base")
+            for extension in EXTENSION_PATTERN.finditer(scan_text)
+            if extension.group("alias") in names
+        }
+        if match.start() not in extension_base_starts:
             raise FrontendInventoryError(
                 "frontend extended test API cannot be inventoried safely"
             )
@@ -415,6 +430,14 @@ def _const_initializer_source(
     if not boundaries:
         raise FrontendInventoryError("frontend parameterized test binding is invalid")
     semicolon = min(boundaries)
+    if semicolon == newline:
+        continuation = semicolon + 1
+        while continuation < before_offset and text[continuation] in " \t\r":
+            continuation += 1
+        if text.startswith((".", "?."), continuation):
+            raise FrontendInventoryError(
+                "frontend parameterized test ASI continuation cannot be inventoried safely"
+            )
     suffix = text[value_end:semicolon].strip()
     if _validate_references and suffix and re.fullmatch(r"as\s+const", suffix) is None:
         raise FrontendInventoryError("frontend parameterized test binding is dynamic")
@@ -611,7 +634,54 @@ def _bound_parameter_data(
             break
         expression = expression[1:-1].strip()
     if re.fullmatch(TEST_API_NAME, expression) is None:
-        return parameter_data
+        expression_mask = _code_mask(expression)
+        expression_scan = "".join(
+            character if expression_mask[index] else " "
+            for index, character in enumerate(expression)
+        )
+        dependencies = {
+            match.group("name")
+            for pattern in (
+                re.compile(
+                    rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])"
+                ),
+                re.compile(
+                    rf"(?<![.\w$])(?P<name>{TEST_API_NAME})\s*\."
+                    r"(?:concat|filter|flatMap|map|slice)\b"
+                ),
+            )
+            for match in pattern.finditer(expression_scan)
+        }
+        if not dependencies:
+            return parameter_data
+        sources = [parameter_data]
+        for dependency in sorted(dependencies):
+            local_source = _const_initializer_source(
+                text,
+                scan_text,
+                dependency,
+                before_offset,
+                proven_parameter_call_ranges,
+                _validate_references=False,
+            )
+            if local_source is not None:
+                sources.append(local_source)
+                continue
+            imported = _import_binding(text, scan_text, dependency, before_offset)
+            if imported is None or import_binding_resolver is None:
+                raise FrontendInventoryError(
+                    "frontend parameterized test binding cannot be resolved safely"
+                )
+            module, imported_name = imported
+            imported_source = import_binding_resolver(module, imported_name)
+            if imported_source is None:
+                raise FrontendInventoryError(
+                    "frontend parameterized test import cannot be resolved safely"
+                )
+            sources.append(
+                f"module={module}\nimported={imported_name}\n{imported_source}"
+            )
+        return "\n".join(sources)
 
     local_source = _const_initializer_source(
         text,
@@ -694,6 +764,143 @@ def _conditional_declarations(
     return tuple(declarations)
 
 
+def _static_collection_source(
+    text: str,
+    scan_text: str,
+    name: str,
+    before_offset: int,
+    import_binding_resolver: ImportBindingResolver | None,
+    *,
+    _seen_names: frozenset[str] = frozenset(),
+) -> str:
+    if name in _seen_names:
+        raise FrontendInventoryError(
+            "frontend registration loop bindings are circular"
+        )
+    try:
+        local_source = _const_initializer_source(
+            text,
+            scan_text,
+            name,
+            before_offset,
+        )
+    except FrontendInventoryError as exc:
+        if "binding is dynamic" not in str(exc):
+            raise
+        local_source = None
+    if local_source is not None:
+        return local_source
+
+    pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
+    matches = list(pattern.finditer(scan_text, 0, before_offset))
+    if len(matches) == 1:
+        match = matches[0]
+        statement_end = scan_text.find(";", match.end(), before_offset)
+        if statement_end < 0:
+            statement_end = scan_text.find("\n", match.end(), before_offset)
+        if statement_end < 0:
+            raise FrontendInventoryError(
+                "frontend registration loop binding is invalid"
+            )
+        alias = re.fullmatch(
+            rf"\s*=\s*(?P<name>{TEST_API_NAME})(?:\s+as\s+const)?\s*",
+            scan_text[match.end() : statement_end],
+        )
+        if alias is None:
+            raise FrontendInventoryError(
+                "frontend registration loop binding is dynamic"
+            )
+        escaped_name = re.escape(name)
+        intervening = scan_text[statement_end + 1 : before_offset]
+        if re.search(
+            rf"\b{escaped_name}\s*(?:\[[^;\n]*\]|\.[A-Za-z_$][\w$]*)?\s*"
+            r"(?:[+\-*/%]=|&&=|\|\|=|\?\?=|=(?!=|>)|\+\+|--)",
+            intervening,
+        ):
+            raise FrontendInventoryError(
+                "frontend registration loop binding is mutated before collection"
+            )
+        dependency_source = _static_collection_source(
+            text,
+            scan_text,
+            alias.group("name"),
+            match.start(),
+            import_binding_resolver,
+            _seen_names=frozenset((*_seen_names, name)),
+        )
+        return f"{text[match.start() : statement_end + 1]}\n{dependency_source}"
+
+    imported = _import_binding(text, scan_text, name, before_offset)
+    if imported is None or import_binding_resolver is None:
+        raise FrontendInventoryError(
+            "frontend registration loop binding cannot be resolved safely"
+        )
+    module, imported_name = imported
+    imported_source = import_binding_resolver(module, imported_name)
+    if imported_source is None:
+        raise FrontendInventoryError(
+            "frontend registration loop import cannot be resolved safely"
+        )
+    return f"module={module}\nimported={imported_name}\n{imported_source}"
+
+
+def _registration_context_source(
+    text: str,
+    scan_text: str,
+    offset: int,
+    import_binding_resolver: ImportBindingResolver | None,
+) -> str:
+    range_patterns = (
+        re.compile(rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*\([^)]*\)\s*\{{"),
+        re.compile(
+            rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*"
+            r"(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{"
+        ),
+        re.compile(r"\b(?:while|if|switch|catch)\s*\([^)]*\)\s*\{"),
+        re.compile(r"\b(?:do|try|finally)\s*\{"),
+    )
+    for pattern in range_patterns:
+        for match in pattern.finditer(scan_text, 0, offset):
+            opening = scan_text.find("{", match.start(), match.end())
+            if opening < 0:
+                continue
+            if offset < _skip_balanced(text, opening):
+                raise FrontendInventoryError(
+                    "frontend test registration context cannot be inventoried safely"
+                )
+
+    context_sources: list[str] = []
+    for match in re.compile(r"\bfor\s*\(").finditer(scan_text, 0, offset):
+        header_end = _skip_balanced(text, match.end() - 1)
+        body_start = header_end
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start >= len(text) or text[body_start] != "{":
+            continue
+        body_end = _skip_balanced(text, body_start)
+        if not (body_start < offset < body_end):
+            continue
+        header = scan_text[match.start() : header_end]
+        binding = re.fullmatch(
+            rf"for\s*\(\s*const\s+(?:{TEST_API_NAME}|\[[^\[\]]+\])\s+of\s+"
+            rf"(?P<collection>{TEST_API_NAME})\s*\)",
+            header,
+        )
+        if binding is None:
+            raise FrontendInventoryError(
+                "frontend test registration loop cannot be inventoried safely"
+            )
+        collection_source = _static_collection_source(
+            text,
+            scan_text,
+            binding.group("collection"),
+            match.start(),
+            import_binding_resolver,
+        )
+        context_sources.append(f"{text[match.start() : header_end]}\n{collection_source}")
+    return "\n".join(context_sources)
+
+
 def _frontend_inventory_entries(
     path: str,
     text: str,
@@ -715,6 +922,12 @@ def _frontend_inventory_entries(
             "frontend parameterized suites cannot be inventoried safely"
         )
     for match in direct_pattern.finditer(scan_text):
+        context_source = _registration_context_source(
+            text,
+            scan_text,
+            match.start(),
+            import_binding_resolver,
+        )
         declaration_end = _skip_balanced(text, match.end() - 1)
         index = match.end()
         while index < len(text) and text[index].isspace():
@@ -733,11 +946,12 @@ def _frontend_inventory_entries(
         title_start = index + 1
         title_end = _skip_string(text, index) - 1
         title = _normalized_title(text[title_start:title_end])
-        if not title or len(title) > 500:
+        if not title or len(title) > 500 or re.search(r"#\d+$", title):
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        raw_entries.append(
-            (match.start(), f"{path}::{title}", text[match.start() : declaration_end])
-        )
+        declaration_source = text[match.start() : declaration_end]
+        if context_source:
+            declaration_source = f"{declaration_source}\n{context_source}"
+        raw_entries.append((match.start(), f"{path}::{title}", declaration_source))
     parameterized_declarations = _parameterized_declarations(
         text,
         scan_text,
@@ -753,8 +967,14 @@ def _frontend_inventory_entries(
         declaration_source,
         parameter_data,
     ) in parameterized_declarations:
+        context_source = _registration_context_source(
+            text,
+            scan_text,
+            offset,
+            import_binding_resolver,
+        )
         title = _normalized_title(raw_title)
-        if not title or len(title) > 500:
+        if not title or len(title) > 500 or re.search(r"#\d+$", title):
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
         bound_data = _bound_parameter_data(
             text,
@@ -765,6 +985,8 @@ def _frontend_inventory_entries(
             parameter_call_ranges,
         )
         digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
+        if context_source:
+            declaration_source = f"{declaration_source}\n{context_source}"
         raw_entries.append(
             (
                 offset,
@@ -775,9 +997,17 @@ def _frontend_inventory_entries(
     for offset, raw_title, declaration_source in _conditional_declarations(
         text, scan_text, conditional_pattern
     ):
+        context_source = _registration_context_source(
+            text,
+            scan_text,
+            offset,
+            import_binding_resolver,
+        )
         title = _normalized_title(raw_title)
-        if not title or len(title) > 500:
+        if not title or len(title) > 500 or re.search(r"#\d+$", title):
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
+        if context_source:
+            declaration_source = f"{declaration_source}\n{context_source}"
         raw_entries.append((offset, f"{path}::{title}", declaration_source))
 
     counts: dict[str, int] = {}
