@@ -928,6 +928,39 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can call the OpenAI model API.",
+        "The runtime may invoke the Acme provider API.",
+        "OpenAI model API calls are active.",
+        "Calls to the Anthropic model API are supported.",
+        "UAA can save raw conversation history.",
+        "The API may retain raw response content.",
+        "The active-mode harness may dispatch to real adapters.",
+        "The active replay can use real targets.",
+        "Real dispatches are allowed during active replay.",
+        "Real adapters are reachable in shadow replay.",
+        "UAA can reuse approvals across requests.",
+        "UAA can remember an approval for future actions.",
+        "Approval carries over to later requests.",
+        "Approval reuse is enabled.",
+    ),
+)
+def test_reviewed_authority_paraphrases_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "denial",
     (
         "No browser automation is enabled.",
@@ -966,6 +999,14 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA does not store raw conversation content.",
         "UAA never logs raw user messages.",
         "The API no longer retains raw conversation history.",
+        "UAA cannot call the OpenAI model API.",
+        "OpenAI model API calls are not supported.",
+        "UAA cannot save raw conversation history.",
+        "The active-mode harness may not dispatch to real adapters.",
+        "Real dispatches are not allowed during active replay.",
+        "UAA cannot reuse approvals across requests.",
+        "Approval does not carry over to later requests.",
+        "Approval reuse is not enabled.",
         "UAA cannot invoke runtime models.",
         "The API does not support provider SDK calls.",
         "The runtime will never perform model inference.",
