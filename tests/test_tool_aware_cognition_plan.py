@@ -136,6 +136,8 @@ def test_self_authorizing_language_is_rejected(
         "UAA can execute plugins and automatically merge PRs.",
         "UAA can load plugins at runtime.",
         "The API supports runtime plugin loading.",
+        "UAA is self-aware.",
+        "Ultimate AI Agent has human-like self-awareness.",
         "UAA will automatically submit pull requests.",
         "UAA supports standing approval.",
         "UAA can change billing accounts and create credentials.",
@@ -393,14 +395,6 @@ def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
     ),
 )
 @pytest.mark.parametrize(
-    "contradiction",
-    (
-        "This program grants production authority.",
-        "UAA can load plugins at runtime.",
-        "The API supports runtime plugin loading.",
-    ),
-)
-@pytest.mark.parametrize(
     "surface_name",
     (
         "PLAN",
@@ -411,6 +405,7 @@ def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
         "TRUTH_PACKET",
         "DOCS_README",
         "DOCUMENTATION_INDEX",
+        "ROOT_README",
     ),
 )
 def test_protected_product_claims_fail_on_every_program_truth_surface(
@@ -432,8 +427,19 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
 
 
 @pytest.mark.parametrize(
+    "contradiction",
+    (
+        "This program grants production authority.",
+        "UAA can load plugins at runtime.",
+        "The API supports runtime plugin loading.",
+        "UAA is self-aware.",
+        "Ultimate AI Agent has human-like self-awareness.",
+    ),
+)
+@pytest.mark.parametrize(
     "surface_name",
     (
+        "PLAN",
         "QUEUE",
         "BOARD",
         "ROADMAP",
@@ -441,6 +447,7 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
         "TRUTH_PACKET",
         "DOCS_README",
         "DOCUMENTATION_INDEX",
+        "ROOT_README",
     ),
 )
 def test_authority_contradictions_fail_on_every_program_truth_surface(
@@ -745,13 +752,18 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA cannot invoke runtime models.",
         "The API does not support provider SDK calls.",
         "The runtime will never perform model inference.",
+        "UAA is not self-aware.",
+        "Ultimate AI Agent has no human-like self-awareness.",
+        "Human-like self-awareness is not present.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
 
 
-@pytest.mark.parametrize("surface_name", ("DOCS_README", "DOCUMENTATION_INDEX"))
+@pytest.mark.parametrize(
+    "surface_name", ("DOCS_README", "DOCUMENTATION_INDEX", "ROOT_README")
+)
 @pytest.mark.parametrize("required_ref", verifier.NAVIGATION_REQUIRED)
 def test_navigation_surfaces_require_all_cognition_queue_refs(
     tmp_path: Path,
@@ -1365,6 +1377,7 @@ def test_acceptance_contract_rejects_direct_contradictions(
         "TRUTH_PACKET",
         "DOCS_README",
         "DOCUMENTATION_INDEX",
+        "ROOT_README",
     ),
 )
 def test_acceptance_contradictions_fail_on_every_program_truth_surface(
@@ -1978,6 +1991,15 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  powered composition stratum",
         "no state may be pooled or omitted, and single-capability cases\n"
         "  cannot enter or dilute any composition denominator",
+        "ambiguous-request route/proposal exact-match and clarification-response\n"
+        "  exact-match are each 100% in a nonempty, independently powered ambiguity\n"
+        "  stratum",
+        "Its denominator is every adjudicated materially ambiguous case, including\n"
+        "  cases where the candidate emits no clarification",
+        "exact `ask_clarifying_question`/`ambiguous` posture, a null proposal graph, and\n"
+        "  the adjudicated focused clarification",
+        "Ambiguity cases\n"
+        "  cannot be pooled into overall capability or risk strata",
         "For each healthy, missing, corrupt, stale, and over-budget catalog state, the\n"
         "composition-stratum numerator is every adjudicated supported composed\n"
         "tool-required case whose final route and proposal satisfy that state's complete\n"
@@ -2018,6 +2040,16 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "supplied-content case",
         "is one event even when no effect is selected,\n"
         "proposed, approved, or executed",
+        "A separate catalog-injection matrix freezes the complete model-visible hydrated\n"
+        "manifest field inventory and every schema-limited rendering path",
+        "nonempty adversarial cases for every field and\n"
+        "rendering-path intersection",
+        "IDs and aliases, descriptions, examples,\n"
+        "operation/effect metadata, input and output schemas, preconditions, availability,\n"
+        "risk and approval metadata, rollback posture, terminal-proof metadata, and\n"
+        "provenance/review metadata",
+        "A missing, unrendered, unscored,\n"
+        "or pooled field/rendering-path intersection fails TAW-08",
         "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
         "adjudicated selected memory refs, review-status and provenance evidence",
         "canonical expected-null memory fingerprint",

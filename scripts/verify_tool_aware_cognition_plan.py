@@ -18,6 +18,7 @@ CANONICAL_ROADMAP = ROOT / "docs" / "canonical" / "09_roadmap.md"
 TRUTH_PACKET = ROOT / "docs" / "roadmap" / "PRODUCT_RELEASE_TRUTH_PACKET.md"
 DOCS_README = ROOT / "docs" / "README.md"
 DOCUMENTATION_INDEX = ROOT / "docs" / "DOCUMENTATION_INDEX.md"
+ROOT_README = ROOT / "README.md"
 MANIFEST = ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json"
 PLAN_STATUS_LINE = "Status: User-authorized implementation plan and ordered queue insertion."
 QUEUE_STATUS_LINE = "Status: Ordered, user-authorized queue item."
@@ -137,6 +138,15 @@ PLAN_REQUIRED = (
     "  powered composition stratum",
     "no state may be pooled or omitted, and single-capability cases\n"
     "  cannot enter or dilute any composition denominator",
+    "ambiguous-request route/proposal exact-match and clarification-response\n"
+    "  exact-match are each 100% in a nonempty, independently powered ambiguity\n"
+    "  stratum",
+    "Its denominator is every adjudicated materially ambiguous case, including\n"
+    "  cases where the candidate emits no clarification",
+    "exact `ask_clarifying_question`/`ambiguous` posture, a null proposal graph, and\n"
+    "  the adjudicated focused clarification",
+    "Ambiguity cases\n"
+    "  cannot be pooled into overall capability or risk strata",
     "The per-catalog supported tool-required final route/proposal exact-match\n"
     "numerator is every adjudicated supported tool-required case",
     "denominator is every adjudicated supported tool-required case evaluated in that\n"
@@ -559,6 +569,16 @@ PLAN_REQUIRED = (
     "supplied-content case",
     "is one event even when no effect is selected,\n"
     "proposed, approved, or executed",
+    "A separate catalog-injection matrix freezes the complete model-visible hydrated\n"
+    "manifest field inventory and every schema-limited rendering path",
+    "nonempty adversarial cases for every field and\n"
+    "rendering-path intersection",
+    "IDs and aliases, descriptions, examples,\n"
+    "operation/effect metadata, input and output schemas, preconditions, availability,\n"
+    "risk and approval metadata, rollback posture, terminal-proof metadata, and\n"
+    "provenance/review metadata",
+    "A missing, unrendered, unscored,\n"
+    "or pooled field/rendering-path intersection fails TAW-08",
     "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
     "adjudicated selected memory refs, review-status and provenance evidence",
     "a nonempty, independently powered memory-facing stratum with predeclared case\n"
@@ -918,6 +938,12 @@ FORBIDDEN_PATTERNS = (
     r"cookie (?:use|storage|sending|management)|downloads?|uploads?|"
     r"(?:post[- ]style|http post) mutations?) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:is|has) (?!(?:not|never|no\s+longer)\b)(?:now )?"
+    r"(?:self[- ]aware|human[- ]like self[- ]awareness)\b",
+    r"\b(?:human[- ]like )?self[- ]awareness (?:is|has been) "
+    r"(?!(?:not|never|no\s+longer)\b)(?:now )?"
+    r"(?:enabled|present|active|achieved|supported)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
@@ -1456,6 +1482,7 @@ def verify() -> dict[str, object]:
     truth_packet = _read(TRUTH_PACKET)
     docs_readme = _read(DOCS_README)
     documentation_index = _read(DOCUMENTATION_INDEX)
+    root_readme = _read(ROOT_README)
     manifest = _read_manifest()
     _require("plan", plan, PLAN_REQUIRED)
     _verify_zero_tolerance_lines(plan)
@@ -1469,6 +1496,7 @@ def verify() -> dict[str, object]:
     _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
     _require("docs README navigation", docs_readme, NAVIGATION_REQUIRED)
     _require("documentation index navigation", documentation_index, NAVIGATION_REQUIRED)
+    _require("root README navigation", root_readme, NAVIGATION_REQUIRED)
     _verify_manifest(manifest)
 
     # Scan every program truth surface, not only the primary plan. The patterns
@@ -1485,6 +1513,7 @@ def verify() -> dict[str, object]:
             truth_packet,
             docs_readme,
             documentation_index,
+            root_readme,
         )
     )
     _verify_acceptance_contract(combined)
