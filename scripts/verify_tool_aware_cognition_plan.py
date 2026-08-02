@@ -37,6 +37,8 @@ PLAN_REQUIRED = (
     "`ambiguous`",
     "`novel_unsupported`",
     "`outcome_uncertain`",
+    "| `outcome_uncertain` | A durable execution attempt has started, but operator-visible durable terminal proof is missing or inconsistent",
+    "proposal and approval lifecycle evidence alone cannot trigger this execution-recovery state",
     "approval cannot mint or broaden authority",
     "do not request an approval that cannot authorize it",
     "the current PolicyEngine or applicable",
@@ -260,6 +262,12 @@ PLAN_REQUIRED = (
     "fail-closed postures",
     "Neither a safety result from another language nor a pooled\n"
     "multilingual result can satisfy a language-by-configuration safety stratum",
+    "complete catalog-injection census is crossed into this same matrix",
+    "every\n"
+    "catalog-field-by-rendering-path intersection must have nonempty, independently\n"
+    "powered coverage in every supported language-by-configuration stratum",
+    "unrelated supplied-content case, another catalog field or rendering path, or a\n"
+    "case from another language or configuration cannot substitute",
     "Missing, underpowered, or unscored configuration evidence is a failed TAW-08\n"
     "gate",
     "ordinary-chat selection/block, unsupported-request, and paired direct-chat\n"
@@ -470,10 +478,16 @@ PLAN_REQUIRED = (
     "hard no-dispatch firewall before every\n"
     "real dispatcher, executor, connector, shell/subprocess boundary, browser",
     "uses only fake adapters and isolated\nsynthetic targets",
-    "`execute_approved_action` is normalized and assessed but\nnever dispatched",
-    "immutable zero-execution receipt and per-adapter zero-event\ncounter manifest",
-    "every accepted replay case produced zero\n"
-    "dispatch attempts and zero external or durable side effects",
+    "eligible `execute_approved_action` case, the harness\n"
+    "must hand the canonical envelope to one isolated fake dispatcher",
+    "exactly one immutable fake-dispatch handoff receipt bound to the decision,\n"
+    "approved scope, policy snapshot, attempt, capability manifest, and fake target",
+    "Zero handoffs, duplicate handoffs, or any binding mismatch invalidates the\n"
+    "replay; every other route must produce zero fake-dispatch handoffs",
+    "immutable zero-real-execution receipt and per-real-adapter zero-event counter\n"
+    "manifest",
+    "every accepted replay case produced zero real dispatch\n"
+    "attempts and zero external or durable side effects",
     "Every ordinary-chat response emitted by the active harness",
     "exact response-hash equality\nwith the qualified paired-candidate response",
     "blinded independent rescoring of the\n"
@@ -481,9 +495,12 @@ PLAN_REQUIRED = (
     "empty, truncated, missing, or semantically unrelated\n"
     "ordinary-chat response invalidates the replay",
     "The all-outcome-uncertain fail-closed census denominator is every accepted\n"
-    "corpus case in which proposal or execution work began and exact durable\n"
-    "terminal proof is absent or inconsistent",
-    "counted exactly once in shadow mode\n"
+    "corpus case in which an execution attempt has exact durable start evidence and\n"
+    "exact durable terminal proof is absent or inconsistent",
+    "Proposal creation,\n"
+    "approval request, approval decision, and other pre-execution lifecycle evidence\n"
+    "without exact execution-start evidence are excluded from this denominator",
+    "exactly once in shadow mode\n"
     "and exactly once in the no-effect active replay",
     "does not return the exact\n"
     "`report_outcome_uncertain`/`outcome_uncertain` pair",
@@ -509,7 +526,7 @@ PLAN_REQUIRED = (
     "`ask_clarifying_question`/`ambiguous`",
     "`blocked_unsafe`/`familiar_authority_blocked`",
     "| `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |",
-    "| Any accepted contract after proposal or execution work began when exact durable terminal proof is absent or inconsistent | `report_outcome_uncertain` | `outcome_uncertain`",
+    "| Any accepted contract whose exact execution attempt has durable start evidence but lacks consistent exact durable terminal proof | `report_outcome_uncertain` | `outcome_uncertain`",
     "| Any possible-tool-intent turn whose valid, current bounded catalog proves that no capability contract adequately covers the requested effect | `report_unsupported` | `novel_unsupported` | null |",
     "| `answer_with_reviewed_memory`, `draft_or_plan` | Derived with the route/state invariant; unchanged accepted route only for `familiar_supported`",
     "| `prepare_tool_or_action` | Derived with the route/state invariant; `prepare_tool_or_action` only for `familiar_supported` | Derived only from frozen typed evidence: `familiar_supported` requires exact capability identity, current availability, complete inputs, and proposal readiness; missing inputs map to `familiar_input_required`, validated unavailability maps to `familiar_unavailable`, a policy/safety denial or missing graduated exact lane maps to `familiar_authority_blocked`, and an exact catalog/index-evidence-unavailable posture maps to `capability_evidence_unavailable`",
@@ -685,7 +702,8 @@ PLAN_REQUIRED = (
     "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
     "requires the exact canonical\n"
     "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-    "without consistent exact durable terminal proof retains its canonical\n"
+    "durable start evidence but lacks consistent exact durable terminal proof\n"
+    "retains its canonical\n"
     "`report_outcome_uncertain` route with `outcome_uncertain`",
     "current policy or safety denial evidence retains its canonical\n"
     "`blocked_authority` or `blocked_unsafe` route with\n"
@@ -748,6 +766,16 @@ NAVIGATION_REQUIRED = (
     "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
 )
 FORBIDDEN_PATTERNS = (
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:use|ask|direct|instruct) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to "
+    r"(?:browse (?:the )?(?:public )?web|(?:access|search) (?:the )?(?:internet|web)|"
+    r"fetch from (?:the )?(?:public )?web)\b",
+    r"\bTAW-(?:0[0-8]) (?:is|has been) (?:now )?(?:fully )?"
+    r"(?:implemented|accepted|complete|completed|shipped)\b",
+    r"\b(?:the )?tool[- ]aware cognition(?: and chat quality)?(?: program)? "
+    r"(?:is|has been) (?:now )?(?:fully )?"
+    r"(?:implemented|accepted|complete|completed|shipped)\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?)\b",
     r"\b(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
@@ -970,6 +998,16 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:human[- ]like )?self[- ]awareness (?:is|has been) "
     r"(?!(?:not|never|no\s+longer)\b)(?:now )?"
     r"(?:enabled|present|active|achieved|supported)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:execute(?:s|d|ing)? tasks? in (?:the )?background|"
+    r"run(?:s|ning)? background (?:jobs?|tasks?|workers?)|"
+    r"perform(?:s|ed|ing)? scheduled execution|"
+    r"background(?: job| task| worker)? execution|scheduled execution)\b",
+    r"\b(?:background(?: job| task| worker)? execution|scheduled execution) (?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
@@ -984,6 +1022,7 @@ AUTHORITY_DENIALS = (
     "- automatic skill/plugin import or execution;",
     "- automatic PR submission or merging;",
     "- standing or cross-request approval;",
+    "- background or scheduled execution;",
     "- spending or purchases;",
     "- billing/account changes or credential creation;",
     "- policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;",
@@ -1016,7 +1055,7 @@ FAMILIARITY_STATES = (
     "outcome_uncertain",
 )
 FAMILIARITY_PRECEDENCE = (
-    "1. `outcome_uncertain` when work began",
+    "1. `outcome_uncertain` only when an execution attempt has exact durable start",
     "2. `familiar_authority_blocked` when the current PolicyEngine or applicable",
     "3. `capability_evidence_unavailable` when the possible-tool-intent sentinel is",
     "4. `ambiguous` when materially different interpretations remain after the",
@@ -1108,6 +1147,7 @@ DENIED_AUTHORITY_KEYS = (
     "automatic_skill_or_plugin_execution",
     "automatic_pr_submission_or_merge",
     "standing_or_cross_request_approval",
+    "background_or_scheduled_execution",
     "spending_or_purchases",
     "billing_account_or_credential_changes",
     "policy_approval_route_openapi_redaction_or_gate_bypass",

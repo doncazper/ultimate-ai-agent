@@ -147,6 +147,10 @@ def test_self_authorizing_language_is_rejected(
         "UAA can make payments.",
         "Spending is now enabled.",
         "Payments are enabled.",
+        "Operators can use UAA to browse the web.",
+        "UAA can execute tasks in the background.",
+        "The runtime supports background execution.",
+        "Background job execution is now enabled.",
         "UAA can persist raw prompts.",
         "UAA logs raw prompts.",
         "The CLI stores raw response content.",
@@ -198,6 +202,9 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         "automatic_skill_or_plugin_execution": "UAA can load plugins at runtime.",
         "automatic_pr_submission_or_merge": "UAA can automatically merge PRs.",
         "standing_or_cross_request_approval": "UAA supports standing approval.",
+        "background_or_scheduled_execution": (
+            "UAA can execute tasks in the background."
+        ),
         "spending_or_purchases": "UAA can spend money.",
         "billing_account_or_credential_changes": "UAA can change billing accounts.",
         "policy_approval_route_openapi_redaction_or_gate_bypass": (
@@ -289,6 +296,7 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "automatic_skill_or_plugin_execution": "Plugin execution is active.",
         "automatic_pr_submission_or_merge": "PR merging is supported.",
         "standing_or_cross_request_approval": "Standing approval is active.",
+        "background_or_scheduled_execution": "Background execution is enabled.",
         "spending_or_purchases": "Spending is enabled.",
         "billing_account_or_credential_changes": "Credential creation is supported.",
         "policy_approval_route_openapi_redaction_or_gate_bypass": (
@@ -439,6 +447,8 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
         "Ultimate AI Agent has human-like self-awareness.",
         "UAA can buy products.",
         "UAA can make payments.",
+        "Operators can use UAA to browse the web.",
+        "UAA can execute tasks in the background.",
     ),
 )
 @pytest.mark.parametrize(
@@ -465,6 +475,46 @@ def test_authority_contradictions_fail_on_every_program_truth_surface(
     mutated = tmp_path / source.name
     mutated.write_text(
         source.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, surface_name, mutated)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "TAW-08 is complete and accepted.",
+        "The Tool-Aware Cognition program is fully implemented.",
+        "Tool-aware cognition is shipped.",
+    ),
+)
+@pytest.mark.parametrize(
+    "surface_name",
+    (
+        "PLAN",
+        "QUEUE",
+        "BOARD",
+        "ROADMAP",
+        "CANONICAL_ROADMAP",
+        "TRUTH_PACKET",
+        "DOCS_README",
+        "DOCUMENTATION_INDEX",
+        "ROOT_README",
+    ),
+)
+def test_premature_taw_completion_claims_fail_on_every_truth_surface(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    claim: str,
+    surface_name: str,
+) -> None:
+    source = getattr(verifier, surface_name)
+    mutated = tmp_path / source.name
+    mutated.write_text(
+        source.read_text(encoding="utf-8") + f"\n{claim}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, surface_name, mutated)
@@ -746,6 +796,7 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA never executes plugins.",
         "The runtime no longer performs browser automation.",
         "UAA cannot browse the web.",
+        "Operators cannot use UAA to browse the web.",
         "The API does not support internet access.",
         "The Control Center cannot run arbitrary shell commands.",
         "UAA cannot execute actions without approval.",
@@ -763,6 +814,8 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA cannot buy products.",
         "The API does not support payment execution.",
         "UAA can plan a payment preview.",
+        "Background execution is not enabled.",
+        "UAA can plan a background execution proposal.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -964,10 +1017,11 @@ def test_unmanifested_familiarity_state_fails_closed(
 ) -> None:
     plan = tmp_path / "plan.md"
     marker = (
-        "| `outcome_uncertain` | A proposal or execution began but operator-visible "
-        "durable terminal proof is missing or inconsistent, including while an attempt "
-        "remains inside its statistical reconciliation window | Fail closed, preserve "
-        "evidence, and expose recovery posture |"
+        "| `outcome_uncertain` | A durable execution attempt has started, but "
+        "operator-visible durable terminal proof is missing or inconsistent, including "
+        "while that attempt remains inside its statistical reconciliation window | Fail "
+        "closed, preserve evidence, and expose recovery posture; proposal and approval "
+        "lifecycle evidence alone cannot trigger this execution-recovery state |"
     )
     extra = (
         marker
@@ -988,10 +1042,11 @@ def test_unquoted_familiarity_state_fails_closed(
 ) -> None:
     plan = tmp_path / "plan.md"
     marker = (
-        "| `outcome_uncertain` | A proposal or execution began but operator-visible "
-        "durable terminal proof is missing or inconsistent, including while an attempt "
-        "remains inside its statistical reconciliation window | Fail closed, preserve "
-        "evidence, and expose recovery posture |"
+        "| `outcome_uncertain` | A durable execution attempt has started, but "
+        "operator-visible durable terminal proof is missing or inconsistent, including "
+        "while that attempt remains inside its statistical reconciliation window | Fail "
+        "closed, preserve evidence, and expose recovery posture; proposal and approval "
+        "lifecycle evidence alone cannot trigger this execution-recovery state |"
     )
     extra = marker + "\n| familiar_magic | An unmanifested state | Fail closed |"
     plan.write_text(
@@ -1300,8 +1355,8 @@ def test_plan_requires_all_states_and_unavailable_approval_normalization(
             "| `execute_approved_action` | `execute_approved_action` | `familiar_supported`",
         )
         .replace(
-            "| Any accepted contract after proposal or execution work began when exact durable terminal proof is absent or inconsistent | `report_outcome_uncertain` | `outcome_uncertain`",
-            "| Any accepted contract after proposal or execution work began | `report_unavailable` | `outcome_uncertain`",
+            "| Any accepted contract whose exact execution attempt has durable start evidence but lacks consistent exact durable terminal proof | `report_outcome_uncertain` | `outcome_uncertain`",
+            "| Any accepted contract after proposal creation | `report_unavailable` | `outcome_uncertain`",
         )
         .replace(
             "| Any possible-tool-intent turn whose valid, current bounded catalog proves that no capability contract adequately covers the requested effect | `report_unsupported` | `novel_unsupported` | null |",
@@ -1545,6 +1600,12 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
             "fail-closed postures",
             "Neither a safety result from another language nor a pooled\n"
             "multilingual result can satisfy a language-by-configuration safety stratum",
+            "complete catalog-injection census is crossed into this same matrix",
+            "every\n"
+            "catalog-field-by-rendering-path intersection must have nonempty, independently\n"
+            "powered coverage in every supported language-by-configuration stratum",
+            "unrelated supplied-content case, another catalog field or rendering path, or a\n"
+            "case from another language or configuration cannot substitute",
             "Missing, underpowered, or unscored configuration evidence is a failed TAW-08\n"
             "gate",
             "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
@@ -1647,9 +1708,12 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "complete zero-tolerance artifact census also covers every active-mode replay\n"
         "artifact",
         "The all-outcome-uncertain fail-closed census denominator is every accepted\n"
-        "corpus case in which proposal or execution work began and exact durable\n"
-        "terminal proof is absent or inconsistent",
-        "counted exactly once in shadow mode\n"
+        "corpus case in which an execution attempt has exact durable start evidence and\n"
+        "exact durable terminal proof is absent or inconsistent",
+        "Proposal creation,\n"
+        "approval request, approval decision, and other pre-execution lifecycle evidence\n"
+        "without exact execution-start evidence are excluded from this denominator",
+        "exactly once in shadow mode\n"
         "and exactly once in the no-effect active replay",
         "does not return the exact\n"
         "`report_outcome_uncertain`/`outcome_uncertain` pair",
@@ -1704,9 +1768,14 @@ def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(
         "hard no-dispatch firewall before every\n"
         "real dispatcher, executor, connector, shell/subprocess boundary, browser",
         "uses only fake adapters and isolated\nsynthetic targets",
-        "`execute_approved_action` is normalized and assessed but\nnever dispatched",
-        "immutable zero-execution receipt and per-adapter zero-event\n"
-        "counter manifest",
+        "eligible `execute_approved_action` case, the harness\n"
+        "must hand the canonical envelope to one isolated fake dispatcher",
+        "exactly one immutable fake-dispatch handoff receipt bound to the decision,\n"
+        "approved scope, policy snapshot, attempt, capability manifest, and fake target",
+        "Zero handoffs, duplicate handoffs, or any binding mismatch invalidates the\n"
+        "replay; every other route must produce zero fake-dispatch handoffs",
+        "immutable zero-real-execution receipt and per-real-adapter zero-event counter\n"
+        "manifest",
         "Every ordinary-chat response emitted by the active harness",
         "exact response-hash equality\n"
         "with the qualified paired-candidate response",
@@ -2165,7 +2234,8 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
         "requires the exact canonical\n"
         "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
-        "without consistent exact durable terminal proof retains its canonical\n"
+        "durable start evidence but lacks consistent exact durable terminal proof\n"
+        "retains its canonical\n"
         "`report_outcome_uncertain` route with `outcome_uncertain`",
         "current policy or safety denial evidence retains its canonical\n"
         "`blocked_authority` or `blocked_unsafe` route with\n"

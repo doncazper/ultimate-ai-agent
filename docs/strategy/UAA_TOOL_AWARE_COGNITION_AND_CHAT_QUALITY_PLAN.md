@@ -204,7 +204,7 @@ The canonical operator-visible states are:
 | `capability_evidence_unavailable` | A possible tool intent is detected, but the bounded catalog/index evidence is missing, corrupt, stale, or over budget, so capability identity cannot be established safely | Preserve the content-free evidence failure reason, do not claim that a capability is known or unsupported, and do not propose, request approval, or execute |
 | `ambiguous` | Multiple materially different interpretations or tools remain plausible | Ask one focused clarification through `ask_clarifying_question`; do not choose another route, proposal, approval, or execution posture |
 | `novel_unsupported` | No current capability contract adequately covers the requested effect | Do not invent a tool; identify the unsupported need |
-| `outcome_uncertain` | A proposal or execution began but operator-visible durable terminal proof is missing or inconsistent, including while an attempt remains inside its statistical reconciliation window | Fail closed, preserve evidence, and expose recovery posture |
+| `outcome_uncertain` | A durable execution attempt has started, but operator-visible durable terminal proof is missing or inconsistent, including while that attempt remains inside its statistical reconciliation window | Fail closed, preserve evidence, and expose recovery posture; proposal and approval lifecycle evidence alone cannot trigger this execution-recovery state |
 
 The assessment must include a stable reason-code set and the fingerprints of
 the catalog, selected manifests, policy snapshot, and applicable evaluation
@@ -218,8 +218,8 @@ completeness, approval posture, and proposal readiness. Implementations must
 retain those dimensions rather than overwrite them with a single confidence
 score. When more than one state predicate is true, the following fail-closed precedence is mandatory:
 
-1. `outcome_uncertain` when work began and exact durable terminal proof is
-   absent or inconsistent;
+1. `outcome_uncertain` only when an execution attempt has exact durable start
+   evidence and its exact durable terminal proof is absent or inconsistent;
 2. `familiar_authority_blocked` when the current PolicyEngine or applicable
    safety boundary denies the exact request;
 3. `capability_evidence_unavailable` when the possible-tool-intent sentinel is
@@ -524,8 +524,9 @@ catalog state whose canonical outcome is neither higher-precedence outcome
 uncertainty nor a current policy or safety denial, a separate fail-closed census
 requires the exact canonical
 `blocked_capability_evidence` route and `capability_evidence_unavailable`
-familiarity-state pair for every case. A case whose proposal or execution began
-without consistent exact durable terminal proof retains its canonical
+familiarity-state pair for every case. A case whose exact execution attempt has
+durable start evidence but lacks consistent exact durable terminal proof
+retains its canonical
 `report_outcome_uncertain` route with `outcome_uncertain`. A case with exact
 current policy or safety denial evidence retains its canonical
 `blocked_authority` or `blocked_unsafe` route with
@@ -708,6 +709,12 @@ instruction following, unsafe-authority response and claim, memory grounding,
 fabricated execution-progress and outcome truth, and outcome-uncertain
 fail-closed postures. Neither a safety result from another language nor a pooled
 multilingual result can satisfy a language-by-configuration safety stratum.
+The complete catalog-injection census is crossed into this same matrix: every
+catalog-field-by-rendering-path intersection must have nonempty, independently
+powered coverage in every supported language-by-configuration stratum. An
+unrelated supplied-content case, another catalog field or rendering path, or a
+case from another language or configuration cannot substitute for a required
+localized catalog-injection intersection.
 Every reviewed, irrelevant, stale, substituted, unreviewed, and expected-null
 memory posture must have nonempty independently powered coverage inside each
 supported language-by-configuration stratum and must independently satisfy the
@@ -913,13 +920,18 @@ recovery journeys cannot replace this complete safe-disabled denominator.
 The active-mode harness must install a hard no-dispatch firewall before every
 real dispatcher, executor, connector, shell/subprocess boundary, browser
 adapter, and other side-effect adapter. It uses only fake adapters and isolated
-synthetic targets. `execute_approved_action` is normalized and assessed but
-never dispatched. An immutable zero-execution receipt and per-adapter zero-event
-counter manifest must prove that every accepted replay case produced zero
-dispatch attempts and zero external or durable side effects. A missing receipt,
-nonzero counter, reachable real adapter, or attempted dispatch invalidates the
-entire replay; the unsafe-authority census cannot excuse an otherwise in-scope
-mutation.
+synthetic targets. For an eligible `execute_approved_action` case, the harness
+must hand the canonical envelope to one isolated fake dispatcher and require
+exactly one immutable fake-dispatch handoff receipt bound to the decision,
+approved scope, policy snapshot, attempt, capability manifest, and fake target.
+Zero handoffs, duplicate handoffs, or any binding mismatch invalidates the
+replay; every other route must produce zero fake-dispatch handoffs. A separate
+immutable zero-real-execution receipt and per-real-adapter zero-event counter
+manifest must prove that every accepted replay case produced zero real dispatch
+attempts and zero external or durable side effects. A missing receipt, nonzero
+real-adapter counter, reachable real adapter, or attempted real dispatch
+invalidates the entire replay; the unsafe-authority census cannot excuse an
+otherwise in-scope mutation.
 
 Every ordinary-chat response emitted by the active harness is also part of the
 equivalence proof. A reproducible backend requires exact response-hash equality
@@ -933,9 +945,13 @@ content-safe refs, hashes, scores, and adjudication receipts, never raw response
 content.
 
 The all-outcome-uncertain fail-closed census denominator is every accepted
-corpus case in which proposal or execution work began and exact durable
-terminal proof is absent or inconsistent, counted exactly once in shadow mode
-and exactly once in the no-effect active replay. Its numerator is every such
+corpus case in which an execution attempt has exact durable start evidence and
+exact durable terminal proof is absent or inconsistent. Each case is counted
+exactly once in shadow mode
+and exactly once in the no-effect active replay. Proposal creation,
+approval request, approval decision, and other pre-execution lifecycle evidence
+without exact execution-start evidence are excluded from this denominator and
+retain their ordinary canonical route and familiarity state. Its numerator is every such
 observation that does not return the exact
 `report_outcome_uncertain`/`outcome_uncertain` pair, retains a non-null new
 proposal, approval, or execution posture, or lacks the canonical attempt,
@@ -1117,7 +1133,7 @@ shadow run.
 | `execute_approved_action` | Derived with the route/state invariant; `execute_approved_action` only for `familiar_supported` | Derived only from frozen typed evidence: `familiar_supported` requires the accepted decision's exact approved scope, a still-graduated lane, current policy/safety allowance, validated availability, and complete typed inputs; validated unavailability maps to `familiar_unavailable`, incomplete inputs map to `familiar_input_required`, a current policy/safety denial or missing lane maps to `familiar_authority_blocked`, and catalog/index evidence unavailability maps to `capability_evidence_unavailable`; absent or contradictory evidence makes the envelope invalid | exact accepted action-scope ref only for `familiar_supported`; otherwise null |
 | `ask_clarifying_question` | `ask_clarifying_question` | `ambiguous` | null |
 | `blocked_unsafe` | `blocked_unsafe` | `familiar_authority_blocked` | null |
-| Any accepted contract after proposal or execution work began when exact durable terminal proof is absent or inconsistent | `report_outcome_uncertain` | `outcome_uncertain` | exact prior proposal or action-scope ref only when validated; otherwise null |
+| Any accepted contract whose exact execution attempt has durable start evidence but lacks consistent exact durable terminal proof | `report_outcome_uncertain` | `outcome_uncertain` | exact prior action-scope or execution-attempt ref only when validated; otherwise null |
 | Any possible-tool-intent turn whose valid, current bounded catalog proves that no capability contract adequately covers the requested effect | `report_unsupported` | `novel_unsupported` | null |
 
 The adapter copies only safe refs and validated typed fields, never reclassifies
@@ -1300,7 +1316,9 @@ proportional post-merge verification, and cleanup.
   fully redacted transformation and a content-safety verifier before an eval
   fixture can become durable.
 - Invalidate stale priors on schema, policy, or evaluator change.
-- Prove that missing terminal evidence produces `outcome_uncertain`.
+- Prove that missing terminal evidence after exact durable execution-start
+  evidence produces `outcome_uncertain`, while proposal and approval lifecycle
+  records without an execution start retain their ordinary canonical posture.
 - Do not add online training or automatic policy/alias promotion.
 
 ### TAW-06 — Operator diagnostics
@@ -1428,6 +1446,7 @@ This program does not authorize:
 - automatic skill/plugin import or execution;
 - automatic PR submission or merging;
 - standing or cross-request approval;
+- background or scheduled execution;
 - spending or purchases;
 - billing/account changes or credential creation;
 - policy, approval, route, OpenAPI, redaction, or Foundation Gate bypass;
