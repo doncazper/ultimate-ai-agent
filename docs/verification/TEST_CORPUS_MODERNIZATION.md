@@ -48,14 +48,17 @@ Each retirement entry must identify:
 
 The assertion artifact binds every replacement ref to an independently derived
 `test-source-ref:sha256:*` over the exact inventoried test source; prose cannot
-stand in for preserved assertion evidence. The verification artifact embeds a
-bounded, content-free canonical GitHub terminal-run envelope emitted by the
-repository verifier. That envelope must report a complete passed Foundation
-Gate run for a strict ancestor candidate, and every replacement must exist with
-the same source ref in that verified candidate and the retirement candidate.
-This deliberately makes retirement a two-candidate sequence: land and verify
-the replacement first, then cite that verifier-generated exact-SHA envelope in
-the later retirement. The nested artifacts and their enclosing artifacts are
+stand in for preserved assertion evidence. The verification artifact has a
+bounded field reserved for independently attested exact-head GitHub evidence.
+The repository-constructed GitHub transport envelope is explicitly
+non-authoritative and is rejected even when its internally reported receipt and
+Foundation Gate run are passed. Phase 01 does not add live GitHub fetching, a
+credentialed status client, or a new attestation trust root. Until a later
+accepted scope provides an independently verifiable immutable GitHub run or
+artifact identity, real test retirements therefore fail closed. Schema tests
+inject a bounded validator only to exercise the retirement contract; that test
+seam does not grant repository verification authority. The nested artifacts
+and their enclosing artifacts are
 content-bound as `assertion-ref:sha256:*` and `test-result-ref:sha256:*` values;
 arbitrary summaries, status strings, or well-shaped hashes are insufficient.
 Records accepted

@@ -253,6 +253,28 @@ def test_fabricated_verification_envelope_is_rejected(tmp_path: Path) -> None:
         )
 
 
+def test_repository_constructed_passed_envelope_is_not_authoritative(
+    tmp_path: Path,
+) -> None:
+    from scripts.verification.verification_github_transport import (
+        encode_github_job_output,
+    )
+    from tests.test_verification_github_transport import _envelope
+
+    encoded = encode_github_job_output(_envelope(include_run=True))
+
+    with pytest.raises(
+        guard.TestCorpusEvidenceError,
+        match="lacks independent GitHub attestation",
+    ):
+        guard._validate_verification_envelope(
+            tmp_path,
+            encoded,
+            ["tests/test_sample.py::test_replacement"],
+            _source_ref,
+        )
+
+
 def test_worktree_inventory_reader_rejects_symlinked_parent(
     tmp_path: Path,
 ) -> None:

@@ -30,7 +30,6 @@ from scripts.verification.test_corpus_frontend import (
     FrontendInventoryError,
     parse_frontend_refs,
 )
-from scripts.verification.verification_contracts import VerificationTerminalStatus
 from scripts.verification.verification_github_transport import (
     VerificationGithubTransportError,
     decode_github_job_output,
@@ -588,69 +587,20 @@ def _worktree_source_ref(repo: Path, test_ref: str) -> str:
 
 
 def _validate_verification_envelope(
-    repo: Path,
+    _repo: Path,
     encoded_envelope: str,
-    replacement_refs: list[str],
-    resolve_assertion_source_ref: Callable[[str], str],
+    _replacement_refs: list[str],
+    _resolve_assertion_source_ref: Callable[[str], str],
 ) -> None:
     try:
-        envelope = decode_github_job_output(encoded_envelope)
+        decode_github_job_output(encoded_envelope)
     except VerificationGithubTransportError as exc:
         raise TestCorpusEvidenceError(
             "retired test verification receipt is invalid"
         ) from exc
-    receipt = envelope.receipt
-    run = envelope.final_run_manifest
-    if (
-        run is None
-        or receipt.unit_ref != "foundation-gate-report"
-        or receipt.status is not VerificationTerminalStatus.PASSED
-        or run.status is not VerificationTerminalStatus.PASSED
-        or run.missing_unit_refs
-        or run.failed_unit_refs
-        or receipt.execution_surface_ref != "surface-ref:github"
-        or receipt.repository_sha != run.repository_sha
-    ):
-        raise TestCorpusEvidenceError(
-            "retired test verification receipt is not a passed terminal run"
-        )
-    current_head = _run_git(repo, ["rev-parse", "HEAD"])
-    if current_head.returncode != 0:
-        raise TestCorpusEvidenceError(
-            "retired test verification receipt cannot bind the current head"
-        )
-    try:
-        head_sha = current_head.stdout.decode("ascii").strip()
-    except UnicodeDecodeError as exc:
-        raise TestCorpusEvidenceError(
-            "retired test verification receipt cannot bind the current head"
-        ) from exc
-    if receipt.repository_sha == head_sha:
-        raise TestCorpusEvidenceError(
-            "retired test verification receipt must predate retirement"
-        )
-    ancestry = _run_git(
-        repo,
-        ["merge-base", "--is-ancestor", receipt.repository_sha, head_sha],
+    raise TestCorpusEvidenceError(
+        "retired test verification receipt lacks independent GitHub attestation"
     )
-    if ancestry.returncode != 0:
-        raise TestCorpusEvidenceError(
-            "retired test verification receipt is not from a prior candidate"
-        )
-    for replacement_ref in replacement_refs:
-        path = replacement_ref.split("::", 1)[0]
-        prior_text = _base_text(repo, receipt.repository_sha, path)
-        if prior_text is None:
-            raise TestCorpusEvidenceError(
-                f"replacement was absent from verified candidate: {replacement_ref}"
-            )
-        if _source_ref_from_text(
-            replacement_ref,
-            prior_text,
-        ) != resolve_assertion_source_ref(replacement_ref):
-            raise TestCorpusEvidenceError(
-                f"replacement changed after verified candidate: {replacement_ref}"
-            )
 
 
 def _historical_source_refs(ledger: dict[str, Any]) -> dict[str, str]:
