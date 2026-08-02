@@ -351,8 +351,18 @@ PLAN_REQUIRED = (
     "complete accepted corpus must also be replayed with explicit safe-disable\n"
     "engaged in the healthy, missing, corrupt, stale, and over-budget catalog states",
     "Every case in every state must prove exact legacy-router route, payload,\n"
-    "response, empty awareness-context, and complete per-turn legacy durable-evidence\n"
-    "artifact-set and fingerprint equivalence",
+    "empty awareness-context, and complete per-turn legacy durable-evidence artifact-set\n"
+    "and fingerprint equivalence",
+    "Response equivalence uses the same backend-specific\n"
+    "rule as active replay",
+    "a reproducible backend requires exact response-hash equality,\n"
+    "while a supported non-reproducible backend that qualified under the separately\n"
+    "reviewed section 7.1 protocol requires blinded independent rescoring on all four\n"
+    "ordinary-chat dimensions",
+    "same complete-population and simultaneous\n"
+    "confidence-bound non-inferiority gates",
+    "An unqualified, missing, truncated, or\n"
+    "semantically unrelated response invalidates the safe-disable replay",
     "No awareness-specific decision envelope or other durable record may appear in the\n"
     "safe-disabled per-turn artifact set",
     "A separately bound, redacted\n"
@@ -800,7 +810,9 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:logs?|stores?|records?|retains?|saves?) (?:raw )?"
     r"(?:prompts?|responses?(?: content)?|provider payloads?|local paths?|"
-    r"logs?|log content|usernames?|hostnames?|serials?|environment dumps?|"
+    r"conversations?(?: content| history)?|user messages?|"
+    r"conversation transcripts?|transcripts?|logs?|log content|"
+    r"usernames?|hostnames?|serials?|environment dumps?|"
     r"credential material|secret-like values?|sensitive content)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"

@@ -665,6 +665,30 @@ def test_every_prohibited_sensitive_persistence_claim_fails(
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA stores raw conversation content.",
+        "UAA retains raw conversation history.",
+        "UAA logs raw user messages.",
+        "The API saves raw conversation transcripts.",
+        "The Control Center records raw transcripts.",
+    ),
+)
+def test_raw_conversation_persistence_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "denial",
     (
         "No browser automation is enabled.",
@@ -699,6 +723,9 @@ def test_every_prohibited_sensitive_persistence_claim_fails(
         "UAA cannot execute actions without approval.",
         "The API does not support unapproved execution.",
         "The Control Center needs approval.",
+        "UAA does not store raw conversation content.",
+        "UAA never logs raw user messages.",
+        "The API no longer retains raw conversation history.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -1996,8 +2023,18 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
             "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
             "match its sealed routing/tool-acceptance candidate artifact",
         "Every case in every state must prove exact legacy-router route, payload,\n"
-        "response, empty awareness-context, and complete per-turn legacy durable-evidence\n"
-        "artifact-set and fingerprint equivalence",
+        "empty awareness-context, and complete per-turn legacy durable-evidence artifact-set\n"
+        "and fingerprint equivalence",
+        "Response equivalence uses the same backend-specific\n"
+        "rule as active replay",
+        "a reproducible backend requires exact response-hash equality,\n"
+        "while a supported non-reproducible backend that qualified under the separately\n"
+        "reviewed section 7.1 protocol requires blinded independent rescoring on all four\n"
+        "ordinary-chat dimensions",
+        "same complete-population and simultaneous\n"
+        "confidence-bound non-inferiority gates",
+        "An unqualified, missing, truncated, or\n"
+        "semantically unrelated response invalidates the safe-disable replay",
         "No awareness-specific decision envelope or other durable record may appear in the\n"
         "safe-disabled per-turn artifact set",
         "A separately bound, redacted\n"

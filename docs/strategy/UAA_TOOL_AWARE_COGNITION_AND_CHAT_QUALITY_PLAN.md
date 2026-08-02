@@ -808,8 +808,15 @@ journeys cannot substitute for this full-corpus equivalence proof.
 The complete accepted corpus must also be replayed with explicit safe-disable
 engaged in the healthy, missing, corrupt, stale, and over-budget catalog states.
 Every case in every state must prove exact legacy-router route, payload,
-response, empty awareness-context, and complete per-turn legacy durable-evidence
-artifact-set and fingerprint equivalence. Safe-disable must be consulted before awareness
+empty awareness-context, and complete per-turn legacy durable-evidence artifact-set
+and fingerprint equivalence. Response equivalence uses the same backend-specific
+rule as active replay: a reproducible backend requires exact response-hash equality,
+while a supported non-reproducible backend that qualified under the separately
+reviewed section 7.1 protocol requires blinded independent rescoring on all four
+ordinary-chat dimensions with the same complete-population and simultaneous
+confidence-bound non-inferiority gates. An unqualified, missing, truncated, or
+semantically unrelated response invalidates the safe-disable replay. Safe-disable
+must be consulted before awareness
 index validation or loading, so catalog degradation cannot affect this replay.
 No awareness-specific decision envelope or other durable record may appear in the
 safe-disabled per-turn artifact set, with the same hard no-dispatch fence and
