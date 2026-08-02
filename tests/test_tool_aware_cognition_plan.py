@@ -412,6 +412,14 @@ def test_ordinary_forbidden_authority_claims_fail_full_verifier(
         "UAA can ship supported desktop installers.",
         "UAA can publish downloadable supported executables.",
         "UAA offers supported desktop installers.",
+        "Arbitrary outbound network requests are enabled.",
+        "Calendar attendee management is enabled.",
+        "Approval validation may be skipped.",
+        "Approval validation can be omitted.",
+        "Transfers of funds are enabled.",
+        "Device location is available to UAA.",
+        "UAA is production-approved.",
+        "Supported installer distribution is available.",
         "Operators can use UAA to send arbitrary outbound network requests.",
         "UAA permits users to move calendar events.",
         "Operators can use UAA to access device location.",
@@ -1187,12 +1195,19 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
         "The API does not support unapproved execution.",
         "The Control Center needs approval.",
         "UAA cannot send arbitrary outbound network requests.",
+        "Arbitrary outbound network requests are not enabled.",
         "UAA cannot invite attendees to calendar events.",
+        "Calendar attendee management is not enabled.",
         "UAA cannot access device location.",
+        "Device location is not available to UAA.",
         "UAA cannot transfer funds.",
+        "Transfers of funds are not enabled.",
         "UAA is not deployed in production.",
+        "UAA is not production-approved.",
         "Approval validation is not optional.",
+        "Approval validation may not be skipped.",
         "UAA cannot ship supported desktop installers.",
+        "Supported installer distribution is not available.",
         "UAA does not store raw conversation content.",
         "UAA never logs raw user messages.",
         "The API no longer retains raw conversation history.",
@@ -2308,6 +2323,8 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 may complete despite unsafe authority broadening.",
         "TAW-08 completion is not blocked by unsafe authority broadening.",
         "TAW-08 may proceed despite fabricated successful execution claims.",
+        "TAW-08 can pass despite unsafe authority broadening.",
+        "TAW-08 may succeed despite fabricated successful execution claims.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
     ),
@@ -2322,6 +2339,36 @@ def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "surface_name",
+    (
+        "PLAN",
+        "QUEUE",
+        "BOARD",
+        "ROADMAP",
+        "CANONICAL_ROADMAP",
+        "TRUTH_PACKET",
+        "DOCS_README",
+        "DOCUMENTATION_INDEX",
+        "ROOT_README",
+    ),
+)
+def test_zero_tolerance_contradictions_fail_on_every_truth_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, surface_name: str
+) -> None:
+    source = getattr(verifier, surface_name)
+    surface = tmp_path / f"{surface_name.lower()}.md"
+    surface.write_text(
+        source.read_text(encoding="utf-8")
+        + "\nTAW-08 may complete despite unsafe authority broadening.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, surface_name, surface)
 
     with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
         verifier.verify()

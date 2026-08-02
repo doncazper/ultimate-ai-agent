@@ -889,7 +889,10 @@ FORBIDDEN_PATTERNS = (
     r"connect(?:s|ed|ing)? to (?:unrestricted|unbounded|arbitrary) "
     r"(?:hosts?|endpoints?|networks?))\b",
     r"\b(?:unrestricted|unbounded|arbitrary) "
-    r"(?:(?:outbound )?network|internet|socket|tcp) access "
+    r"(?:(?:(?:outbound )?(?:network|internet|socket|tcp)) "
+    r"(?:access|connections?)|"
+    r"(?:(?:outbound )?(?:network|internet|http|tcp)) requests?|"
+    r"sockets?|host connections?) "
     r"(?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -958,8 +961,9 @@ FORBIDDEN_PATTERNS = (
     r"act(?:s|ed|ing)? without (?:policy|approval) checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"needs? no (?:approval|policy checks?)\b",
-    r"\bapproval(?: reference)? validation (?:is|are) "
-    r"(?:optional|not required|unnecessary)\b",
+    r"\bapproval(?: reference)? validation "
+    r"(?:(?:is|are) (?:optional|not required|unnecessary)|"
+    r"(?:may|can) be (?:skipped|omitted|bypassed))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -1126,7 +1130,8 @@ FORBIDDEN_PATTERNS = (
     r"ready for public (?:beta|release|distribution))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?!(?:not|never|no\s+longer)\b)(?:now )?"
-    r"(?:(?:approved|authorized|usable) for production(?: use)?|"
+    r"(?:production[- ](?:approved|authorized)|"
+    r"(?:approved|authorized|usable) for production(?: use)?|"
     r"(?:deployed|live|running) (?:in|to) production)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
     r"(?:may|can|will|shall) be used in production\b",
@@ -1183,6 +1188,10 @@ FORBIDDEN_PATTERNS = (
     r"(?:publish|update|edit|delete|remove|moderate)"
     r"(?:es|s|ed|ing)? (?:social )?posts?|"
     r"(?:reply|replies|replied|replying) to (?:social )?posts?)\b",
+    r"\b(?:calendar (?:attendee|event) (?:management|changes?|mutations?)|"
+    r"(?:calendar )?attendee (?:management|changes?|mutations?)) "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -1234,7 +1243,9 @@ FORBIDDEN_PATTERNS = (
     r"mobile sensor control|"
     r"(?:(?:phone|mobile|device) )?(?:camera|microphone|location|gps) "
     r"(?:access|control|capture|recording|tracking)|"
+    r"(?:(?:phone|mobile|device) )?(?:camera|microphone|location|gps)|"
     r"supported (?:desktop )?(?:installers?|executables?|binaries?|binary files?)|"
+    r"(?:supported )?(?:installer|executable|binary) distribution|"
     r"supported binary distribution|binary distribution) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -1260,7 +1271,8 @@ FORBIDDEN_PATTERNS = (
     r"fund transfers?|movement of funds|order placement|"
     r"(?:payment|purchase) execution)\b",
     r"\b(?:spending|purchases?|purchase execution|payments?|payment execution|buying|"
-    r"fund transfers?|movement of funds|order placement|charges?) (?:is|are) (?:now )?"
+    r"fund transfers?|transfers? of funds|movement of funds|order placement|charges?) "
+    r"(?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
@@ -1489,7 +1501,7 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:is|are) compatible with (?:TAW-08 )?"
     r"(?:completion|acceptance|promotion))\b",
     r"\b(?:TAW-08 (?:may|can|will) "
-    r"(?:complete|proceed|be (?:completed|accepted|promoted))|"
+    r"(?:complete|proceed|pass|succeed|be (?:completed|accepted|promoted|successful))|"
     r"(?:TAW-08 )?(?:completion|acceptance|promotion) "
     r"(?:may|can|will) proceed) despite "
     r"(?:unsafe authority broadening|"
@@ -1682,6 +1694,10 @@ def _verify_zero_tolerance_lines(text: str) -> None:
         matches = [line for line in lines if label in line.lower()]
         if matches != [required]:
             raise RuntimeError("plan zero-tolerance gate is invalid")
+    _verify_zero_tolerance_contradictions(text)
+
+
+def _verify_zero_tolerance_contradictions(text: str) -> None:
     if any(
         re.search(pattern, text, flags=re.IGNORECASE)
         for pattern in ZERO_TOLERANCE_CONTRADICTION_PATTERNS
@@ -1963,6 +1979,7 @@ def verify() -> dict[str, object]:
             root_readme,
         )
     )
+    _verify_zero_tolerance_contradictions(combined)
     _verify_acceptance_contract(combined)
     present = _find_forbidden_authority_claims(combined)
     if present:
