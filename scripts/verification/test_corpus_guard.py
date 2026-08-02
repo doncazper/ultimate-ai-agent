@@ -633,6 +633,26 @@ def _python_inventory_entries(
             if isinstance(base, ast.Name) and base.id in classes
         )
 
+    def validate_class_bases(class_node: ast.ClassDef, visiting: set[str]) -> None:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        next_visiting = {*visiting, class_node.name}
+        for base in class_node.bases:
+            if isinstance(base, ast.Name) and base.id in classes:
+                validate_class_bases(classes[base.id], next_visiting)
+                continue
+            if (isinstance(base, ast.Name) and base.id in unittest_test_case_names) or (
+                isinstance(base, ast.Attribute)
+                and base.attr == "TestCase"
+                and _root_name(base) in unittest_roots
+            ):
+                continue
+            raise TestCorpusGuardError(
+                "collected Python test class base cannot be resolved safely"
+            )
+
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.name.startswith("test") and node.name not in disabled:
@@ -654,20 +674,9 @@ def _python_inventory_entries(
             or node.name in disabled
         ):
             continue
+        validate_class_bases(node, set())
         if has_constructor(node, set()):
             continue
-        for base in node.bases:
-            if isinstance(base, ast.Name) and base.id in classes:
-                continue
-            if (isinstance(base, ast.Name) and base.id in unittest_test_case_names) or (
-                isinstance(base, ast.Attribute)
-                and base.attr == "TestCase"
-                and _root_name(base) in unittest_roots
-            ):
-                continue
-            raise TestCorpusGuardError(
-                "collected Python test class base cannot be resolved safely"
-            )
         for method_name, method in collected_methods(node, set()).items():
             raw_ref = _parameterized_ref(
                 f"{path}::{node.name}::{method_name}",

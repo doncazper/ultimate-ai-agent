@@ -436,6 +436,46 @@ class TestChild(Base):
         )
 
 
+def test_python_inventory_rejects_unresolved_ancestor_of_inherited_test() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test class base cannot be resolved safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+from helpers import ExternalBase
+
+class Base(ExternalBase):
+    def test_inherited(self):
+        pass
+
+class TestChild(Base):
+    pass
+""",
+        )
+
+
+def test_python_inventory_rejects_unresolved_ancestor_before_constructor_skip() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test class base cannot be resolved safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+from helpers import ExternalBase
+
+class Base(ExternalBase):
+    def __init__(self):
+        pass
+
+class TestChild(Base):
+    pass
+""",
+        )
+
+
 def test_python_inventory_rejects_callable_test_name_assignment() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
