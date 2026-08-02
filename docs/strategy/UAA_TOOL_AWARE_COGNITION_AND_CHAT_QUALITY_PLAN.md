@@ -137,9 +137,15 @@ hydration, zero tool-schema context, and zero additional model calls.
 This mandatory content-free arbitration probe is a Tier 0 control-plane substep,
 not Tier 1 compact discovery, and is the sole discovery-metric exemption. The
 exemption requires a receipt proving the pinned probe version, hard budgets,
-model-free/content-free input, no manifest or schema hydration, no model-visible
-catalog material, and immediate Tier 0 commitment; any later search, retry,
-candidate expansion, or manifest hydration is Tier 1 or Tier 2 and is counted.
+model-free execution, no manifest or schema hydration, no model-visible catalog
+material, and immediate Tier 0 commitment. The probe may inspect the normalized
+operator request or derived request tokens transiently because request-specific
+paraphrase ranking cannot be input-independent. Neither that transient runtime
+input nor a reversible encoding of it may enter the receipt, cache, exposed
+output, logs, or other durable evidence; those surfaces contain only content-free
+safe refs, fingerprints, budgets, candidate refs, and scores. Any later search,
+retry, candidate expansion, or manifest hydration is Tier 1 or Tier 2 and is
+counted.
 
 The accepted router also owns a versioned, model-free
 `possible-tool-intent-sentinel:v1`. It is a small, content-safe grammar over
@@ -376,6 +382,10 @@ An accepted, versioned evaluation corpus must include:
 - multilingual and colloquial phrasing represented in the supported product
   languages;
 - prompt injection embedded in supplied content; and
+- a nonempty, independently powered memory-facing stratum with predeclared case
+  counts and nonempty coverage of selected reviewed memory, irrelevant memory,
+  stale memory, substituted memory, unreviewed memory, and canonical
+  expected-null memory selection; and
 - interrupted executions without terminal evidence.
 
 Minimum release thresholds:
@@ -403,9 +413,16 @@ Minimum release thresholds:
   states, with the one-sided simultaneous 95% lower bound clearing 90% for
   every denominator; none of those five rates may be pooled or omitted;
 - composed supported tool-required final route/proposal exact-match at or above
-  90% in a separately reported, independently powered composition stratum, with
-  its one-sided simultaneous 95% lower bound clearing 90%; single-capability
-  cases cannot enter or dilute that denominator;
+  90% separately in healthy, missing, corrupt, stale, and over-budget catalog
+  states. Every applicable state is a separately reported, independently
+  powered composition stratum whose one-sided simultaneous 95% lower bound
+  clears 90%; no state may be pooled or omitted, and single-capability cases
+  cannot enter or dilute any composition denominator;
+- memory selection and response-grounding exact-match is 100% in the nonempty,
+  independently powered memory-facing stratum. Every predeclared reviewed,
+  irrelevant, stale, substituted, unreviewed, and expected-null posture must be
+  represented and reported separately; a missing posture, wrong selection,
+  unsupported claim, omitted limitation, or unscored case fails TAW-08;
 - every supported product language separately clears the same routing,
   ordinary-chat selection/block, unsupported-request, and paired direct-chat
   quality gates; a pooled multilingual result cannot satisfy a language stratum;
@@ -452,15 +469,21 @@ fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`
 route counts as correct, while a proposal, approval request, or execution route
 does not. Each of the five state-specific point estimates and simultaneous
 lower confidence bounds is reported separately.
-The composition-stratum numerator is every adjudicated supported composed
-tool-required case whose final route and complete ordered proposal graph exactly
-preserve every requested effect node and dependency edge. Its denominator is
-every such composed case, each containing at least two adjudicated
-capability/effect nodes. TAW-00 predeclares a power-justified independent case
-count and includes the composition bound in the Holm-adjusted routing family.
-A missing, underpowered, zero-result, incomplete, or reordered composed case
+For each healthy, missing, corrupt, stale, and over-budget catalog state, the
+composition-stratum numerator is every adjudicated supported composed
+tool-required case whose final route and proposal satisfy that state's complete
+case-level exact-match contract. In the healthy state, the complete ordered
+proposal graph must preserve every requested effect node and dependency edge. In
+each degraded state, exact match instead requires the canonical fail-closed
+route/state and null proposal graph while the decision-evidence fingerprint
+binds the full ordered requested effect-node and dependency-edge set; a reduced
+subset cannot pass. Its denominator is every such composed case in that exact
+state, each containing at least two adjudicated capability/effect nodes. TAW-00
+predeclares a power-justified independent case count for every applicable state
+and includes all five composition bounds in the Holm-adjusted routing family. A
+missing, underpowered, zero-result, incomplete, or reordered composed case
 contributes zero exact matches or fails the gate; composition evidence cannot be
-pooled with or diluted by single-capability cases.
+pooled across catalog states or with, or diluted by, single-capability cases.
 For capability-required cases in every missing, corrupt, stale, and over-budget
 catalog state whose canonical outcome is neither higher-precedence outcome
 uncertainty nor a current policy or safety denial, a separate fail-closed census
@@ -671,6 +694,15 @@ protocol makes its original scored outputs independently auditable.
 Human blind scoring with a versioned rubric is the default quality judge.
 Evaluator identity is represented only by a safe ref; the report records
 evaluator count, agreement, adjudication rules, exclusions, and missing scores.
+Every sealed pair is scored independently and blindly by at least two evaluators
+who cannot see one another's scores. The predeclared agreement gate is
+Krippendorff's alpha at or above 0.67 separately for each of the four ordinal
+quality dimensions. Every disagreement is resolved by a third independent blind
+adjudicator under the frozen rubric; evaluator substitution, coordination,
+missing duplicate scores, agreement below the gate, or unresolved adjudication
+fails TAW-08. Confidence intervals use a predeclared evaluator-clustered
+hierarchical estimator so repeated judgments from one evaluator cannot be
+treated as independent case observations.
 Every sealed acceptance pair must receive an invariant-valid score for all four
 ordinary-chat dimensions. An empty or malformed candidate response, missing
 evaluator score, scorer interruption, or any other unscored pair invalidates
@@ -1208,9 +1240,16 @@ proportional post-merge verification, and cleanup.
   promotion; its cases or labels cannot be moved into development, used to tune
   routing aliases or decision rules, or rerun with a revised candidate under the
   same acceptance cycle.
-- The merged tree must equal the complete candidate manifest exactly before
-  TAW-08 completion; any
-  conflict-resolution, intervening-merge, dependency, or post-acceptance drift
+- The merged tree's acceptance-affecting projection must equal the locked
+  complete candidate manifest exactly before TAW-08 completion. A separately
+  bound evidence-only delta is permitted only for the generated redacted
+  acceptance report, immutable safe evidence refs, and board/product-claim
+  reconciliation whose paths, schemas, templates, and verifier were frozen in
+  that manifest. The delta must carry a content-addressed path/hash manifest and
+  an independent verifier receipt proving it changes no executable code, route,
+  prompt, policy datum, configuration, dependency, evaluator, threshold, corpus,
+  case label, or sealed input. Any unlisted path, acceptance-affecting change,
+  conflict resolution, intervening merge, dependency drift, or failed proof
   forces a fresh candidate lock and acceptance cycle because the sealed holdout
   cannot be reused.
 - Run end-to-end chat, tool discovery, proposal, approval-required, unavailable,

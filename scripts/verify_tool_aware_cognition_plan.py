@@ -98,6 +98,12 @@ PLAN_REQUIRED = (
     "baseline or strip candidate context from UAA",
     "report point estimates plus 95% confidence intervals",
     "Human blind scoring with a versioned rubric is the default quality judge",
+    "Every sealed pair is scored independently and blindly by at least two evaluators",
+    "Krippendorff's alpha at or above 0.67 separately for each of the four ordinal\n"
+    "quality dimensions",
+    "Every disagreement is resolved by a third independent blind\nadjudicator",
+    "Confidence intervals use a predeclared evaluator-clustered\n"
+    "hierarchical estimator",
     "A model-as-judge call is neither implicitly authorized",
     "written to repository reports, receipts, test",
     "number of repeated paired samples",
@@ -105,6 +111,9 @@ PLAN_REQUIRED = (
     "content-free discovery probe over the cached compact catalog before a turn can",
     "paraphrases that do not match a",
     "sole discovery-metric exemption",
+    "probe may inspect the normalized\noperator request or derived request tokens transiently",
+    "Neither that transient runtime\ninput nor a reversible encoding of it may enter the receipt",
+    "surfaces contain only content-free\nsafe refs, fingerprints, budgets, candidate refs, and scores",
     "exact Tier 0 receipt and constraints from section 3.4",
     "`possible-tool-intent-sentinel:v1`",
     "`capability_evidence_unavailable`",
@@ -122,8 +131,12 @@ PLAN_REQUIRED = (
     "top-3 capability hit-rate numerator",
     "supported tool-required final route/proposal exact-match at or above 90%",
     "composed supported tool-required final route/proposal exact-match at or above\n"
-    "  90% in a separately reported, independently powered composition stratum",
-    "single-capability\n  cases cannot enter or dilute that denominator",
+    "  90% separately in healthy, missing, corrupt, stale, and over-budget catalog\n"
+    "  states",
+    "Every applicable state is a separately reported, independently\n"
+    "  powered composition stratum",
+    "no state may be pooled or omitted, and single-capability cases\n"
+    "  cannot enter or dilute any composition denominator",
     "The per-catalog supported tool-required final route/proposal exact-match\n"
     "numerator is every adjudicated supported tool-required case",
     "denominator is every adjudicated supported tool-required case evaluated in that\n"
@@ -133,14 +146,20 @@ PLAN_REQUIRED = (
     "an expected\n"
     "fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`\n"
     "route counts as correct",
-    "The composition-stratum numerator is every adjudicated supported composed\n"
-    "tool-required case whose final route and complete ordered proposal graph exactly\n"
-    "preserve every requested effect node and dependency edge",
-    "each containing at least two adjudicated\ncapability/effect nodes",
-    "TAW-00 predeclares a power-justified independent case\n"
-    "count and includes the composition bound in the Holm-adjusted routing family",
+    "For each healthy, missing, corrupt, stale, and over-budget catalog state, the\n"
+    "composition-stratum numerator is every adjudicated supported composed\n"
+    "tool-required case whose final route and proposal satisfy that state's complete\n"
+    "case-level exact-match contract",
+    "In the healthy state, the complete ordered\n"
+    "proposal graph must preserve every requested effect node and dependency edge",
+    "canonical fail-closed\n"
+    "route/state and null proposal graph while the decision-evidence fingerprint\n"
+    "binds the full ordered requested effect-node and dependency-edge set",
+    "each containing at least two adjudicated capability/effect nodes",
+    "TAW-00\npredeclares a power-justified independent case count for every applicable state\n"
+    "and includes all five composition bounds in the Holm-adjusted routing family",
     "composition evidence cannot be\n"
-    "pooled with or diluted by single-capability cases",
+    "pooled across catalog states or with, or diluted by, single-capability cases",
     "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
     "over only the canonical healthy, validated, searchable catalog population",
     "Each required ref in a multi-capability case contributes separately",
@@ -488,6 +507,15 @@ PLAN_REQUIRED = (
     "proposed, approved, or executed",
     "fingerprint for every `answer_with_reviewed_memory` case must also bind the\n"
     "adjudicated selected memory refs, review-status and provenance evidence",
+    "a nonempty, independently powered memory-facing stratum with predeclared case\n"
+    "  counts and nonempty coverage of selected reviewed memory, irrelevant memory",
+    "stale memory, substituted memory, unreviewed memory, and canonical\n"
+    "  expected-null memory selection",
+    "memory selection and response-grounding exact-match is 100% in the nonempty,\n"
+    "  independently powered memory-facing stratum",
+    "Every predeclared reviewed,\n"
+    "  irrelevant, stale, substituted, unreviewed, and expected-null posture must be\n"
+    "  represented and reported separately",
     "canonical expected-null memory fingerprint",
     "Every emitted memory-facing response must also be checked against its adjudicated\n"
     "selected evidence and required limitation posture",
@@ -495,10 +523,17 @@ PLAN_REQUIRED = (
     "matching selection fingerprint\nalone is insufficient",
     "Freeze and verify a content-addressed manifest of every acceptance-affecting",
     "before the custodian releases any sealed holdout input",
-    "merged tree must equal the complete candidate manifest exactly before\n"
-    "  TAW-08 completion",
-    "forces a fresh candidate lock and acceptance cycle because the sealed holdout\n"
-    "  cannot be reused",
+    "merged tree's acceptance-affecting projection must equal the locked\n"
+    "  complete candidate manifest exactly before TAW-08 completion",
+    "A separately\n"
+    "  bound evidence-only delta is permitted only for the generated redacted\n"
+    "  acceptance report, immutable safe evidence refs, and board/product-claim\n"
+    "  reconciliation",
+    "content-addressed path/hash manifest and\n"
+    "  an independent verifier receipt proving it changes no executable code",
+    "Any unlisted path, acceptance-affecting change,\n"
+    "  conflict resolution, intervening merge, dependency drift, or failed proof\n"
+    "  forces a fresh candidate lock and acceptance cycle",
     "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
     "  100 ms",
     "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
