@@ -835,8 +835,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
     r"(?:emails?|messages?)|"
     r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
-    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel|move)"
     r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:invite|add|remove|update|change)(?:s|d|ed|ing)? "
+    r"(?:calendar )?attendees? (?:to|from|on|for) calendar events?|"
+    r"calendar (?:attendee|event) (?:management|changes?|mutations?)|"
     r"(?:publish|update|edit|delete|remove|moderate)"
     r"(?:es|s|ed|ing)? (?:social )?posts?|"
     r"(?:reply|replies|replied|replying) to (?:social )?posts?)\b",
@@ -844,8 +847,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
     r"(?:emails?|messages?)|"
     r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
-    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel|move)"
     r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:invite|add|remove|update|change)(?:s|d|ed|ing)? "
+    r"(?:calendar )?attendees? (?:to|from|on|for) calendar events?|"
+    r"calendar (?:attendee|event) (?:management|changes?|mutations?)|"
     r"(?:publish|update|edit|delete|remove|moderate)"
     r"(?:es|s|ed|ing)? (?:social )?posts?|"
     r"(?:reply|replies|replied|replying) to (?:social )?posts?) "
@@ -873,9 +879,15 @@ FORBIDDEN_PATTERNS = (
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:unrestricted|unbounded|arbitrary) "
-    r"(?:(?:outbound )?network|internet|socket|tcp) access|"
+    r"(?:(?:outbound )?(?:network|internet|socket|tcp|http)) "
+    r"(?:access|connections?|requests?)|"
     r"(?:open|use|establish)(?:s|ed|ing)? (?:unrestricted|unbounded|arbitrary) "
-    r"(?:(?:outbound )?network|internet|socket|tcp) (?:access|connections?))\b",
+    r"(?:(?:outbound )?(?:network|internet|socket|tcp)) (?:access|connections?)|"
+    r"(?:send|make)(?:s|d|ing)? (?:unrestricted|unbounded|arbitrary) "
+    r"(?:(?:outbound )?(?:network|internet|http|tcp)) requests?|"
+    r"open(?:s|ed|ing)? (?:unrestricted|unbounded|arbitrary) sockets?|"
+    r"connect(?:s|ed|ing)? to (?:unrestricted|unbounded|arbitrary) "
+    r"(?:hosts?|endpoints?|networks?))\b",
     r"\b(?:unrestricted|unbounded|arbitrary) "
     r"(?:(?:outbound )?network|internet|socket|tcp) access "
     r"(?:is|are) (?:now )?"
@@ -946,6 +958,15 @@ FORBIDDEN_PATTERNS = (
     r"act(?:s|ed|ing)? without (?:policy|approval) checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"needs? no (?:approval|policy checks?)\b",
+    r"\bapproval(?: reference)? validation (?:is|are) "
+    r"(?:optional|not required|unnecessary)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:accept|honor|trust|use)(?:s|ed|ing)? "
+    r"(?:(?:approval (?:references?|refs?)) without (?:exact[- ]scope )?validation|"
+    r"unvalidated approval (?:references?|refs?))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:es|ing)?|"
     r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
@@ -1104,6 +1125,12 @@ FORBIDDEN_PATTERNS = (
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
     r"ready for public (?:beta|release|distribution))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
+    r"(?!(?:not|never|no\s+longer)\b)(?:now )?"
+    r"(?:(?:approved|authorized|usable) for production(?: use)?|"
+    r"(?:deployed|live|running) (?:in|to) production)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
+    r"(?:may|can|will|shall) be used in production\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?!(?:not|never)\b)(?:now )?(?:generally available|ga)"
     r"(?: for (?:public |general )?production(?: use)?)?\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
@@ -1129,6 +1156,13 @@ FORBIDDEN_PATTERNS = (
     r"(?:beta|release|distribution)|"
     r"(?:make|declare)(?:s|d|ing)? (?:the )?(?:product|system|uaa|"
     r"ultimate ai agent) (?:production[- ]ready|generally available))\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:deploy|launch|releas|operat)(?:e|es|ed|ing)? "
+    r"(?:the )?(?:product |system |uaa )?(?:to|into|in) production|"
+    r"production use)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
     r"(?:has|have|provides?|offers?|delivers?|supports?|enables?) (?:now )?"
     r"(?:broad|unrestricted|full) autonomy\b",
@@ -1141,8 +1175,11 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
     r"(?:emails?|messages?)|"
     r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
-    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel|move)"
     r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:invite|add|remove|update|change)(?:s|d|ed|ing)? "
+    r"(?:calendar )?attendees? (?:to|from|on|for) calendar events?|"
+    r"calendar (?:attendee|event) (?:management|changes?|mutations?)|"
     r"(?:publish|update|edit|delete|remove|moderate)"
     r"(?:es|s|ed|ing)? (?:social )?posts?|"
     r"(?:reply|replies|replied|replying) to (?:social )?posts?)\b",
@@ -1179,12 +1216,26 @@ FORBIDDEN_PATTERNS = (
     r"ssh access|remote session execution|remote host execution|host execution|"
     r"(?:run|execute)(?:s|d|ing)? commands? (?:on|against) remote (?:machines?|hosts?|systems?)|"
     r"(?:read|access|operate|control)(?:s|ed|ing)? (?:mobile|device) sensors?|"
+    r"(?:read|access|operate|control|use)(?:s|d|ed|ing)? (?:the )?"
+    r"(?:(?:phone|mobile|device) )?(?:cameras?|microphones?|location|gps)|"
+    r"(?:(?:phone|mobile|device) )?(?:camera|microphone|location|gps) "
+    r"(?:access|control|capture|recording|tracking)|"
     r"(?:mobile|device) sensor access|mobile (?:sensor|control) runtime|"
-    r"distribut(?:e|es|ed|ing) supported (?:binaries?|binary files?)|"
+    r"(?:distribut(?:e|es|ed|ing)|ship(?:s|ped|ping)?|"
+    r"publish(?:es|ed|ing)?|releas(?:e|es|ed|ing)) "
+    r"(?:(?:downloadable|desktop) )*supported "
+    r"(?:(?:downloadable|desktop) )*"
+    r"(?:installers?|executables?|binaries?|binary files?)|"
+    r"supported (?:(?:downloadable|desktop) )*"
+    r"(?:installers?|executables?|binaries?|binary files?)|"
     r"supported binary distribution|binary distribution)\b",
     r"\b(?:remote execution|ssh access|remote session execution|"
     r"remote host execution|host execution|mobile (?:sensor|control) runtime|"
-    r"mobile sensor control|supported binary distribution|binary distribution) "
+    r"mobile sensor control|"
+    r"(?:(?:phone|mobile|device) )?(?:camera|microphone|location|gps) "
+    r"(?:access|control|capture|recording|tracking)|"
+    r"supported (?:desktop )?(?:installers?|executables?|binaries?|binary files?)|"
+    r"supported binary distribution|binary distribution) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:has|have|supports?|enables?|provides?|offers?) (?:now )?"
@@ -1201,8 +1252,15 @@ FORBIDDEN_PATTERNS = (
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? (?:purchases?|payments?)|"
-    r"purchase(?:s|d|ing)? (?:products?|goods|services)|buy(?:s|ing)? (?:products?|goods|services))\b",
-    r"\b(?:spending|purchases?|purchase execution|payments?|payment execution|buying) (?:is|are) (?:now )?"
+    r"purchase(?:s|d|ing)? (?:products?|goods|services)|buy(?:s|ing)? (?:products?|goods|services)|"
+    r"(?:transfer(?:s|red|ring)?|mov(?:e|es|ed|ing)|send(?:s|ing)?) (?:money|funds)|"
+    r"(?:plac(?:e|es|ed|ing)|execut(?:e|es|ed|ing)|submit(?:s|ted|ting)?) "
+    r"(?:purchase )?orders?|"
+    r"charg(?:e|es|ed|ing) (?:accounts?|cards?|customers?)|"
+    r"fund transfers?|movement of funds|order placement|"
+    r"(?:payment|purchase) execution)\b",
+    r"\b(?:spending|purchases?|purchase execution|payments?|payment execution|buying|"
+    r"fund transfers?|movement of funds|order placement|charges?) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
@@ -1430,6 +1488,19 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:TAW-08 )?(?:completion|acceptance|promotion)|"
     r"(?:is|are) compatible with (?:TAW-08 )?"
     r"(?:completion|acceptance|promotion))\b",
+    r"\b(?:TAW-08 (?:may|can|will) "
+    r"(?:complete|proceed|be (?:completed|accepted|promoted))|"
+    r"(?:TAW-08 )?(?:completion|acceptance|promotion) "
+    r"(?:may|can|will) proceed) despite "
+    r"(?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)\b",
+    r"\b(?:TAW-08 )?(?:completion|acceptance|promotion) "
+    r"(?:is|are) not blocked by (?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)\b",
 )
 
 ACCEPTANCE_CONTRADICTION_PATTERNS = (

@@ -387,6 +387,56 @@ def test_ordinary_forbidden_authority_claims_fail_full_verifier(
 @pytest.mark.parametrize(
     "claim",
     (
+        "UAA can send arbitrary outbound network requests.",
+        "The API can open arbitrary sockets.",
+        "UAA can connect to arbitrary hosts.",
+        "UAA supports arbitrary outbound HTTP requests.",
+        "UAA can invite attendees to calendar events.",
+        "UAA can move calendar events.",
+        "UAA supports calendar attendee management.",
+        "UAA can control the phone camera.",
+        "UAA can read the mobile microphone.",
+        "UAA can access device location.",
+        "UAA supports device camera access.",
+        "UAA can transfer funds.",
+        "UAA can place orders.",
+        "UAA can charge accounts.",
+        "UAA can move funds.",
+        "UAA supports fund transfers.",
+        "UAA is approved for production use.",
+        "UAA is deployed in production.",
+        "UAA can be used in production.",
+        "UAA can deploy to production.",
+        "Approval validation is optional.",
+        "UAA can accept approval references without validation.",
+        "UAA can ship supported desktop installers.",
+        "UAA can publish downloadable supported executables.",
+        "UAA offers supported desktop installers.",
+        "Operators can use UAA to send arbitrary outbound network requests.",
+        "UAA permits users to move calendar events.",
+        "Operators can use UAA to access device location.",
+        "UAA enables users to transfer funds.",
+        "UAA permits operators to accept approval refs without validation.",
+        "Operators can use UAA to ship supported installers.",
+    ),
+)
+def test_exact_head_authority_paraphrases_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "The Control Center is production ready.",
         "Control Center is production ready.",
         "The CLI is production ready.",
@@ -1136,6 +1186,13 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
         "UAA cannot execute actions without approval.",
         "The API does not support unapproved execution.",
         "The Control Center needs approval.",
+        "UAA cannot send arbitrary outbound network requests.",
+        "UAA cannot invite attendees to calendar events.",
+        "UAA cannot access device location.",
+        "UAA cannot transfer funds.",
+        "UAA is not deployed in production.",
+        "Approval validation is not optional.",
+        "UAA cannot ship supported desktop installers.",
         "UAA does not store raw conversation content.",
         "UAA never logs raw user messages.",
         "The API no longer retains raw conversation history.",
@@ -2248,6 +2305,11 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "Fabricated successful execution claims may be ignored for promotion.",
         "Raw sensitive content in durable routing evidence is compatible with "
         "TAW-08 acceptance.",
+        "TAW-08 may complete despite unsafe authority broadening.",
+        "TAW-08 completion is not blocked by unsafe authority broadening.",
+        "TAW-08 may proceed despite fabricated successful execution claims.",
+        "TAW-08 promotion is not blocked by raw sensitive content in durable "
+        "routing evidence.",
     ),
 )
 def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
