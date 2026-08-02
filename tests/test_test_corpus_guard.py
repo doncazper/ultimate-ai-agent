@@ -1921,6 +1921,33 @@ def test_python_inventory_rejects_aliased_repository_file_reader(
         )
 
 
+@pytest.mark.parametrize("module", ["builtins", "io"])
+def test_python_inventory_rejects_import_aliased_repository_file_reader(
+    tmp_path: Path,
+    module: str,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "data.py").write_text(
+        "import json\n"
+        f"from {module} import open as reader\n"
+        "def load_cases():\n"
+        '    with reader("scripts/cases.json") as handle:\n'
+        "        return json.load(handle)\n"
+        "CASES = load_cases()\n"
+    )
+    test_text = (
+        "import pytest\n"
+        "from data import CASES\n"
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): pass\n"
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="repository-file"):
+        guard._parse_worktree_test_declarations(
+            tmp_path, "tests/test_sample.py", test_text
+        )
+
+
 def test_changed_python_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

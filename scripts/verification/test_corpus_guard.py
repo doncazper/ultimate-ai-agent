@@ -618,6 +618,22 @@ def _python_imported_binding_source(
         "readlines",
     }
     repository_reader_aliases = {"open"}
+    repository_reader_imports = {
+        "builtins.open",
+        "bz2.open",
+        "codecs.open",
+        "gzip.open",
+        "io.open",
+        "lzma.open",
+        "os.fdopen",
+        "os.open",
+        "tokenize.open",
+    }
+    repository_reader_aliases.update(
+        local_name
+        for local_name, candidates in imported_modules.items()
+        if repository_reader_imports.intersection(candidates)
+    )
     alias_assignments: list[tuple[tuple[str, ...], ast.expr]] = []
 
     def assigned_names(target: ast.expr) -> tuple[str, ...]:
