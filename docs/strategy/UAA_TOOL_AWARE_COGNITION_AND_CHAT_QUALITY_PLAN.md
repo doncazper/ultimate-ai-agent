@@ -325,6 +325,12 @@ The implementation must meet explicit budgets on supported development Macs:
   validation, serialization, buffering, and backpressure remain inside TTFT;
 - cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
   300 ms for the accepted baseline catalog;
+- Every applicable latency gate and budget must independently clear for every
+  frozen supported local-model configuration within each supported
+  hardware/backend class. Each model artifact, backend/runtime, tokenizer,
+  context limit, inference-settings, and prompt-format tuple is an independent
+  latency stratum; pooling configurations, substituting one configuration for
+  another, or omitting an underpowered or missing stratum fails TAW-08;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
   retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and
   cold catalog construction per supported hardware/backend class. Each warm metric uses at least 1,000 independent measured turns per class and
@@ -655,7 +661,14 @@ model artifact, backend/runtime, tokenizer and context limit, inference
 settings, and prompt-format version. Every supported configuration is a
 mandatory evaluation stratum for the applicable routing and paired
 ordinary-chat quality gates, and every stratum must independently clear those
-gates. Every supported configuration must also independently run and pass the
+gates. Every supported configuration must independently cover every supported
+product language and every applicable language-by-catalog-state intersection.
+Each language-by-configuration and applicable
+language-by-configuration-by-catalog-state stratum must be independently
+powered and must independently clear the same routing, paired-quality, and
+catalog-state gates; a marginal language result or marginal configuration
+result cannot substitute for an intersection result.
+Every supported configuration must also independently run and pass the
 complete applicable zero-tolerance safety census: durable-evidence/raw-sensitive
 content, unsafe-authority response and claim, supplied-content instruction
 following, semantic-envelope and active-replay equivalence, memory grounding,
@@ -815,8 +828,18 @@ while a supported non-reproducible backend that qualified under the separately
 reviewed section 7.1 protocol requires blinded independent rescoring on all four
 ordinary-chat dimensions with the same complete-population and simultaneous
 confidence-bound non-inferiority gates. An unqualified, missing, truncated, or
-semantically unrelated response invalidates the safe-disable replay. Safe-disable
-must be consulted before awareness
+semantically unrelated response invalidates the safe-disable replay.
+For every tool-facing safe-disable case, regardless of backend reproducibility,
+the emitted response must also match the exact legacy semantic decision/proposal
+envelope: route and familiarity state, ordered effects and dependency edges,
+target and recipient refs, typed arguments and scope, and the approval-required,
+blocked, unavailable, unsupported, or outcome-uncertain posture. The complete
+safe-disable tool-facing population is subject to the same zero-tolerance
+semantic-envelope, unsafe-authority, fabricated-execution-progress, outcome-truth,
+and outcome-uncertain checks as active replay. Any omission, extra effect,
+authority broadening, unsupported execution or outcome claim, unscored response,
+or other semantic-envelope mismatch invalidates promotion. Safe-disable must be
+consulted before awareness
 index validation or loading, so catalog degradation cannot affect this replay.
 No awareness-specific decision envelope or other durable record may appear in the
 safe-disabled per-turn artifact set, with the same hard no-dispatch fence and
@@ -1272,6 +1295,13 @@ proportional post-merge verification, and cleanup.
 - Publish the exact acceptance report with thresholds, remaining gaps, and
   immutable evidence refs.
 - Reconcile current product claims and relevant boards.
+- TAW-08 completion requires a passing redacted Foundation Gate report-only
+  verifier receipt bound to the exact locked candidate head and a second passing
+  redacted Foundation Gate report-only verifier receipt bound to the actual
+  post-merge commit on current main. The exact-head receipt must bind the same
+  candidate SHA as the manifest and acceptance evaluation; the post-merge receipt
+  is the proportional confirmation of the merged tree. A missing, stale, failed,
+  or SHA-mismatched receipt fails completion.
 - The final GoatCitadel comparison may start only after TAW-00 through TAW-08
   are merged, post-merge verified, and represented accurately on current main.
 

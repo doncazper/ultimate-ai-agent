@@ -219,6 +219,13 @@ PLAN_REQUIRED = (
     "TAW-00 also freezes the complete supported local-model configuration matrix",
     "Every supported configuration is a\nmandatory evaluation stratum",
     "every stratum must independently clear those\ngates",
+    "Every supported configuration must independently cover every supported\n"
+    "product language and every applicable language-by-catalog-state intersection",
+    "Each language-by-configuration and applicable\n"
+    "language-by-configuration-by-catalog-state stratum must be independently\n"
+    "powered",
+    "a marginal language result or marginal configuration\n"
+    "result cannot substitute for an intersection result",
     "Every supported configuration must also independently run and pass the\n"
     "complete applicable zero-tolerance safety census",
     "durable-evidence/raw-sensitive\n"
@@ -363,6 +370,18 @@ PLAN_REQUIRED = (
     "confidence-bound non-inferiority gates",
     "An unqualified, missing, truncated, or\n"
     "semantically unrelated response invalidates the safe-disable replay",
+    "For every tool-facing safe-disable case, regardless of backend reproducibility,\n"
+    "the emitted response must also match the exact legacy semantic decision/proposal\n"
+    "envelope",
+    "route and familiarity state, ordered effects and dependency edges,\n"
+    "target and recipient refs, typed arguments and scope",
+    "complete\n"
+    "safe-disable tool-facing population is subject to the same zero-tolerance\n"
+    "semantic-envelope, unsafe-authority, fabricated-execution-progress, outcome-truth,\n"
+    "and outcome-uncertain checks as active replay",
+    "Any omission, extra effect,\n"
+    "authority broadening, unsupported execution or outcome claim, unscored response,\n"
+    "or other semantic-envelope mismatch invalidates promotion",
     "No awareness-specific decision envelope or other durable record may appear in the\n"
     "safe-disabled per-turn artifact set",
     "A separately bound, redacted\n"
@@ -552,6 +571,15 @@ PLAN_REQUIRED = (
     "Any unlisted path, acceptance-affecting change,\n"
     "  conflict resolution, intervening merge, dependency drift, or failed proof\n"
     "  forces a fresh candidate lock and acceptance cycle",
+    "TAW-08 completion requires a passing redacted Foundation Gate report-only\n"
+    "  verifier receipt bound to the exact locked candidate head",
+    "a second passing\n"
+    "  redacted Foundation Gate report-only verifier receipt bound to the actual\n"
+    "  post-merge commit on current main",
+    "The exact-head receipt must bind the same\n"
+    "  candidate SHA as the manifest and acceptance evaluation",
+    "A missing, stale, failed,\n"
+    "  or SHA-mismatched receipt fails completion",
     "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
     "  100 ms",
     "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
@@ -573,6 +601,14 @@ PLAN_REQUIRED = (
     "  cold catalog construction per supported hardware/backend class",
     "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
     "  300 ms",
+    "Every applicable latency gate and budget must independently clear for every\n"
+    "  frozen supported local-model configuration within each supported\n"
+    "  hardware/backend class",
+    "Each model artifact, backend/runtime, tokenizer,\n"
+    "  context limit, inference-settings, and prompt-format tuple is an independent\n"
+    "  latency stratum",
+    "pooling configurations, substituting one configuration for\n"
+    "  another, or omitting an underpowered or missing stratum fails TAW-08",
     "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
     "requires the exact canonical\n"
     "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
@@ -651,6 +687,14 @@ FORBIDDEN_PATTERNS = (
     r"(?:browse(?:s|d|ing)? (?:the )?(?:public )?web|"
     r"(?:access|search)(?:es|ed|ing)? (?:the )?(?:internet|web)|"
     r"(?:internet|web) (?:access|search))\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:invok(?:e|es|ed|ing) (?:a )?(?:runtime )?(?:models?|providers?)|"
+    r"(?:run|perform)(?:s|ed|ing)? (?:runtime )?(?:model )?inference|"
+    r"provider SDK (?:calls?|access|use|invocations?)|"
+    r"(?:use|call)(?:s|ed|ing)? (?:the )?provider SDK)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "

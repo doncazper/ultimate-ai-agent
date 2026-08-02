@@ -233,6 +233,9 @@ def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
         "The API supports unapproved execution.",
         "The Control Center can act without policy checks.",
         "UAA needs no approval.",
+        "UAA can invoke runtime models.",
+        "The API supports provider SDK calls.",
+        "The runtime can perform model inference.",
     ),
 )
 def test_ordinary_forbidden_authority_claims_fail_full_verifier(
@@ -726,6 +729,9 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA does not store raw conversation content.",
         "UAA never logs raw user messages.",
         "The API no longer retains raw conversation history.",
+        "UAA cannot invoke runtime models.",
+        "The API does not support provider SDK calls.",
+        "The runtime will never perform model inference.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -1967,10 +1973,27 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "Any unlisted path, acceptance-affecting change,\n"
         "  conflict resolution, intervening merge, dependency drift, or failed proof\n"
         "  forces a fresh candidate lock and acceptance cycle",
+        "TAW-08 completion requires a passing redacted Foundation Gate report-only\n"
+        "  verifier receipt bound to the exact locked candidate head",
+        "a second passing\n"
+        "  redacted Foundation Gate report-only verifier receipt bound to the actual\n"
+        "  post-merge commit on current main",
+        "The exact-head receipt must bind the same\n"
+        "  candidate SHA as the manifest and acceptance evaluation",
+        "A missing, stale, failed,\n"
+        "  or SHA-mismatched receipt fails completion",
         "compact capability shortlist: warm p95 at or below 50 ms and p99 at or below\n"
         "  100 ms",
         "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
         "  300 ms",
+        "Every applicable latency gate and budget must independently clear for every\n"
+        "  frozen supported local-model configuration within each supported\n"
+        "  hardware/backend class",
+        "Each model artifact, backend/runtime, tokenizer,\n"
+        "  context limit, inference-settings, and prompt-format tuple is an independent\n"
+        "  latency stratum",
+        "pooling configurations, substituting one configuration for\n"
+        "  another, or omitting an underpowered or missing stratum fails TAW-08",
         "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
         "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
         "end-to-end supported tool-turn time to first token, from initial ingress\n"
@@ -2015,6 +2038,13 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "70% in every predeclared capability, risk category, and supported\n"
         "product-language stratum",
         "stronger languages cannot carry a low-precision language through the aggregate",
+        "Every supported configuration must independently cover every supported\n"
+        "product language and every applicable language-by-catalog-state intersection",
+        "Each language-by-configuration and applicable\n"
+        "language-by-configuration-by-catalog-state stratum must be independently\n"
+        "powered",
+        "a marginal language result or marginal configuration\n"
+        "result cannot substitute for an intersection result",
         "Every ordinary-chat pair requires the canonical empty hydrated-manifest and\n"
         "tool-schema context set",
             "complete accepted corpus must also be replayed with explicit safe-disable\n"
@@ -2035,6 +2065,18 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "confidence-bound non-inferiority gates",
         "An unqualified, missing, truncated, or\n"
         "semantically unrelated response invalidates the safe-disable replay",
+        "For every tool-facing safe-disable case, regardless of backend reproducibility,\n"
+        "the emitted response must also match the exact legacy semantic decision/proposal\n"
+        "envelope",
+        "route and familiarity state, ordered effects and dependency edges,\n"
+        "target and recipient refs, typed arguments and scope",
+        "complete\n"
+        "safe-disable tool-facing population is subject to the same zero-tolerance\n"
+        "semantic-envelope, unsafe-authority, fabricated-execution-progress, outcome-truth,\n"
+        "and outcome-uncertain checks as active replay",
+        "Any omission, extra effect,\n"
+        "authority broadening, unsupported execution or outcome claim, unscored response,\n"
+        "or other semantic-envelope mismatch invalidates promotion",
         "No awareness-specific decision envelope or other durable record may appear in the\n"
         "safe-disabled per-turn artifact set",
         "A separately bound, redacted\n"
