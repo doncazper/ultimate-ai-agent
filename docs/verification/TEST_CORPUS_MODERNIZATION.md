@@ -26,7 +26,12 @@ evidence-aware rather than globally one-task-at-a-time.
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python and
 Control Center `.test`/`.spec` declarations, including inherited pytest class
-tests, parameterized titles, supported import aliases, and extended test APIs;
+tests, Python parameterization bound to canonical decorator syntax,
+parameterized frontend titles, supported runner import aliases, and extended
+test APIs. Changes to a Python parameter set change its stable declaration ref,
+so removing a collected case cannot retain the prior inventory identity.
+Frontend files fail closed when `it` or `test` is shadowed by a local
+declaration or non-runner import;
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed
@@ -47,8 +52,11 @@ Each retirement entry must identify:
   its canonical JSON.
 
 The assertion artifact binds every replacement ref to an independently derived
-`test-source-ref:sha256:*` over the exact inventoried test source; prose cannot
-stand in for preserved assertion evidence. The verification artifact has a
+`test-source-ref:sha256:*` over only that exact inventoried function or frontend
+call expression. Unrelated imports, helpers, or neighboring tests do not
+invalidate an accepted historical source ref, while changes to the replacement
+declaration do; prose cannot stand in for preserved assertion evidence. The
+verification artifact has a
 bounded field reserved for independently attested exact-head GitHub evidence.
 The repository-constructed GitHub transport envelope is explicitly
 non-authoritative and is rejected even when its internally reported receipt and

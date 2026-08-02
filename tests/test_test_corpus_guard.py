@@ -10,7 +10,7 @@ VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
 
 
 def _source_ref(test_ref: str) -> str:
-    return guard.test_source_ref(test_ref, f"verified-source:{test_ref}")
+    return guard.build_test_source_ref(test_ref, f"verified-source:{test_ref}")
 
 
 def _validate_envelope(value: str, _replacement_refs: list[str]) -> None:
@@ -129,6 +129,85 @@ class TestChild(Base):
     ]
 
 
+def test_python_inventory_binds_parameterized_decorator_changes() -> None:
+    path = "tests/test_sample.py"
+    before = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+@pytest.mark.parametrize("value", ["one", "two"])
+def test_case(value):
+    assert value
+""",
+    )
+    after = guard.parse_python_declarations(
+        path,
+        """
+import pytest
+
+@pytest.mark.parametrize("value", ["one"])
+def test_case(value):
+    assert value
+""",
+    )
+
+    assert len(before) == len(after) == 1
+    assert before[0].ref.startswith(f"{path}::test_case::parametrize-sha256:")
+    assert after[0].ref.startswith(f"{path}::test_case::parametrize-sha256:")
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_module_parameter_data_changes() -> None:
+    path = "tests/test_sample.py"
+    template = """
+import pytest
+
+CASES = {cases}
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard.parse_python_declarations(
+        path,
+        template.format(cases='["one", "two"]'),
+    )
+    after = guard.parse_python_declarations(
+        path,
+        template.format(cases='["one"]'),
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_source_ref_hashes_only_the_replacement_declaration() -> None:
+    test_ref = "tests/test_sample.py::test_replacement"
+    before = """
+import first_dependency
+
+def test_replacement():
+    assert True
+
+def test_neighbor():
+    assert True
+"""
+    unrelated_change = """
+import second_dependency
+
+def test_replacement():
+    assert True
+
+def test_neighbor():
+    assert False
+"""
+    replacement_change = unrelated_change.replace("assert True", "assert 1 == 1", 1)
+
+    source_ref = guard._source_ref_from_text(test_ref, before)
+    assert guard._source_ref_from_text(test_ref, unrelated_change) == source_ref
+    assert guard._source_ref_from_text(test_ref, replacement_change) != source_ref
+
+
 def test_frontend_inventory_normalizes_titles_and_disambiguates_duplicates() -> None:
     declarations = guard.parse_frontend_declarations(
         "apps/control-center/src/example.test.tsx",
@@ -144,6 +223,70 @@ test.skip(`blocks mutation`, () => {});
         "apps/control-center/src/example.test.tsx::renders a panel#2",
         "apps/control-center/src/example.test.tsx::blocks mutation",
     ]
+
+
+@pytest.mark.parametrize(
+    "shadowing_source",
+    [
+        'const test = helper; test("not collected", () => {});',
+        'function it() {} it("not collected", () => {});',
+        'const { test } = helper; test("not collected", () => {});',
+        'const helper = (test) => test("not collected", () => {});',
+        'import { test } from "local-helper"; test("not collected", () => {});',
+    ],
+)
+def test_frontend_inventory_rejects_shadowed_runner_names(
+    shadowing_source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend test API name is shadowed",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            shadowing_source,
+        )
+
+
+def test_frontend_inventory_allows_nonshadowing_property_destructure() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        """
+import { it } from "vitest";
+const { test: helperTest } = helper;
+it("collected", () => helperTest());
+""",
+    )
+
+    assert [declaration.ref for declaration in declarations] == [
+        "apps/control-center/src/example.test.ts::collected"
+    ]
+
+
+def test_frontend_source_ref_hashes_only_the_replacement_declaration() -> None:
+    path = "apps/control-center/src/example.test.ts"
+    test_ref = f"{path}::replacement"
+    before = """
+import { it } from "vitest";
+const unrelated = "first";
+it("replacement", () => { expect(true).toBe(true); });
+it("neighbor", () => { expect(true).toBe(true); });
+"""
+    unrelated_change = """
+import { it } from "vitest";
+const unrelated = "second";
+it("replacement", () => { expect(true).toBe(true); });
+it("neighbor", () => { expect(false).toBe(true); });
+"""
+    replacement_change = unrelated_change.replace(
+        "expect(true).toBe(true)",
+        "expect(1).toBe(1)",
+        1,
+    )
+
+    source_ref = guard._source_ref_from_text(test_ref, before)
+    assert guard._source_ref_from_text(test_ref, unrelated_change) == source_ref
+    assert guard._source_ref_from_text(test_ref, replacement_change) != source_ref
 
 
 def test_frontend_inventory_includes_parameterized_test_titles() -> None:

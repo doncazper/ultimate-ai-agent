@@ -7,7 +7,11 @@ import re
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
 TEST_MODIFIERS = r"(?:\s*\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
-IMPORT_PATTERN = re.compile(r"\bimport\s*\{(?P<members>[^}]*)\}")
+RUNNER_MODULES = {"vitest", "@playwright/test"}
+IMPORT_PATTERN = re.compile(
+    r"\bimport\s*\{(?P<members>[^}]*)\}\s*from\s*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+)
 EXTENSION_PATTERN = re.compile(
     rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
     rf"(?P<base>{TEST_API_NAME}){TEST_MODIFIERS}\s*\.extend\s*\("
@@ -185,16 +189,64 @@ def _patterns(
     return direct, each, conditional
 
 
-def _test_api_names(scan_text: str) -> set[str]:
+def _test_api_names(text: str, scan_text: str) -> set[str]:
     names = {"it", "test"}
-    for match in IMPORT_PATTERN.finditer(scan_text):
+    approved_import_bindings: set[str] = set()
+    for match in IMPORT_PATTERN.finditer(text):
+        if scan_text[match.start() : match.start() + len("import")] != "import":
+            continue
         for member in match.group("members").split(","):
-            alias = re.fullmatch(
-                rf"\s*(?:it|test)\s+as\s+({TEST_API_NAME})\s*",
+            binding = re.fullmatch(
+                rf"\s*(?P<imported>{TEST_API_NAME})"
+                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
                 member,
             )
-            if alias:
-                names.add(alias.group(1))
+            if binding is None:
+                continue
+            imported = binding.group("imported")
+            local = binding.group("local") or imported
+            if imported in {"it", "test"} and match.group("module") in RUNNER_MODULES:
+                names.add(local)
+                approved_import_bindings.add(local)
+            elif local in {"it", "test"}:
+                raise FrontendInventoryError(
+                    "frontend test API name is shadowed by a non-runner import"
+                )
+
+    declaration_pattern = re.compile(
+        r"\b(?:const|let|var|function|class)\s+(?P<name>it|test)\b"
+    )
+    if declaration_pattern.search(scan_text):
+        raise FrontendInventoryError(
+            "frontend test API name is shadowed by a local declaration"
+        )
+    destructuring_pattern = re.compile(
+        r"\b(?:const|let|var)\s*\{(?P<bindings>[^{}]*)\}"
+    )
+    for match in destructuring_pattern.finditer(scan_text):
+        for member in match.group("bindings").split(","):
+            local = member.split(":", 1)[-1].split("=", 1)[0].strip()
+            local = local.removeprefix("...").strip()
+            if local in {"it", "test"}:
+                raise FrontendInventoryError(
+                    "frontend test API name is shadowed by a local declaration"
+                )
+    parameter_pattern = re.compile(r"\((?P<parameters>[^()]*)\)\s*(?:=>|\{)")
+    if any(
+        re.search(r"\b(?:it|test)\b", match.group("parameters"))
+        for match in parameter_pattern.finditer(scan_text)
+    ) or re.search(r"\b(?:it|test)\s*=>", scan_text):
+        raise FrontendInventoryError(
+            "frontend test API name is shadowed by a local declaration"
+        )
+    non_named_import_pattern = re.compile(
+        r"\bimport\s+(?:type\s+)?(?:\*\s+as\s+)?(?P<name>it|test)\b"
+    )
+    for match in non_named_import_pattern.finditer(scan_text):
+        if match.group("name") not in approved_import_bindings:
+            raise FrontendInventoryError(
+                "frontend test API name is shadowed by a non-runner import"
+            )
 
     recognized_extensions: set[int] = set()
     while True:
@@ -220,12 +272,12 @@ def _test_api_names(scan_text: str) -> set[str]:
     return names
 
 
-def _parameterized_titles(
+def _parameterized_declarations(
     text: str,
     scan_text: str,
     pattern: re.Pattern[str],
-) -> tuple[str, ...]:
-    titles: list[str] = []
+) -> tuple[tuple[str, str], ...]:
+    declarations: list[tuple[str, str]] = []
     for match in pattern.finditer(scan_text):
         index = match.end()
         while index < len(text) and text[index].isspace():
@@ -242,6 +294,7 @@ def _parameterized_titles(
             index += 1
         if index >= len(text) or text[index] != "(":
             raise FrontendInventoryError("frontend parameterized test title is missing")
+        declaration_end = _skip_balanced(text, index)
         index += 1
         while index < len(text) and text[index].isspace():
             index += 1
@@ -249,22 +302,25 @@ def _parameterized_titles(
             raise FrontendInventoryError("frontend parameterized test title is invalid")
         title_start = index + 1
         title_end = _skip_string(text, index) - 1
-        titles.append(text[title_start:title_end])
-    return tuple(titles)
+        declarations.append(
+            (text[title_start:title_end], text[match.start() : declaration_end])
+        )
+    return tuple(declarations)
 
 
-def _conditional_titles(
+def _conditional_declarations(
     text: str,
     scan_text: str,
     pattern: re.Pattern[str],
-) -> tuple[str, ...]:
-    titles: list[str] = []
+) -> tuple[tuple[str, str], ...]:
+    declarations: list[tuple[str, str]] = []
     for match in pattern.finditer(scan_text):
         index = _skip_balanced(text, match.end() - 1)
         while index < len(text) and text[index].isspace():
             index += 1
         if index >= len(text) or text[index] != "(":
             raise FrontendInventoryError("frontend conditional test title is missing")
+        declaration_end = _skip_balanced(text, index)
         index += 1
         while index < len(text) and text[index].isspace():
             index += 1
@@ -272,20 +328,23 @@ def _conditional_titles(
             raise FrontendInventoryError("frontend conditional test title is invalid")
         title_start = index + 1
         title_end = _skip_string(text, index) - 1
-        titles.append(text[title_start:title_end])
-    return tuple(titles)
+        declarations.append(
+            (text[title_start:title_end], text[match.start() : declaration_end])
+        )
+    return tuple(declarations)
 
 
-def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
-    raw_refs: list[str] = []
+def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], ...]:
+    raw_entries: list[tuple[str, str]] = []
     code_mask = _code_mask(text)
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
     direct_pattern, each_pattern, conditional_pattern = _patterns(
-        _test_api_names(scan_text)
+        _test_api_names(text, scan_text)
     )
     for match in direct_pattern.finditer(scan_text):
+        declaration_end = _skip_balanced(text, match.end() - 1)
         index = match.end()
         while index < len(text) and text[index].isspace():
             index += 1
@@ -300,20 +359,29 @@ def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
         title = _normalized_title(text[title_start:title_end])
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        raw_refs.append(f"{path}::{title}")
-    for raw_title in (
-        *_parameterized_titles(text, scan_text, each_pattern),
-        *_conditional_titles(text, scan_text, conditional_pattern),
+        raw_entries.append((f"{path}::{title}", text[match.start() : declaration_end]))
+    for raw_title, declaration_source in (
+        *_parameterized_declarations(text, scan_text, each_pattern),
+        *_conditional_declarations(text, scan_text, conditional_pattern),
     ):
         title = _normalized_title(raw_title)
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        raw_refs.append(f"{path}::{title}")
+        raw_entries.append((f"{path}::{title}", declaration_source))
 
     counts: dict[str, int] = {}
-    refs: list[str] = []
-    for raw_ref in raw_refs:
+    entries: list[tuple[str, str]] = []
+    for raw_ref, declaration_source in raw_entries:
         occurrence = counts.get(raw_ref, 0) + 1
         counts[raw_ref] = occurrence
-        refs.append(raw_ref if occurrence == 1 else f"{raw_ref}#{occurrence}")
-    return tuple(refs)
+        ref = raw_ref if occurrence == 1 else f"{raw_ref}#{occurrence}"
+        entries.append((ref, declaration_source))
+    return tuple(entries)
+
+
+def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
+    return tuple(ref for ref, _source in _frontend_inventory_entries(path, text))
+
+
+def frontend_source_for_ref(path: str, text: str, test_ref: str) -> str | None:
+    return dict(_frontend_inventory_entries(path, text)).get(test_ref)

@@ -13,7 +13,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 from scripts.verification.test_corpus_evidence import (
     ASSERTION_EVIDENCE_SCHEMA as ASSERTION_EVIDENCE_SCHEMA,
@@ -28,6 +28,7 @@ from scripts.verification.test_corpus_evidence import (
 )
 from scripts.verification.test_corpus_frontend import (
     FrontendInventoryError,
+    frontend_source_for_ref,
     parse_frontend_refs,
 )
 from scripts.verification.verification_github_transport import (
@@ -89,18 +90,73 @@ class TestDeclaration:
     kind: str
 
 
-def _deduplicate_refs(refs: Iterable[tuple[str, str]]) -> tuple[TestDeclaration, ...]:
-    counts: dict[str, int] = {}
-    declarations: list[TestDeclaration] = []
-    for raw_ref, kind in refs:
-        occurrence = counts.get(raw_ref, 0) + 1
-        counts[raw_ref] = occurrence
-        ref = raw_ref if occurrence == 1 else f"{raw_ref}#{occurrence}"
-        declarations.append(TestDeclaration(ref=ref, kind=kind))
-    return tuple(declarations)
+def _parameterized_ref(
+    raw_ref: str,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    module_bindings: dict[str, ast.AST],
+) -> str:
+    decorators = tuple(
+        decorator
+        for decorator in node.decorator_list
+        if isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Attribute)
+        and decorator.func.attr == "parametrize"
+    )
+    if not decorators:
+        return raw_ref
+    serialized_parts = [
+        ast.dump(decorator, annotate_fields=True, include_attributes=False)
+        for decorator in decorators
+    ]
+    pending_names = {
+        child.id
+        for decorator in decorators
+        for child in ast.walk(decorator)
+        if isinstance(child, ast.Name)
+    }
+    resolved_names: set[str] = set()
+    binding_parts: list[str] = []
+    while pending_names:
+        name = pending_names.pop()
+        if name in resolved_names:
+            continue
+        resolved_names.add(name)
+        binding = module_bindings.get(name)
+        if binding is None:
+            continue
+        binding_parts.append(
+            f"binding:{name}:"
+            + ast.dump(binding, annotate_fields=True, include_attributes=False)
+        )
+        pending_names.update(
+            child.id
+            for child in ast.walk(binding)
+            if isinstance(child, ast.Name) and child.id not in resolved_names
+        )
+    serialized = "\n".join([*serialized_parts, *sorted(binding_parts)])
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"{raw_ref}::parametrize-sha256:{digest}"
 
 
-def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
+def _python_node_source(
+    text: str,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> str:
+    lines = text.splitlines(keepends=True)
+    start_line = min(
+        (decorator.lineno for decorator in node.decorator_list),
+        default=node.lineno,
+    )
+    end_line = node.end_lineno
+    if end_line is None:
+        raise TestCorpusGuardError("Python test declaration range is unavailable")
+    return "".join(lines[start_line - 1 : end_line])
+
+
+def _python_inventory_entries(
+    path: str,
+    text: str,
+) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
         tree = ast.parse(text, filename=path)
     except SyntaxError as exc:
@@ -108,8 +164,21 @@ def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ..
             f"cannot parse Python test inventory: {path}"
         ) from exc
 
-    refs: list[tuple[str, str]] = []
+    entries: list[tuple[str, str, str]] = []
     classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    module_bindings: dict[str, ast.AST] = {}
+    for module_node in tree.body:
+        if isinstance(module_node, (ast.Assign, ast.AnnAssign)):
+            targets = (
+                module_node.targets
+                if isinstance(module_node, ast.Assign)
+                else [module_node.target]
+            )
+            value = module_node.value
+            if value is not None:
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        module_bindings[target.id] = value
 
     def collected_methods(
         class_node: ast.ClassDef,
@@ -153,15 +222,37 @@ def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ..
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.name.startswith("test_"):
-                refs.append((f"{path}::{node.name}", "python_test"))
+                raw_ref = _parameterized_ref(
+                    f"{path}::{node.name}", node, module_bindings
+                )
+                entries.append(
+                    (raw_ref, "python_test", _python_node_source(text, node))
+                )
             continue
         if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
             continue
         if has_constructor(node, set()):
             continue
-        for method_name in collected_methods(node, set()):
-            refs.append((f"{path}::{node.name}::{method_name}", "python_test"))
-    return _deduplicate_refs(refs)
+        for method_name, method in collected_methods(node, set()).items():
+            raw_ref = _parameterized_ref(
+                f"{path}::{node.name}::{method_name}", method, module_bindings
+            )
+            entries.append((raw_ref, "python_test", _python_node_source(text, method)))
+
+    counts: dict[str, int] = {}
+    inventory: list[tuple[TestDeclaration, str]] = []
+    for raw_ref, kind, source in entries:
+        occurrence = counts.get(raw_ref, 0) + 1
+        counts[raw_ref] = occurrence
+        ref = raw_ref if occurrence == 1 else f"{raw_ref}#{occurrence}"
+        inventory.append((TestDeclaration(ref=ref, kind=kind), source))
+    return tuple(inventory)
+
+
+def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
+    return tuple(
+        declaration for declaration, _source in _python_inventory_entries(path, text)
+    )
 
 
 def parse_frontend_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
@@ -575,23 +666,35 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
         raise TestCorpusGuardError(f"base test file is not UTF-8: {path}") from exc
 
 
-def test_source_ref(test_ref: str, source_text: str) -> str:
+def build_test_source_ref(test_ref: str, declaration_source: str) -> str:
     artifact = {
         "schema_version": "uaa.test_corpus_source.v1",
         "test_ref": test_ref,
-        "source_digest": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+        "source_digest": hashlib.sha256(declaration_source.encode("utf-8")).hexdigest(),
     }
     encoded = json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
     return f"test-source-ref:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _source_ref_from_text(test_ref: str, source_text: str) -> str:
-    declarations = parse_test_declarations(test_ref.split("::", 1)[0], source_text)
-    if test_ref not in {declaration.ref for declaration in declarations}:
+    path = test_ref.split("::", 1)[0]
+    if path.endswith(".py"):
+        entries = _python_inventory_entries(path, source_text)
+        declaration_sources = {
+            declaration.ref: declaration_source
+            for declaration, declaration_source in entries
+        }
+        declaration_source = declaration_sources.get(test_ref)
+    else:
+        try:
+            declaration_source = frontend_source_for_ref(path, source_text, test_ref)
+        except FrontendInventoryError as exc:
+            raise TestCorpusEvidenceError(str(exc)) from None
+    if declaration_source is None:
         raise TestCorpusEvidenceError(
             f"replacement assertion source is missing: {test_ref}"
         )
-    return test_source_ref(test_ref, source_text)
+    return build_test_source_ref(test_ref, declaration_source)
 
 
 def _worktree_source_ref(repo: Path, test_ref: str) -> str:

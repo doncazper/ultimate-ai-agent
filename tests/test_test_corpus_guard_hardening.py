@@ -13,7 +13,7 @@ VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
 
 
 def _source_ref(test_ref: str) -> str:
-    return guard.test_source_ref(test_ref, f"verified-source:{test_ref}")
+    return guard.build_test_source_ref(test_ref, f"verified-source:{test_ref}")
 
 
 def _validate_envelope(value: str, _replacement_refs: list[str]) -> None:
