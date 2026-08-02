@@ -223,6 +223,35 @@ def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
 @pytest.mark.parametrize(
     "claim",
     (
+        "UAA can browse the web.",
+        "The API supports internet access.",
+        "The Control Center can search the web.",
+        "UAA can run arbitrary shell commands.",
+        "The API supports unrestricted command execution.",
+        "The Control Center can launch arbitrary subprocesses.",
+        "UAA can execute actions without approval.",
+        "The API supports unapproved execution.",
+        "The Control Center can act without policy checks.",
+        "UAA needs no approval.",
+    ),
+)
+def test_ordinary_forbidden_authority_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "The Control Center is production ready.",
         "Control Center is production ready.",
         "The CLI is production ready.",
@@ -664,6 +693,12 @@ def test_every_prohibited_sensitive_persistence_claim_fails(
         "UAA does not fetch the public web.",
         "UAA never executes plugins.",
         "The runtime no longer performs browser automation.",
+        "UAA cannot browse the web.",
+        "The API does not support internet access.",
+        "The Control Center cannot run arbitrary shell commands.",
+        "UAA cannot execute actions without approval.",
+        "The API does not support unapproved execution.",
+        "The Control Center needs approval.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
@@ -1918,6 +1953,12 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "clock starts when the normalized\n"
         "  operator turn reaches initial arbitration, including the mandatory content-free\n"
         "  discovery probe or tool-intent sentinel",
+        "stops only when the first token crosses the operator-facing API or\n"
+        "  stream boundary",
+        "first-model-token-available timestamp\n"
+        "  is diagnostic only and cannot stop or shorten the acceptance clock",
+        "response\n"
+        "  validation, serialization, buffering, and backpressure remain inside TTFT",
         "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
         "  cold catalog construction per supported hardware/backend class",
         "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
@@ -1955,12 +1996,20 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
             "match its paired-acceptance candidate artifact; a tool-facing case instead must\n"
             "match its sealed routing/tool-acceptance candidate artifact",
         "Every case in every state must prove exact legacy-router route, payload,\n"
-        "response, empty awareness-context, and complete durable-evidence artifact-set\n"
-        "and fingerprint equivalence",
+        "response, empty awareness-context, and complete per-turn legacy durable-evidence\n"
+        "artifact-set and fingerprint equivalence",
         "No awareness-specific decision envelope or other durable record may appear in the\n"
-        "safe-disabled artifact set",
-        "Any awareness routing, compact discovery, manifest hydration, changed\n"
-        "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
+        "safe-disabled per-turn artifact set",
+        "A separately bound, redacted\n"
+        "safe-disable control-plane activation receipt is required and is the sole allowed\n"
+        "additional durable artifact",
+        "safe-disable state, reason code,\n"
+        "catalog fingerprint, activation-evidence safe ref, contract version, and receipt\n"
+        "fingerprint",
+        "excluded from model context and per-turn route evidence",
+        "Any awareness routing, compact discovery, manifest hydration, changed legacy\n"
+        "payload, changed per-turn durable-evidence artifact or fingerprint, missing or\n"
+        "malformed activation receipt, or any other additional durable artifact while\n"
         "safe-disable is engaged invalidates promotion",
         "immutable started-attempt evidence plus successful, failed, canceled, and\n"
         "  rolled-back immutable terminal receipts are the sole inputs",

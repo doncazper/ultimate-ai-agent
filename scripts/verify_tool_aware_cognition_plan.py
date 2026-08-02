@@ -351,12 +351,20 @@ PLAN_REQUIRED = (
     "complete accepted corpus must also be replayed with explicit safe-disable\n"
     "engaged in the healthy, missing, corrupt, stale, and over-budget catalog states",
     "Every case in every state must prove exact legacy-router route, payload,\n"
-    "response, empty awareness-context, and complete durable-evidence artifact-set\n"
-    "and fingerprint equivalence",
+    "response, empty awareness-context, and complete per-turn legacy durable-evidence\n"
+    "artifact-set and fingerprint equivalence",
     "No awareness-specific decision envelope or other durable record may appear in the\n"
-    "safe-disabled artifact set",
-    "Any awareness routing, compact discovery, manifest hydration, changed\n"
-    "legacy payload, or changed durable-evidence artifact or fingerprint while\n"
+    "safe-disabled per-turn artifact set",
+    "A separately bound, redacted\n"
+    "safe-disable control-plane activation receipt is required and is the sole allowed\n"
+    "additional durable artifact",
+    "safe-disable state, reason code,\n"
+    "catalog fingerprint, activation-evidence safe ref, contract version, and receipt\n"
+    "fingerprint",
+    "excluded from model context and per-turn route evidence",
+    "Any awareness routing, compact discovery, manifest hydration, changed legacy\n"
+    "payload, changed per-turn durable-evidence artifact or fingerprint, missing or\n"
+    "malformed activation receipt, or any other additional durable artifact while\n"
     "safe-disable is engaged invalidates promotion",
     "immutable started-attempt evidence plus successful, failed, canceled, and\n"
     "  rolled-back immutable terminal receipts are the sole inputs",
@@ -545,6 +553,12 @@ PLAN_REQUIRED = (
     "clock starts when the normalized\n"
     "  operator turn reaches initial arbitration, including the mandatory content-free\n"
     "  discovery probe or tool-intent sentinel",
+    "stops only when the first token crosses the operator-facing API or\n"
+    "  stream boundary",
+    "first-model-token-available timestamp\n"
+    "  is diagnostic only and cannot stop or shorten the acceptance clock",
+    "response\n"
+    "  validation, serialization, buffering, and backpressure remain inside TTFT",
     "retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and\n"
     "  cold catalog construction per supported hardware/backend class",
     "cold catalog build or refresh: p95 at or below 150 ms and p99 at or below\n"
@@ -620,6 +634,28 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:browse(?:s|d|ing)? (?:the )?(?:public )?web|"
+    r"(?:access|search)(?:es|ed|ing)? (?:the )?(?:internet|web)|"
+    r"(?:internet|web) (?:access|search))\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:run|launch|execute)(?:s|d|ing)? (?:arbitrary|unrestricted) "
+    r"(?:(?:shell|system) )?(?:commands?|subprocesses?)|"
+    r"(?:arbitrary|unrestricted) command execution)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:unapproved execution|(?:execute|run|perform)(?:s|d|ing)? actions? without approval|"
+    r"act(?:s|ed|ing)? without (?:policy|approval) checks?)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"needs? no (?:approval|policy checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:es|ing)?|"
     r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"

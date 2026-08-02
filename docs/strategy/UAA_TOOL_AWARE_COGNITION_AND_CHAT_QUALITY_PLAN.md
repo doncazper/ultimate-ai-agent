@@ -319,7 +319,10 @@ The implementation must meet explicit budgets on supported development Macs:
   supported hardware/backend class. The clock starts when the normalized
   operator turn reaches initial arbitration, including the mandatory content-free
   discovery probe or tool-intent sentinel, uses the exact hydrated model-visible
-  payload, and stops only when the first model token is available;
+  payload, and stops only when the first token crosses the operator-facing API or
+  stream boundary. Any separately reported first-model-token-available timestamp
+  is diagnostic only and cannot stop or shorten the acceptance clock; response
+  validation, serialization, buffering, and backpressure remain inside TTFT;
 - cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
   300 ms for the accepted baseline catalog;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
@@ -805,14 +808,19 @@ journeys cannot substitute for this full-corpus equivalence proof.
 The complete accepted corpus must also be replayed with explicit safe-disable
 engaged in the healthy, missing, corrupt, stale, and over-budget catalog states.
 Every case in every state must prove exact legacy-router route, payload,
-response, empty awareness-context, and complete durable-evidence artifact-set
-and fingerprint equivalence. Safe-disable must be consulted before awareness
+response, empty awareness-context, and complete per-turn legacy durable-evidence
+artifact-set and fingerprint equivalence. Safe-disable must be consulted before awareness
 index validation or loading, so catalog degradation cannot affect this replay.
 No awareness-specific decision envelope or other durable record may appear in the
-safe-disabled artifact set,
-with the same hard no-dispatch fence and zero-event receipts used by the active
-replay. Any awareness routing, compact discovery, manifest hydration, changed
-legacy payload, or changed durable-evidence artifact or fingerprint while
+safe-disabled per-turn artifact set, with the same hard no-dispatch fence and
+zero-event receipts used by the active replay. A separately bound, redacted
+safe-disable control-plane activation receipt is required and is the sole allowed
+additional durable artifact; it contains only the safe-disable state, reason code,
+catalog fingerprint, activation-evidence safe ref, contract version, and receipt
+fingerprint, and must be excluded from model context and per-turn route evidence.
+Any awareness routing, compact discovery, manifest hydration, changed legacy
+payload, changed per-turn durable-evidence artifact or fingerprint, missing or
+malformed activation receipt, or any other additional durable artifact while
 safe-disable is engaged invalidates promotion. Sampled
 recovery journeys cannot replace this complete safe-disabled denominator.
 
