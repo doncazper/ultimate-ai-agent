@@ -222,6 +222,59 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         assert verifier._find_forbidden_authority_claims(claim)
 
 
+def test_every_structured_denied_authority_class_has_operator_mediated_coverage() -> None:
+    operator_claims = {
+        "runtime_model_or_provider_calls": (
+            "Operators can use UAA to call a runtime provider."
+        ),
+        "web_fetch_or_browser_automation": (
+            "Operators can use UAA to fetch the web."
+        ),
+        "connector_writes": "Operators can use UAA to write to connectors.",
+        "unrestricted_shell_or_subprocess": (
+            "Operators can use UAA to execute a shell."
+        ),
+        "remote_execution": (
+            "Operators can use UAA to perform remote execution."
+        ),
+        "mobile_sensor_or_control_runtime": (
+            "Operators can use UAA to access mobile sensors."
+        ),
+        "automatic_skill_or_plugin_execution": (
+            "Operators can use UAA to execute plugins."
+        ),
+        "automatic_pr_submission_or_merge": (
+            "Operators can use UAA to automatically merge PRs."
+        ),
+        "standing_or_cross_request_approval": (
+            "Operators can use UAA to grant standing approval."
+        ),
+        "background_or_scheduled_execution": (
+            "Operators can use UAA to execute tasks in the background."
+        ),
+        "spending_or_purchases": "Operators can use UAA to make payments.",
+        "billing_account_or_credential_changes": (
+            "Operators can use UAA to change billing accounts."
+        ),
+        "policy_approval_route_openapi_redaction_or_gate_bypass": (
+            "Operators can use UAA to bypass policy checks."
+        ),
+        "raw_sensitive_content_persistence": (
+            "Operators can use UAA to archive raw prompts."
+        ),
+        "supported_binary_distribution": (
+            "Operators can use UAA to distribute supported binaries."
+        ),
+        "public_release_or_production_authority": (
+            "Operators can use UAA to launch a public beta."
+        ),
+    }
+
+    assert tuple(operator_claims) == verifier.DENIED_AUTHORITY_KEYS
+    for claim in operator_claims.values():
+        assert verifier._find_forbidden_authority_claims(claim)
+
+
 @pytest.mark.parametrize(
     "claim",
     (
@@ -944,6 +997,8 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
         "UAA can archive raw conversation history.",
         "The runtime may cache raw prompts.",
         "The API can write raw response content to storage.",
+        "Raw conversation history is archived by UAA.",
+        "Raw prompts are cached by the runtime.",
         "The active-mode harness may dispatch to real adapters.",
         "The active-mode harness may dispatch through real adapters.",
         "The shadow replay can route via real dispatchers.",
@@ -1022,6 +1077,8 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
         "OpenAI model API calls are not supported.",
         "UAA cannot save raw conversation history.",
         "UAA cannot archive raw conversation history.",
+        "Raw conversation history is not archived by UAA.",
+        "Raw prompts are not cached by the runtime.",
         "The active-mode harness may not dispatch to real adapters.",
         "The active-mode harness may not dispatch through real adapters.",
         "The active replay may not dispatch real targets.",

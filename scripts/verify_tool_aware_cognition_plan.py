@@ -770,6 +770,17 @@ NAVIGATION_REQUIRED = (
     "docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md",
     "docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json",
 )
+OPERATOR_MEDIATED_PATTERNS = (
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
+    r"have (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
+    r"(?P<action>[^.!?]{1,240})",
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?P<action>[^.!?]{1,240}?) (?:through|via|using) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
+)
 FORBIDDEN_PATTERNS = (
     r"\b(?:operators?|users?) (?:may|can|will) "
     r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
@@ -907,6 +918,16 @@ FORBIDDEN_PATTERNS = (
     r"conversation transcripts?|transcripts?|logs?|log content|sensitive content)|"
     r"usernames?|hostnames?|serials?|environment dumps?|credential material|"
     r"secret-like values?)\b",
+    r"\b(?:raw (?:prompts?|responses?(?: content)?|provider payloads?|local paths?|"
+    r"conversations?(?: content| history)?|user messages?|"
+    r"conversation transcripts?|transcripts?|logs?|log content|sensitive content)|"
+    r"usernames?|hostnames?|serials?|environment dumps?|credential material|"
+    r"secret-like values?) (?:is|are) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:logged|stored|recorded|retained|saved|persisted|archived|cached|written)"
+    r"(?: to storage)? by (?:the )?"
+    r"(?:uaa|ultimate ai agent|product|system|release|router|runtime|agent|"
+    r"control center|cli|api|python agent core)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -1039,6 +1060,15 @@ FORBIDDEN_PATTERNS = (
     r"(?:entered|joined|launched|opened|started|begun) (?:a )?public beta\b",
     r"\bpublic (?:beta|release|distribution) (?:is|are) (?:now )?"
     r"(?:open|available|launched|ready|enabled|complete)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:open|launch|start|enter)(?:s|ed|ing)? (?:a )?public beta|"
+    r"(?:publish|release|distribute)(?:s|d|ing)? (?:a )?public "
+    r"(?:beta|release|distribution)|"
+    r"(?:make|declare)(?:s|d|ing)? (?:the )?(?:product|system|uaa|"
+    r"ultimate ai agent) (?:production[- ]ready|generally available))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) "
     r"(?:has|have|provides?|offers?|delivers?|supports?|enables?) (?:now )?"
     r"(?:broad|unrestricted|full) autonomy\b",
@@ -1525,10 +1555,7 @@ def _verify_queue_lifecycle(text: str) -> None:
         raise RuntimeError("queue lifecycle status is invalid")
 
 
-def _find_forbidden_authority_claims(text: str) -> list[str]:
-    # Markdown wrapping is presentation-only. Scan one whitespace-normalized
-    # prose stream so line breaks cannot split an otherwise forbidden claim.
-    text = re.sub(r"\s+", " ", text)
+def _scan_forbidden_authority_claims(text: str) -> list[str]:
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
@@ -1570,6 +1597,23 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
                 continue
             present.append(pattern)
             break
+    return present
+
+
+def _find_forbidden_authority_claims(text: str) -> list[str]:
+    # Markdown wrapping is presentation-only. Scan one whitespace-normalized
+    # prose stream so line breaks cannot split an otherwise forbidden claim.
+    text = re.sub(r"\s+", " ", text)
+    present = _scan_forbidden_authority_claims(text)
+    for mediated_pattern in OPERATOR_MEDIATED_PATTERNS:
+        for match in re.finditer(mediated_pattern, text, flags=re.IGNORECASE):
+            # Operator wording cannot turn a denied UAA capability into a safe
+            # claim. Canonicalize the grammatical subject, then apply the same
+            # complete authority predicate set used for direct product claims.
+            surrogate = f"UAA can {match.group('action').strip()}"
+            if _scan_forbidden_authority_claims(surrogate):
+                present.append(mediated_pattern)
+                break
     return present
 
 
