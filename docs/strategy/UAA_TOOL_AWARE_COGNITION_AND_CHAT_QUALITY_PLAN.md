@@ -312,15 +312,20 @@ The implementation must meet explicit budgets on supported development Macs:
   100 ms;
 - Tier 2 manifest read, schema validation, and schema-limited rendering at the
   8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms;
-- end-to-end supported tool-turn time to first token, from initial ingress
-  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,
-  tokenizer accounting, and local-model
+- end-to-end supported tool-turn time to first token, from operator request
+  arrival at the API or stream ingress through request decoding, validation,
+  authentication, normalization, initial arbitration, Tier 1 routing, Tier 2
+  hydration, exact prompt assembly, tokenizer accounting, and local-model
   prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms for every
-  supported hardware/backend class. The clock starts when the normalized
-  operator turn reaches initial arbitration, including the mandatory content-free
-  discovery probe or tool-intent sentinel, uses the exact hydrated model-visible
-  payload, and stops only when the first token crosses the operator-facing API or
-  stream boundary. Any separately reported first-model-token-available timestamp
+  supported hardware/backend class. The acceptance clock starts when the
+  operator request reaches the API or stream ingress, before decoding,
+  validation, authentication, normalization, or initial arbitration, and includes
+  the mandatory content-free discovery probe or tool-intent sentinel. It uses the
+  exact hydrated model-visible payload and
+  stops only when the first token crosses the operator-facing API or
+  stream boundary. Preprocessing stages may be reported
+  separately as diagnostics but cannot be excluded from or shorten the acceptance
+  clock. Any separately reported first-model-token-available timestamp
   is diagnostic only and cannot stop or shorten the acceptance clock; response
   validation, serialization, buffering, and backpressure remain inside TTFT;
 - cold catalog build or refresh: p95 at or below 150 ms and p99 at or below
@@ -331,6 +336,11 @@ The implementation must meet explicit budgets on supported development Macs:
   context limit, inference-settings, and prompt-format tuple is an independent
   latency stratum; pooling configurations, substituting one configuration for
   another, or omitting an underpowered or missing stratum fails TAW-08;
+- Within every supported local-model configuration and hardware/backend class,
+  every supported product language is an independent latency stratum. Every
+  applicable language-by-configuration stratum must independently clear every
+  latency gate and budget; pooling languages, measuring only a faster language,
+  or omitting an underpowered or missing language stratum fails TAW-08;
 - TAW-00 predeclares one measurement protocol for router overhead, shortlist
   retrieval, Tier 2 manifest hydration, end-to-end supported tool-turn TTFT, and
   cold catalog construction per supported hardware/backend class. Each warm metric uses at least 1,000 independent measured turns per class and

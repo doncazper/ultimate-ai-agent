@@ -236,6 +236,9 @@ def test_first_class_operator_surfaces_cannot_claim_forbidden_authority(
         "UAA can invoke runtime models.",
         "The API supports provider SDK calls.",
         "The runtime can perform model inference.",
+        "UAA can read mobile sensors.",
+        "The API supports mobile sensor access.",
+        "The runtime can operate device sensors.",
     ),
 )
 def test_ordinary_forbidden_authority_claims_fail_full_verifier(
@@ -1318,6 +1321,59 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
 
 
 @pytest.mark.parametrize(
+    "contradiction",
+    (
+        "TAW-08 completion does not require a passing Foundation Gate receipt.",
+        "The post-merge Foundation Gate may be skipped.",
+        "The exact-head Foundation Gate report-only verification can be skipped.",
+        "The sealed acceptance holdout may be rerun after candidate changes.",
+        "Reuse of the sealed acceptance holdout after candidate changes is permitted.",
+    ),
+)
+def test_acceptance_contract_rejects_direct_contradictions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contradiction: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "surface_name",
+    (
+        "PLAN",
+        "QUEUE",
+        "BOARD",
+        "ROADMAP",
+        "CANONICAL_ROADMAP",
+        "TRUTH_PACKET",
+        "DOCS_README",
+        "DOCUMENTATION_INDEX",
+    ),
+)
+def test_acceptance_contradictions_fail_on_every_program_truth_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, surface_name: str
+) -> None:
+    source = getattr(verifier, surface_name)
+    mutated = tmp_path / source.name
+    mutated.write_text(
+        source.read_text(encoding="utf-8")
+        + "\nThe post-merge Foundation Gate may be skipped.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, surface_name, mutated)
+
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "required_fragment",
     (
         "canonical ordered set\n"
@@ -1994,15 +2050,26 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
         "  latency stratum",
         "pooling configurations, substituting one configuration for\n"
         "  another, or omitting an underpowered or missing stratum fails TAW-08",
+        "Within every supported local-model configuration and hardware/backend class,\n"
+        "  every supported product language is an independent latency stratum",
+        "Every\n"
+        "  applicable language-by-configuration stratum must independently clear every\n"
+        "  latency gate and budget",
+        "pooling languages, measuring only a faster language,\n"
+        "  or omitting an underpowered or missing language stratum fails TAW-08",
         "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
         "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
-        "end-to-end supported tool-turn time to first token, from initial ingress\n"
-        "  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,\n"
-        "  tokenizer accounting, and local-model\n"
+        "end-to-end supported tool-turn time to first token, from operator request\n"
+        "  arrival at the API or stream ingress through request decoding, validation,\n"
+        "  authentication, normalization, initial arbitration, Tier 1 routing, Tier 2\n"
+        "  hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
         "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
-        "clock starts when the normalized\n"
-        "  operator turn reaches initial arbitration, including the mandatory content-free\n"
-        "  discovery probe or tool-intent sentinel",
+        "acceptance clock starts when the\n"
+        "  operator request reaches the API or stream ingress, before decoding,\n"
+        "  validation, authentication, normalization, or initial arbitration",
+        "Preprocessing stages may be reported\n"
+        "  separately as diagnostics but cannot be excluded from or shorten the acceptance\n"
+        "  clock",
         "stops only when the first token crosses the operator-facing API or\n"
         "  stream boundary",
         "first-model-token-available timestamp\n"

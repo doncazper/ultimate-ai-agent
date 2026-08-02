@@ -584,13 +584,17 @@ PLAN_REQUIRED = (
     "  100 ms",
     "Tier 2 manifest read, schema validation, and schema-limited rendering at the\n"
     "  8-manifest ceiling: warm p95 at or below 100 ms and p99 at or below 200 ms",
-    "end-to-end supported tool-turn time to first token, from initial ingress\n"
-    "  arbitration through Tier 1 routing, Tier 2 hydration, exact prompt assembly,\n"
-    "  tokenizer accounting, and local-model\n"
+    "end-to-end supported tool-turn time to first token, from operator request\n"
+    "  arrival at the API or stream ingress through request decoding, validation,\n"
+    "  authentication, normalization, initial arbitration, Tier 1 routing, Tier 2\n"
+    "  hydration, exact prompt assembly, tokenizer accounting, and local-model\n"
     "  prefill: warm p95 at or below 1,500 ms and p99 at or below 2,500 ms",
-    "clock starts when the normalized\n"
-    "  operator turn reaches initial arbitration, including the mandatory content-free\n"
-    "  discovery probe or tool-intent sentinel",
+    "acceptance clock starts when the\n"
+    "  operator request reaches the API or stream ingress, before decoding,\n"
+    "  validation, authentication, normalization, or initial arbitration",
+    "Preprocessing stages may be reported\n"
+    "  separately as diagnostics but cannot be excluded from or shorten the acceptance\n"
+    "  clock",
     "stops only when the first token crosses the operator-facing API or\n"
     "  stream boundary",
     "first-model-token-available timestamp\n"
@@ -609,6 +613,13 @@ PLAN_REQUIRED = (
     "  latency stratum",
     "pooling configurations, substituting one configuration for\n"
     "  another, or omitting an underpowered or missing stratum fails TAW-08",
+    "Within every supported local-model configuration and hardware/backend class,\n"
+    "  every supported product language is an independent latency stratum",
+    "Every\n"
+    "  applicable language-by-configuration stratum must independently clear every\n"
+    "  latency gate and budget",
+    "pooling languages, measuring only a faster language,\n"
+    "  or omitting an underpowered or missing language stratum fails TAW-08",
     "uncertainty nor a current policy or safety denial, a separate fail-closed census\n"
     "requires the exact canonical\n"
     "`blocked_capability_evidence` route and `capability_evidence_unavailable`",
@@ -842,7 +853,8 @@ FORBIDDEN_PATTERNS = (
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:perform(?:s|ing)? remote execution|remote execution|"
     r"(?:run|execute)(?:s|d|ing)? commands? (?:on|against) remote (?:machines?|hosts?|systems?)|"
-    r"control(?:s|ling)? mobile sensors?|mobile (?:sensor|control) runtime|"
+    r"(?:read|access|operate|control)(?:s|ed|ing)? (?:mobile|device) sensors?|"
+    r"(?:mobile|device) sensor access|mobile (?:sensor|control) runtime|"
     r"distribut(?:e|es|ed|ing) supported (?:binaries?|binary files?)|"
     r"supported binary distribution|binary distribution)\b",
     r"\b(?:remote execution|mobile (?:sensor|control) runtime|"
@@ -1061,6 +1073,16 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:may|can)\s+(?:be\s+)?accepted)\b",
 )
 
+ACCEPTANCE_CONTRADICTION_PATTERNS = (
+    r"\bTAW-08 completion does not require (?:a )?passing Foundation Gate receipt\b",
+    r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)? "
+    r"(?:receipt|verification)?\s*(?:may|can) be skipped\b",
+    r"\b(?:the )?sealed acceptance holdout (?:may|can) be "
+    r"(?:reused|rerun|re-run) after candidate changes\b",
+    r"\b(?:reuse|rerun|re-run) (?:of )?(?:the )?sealed acceptance holdout "
+    r"after candidate changes (?:is|may be|can be) (?:allowed|permitted|acceptable)\b",
+)
+
 
 def _read(path: Path) -> str:
     try:
@@ -1209,6 +1231,14 @@ def _verify_zero_tolerance_lines(text: str) -> None:
         for pattern in ZERO_TOLERANCE_CONTRADICTION_PATTERNS
     ):
         raise RuntimeError("plan zero-tolerance gate is invalid")
+
+
+def _verify_acceptance_contract(text: str) -> None:
+    if any(
+        re.search(pattern, text, flags=re.IGNORECASE)
+        for pattern in ACCEPTANCE_CONTRADICTION_PATTERNS
+    ):
+        raise RuntimeError("plan acceptance contract is invalid")
 
 
 def _verify_plan_lifecycle_and_authority_boundary(text: str) -> None:
@@ -1435,6 +1465,7 @@ def verify() -> dict[str, object]:
             documentation_index,
         )
     )
+    _verify_acceptance_contract(combined)
     present = _find_forbidden_authority_claims(combined)
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")
