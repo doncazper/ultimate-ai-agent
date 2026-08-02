@@ -8,6 +8,9 @@ import re
 from collections.abc import Callable
 from typing import Any
 
+from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
+
 
 ASSERTION_EQUIVALENCE_REF_PATTERN = re.compile(
     r"assertion-equivalence-ref:sha256:[0-9a-f]{64}"
@@ -17,12 +20,22 @@ TEST_CORPUS_EVIDENCE_REF_PATTERN = re.compile(
 )
 ASSERTION_REF_PATTERN = re.compile(r"assertion-ref:sha256:[0-9a-f]{64}")
 TEST_RESULT_REF_PATTERN = re.compile(r"test-result-ref:sha256:[0-9a-f]{64}")
+TEST_SOURCE_REF_PATTERN = re.compile(r"test-source-ref:sha256:[0-9a-f]{64}")
 ASSERTION_EQUIVALENCE_SCHEMA = "uaa.test_corpus_assertion_equivalence.v1"
 RETIREMENT_EVIDENCE_SCHEMA = "uaa.test_corpus_retirement_evidence.v1"
 ASSERTION_EVIDENCE_SCHEMA = "uaa.test_corpus_assertion_evidence.v1"
 TEST_RESULT_EVIDENCE_SCHEMA = "uaa.test_corpus_test_result_evidence.v1"
-MAX_ARTIFACT_BYTES = 50_000
+MAX_ARTIFACT_BYTES = 450_000
 MAX_ARTIFACT_REFS = 64
+UNSAFE_DURABLE_PROSE_PATTERNS = (
+    re.compile(r"(?i)\braw[\s_-]?(?:prompt|response|provider|payload|log|path)\b"),
+    re.compile(r"(?i)\b(?:username|hostname|serial)\b"),
+    re.compile(r"(?i)\benv(?:ironment)?[\s_-]?dump\b"),
+    re.compile(
+        r"(?<![A-Za-z0-9])/(?:Users|home|private|tmp|var|opt|usr|etc|Volumes)/"
+        r"|[A-Za-z]:[\\/]|\\\\[^\\]+\\"
+    ),
+)
 
 
 class TestCorpusEvidenceError(RuntimeError):
@@ -48,11 +61,14 @@ def retirement_artifact_ref(prefix: str, artifact: dict[str, Any]) -> str:
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _validate_safe_summary(value: object, *, label: str) -> None:
+def _validate_safe_prose(value: object, *, label: str) -> None:
     if (
         not isinstance(value, str)
         or not 20 <= len(value.strip()) <= 500
         or any(ord(character) < 32 for character in value)
+        or contains_secret_like(value)
+        or contains_obvious_secret(value)
+        or any(pattern.search(value) for pattern in UNSAFE_DURABLE_PROSE_PATTERNS)
     ):
         raise TestCorpusEvidenceError(f"retired test {label} is invalid")
 
@@ -65,6 +81,8 @@ def _validate_content_bound_evidence(
     schema: str,
     label: str,
     replacement_refs: list[str],
+    resolve_assertion_source_ref: Callable[[str], str],
+    validate_verification_envelope: Callable[[str, list[str]], None],
 ) -> list[dict[str, Any]]:
     if (
         not isinstance(value, list)
@@ -80,11 +98,12 @@ def _validate_content_bound_evidence(
             raise TestCorpusEvidenceError(f"retired test {label} is invalid")
         artifact = item.get("artifact")
         ref = item.get("ref")
-        expected_keys = {"schema_version", "safe_summary", "replacement_ref"}
+        expected_keys = {"schema_version", "replacement_ref", "source_ref"}
         if prefix == "test-result-ref":
             expected_keys.remove("replacement_ref")
+            expected_keys.remove("source_ref")
             expected_keys.add("verified_refs")
-            expected_keys.add("status")
+            expected_keys.add("verification_envelope")
         if (
             not isinstance(artifact, dict)
             or set(artifact) != expected_keys
@@ -93,16 +112,37 @@ def _validate_content_bound_evidence(
                 prefix == "assertion-ref"
                 and artifact.get("replacement_ref") not in replacement_refs
             )
-            or (prefix == "test-result-ref" and artifact.get("status") != "passed")
             or (
                 prefix == "test-result-ref"
                 and artifact.get("verified_refs") != replacement_refs
             )
         ):
             raise TestCorpusEvidenceError(f"retired test {label} is invalid")
-        _validate_safe_summary(artifact.get("safe_summary"), label=label)
         if prefix == "assertion-ref":
-            covered_replacements.add(str(artifact.get("replacement_ref")))
+            replacement_ref = str(artifact.get("replacement_ref"))
+            source_ref = artifact.get("source_ref")
+            if (
+                not isinstance(source_ref, str)
+                or TEST_SOURCE_REF_PATTERN.fullmatch(source_ref) is None
+                or source_ref != resolve_assertion_source_ref(replacement_ref)
+            ):
+                raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+            covered_replacements.add(replacement_ref)
+        else:
+            verification_envelope = artifact.get("verification_envelope")
+            if not isinstance(verification_envelope, str):
+                raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+            try:
+                validate_verification_envelope(
+                    verification_envelope,
+                    replacement_refs,
+                )
+            except TestCorpusEvidenceError:
+                raise
+            except (TypeError, ValueError):
+                raise TestCorpusEvidenceError(
+                    f"retired test {label} is invalid"
+                ) from None
         if (
             not isinstance(ref, str)
             or pattern.fullmatch(ref) is None
@@ -121,6 +161,8 @@ def _validate_retirement_record(
     record: object,
     *,
     validate_test_ref: Callable[[str], None],
+    resolve_assertion_source_ref: Callable[[str], str],
+    validate_verification_envelope: Callable[[str, list[str]], None],
 ) -> tuple[str, dict[str, Any]]:
     if not isinstance(record, dict):
         raise TestCorpusEvidenceError("test-corpus retirement record must be an object")
@@ -163,11 +205,9 @@ def _validate_retirement_record(
             raise TestCorpusEvidenceError(
                 f"replacement refs are invalid for retired test: {retired_ref}"
             ) from None
-    if (
-        not isinstance(reason, str)
-        or not 20 <= len(reason.strip()) <= 500
-        or any(ord(character) < 32 for character in reason)
-    ):
+    try:
+        _validate_safe_prose(reason, label="reason")
+    except TestCorpusEvidenceError:
         raise TestCorpusEvidenceError(f"retired test reason is too weak: {retired_ref}")
 
     expected_equivalence_keys = {
@@ -193,6 +233,8 @@ def _validate_retirement_record(
         schema=ASSERTION_EVIDENCE_SCHEMA,
         label="preserved assertion evidence",
         replacement_refs=replacements,
+        resolve_assertion_source_ref=resolve_assertion_source_ref,
+        validate_verification_envelope=validate_verification_envelope,
     )
     if (
         not isinstance(equivalence_ref, str)
@@ -230,6 +272,8 @@ def _validate_retirement_record(
         schema=TEST_RESULT_EVIDENCE_SCHEMA,
         label="verification evidence",
         replacement_refs=replacements,
+        resolve_assertion_source_ref=resolve_assertion_source_ref,
+        validate_verification_envelope=validate_verification_envelope,
     )
     if (
         not isinstance(evidence_ref, str)
@@ -250,6 +294,8 @@ def _validated_retirement_records(
     ledger: dict[str, Any],
     *,
     validate_test_ref: Callable[[str], None],
+    resolve_assertion_source_ref: Callable[[str], str],
+    validate_verification_envelope: Callable[[str, list[str]], None],
 ) -> dict[str, dict[str, Any]]:
     records = ledger.get("retirements")
     if not isinstance(records, list):
@@ -259,6 +305,8 @@ def _validated_retirement_records(
         retired_ref, record = _validate_retirement_record(
             raw_record,
             validate_test_ref=validate_test_ref,
+            resolve_assertion_source_ref=resolve_assertion_source_ref,
+            validate_verification_envelope=validate_verification_envelope,
         )
         if retired_ref in by_retired_ref:
             raise TestCorpusEvidenceError(f"duplicate retired test ref: {retired_ref}")
@@ -272,16 +320,22 @@ def validate_retirements(
     ledger: dict[str, Any],
     *,
     validate_test_ref: Callable[[str], None],
+    resolve_assertion_source_ref: Callable[[str], str],
+    validate_verification_envelope: Callable[[str, list[str]], None],
     base_ledger: dict[str, Any] | None = None,
 ) -> int:
     by_retired_ref = _validated_retirement_records(
         ledger,
         validate_test_ref=validate_test_ref,
+        resolve_assertion_source_ref=resolve_assertion_source_ref,
+        validate_verification_envelope=validate_verification_envelope,
     )
     historical = (
         _validated_retirement_records(
             base_ledger,
             validate_test_ref=validate_test_ref,
+            resolve_assertion_source_ref=resolve_assertion_source_ref,
+            validate_verification_envelope=validate_verification_envelope,
         )
         if base_ledger is not None
         else {}

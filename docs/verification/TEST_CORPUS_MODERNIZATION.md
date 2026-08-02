@@ -46,12 +46,19 @@ Each retirement entry must identify:
 - a typed verification-evidence artifact plus the SHA-256 ref recomputed from
   its canonical JSON.
 
-The assertion artifact binds the retired and replacement refs to one or more
-bounded, typed, safe-summary-only assertion artifacts whose canonical JSON is
-recomputed as an `assertion-ref:sha256:*`. The evidence artifact does the same
-for passed verification artifacts and their `test-result-ref:sha256:*` values.
-The nested artifacts and their enclosing artifacts are both content-bound;
-arbitrary well-shaped hashes are insufficient. Records accepted
+The assertion artifact binds every replacement ref to an independently derived
+`test-source-ref:sha256:*` over the exact inventoried test source; prose cannot
+stand in for preserved assertion evidence. The verification artifact embeds a
+bounded, content-free canonical GitHub terminal-run envelope emitted by the
+repository verifier. That envelope must report a complete passed Foundation
+Gate run for a strict ancestor candidate, and every replacement must exist with
+the same source ref in that verified candidate and the retirement candidate.
+This deliberately makes retirement a two-candidate sequence: land and verify
+the replacement first, then cite that verifier-generated exact-SHA envelope in
+the later retirement. The nested artifacts and their enclosing artifacts are
+content-bound as `assertion-ref:sha256:*` and `test-result-ref:sha256:*` values;
+arbitrary summaries, status strings, or well-shaped hashes are insufficient.
+Records accepted
 on the exact comparison commit are immutable: later candidates must preserve
 the complete typed record field-for-field. If a historical replacement is later
 retired, its own new record must preserve the replacement chain and retain at
@@ -74,6 +81,10 @@ single-link regular-file identities by walking every repository-relative path
 component through pinned no-follow directory descriptors; substitutions,
 symlinked parents, or mid-read identity changes fail closed.
 
+Retirement reasons are bounded and rejected when repository redaction rules
+detect credential-like values, raw prompt/response/log/path markers, local user
+paths, usernames, hostnames, serials, or environment dumps. The verifier
+envelope applies its own content-free transport validation before acceptance.
 The durable result stores only repository code metadata, counts, and hashes.
 It does not store raw test output, application payloads, prompts, responses,
 credentials, host identity, or local paths.

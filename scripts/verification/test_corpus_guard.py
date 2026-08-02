@@ -13,7 +13,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from scripts.verification.test_corpus_evidence import (
     ASSERTION_EVIDENCE_SCHEMA as ASSERTION_EVIDENCE_SCHEMA,
@@ -30,6 +30,11 @@ from scripts.verification.test_corpus_frontend import (
     FrontendInventoryError,
     parse_frontend_refs,
 )
+from scripts.verification.verification_contracts import VerificationTerminalStatus
+from scripts.verification.verification_github_transport import (
+    VerificationGithubTransportError,
+    decode_github_job_output,
+)
 
 
 RETIREMENT_SCHEMA = "uaa.test_corpus_retirements.v1"
@@ -42,15 +47,32 @@ MAX_GIT_STDOUT_BYTES = 8_000_000
 MAX_CHANGED_PATH_BYTES = 4_000_000
 MAX_CHANGED_TEST_PATHS = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
+FRONTEND_TEST_EXTENSIONS = (
+    "js",
+    "jsx",
+    "ts",
+    "tsx",
+    "cjs",
+    "cjsx",
+    "cts",
+    "ctsx",
+    "mjs",
+    "mjsx",
+    "mts",
+    "mtsx",
+)
 TEST_FILE_PATTERNS = (
     "tests/**/test_*.py",
     "tests/**/*_test.py",
-    "apps/control-center/src/**/*.test.ts",
-    "apps/control-center/src/**/*.test.tsx",
-    "apps/control-center/src/**/*.spec.ts",
-    "apps/control-center/src/**/*.spec.tsx",
-    "apps/control-center/tests/**/*.ts",
-    "apps/control-center/tests/**/*.tsx",
+    *(
+        f"apps/control-center/src/**/*.{kind}.{extension}"
+        for kind in ("test", "spec")
+        for extension in FRONTEND_TEST_EXTENSIONS
+    ),
+    *(
+        f"apps/control-center/tests/**/*.{extension}"
+        for extension in FRONTEND_TEST_EXTENSIONS
+    ),
 )
 
 
@@ -482,15 +504,14 @@ def _is_test_path(path: str) -> bool:
         )
     if not path.startswith("apps/control-center/"):
         return False
-    return (
-        candidate.name.endswith(".test.ts")
-        or candidate.name.endswith(".test.tsx")
-        or candidate.name.endswith(".spec.ts")
-        or candidate.name.endswith(".spec.tsx")
-        or (
-            path.startswith("apps/control-center/tests/")
-            and candidate.suffix in {".ts", ".tsx"}
-        )
+    vitest_suffixes = tuple(
+        f".{kind}.{extension}"
+        for kind in ("test", "spec")
+        for extension in FRONTEND_TEST_EXTENSIONS
+    )
+    return candidate.name.endswith(vitest_suffixes) or (
+        path.startswith("apps/control-center/tests/")
+        and candidate.suffix.removeprefix(".") in FRONTEND_TEST_EXTENSIONS
     )
 
 
@@ -540,6 +561,125 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
         return result.stdout.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError(f"base test file is not UTF-8: {path}") from exc
+
+
+def test_source_ref(test_ref: str, source_text: str) -> str:
+    artifact = {
+        "schema_version": "uaa.test_corpus_source.v1",
+        "test_ref": test_ref,
+        "source_digest": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+    }
+    encoded = json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
+    return f"test-source-ref:sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _source_ref_from_text(test_ref: str, source_text: str) -> str:
+    declarations = parse_test_declarations(test_ref.split("::", 1)[0], source_text)
+    if test_ref not in {declaration.ref for declaration in declarations}:
+        raise TestCorpusEvidenceError(
+            f"replacement assertion source is missing: {test_ref}"
+        )
+    return test_source_ref(test_ref, source_text)
+
+
+def _worktree_source_ref(repo: Path, test_ref: str) -> str:
+    path = test_ref.split("::", 1)[0]
+    return _source_ref_from_text(test_ref, _read_worktree_text(repo, path))
+
+
+def _validate_verification_envelope(
+    repo: Path,
+    encoded_envelope: str,
+    replacement_refs: list[str],
+    resolve_assertion_source_ref: Callable[[str], str],
+) -> None:
+    try:
+        envelope = decode_github_job_output(encoded_envelope)
+    except VerificationGithubTransportError as exc:
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt is invalid"
+        ) from exc
+    receipt = envelope.receipt
+    run = envelope.final_run_manifest
+    if (
+        run is None
+        or receipt.unit_ref != "foundation-gate-report"
+        or receipt.status is not VerificationTerminalStatus.PASSED
+        or run.status is not VerificationTerminalStatus.PASSED
+        or run.missing_unit_refs
+        or run.failed_unit_refs
+        or receipt.execution_surface_ref != "surface-ref:github"
+        or receipt.repository_sha != run.repository_sha
+    ):
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt is not a passed terminal run"
+        )
+    current_head = _run_git(repo, ["rev-parse", "HEAD"])
+    if current_head.returncode != 0:
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt cannot bind the current head"
+        )
+    try:
+        head_sha = current_head.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt cannot bind the current head"
+        ) from exc
+    if receipt.repository_sha == head_sha:
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt must predate retirement"
+        )
+    ancestry = _run_git(
+        repo,
+        ["merge-base", "--is-ancestor", receipt.repository_sha, head_sha],
+    )
+    if ancestry.returncode != 0:
+        raise TestCorpusEvidenceError(
+            "retired test verification receipt is not from a prior candidate"
+        )
+    for replacement_ref in replacement_refs:
+        path = replacement_ref.split("::", 1)[0]
+        prior_text = _base_text(repo, receipt.repository_sha, path)
+        if prior_text is None:
+            raise TestCorpusEvidenceError(
+                f"replacement was absent from verified candidate: {replacement_ref}"
+            )
+        if _source_ref_from_text(
+            replacement_ref,
+            prior_text,
+        ) != resolve_assertion_source_ref(replacement_ref):
+            raise TestCorpusEvidenceError(
+                f"replacement changed after verified candidate: {replacement_ref}"
+            )
+
+
+def _historical_source_refs(ledger: dict[str, Any]) -> dict[str, str]:
+    source_refs: dict[str, str] = {}
+    records = ledger.get("retirements")
+    if not isinstance(records, list):
+        return source_refs
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        equivalence = record.get("assertion_equivalence_artifact")
+        if not isinstance(equivalence, dict):
+            continue
+        evidence = equivalence.get("preserved_assertion_evidence")
+        if not isinstance(evidence, list):
+            continue
+        for item in evidence:
+            artifact = item.get("artifact") if isinstance(item, dict) else None
+            if not isinstance(artifact, dict):
+                continue
+            replacement_ref = artifact.get("replacement_ref")
+            source_ref = artifact.get("source_ref")
+            if isinstance(replacement_ref, str) and isinstance(source_ref, str):
+                existing = source_refs.setdefault(replacement_ref, source_ref)
+                if existing != source_ref:
+                    raise TestCorpusGuardError(
+                        "historical replacement source refs conflict"
+                    )
+    return source_refs
 
 
 def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
@@ -632,6 +772,8 @@ def validate_retirements(
     removed_refs: set[str],
     ledger: dict[str, Any],
     *,
+    resolve_assertion_source_ref: Callable[[str], str],
+    validate_verification_envelope: Callable[[str, list[str]], None],
     base_ledger: dict[str, Any] | None = None,
 ) -> int:
     try:
@@ -640,6 +782,8 @@ def validate_retirements(
             removed_refs,
             ledger,
             validate_test_ref=_validate_test_ref,
+            resolve_assertion_source_ref=resolve_assertion_source_ref,
+            validate_verification_envelope=validate_verification_envelope,
             base_ledger=base_ledger,
         )
     except TestCorpusEvidenceError as exc:
@@ -671,15 +815,32 @@ def verify_test_corpus_guard(
         if resolved_base is not None
         else set()
     )
+    ledger = _load_ledger(repo)
+    base_ledger = (
+        _load_base_ledger(repo, resolved_base) if resolved_base is not None else None
+    )
+    historical_source_refs = _historical_source_refs(base_ledger or {})
+
+    def resolve_source_ref(ref: str) -> str:
+        try:
+            return _worktree_source_ref(repo, ref)
+        except (TestCorpusGuardError, TestCorpusEvidenceError):
+            historical = historical_source_refs.get(ref)
+            if historical is None:
+                raise TestCorpusEvidenceError(
+                    f"replacement assertion source is missing: {ref}"
+                ) from None
+            return historical
+
     retirement_count = validate_retirements(
         current_refs,
         removed,
-        _load_ledger(repo),
-        base_ledger=(
-            _load_base_ledger(repo, resolved_base)
-            if resolved_base is not None
-            else None
+        ledger,
+        resolve_assertion_source_ref=resolve_source_ref,
+        validate_verification_envelope=lambda envelope, refs: (
+            _validate_verification_envelope(repo, envelope, refs, resolve_source_ref)
         ),
+        base_ledger=base_ledger,
     )
     return {
         "test_declaration_count": len(declarations),

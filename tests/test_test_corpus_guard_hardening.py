@@ -9,6 +9,27 @@ import pytest
 from scripts.verification import test_corpus_guard as guard
 
 
+VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
+
+
+def _source_ref(test_ref: str) -> str:
+    return guard.test_source_ref(test_ref, f"verified-source:{test_ref}")
+
+
+def _validate_envelope(value: str, _replacement_refs: list[str]) -> None:
+    if value != VERIFICATION_ENVELOPE:
+        raise ValueError("verification envelope is invalid")
+
+
+def _validate_retirements(*args: object, **kwargs: object) -> int:
+    return guard.validate_retirements(
+        *args,
+        resolve_assertion_source_ref=_source_ref,
+        validate_verification_envelope=_validate_envelope,
+        **kwargs,
+    )
+
+
 def _record(
     retired_ref: str,
     replacement_ref: str,
@@ -17,13 +38,12 @@ def _record(
     assertion_artifact = {
         "schema_version": guard.ASSERTION_EVIDENCE_SCHEMA,
         "replacement_ref": replacement_ref,
-        "safe_summary": "The replacement preserves the exact guarded assertion.",
+        "source_ref": _source_ref(replacement_ref),
     }
     result_artifact = {
         "schema_version": guard.TEST_RESULT_EVIDENCE_SCHEMA,
-        "status": "passed",
         "verified_refs": replacement_refs,
-        "safe_summary": "Focused verification passed for the replacement behavior.",
+        "verification_envelope": VERIFICATION_ENVELOPE,
     }
     equivalence_artifact = {
         "schema_version": guard.ASSERTION_EQUIVALENCE_SCHEMA,
@@ -74,12 +94,12 @@ def _record(
         (
             "assertion_equivalence_artifact",
             "preserved_assertion_evidence",
-            "equivalence ref is invalid",
+            "preserved assertion evidence is invalid",
         ),
         (
             "evidence_artifact",
             "verification_evidence",
-            "evidence ref is invalid",
+            "verification evidence is invalid",
         ),
     ),
 )
@@ -99,20 +119,13 @@ def test_retirement_artifact_hashes_are_recomputed(
     assert isinstance(nested, dict)
     nested_artifact = nested["artifact"]
     assert isinstance(nested_artifact, dict)
-    nested_artifact["safe_summary"] = (
-        "This changed nested artifact no longer matches its content-bound ref."
-    )
-    nested["ref"] = guard.retirement_artifact_ref(
-        (
-            "assertion-ref"
-            if list_field == "preserved_assertion_evidence"
-            else "test-result-ref"
-        ),
-        nested_artifact,
-    )
+    if list_field == "preserved_assertion_evidence":
+        nested_artifact["source_ref"] = f"test-source-ref:sha256:{'0' * 64}"
+    else:
+        nested_artifact["verification_envelope"] = "fabricated-envelope"
 
     with pytest.raises(guard.TestCorpusGuardError, match=message):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [record]},
@@ -149,7 +162,7 @@ def test_assertion_evidence_covers_every_replacement() -> None:
         guard.TestCorpusGuardError,
         match="preserved assertion evidence is invalid",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {first, second},
             {retired},
             {"retirements": [record]},
@@ -167,7 +180,7 @@ def test_historical_retirement_records_are_immutable() -> None:
         guard.TestCorpusGuardError,
         match="historical retirement record changed",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             set(),
             {"retirements": [changed]},
@@ -182,7 +195,7 @@ def test_historical_replacement_retirement_preserves_an_active_chain() -> None:
     historical = _record(retired, replacement)
     replacement_retirement = _record(replacement, successor)
 
-    count = guard.validate_retirements(
+    count = _validate_retirements(
         {successor},
         {replacement},
         {"retirements": [historical, replacement_retirement]},
@@ -197,7 +210,7 @@ def test_replacement_chain_reaches_active_test_without_base_ledger() -> None:
     replacement = "tests/test_sample.py::test_replacement"
     successor = "tests/test_sample.py::test_successor"
 
-    count = guard.validate_retirements(
+    count = _validate_retirements(
         {successor},
         set(),
         {
@@ -219,11 +232,24 @@ def test_new_retirement_record_must_match_a_removed_test() -> None:
         guard.TestCorpusGuardError,
         match="retirement records do not match removed tests",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             set(),
             {"retirements": [_record(retired, replacement)]},
             base_ledger={"retirements": []},
+        )
+
+
+def test_fabricated_verification_envelope_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(
+        guard.TestCorpusEvidenceError,
+        match="verification receipt is invalid",
+    ):
+        guard._validate_verification_envelope(
+            tmp_path,
+            "fabricated-envelope",
+            ["tests/test_sample.py::test_replacement"],
+            _source_ref,
         )
 
 

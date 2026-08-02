@@ -6,6 +6,27 @@ import pytest
 from scripts.verification import test_corpus_guard as guard
 
 
+VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
+
+
+def _source_ref(test_ref: str) -> str:
+    return guard.test_source_ref(test_ref, f"verified-source:{test_ref}")
+
+
+def _validate_envelope(value: str, _replacement_refs: list[str]) -> None:
+    if value != VERIFICATION_ENVELOPE:
+        raise ValueError("verification envelope is invalid")
+
+
+def _validate_retirements(*args: object, **kwargs: object) -> int:
+    return guard.validate_retirements(
+        *args,
+        resolve_assertion_source_ref=_source_ref,
+        validate_verification_envelope=_validate_envelope,
+        **kwargs,
+    )
+
+
 def _record(
     retired_ref: str,
     replacement_ref: str,
@@ -14,13 +35,12 @@ def _record(
     assertion_artifact = {
         "schema_version": guard.ASSERTION_EVIDENCE_SCHEMA,
         "replacement_ref": replacement_ref,
-        "safe_summary": "The replacement preserves the exact guarded assertion.",
+        "source_ref": _source_ref(replacement_ref),
     }
     result_artifact = {
         "schema_version": guard.TEST_RESULT_EVIDENCE_SCHEMA,
-        "status": "passed",
         "verified_refs": replacement_refs,
-        "safe_summary": "Focused verification passed for the replacement behavior.",
+        "verification_envelope": VERIFICATION_ENVELOPE,
     }
     equivalence_artifact = {
         "schema_version": guard.ASSERTION_EQUIVALENCE_SCHEMA,
@@ -207,6 +227,55 @@ it.each([/path\//])("matches escaped slash", () => {});
     ]
 
 
+def test_frontend_inventory_handles_regex_after_division_operator() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.spec.ts",
+        r"""
+const matched = value / /path\//.test(input);
+const ratio = /path/ / divisor;
+test("covered after division", () => matched);
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.spec.ts::covered after division",
+    ]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "apps/control-center/src/example.test.js",
+        "apps/control-center/src/example.spec.jsx",
+        "apps/control-center/src/example.test.ts",
+        "apps/control-center/src/example.spec.tsx",
+        "apps/control-center/src/example.test.cjs",
+        "apps/control-center/src/example.spec.cjsx",
+        "apps/control-center/src/example.test.mjs",
+        "apps/control-center/src/example.spec.mjsx",
+        "apps/control-center/src/example.test.cts",
+        "apps/control-center/src/example.spec.ctsx",
+        "apps/control-center/src/example.test.mts",
+        "apps/control-center/src/example.spec.mtsx",
+    ],
+)
+def test_vitest_default_extensions_are_guarded(path: str) -> None:
+    assert guard._is_test_path(path)
+
+
+def test_discovery_covers_every_vitest_default_extension(tmp_path: Path) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    expected: set[str] = set()
+    for index, extension in enumerate(guard.FRONTEND_TEST_EXTENSIONS):
+        kind = "test" if index % 2 == 0 else "spec"
+        relative = f"apps/control-center/src/example-{index}.{kind}.{extension}"
+        (tmp_path / relative).write_text('test("covered", () => {});\n')
+        expected.add(relative)
+
+    assert set(guard.discover_test_files(tmp_path)) == expected
+
+
 def test_frontend_inventory_tracks_import_aliases_and_extended_apis() -> None:
     declarations = guard.parse_frontend_declarations(
         "apps/control-center/src/example.spec.ts",
@@ -305,7 +374,7 @@ def test_removed_test_without_evidence_fails_closed() -> None:
         guard.TestCorpusGuardError,
         match="lack retirement/replacement evidence",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {"tests/test_sample.py::test_replacement"},
             {"tests/test_sample.py::test_removed"},
             {"retirements": []},
@@ -315,7 +384,7 @@ def test_removed_test_without_evidence_fails_closed() -> None:
 def test_retirement_requires_present_replacement_and_evidence() -> None:
     retired = "tests/test_sample.py::test_removed"
     replacement = "tests/test_sample.py::test_replacement"
-    count = guard.validate_retirements(
+    count = _validate_retirements(
         {replacement},
         {retired},
         {"retirements": [_record(retired, replacement)]},
@@ -327,7 +396,7 @@ def test_retirement_requires_present_replacement_and_evidence() -> None:
 def test_retirement_with_missing_replacement_fails_closed() -> None:
     retired = "tests/test_sample.py::test_removed"
     with pytest.raises(guard.TestCorpusGuardError, match="missing replacements"):
-        guard.validate_retirements(
+        _validate_retirements(
             set(),
             {retired},
             {"retirements": [_record(retired, "tests/test_sample.py::test_missing")]},
@@ -365,7 +434,36 @@ def test_retirement_metadata_must_be_bounded_and_content_bound(
     record[field] = value
 
     with pytest.raises(guard.TestCorpusGuardError, match=message):
-        guard.validate_retirements(
+        _validate_retirements(
+            {replacement},
+            {retired},
+            {"retirements": [record]},
+        )
+
+
+@pytest.mark.parametrize(
+    "unsafe_reason",
+    (
+        "Retirement evidence contains "
+        + "/Us"
+        + "ers/example/private/source material.",
+        "Retirement evidence includes username from a local operator record.",
+        "Retirement evidence includes api_"
+        + "key="
+        + "abcdefghijklmnop credential data.",
+        "Retirement evidence includes a raw prompt from a prior run.",
+    ),
+)
+def test_retirement_reason_rejects_sensitive_durable_content(
+    unsafe_reason: str,
+) -> None:
+    retired = "tests/test_sample.py::test_removed"
+    replacement = "tests/test_sample.py::test_replacement"
+    record = _record(retired, replacement)
+    record["reason"] = unsafe_reason
+
+    with pytest.raises(guard.TestCorpusGuardError, match="reason is too weak"):
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [record]},
@@ -382,7 +480,7 @@ def test_retirement_records_reject_unknown_durable_fields() -> None:
         guard.TestCorpusGuardError,
         match="record fields are invalid",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [record]},
@@ -401,9 +499,7 @@ def test_nested_retirement_evidence_is_content_bound() -> None:
     assert isinstance(nested, dict)
     artifact = nested["artifact"]
     assert isinstance(artifact, dict)
-    artifact["safe_summary"] = (
-        "A fabricated summary that does not match the durable ref."
-    )
+    artifact["source_ref"] = f"test-source-ref:sha256:{'0' * 64}"
     record["assertion_equivalence_ref"] = guard.retirement_artifact_ref(
         "assertion-equivalence-ref", equivalence
     )
@@ -412,7 +508,7 @@ def test_nested_retirement_evidence_is_content_bound() -> None:
         guard.TestCorpusGuardError,
         match="preserved assertion evidence is invalid",
     ):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [record]},
@@ -424,7 +520,7 @@ def test_retired_ref_must_use_a_supported_safe_test_path() -> None:
     retired = "docs/not_a_test.py::test_removed"
 
     with pytest.raises(guard.TestCorpusGuardError, match="retired test ref is invalid"):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [_record(retired, replacement)]},
@@ -436,7 +532,7 @@ def test_retired_ref_requires_a_nonempty_declaration() -> None:
     retired = "tests/test_sample.py::"
 
     with pytest.raises(guard.TestCorpusGuardError, match="retired test ref is invalid"):
-        guard.validate_retirements(
+        _validate_retirements(
             {replacement},
             {retired},
             {"retirements": [_record(retired, replacement)]},
@@ -484,7 +580,7 @@ def test_worktree_inventory_reader_rejects_symlinks_and_hardlinks(
 def test_active_test_cannot_be_marked_retired() -> None:
     retired = "tests/test_sample.py::test_still_active"
     with pytest.raises(guard.TestCorpusGuardError, match="still active"):
-        guard.validate_retirements(
+        _validate_retirements(
             {retired},
             set(),
             {"retirements": [_record(retired, retired)]},

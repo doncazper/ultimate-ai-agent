@@ -53,12 +53,18 @@ def _skip_comment(text: str, start: int) -> int:
     return start
 
 
-def _is_regex_start(text: str, start: int) -> bool:
+def _is_regex_start(
+    text: str,
+    start: int,
+    regex_closures: set[int],
+) -> bool:
     index = start - 1
     while index >= 0 and text[index].isspace():
         index -= 1
     if index < 0 or text[index] in "([{:;,=!?&|+-*%^~\n":
         return True
+    if text[index] == "/":
+        return index not in regex_closures
     if text[max(0, index - 1) : index + 1] == "=>":
         return True
     prefix = text[: index + 1]
@@ -69,7 +75,7 @@ def _is_regex_start(text: str, start: int) -> bool:
     )
 
 
-def _skip_regex(text: str, start: int) -> int:
+def _skip_regex(text: str, start: int) -> tuple[int, int]:
     index = start + 1
     in_character_class = False
     while index < len(text):
@@ -86,26 +92,32 @@ def _skip_regex(text: str, start: int) -> int:
         elif character == "]":
             in_character_class = False
         elif character == "/" and not in_character_class:
+            closing = index
             index += 1
             while index < len(text) and (text[index].isalpha() or text[index] == "_"):
                 index += 1
-            return index
+            return index, closing
         index += 1
     raise FrontendInventoryError(
         "frontend test inventory has an unterminated regex literal"
     )
 
 
-def _is_regex_literal_at(text: str, index: int) -> bool:
+def _is_regex_literal_at(
+    text: str,
+    index: int,
+    regex_closures: set[int],
+) -> bool:
     return (
         text[index] == "/"
         and not text.startswith(("//", "/*"), index)
-        and _is_regex_start(text, index)
+        and _is_regex_start(text, index, regex_closures)
     )
 
 
 def _code_mask(text: str) -> bytearray:
     mask = bytearray(b"\x01" * len(text))
+    regex_closures: set[int] = set()
     index = 0
     while index < len(text):
         if text[index] in "\"'`":
@@ -113,8 +125,9 @@ def _code_mask(text: str) -> bytearray:
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
-        if _is_regex_literal_at(text, index):
-            end = _skip_regex(text, index)
+        if _is_regex_literal_at(text, index, regex_closures):
+            end, closing = _skip_regex(text, index)
+            regex_closures.add(closing)
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
@@ -133,14 +146,16 @@ def _skip_balanced(text: str, start: int) -> int:
     if opening not in pairs:
         raise FrontendInventoryError("frontend parameterized test data is invalid")
     stack = [pairs[opening]]
+    regex_closures: set[int] = set()
     index = start + 1
     while index < len(text):
         character = text[index]
         if character in "\"'`":
             index = _skip_string(text, index)
             continue
-        if _is_regex_literal_at(text, index):
-            index = _skip_regex(text, index)
+        if _is_regex_literal_at(text, index, regex_closures):
+            index, closing = _skip_regex(text, index)
+            regex_closures.add(closing)
             continue
         comment_end = _skip_comment(text, index)
         if comment_end != index:
