@@ -642,9 +642,7 @@ def _bound_parameter_data(
         dependencies = {
             match.group("name")
             for pattern in (
-                re.compile(
-                    rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])"
-                ),
+                re.compile(rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])"),
                 re.compile(
                     rf"(?<![.\w$])(?P<name>{TEST_API_NAME})\s*\."
                     r"(?:concat|filter|flatMap|map|slice)\b"
@@ -774,9 +772,7 @@ def _static_collection_source(
     _seen_names: frozenset[str] = frozenset(),
 ) -> str:
     if name in _seen_names:
-        raise FrontendInventoryError(
-            "frontend registration loop bindings are circular"
-        )
+        raise FrontendInventoryError("frontend registration loop bindings are circular")
     try:
         local_source = _const_initializer_source(
             text,
@@ -897,7 +893,9 @@ def _registration_context_source(
             match.start(),
             import_binding_resolver,
         )
-        context_sources.append(f"{text[match.start() : header_end]}\n{collection_source}")
+        context_sources.append(
+            f"{text[match.start() : header_end]}\n{collection_source}"
+        )
     return "\n".join(context_sources)
 
 
@@ -921,6 +919,13 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "frontend parameterized suites cannot be inventoried safely"
         )
+
+    def context_bound_ref(raw_ref: str, context_source: str) -> str:
+        if not context_source:
+            return raw_ref
+        digest = hashlib.sha256(context_source.encode("utf-8")).hexdigest()
+        return f"{raw_ref}::registration-context-sha256:{digest}"
+
     for match in direct_pattern.finditer(scan_text):
         context_source = _registration_context_source(
             text,
@@ -951,7 +956,13 @@ def _frontend_inventory_entries(
         declaration_source = text[match.start() : declaration_end]
         if context_source:
             declaration_source = f"{declaration_source}\n{context_source}"
-        raw_entries.append((match.start(), f"{path}::{title}", declaration_source))
+        raw_entries.append(
+            (
+                match.start(),
+                context_bound_ref(f"{path}::{title}", context_source),
+                declaration_source,
+            )
+        )
     parameterized_declarations = _parameterized_declarations(
         text,
         scan_text,
@@ -990,7 +1001,10 @@ def _frontend_inventory_entries(
         raw_entries.append(
             (
                 offset,
-                f"{path}::{title}::parameters-sha256:{digest}",
+                context_bound_ref(
+                    f"{path}::{title}::parameters-sha256:{digest}",
+                    context_source,
+                ),
                 declaration_source,
             )
         )
@@ -1008,7 +1022,13 @@ def _frontend_inventory_entries(
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
         if context_source:
             declaration_source = f"{declaration_source}\n{context_source}"
-        raw_entries.append((offset, f"{path}::{title}", declaration_source))
+        raw_entries.append(
+            (
+                offset,
+                context_bound_ref(f"{path}::{title}", context_source),
+                declaration_source,
+            )
+        )
 
     counts: dict[str, int] = {}
     used_refs: set[str] = set()

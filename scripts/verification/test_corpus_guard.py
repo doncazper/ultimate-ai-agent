@@ -49,6 +49,7 @@ MAX_RETIREMENT_LEDGER_BYTES = 1_000_000
 MAX_GIT_STDOUT_BYTES = 8_000_000
 MAX_CHANGED_PATH_BYTES = 4_000_000
 MAX_CHANGED_TEST_PATHS = 20_000
+MAX_PYTHON_DEPENDENCY_MODULES = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
@@ -239,7 +240,9 @@ def _python_module_bindings(
             helper = helper_defs.get(helper_name)
             parameter_bindings: dict[str, str] = {}
             if helper is not None:
-                for parameter, argument in zip(helper.args.args, call.args, strict=False):
+                for parameter, argument in zip(
+                    helper.args.args, call.args, strict=False
+                ):
                     root = _root_name(argument)
                     if root is not None:
                         parameter_bindings[parameter.arg] = root
@@ -420,9 +423,7 @@ def _python_imported_binding_source(
                         (candidate, imported_source)
                         for candidate in candidates
                         if import_source_resolver is not None
-                        and (
-                            imported_source := import_source_resolver(candidate)
-                        )
+                        and (imported_source := import_source_resolver(candidate))
                         is not None
                     ),
                     None,
@@ -461,9 +462,7 @@ def _python_imported_binding_source(
                         and isinstance(target.value, str)
                     ):
                         if target.value.startswith("."):
-                            lazy_modules.append(
-                                f"{relative_package}{target.value}"
-                            )
+                            lazy_modules.append(f"{relative_package}{target.value}")
                         else:
                             lazy_modules.append(target.value)
             lazy_matches: list[str] = []
@@ -502,9 +501,7 @@ def _python_imported_binding_source(
                             star_source,
                             name,
                             import_source_resolver,
-                            _seen_bindings=frozenset(
-                                (*_seen_bindings, binding_key)
-                            ),
+                            _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                         )
                     )
                 except TestCorpusGuardError as exc:
@@ -573,10 +570,7 @@ def _python_imported_binding_source(
                     _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                 )
             )
-    return (
-        f"module={module}\nbinding={binding_name}\n"
-        + "\n".join(serialized_parts)
-    )
+    return f"module={module}\nbinding={binding_name}\n" + "\n".join(serialized_parts)
 
 
 def _binding_name_for_resolved_import(
@@ -856,15 +850,21 @@ def _python_inventory_entries(
             )
         if isinstance(
             module_node,
-            (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With, ast.AsyncWith),
+            (
+                ast.If,
+                ast.For,
+                ast.AsyncFor,
+                ast.While,
+                ast.Try,
+                ast.With,
+                ast.AsyncWith,
+            ),
         ) and any(
             isinstance(child, (ast.Assign, ast.AnnAssign))
             and any(
                 isinstance(target, ast.Attribute) and target.attr == "__test__"
                 for target in (
-                    child.targets
-                    if isinstance(child, ast.Assign)
-                    else (child.target,)
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
                 )
             )
             for child in ast.walk(module_node)
@@ -1033,9 +1033,7 @@ def _python_inventory_entries(
                 )
                 for target in targets:
                     rebound.update(_binding_target_names(target))
-                if any(
-                    name.startswith("test") for name in rebound
-                ) and not (
+                if any(name.startswith("test") for name in rebound) and not (
                     isinstance(child, (ast.Assign, ast.AnnAssign))
                     and isinstance(child.value, ast.Constant)
                 ):
@@ -1139,10 +1137,7 @@ def _python_inventory_entries(
                     )
                 )
             )
-            or (
-                isinstance(decorator, ast.Attribute)
-                and decorator.attr == "fixture"
-            )
+            or (isinstance(decorator, ast.Attribute) and decorator.attr == "fixture")
             or (isinstance(decorator, ast.Name) and decorator.id == "fixture")
             for decorator in node.decorator_list
         )
@@ -1168,13 +1163,10 @@ def _python_inventory_entries(
             target = decorator.func if isinstance(decorator, ast.Call) else decorator
             is_parametrize = (
                 isinstance(target, ast.Attribute) and target.attr == "parametrize"
-            ) or (
-                isinstance(target, ast.Name) and target.id in parametrize_aliases
-            )
-            is_static_pytest_mark = (
-                isinstance(target, ast.Attribute)
-                and _root_name(target) in {"pytest", "mark"}
-            )
+            ) or (isinstance(target, ast.Name) and target.id in parametrize_aliases)
+            is_static_pytest_mark = isinstance(target, ast.Attribute) and _root_name(
+                target
+            ) in {"pytest", "mark"}
             if not is_parametrize and not is_static_pytest_mark:
                 raise TestCorpusGuardError(
                     "Python test class decorator cannot be inventoried safely"
@@ -1250,6 +1242,79 @@ def _python_module_candidates(module: str) -> tuple[str, ...]:
     if module == "ultimate_ai_agent" or module.startswith("ultimate_ai_agent."):
         candidates = tuple(f"src/{candidate}" for candidate in candidates)
     return candidates
+
+
+def _python_module_name_for_path(path: str) -> str:
+    module_path = path.removeprefix("src/")
+    if module_path.endswith("/__init__.py"):
+        module_path = module_path[: -len("/__init__.py")]
+    elif module_path.endswith(".py"):
+        module_path = module_path[:-3]
+    return module_path.replace("/", ".")
+
+
+def _python_dependency_paths(
+    repo: Path,
+    modules: set[str],
+    module_cache: dict[str, tuple[set[str], set[str]]] | None = None,
+) -> set[str]:
+    """Return a bounded, conservative closure of repository Python imports."""
+
+    pending = list(modules)
+    visited_modules: set[str] = set()
+    dependency_paths: set[str] = set()
+    cache = module_cache if module_cache is not None else {}
+    while pending:
+        module = pending.pop()
+        if module in visited_modules:
+            continue
+        visited_modules.add(module)
+        if len(visited_modules) > MAX_PYTHON_DEPENDENCY_MODULES:
+            raise TestCorpusGuardError(
+                "Python test dependency closure exceeds module budget"
+            )
+        cached = cache.get(module)
+        if cached is not None:
+            cached_paths, cached_imports = cached
+            dependency_paths.update(cached_paths)
+            pending.extend(cached_imports)
+            continue
+        candidate_list = _python_module_candidates(module)
+        candidate_paths = set(candidate_list)
+        imported_module_names: set[str] = set()
+        for candidate in candidate_list:
+            candidate_path = repo / candidate
+            if not candidate_path.is_file():
+                continue
+            source = _read_worktree_text(repo, candidate)
+            try:
+                tree = ast.parse(source, filename=candidate)
+            except SyntaxError as exc:
+                raise TestCorpusGuardError(
+                    f"cannot parse Python dependency inventory: {candidate}"
+                ) from exc
+            relative_package = _python_module_name_for_path(candidate)
+            if not candidate.endswith("/__init__.py") and "." in relative_package:
+                relative_package = relative_package.rsplit(".", 1)[0]
+            imported_modules = _python_import_modules(
+                tree,
+                relative_package=relative_package,
+            )
+            imported_module_names.update(
+                imported_module
+                for candidates in imported_modules.values()
+                for imported_module in candidates
+            )
+            imported_module_names.update(
+                _python_star_import_modules(
+                    tree,
+                    relative_package=relative_package,
+                )
+            )
+        cache[module] = (candidate_paths, imported_module_names)
+        dependency_paths.update(candidate_paths)
+        pending.extend(imported_module_names)
+    return dependency_paths
 
 
 def _python_import_resolver(
@@ -1774,6 +1839,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 changed.add(test_path)
     changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
+        python_dependency_cache: dict[str, tuple[set[str], set[str]]] = {}
         for test_path in discover_test_files(repo):
             if not test_path.endswith(".py") or test_path in changed:
                 continue
@@ -1784,12 +1850,16 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 raise TestCorpusGuardError(
                     f"cannot parse Python test inventory: {test_path}"
                 ) from exc
-            dependency_candidates = {
-                candidate
+            imported_modules = {
+                module
                 for modules in _python_import_modules(tree).values()
                 for module in modules
-                for candidate in _python_module_candidates(module)
             }
+            dependency_candidates = _python_dependency_paths(
+                repo,
+                imported_modules,
+                python_dependency_cache,
+            )
             if dependency_candidates & changed_python_sources:
                 changed.add(test_path)
     changed_tuple = tuple(sorted(changed))

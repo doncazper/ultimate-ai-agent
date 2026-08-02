@@ -1862,6 +1862,36 @@ def test_changed_python_dataset_rechecks_importing_test(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_sample.py",)
 
 
+def test_changed_transitive_python_dataset_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts/data.py").write_text(
+        "from scripts.helpers import build_cases\nCASES = build_cases()\n"
+    )
+    (tmp_path / "scripts/helpers.py").write_text(
+        'def build_cases():\n    return ["one"]\n'
+    )
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_sample.py").write_text(
+        "import pytest\n"
+        "from scripts.data import CASES\n"
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): pass\n"
+    )
+    outputs = iter((b"scripts/helpers.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_sample.py",)
+
+
 def test_changed_frontend_test_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2067,7 +2097,9 @@ def test_case(value):
     assert before[0].ref != after[0].ref
 
 
-def test_python_inventory_omits_fixture_named_like_test_and_rejects_fixture_params() -> None:
+def test_python_inventory_omits_fixture_named_like_test_and_rejects_fixture_params() -> (
+    None
+):
     declarations = guard.parse_python_declarations(
         "tests/test_sample.py",
         """
@@ -2144,20 +2176,20 @@ def test_python_inventory_rejects_ambiguous_collection_constructs(
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
-def test_frontend_inventory_binds_static_registration_loop_source() -> None:
+def test_frontend_inventory_binds_static_registration_loop_identity() -> None:
     path = "apps/control-center/src/example.test.ts"
     before = """
-const cases = [{ name: "one" }] as const;
+const cases = [{ name: "one" }, { name: "two" }] as const;
 for (const item of cases) {
   test(`${item.name} works`, () => {});
 }
 """
-    after = before.replace('{ name: "one" }', '{ name: "one" }, { name: "two" }')
-    test_ref = guard.parse_frontend_declarations(path, before)[0].ref
+    after = before.replace(', { name: "two" }', "")
+    before_refs = {item.ref for item in guard.parse_frontend_declarations(path, before)}
+    after_refs = {item.ref for item in guard.parse_frontend_declarations(path, after)}
 
-    assert guard._source_ref_from_text(test_ref, before) != guard._source_ref_from_text(
-        test_ref, after
-    )
+    assert before_refs != after_refs
+    assert before_refs - after_refs == before_refs
 
 
 @pytest.mark.parametrize(
@@ -2170,7 +2202,7 @@ for (const item of cases) {
         ),
         (
             'import * as runner from "vitest";\n'
-            'const { test: localTest } = runner;\n'
+            "const { test: localTest } = runner;\n"
             'localTest("case", () => {});\n',
             "namespace-derived test API",
         ),
@@ -2179,8 +2211,7 @@ for (const item of cases) {
             "registration context",
         ),
         (
-            'for (let index = 0; index < 2; index += 1) {'
-            ' test("case", () => {}); }',
+            'for (let index = 0; index < 2; index += 1) { test("case", () => {}); }',
             "registration loop",
         ),
     ),
