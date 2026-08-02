@@ -777,6 +777,20 @@ FORBIDDEN_PATTERNS = (
     r"(?:browse (?:the )?(?:public )?web|(?:access|search) (?:the )?(?:internet|web)) "
     r"(?:through|via|using) (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
+    r"have (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
+    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
+    r"creat(?:e|es|ed|ing) calendar events?|"
+    r"publish(?:es|ed|ing)? (?:social )?posts?)\b",
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
+    r"creat(?:e|es|ed|ing) calendar events?|"
+    r"publish(?:es|ed|ing)? (?:social )?posts?) "
+    r"(?:through|via|using) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
     r"\bTAW-(?:0[0-8]) (?:(?:is|has been) )?(?:now )?(?:fully )?"
     r"(?:implemented|accepted|complete|completed|shipped)\b",
     r"\b(?:the )?tool[- ]aware cognition(?: and chat quality)?(?: program)? "
@@ -952,13 +966,40 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:issu(?:e|es|ed|ing)|generat(?:e|es|ed|ing)|"
+    r"rotat(?:e|es|ed|ing)|reset(?:s|ting)?) "
+    r"(?:api keys?|access tokens?|tokens?|passwords?|credentials?)|"
+    r"(?:api key|access token|token|password|credential) "
+    r"(?:issuance|generation|rotation|reset))\b",
+    r"\b(?:(?:api key|access token|token|password|credential) "
+    r"(?:issuance|generation|rotation|reset)) "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:open(?:s|ed|ing)?|creat(?:e|es|ed|ing)) (?:pull requests?|PRs?)|"
+    r"(?:pull request|PR) (?:opening|creation))\b",
+    r"\b(?:pull request|PR) (?:opening|creation) "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:perform(?:s|ing)? remote execution|remote execution|"
+    r"ssh(?:es|ed|ing)? (?:into|to) remote (?:machines?|hosts?|servers?|systems?)|"
+    r"(?:open|create|start)(?:s|ed|ing)? remote sessions?|"
+    r"execut(?:e|es|ed|ing) commands? (?:through|via|using) ssh|"
+    r"ssh access|remote session execution|remote host execution|host execution|"
     r"(?:run|execute)(?:s|d|ing)? commands? (?:on|against) remote (?:machines?|hosts?|systems?)|"
     r"(?:read|access|operate|control)(?:s|ed|ing)? (?:mobile|device) sensors?|"
     r"(?:mobile|device) sensor access|mobile (?:sensor|control) runtime|"
     r"distribut(?:e|es|ed|ing) supported (?:binaries?|binary files?)|"
     r"supported binary distribution|binary distribution)\b",
-    r"\b(?:remote execution|mobile (?:sensor|control) runtime|"
+    r"\b(?:remote execution|ssh access|remote session execution|"
+    r"remote host execution|host execution|mobile (?:sensor|control) runtime|"
     r"mobile sensor control|supported binary distribution|binary distribution) "
     r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -1201,6 +1242,17 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"(?:reused|rerun|re-run) after candidate changes\b",
     r"\b(?:reuse|rerun|re-run) (?:of )?(?:the )?sealed acceptance holdout "
     r"after candidate changes (?:is|may be|can be) (?:allowed|permitted|acceptable)\b",
+    r"\b(?:safe[- ]disable|rollback|reversible rollout)"
+    r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))? "
+    r"(?:is|are) (?:not required|optional)\b",
+    r"\b(?:(?:the )?(?:promoted )?"
+    r"(?:integration|candidate|system|product|plan|program) )?"
+    r"(?:does not|doesn't|need not) (?:need|require|include|provide|preserve|support) "
+    r"(?:an? )?(?:explicit )?(?:safe[- ]disable|rollback)"
+    r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))?\b",
+    r"\b(?:safe[- ]disable|rollback|reversible rollout)"
+    r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))? "
+    r"(?:may|can) be (?:omitted|skipped|removed|disabled)\b",
 )
 
 

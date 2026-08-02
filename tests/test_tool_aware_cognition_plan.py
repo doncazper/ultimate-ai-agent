@@ -388,6 +388,125 @@ def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "Operators can use UAA to send emails.",
+        "Users may ask the Control Center to send messages.",
+        "Operators can have the API create calendar events.",
+        "Users will direct the CLI to publish social posts.",
+        "Operators can send email through UAA.",
+        "Users may create calendar events via the Control Center.",
+        "Operators will publish social posts using the API.",
+    ),
+)
+def test_operator_mediated_connector_write_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can issue API keys.",
+        "The API can generate access tokens.",
+        "The runtime can rotate passwords.",
+        "The Control Center can reset credentials.",
+        "UAA supports API key rotation.",
+        "API key issuance is supported.",
+        "Token generation is active.",
+        "Password rotation is enabled.",
+        "Credential reset is available.",
+    ),
+)
+def test_credential_mutation_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can open pull requests.",
+        "The API can create PRs.",
+        "The agent supports pull request creation.",
+        "Pull request opening is supported.",
+        "PR creation is enabled.",
+    ),
+)
+def test_pull_request_creation_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can SSH into remote servers.",
+        "The runtime can open remote sessions.",
+        "The API can execute commands via SSH.",
+        "The agent supports remote host execution.",
+        "UAA supports SSH access.",
+        "SSH access is enabled.",
+        "Remote session execution is supported.",
+        "Host execution is active.",
+    ),
+)
+def test_remote_access_authority_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "guidance_claim",
+    (
+        "UAA can explain how to rotate API keys.",
+        "The API can draft a pull request creation plan.",
+        "The agent can describe how to SSH into a remote server.",
+    ),
+)
+def test_new_authority_guidance_is_not_execution_authority(
+    guidance_claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(guidance_claim) == []
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "This program is production ready and open for public beta.",
@@ -1416,6 +1535,11 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "The exact-head Foundation Gate report-only verification can be skipped.",
         "The sealed acceptance holdout may be rerun after candidate changes.",
         "Reuse of the sealed acceptance holdout after candidate changes is permitted.",
+        "The promoted integration does not need a safe-disable boundary.",
+        "Safe-disable support may be omitted.",
+        "Rollback posture is optional.",
+        "The candidate need not preserve rollback support.",
+        "Reversible rollout may be skipped.",
     ),
 )
 def test_acceptance_contract_rejects_direct_contradictions(
