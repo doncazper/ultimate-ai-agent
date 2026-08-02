@@ -26,11 +26,12 @@ evidence-aware rather than globally one-task-at-a-time.
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python and
 Control Center `.test`/`.spec` declarations, including inherited pytest class
-tests, Python parameterization bound to canonical decorator syntax and ordered
-pre-declaration module-level parameter-data assignments or mutations,
-parameterized frontend titles, supported runner import aliases, and extended
-test APIs. Changes to a Python parameter set change its stable declaration ref,
-so removing a collected case cannot retain the prior inventory identity.
+tests, Python parameterization bound to resolvable decorator syntax, ordered
+pre-declaration parameter-data bindings, and in-place mutations visible at
+collection time, parameter-data-bound frontend titles, supported runner import
+aliases, and extended test APIs. Changes to a parameter set change its stable
+declaration ref, so removing a collected case cannot retain the prior inventory
+identity.
 Frontend files fail closed when `it` or `test` is shadowed by a local
 declaration or non-runner import;
 `scripts/verify_test_corpus_guard.py`

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 
@@ -223,6 +224,10 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
     destructuring_pattern = re.compile(
         r"\b(?:const|let|var)\s*\{(?P<bindings>[^{}]*)\}"
     )
+    if re.search(r"\b(?:const|let|var)\s*\{[^{}]*\{", scan_text):
+        raise FrontendInventoryError(
+            "frontend nested destructuring cannot be inventoried safely"
+        )
     for match in destructuring_pattern.finditer(scan_text):
         for member in match.group("bindings").split(","):
             local = member.split(":", 1)[-1].split("=", 1)[0].strip()
@@ -231,6 +236,18 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
                 raise FrontendInventoryError(
                     "frontend test API name is shadowed by a local declaration"
                 )
+    array_destructuring_pattern = re.compile(
+        r"\b(?:const|let|var)\s*\[(?P<bindings>[^\[\]]*)\]"
+    )
+    if re.search(r"\b(?:const|let|var)\s*\[[^\[\]]*\[", scan_text):
+        raise FrontendInventoryError(
+            "frontend nested destructuring cannot be inventoried safely"
+        )
+    for match in array_destructuring_pattern.finditer(scan_text):
+        if re.search(r"\b(?:it|test)\b", match.group("bindings")):
+            raise FrontendInventoryError(
+                "frontend test API name is shadowed by a local declaration"
+            )
     parameter_pattern = re.compile(r"\((?P<parameters>[^()]*)\)\s*(?:=>|\{)")
     if any(
         re.search(r"\b(?:it|test)\b", match.group("parameters"))
@@ -276,20 +293,22 @@ def _parameterized_declarations(
     text: str,
     scan_text: str,
     pattern: re.Pattern[str],
-) -> tuple[tuple[str, str], ...]:
-    declarations: list[tuple[str, str]] = []
+) -> tuple[tuple[int, str, str, str], ...]:
+    declarations: list[tuple[int, str, str, str]] = []
     for match in pattern.finditer(scan_text):
         index = match.end()
         while index < len(text) and text[index].isspace():
             index += 1
         if index >= len(text):
             raise FrontendInventoryError("frontend parameterized test data is missing")
+        data_start = index
         if text[index] == "(":
             index = _skip_balanced(text, index)
         elif text[index] == "`":
             index = _skip_string(text, index)
         else:
             raise FrontendInventoryError("frontend parameterized test data is invalid")
+        data_end = index
         while index < len(text) and text[index].isspace():
             index += 1
         if index >= len(text) or text[index] != "(":
@@ -303,7 +322,12 @@ def _parameterized_declarations(
         title_start = index + 1
         title_end = _skip_string(text, index) - 1
         declarations.append(
-            (text[title_start:title_end], text[match.start() : declaration_end])
+            (
+                match.start(),
+                text[title_start:title_end],
+                text[match.start() : declaration_end],
+                text[data_start:data_end],
+            )
         )
     return tuple(declarations)
 
@@ -312,8 +336,8 @@ def _conditional_declarations(
     text: str,
     scan_text: str,
     pattern: re.Pattern[str],
-) -> tuple[tuple[str, str], ...]:
-    declarations: list[tuple[str, str]] = []
+) -> tuple[tuple[int, str, str], ...]:
+    declarations: list[tuple[int, str, str]] = []
     for match in pattern.finditer(scan_text):
         index = _skip_balanced(text, match.end() - 1)
         while index < len(text) and text[index].isspace():
@@ -329,13 +353,17 @@ def _conditional_declarations(
         title_start = index + 1
         title_end = _skip_string(text, index) - 1
         declarations.append(
-            (text[title_start:title_end], text[match.start() : declaration_end])
+            (
+                match.start(),
+                text[title_start:title_end],
+                text[match.start() : declaration_end],
+            )
         )
     return tuple(declarations)
 
 
 def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], ...]:
-    raw_entries: list[tuple[str, str]] = []
+    raw_entries: list[tuple[int, str, str]] = []
     code_mask = _code_mask(text)
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
@@ -359,22 +387,47 @@ def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], 
         title = _normalized_title(text[title_start:title_end])
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        raw_entries.append((f"{path}::{title}", text[match.start() : declaration_end]))
-    for raw_title, declaration_source in (
-        *_parameterized_declarations(text, scan_text, each_pattern),
-        *_conditional_declarations(text, scan_text, conditional_pattern),
+        raw_entries.append(
+            (match.start(), f"{path}::{title}", text[match.start() : declaration_end])
+        )
+    for (
+        offset,
+        raw_title,
+        declaration_source,
+        parameter_data,
+    ) in _parameterized_declarations(text, scan_text, each_pattern):
+        title = _normalized_title(raw_title)
+        if not title or len(title) > 500:
+            raise FrontendInventoryError(f"frontend test title is invalid: {path}")
+        digest = hashlib.sha256(parameter_data.encode("utf-8")).hexdigest()
+        raw_entries.append(
+            (
+                offset,
+                f"{path}::{title}::parameters-sha256:{digest}",
+                declaration_source,
+            )
+        )
+    for offset, raw_title, declaration_source in _conditional_declarations(
+        text, scan_text, conditional_pattern
     ):
         title = _normalized_title(raw_title)
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        raw_entries.append((f"{path}::{title}", declaration_source))
+        raw_entries.append((offset, f"{path}::{title}", declaration_source))
 
     counts: dict[str, int] = {}
+    used_refs: set[str] = set()
     entries: list[tuple[str, str]] = []
-    for raw_ref, declaration_source in raw_entries:
+    for _offset, raw_ref, declaration_source in sorted(
+        raw_entries, key=lambda entry: entry[0]
+    ):
         occurrence = counts.get(raw_ref, 0) + 1
-        counts[raw_ref] = occurrence
         ref = raw_ref if occurrence == 1 else f"{raw_ref}#{occurrence}"
+        while ref in used_refs:
+            occurrence += 1
+            ref = f"{raw_ref}#{occurrence}"
+        counts[raw_ref] = occurrence
+        used_refs.add(ref)
         entries.append((ref, declaration_source))
     return tuple(entries)
 

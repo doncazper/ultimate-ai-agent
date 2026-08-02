@@ -243,7 +243,7 @@ def test_case(value):
     assert before[0].ref != after_mutation_reorder[0].ref
 
 
-def test_python_inventory_ignores_parameter_mutations_after_declaration() -> None:
+def test_python_inventory_binds_parameter_mutations_after_declaration() -> None:
     path = "tests/test_sample.py"
     before = guard.parse_python_declarations(
         path,
@@ -274,6 +274,30 @@ CASES.append("three")
 """,
     )
 
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_ignores_parameter_rebindings_after_declaration() -> None:
+    path = "tests/test_sample.py"
+    template = """
+import pytest
+
+CASES = ["one"]
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+
+CASES = {replacement}
+CASES.append({appended})
+"""
+    before = guard.parse_python_declarations(
+        path, template.format(replacement='["two"]', appended='"four"')
+    )
+    after = guard.parse_python_declarations(
+        path, template.format(replacement='["three"]', appended='"five"')
+    )
+
     assert before[0].ref == after[0].ref
 
 
@@ -301,6 +325,184 @@ def test_case(value):
     )
 
     assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_parametrize_alias_and_class_data() -> None:
+    path = "tests/test_sample.py"
+    alias_template = """
+import pytest
+
+parameterize = pytest.mark.parametrize
+
+@parameterize("value", {cases})
+def test_case(value):
+    assert value
+"""
+    before = guard.parse_python_declarations(
+        path, alias_template.format(cases='["one", "two"]')
+    )
+    after = guard.parse_python_declarations(
+        path, alias_template.format(cases='["one"]')
+    )
+    assert before[0].ref != after[0].ref
+
+    imported_before = guard.parse_python_declarations(
+        path,
+        alias_template.format(cases='["one", "two"]')
+        .replace("import pytest", "from pytest.mark import parametrize")
+        .replace(
+            "parameterize = pytest.mark.parametrize\n\n@parameterize",
+            "@parametrize",
+        ),
+    )
+    imported_after = guard.parse_python_declarations(
+        path,
+        alias_template.format(cases='["one"]')
+        .replace("import pytest", "from pytest.mark import parametrize")
+        .replace(
+            "parameterize = pytest.mark.parametrize\n\n@parameterize",
+            "@parametrize",
+        ),
+    )
+    assert imported_before[0].ref != imported_after[0].ref
+
+    class_before = guard.parse_python_declarations(
+        path,
+        alias_template.format(cases='["one", "two"]')
+        .replace(
+            "def test_case(value):", "class TestCases:\n    def test_case(self, value):"
+        )
+        .replace("    assert value", "        assert value"),
+    )
+    class_after = guard.parse_python_declarations(
+        path,
+        alias_template.format(cases='["one"]')
+        .replace(
+            "def test_case(value):", "class TestCases:\n    def test_case(self, value):"
+        )
+        .replace("    assert value", "        assert value"),
+    )
+    assert class_before[0].ref != class_after[0].ref
+
+
+def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
+    path = "tests/test_sample.py"
+    template = """
+import pytest
+
+CASES = ["one"]
+
+def add_cases():
+    CASES.append({case})
+
+add_cases()
+{diagnostic}
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard.parse_python_declarations(
+        path, template.format(case='"two"', diagnostic="print(CASES)")
+    )
+    helper_change = guard.parse_python_declarations(
+        path, template.format(case='"three"', diagnostic="print(CASES)")
+    )
+    read_only_change = guard.parse_python_declarations(
+        path, template.format(case='"two"', diagnostic="assert CASES")
+    )
+    read_only_method_before = guard.parse_python_declarations(
+        path, template.format(case='"two"', diagnostic="CASES.copy()")
+    )
+    read_only_method_after = guard.parse_python_declarations(
+        path, template.format(case='"two"', diagnostic='CASES.count("one")')
+    )
+
+    assert before[0].ref != helper_change[0].ref
+    assert before[0].ref == read_only_change[0].ref
+    assert read_only_method_before[0].ref == read_only_method_after[0].ref
+
+
+def test_python_inventory_matches_test_prefix_and_disabled_declarations() -> None:
+    path = "tests/test_sample.py"
+    declarations = guard.parse_python_declarations(
+        path,
+        """
+def test():
+    pass
+
+def testCamelCase():
+    pass
+
+def test_disabled():
+    pass
+
+test_disabled.__test__ = False
+
+def test_rebound():
+    pass
+
+test_rebound = object()
+
+def test_deleted():
+    pass
+
+del test_deleted
+""",
+    )
+
+    assert [declaration.ref for declaration in declarations] == [
+        f"{path}::test",
+        f"{path}::testCamelCase",
+    ]
+
+    class_declarations = guard.parse_python_declarations(
+        path,
+        """
+class Base:
+    def test_inherited(self):
+        pass
+
+class TestCases(Base):
+    test_inherited = None
+
+    def test_disabled(self):
+        pass
+
+    test_disabled.__test__ = False
+""",
+    )
+    assert class_declarations == ()
+
+
+def test_python_inventory_rejects_unresolved_parametrize_alias() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parametrize decorator cannot be resolved",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+@custom_parametrize("value", ["one"])
+def test_case(value):
+    pass
+""",
+        )
+
+
+def test_python_inventory_rejects_tests_inside_module_control_flow() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module control flow",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+if True:
+    def test_conditional():
+        pass
+""",
+        )
 
 
 def test_python_source_ref_hashes_only_the_replacement_declaration() -> None:
@@ -353,6 +555,7 @@ test.skip(`blocks mutation`, () => {});
         'const test = helper; test("not collected", () => {});',
         'function it() {} it("not collected", () => {});',
         'const { test } = helper; test("not collected", () => {});',
+        'const [test] = helper; test("not collected", () => {});',
         'const helper = (test) => test("not collected", () => {});',
         'import { test } from "local-helper"; test("not collected", () => {});',
     ],
@@ -428,12 +631,63 @@ test.each`
 """,
     )
 
-    assert [item.ref for item in declarations] == [
+    assert [item.ref.split("::parameters-sha256:", 1)[0] for item in declarations] == [
         "apps/control-center/src/example.test.tsx::renders %s safely",
         "apps/control-center/src/example.test.tsx::rejects %s",
         "apps/control-center/src/example.test.tsx::binds one case object",
         "apps/control-center/src/example.test.tsx::blocks $name",
     ]
+    assert all("::parameters-sha256:" in item.ref for item in declarations)
+
+
+def test_frontend_inventory_binds_parameter_rows_to_stable_refs() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    before = guard.parse_frontend_declarations(
+        path,
+        'test.each([["one"], ["two"]])("renders %s", () => {});',
+    )
+    after = guard.parse_frontend_declarations(
+        path,
+        'test.each([["one"]])("renders %s", () => {});',
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_assigns_duplicates_in_source_order() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    declarations = guard.parse_frontend_declarations(
+        path,
+        """
+test.runIf(enabled)("same", () => {});
+test("same", () => {});
+test("alpha", () => {});
+test("alpha", () => {});
+test("alpha#2", () => {});
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        f"{path}::same",
+        f"{path}::same#2",
+        f"{path}::alpha",
+        f"{path}::alpha#2",
+        f"{path}::alpha#2#2",
+    ]
+
+
+def test_frontend_inventory_rejects_nested_destructuring_shadowing() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="nested destructuring",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const { fixtures: { it } } = helpers;
+it("shadowed", () => {});
+""",
+        )
 
 
 def test_frontend_inventory_includes_supported_modifiers() -> None:
@@ -453,12 +707,12 @@ test("declared test", async () => {
     )
 
     assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.tsx::skips on Windows",
+        "apps/control-center/src/example.test.tsx::runs when enabled",
         "apps/control-center/src/example.test.tsx::runs in sequence",
         "apps/control-center/src/example.test.tsx::records an expected failure",
         "apps/control-center/src/example.test.tsx::records an unavailable case",
         "apps/control-center/src/example.test.tsx::declared test",
-        "apps/control-center/src/example.test.tsx::skips on Windows",
-        "apps/control-center/src/example.test.tsx::runs when enabled",
     ]
 
 
@@ -486,10 +740,12 @@ it.each([/path\//])("matches escaped slash", () => {});
 """,
     )
 
-    assert [item.ref for item in declarations] == [
-        "apps/control-center/src/example.spec.ts::after comment",
-        "apps/control-center/src/example.spec.ts::matches escaped slash",
-    ]
+    assert (
+        declarations[0].ref == "apps/control-center/src/example.spec.ts::after comment"
+    )
+    assert declarations[1].ref.startswith(
+        "apps/control-center/src/example.spec.ts::matches escaped slash::parameters-sha256:"
+    )
 
 
 def test_frontend_inventory_handles_regex_after_division_operator() -> None:

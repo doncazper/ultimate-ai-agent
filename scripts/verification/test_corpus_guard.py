@@ -47,6 +47,18 @@ MAX_GIT_STDOUT_BYTES = 8_000_000
 MAX_CHANGED_PATH_BYTES = 4_000_000
 MAX_CHANGED_TEST_PATHS = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
+READ_ONLY_COLLECTION_METHODS = {
+    "copy",
+    "count",
+    "get",
+    "index",
+    "isdisjoint",
+    "issubset",
+    "issuperset",
+    "items",
+    "keys",
+    "values",
+}
 FRONTEND_TEST_EXTENSIONS = (
     "js",
     "jsx",
@@ -90,18 +102,216 @@ class TestDeclaration:
     kind: str
 
 
+@dataclass(frozen=True)
+class _ModuleBinding:
+    node: ast.AST
+    applies_after_declaration: bool = False
+
+
+def _root_name(node: ast.AST) -> str | None:
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _binding_target_names(node: ast.AST) -> set[str]:
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return {name for child in node.elts for name in _binding_target_names(child)}
+    return set()
+
+
+def _statement_binding_names(node: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign)):
+            targets = (
+                child.targets if isinstance(child, ast.Assign) else (child.target,)
+            )
+            for target in targets:
+                names.update(_binding_target_names(target))
+        elif isinstance(child, (ast.For, ast.AsyncFor, ast.NamedExpr)):
+            names.update(_binding_target_names(child.target))
+    return names
+
+
+def _mutation_names(node: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.AugAssign):
+            root = _root_name(child.target)
+            if root is not None:
+                names.add(root)
+        elif isinstance(child, (ast.Assign, ast.AnnAssign, ast.Delete)):
+            if isinstance(child, ast.Assign):
+                targets = child.targets
+            elif isinstance(child, ast.AnnAssign):
+                targets = (child.target,)
+            else:
+                targets = child.targets
+            for target in targets:
+                if isinstance(target, (ast.Attribute, ast.Subscript)):
+                    root = _root_name(target)
+                    if root is not None:
+                        names.add(root)
+        elif isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+            if child.func.attr in READ_ONLY_COLLECTION_METHODS:
+                continue
+            root = _root_name(child.func.value)
+            if root is not None:
+                names.add(root)
+    return names
+
+
+def _called_names(node: ast.AST) -> set[str]:
+    return {
+        child.func.id
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+    }
+
+
+def _python_module_bindings(
+    tree: ast.Module,
+) -> dict[str, tuple[_ModuleBinding, ...]]:
+    helper_defs = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and not node.name.startswith("test")
+    }
+    helper_cache: dict[str, tuple[set[str], set[str]]] = {}
+
+    def helper_effects(name: str, visiting: set[str]) -> tuple[set[str], set[str]]:
+        if name in helper_cache:
+            effects, dependencies = helper_cache[name]
+            return set(effects), set(dependencies)
+        if name in visiting or name not in helper_defs:
+            return set(), set()
+        node = helper_defs[name]
+        effects = _mutation_names(node)
+        dependencies = {name}
+        for called in _called_names(node):
+            child_effects, child_dependencies = helper_effects(
+                called, {*visiting, name}
+            )
+            effects.update(child_effects)
+            dependencies.update(child_dependencies)
+        helper_cache[name] = (set(effects), set(dependencies))
+        return effects, dependencies
+
+    mutable: dict[str, list[_ModuleBinding]] = {}
+
+    def add(name: str, node: ast.AST, *, applies_after: bool = False) -> None:
+        binding = _ModuleBinding(node=node, applies_after_declaration=applies_after)
+        bucket = mutable.setdefault(name, [])
+        if binding not in bucket:
+            bucket.append(binding)
+
+    for module_node in tree.body:
+        if isinstance(module_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not module_node.name.startswith("test"):
+                add(module_node.name, module_node)
+            continue
+        if isinstance(module_node, ast.ClassDef):
+            add(module_node.name, module_node)
+            continue
+        for name in _statement_binding_names(module_node):
+            add(name, module_node)
+        for name in _mutation_names(module_node):
+            add(name, module_node, applies_after=True)
+        for helper_name in _called_names(module_node):
+            effects, dependencies = helper_effects(helper_name, set())
+            for affected_name in effects:
+                add(affected_name, module_node, applies_after=True)
+                for dependency in dependencies:
+                    add(
+                        affected_name,
+                        helper_defs[dependency],
+                        applies_after=True,
+                    )
+    return {name: tuple(bindings) for name, bindings in mutable.items()}
+
+
+def _parametrize_aliases(tree: ast.Module) -> set[str]:
+    aliases: set[str] = set()
+    pytest_roots = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for imported in node.names
+        if imported.name == "pytest"
+    }
+    pytest_marks: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            "pytest"
+        ):
+            for imported in node.names:
+                if imported.name == "parametrize":
+                    aliases.add(imported.asname or imported.name)
+                elif node.module == "pytest" and imported.name == "mark":
+                    pytest_marks.add(imported.asname or imported.name)
+    changed = True
+    while changed:
+        changed = False
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            resolves = (
+                isinstance(value, ast.Attribute)
+                and value.attr == "parametrize"
+                and _root_name(value) in {*pytest_roots, *pytest_marks}
+            ) or (isinstance(value, ast.Name) and value.id in aliases)
+            if not resolves:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
 def _parameterized_ref(
     raw_ref: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
-    module_bindings: dict[str, tuple[ast.AST, ...]],
+    module_bindings: dict[str, tuple[_ModuleBinding, ...]],
+    parametrize_aliases: set[str],
+    *,
+    container_decorators: tuple[ast.expr, ...] = (),
 ) -> str:
+    candidate_decorators = (*container_decorators, *node.decorator_list)
     decorators = tuple(
         decorator
-        for decorator in node.decorator_list
+        for decorator in candidate_decorators
         if isinstance(decorator, ast.Call)
-        and isinstance(decorator.func, ast.Attribute)
-        and decorator.func.attr == "parametrize"
+        and (
+            (
+                isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "parametrize"
+            )
+            or (
+                isinstance(decorator.func, ast.Name)
+                and decorator.func.id in parametrize_aliases
+            )
+        )
     )
+    unresolved = [
+        decorator.func.id
+        for decorator in candidate_decorators
+        if isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Name)
+        and "parametrize" in decorator.func.id.lower()
+        and decorator.func.id not in parametrize_aliases
+    ]
+    if unresolved:
+        raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
     if not decorators:
         return raw_ref
     serialized_parts = [
@@ -121,10 +331,31 @@ def _parameterized_ref(
         if name in resolved_names:
             continue
         resolved_names.add(name)
-        for binding in module_bindings.get(name, ()):
-            if binding.lineno >= node.lineno:
+        name_bindings = module_bindings.get(name, ())
+        first_post_declaration_rebinding = min(
+            (
+                (binding.node.lineno, binding.node.col_offset)
+                for binding in name_bindings
+                if binding.node.lineno >= node.lineno
+                and not binding.applies_after_declaration
+            ),
+            default=None,
+        )
+        for module_binding in name_bindings:
+            binding = module_binding.node
+            position = (binding.lineno, binding.col_offset)
+            if (
+                binding.lineno >= node.lineno
+                and not module_binding.applies_after_declaration
+            ):
                 continue
-            binding_nodes[(binding.lineno, binding.col_offset)] = binding
+            if (
+                module_binding.applies_after_declaration
+                and first_post_declaration_rebinding is not None
+                and position > first_post_declaration_rebinding
+            ):
+                continue
+            binding_nodes[position] = binding
             pending_names.update(
                 child.id
                 for child in ast.walk(binding)
@@ -140,10 +371,9 @@ def _parameterized_ref(
 
 
 def _python_node_source(
-    text: str,
+    lines: list[str],
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> str:
-    lines = text.splitlines(keepends=True)
     start_line = min(
         (decorator.lineno for decorator in node.decorator_list),
         default=node.lineno,
@@ -152,6 +382,58 @@ def _python_node_source(
     if end_line is None:
         raise TestCorpusGuardError("Python test declaration range is unavailable")
     return "".join(lines[start_line - 1 : end_line])
+
+
+def _has_nested_python_tests(node: ast.AST) -> bool:
+    return any(
+        (
+            isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and child.name.startswith("test")
+        )
+        or (isinstance(child, ast.ClassDef) and child.name.startswith("Test"))
+        for child in ast.walk(node)
+        if child is not node
+    )
+
+
+def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
+    active: set[str] = set()
+    disabled: set[str] = set()
+    for node in body:
+        if isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ) and node.name.startswith("test"):
+            active.add(node.name)
+            disabled.discard(node.name)
+            continue
+        if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+            active.add(node.name)
+            disabled.discard(node.name)
+            continue
+
+        rebound: set[str] = set()
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            else:
+                targets = (node.target,)
+            for target in targets:
+                rebound.update(_binding_target_names(target))
+        elif isinstance(node, ast.Delete):
+            for target in node.targets:
+                rebound.update(_binding_target_names(target))
+        disabled.update(active & rebound)
+
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            if isinstance(value, ast.Constant) and value.value is False:
+                for target in targets:
+                    if isinstance(target, ast.Attribute) and target.attr == "__test__":
+                        root = _root_name(target.value)
+                        if root in active:
+                            disabled.add(root)
+    return disabled
 
 
 def _python_inventory_entries(
@@ -165,25 +447,21 @@ def _python_inventory_entries(
             f"cannot parse Python test inventory: {path}"
         ) from exc
 
-    entries: list[tuple[str, str, str]] = []
-    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
-    mutable_bindings: dict[str, list[ast.AST]] = {}
     for module_node in tree.body:
-        if isinstance(module_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not module_node.name.startswith("test_"):
-                mutable_bindings.setdefault(module_node.name, []).append(module_node)
-            continue
-        if isinstance(module_node, ast.ClassDef):
-            mutable_bindings.setdefault(module_node.name, []).append(module_node)
-            continue
-        referenced_names = {
-            child.id for child in ast.walk(module_node) if isinstance(child, ast.Name)
-        }
-        for name in referenced_names:
-            mutable_bindings.setdefault(name, []).append(module_node)
-    module_bindings = {
-        name: tuple(statements) for name, statements in mutable_bindings.items()
-    }
+        if not isinstance(
+            module_node,
+            (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+        ) and _has_nested_python_tests(module_node):
+            raise TestCorpusGuardError(
+                "Python tests inside module control flow cannot be inventoried safely"
+            )
+
+    entries: list[tuple[str, str, str]] = []
+    source_lines = text.splitlines(keepends=True)
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    module_bindings = _python_module_bindings(tree)
+    parametrize_aliases = _parametrize_aliases(tree)
+    disabled = _disabled_python_declarations(tree.body)
 
     def collected_methods(
         class_node: ast.ClassDef,
@@ -198,12 +476,26 @@ def _python_inventory_entries(
         for base in class_node.bases:
             if isinstance(base, ast.Name) and base.id in classes:
                 methods.update(collected_methods(classes[base.id], next_visiting))
+        disabled_methods = _disabled_python_declarations(class_node.body)
         for child in class_node.body:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if child.name.startswith("test_"):
+                if child.name.startswith("test") and child.name not in disabled_methods:
                     methods[child.name] = child
                 else:
                     methods.pop(child.name, None)
+                continue
+            rebound: set[str] = set()
+            if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                for target in targets:
+                    rebound.update(_binding_target_names(target))
+            elif isinstance(child, ast.Delete):
+                for target in child.targets:
+                    rebound.update(_binding_target_names(target))
+            for name in rebound:
+                methods.pop(name, None)
         return methods
 
     def has_constructor(class_node: ast.ClassDef, visiting: set[str]) -> bool:
@@ -226,23 +518,36 @@ def _python_inventory_entries(
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.name.startswith("test_"):
+            if node.name.startswith("test") and node.name not in disabled:
                 raw_ref = _parameterized_ref(
-                    f"{path}::{node.name}", node, module_bindings
+                    f"{path}::{node.name}",
+                    node,
+                    module_bindings,
+                    parametrize_aliases,
                 )
                 entries.append(
-                    (raw_ref, "python_test", _python_node_source(text, node))
+                    (raw_ref, "python_test", _python_node_source(source_lines, node))
                 )
             continue
-        if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
+        if (
+            not isinstance(node, ast.ClassDef)
+            or not node.name.startswith("Test")
+            or node.name in disabled
+        ):
             continue
         if has_constructor(node, set()):
             continue
         for method_name, method in collected_methods(node, set()).items():
             raw_ref = _parameterized_ref(
-                f"{path}::{node.name}::{method_name}", method, module_bindings
+                f"{path}::{node.name}::{method_name}",
+                method,
+                module_bindings,
+                parametrize_aliases,
+                container_decorators=tuple(node.decorator_list),
             )
-            entries.append((raw_ref, "python_test", _python_node_source(text, method)))
+            entries.append(
+                (raw_ref, "python_test", _python_node_source(source_lines, method))
+            )
 
     counts: dict[str, int] = {}
     inventory: list[tuple[TestDeclaration, str]] = []
@@ -709,12 +1014,7 @@ def _worktree_source_ref(repo: Path, test_ref: str) -> str:
         path,
         missing_error=TestCorpusSourceRefMissingError,
     )
-    try:
-        return _source_ref_from_text(test_ref, text)
-    except TestCorpusEvidenceError as exc:
-        raise TestCorpusSourceRefMissingError(
-            f"replacement assertion source is missing: {test_ref}"
-        ) from exc
+    return _source_ref_from_text(test_ref, text)
 
 
 def _resolve_assertion_source_ref(

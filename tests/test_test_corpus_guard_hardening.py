@@ -295,6 +295,17 @@ def test_historical_source_ref_fallback_requires_missing_worktree_source(
     with pytest.raises(guard.TestCorpusGuardError, match="file is unsafe"):
         guard._resolve_assertion_source_ref(tmp_path, test_ref, historical)
 
+    (tests_dir / "test_sample.py").unlink()
+    (tests_dir / "test_sample.py").write_text(
+        "def test_neighbor(): pass\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        guard.TestCorpusEvidenceError,
+        match="replacement assertion source is missing",
+    ):
+        guard._resolve_assertion_source_ref(tmp_path, test_ref, historical)
+
 
 def test_worktree_inventory_reader_rejects_symlinked_parent(
     tmp_path: Path,
