@@ -168,10 +168,28 @@ def _read_bounded_regular_text(
             dir_fd=parent_descriptor,
         )
     except FileNotFoundError as exc:
+        for open_descriptor in (descriptor, parent_descriptor):
+            if open_descriptor is not None:
+                try:
+                    os.close(open_descriptor)
+                except OSError:
+                    pass
         raise TestCorpusGuardError(invalid_message) from exc
     except TestCorpusGuardError:
+        for open_descriptor in (descriptor, parent_descriptor):
+            if open_descriptor is not None:
+                try:
+                    os.close(open_descriptor)
+                except OSError:
+                    pass
         raise
     except OSError as exc:
+        for open_descriptor in (descriptor, parent_descriptor):
+            if open_descriptor is not None:
+                try:
+                    os.close(open_descriptor)
+                except OSError:
+                    pass
         raise TestCorpusGuardError(unsafe_message) from exc
 
     try:
@@ -265,12 +283,15 @@ def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
 
 def _run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
     command = ["git", *args]
-    process = subprocess.Popen(
-        command,
-        cwd=repo,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=repo,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as exc:
+        raise TestCorpusGuardError("git inspection is unavailable") from exc
     if process.stdout is None:
         process.kill()
         process.wait()

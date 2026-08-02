@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -131,6 +132,51 @@ def test_worktree_inventory_reader_rejects_symlinked_parent(
 
     with pytest.raises(guard.TestCorpusGuardError, match="file is unsafe"):
         guard._read_worktree_text(tmp_path, "tests/test_external.py")
+
+
+def test_worktree_reader_closes_parent_descriptors_on_missing_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    opened = iter((101, 102))
+    closed: list[int] = []
+
+    def fake_open(*_args: object, **_kwargs: object) -> int:
+        try:
+            return next(opened)
+        except StopIteration:
+            raise FileNotFoundError from None
+
+    monkeypatch.setattr(guard.os, "open", fake_open)
+    monkeypatch.setattr(
+        guard.os,
+        "fstat",
+        lambda _descriptor: os.stat_result((0o040000, 0, 0, 1, 0, 0, 0, 0, 0, 0)),
+    )
+    monkeypatch.setattr(guard.os, "close", closed.append)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="cannot read test inventory"):
+        guard._read_worktree_text(tmp_path, "tests/test_missing.py")
+
+    assert closed == [101, 102]
+
+
+def test_run_git_translates_spawn_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def unavailable(*_args: object, **_kwargs: object) -> subprocess.Popen[bytes]:
+        raise FileNotFoundError("git unavailable")
+
+    monkeypatch.setattr(guard.subprocess, "Popen", unavailable)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="git inspection is unavailable",
+    ) as caught:
+        guard._run_git(tmp_path, ["status"])
+
+    assert isinstance(caught.value.__cause__, FileNotFoundError)
 
 
 def test_changed_test_paths_union_index_worktree_and_untracked(

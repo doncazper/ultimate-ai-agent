@@ -134,6 +134,21 @@ test("declared test", async () => {
     ]
 
 
+def test_frontend_inventory_masks_nested_template_interpolations() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        """
+const label = `prefix ${fn(`inner ${value("nested")}`)} suffix`;
+const decoy = `test("not a declaration", () => {})`;
+it("real test", () => {});
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.tsx::real test",
+    ]
+
+
 def test_parameterized_frontend_inventory_rejects_missing_title() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,

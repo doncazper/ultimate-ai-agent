@@ -11,6 +11,9 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.verification.repo import load_json, read_text, repo_path  # noqa: E402
 from scripts.verification.test_corpus_guard import (  # noqa: E402
+    BASE_SHA_ENV,
+    RETIREMENT_LEDGER,
+    RETIREMENT_SCHEMA,
     TestCorpusGuardError,
     verify_test_corpus_guard,
 )
@@ -131,9 +134,9 @@ def _append_test_corpus_guard_failures(
     failures: list[str], policy: dict[str, Any]
 ) -> None:
     expected = {
-        "schema_version": "uaa.test_corpus_retirements.v1",
-        "retirement_ledger": "docs/verification/test_corpus_retirements.json",
-        "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+        "schema_version": RETIREMENT_SCHEMA,
+        "retirement_ledger": RETIREMENT_LEDGER.as_posix(),
+        "comparison_base_env": BASE_SHA_ENV,
         "enforcement": "fail_closed_when_exact_base_is_available",
         "required_evidence": [
             "replacement_refs",

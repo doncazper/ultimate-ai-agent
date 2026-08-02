@@ -37,6 +37,9 @@ def _skip_string(text: str, start: int) -> int:
         if character == "\\":
             index += 2
             continue
+        if quote == "`" and text.startswith("${", index):
+            index = _skip_balanced(text, index + 1)
+            continue
         if character == quote:
             return index + 1
         index += 1
