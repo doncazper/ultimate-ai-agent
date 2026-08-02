@@ -2176,20 +2176,22 @@ def test_python_inventory_rejects_ambiguous_collection_constructs(
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
-def test_frontend_inventory_binds_static_registration_loop_identity() -> None:
-    path = "apps/control-center/src/example.test.ts"
+def test_frontend_inventory_preserves_unchanged_static_registration_loop_items() -> None:
     before = """
 const cases = [{ name: "one" }, { name: "two" }] as const;
 for (const item of cases) {
   test(`${item.name} works`, () => {});
 }
 """
-    after = before.replace(', { name: "two" }', "")
+    after = before.replace(', { name: "two" }', ', { name: "three" }')
+    path = "apps/control-center/src/example.test.ts"
     before_refs = {item.ref for item in guard.parse_frontend_declarations(path, before)}
     after_refs = {item.ref for item in guard.parse_frontend_declarations(path, after)}
 
-    assert before_refs != after_refs
-    assert before_refs - after_refs == before_refs
+    assert len(before_refs) == len(after_refs) == 2
+    assert len(before_refs & after_refs) == 1
+    assert len(before_refs - after_refs) == 1
+    assert len(after_refs - before_refs) == 1
 
 
 @pytest.mark.parametrize(

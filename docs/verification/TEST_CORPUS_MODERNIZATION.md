@@ -34,10 +34,10 @@ declaration ref, so removing a collected case cannot retain the prior inventory
 identity.
 Identifier-backed frontend parameter sets bind to the preceding static `const`
 initializer or to a relative import's exported static `const` initializer.
-Nested spread and supported collection expressions bind to the same sources,
-and statically bounded top-level `for...of` registrations bind the exact loop
-and iterable source into both declaration identity and assertion evidence.
-Python imported parameter data is
+Nested spread and supported collection expressions bind to the same sources.
+Supported static frontend registration loops emit one declaration identity per
+collection item, preserving unchanged item identities as neighboring rows change;
+unresolved or dynamic loops fail closed. Python imported parameter data is
 bound to the exact referenced declaration and its recursively resolvable local
 dependencies. Changes to an imported initializer, including one in another test
 module, recheck the dependent test file. Dynamic, mutated, ambiguous, or

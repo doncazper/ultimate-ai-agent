@@ -840,12 +840,63 @@ def _static_collection_source(
     return f"module={module}\nimported={imported_name}\n{imported_source}"
 
 
+def _static_collection_items(collection_source: str) -> tuple[str, ...]:
+    scan_text = "".join(
+        character if visible else " "
+        for character, visible in zip(
+            collection_source,
+            _code_mask(collection_source),
+            strict=True,
+        )
+    )
+    initializer_start = -1
+    initializer_end = -1
+    for match in re.finditer(rf"\bconst\s+{TEST_API_NAME}\s*=", scan_text):
+        candidate = match.end()
+        while candidate < len(collection_source) and collection_source[
+            candidate
+        ].isspace():
+            candidate += 1
+        if candidate < len(collection_source) and collection_source[candidate] == "[":
+            initializer_start = candidate
+            initializer_end = _skip_balanced(collection_source, candidate)
+            break
+    if initializer_start < 0:
+        raise FrontendInventoryError(
+            "frontend registration loop collection is not a static array"
+        )
+    items: list[str] = []
+    item_start = initializer_start + 1
+    depth = 0
+    for index in range(item_start, initializer_end - 1):
+        if not scan_text[index].strip():
+            continue
+        character = scan_text[index]
+        if character in "[({":
+            depth += 1
+        elif character in "])}":
+            depth -= 1
+        elif character == "," and depth == 0:
+            item = collection_source[item_start:index].strip()
+            if item:
+                items.append(item)
+            item_start = index + 1
+    final_item = collection_source[item_start : initializer_end - 1].strip()
+    if final_item:
+        items.append(final_item)
+    if not items or any(item.startswith("...") for item in items):
+        raise FrontendInventoryError(
+            "frontend registration loop collection items cannot be proven"
+        )
+    return tuple(items)
+
+
 def _registration_context_source(
     text: str,
     scan_text: str,
     offset: int,
     import_binding_resolver: ImportBindingResolver | None,
-) -> str:
+) -> tuple[str, ...]:
     range_patterns = (
         re.compile(rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*\([^)]*\)\s*\{{"),
         re.compile(
@@ -865,7 +916,7 @@ def _registration_context_source(
                     "frontend test registration context cannot be inventoried safely"
                 )
 
-    context_sources: list[str] = []
+    context_sources = [""]
     for match in re.compile(r"\bfor\s*\(").finditer(scan_text, 0, offset):
         header_end = _skip_balanced(text, match.end() - 1)
         body_start = header_end
@@ -893,10 +944,13 @@ def _registration_context_source(
             match.start(),
             import_binding_resolver,
         )
-        context_sources.append(
-            f"{text[match.start() : header_end]}\n{collection_source}"
-        )
-    return "\n".join(context_sources)
+        items = _static_collection_items(collection_source)
+        context_sources = [
+            f"{existing}\n{text[match.start() : header_end]}\nitem={item}".strip()
+            for existing in context_sources
+            for item in items
+        ]
+    return tuple(context_sources)
 
 
 def _frontend_inventory_entries(
@@ -927,7 +981,7 @@ def _frontend_inventory_entries(
         return f"{raw_ref}::registration-context-sha256:{digest}"
 
     for match in direct_pattern.finditer(scan_text):
-        context_source = _registration_context_source(
+        context_sources = _registration_context_source(
             text,
             scan_text,
             match.start(),
@@ -954,15 +1008,17 @@ def _frontend_inventory_entries(
         if not title or len(title) > 500 or re.search(r"#\d+$", title):
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
         declaration_source = text[match.start() : declaration_end]
-        if context_source:
-            declaration_source = f"{declaration_source}\n{context_source}"
-        raw_entries.append(
-            (
-                match.start(),
-                context_bound_ref(f"{path}::{title}", context_source),
-                declaration_source,
+        for context_source in context_sources:
+            bound_source = declaration_source
+            if context_source:
+                bound_source = f"{bound_source}\n{context_source}"
+            raw_entries.append(
+                (
+                    match.start(),
+                    context_bound_ref(f"{path}::{title}", context_source),
+                    bound_source,
+                )
             )
-        )
     parameterized_declarations = _parameterized_declarations(
         text,
         scan_text,
@@ -978,7 +1034,7 @@ def _frontend_inventory_entries(
         declaration_source,
         parameter_data,
     ) in parameterized_declarations:
-        context_source = _registration_context_source(
+        context_sources = _registration_context_source(
             text,
             scan_text,
             offset,
@@ -996,22 +1052,24 @@ def _frontend_inventory_entries(
             parameter_call_ranges,
         )
         digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
-        if context_source:
-            declaration_source = f"{declaration_source}\n{context_source}"
-        raw_entries.append(
-            (
-                offset,
-                context_bound_ref(
-                    f"{path}::{title}::parameters-sha256:{digest}",
-                    context_source,
-                ),
-                declaration_source,
+        for context_source in context_sources:
+            bound_source = declaration_source
+            if context_source:
+                bound_source = f"{bound_source}\n{context_source}"
+            raw_entries.append(
+                (
+                    offset,
+                    context_bound_ref(
+                        f"{path}::{title}::parameters-sha256:{digest}",
+                        context_source,
+                    ),
+                    bound_source,
+                )
             )
-        )
     for offset, raw_title, declaration_source in _conditional_declarations(
         text, scan_text, conditional_pattern
     ):
-        context_source = _registration_context_source(
+        context_sources = _registration_context_source(
             text,
             scan_text,
             offset,
@@ -1020,15 +1078,17 @@ def _frontend_inventory_entries(
         title = _normalized_title(raw_title)
         if not title or len(title) > 500 or re.search(r"#\d+$", title):
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        if context_source:
-            declaration_source = f"{declaration_source}\n{context_source}"
-        raw_entries.append(
-            (
-                offset,
-                context_bound_ref(f"{path}::{title}", context_source),
-                declaration_source,
+        for context_source in context_sources:
+            bound_source = declaration_source
+            if context_source:
+                bound_source = f"{bound_source}\n{context_source}"
+            raw_entries.append(
+                (
+                    offset,
+                    context_bound_ref(f"{path}::{title}", context_source),
+                    bound_source,
+                )
             )
-        )
 
     counts: dict[str, int] = {}
     used_refs: set[str] = set()
