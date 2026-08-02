@@ -838,14 +838,20 @@ FORBIDDEN_PATTERNS = (
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:call|invoke|use)(?:s|d|ing)? (?:the )?"
     r"(?:(?:[a-z0-9][a-z0-9._/-]*[ -]+){0,3}(?:model|provider)[ -]+apis?|"
-    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?)\b",
+    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?|"
+    r"(?:gpt|claude|gemini|llama|qwen|deepseek|phi|command)"
+    r"(?:[- ][a-z0-9.]+){0,3}(?:['’]s)?[ -]+apis?)\b",
     r"\b(?:(?:[a-z0-9][a-z0-9._/-]*[ -]+){0,3}(?:model|provider)[ -]+apis?|"
-    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?)"
+    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?|"
+    r"(?:gpt|claude|gemini|llama|qwen|deepseek|phi|command)"
+    r"(?:[- ][a-z0-9.]+){0,3}(?:['’]s)?[ -]+apis?)"
     r"(?: (?:calls?|invocations?|access|use))? (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:calls?|invocations?) (?:to|of) (?:the )?"
     r"(?:(?:[a-z0-9][a-z0-9._/-]*[ -]+){0,3}(?:model|provider)[ -]+apis?|"
-    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?) "
+    r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?|"
+    r"(?:gpt|claude|gemini|llama|qwen|deepseek|phi|command)"
+    r"(?:[- ][a-z0-9.]+){0,3}(?:['’]s)?[ -]+apis?) "
     r"(?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -894,7 +900,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:logs?|stores?|records?|retains?|saves?|persists?) "
+    r"(?:logs?|stores?|records?|retains?|saves?|persists?|"
+    r"archives?|caches?|writes?|writing|written) "
     r"(?:raw (?:prompts?|responses?(?: content)?|provider payloads?|local paths?|"
     r"conversations?(?: content| history)?|user messages?|"
     r"conversation transcripts?|transcripts?|logs?|log content|sensitive content)|"
@@ -904,12 +911,20 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:reuse (?:an? )?approvals? (?:across|for) (?:later |future )?(?:requests?|actions?)|"
+    r"(?:reuse (?:an? )?approvals? (?:across|for|on|with|in) (?:later |future )?(?:requests?|actions?)|"
     r"remember (?:an? )?approvals? for (?:later|future) (?:requests?|actions?)|"
-    r"carry (?:an? )?approvals? over to (?:later|future) (?:requests?|actions?)|"
-    r"persist (?:an? )?approvals? (?:across|for) (?:later |future )?(?:requests?|actions?))\b",
+    r"carry (?:forward )?(?:an? )?approvals? (?:forward |over )?"
+    r"(?:to|across|for|on|with) "
+    r"(?:later |future )?(?:requests?|actions?)|"
+    r"persist (?:an? )?approvals? (?:across|for|on|with|in) "
+    r"(?:later |future )?(?:requests?|actions?)|"
+    r"(?:keep|treat|consider) (?:an? )?approvals? (?:as )?valid "
+    r"(?:across|for|on|with) (?:later |future )?(?:requests?|actions?))\b",
     r"\bapprovals? (?!(?:(?:does|do|did|will|may|can) not|never)\b)"
     r"(?:carr(?:y|ies) over|persists?|applies?) (?:across|to|for) "
+    r"(?:later |future )?(?:requests?|actions?)\b",
+    r"\b(?:an? )?approvals? (?!(?:(?:does|do|did|will|may|can) not|never)\b)"
+    r"(?:remains?|stays?|is) valid (?:across|for|on|with) "
     r"(?:later |future )?(?:requests?|actions?)\b",
     r"\b(?:approval reuse|approval carryover|persistent approval|future-request approval) "
     r"(?:is|are) (?:now )?"
@@ -917,7 +932,8 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:the )?(?:active(?:-mode)?|shadow(?:-mode)?) (?:replay|harness) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:(?:dispatch|route|hand off)(?:es|ed|ing)? to|"
+    r"(?:(?:dispatch|route|hand off|send|forward)(?:es|ed|ing)?"
+    r"(?: (?:to|through|via))?|"
     r"(?:reach|use|invoke)(?:es|ed|ing)?) real "
     r"(?:adapters?|dispatchers?|executors?|targets?)\b",
     r"\breal (?:dispatches?|adapters?|dispatchers?|executors?|targets?) "
