@@ -1896,6 +1896,31 @@ def test_python_inventory_rejects_repository_file_parameter_data(
         )
 
 
+def test_python_inventory_rejects_aliased_repository_file_reader(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "data.py").write_text(
+        "import json\n"
+        "reader = open\n"
+        "def load_cases():\n"
+        '    with reader("scripts/cases.json") as handle:\n'
+        "        return json.load(handle)\n"
+        "CASES = load_cases()\n"
+    )
+    test_text = (
+        "import pytest\n"
+        "from data import CASES\n"
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): pass\n"
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="repository-file"):
+        guard._parse_worktree_test_declarations(
+            tmp_path, "tests/test_sample.py", test_text
+        )
+
+
 def test_changed_python_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2035,6 +2060,35 @@ def test_changed_pytest_collection_configuration_fails_closed(
     outputs = iter(
         (
             b"pyproject.toml\0",
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_setup_cfg_pytest_collection_configuration_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = "[tool:pytest]\npython_functions = check_*\n"
+    prior = "[tool:pytest]\npython_functions = test_*\n"
+    (tmp_path / "setup.cfg").write_text(current)
+    outputs = iter(
+        (
+            b"setup.cfg\0",
             b"",
             b"",
             b"",
@@ -2386,6 +2440,18 @@ def test_frontend_registration_loop_preserves_runtime_title_whitespace() -> None
     assert guard.parse_frontend_declarations(path, spaced)[0].ref == f"{path}:: a  b "
 
 
+def test_frontend_inventory_binds_enclosing_suite_titles() -> None:
+    path = "apps/control-center/src/example.test.ts"
+    before = 'describe("one", () => { test("case", () => {}); });\n'
+    after = before.replace('"one"', '"two"')
+
+    before_ref = guard.parse_frontend_declarations(path, before)[0].ref
+    after_ref = guard.parse_frontend_declarations(path, after)[0].ref
+
+    assert before_ref == f"{path}::suite[3]:one::case"
+    assert after_ref == f"{path}::suite[3]:two::case"
+
+
 def test_frontend_registration_loop_combines_unicode_surrogate_pairs() -> None:
     path = "apps/control-center/src/example.test.ts"
     escaped = r'const cases = ["\uD83D\uDE00"] as const;' + "\n"
@@ -2449,6 +2515,22 @@ for (const item of cases) { test(`${item.name}`, () => {}); }
         (
             "const cases = [{ active: true }] as const;\n"
             'for (const item of cases) { if (item.active) test("case", () => {}); }',
+            "registration context",
+        ),
+        (
+            'if (enabled) /* controlled */ test("case", () => {});',
+            "registration context",
+        ),
+        (
+            'if (enabled) // controlled\n test("case", () => {});',
+            "registration context",
+        ),
+        (
+            'if (enabled) void 0, test("case", () => {});',
+            "registration context",
+        ),
+        (
+            'for await (const item of cases) /* controlled */ test("case", () => {});',
             "registration context",
         ),
         (

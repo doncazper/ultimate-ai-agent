@@ -42,14 +42,17 @@ so unused-field changes recheck the test without falsely retiring it and unchang
 items survive neighboring-row changes. Runtime-title whitespace and Unicode are
 preserved exactly; numeric-title coercion, sparse arrays, asynchronous
 registration loops, unresolved helper calls, and mutated aliases fail closed.
+Enclosing static suite titles are part of each frontend identity, and
+comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data is bound to the exact referenced declaration and
 its recursively resolvable local
 dependencies. Changes to an imported initializer, including one in another test
 module, recheck the dependent test file. Dynamic, mutated, ambiguous, or
 unresolved parameter bindings and collection-changing `conftest.py` hooks fail
 closed. Wildcard imports in tests, class-body parameter bindings,
-repository-file-backed parameter data, and changes to pytest collection
-configuration also fail closed. Frontend files fail closed when any recognized
+repository-file-backed parameter data (including aliased readers), and changes
+to pytest collection configuration in `pyproject.toml`, `pytest.ini`, `tox.ini`,
+or `setup.cfg` also fail closed. Frontend files fail closed when any recognized
 runner alias is shadowed by a local declaration or non-runner import;
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares

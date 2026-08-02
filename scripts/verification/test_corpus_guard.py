@@ -610,14 +610,58 @@ def _python_imported_binding_source(
             for child in ast.walk(function_node)
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
         )
+    repository_reader_attributes = {
+        "open",
+        "read",
+        "read_bytes",
+        "read_text",
+        "readlines",
+    }
+    repository_reader_aliases = {"open"}
+    alias_assignments: list[tuple[tuple[str, ...], ast.expr]] = []
+
+    def assigned_names(target: ast.expr) -> tuple[str, ...]:
+        if isinstance(target, ast.Name):
+            return (target.id,)
+        if isinstance(target, (ast.List, ast.Tuple)):
+            return tuple(name for item in target.elts for name in assigned_names(item))
+        return ()
+
+    for node in construction_nodes.values():
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                names = tuple(
+                    name for target in child.targets for name in assigned_names(target)
+                )
+                alias_assignments.append((names, child.value))
+            elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                alias_assignments.append((assigned_names(child.target), child.value))
+            elif isinstance(child, ast.NamedExpr):
+                alias_assignments.append((assigned_names(child.target), child.value))
+    while True:
+        added = {
+            name
+            for names, value in alias_assignments
+            if (isinstance(value, ast.Name) and value.id in repository_reader_aliases)
+            or (
+                isinstance(value, ast.Attribute)
+                and value.attr in repository_reader_attributes
+            )
+            for name in names
+        } - repository_reader_aliases
+        if not added:
+            break
+        repository_reader_aliases.update(added)
     if any(
         isinstance(child, ast.Call)
         and (
-            (isinstance(child.func, ast.Name) and child.func.id == "open")
+            (
+                isinstance(child.func, ast.Name)
+                and child.func.id in repository_reader_aliases
+            )
             or (
                 isinstance(child.func, ast.Attribute)
-                and child.func.attr
-                in {"open", "read", "read_bytes", "read_text", "readlines"}
+                and child.func.attr in repository_reader_attributes
             )
         )
         for node in construction_nodes.values()
@@ -1924,7 +1968,10 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
 
-        section = "tool.pytest.ini_options" if path == "pyproject.toml" else "pytest"
+        section = {
+            "pyproject.toml": "tool.pytest.ini_options",
+            "setup.cfg": "tool:pytest",
+        }.get(path, "pytest")
 
         def collection_config_section(value: str) -> str:
             match = re.search(

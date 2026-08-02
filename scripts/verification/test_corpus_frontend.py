@@ -355,6 +355,39 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
     return names
 
 
+def _suite_api_names(text: str, scan_text: str) -> set[str]:
+    names = {"describe", "suite"}
+    for match in IMPORT_PATTERN.finditer(text):
+        if scan_text[match.start() : match.start() + len("import")] != "import":
+            continue
+        for member in match.group("members").split(","):
+            binding = re.fullmatch(
+                rf"\s*(?P<imported>{TEST_API_NAME})"
+                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
+                member,
+            )
+            if binding is None:
+                continue
+            imported = binding.group("imported")
+            local = binding.group("local") or imported
+            if imported in {"describe", "suite"}:
+                if match.group("module") not in RUNNER_MODULES:
+                    raise FrontendInventoryError(
+                        "frontend suite API name is shadowed by a non-runner import"
+                    )
+                names.add(local)
+            elif local in {"describe", "suite"}:
+                raise FrontendInventoryError(
+                    "frontend suite API name is shadowed by a non-runner import"
+                )
+    names_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    if re.search(rf"\b(?:const|let|var|function|class)\s+{names_pattern}\b", scan_text):
+        raise FrontendInventoryError(
+            "frontend suite API name is shadowed by a local declaration"
+        )
+    return names
+
+
 def _parameterized_declarations(
     text: str,
     scan_text: str,
@@ -1286,12 +1319,112 @@ def _resolved_loop_title(title_literal: str, bindings: dict[str, StaticValue]) -
     return "".join(value)
 
 
+def _unbraced_statement_contains_offset(
+    text: str,
+    start: int,
+    offset: int,
+) -> bool:
+    index = _skip_static_trivia(text, start)
+    while index <= offset and index < len(text):
+        index = _skip_static_trivia(text, index)
+        if index == offset:
+            return True
+        if index > offset or index >= len(text) or text[index] == ";":
+            return False
+        if text[index] in "([{":
+            end = _skip_balanced(text, index)
+            if index < offset < end:
+                return True
+            index = end
+            continue
+        if text[index] in "\"'`":
+            index = _skip_string(text, index)
+            continue
+        comment_end = _skip_comment(text, index)
+        if comment_end != index:
+            index = comment_end
+            continue
+        index += 1
+    return False
+
+
+def _suite_callback_body(
+    text: str,
+    start: int,
+    call_end: int,
+) -> tuple[int, int] | None:
+    index = _skip_static_trivia(text, start)
+    if re.match(r"async\b", text[index:]):
+        index = _skip_static_trivia(text, index + len("async"))
+    if re.match(r"function\b", text[index:]):
+        index = _skip_static_trivia(text, index + len("function"))
+        name = re.match(TEST_API_NAME, text[index:])
+        if name is not None:
+            index = _skip_static_trivia(text, index + name.end())
+        if index >= call_end or text[index] != "(":
+            return None
+        index = _skip_static_trivia(text, _skip_balanced(text, index))
+    else:
+        if index < call_end and text[index] == "(":
+            index = _skip_static_trivia(text, _skip_balanced(text, index))
+        else:
+            parameter = re.match(TEST_API_NAME, text[index:])
+            if parameter is None:
+                return None
+            index = _skip_static_trivia(text, index + parameter.end())
+        if not text.startswith("=>", index):
+            return None
+        index = _skip_static_trivia(text, index + 2)
+    if index >= call_end or text[index] != "{":
+        return None
+    body_end = _skip_balanced(text, index)
+    return (index, body_end) if body_end <= call_end else None
+
+
+def _suite_context_regions(
+    text: str,
+    scan_text: str,
+    suite_api_names: set[str],
+) -> tuple[tuple[int, int, str, str], ...]:
+    names = "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"
+    pattern = re.compile(rf"(?<![.\w$]){names}{TEST_MODIFIERS}\s*(?P<arguments>\()")
+    contexts: list[tuple[int, int, str, str]] = []
+    for match in pattern.finditer(scan_text):
+        call_end = _skip_balanced(text, match.start("arguments"))
+        title_start = _skip_static_trivia(text, match.start("arguments") + 1)
+        if title_start >= call_end or text[title_start] not in "\"'`":
+            raise FrontendInventoryError(
+                "frontend suite title cannot be inventoried safely"
+            )
+        title_end = _skip_string(text, title_start)
+        separator = _skip_static_trivia(text, title_end)
+        if separator >= call_end or text[separator] != ",":
+            raise FrontendInventoryError(
+                "frontend suite callback cannot be inventoried safely"
+            )
+        callback = _suite_callback_body(text, separator + 1, call_end)
+        if callback is None:
+            raise FrontendInventoryError(
+                "frontend suite callback cannot be inventoried safely"
+            )
+        contexts.append(
+            (
+                callback[0],
+                callback[1],
+                text[title_start:title_end],
+                text[match.start() : callback[0]],
+            )
+        )
+    return tuple(sorted(contexts))
+
+
 def _registration_contexts(
     text: str,
     scan_text: str,
     offset: int,
     title_literal: str,
     import_binding_resolver: ImportBindingResolver | None,
+    suite_context_regions: tuple[tuple[int, int, str, str], ...],
 ) -> tuple[_RegistrationContext, ...]:
     def reject_enclosing_body(body_start: int) -> None:
         if body_start < offset < _skip_balanced(text, body_start):
@@ -1335,12 +1468,19 @@ def _registration_contexts(
     control_pattern = re.compile(r"\b(?:while|if|switch|catch)\s*(?P<header>\()")
     for match in control_pattern.finditer(scan_text, 0, offset):
         header_end = _skip_balanced(text, match.start("header"))
-        body_start = header_end
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
+        body_start = _skip_static_trivia(text, header_end)
         if body_start < len(text) and text[body_start] == "{":
             reject_enclosing_body(body_start)
-        elif body_start == offset:
+        elif _unbraced_statement_contains_offset(text, body_start, offset):
+            raise FrontendInventoryError(
+                "frontend test registration context cannot be inventoried safely"
+            )
+
+    for match in re.compile(r"\belse\b").finditer(scan_text, 0, offset):
+        body_start = _skip_static_trivia(text, match.end())
+        if body_start < len(text) and text[body_start] == "{":
+            reject_enclosing_body(body_start)
+        elif _unbraced_statement_contains_offset(text, body_start, offset):
             raise FrontendInventoryError(
                 "frontend test registration context cannot be inventoried safely"
             )
@@ -1354,19 +1494,23 @@ def _registration_contexts(
         scan_text, 0, offset
     ):
         header_end = _skip_balanced(text, match.start("header"))
-        body_start = header_end
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
+        body_start = _skip_static_trivia(text, header_end)
         if body_start < len(text) and text[body_start] == "{":
             reject_enclosing_body(body_start)
+        elif _unbraced_statement_contains_offset(text, body_start, offset):
+            raise FrontendInventoryError(
+                "frontend test registration context cannot be inventoried safely"
+            )
 
     context_bindings: list[tuple[dict[str, StaticValue], str]] = [({}, "")]
     for match in re.compile(r"\bfor\s*\(").finditer(scan_text, 0, offset):
         header_end = _skip_balanced(text, match.end() - 1)
-        body_start = header_end
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
+        body_start = _skip_static_trivia(text, header_end)
         if body_start >= len(text) or text[body_start] != "{":
+            if _unbraced_statement_contains_offset(text, body_start, offset):
+                raise FrontendInventoryError(
+                    "frontend test registration loop cannot be inventoried safely"
+                )
             continue
         body_end = _skip_balanced(text, body_start)
         if not (body_start < offset < body_end):
@@ -1407,13 +1551,36 @@ def _registration_contexts(
                     )
                 )
         context_bindings = next_bindings
-    return tuple(
-        _RegistrationContext(
-            title=_resolved_loop_title(title_literal, bindings),
-            evidence_source=evidence_source,
-        )
-        for bindings, evidence_source in context_bindings
+    suite_contexts = tuple(
+        (suite_title, suite_source)
+        for body_start, body_end, suite_title, suite_source in suite_context_regions
+        if body_start < offset < body_end
     )
+    registrations: list[_RegistrationContext] = []
+    for bindings, evidence_source in context_bindings:
+        suite_titles = tuple(
+            _resolved_loop_title(suite_title, bindings)
+            for suite_title, _suite_source in suite_contexts
+        )
+        title = _resolved_loop_title(title_literal, bindings)
+        if suite_titles:
+            title = (
+                "".join(
+                    f"suite[{len(suite_title)}]:{suite_title}::"
+                    for suite_title in suite_titles
+                )
+                + title
+            )
+        suite_source = "\n".join(source for _title, source in suite_contexts)
+        registrations.append(
+            _RegistrationContext(
+                title=title,
+                evidence_source="\n".join(
+                    part for part in (evidence_source, suite_source) if part
+                ),
+            )
+        )
+    return tuple(registrations)
 
 
 def _frontend_inventory_entries(
@@ -1429,6 +1596,7 @@ def _frontend_inventory_entries(
     direct_pattern, each_pattern, conditional_pattern = _patterns(
         _test_api_names(text, scan_text)
     )
+    suite_api_names = _suite_api_names(text, scan_text)
     if re.search(
         rf"(?<![.\w$])(?:describe|suite){TEST_MODIFIERS}\.(?:each|for)\b",
         scan_text,
@@ -1436,6 +1604,11 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "frontend parameterized suites cannot be inventoried safely"
         )
+    suite_context_regions = _suite_context_regions(
+        text,
+        scan_text,
+        suite_api_names,
+    )
 
     for match in direct_pattern.finditer(scan_text):
         declaration_end = _skip_balanced(text, match.end() - 1)
@@ -1461,6 +1634,7 @@ def _frontend_inventory_entries(
             match.start(),
             title_literal,
             import_binding_resolver,
+            suite_context_regions,
         )
         declaration_source = text[match.start() : declaration_end]
         for context in contexts:
@@ -1498,6 +1672,7 @@ def _frontend_inventory_entries(
             offset,
             raw_title,
             import_binding_resolver,
+            suite_context_regions,
         )
         bound_data = _bound_parameter_data(
             text,
@@ -1531,6 +1706,7 @@ def _frontend_inventory_entries(
             offset,
             raw_title,
             import_binding_resolver,
+            suite_context_regions,
         )
         for context in contexts:
             title = context.title
