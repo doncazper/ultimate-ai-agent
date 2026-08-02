@@ -49,10 +49,6 @@ class _RegistrationContext:
     evidence_source: str
 
 
-def _normalized_title(value: str) -> str:
-    return " ".join(value.split())
-
-
 def _skip_string(text: str, start: int) -> int:
     quote = text[start]
     index = start + 1
@@ -287,8 +283,11 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         if not added:
             break
 
+    api_names_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    )
     declaration_pattern = re.compile(
-        r"\b(?:const|let|var|function|class)\s+(?P<name>it|test)\b"
+        rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
     )
     for match in declaration_pattern.finditer(scan_text):
         if match.start("name") not in recognized_extensions:
@@ -306,7 +305,7 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         for member in match.group("bindings").split(","):
             local = member.split(":", 1)[-1].split("=", 1)[0].strip()
             local = local.removeprefix("...").strip()
-            if local in {"it", "test"}:
+            if local in names:
                 raise FrontendInventoryError(
                     "frontend test API name is shadowed by a local declaration"
                 )
@@ -318,15 +317,15 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             "frontend nested destructuring cannot be inventoried safely"
         )
     for match in array_destructuring_pattern.finditer(scan_text):
-        if re.search(r"\b(?:it|test)\b", match.group("bindings")):
+        if re.search(rf"\b{api_names_pattern}\b", match.group("bindings")):
             raise FrontendInventoryError(
                 "frontend test API name is shadowed by a local declaration"
             )
     parameter_pattern = re.compile(r"\((?P<parameters>[^()]*)\)\s*(?:=>|\{)")
     if any(
-        re.search(r"\b(?:it|test)\b", match.group("parameters"))
+        re.search(rf"\b{api_names_pattern}\b", match.group("parameters"))
         for match in parameter_pattern.finditer(scan_text)
-    ) or re.search(r"\b(?:it|test)\s*=>", scan_text):
+    ) or re.search(rf"\b{api_names_pattern}\s*=>", scan_text):
         raise FrontendInventoryError(
             "frontend test API name is shadowed by a local declaration"
         )
@@ -581,6 +580,28 @@ def _const_initializer_source(
                 )
             body_end = _skip_balanced(text, body_start)
             dependency_source = text[function_match.start() : body_end]
+            all_helper_pattern = re.compile(
+                rf"\b(?:async\s+)?function\s+(?P<name>{TEST_API_NAME})\s*\("
+            )
+            declared_helpers = {
+                candidate.group("name")
+                for candidate in all_helper_pattern.finditer(
+                    scan_text, 0, match.start()
+                )
+            }
+            called_helpers = {
+                candidate.group("name")
+                for candidate in re.finditer(
+                    rf"\b(?P<name>{TEST_API_NAME})\s*\(",
+                    scan_text[body_start:body_end],
+                )
+                if candidate.group("name") in declared_helpers
+            }
+            if called_helpers:
+                raise FrontendInventoryError(
+                    "frontend parameterized test binding initializer has "
+                    "unproven transitive helper dependencies"
+                )
             prior_const_pattern = re.compile(rf"\bconst\s+(?P<name>{TEST_API_NAME})\b")
             prior_const_names = {
                 candidate.group("name")
@@ -656,19 +677,53 @@ def _bound_parameter_data(
             character if expression_mask[index] else " "
             for index, character in enumerate(expression)
         )
-        dependencies = {
-            match.group("name")
-            for pattern in (
-                re.compile(rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])"),
-                re.compile(
-                    rf"(?<![.\w$])(?P<name>{TEST_API_NAME})\s*\."
-                    r"(?:concat|filter|flatMap|map|slice)\b"
-                ),
+        literal_collection = False
+        if expression.startswith(("[", "{")):
+            literal_end = _skip_balanced(expression, 0)
+            literal_suffix = expression[literal_end:].strip()
+            literal_collection = not literal_suffix or bool(
+                re.fullmatch(r"as\s+const", literal_suffix)
             )
-            for match in pattern.finditer(expression_scan)
+        if literal_collection:
+            dependencies = {
+                match.group("name")
+                for match in re.finditer(
+                    rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])",
+                    expression_scan,
+                )
+            }
+            if not dependencies:
+                return parameter_data
+        else:
+            dependencies = set()
+        allowed_identifiers = {
+            "Array",
+            "Object",
+            "Date",
+            "Infinity",
+            "NaN",
+            "false",
+            "null",
+            "true",
+            "undefined",
         }
+        if not literal_collection:
+            for match in re.finditer(TEST_API_NAME, expression_scan):
+                name = match.group(0)
+                prefix = expression_scan[max(0, match.start() - 3) : match.start()]
+                following = expression_scan[match.end() :]
+                if (
+                    name in allowed_identifiers
+                    or (prefix.endswith(".") and not prefix.endswith("..."))
+                    or re.match(r"\s*:", following)
+                    or re.match(r"\s*=>", following)
+                ):
+                    continue
+                dependencies.add(name)
         if not dependencies:
-            return parameter_data
+            raise FrontendInventoryError(
+                "frontend parameterized test data expression cannot be resolved safely"
+            )
         sources = [parameter_data]
         for dependency in sorted(dependencies):
             local_source = _const_initializer_source(
@@ -825,12 +880,16 @@ def _static_collection_source(
         escaped_name = re.escape(name)
         intervening = scan_text[statement_end + 1 : before_offset]
         if re.search(
-            rf"\b{escaped_name}\s*(?:\[[^;\n]*\]|\.[A-Za-z_$][\w$]*)?\s*"
+            rf"\b{escaped_name}\s*(?:\[[^;\n]*\]|\.[A-Za-z_$][\w$]*)*\s*"
             r"(?:[+\-*/%]=|&&=|\|\|=|\?\?=|=(?!=|>)|\+\+|--)",
             intervening,
         ):
             raise FrontendInventoryError(
                 "frontend registration loop binding is mutated before collection"
+            )
+        if re.search(rf"\b{escaped_name}\b", intervening):
+            raise FrontendInventoryError(
+                "frontend registration loop alias has an unproven use before collection"
             )
         dependency_source = _static_collection_source(
             text,
@@ -895,8 +954,11 @@ def _static_collection_items(collection_source: str) -> tuple[str, ...]:
             depth -= 1
         elif character == "," and depth == 0:
             item = collection_source[item_start:index].strip()
-            if item:
-                items.append(item)
+            if not item:
+                raise FrontendInventoryError(
+                    "frontend registration loop collection cannot be sparse"
+                )
+            items.append(item)
             item_start = index + 1
     final_item = collection_source[item_start : initializer_end - 1].strip()
     if final_item:
@@ -906,6 +968,44 @@ def _static_collection_items(collection_source: str) -> tuple[str, ...]:
             "frontend registration loop collection items cannot be proven"
         )
     return tuple(items)
+
+
+def _skip_static_trivia(source: str, start: int) -> int:
+    index = start
+    while True:
+        while index < len(source) and source[index].isspace():
+            index += 1
+        comment_end = _skip_comment(source, index)
+        if comment_end == index:
+            return index
+        index = comment_end
+
+
+def _combine_utf16_surrogates(value: str) -> str:
+    combined: list[str] = []
+    index = 0
+    while index < len(value):
+        codepoint = ord(value[index])
+        if 0xD800 <= codepoint <= 0xDBFF:
+            if index + 1 >= len(value):
+                raise FrontendInventoryError(
+                    "frontend registration loop string has an unpaired surrogate"
+                )
+            low = ord(value[index + 1])
+            if not 0xDC00 <= low <= 0xDFFF:
+                raise FrontendInventoryError(
+                    "frontend registration loop string has an unpaired surrogate"
+                )
+            combined.append(chr(0x10000 + ((codepoint - 0xD800) << 10) + low - 0xDC00))
+            index += 2
+            continue
+        if 0xDC00 <= codepoint <= 0xDFFF:
+            raise FrontendInventoryError(
+                "frontend registration loop string has an unpaired surrogate"
+            )
+        combined.append(value[index])
+        index += 1
+    return "".join(combined)
 
 
 def _static_string_value(source: str, start: int) -> tuple[str, int]:
@@ -926,7 +1026,7 @@ def _static_string_value(source: str, start: int) -> tuple[str, int]:
     while index < len(source):
         character = source[index]
         if character == quote:
-            return "".join(value), index + 1
+            return _combine_utf16_surrogates("".join(value)), index + 1
         if quote == "`" and source.startswith("${", index):
             raise FrontendInventoryError(
                 "frontend registration loop value is not a static literal"
@@ -972,9 +1072,7 @@ def _static_string_value(source: str, start: int) -> tuple[str, int]:
 
 
 def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
-    index = start
-    while index < len(source) and source[index].isspace():
-        index += 1
+    index = _skip_static_trivia(source, start)
     if index >= len(source):
         raise FrontendInventoryError("frontend registration loop item is empty")
     if source[index] in "\"'`":
@@ -983,14 +1081,12 @@ def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
         values: list[StaticValue] = []
         index += 1
         while True:
-            while index < len(source) and source[index].isspace():
-                index += 1
+            index = _skip_static_trivia(source, index)
             if index < len(source) and source[index] == "]":
                 return tuple(values), index + 1
             value, index = _static_value(source, index)
             values.append(value)
-            while index < len(source) and source[index].isspace():
-                index += 1
+            index = _skip_static_trivia(source, index)
             if index >= len(source) or source[index] not in ",]":
                 raise FrontendInventoryError(
                     "frontend registration loop array item is invalid"
@@ -1002,8 +1098,7 @@ def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
         values: dict[str, StaticValue] = {}
         index += 1
         while True:
-            while index < len(source) and source[index].isspace():
-                index += 1
+            index = _skip_static_trivia(source, index)
             if index < len(source) and source[index] == "}":
                 return values, index + 1
             if index >= len(source):
@@ -1016,8 +1111,7 @@ def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
                     break
                 key = key_match.group(0)
                 index += len(key)
-            while index < len(source) and source[index].isspace():
-                index += 1
+            index = _skip_static_trivia(source, index)
             if index >= len(source) or source[index] != ":":
                 break
             value, index = _static_value(source, index + 1)
@@ -1026,8 +1120,7 @@ def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
                     "frontend registration loop object keys are ambiguous"
                 )
             values[key] = value
-            while index < len(source) and source[index].isspace():
-                index += 1
+            index = _skip_static_trivia(source, index)
             if index >= len(source) or source[index] not in ",}":
                 break
             if source[index] == "}":
@@ -1057,6 +1150,7 @@ def _static_value(source: str, start: int = 0) -> tuple[StaticValue, int]:
 
 def _static_item_value(source: str) -> StaticValue:
     value, index = _static_value(source)
+    index = _skip_static_trivia(source, index)
     suffix = source[index:].strip()
     if suffix and re.fullmatch(r"as\s+const", suffix) is None:
         raise FrontendInventoryError(
@@ -1143,6 +1237,10 @@ def _title_scalar(value: StaticValue) -> str:
         return "false"
     if value is None:
         return "null"
+    if isinstance(value, (int, float)):
+        raise FrontendInventoryError(
+            "frontend registration loop numeric titles cannot be resolved safely"
+        )
     return str(value)
 
 
@@ -1153,27 +1251,39 @@ def _resolved_loop_title(title_literal: str, bindings: dict[str, StaticValue]) -
         value, end = _static_string_value(title_literal, 0)
         if end != len(title_literal):
             raise FrontendInventoryError("frontend registration loop title is invalid")
-        return _normalized_title(value)
+        return value
     value: list[str] = []
     index = 1
+    segment_start = index
     while index < len(title_literal) - 1:
         if title_literal.startswith("${", index):
+            fragment, fragment_end = _static_string_value(
+                f"`{title_literal[segment_start:index]}`",
+                0,
+            )
+            if fragment_end != index - segment_start + 2:
+                raise FrontendInventoryError(
+                    "frontend registration loop title is invalid"
+                )
+            value.append(fragment)
             end = _skip_balanced(title_literal, index + 1)
             expression = title_literal[index + 2 : end - 1]
             value.append(_title_scalar(_static_expression_value(expression, bindings)))
             index = end
+            segment_start = index
             continue
         if title_literal[index] == "\\":
-            fragment, end = _static_string_value(
-                f"`{title_literal[index : index + 2]}`",
-                0,
-            )
-            value.append(fragment)
             index += 2
             continue
-        value.append(title_literal[index])
         index += 1
-    return _normalized_title("".join(value))
+    fragment, fragment_end = _static_string_value(
+        f"`{title_literal[segment_start:-1]}`",
+        0,
+    )
+    if fragment_end != len(title_literal[segment_start:-1]) + 2:
+        raise FrontendInventoryError("frontend registration loop title is invalid")
+    value.append(fragment)
+    return "".join(value)
 
 
 def _registration_contexts(
@@ -1183,24 +1293,72 @@ def _registration_contexts(
     title_literal: str,
     import_binding_resolver: ImportBindingResolver | None,
 ) -> tuple[_RegistrationContext, ...]:
-    range_patterns = (
-        re.compile(rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*\([^)]*\)\s*\{{"),
-        re.compile(
-            rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*"
-            r"(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{"
-        ),
-        re.compile(r"\b(?:while|if|switch|catch)\s*\([^)]*\)\s*\{"),
-        re.compile(r"\b(?:do|try|finally)\s*\{"),
+    def reject_enclosing_body(body_start: int) -> None:
+        if body_start < offset < _skip_balanced(text, body_start):
+            raise FrontendInventoryError(
+                "frontend test registration context cannot be inventoried safely"
+            )
+
+    function_pattern = re.compile(
+        rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*(?P<parameters>\()"
     )
-    for pattern in range_patterns:
-        for match in pattern.finditer(scan_text, 0, offset):
-            opening = scan_text.find("{", match.start(), match.end())
-            if opening < 0:
-                continue
-            if offset < _skip_balanced(text, opening):
-                raise FrontendInventoryError(
-                    "frontend test registration context cannot be inventoried safely"
-                )
+    for match in function_pattern.finditer(scan_text, 0, offset):
+        parameters_end = _skip_balanced(text, match.start("parameters"))
+        body_start = parameters_end
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start < len(text) and text[body_start] == "{":
+            reject_enclosing_body(body_start)
+
+    arrow_pattern = re.compile(
+        rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*"
+        rf"(?P<parameters>\(|{TEST_API_NAME})"
+    )
+    for match in arrow_pattern.finditer(scan_text, 0, offset):
+        parameters_start = match.start("parameters")
+        parameters_end = (
+            _skip_balanced(text, parameters_start)
+            if text[parameters_start] == "("
+            else match.end("parameters")
+        )
+        arrow_start = parameters_end
+        while arrow_start < len(text) and text[arrow_start].isspace():
+            arrow_start += 1
+        if not text.startswith("=>", arrow_start):
+            continue
+        body_start = arrow_start + 2
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start < len(text) and text[body_start] == "{":
+            reject_enclosing_body(body_start)
+
+    control_pattern = re.compile(r"\b(?:while|if|switch|catch)\s*(?P<header>\()")
+    for match in control_pattern.finditer(scan_text, 0, offset):
+        header_end = _skip_balanced(text, match.start("header"))
+        body_start = header_end
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start < len(text) and text[body_start] == "{":
+            reject_enclosing_body(body_start)
+        elif body_start == offset:
+            raise FrontendInventoryError(
+                "frontend test registration context cannot be inventoried safely"
+            )
+
+    for match in re.compile(r"\b(?:do|try|finally)\s*(?P<body>\{)").finditer(
+        scan_text, 0, offset
+    ):
+        reject_enclosing_body(match.start("body"))
+
+    for match in re.compile(r"\bfor\s+await\s*(?P<header>\()").finditer(
+        scan_text, 0, offset
+    ):
+        header_end = _skip_balanced(text, match.start("header"))
+        body_start = header_end
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start < len(text) and text[body_start] == "{":
+            reject_enclosing_body(body_start)
 
     context_bindings: list[tuple[dict[str, StaticValue], str]] = [({}, "")]
     for match in re.compile(r"\bfor\s*\(").finditer(scan_text, 0, offset):
@@ -1251,9 +1409,7 @@ def _registration_contexts(
         context_bindings = next_bindings
     return tuple(
         _RegistrationContext(
-            title=_resolved_loop_title(title_literal, bindings)
-            if bindings
-            else _normalized_title(title_literal[1:-1]),
+            title=_resolved_loop_title(title_literal, bindings),
             evidence_source=evidence_source,
         )
         for bindings, evidence_source in context_bindings

@@ -39,14 +39,18 @@ Supported static frontend registration loops resolve the collected runtime title
 and emit one declaration identity per collection item. Identity binds only to
 item values read by that title, while source evidence retains the complete item,
 so unused-field changes recheck the test without falsely retiring it and unchanged
-items survive neighboring-row changes. Unresolved or dynamic loops fail closed.
-Python imported parameter data is
-bound to the exact referenced declaration and its recursively resolvable local
+items survive neighboring-row changes. Runtime-title whitespace and Unicode are
+preserved exactly; numeric-title coercion, sparse arrays, asynchronous
+registration loops, unresolved helper calls, and mutated aliases fail closed.
+Python imported parameter data is bound to the exact referenced declaration and
+its recursively resolvable local
 dependencies. Changes to an imported initializer, including one in another test
 module, recheck the dependent test file. Dynamic, mutated, ambiguous, or
 unresolved parameter bindings and collection-changing `conftest.py` hooks fail
-closed. Frontend files also fail closed when `it` or `test` is shadowed by a
-local declaration or non-runner import;
+closed. Wildcard imports in tests, class-body parameter bindings,
+repository-file-backed parameter data, and changes to pytest collection
+configuration also fail closed. Frontend files fail closed when any recognized
+runner alias is shadowed by a local declaration or non-runner import;
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

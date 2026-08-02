@@ -51,6 +51,12 @@ MAX_CHANGED_PATH_BYTES = 4_000_000
 MAX_CHANGED_TEST_PATHS = 20_000
 MAX_PYTHON_DEPENDENCY_MODULES = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
+PYTEST_COLLECTION_CONFIG_PATHS = {
+    "pyproject.toml",
+    "pytest.ini",
+    "setup.cfg",
+    "tox.ini",
+}
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
     "count",
@@ -308,11 +314,12 @@ def _python_import_modules(
     relative_package: str | None = None,
 ) -> dict[str, tuple[str, ...]]:
     modules: dict[str, tuple[str, ...]] = {}
-    for node in tree.body:
+    for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for imported in node.names:
-                modules[imported.asname or imported.name.split(".", 1)[0]] = (
-                    imported.name,
+                local = imported.asname or imported.name.split(".", 1)[0]
+                modules[local] = tuple(
+                    dict.fromkeys((*modules.get(local, ()), imported.name))
                 )
         elif isinstance(node, ast.ImportFrom):
             for imported in node.names:
@@ -339,9 +346,14 @@ def _python_import_modules(
                     else:
                         modules[local] = ()
                         continue
-                    modules[local] = (
-                        f"{imported_module}.{imported.name}",
-                        imported_module,
+                    modules[local] = tuple(
+                        dict.fromkeys(
+                            (
+                                *modules.get(local, ()),
+                                f"{imported_module}.{imported.name}",
+                                imported_module,
+                            )
+                        )
                     )
     return modules
 
@@ -352,7 +364,7 @@ def _python_star_import_modules(
     relative_package: str,
 ) -> tuple[str, ...]:
     modules: list[str] = []
-    for node in tree.body:
+    for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or not any(
             imported.name == "*" for imported in node.names
         ):
@@ -369,7 +381,39 @@ def _python_star_import_modules(
         else:
             continue
         modules.append(module)
-    return tuple(modules)
+    return tuple(dict.fromkeys(modules))
+
+
+def _python_lazy_export_modules(
+    tree: ast.Module,
+    *,
+    relative_package: str,
+) -> tuple[str, ...]:
+    modules: list[str] = []
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        if "_LAZY_EXPORT_MODULES" not in {
+            name for target in targets for name in _binding_target_names(target)
+        }:
+            continue
+        if not isinstance(node.value, ast.Dict):
+            raise TestCorpusGuardError(
+                "lazy Python export modules cannot be inventoried safely"
+            )
+        for target in node.value.values:
+            if not isinstance(target, ast.Constant) or not isinstance(
+                target.value, str
+            ):
+                raise TestCorpusGuardError(
+                    "lazy Python export modules cannot be inventoried safely"
+                )
+            module = target.value
+            modules.append(
+                f"{relative_package}{module}" if module.startswith(".") else module
+            )
+    return tuple(dict.fromkeys(modules))
 
 
 def _python_imported_binding_source(
@@ -535,6 +579,53 @@ def _python_imported_binding_source(
         ast.dump(node, annotate_fields=True, include_attributes=False)
         for _position, node in sorted(binding_nodes.items())
     ]
+    construction_nodes = {
+        position: node
+        for position, node in binding_nodes.items()
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+    }
+    function_nodes = {
+        node.name: node
+        for node in binding_nodes.values()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    pending_constructors = {
+        child.func.id
+        for node in construction_nodes.values()
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+    }
+    inspected_constructors: set[str] = set()
+    while pending_constructors:
+        name = pending_constructors.pop()
+        if name in inspected_constructors or name not in function_nodes:
+            continue
+        inspected_constructors.add(name)
+        function_node = function_nodes[name]
+        construction_nodes[(function_node.lineno, function_node.col_offset)] = (
+            function_node
+        )
+        pending_constructors.update(
+            child.func.id
+            for child in ast.walk(function_node)
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+        )
+    if any(
+        isinstance(child, ast.Call)
+        and (
+            (isinstance(child.func, ast.Name) and child.func.id == "open")
+            or (
+                isinstance(child.func, ast.Attribute)
+                and child.func.attr
+                in {"open", "read", "read_bytes", "read_text", "readlines"}
+            )
+        )
+        for node in construction_nodes.values()
+        for child in ast.walk(node)
+    ):
+        raise TestCorpusGuardError(
+            "repository-file Python parameter data cannot be inventoried safely"
+        )
     for root, names in sorted(imported_requirements.items()):
         candidates = imported_modules[root]
         if not candidates:
@@ -832,6 +923,15 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             f"cannot parse Python test inventory: {path}"
         ) from exc
+
+    if any(
+        isinstance(node, ast.ImportFrom)
+        and any(imported.name == "*" for imported in node.names)
+        for node in ast.walk(tree)
+    ):
+        raise TestCorpusGuardError(
+            "wildcard Python imports cannot be inventoried safely"
+        )
 
     if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -1203,9 +1303,28 @@ def _python_inventory_entries(
         if node.name not in unittest_classes and has_constructor(node, set()):
             continue
         class_decorators = effective_class_decorators(node, set())
+        class_binding_names = {
+            name
+            for child in node.body
+            if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+            for target in (
+                child.targets if isinstance(child, ast.Assign) else (child.target,)
+            )
+            for name in _binding_target_names(target)
+        }
         for method_name, method in collected_methods(node, set()).items():
             if fixture_decorated(method):
                 continue
+            method_decorator_names = {
+                child.id
+                for decorator in method.decorator_list
+                for child in ast.walk(decorator)
+                if isinstance(child, ast.Name)
+            }
+            if class_binding_names & method_decorator_names:
+                raise TestCorpusGuardError(
+                    "class-body Python parameter data cannot be inventoried safely"
+                )
             raw_ref = _parameterized_ref(
                 f"{path}::{node.name}::{method_name}",
                 method,
@@ -1307,6 +1426,12 @@ def _python_dependency_paths(
             )
             imported_module_names.update(
                 _python_star_import_modules(
+                    tree,
+                    relative_package=relative_package,
+                )
+            )
+            imported_module_names.update(
+                _python_lazy_export_modules(
                     tree,
                     relative_package=relative_package,
                 )
@@ -1738,6 +1863,13 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
 
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
+    change_roots = [
+        "tests",
+        "apps",
+        "scripts",
+        "src",
+        *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
+    ]
     commands = (
         [
             "diff",
@@ -1747,10 +1879,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             base_sha,
             "HEAD",
             "--",
-            "tests",
-            "apps",
-            "scripts",
-            "src",
+            *change_roots,
         ],
         [
             "diff",
@@ -1759,10 +1888,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--no-renames",
             "-z",
             "--",
-            "tests",
-            "apps",
-            "scripts",
-            "src",
+            *change_roots,
         ],
         [
             "diff",
@@ -1770,10 +1896,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--no-renames",
             "-z",
             "--",
-            "tests",
-            "apps",
-            "scripts",
-            "src",
+            *change_roots,
         ],
         [
             "ls-files",
@@ -1781,10 +1904,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--exclude-standard",
             "-z",
             "--",
-            "tests",
-            "apps",
-            "scripts",
-            "src",
+            *change_roots,
         ],
     )
     raw_paths = bytearray()
@@ -1800,6 +1920,22 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    for path in PYTEST_COLLECTION_CONFIG_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+
+        section = "tool.pytest.ini_options" if path == "pyproject.toml" else "pytest"
+
+        def collection_config_section(value: str) -> str:
+            match = re.search(
+                rf"(?ms)^\[{re.escape(section)}\]\s*$.*?(?=^\[|\Z)", value
+            )
+            return match.group(0).strip() if match is not None else ""
+
+        if collection_config_section(current) != collection_config_section(prior):
+            raise TestCorpusGuardError(
+                "changed pytest collection configuration cannot be inventoried safely"
+            )
     collection_hook_names = (
         "collect_ignore",
         "pytest_ignore_collect",
@@ -1855,6 +1991,15 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 for modules in _python_import_modules(tree).values()
                 for module in modules
             }
+            relative_package = _python_module_name_for_path(test_path)
+            if not test_path.endswith("/__init__.py") and "." in relative_package:
+                relative_package = relative_package.rsplit(".", 1)[0]
+            imported_modules.update(
+                _python_star_import_modules(
+                    tree,
+                    relative_package=relative_package,
+                )
+            )
             dependency_candidates = _python_dependency_paths(
                 repo,
                 imported_modules,
