@@ -420,6 +420,15 @@ def test_ordinary_forbidden_authority_claims_fail_full_verifier(
         "Device location is available to UAA.",
         "UAA is production-approved.",
         "Supported installer distribution is available.",
+        "Connections to arbitrary hosts are enabled.",
+        "Requests to arbitrary endpoints are allowed.",
+        "Calendar event updates are enabled.",
+        "Calendar attendee edits are supported.",
+        "Transfers of money are enabled.",
+        "UAA is authorized for use in production.",
+        "Approval validation can be ignored.",
+        "Supported installer distributions are available.",
+        "Location is available to UAA.",
         "Operators can use UAA to send arbitrary outbound network requests.",
         "UAA permits users to move calendar events.",
         "Operators can use UAA to access device location.",
@@ -1196,18 +1205,24 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
         "The Control Center needs approval.",
         "UAA cannot send arbitrary outbound network requests.",
         "Arbitrary outbound network requests are not enabled.",
+        "Connections to arbitrary hosts are not enabled.",
         "UAA cannot invite attendees to calendar events.",
         "Calendar attendee management is not enabled.",
+        "Calendar event updates are not enabled.",
         "UAA cannot access device location.",
         "Device location is not available to UAA.",
         "UAA cannot transfer funds.",
         "Transfers of funds are not enabled.",
+        "Transfers of money are not enabled.",
         "UAA is not deployed in production.",
         "UAA is not production-approved.",
+        "UAA is not authorized for use in production.",
         "Approval validation is not optional.",
         "Approval validation may not be skipped.",
+        "Approval validation cannot be ignored.",
         "UAA cannot ship supported desktop installers.",
         "Supported installer distribution is not available.",
+        "Supported installer distributions are not available.",
         "UAA does not store raw conversation content.",
         "UAA never logs raw user messages.",
         "The API no longer retains raw conversation history.",
@@ -1246,6 +1261,15 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
+
+
+def test_unrelated_location_availability_is_not_sensor_authority() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "The documentation location is available."
+        )
+        == []
+    )
 
 
 def test_prevention_wording_does_not_hide_coordinated_authority() -> None:
@@ -2325,6 +2349,8 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 may proceed despite fabricated successful execution claims.",
         "TAW-08 can pass despite unsafe authority broadening.",
         "TAW-08 may succeed despite fabricated successful execution claims.",
+        "TAW-08 may be approved despite unsafe authority broadening.",
+        "TAW-08 can be passed despite fabricated successful execution claims.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
     ),
