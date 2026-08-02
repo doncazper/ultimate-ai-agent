@@ -1924,8 +1924,33 @@ def _inline_link_end(text: str, start: int) -> int | None:
     return index + 1 if index < len(text) and text[index] == ")" else None
 
 
-def _strip_inline_link_destinations(text: str) -> str:
-    """Retain inline-link labels while consuming balanced destinations."""
+def _balanced_markdown_brackets(text: str) -> dict[int, int]:
+    """Index balanced label brackets in one pass, bounded by paragraphs."""
+    pairs: dict[int, int] = {}
+    stack: list[int] = []
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == "\n":
+            paragraph_end = index + 1
+            while paragraph_end < len(text) and text[paragraph_end] in " \t":
+                paragraph_end += 1
+            if paragraph_end < len(text) and text[paragraph_end] == "\n":
+                stack.clear()
+        elif character == "[":
+            stack.append(index)
+        elif character == "]" and stack:
+            pairs[stack.pop()] = index
+        index += 1
+    return pairs
+
+
+def _strip_markdown_links(text: str) -> str:
+    """Retain link labels and consume destinations/references in linear time."""
+    bracket_pairs = _balanced_markdown_brackets(text)
     output: list[str] = []
     cursor = 0
     while cursor < len(text):
@@ -1934,38 +1959,28 @@ def _strip_inline_link_destinations(text: str) -> str:
             output.append(text[cursor:])
             break
         output.append(text[cursor:label_start])
-        label_end = label_start + 1
-        label_depth = 1
-        while label_end < len(text) and label_depth:
-            if text[label_end] == "\\":
-                label_end += 2
-                continue
-            if text[label_end] == "\n":
-                label_end = len(text)
-                break
-            if text[label_end] == "[":
-                label_depth += 1
-            elif text[label_end] == "]":
-                label_depth -= 1
-            label_end += 1
-        closing_bracket = label_end - 1
-        if (
-            label_depth
-            or closing_bracket + 1 >= len(text)
-            or text[closing_bracket + 1] != "("
-        ):
+        closing_bracket = bracket_pairs.get(label_start)
+        if closing_bracket is None or closing_bracket + 1 >= len(text):
             output.append(text[label_start])
             cursor = label_start + 1
             continue
-        destination_end = _inline_link_end(text, closing_bracket + 2)
-        if destination_end is None:
+
+        suffix_start = closing_bracket + 1
+        link_end: int | None = None
+        if text[suffix_start] == "(":
+            link_end = _inline_link_end(text, suffix_start + 1)
+        elif text[suffix_start] == "[":
+            reference_end = bracket_pairs.get(suffix_start)
+            if reference_end is not None:
+                link_end = reference_end + 1
+        if link_end is None:
             output.append(text[label_start])
             cursor = label_start + 1
             continue
         if label_start > 0 and text[label_start - 1] == "!" and output[-1].endswith("!"):
             output[-1] = output[-1][:-1]
         output.append(text[label_start + 1 : closing_bracket])
-        cursor = destination_end
+        cursor = link_end
     return "".join(output)
 
 
@@ -2017,18 +2032,11 @@ def _normalize_markdown_prose(text: str) -> str:
     # in labels without permitting unbounded parser work.
     normalized = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
     normalized = _strip_markdown_reference_definitions(normalized)
-    normalized = _strip_inline_link_destinations(normalized)
-    reference_link = re.compile(r"!?\[([^\]\n]+)\]\[[^\]\n]*\]")
-    for _ in range(4):
-        updated = reference_link.sub(r"\1", normalized)
-        if updated == normalized:
-            break
-        normalized = updated
-    if reference_link.search(normalized):
-        raise RuntimeError("program truth surface Markdown nesting is invalid")
+    normalized = _strip_markdown_links(normalized)
 
     normalized = _strip_html_tags(normalized)
     normalized = unescape(normalized)
+    normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)
     normalized = re.sub(
         r"^[ \t]{0,3}(?:#{1,6}|[-+*]|\d+[.)])[ \t]+",
         ". ",

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from time import perf_counter
 
 import pytest
 
@@ -444,10 +445,13 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
         "Calendar event **updates** are enabled.",
         "Calendar event `updates` are enabled.",
         "[Calendar event updates](https://example.invalid) are enabled.",
+        "[Calendar event\nupdates](https://example.invalid) are enabled.",
         "[Calendar event updates](https://example.invalid/a_(b)) are enabled.",
         "[Calendar event updates](<https://example.invalid/a_(b>) are enabled.",
         '[Calendar event updates](https://example.invalid "title (bounded)") are enabled.',
         "[Calendar [event] updates](https://example.invalid) are enabled.",
+        "[Calendar [event] updates][ref] are enabled.\n"
+        "[ref]: https://example.invalid",
         "[Calendar event updates]() are enabled.",
         "Calendar event <strong>updates</strong> are enabled.",
         'Calendar event <span title=">">updates</span> are enabled.',
@@ -458,6 +462,14 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
 )
 def test_markdown_cannot_hide_forbidden_authority_claims(claim: str) -> None:
     assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_unmatched_markdown_brackets_are_scanned_in_bounded_time() -> None:
+    started = perf_counter()
+
+    assert verifier._find_forbidden_authority_claims("[" * 8_000) == []
+
+    assert perf_counter() - started < 2.0
 
 
 def test_markdown_authority_claim_fails_full_verifier(
@@ -1790,6 +1802,7 @@ def test_markdown_cannot_hide_acceptance_contradictions(contradiction: str) -> N
         "- The post-merge Foundation Gate may be\n- skipped tasks are tracked.",
         "## The post-merge Foundation Gate may be\n## skipped tasks are tracked.",
         "1. The post-merge Foundation Gate may be\n2. skipped tasks are tracked.",
+        "The post-merge Foundation Gate may be\n\nSkipped tasks are tracked.",
     ),
 )
 def test_markdown_block_boundaries_do_not_invent_acceptance_contradictions(
