@@ -437,12 +437,29 @@ def test_ordinary_forbidden_authority_claims_fail_full_verifier(
         "Operators can use UAA to ship supported installers.",
     ),
 )
-def test_exact_head_authority_paraphrases_fail_full_verifier(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+def test_exact_head_authority_paraphrases_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     board = tmp_path / "current_board.md"
     board.write_text(
-        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\n"
+        + "\n".join(
+            (
+                "Connections to arbitrary hosts are enabled.",
+                "Calendar event updates are enabled.",
+                "Approval validation can be ignored.",
+                "Transfers of money are enabled.",
+                "Device location is available to UAA.",
+                "UAA is authorized for use in production.",
+                "Supported installer distributions are available.",
+            )
+        )
+        + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "BOARD", board)
@@ -2355,13 +2372,20 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "routing evidence.",
     ),
 )
-def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contradiction: str
+def test_zero_tolerance_detector_rejects_rephrased_positive_tolerance(
+    contradiction: str,
+) -> None:
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier._verify_zero_tolerance_contradictions(contradiction)
+
+
+def test_zero_tolerance_rephrasing_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plan = tmp_path / "plan.md"
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
-        + f"\n{contradiction}\n",
+        + "\nTAW-08 may be approved despite unsafe authority broadening.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
