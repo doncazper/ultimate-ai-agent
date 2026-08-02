@@ -928,10 +928,14 @@ Zero handoffs, duplicate handoffs, or any binding mismatch invalidates the
 replay; every other route must produce zero fake-dispatch handoffs. A separate
 immutable zero-real-execution receipt and per-real-adapter zero-event counter
 manifest must prove that every accepted replay case produced zero real dispatch
-attempts and zero external or durable side effects. A missing receipt, nonzero
-real-adapter counter, reachable real adapter, or attempted real dispatch
-invalidates the entire replay; the unsafe-authority census cannot excuse an
-otherwise in-scope mutation.
+attempts and zero external or domain-state mutations. The required redacted
+fake-dispatch handoff and zero-real-execution harness-verifier receipts are
+explicitly exempt from that no-mutation assertion, are bound to the same accepted
+replay case and attempt, and are the only durable artifacts created by the
+active-mode harness. A missing receipt, nonzero real-adapter counter, reachable
+real adapter, attempted real dispatch, or any other durable artifact invalidates
+the entire replay; the unsafe-authority census cannot excuse an otherwise
+in-scope mutation.
 
 Every ordinary-chat response emitted by the active harness is also part of the
 equivalence proof. A reproducible backend requires exact response-hash equality

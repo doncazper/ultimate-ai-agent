@@ -487,7 +487,12 @@ PLAN_REQUIRED = (
     "immutable zero-real-execution receipt and per-real-adapter zero-event counter\n"
     "manifest",
     "every accepted replay case produced zero real dispatch\n"
-    "attempts and zero external or durable side effects",
+    "attempts and zero external or domain-state mutations",
+    "required redacted\n"
+    "fake-dispatch handoff and zero-real-execution harness-verifier receipts are\n"
+    "explicitly exempt from that no-mutation assertion",
+    "bound to the same accepted\nreplay case and attempt",
+    "only durable artifacts created by the\nactive-mode harness",
     "Every ordinary-chat response emitted by the active harness",
     "exact response-hash equality\nwith the qualified paired-candidate response",
     "blinded independent rescoring of the\n"
@@ -782,6 +787,17 @@ FORBIDDEN_PATTERNS = (
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
     r"have (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
+    r"(?:run|launch|execute) (?:(?:shell|system) )?"
+    r"(?:commands?|subprocesses?)\b",
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:run|launch|execute) (?:(?:shell|system) )?"
+    r"(?:commands?|subprocesses?) (?:through|via|using) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
+    r"\b(?:operators?|users?) (?:may|can|will) "
+    r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
+    r"have (?:the )?"
+    r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
     r"(?:send(?:s|ing)? (?:emails?|messages?)|"
     r"creat(?:e|es|ed|ing) calendar events?|"
     r"publish(?:es|ed|ing)? (?:social )?posts?)\b",
@@ -823,6 +839,12 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:run|launch|execute)(?:s|d|ing)? (?:arbitrary|unrestricted) "
     r"(?:(?:shell|system) )?(?:commands?|subprocesses?)|"
     r"(?:arbitrary|unrestricted) command execution)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:run|launch|execute)(?:s|d|ing)? (?:(?:shell|system) )?"
+    r"(?:commands?|subprocesses?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
@@ -1449,6 +1471,13 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
             prefix = text[sentence_start + 1 : match.start()]
             tail = prefix.rstrip()
             direct_denial = re.search(r"\bno\s*$", tail, re.IGNORECASE) is not None
+            governing_clause_denial = re.search(
+                r"\b(?:(?:do|does|did) not|don['’]t|doesn['’]t|didn['’]t) "
+                r"(?:claim|mean|imply|indicate|assert|state)(?: that)?\s*$|"
+                r"\bis not (?:a )?(?:claim|assertion|indication) that\s*$",
+                tail,
+                flags=re.IGNORECASE,
+            ) is not None
             coordinated_denial = False
             if re.search(r"\b(?:or|nor)\s*$", tail, re.IGNORECASE):
                 denial_starts = list(
@@ -1467,9 +1496,10 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
                         flags=re.IGNORECASE,
                     ) is None
             # A match is exempt only when its own passive subject is directly
-            # negated or is the final item in an explicit noun-list denial. The
-            # mere presence of "no" elsewhere never negates an affirmative match.
-            if direct_denial or coordinated_denial:
+            # negated, it is governed by an explicit claim/implication denial,
+            # or it is the final item in an explicit noun-list denial. The mere
+            # presence of "no" elsewhere never negates an affirmative match.
+            if direct_denial or governing_clause_denial or coordinated_denial:
                 continue
             present.append(pattern)
             break

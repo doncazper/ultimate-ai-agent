@@ -355,6 +355,45 @@ def test_remote_and_binary_guidance_is_not_execution_authority(
 @pytest.mark.parametrize(
     "claim",
     (
+        "UAA can run shell commands.",
+        "UAA can run subprocesses.",
+        "The API can launch system commands.",
+        "Operators can use UAA to run shell commands.",
+        "Users may ask the CLI to launch subprocesses.",
+        "Operators can run shell commands through UAA.",
+    ),
+)
+def test_unqualified_shell_command_grants_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "guidance_claim",
+    (
+        "UAA can explain how to run shell commands.",
+        "The API can propose an exact-scoped shell command preview.",
+        "Operators can use UAA to review a shell command proposal.",
+    ),
+)
+def test_shell_guidance_and_exact_scoped_proposals_remain_valid(
+    guidance_claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(guidance_claim) == []
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "UAA can send email.",
         "The agent can send messages.",
         "The API can create calendar events.",
@@ -942,6 +981,30 @@ def test_raw_conversation_persistence_claims_fail_full_verifier(
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
+
+
+@pytest.mark.parametrize(
+    "denial",
+    (
+        "We do not claim that UAA can fetch the web.",
+        "This does not mean UAA can execute plugins.",
+        "The plan doesn't imply that the API can write to connectors.",
+        "This is not a claim that UAA can run shell commands.",
+    ),
+)
+def test_governing_clause_denials_remain_valid(denial: str) -> None:
+    assert verifier._find_forbidden_authority_claims(denial) == []
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA does not fetch today, but UAA can fetch the web.",
+        "This does not mean the legacy shell runs, but UAA can run shell commands.",
+    ),
+)
+def test_contrasting_affirmative_authority_claims_still_fail(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1903,6 +1966,11 @@ def test_plan_requires_shadow_graph_unsupported_and_zero_tolerance_gates(
         "replay; every other route must produce zero fake-dispatch handoffs",
         "immutable zero-real-execution receipt and per-real-adapter zero-event counter\n"
         "manifest",
+        "required redacted\n"
+        "fake-dispatch handoff and zero-real-execution harness-verifier receipts are\n"
+        "explicitly exempt from that no-mutation assertion",
+        "bound to the same accepted\nreplay case and attempt",
+        "only durable artifacts created by the\nactive-mode harness",
         "Every ordinary-chat response emitted by the active harness",
         "exact response-hash equality\n"
         "with the qualified paired-candidate response",
