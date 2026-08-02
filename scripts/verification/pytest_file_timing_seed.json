@@ -4252,7 +4252,7 @@
     },
     {
       "path": "tests/test_tool_aware_cognition_plan.py",
-      "seconds": 86.36,
+      "seconds": 89.11,
       "source": "pytest-duration-summary"
     },
     {

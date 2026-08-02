@@ -1797,6 +1797,215 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
     return present
 
 
+def _markdown_destination_end(value: str, start: int = 0) -> int | None:
+    """Return the end of one CommonMark-style link destination."""
+    if start >= len(value):
+        return None
+    if value[start] == "<":
+        index = start + 1
+        while index < len(value):
+            if value[index] == "\\":
+                index += 2
+                continue
+            if value[index] == ">":
+                return index + 1
+            if value[index] in "<>\n":
+                return None
+            index += 1
+        return None
+
+    depth = 0
+    index = start
+    while index < len(value) and not value[index].isspace():
+        character = value[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == "(":
+            depth += 1
+            if depth > 32:
+                return None
+        elif character == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        elif ord(character) < 32:
+            return None
+        index += 1
+    if index == start or depth != 0:
+        return None
+    return index
+
+
+def _valid_markdown_link_tail(value: str) -> bool:
+    """Validate a destination plus an optional quoted/parenthesized title."""
+    stripped = value.strip()
+    destination_end = _markdown_destination_end(stripped)
+    if destination_end is None:
+        return False
+    remainder = stripped[destination_end:]
+    if not remainder:
+        return True
+    if not remainder[0].isspace():
+        return False
+    title = remainder.strip()
+    if len(title) < 2:
+        return False
+    pairs = {'"': '"', "'": "'", "(": ")"}
+    closer = pairs.get(title[0])
+    if closer is None or title[-1] != closer:
+        return False
+    escaped = False
+    for character in title[1:-1]:
+        if escaped:
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character in "\n\r" or character == closer:
+            return False
+    return not escaped
+
+
+def _is_markdown_reference_definition(line: str) -> bool:
+    match = re.fullmatch(r"[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(.*)", line)
+    return match is not None and _valid_markdown_link_tail(match.group(2))
+
+
+def _strip_markdown_reference_definitions(text: str) -> str:
+    return "".join(
+        "\n" if _is_markdown_reference_definition(line.rstrip("\r\n")) else line
+        for line in text.splitlines(keepends=True)
+    )
+
+
+def _inline_link_end(text: str, start: int) -> int | None:
+    """Return the position after a valid inline link's closing parenthesis."""
+    index = start
+    while index < len(text) and text[index] in " \t":
+        index += 1
+    if index < len(text) and text[index] == ")":
+        return index + 1
+
+    # An omitted destination may be followed directly by a title.
+    title_only = index > start and index < len(text) and text[index] in "\"'("
+    if not title_only:
+        destination_end = _markdown_destination_end(text, index)
+        if destination_end is None:
+            return None
+        index = destination_end
+        if index < len(text) and text[index] == ")":
+            return index + 1
+        if index >= len(text) or text[index] not in " \t":
+            return None
+        while index < len(text) and text[index] in " \t":
+            index += 1
+        if index < len(text) and text[index] == ")":
+            return index + 1
+
+    if index >= len(text) or text[index] not in "\"'(":
+        return None
+    opener = text[index]
+    closer = {'"': '"', "'": "'", "(": ")"}[opener]
+    index += 1
+    while index < len(text):
+        if text[index] == "\\":
+            index += 2
+            continue
+        if text[index] in "\n\r":
+            return None
+        if text[index] == closer:
+            index += 1
+            break
+        index += 1
+    else:
+        return None
+    while index < len(text) and text[index] in " \t":
+        index += 1
+    return index + 1 if index < len(text) and text[index] == ")" else None
+
+
+def _strip_inline_link_destinations(text: str) -> str:
+    """Retain inline-link labels while consuming balanced destinations."""
+    output: list[str] = []
+    cursor = 0
+    while cursor < len(text):
+        label_start = text.find("[", cursor)
+        if label_start < 0:
+            output.append(text[cursor:])
+            break
+        output.append(text[cursor:label_start])
+        label_end = label_start + 1
+        label_depth = 1
+        while label_end < len(text) and label_depth:
+            if text[label_end] == "\\":
+                label_end += 2
+                continue
+            if text[label_end] == "\n":
+                label_end = len(text)
+                break
+            if text[label_end] == "[":
+                label_depth += 1
+            elif text[label_end] == "]":
+                label_depth -= 1
+            label_end += 1
+        closing_bracket = label_end - 1
+        if (
+            label_depth
+            or closing_bracket + 1 >= len(text)
+            or text[closing_bracket + 1] != "("
+        ):
+            output.append(text[label_start])
+            cursor = label_start + 1
+            continue
+        destination_end = _inline_link_end(text, closing_bracket + 2)
+        if destination_end is None:
+            output.append(text[label_start])
+            cursor = label_start + 1
+            continue
+        if label_start > 0 and text[label_start - 1] == "!" and output[-1].endswith("!"):
+            output[-1] = output[-1][:-1]
+        output.append(text[label_start + 1 : closing_bracket])
+        cursor = destination_end
+    return "".join(output)
+
+
+def _strip_html_tags(text: str) -> str:
+    """Remove HTML tags while respecting quoted angle brackets in attributes."""
+    output: list[str] = []
+    cursor = 0
+    tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
+    while cursor < len(text):
+        if text[cursor] != "<":
+            output.append(text[cursor])
+            cursor += 1
+            continue
+        match = tag_start.match(text, cursor)
+        if match is None or (
+            match.end() < len(text)
+            and not (text[match.end()].isspace() or text[match.end()] in "/>")
+        ):
+            output.append(text[cursor])
+            cursor += 1
+            continue
+        index = match.end()
+        quote: str | None = None
+        while index < len(text):
+            character = text[index]
+            if quote is not None:
+                if character == quote:
+                    quote = None
+            elif character in "\"'":
+                quote = character
+            elif character == ">":
+                cursor = index + 1
+                break
+            index += 1
+        else:
+            output.append(text[cursor])
+            cursor += 1
+    return "".join(output)
+
+
 def _normalize_markdown_prose(text: str) -> str:
     """Return a bounded approximation of the prose Markdown renders visibly."""
     if len(text) > MAX_MARKDOWN_PROSE_CHARS:
@@ -1807,27 +2016,27 @@ def _normalize_markdown_prose(text: str) -> str:
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
     normalized = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-    normalized = re.sub(
-        r"^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*\S+[^\n]*$",
-        "",
-        normalized,
-        flags=re.MULTILINE,
-    )
-    inline_link = re.compile(r"!?\[([^\]\n]+)\]\([^\)\n]*\)")
+    normalized = _strip_markdown_reference_definitions(normalized)
+    normalized = _strip_inline_link_destinations(normalized)
     reference_link = re.compile(r"!?\[([^\]\n]+)\]\[[^\]\n]*\]")
     for _ in range(4):
-        updated = inline_link.sub(r"\1", normalized)
-        updated = reference_link.sub(r"\1", updated)
+        updated = reference_link.sub(r"\1", normalized)
         if updated == normalized:
             break
         normalized = updated
-    if inline_link.search(normalized) or reference_link.search(normalized):
+    if reference_link.search(normalized):
         raise RuntimeError("program truth surface Markdown nesting is invalid")
 
-    normalized = re.sub(r"<[^>\n]*>", "", normalized)
+    normalized = _strip_html_tags(normalized)
     normalized = unescape(normalized)
     normalized = re.sub(
-        r"^[ \t]{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])[ \t]+",
+        r"^[ \t]{0,3}(?:#{1,6}|[-+*]|\d+[.)])[ \t]+",
+        ". ",
+        normalized,
+        flags=re.MULTILINE,
+    )
+    normalized = re.sub(
+        r"^[ \t]{0,3}>[ \t]?",
         " ",
         normalized,
         flags=re.MULTILINE,

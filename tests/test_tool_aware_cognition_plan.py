@@ -444,8 +444,16 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
         "Calendar event **updates** are enabled.",
         "Calendar event `updates` are enabled.",
         "[Calendar event updates](https://example.invalid) are enabled.",
+        "[Calendar event updates](https://example.invalid/a_(b)) are enabled.",
+        "[Calendar event updates](<https://example.invalid/a_(b>) are enabled.",
+        '[Calendar event updates](https://example.invalid "title (bounded)") are enabled.',
+        "[Calendar [event] updates](https://example.invalid) are enabled.",
+        "[Calendar event updates]() are enabled.",
         "Calendar event <strong>updates</strong> are enabled.",
+        'Calendar event <span title=">">updates</span> are enabled.',
+        'Calendar event <span\n title=">">updates</span> are enabled.',
         "Calendar event up<!-- presentation-only -->dates are enabled.",
+        "[UAA can fetch the public web]: definitely extra",
     ),
 )
 def test_markdown_cannot_hide_forbidden_authority_claims(claim: str) -> None:
@@ -458,7 +466,15 @@ def test_markdown_authority_claim_fails_full_verifier(
     board = tmp_path / "current_board.md"
     board.write_text(
         verifier.BOARD.read_text(encoding="utf-8")
-        + "\nCalendar event **updates** are enabled.\n",
+        + "\n"
+        + "\n".join(
+            (
+                'Calendar event <span title=">">updates</span> are enabled.',
+                "[Calendar event updates](https://example.invalid/a_(b)) are enabled.",
+                "[UAA can fetch the public web]: definitely extra",
+            )
+        )
+        + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "BOARD", board)
@@ -1757,11 +1773,29 @@ def test_acceptance_contract_rejects_direct_contradictions(
         "The post-merge Foundation Gate may be\nskipped.",
         "The post-merge Foundation Gate may be **skipped**.",
         "The post-merge Foundation Gate may be [skipped](https://example.invalid).",
+        "The post-merge Foundation Gate may be "
+        "[skipped](https://example.invalid/a_(b)).",
+        'The post-merge Foundation Gate may be <span title=">">skipped</span>.',
+        "[The post-merge Foundation Gate may be skipped]: definitely extra",
     ),
 )
 def test_markdown_cannot_hide_acceptance_contradictions(contradiction: str) -> None:
     with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
         verifier._verify_acceptance_contract(contradiction)
+
+
+@pytest.mark.parametrize(
+    "separate_blocks",
+    (
+        "- The post-merge Foundation Gate may be\n- skipped tasks are tracked.",
+        "## The post-merge Foundation Gate may be\n## skipped tasks are tracked.",
+        "1. The post-merge Foundation Gate may be\n2. skipped tasks are tracked.",
+    ),
+)
+def test_markdown_block_boundaries_do_not_invent_acceptance_contradictions(
+    separate_blocks: str,
+) -> None:
+    verifier._verify_acceptance_contract(separate_blocks)
 
 
 def test_wrapped_acceptance_contradiction_fails_full_verifier(
@@ -2241,6 +2275,10 @@ def test_zero_tolerance_rephrasing_fails_full_verifier(
         "TAW-08 may be **approved** despite unsafe authority broadening.",
         "TAW-08 may be `approved` despite unsafe authority broadening.",
         "TAW-08 may be [approved](https://example.invalid) despite unsafe authority broadening.",
+        "TAW-08 may be [approved](https://example.invalid/a_(b)) despite "
+        "unsafe authority broadening.",
+        'TAW-08 may be <span title=">">approved</span> despite unsafe authority broadening.',
+        "[TAW-08 may be approved despite unsafe authority broadening]: definitely extra",
     ),
 )
 def test_markdown_cannot_hide_zero_tolerance_contradictions(
