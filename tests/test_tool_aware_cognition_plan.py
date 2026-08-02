@@ -213,6 +213,7 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
             "UAA can bypass policy checks."
         ),
         "raw_sensitive_content_persistence": "UAA can persist raw prompts.",
+        "unscoped_filesystem_mutation": "UAA can delete local files.",
         "supported_binary_distribution": "UAA offers supported binary distribution.",
         "public_release_or_production_authority": "UAA is production ready.",
     }
@@ -262,6 +263,9 @@ def test_every_structured_denied_authority_class_has_operator_mediated_coverage(
         "raw_sensitive_content_persistence": (
             "Operators can use UAA to archive raw prompts."
         ),
+        "unscoped_filesystem_mutation": (
+            "Operators can use UAA to modify local files."
+        ),
         "supported_binary_distribution": (
             "Operators can use UAA to distribute supported binaries."
         ),
@@ -273,6 +277,56 @@ def test_every_structured_denied_authority_class_has_operator_mediated_coverage(
     assert tuple(operator_claims) == verifier.DENIED_AUTHORITY_KEYS
     for claim in operator_claims.values():
         assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_every_denied_authority_class_has_product_mediated_coverage() -> None:
+    product_mediated_claims = {
+        "runtime_model_or_provider_calls": "UAA allows operators to call a runtime provider.",
+        "web_fetch_or_browser_automation": "UAA enables users to fetch the web.",
+        "connector_writes": "UAA permits operators to write to connectors.",
+        "unrestricted_shell_or_subprocess": "UAA allows users to execute a shell.",
+        "remote_execution": "UAA enables operators to perform remote execution.",
+        "mobile_sensor_or_control_runtime": "UAA permits users to access mobile sensors.",
+        "automatic_skill_or_plugin_execution": "UAA allows operators to execute plugins.",
+        "automatic_pr_submission_or_merge": "UAA enables users to automatically merge PRs.",
+        "standing_or_cross_request_approval": "UAA permits operators to grant standing approval.",
+        "background_or_scheduled_execution": "UAA allows users to execute tasks in the background.",
+        "spending_or_purchases": "UAA enables users to make payments.",
+        "billing_account_or_credential_changes": "UAA permits operators to change billing accounts.",
+        "policy_approval_route_openapi_redaction_or_gate_bypass": "UAA allows users to bypass policy checks.",
+        "raw_sensitive_content_persistence": "UAA enables operators to archive raw prompts.",
+        "unscoped_filesystem_mutation": "UAA permits users to modify local files.",
+        "supported_binary_distribution": "UAA allows operators to distribute supported binaries.",
+        "public_release_or_production_authority": "UAA enables users to launch a public beta.",
+    }
+
+    assert tuple(product_mediated_claims) == verifier.DENIED_AUTHORITY_KEYS
+    for claim in product_mediated_claims.values():
+        assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA allows operators to execute plugins.",
+        "UAA enables users to make payments.",
+        "UAA can delete local files.",
+        "Filesystem mutation is enabled.",
+        "Operators can use UAA to modify local files.",
+    ),
+)
+def test_product_mediation_and_filesystem_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
 
 
 @pytest.mark.parametrize(
@@ -360,6 +414,7 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
         "raw_sensitive_content_persistence": (
             "Raw provider payload persistence is supported."
         ),
+        "unscoped_filesystem_mutation": "Filesystem mutation is enabled.",
         "supported_binary_distribution": "Binary distribution is supported.",
         "public_release_or_production_authority": "Production authority is active.",
     }
@@ -1099,10 +1154,19 @@ def test_reviewed_authority_paraphrases_fail_full_verifier(
         "UAA can plan a payment preview.",
         "Background execution is not enabled.",
         "UAA can plan a background execution proposal.",
+        "Operators can use UAA to prevent connector writes.",
+        "Operators can use UAA to refuse to execute plugins.",
+        "Operators can block browser automation through UAA.",
     ),
 )
 def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
+
+
+def test_prevention_wording_does_not_hide_coordinated_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Operators can use UAA to prevent connector writes but execute plugins."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1718,6 +1782,13 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "TAW-08 completion does not require a passing Foundation Gate receipt.",
         "The post-merge Foundation Gate may be skipped.",
         "The exact-head Foundation Gate report-only verification can be skipped.",
+        "Foundation Gate is optional for TAW-08.",
+        "TAW-08 may complete without Foundation Gate.",
+        "The exact-head Foundation Gate receipt can be omitted.",
+        "The post-merge Foundation Gate need not pass.",
+        "Foundation Gate failure does not block TAW-08 completion.",
+        "Failure of the exact-head Foundation Gate doesn't block TAW-08 completion.",
+        "The post-merge Foundation Gate can fail without blocking TAW-08 completion.",
         "The sealed acceptance holdout may be rerun after candidate changes.",
         "Reuse of the sealed acceptance holdout after candidate changes is permitted.",
         "The promoted integration does not need a safe-disable boundary.",

@@ -781,6 +781,23 @@ OPERATOR_MEDIATED_PATTERNS = (
     r"(?P<action>[^.!?]{1,240}?) (?:through|via|using) (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
 )
+PRODUCT_MEDIATED_OPERATOR_PATTERNS = (
+    r"\b(?:(?:this|the) "
+    r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
+    r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:allows?|enables?|permits?|authorizes?|lets?) (?:operators?|users?) to "
+    r"(?P<action>[^.!?]{1,240})",
+)
+MEDIATED_PREVENTION_PATTERN = (
+    r"^(?:prevent(?:s|ed|ing)?|block(?:s|ed|ing)?|"
+    r"refus(?:e|es|ed|ing)(?: to)?|declin(?:e|es|ed|ing)(?: to)?|"
+    r"den(?:y|ies|ied|ying)|disallow(?:s|ed|ing)?|"
+    r"prohibit(?:s|ed|ing)?|avoid(?:s|ed|ing)?)\b"
+)
+MEDIATED_POSITIVE_COORDINATION_PATTERN = (
+    r"\b(?:but|yet|while|then|and(?: also| then)?)\s+"
+    r"(?P<action>[^.!?]{1,200})"
+)
 FORBIDDEN_PATTERNS = (
     r"\b(?:operators?|users?) (?:may|can|will) "
     r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
@@ -863,6 +880,21 @@ FORBIDDEN_PATTERNS = (
     r"(?:openai|anthropic|gemini|google|mistral|cohere|groq|ollama|openrouter)[ -]+apis?|"
     r"(?:gpt|claude|gemini|llama|qwen|deepseek|phi|command)"
     r"(?:[- ][a-z0-9.]+){0,3}(?:['’]s)?[ -]+apis?) "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:creat(?:e|es|ed|ing)|modif(?:y|ies|ied|ying)|writ(?:e|es|ten|ing)|"
+    r"overwrit(?:e|es|ten|ing)|mov(?:e|es|ed|ing)|renam(?:e|es|ed|ing)|"
+    r"delet(?:e|es|ed|ing)|remov(?:e|es|ed|ing)) (?:to )?"
+    r"(?:(?:local|unscoped|arbitrary) )?(?:files?|directories|folders)|"
+    r"(?:perform|execute)(?:s|d|ing)? (?:unscoped |arbitrary )?filesystem mutations?|"
+    r"(?:unscoped |arbitrary )?filesystem mutation)\b",
+    r"\b(?:(?:unscoped|arbitrary|local) )?"
+    r"(?:filesystem|file|directory|folder) "
+    r"(?:mutation|creation|writing|overwrite|movement|renaming|deletion|removal) "
     r"(?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -1195,6 +1227,7 @@ AUTHORITY_DENIALS = (
     "- raw prompt, response, provider payload, local-path, log-content, username,",
     "  hostname, serial, environment-dump, credential-material, or secret-like-value",
     "  persistence;",
+    "- unscoped filesystem mutation;",
     "- supported binary distribution; or",
     "- public release, production authority, or claims of human-like",
 )
@@ -1318,6 +1351,7 @@ DENIED_AUTHORITY_KEYS = (
     "billing_account_or_credential_changes",
     "policy_approval_route_openapi_redaction_or_gate_bypass",
     "raw_sensitive_content_persistence",
+    "unscoped_filesystem_mutation",
     "supported_binary_distribution",
     "public_release_or_production_authority",
 )
@@ -1356,7 +1390,22 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
 ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"\bTAW-08 completion does not require (?:a )?passing Foundation Gate receipt\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)? "
-    r"(?:receipt|verification)?\s*(?:may|can) be skipped\b",
+    r"(?:receipt|verification)?\s*(?:may|can) be (?:skipped|omitted|removed)\b",
+    r"\b(?:the )?(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)?"
+    r"(?: receipt| verification)? (?:is|are) optional\b",
+    r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)?"
+    r"(?: receipt| verification)? "
+    r"(?:need not|does not need to|doesn't need to) "
+    r"(?:pass|run|succeed|complete)\b",
+    r"\bTAW-08 (?:may|can|will) (?:be )?complete(?:d)? without "
+    r"(?:a )?(?:passing )?(?:(?:exact-head|post-merge) )?"
+    r"Foundation Gate(?: report-only)?(?: receipt| verification)?\b",
+    r"\b(?:an? |the )?(?:failure of (?:the )?"
+    r"(?:(?:exact-head|post-merge) )?Foundation Gate|"
+    r"(?:(?:exact-head|post-merge) )?Foundation Gate failure) "
+    r"(?:does not|doesn't|need not) block TAW-08 completion\b",
+    r"\b(?:the )?(?:(?:exact-head|post-merge) )?Foundation Gate "
+    r"(?:may|can) fail without blocking TAW-08 completion\b",
     r"\b(?:the )?sealed acceptance holdout (?:may|can) be "
     r"(?:reused|rerun|re-run) after candidate changes\b",
     r"\b(?:reuse|rerun|re-run) (?:of )?(?:the )?sealed acceptance holdout "
@@ -1605,12 +1654,29 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
     # prose stream so line breaks cannot split an otherwise forbidden claim.
     text = re.sub(r"\s+", " ", text)
     present = _scan_forbidden_authority_claims(text)
-    for mediated_pattern in OPERATOR_MEDIATED_PATTERNS:
+    mediated_patterns = OPERATOR_MEDIATED_PATTERNS + PRODUCT_MEDIATED_OPERATOR_PATTERNS
+    for mediated_pattern in mediated_patterns:
         for match in re.finditer(mediated_pattern, text, flags=re.IGNORECASE):
             # Operator wording cannot turn a denied UAA capability into a safe
             # claim. Canonicalize the grammatical subject, then apply the same
             # complete authority predicate set used for direct product claims.
-            surrogate = f"UAA can {match.group('action').strip()}"
+            action = match.group("action").strip()
+            if re.match(MEDIATED_PREVENTION_PATTERN, action, flags=re.IGNORECASE):
+                unsafe_coordination = any(
+                    _scan_forbidden_authority_claims(
+                        f"UAA can {coordination.group('action').strip()}"
+                    )
+                    for coordination in re.finditer(
+                        MEDIATED_POSITIVE_COORDINATION_PATTERN,
+                        action,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                if unsafe_coordination:
+                    present.append(mediated_pattern)
+                    break
+                continue
+            surrogate = f"UAA can {action}"
             if _scan_forbidden_authority_claims(surrogate):
                 present.append(mediated_pattern)
                 break

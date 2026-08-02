@@ -1457,6 +1457,7 @@ This program does not authorize:
 - raw prompt, response, provider payload, local-path, log-content, username,
   hostname, serial, environment-dump, credential-material, or secret-like-value
   persistence;
+- unscoped filesystem mutation;
 - supported binary distribution; or
 - public release, production authority, or claims of human-like
   self-awareness.
