@@ -716,6 +716,22 @@ test.each(cases)("renders %s", () => {});
         )
 
 
+def test_frontend_inventory_rejects_alias_mediated_parameter_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding has an unproven use before collection",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const cases = [["one"], ["two"]];
+const alias = cases;
+alias.pop();
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
 def test_frontend_parameter_binding_ignores_unrelated_initializer_changes() -> None:
     path = "apps/control-center/src/example.test.tsx"
     before = guard.parse_frontend_declarations(

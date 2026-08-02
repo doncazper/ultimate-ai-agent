@@ -395,12 +395,14 @@ def _const_initializer_source(
         r"\s*(?:\?\.)?\s*(?P<opening>\()"
     )
     proven_offsets = proven_parameter_call_offsets or frozenset()
+    proven_ranges: list[tuple[int, int]] = []
     for call in call_pattern.finditer(scan_text, semicolon + 1, before_offset):
-        if call.start() in proven_offsets:
-            continue
         opening = call.start("opening")
         call_end = _skip_balanced(text, opening)
         if call_end > before_offset:
+            continue
+        if call.start() in proven_offsets:
+            proven_ranges.append((call.start(), call_end))
             continue
         arguments = scan_text[opening + 1 : call_end - 1]
         if re.search(rf"\b{escaped_name}\b", arguments):
@@ -408,6 +410,16 @@ def _const_initializer_source(
                 "frontend parameterized test binding is passed to an "
                 "unproven call before collection"
             )
+    use_pattern = re.compile(rf"\b{escaped_name}\b")
+    for use in use_pattern.finditer(scan_text, semicolon + 1, before_offset):
+        if any(start <= use.start() < end for start, end in proven_ranges):
+            continue
+        prefix = scan_text[max(semicolon + 1, use.start() - 16) : use.start()]
+        if re.search(r"\btypeof\s*$", prefix):
+            continue
+        raise FrontendInventoryError(
+            "frontend parameterized test binding has an unproven use before collection"
+        )
     return text[match.start() : semicolon + 1]
 
 
