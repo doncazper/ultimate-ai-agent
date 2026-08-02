@@ -402,6 +402,10 @@ Minimum release thresholds:
   separately in healthy, missing, corrupt, stale, and over-budget catalog
   states, with the one-sided simultaneous 95% lower bound clearing 90% for
   every denominator; none of those five rates may be pooled or omitted;
+- composed supported tool-required final route/proposal exact-match at or above
+  90% in a separately reported, independently powered composition stratum, with
+  its one-sided simultaneous 95% lower bound clearing 90%; single-capability
+  cases cannot enter or dilute that denominator;
 - every supported product language separately clears the same routing,
   ordinary-chat selection/block, unsupported-request, and paired direct-chat
   quality gates; a pooled multilingual result cannot satisfy a language stratum;
@@ -448,6 +452,15 @@ fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`
 route counts as correct, while a proposal, approval request, or execution route
 does not. Each of the five state-specific point estimates and simultaneous
 lower confidence bounds is reported separately.
+The composition-stratum numerator is every adjudicated supported composed
+tool-required case whose final route and complete ordered proposal graph exactly
+preserve every requested effect node and dependency edge. Its denominator is
+every such composed case, each containing at least two adjudicated
+capability/effect nodes. TAW-00 predeclares a power-justified independent case
+count and includes the composition bound in the Holm-adjusted routing family.
+A missing, underpowered, zero-result, incomplete, or reordered composed case
+contributes zero exact matches or fails the gate; composition evidence cannot be
+pooled with or diluted by single-capability cases.
 For capability-required cases in every missing, corrupt, stale, and over-budget
 catalog state whose canonical outcome is neither higher-precedence outcome
 uncertainty nor a current policy or safety denial, a separate fail-closed census

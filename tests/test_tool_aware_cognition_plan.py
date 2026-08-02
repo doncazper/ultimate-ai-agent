@@ -301,6 +301,41 @@ def test_remote_and_binary_guidance_is_not_execution_authority(
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA can send email.",
+        "The agent can send messages.",
+        "The API can create calendar events.",
+        "The Control Center can publish social posts.",
+    ),
+)
+def test_concrete_connector_write_claims_fail_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claim: str
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "guidance_claim",
+    (
+        "UAA can draft an email preview.",
+        "The API can describe calendar event creation.",
+        "The Control Center can plan a social post.",
+    ),
+)
+def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(guidance_claim) == []
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "This program is production ready and open for public beta.",
@@ -1785,6 +1820,17 @@ def test_remaining_queue_excludes_completed_queue_01_and_02() -> None:
     (
         "Every requested effect in a composed request must have one explicit canonical\n"
         "node with a supported, blocked, unsupported, or clarification-required posture",
+        "composed supported tool-required final route/proposal exact-match at or above\n"
+        "  90% in a separately reported, independently powered composition stratum",
+        "single-capability\n  cases cannot enter or dilute that denominator",
+        "The composition-stratum numerator is every adjudicated supported composed\n"
+        "tool-required case whose final route and complete ordered proposal graph exactly\n"
+        "preserve every requested effect node and dependency edge",
+        "each containing at least two adjudicated\ncapability/effect nodes",
+        "TAW-00 predeclares a power-justified independent case\n"
+        "count and includes the composition bound in the Holm-adjusted routing family",
+        "composition evidence cannot be\n"
+        "pooled with or diluted by single-capability cases",
         "cannot silently omit blocked or unsupported nodes or propose or execute a\n"
         "reduced supported subset unless the operator explicitly confirms an exact scope",
         "token accounting binds the exact active backend, tokenizer artifact and\n"

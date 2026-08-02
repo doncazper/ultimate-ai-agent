@@ -121,6 +121,9 @@ PLAN_REQUIRED = (
     "top-3 capability hit rate at or above 80%",
     "top-3 capability hit-rate numerator",
     "supported tool-required final route/proposal exact-match at or above 90%",
+    "composed supported tool-required final route/proposal exact-match at or above\n"
+    "  90% in a separately reported, independently powered composition stratum",
+    "single-capability\n  cases cannot enter or dilute that denominator",
     "The per-catalog supported tool-required final route/proposal exact-match\n"
     "numerator is every adjudicated supported tool-required case",
     "denominator is every adjudicated supported tool-required case evaluated in that\n"
@@ -130,6 +133,14 @@ PLAN_REQUIRED = (
     "an expected\n"
     "fail-closed `blocked_capability_evidence`/`capability_evidence_unavailable`\n"
     "route counts as correct",
+    "The composition-stratum numerator is every adjudicated supported composed\n"
+    "tool-required case whose final route and complete ordered proposal graph exactly\n"
+    "preserve every requested effect node and dependency edge",
+    "each containing at least two adjudicated\ncapability/effect nodes",
+    "TAW-00 predeclares a power-justified independent case\n"
+    "count and includes the composition bound in the Holm-adjusted routing family",
+    "composition evidence cannot be\n"
+    "pooled with or diluted by single-capability cases",
     "Applicable-capability recall is micro-recall at the bounded Tier 1 shortlist",
     "over only the canonical healthy, validated, searchable catalog population",
     "Each required ref in a multi-capability case contributes separately",
@@ -693,6 +704,13 @@ FORBIDDEN_PATTERNS = (
     r"(?:broad|unrestricted|full) autonomy\b",
     r"\b(?:broad|unrestricted|full) autonomy (?:is|are) (?:now )?"
     r"(?:enabled|available|active|supported|complete)\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
+    r"creat(?:e|es|ed|ing) calendar events?|"
+    r"publish(?:es|ed|ing)? (?:social )?posts?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
