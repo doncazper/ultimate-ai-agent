@@ -32,8 +32,12 @@ collection time, parameter-data-bound frontend titles, supported runner import
 aliases, and extended test APIs. Changes to a parameter set change its stable
 declaration ref, so removing a collected case cannot retain the prior inventory
 identity.
-Frontend files fail closed when `it` or `test` is shadowed by a local
-declaration or non-runner import;
+Identifier-backed frontend parameter sets bind to the preceding static `const`
+initializer or to a relative import's exported static `const` initializer.
+Changes to an imported initializer recheck the dependent test file. Dynamic,
+mutated, ambiguous, or unresolved parameter bindings fail closed. Frontend files
+also fail closed when `it` or `test` is shadowed by a local declaration or
+non-runner import;
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

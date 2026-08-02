@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
@@ -21,6 +22,9 @@ EXTENSION_PATTERN = re.compile(
 
 class FrontendInventoryError(RuntimeError):
     """Raised when a frontend declaration cannot be inventoried safely."""
+
+
+ImportBindingResolver = Callable[[str, str], str | None]
 
 
 def _normalized_title(value: str) -> str:
@@ -332,6 +336,153 @@ def _parameterized_declarations(
     return tuple(declarations)
 
 
+def _const_initializer_source(
+    text: str,
+    scan_text: str,
+    name: str,
+    before_offset: int,
+) -> str | None:
+    pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
+    matches = [match for match in pattern.finditer(scan_text, 0, before_offset)]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise FrontendInventoryError("frontend parameterized test binding is ambiguous")
+    match = matches[0]
+    equals = -1
+    for index in range(match.end(), before_offset):
+        if scan_text[index] == ";":
+            break
+        if scan_text[index] != "=":
+            continue
+        previous = scan_text[index - 1] if index else ""
+        following = scan_text[index + 1] if index + 1 < len(text) else ""
+        if previous not in "=!<>" and following not in "=>":
+            equals = index
+            break
+    if equals < 0:
+        raise FrontendInventoryError("frontend parameterized test binding is invalid")
+    value_start = equals + 1
+    while value_start < before_offset and text[value_start].isspace():
+        value_start += 1
+    if value_start >= before_offset or text[value_start] not in "[{'\"`(":
+        raise FrontendInventoryError("frontend parameterized test binding is dynamic")
+    if text[value_start] in "[({":
+        value_end = _skip_balanced(text, value_start)
+    else:
+        value_end = _skip_string(text, value_start)
+    semicolon = scan_text.find(";", value_end, before_offset)
+    if semicolon < 0:
+        raise FrontendInventoryError("frontend parameterized test binding is invalid")
+    suffix = text[value_end:semicolon].strip()
+    if suffix and re.fullmatch(r"as\s+const", suffix) is None:
+        raise FrontendInventoryError("frontend parameterized test binding is dynamic")
+
+    intervening = scan_text[semicolon + 1 : before_offset]
+    escaped_name = re.escape(name)
+    mutation_patterns = (
+        rf"\b{escaped_name}\s*(?:\[[^;\n]*\]|\.[A-Za-z_$][\w$]*)?\s*(?:[+\-*/%]=|&&=|\|\|=|\?\?=|=(?!=|>)|\+\+|--)",
+        rf"\b{escaped_name}\s*\.\s*(?:add|clear|copyWithin|delete|fill|pop|push|reverse|set|shift|sort|splice|unshift)\s*\(",
+        rf"\bObject\s*\.\s*assign\s*\(\s*{escaped_name}\b",
+    )
+    if any(re.search(candidate, intervening) for candidate in mutation_patterns):
+        raise FrontendInventoryError(
+            "frontend parameterized test binding is mutated before collection"
+        )
+    return text[match.start() : semicolon + 1]
+
+
+def _import_binding(
+    text: str,
+    scan_text: str,
+    name: str,
+    before_offset: int,
+) -> tuple[str, str] | None:
+    bindings: list[tuple[str, str]] = []
+    for match in IMPORT_PATTERN.finditer(text, 0, before_offset):
+        if scan_text[match.start() : match.start() + len("import")] != "import":
+            continue
+        for member in match.group("members").split(","):
+            binding = re.fullmatch(
+                rf"\s*(?:type\s+)?(?P<imported>{TEST_API_NAME})"
+                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
+                member,
+            )
+            if binding is None:
+                continue
+            local = binding.group("local") or binding.group("imported")
+            if local == name:
+                bindings.append((match.group("module"), binding.group("imported")))
+    if len(bindings) > 1:
+        raise FrontendInventoryError(
+            "frontend parameterized test import binding is ambiguous"
+        )
+    return bindings[0] if bindings else None
+
+
+def _bound_parameter_data(
+    text: str,
+    scan_text: str,
+    parameter_data: str,
+    before_offset: int,
+    import_binding_resolver: ImportBindingResolver | None,
+) -> str:
+    if not (parameter_data.startswith("(") and parameter_data.endswith(")")):
+        return parameter_data
+    expression = parameter_data[1:-1].strip()
+    if re.fullmatch(TEST_API_NAME, expression) is None:
+        return parameter_data
+
+    local_source = _const_initializer_source(
+        text,
+        scan_text,
+        expression,
+        before_offset,
+    )
+    if local_source is not None:
+        return local_source
+    imported = _import_binding(text, scan_text, expression, before_offset)
+    if imported is None or import_binding_resolver is None:
+        raise FrontendInventoryError(
+            "frontend parameterized test binding cannot be resolved safely"
+        )
+    module, imported_name = imported
+    imported_source = import_binding_resolver(module, imported_name)
+    if imported_source is None:
+        raise FrontendInventoryError(
+            "frontend parameterized test import cannot be resolved safely"
+        )
+    return f"module={module}\nimported={imported_name}\n{imported_source}"
+
+
+def frontend_export_binding_source(text: str, name: str) -> str | None:
+    """Return a bounded static exported-const initializer for parameter data."""
+
+    code_mask = _code_mask(text)
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    export_pattern = re.compile(rf"\bexport\s+const\s+{re.escape(name)}\b")
+    if export_pattern.search(scan_text) is None:
+        return None
+    return _const_initializer_source(text, scan_text, name, len(text))
+
+
+def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
+    """Return relative named-import module specifiers from executable code."""
+
+    code_mask = _code_mask(text)
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    return tuple(
+        match.group("module")
+        for match in IMPORT_PATTERN.finditer(text)
+        if match.group("module").startswith(".")
+        and scan_text[match.start() : match.start() + len("import")] == "import"
+    )
+
+
 def _conditional_declarations(
     text: str,
     scan_text: str,
@@ -362,7 +513,11 @@ def _conditional_declarations(
     return tuple(declarations)
 
 
-def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], ...]:
+def _frontend_inventory_entries(
+    path: str,
+    text: str,
+    import_binding_resolver: ImportBindingResolver | None = None,
+) -> tuple[tuple[str, str], ...]:
     raw_entries: list[tuple[int, str, str]] = []
     code_mask = _code_mask(text)
     scan_text = "".join(
@@ -399,7 +554,14 @@ def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], 
         title = _normalized_title(raw_title)
         if not title or len(title) > 500:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
-        digest = hashlib.sha256(parameter_data.encode("utf-8")).hexdigest()
+        bound_data = _bound_parameter_data(
+            text,
+            scan_text,
+            parameter_data,
+            offset,
+            import_binding_resolver,
+        )
+        digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
         raw_entries.append(
             (
                 offset,
@@ -432,9 +594,27 @@ def _frontend_inventory_entries(path: str, text: str) -> tuple[tuple[str, str], 
     return tuple(entries)
 
 
-def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
-    return tuple(ref for ref, _source in _frontend_inventory_entries(path, text))
+def parse_frontend_refs(
+    path: str,
+    text: str,
+    import_binding_resolver: ImportBindingResolver | None = None,
+) -> tuple[str, ...]:
+    return tuple(
+        ref
+        for ref, _source in _frontend_inventory_entries(
+            path,
+            text,
+            import_binding_resolver,
+        )
+    )
 
 
-def frontend_source_for_ref(path: str, text: str, test_ref: str) -> str | None:
-    return dict(_frontend_inventory_entries(path, text)).get(test_ref)
+def frontend_source_for_ref(
+    path: str,
+    text: str,
+    test_ref: str,
+    import_binding_resolver: ImportBindingResolver | None = None,
+) -> str | None:
+    return dict(_frontend_inventory_entries(path, text, import_binding_resolver)).get(
+        test_ref
+    )

@@ -618,6 +618,7 @@ def test_frontend_inventory_includes_parameterized_test_titles() -> None:
     declarations = guard.parse_frontend_declarations(
         "apps/control-center/src/example.test.tsx",
         """
+const cases = [["bound"]] as const;
 it.each([
   ["one", { nested: call("value)") }],
   ["two", { nested: true }],
@@ -650,6 +651,93 @@ def test_frontend_inventory_binds_parameter_rows_to_stable_refs() -> None:
         path,
         'test.each([["one"]])("renders %s", () => {});',
     )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_binds_identifier_initializer_to_stable_ref() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    before = guard.parse_frontend_declarations(
+        path,
+        """
+const cases: ReadonlyArray<readonly [string]> = [["one"], ["two"]];
+test.each(cases)("renders %s", () => {});
+""",
+    )
+    after = guard.parse_frontend_declarations(
+        path,
+        """
+const cases: ReadonlyArray<readonly [string]> = [["one"]];
+test.each(cases)("renders %s", () => {});
+""",
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_rejects_unresolved_parameter_identifier() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding cannot be resolved safely",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            'test.each(cases)("renders %s", () => {});',
+        )
+
+
+def test_frontend_inventory_rejects_mutated_parameter_identifier() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding is mutated before collection",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const cases = [["one"]];
+cases.push(["two"]);
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
+def test_frontend_parameter_binding_ignores_unrelated_initializer_changes() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    before = guard.parse_frontend_declarations(
+        path,
+        """
+const unrelated = "before";
+const cases = [["one"]];
+test.each(cases)("renders %s", () => unrelated);
+""",
+    )
+    after = guard.parse_frontend_declarations(
+        path,
+        """
+const unrelated = "after";
+const cases = [["one"]];
+test.each(cases)("renders %s", () => unrelated);
+""",
+    )
+
+    assert before[0].ref == after[0].ref
+
+
+def test_frontend_inventory_binds_relative_imported_initializer(
+    tmp_path: Path,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    source_path = tmp_path / "apps/control-center/src/cases.ts"
+    source_path.parent.mkdir(parents=True)
+    source_path.write_text('export const CASES = [["one"], ["two"]] as const;\n')
+    test_text = """
+import { CASES } from "./cases";
+test.each(CASES)("renders %s", () => {});
+"""
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    source_path.write_text('export const CASES = [["one"]] as const;\n')
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
 
     assert before[0].ref != after[0].ref
 
@@ -1298,3 +1386,37 @@ def test_changed_test_paths_disable_rename_collapsing(
             "apps",
         ],
     ]
+
+
+def test_changed_frontend_dataset_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    (source_root / "cases.ts").write_text('export const CASES = [["one"]] as const;\n')
+    (source_root / "example.test.ts").write_text(
+        'import { CASES } from "./cases";\ntest.each(CASES)("renders %s", () => {});\n'
+    )
+    outputs = iter(
+        (
+            b"apps/control-center/src/cases.ts\0",
+            b"",
+            b"",
+            b"",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=next(outputs),
+            stderr=b"",
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == (
+        "apps/control-center/src/example.test.ts",
+    )

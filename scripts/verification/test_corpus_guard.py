@@ -6,6 +6,7 @@ import ast
 import hashlib
 import json
 import os
+import posixpath
 import re
 import select
 import stat
@@ -28,6 +29,8 @@ from scripts.verification.test_corpus_evidence import (
 )
 from scripts.verification.test_corpus_frontend import (
     FrontendInventoryError,
+    frontend_export_binding_source,
+    frontend_relative_import_modules,
     frontend_source_for_ref,
     parse_frontend_refs,
 )
@@ -579,6 +582,105 @@ def parse_test_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]
     return parse_frontend_declarations(path, text)
 
 
+def _relative_frontend_import_candidates(
+    importing_path: str,
+    module: str,
+) -> tuple[str, ...]:
+    if not module.startswith(".") or "\\" in module or "\0" in module:
+        return ()
+    normalized = posixpath.normpath(
+        posixpath.join(posixpath.dirname(importing_path), module)
+    )
+    if normalized.startswith("../") or normalized.startswith("/"):
+        return ()
+    suffix = Path(normalized).suffix
+    if suffix:
+        candidates = (normalized,)
+    else:
+        candidates = tuple(
+            [f"{normalized}.{extension}" for extension in FRONTEND_TEST_EXTENSIONS]
+            + [
+                f"{normalized}/index.{extension}"
+                for extension in FRONTEND_TEST_EXTENSIONS
+            ]
+        )
+    for candidate in candidates:
+        parts = Path(candidate).parts
+        if any(part in {"", ".", ".."} for part in parts):
+            return ()
+    return candidates
+
+
+def _frontend_import_resolver(
+    importing_path: str,
+    read_text: Callable[[str], str | None],
+) -> Callable[[str, str], str | None]:
+    def resolve(module: str, imported_name: str) -> str | None:
+        resolved: list[str] = []
+        for candidate in _relative_frontend_import_candidates(importing_path, module):
+            source = read_text(candidate)
+            if source is None:
+                continue
+            binding = frontend_export_binding_source(source, imported_name)
+            if binding is not None:
+                resolved.append(f"path={candidate}\n{binding}")
+        if len(resolved) > 1:
+            raise TestCorpusGuardError(
+                "frontend parameterized test import is ambiguous"
+            )
+        return resolved[0] if resolved else None
+
+    return resolve
+
+
+def _parse_worktree_test_declarations(
+    repo: Path,
+    path: str,
+    text: str,
+) -> tuple[TestDeclaration, ...]:
+    if path.endswith(".py"):
+        return parse_python_declarations(path, text)
+
+    def read_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if not target.is_file():
+            return None
+        return _read_worktree_text(repo, candidate)
+
+    try:
+        refs = parse_frontend_refs(
+            path,
+            text,
+            _frontend_import_resolver(path, read_import),
+        )
+    except FrontendInventoryError as exc:
+        raise TestCorpusGuardError(str(exc)) from None
+    return tuple(TestDeclaration(ref=ref, kind="frontend_test") for ref in refs)
+
+
+def _parse_base_test_declarations(
+    repo: Path,
+    base_sha: str,
+    path: str,
+    text: str,
+) -> tuple[TestDeclaration, ...]:
+    if path.endswith(".py"):
+        return parse_python_declarations(path, text)
+
+    try:
+        refs = parse_frontend_refs(
+            path,
+            text,
+            _frontend_import_resolver(
+                path,
+                lambda candidate: _base_text(repo, base_sha, candidate),
+            ),
+        )
+    except FrontendInventoryError as exc:
+        raise TestCorpusGuardError(str(exc)) from None
+    return tuple(TestDeclaration(ref=ref, kind="frontend_test") for ref in refs)
+
+
 def discover_test_files(repo: Path) -> tuple[str, ...]:
     return tuple(
         sorted(
@@ -748,7 +850,7 @@ def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
     declarations: list[TestDeclaration] = []
     for path in discover_test_files(repo):
         text = _read_worktree_text(repo, path)
-        declarations.extend(parse_test_declarations(path, text))
+        declarations.extend(_parse_worktree_test_declarations(repo, path, text))
     refs = [item.ref for item in declarations]
     if len(refs) != len(set(refs)):
         raise TestCorpusGuardError("test inventory contains duplicate stable refs")
@@ -901,12 +1003,34 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         paths = bytes(raw_paths).decode("utf-8").split("\0")
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
-    changed = tuple(sorted({path for path in paths if path and _is_test_path(path)}))
-    if len(changed) > MAX_CHANGED_TEST_PATHS:
+    all_changed = {path for path in paths if path}
+    changed = {path for path in all_changed if _is_test_path(path)}
+    changed_frontend_sources = {
+        path
+        for path in all_changed
+        if path.startswith("apps/control-center/") and not _is_test_path(path)
+    }
+    if changed_frontend_sources:
+        for test_path in discover_test_files(repo):
+            if test_path.endswith(".py") or test_path in changed:
+                continue
+            text = _read_worktree_text(repo, test_path)
+            dependency_candidates = {
+                candidate
+                for module in frontend_relative_import_modules(text)
+                for candidate in _relative_frontend_import_candidates(
+                    test_path,
+                    module,
+                )
+            }
+            if dependency_candidates & changed_frontend_sources:
+                changed.add(test_path)
+    changed_tuple = tuple(sorted(changed))
+    if len(changed_tuple) > MAX_CHANGED_TEST_PATHS:
         raise TestCorpusGuardError("changed test corpus path count exceeds budget")
-    for path in changed:
+    for path in changed_tuple:
         _validate_test_path(path)
-    return changed
+    return changed_tuple
 
 
 def _is_test_path(path: str) -> bool:
@@ -986,7 +1110,11 @@ def build_test_source_ref(test_ref: str, declaration_source: str) -> str:
     return f"test-source-ref:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _source_ref_from_text(test_ref: str, source_text: str) -> str:
+def _source_ref_from_text(
+    test_ref: str,
+    source_text: str,
+    import_binding_resolver: Callable[[str, str], str | None] | None = None,
+) -> str:
     path = test_ref.split("::", 1)[0]
     if path.endswith(".py"):
         entries = _python_inventory_entries(path, source_text)
@@ -997,7 +1125,12 @@ def _source_ref_from_text(test_ref: str, source_text: str) -> str:
         declaration_source = declaration_sources.get(test_ref)
     else:
         try:
-            declaration_source = frontend_source_for_ref(path, source_text, test_ref)
+            declaration_source = frontend_source_for_ref(
+                path,
+                source_text,
+                test_ref,
+                import_binding_resolver,
+            )
         except FrontendInventoryError as exc:
             raise TestCorpusEvidenceError(str(exc)) from None
     if declaration_source is None:
@@ -1014,7 +1147,18 @@ def _worktree_source_ref(repo: Path, test_ref: str) -> str:
         path,
         missing_error=TestCorpusSourceRefMissingError,
     )
-    return _source_ref_from_text(test_ref, text)
+
+    def read_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if not target.is_file():
+            return None
+        return _read_worktree_text(repo, candidate)
+
+    return _source_ref_from_text(
+        test_ref,
+        text,
+        _frontend_import_resolver(path, read_import),
+    )
 
 
 def _resolve_assertion_source_ref(
@@ -1086,11 +1230,15 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior = _base_text(repo, base_sha, path)
         if prior is None:
             continue
-        prior_refs = {item.ref for item in parse_test_declarations(path, prior)}
+        prior_refs = {
+            item.ref
+            for item in _parse_base_test_declarations(repo, base_sha, path, prior)
+        }
         if path in current_paths:
             current_text = _read_worktree_text(repo, path)
             current_refs = {
-                item.ref for item in parse_test_declarations(path, current_text)
+                item.ref
+                for item in _parse_worktree_test_declarations(repo, path, current_text)
             }
         else:
             current_refs = set()
