@@ -100,9 +100,15 @@ PLAN_REQUIRED = (
     "report point estimates plus 95% confidence intervals",
     "Human blind scoring with a versioned rubric is the default quality judge",
     "Every sealed pair is scored independently and blindly by at least two evaluators",
+    "Each evaluator and third adjudicator must\n"
+    "be qualified for the case's supported product language",
     "Krippendorff's alpha at or above 0.67 separately for each of the four ordinal\n"
-    "quality dimensions",
-    "Every disagreement is resolved by a third independent blind\nadjudicator",
+    "quality dimensions within every supported product-language stratum",
+    "neither a\n"
+    "pooled multilingual score nor a dominant-language score may satisfy another\n"
+    "language",
+    "Every disagreement is resolved by a third independent blind,\n"
+    "language-qualified adjudicator",
     "Confidence intervals use a predeclared evaluator-clustered\n"
     "hierarchical estimator",
     "A model-as-judge call is neither implicitly authorized",
@@ -306,7 +312,14 @@ PLAN_REQUIRED = (
     "pinned synthetic-generator ref and version",
     "development corpus and a sealed, label-hidden acceptance holdout",
     "TAW-07 may iterate only on the\n  development corpus",
-    "acceptance holdout exposes only a commitment hash and independent custodian ref",
+    "acceptance holdout exposes only a cryptographically hiding commitment and\n"
+    "independent custodian ref",
+    "either a keyed construction\n"
+    "or a preimage-resistant hash with a fresh high-entropy secret nonce",
+    "plain\n"
+    "unkeyed hash over an enumerable seed or bounded parameter space is invalid",
+    "custodian retains the key or nonce outside the candidate-building environment\n"
+    "and reveals it only after the one-time acceptance decision",
     "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
     "inaccessible to TAW-07 developers",
     "complete content-addressed candidate\n"
@@ -411,16 +424,24 @@ PLAN_REQUIRED = (
     "or other semantic-envelope mismatch invalidates promotion",
     "No awareness-specific decision envelope or other durable record may appear in the\n"
     "safe-disabled per-turn artifact set",
-    "A separately bound, redacted\n"
-    "safe-disable control-plane activation receipt is required and is the sole allowed\n"
-    "additional durable artifact",
-    "safe-disable state, reason code,\n"
-    "catalog fingerprint, activation-evidence safe ref, contract version, and receipt\n"
-    "fingerprint",
-    "excluded from model context and per-turn route evidence",
+    "immutable zero-execution receipt and per-adapter zero-event counter manifest used\n"
+    "by active replay",
+    "separately bound, redacted harness-verifier\n"
+    "receipts outside the per-turn legacy artifact set, legacy artifact fingerprint,\n"
+    "model context, and route evidence",
+    "sole additional\n"
+    "control-plane activation artifact",
+    "activation receipt and the mandated harness-verifier\n"
+    "zero-execution receipts are the only durable artifacts permitted in addition to\n"
+    "the exact legacy per-turn set",
+    "reason code, catalog fingerprint, activation-evidence safe ref, contract version,\n"
+    "and receipt fingerprint",
+    "must be excluded from model context and per-turn\n"
+    "route evidence",
     "Any awareness routing, compact discovery, manifest hydration, changed legacy\n"
     "payload, changed per-turn durable-evidence artifact or fingerprint, missing or\n"
-    "malformed activation receipt, or any other additional durable artifact while\n"
+    "malformed activation or harness-verifier receipt, or any other additional durable\n"
+    "artifact while\n"
     "safe-disable is engaged invalidates promotion",
     "immutable started-attempt evidence plus successful, failed, canceled, and\n"
     "  rolled-back immutable terminal receipts are the sole inputs",
@@ -589,7 +610,11 @@ PLAN_REQUIRED = (
     "  independently powered memory-facing stratum",
     "Every predeclared reviewed,\n"
     "  irrelevant, stale, substituted, unreviewed, and expected-null posture must be\n"
-    "  represented and reported separately",
+    "  represented and reported separately within every supported\n"
+    "  language-by-configuration stratum",
+    "Every reviewed, irrelevant, stale, substituted, unreviewed, and expected-null\n"
+    "memory posture must have nonempty independently powered coverage inside each\n"
+    "supported language-by-configuration stratum",
     "canonical expected-null memory fingerprint",
     "Every emitted memory-facing response must also be checked against its adjudicated\n"
     "selected evidence and required limitation posture",
@@ -916,8 +941,9 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? purchases?|purchase(?:s|d|ing)? (?:goods|services))\b",
-    r"\b(?:spending|purchases?|purchase execution) (?:is|are) (?:now )?"
+    r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? (?:purchases?|payments?)|"
+    r"purchase(?:s|d|ing)? (?:products?|goods|services)|buy(?:s|ing)? (?:products?|goods|services))\b",
+    r"\b(?:spending|purchases?|purchase execution|payments?|payment execution|buying) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
