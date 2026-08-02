@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from scripts.verification.test_corpus_evidence import (
+    ASSERTION_EVIDENCE_SCHEMA as ASSERTION_EVIDENCE_SCHEMA,
     ASSERTION_EQUIVALENCE_SCHEMA as ASSERTION_EQUIVALENCE_SCHEMA,
     RETIREMENT_EVIDENCE_SCHEMA as RETIREMENT_EVIDENCE_SCHEMA,
+    TEST_RESULT_EVIDENCE_SCHEMA as TEST_RESULT_EVIDENCE_SCHEMA,
     TestCorpusEvidenceError,
     retirement_artifact_ref as retirement_artifact_ref,
 )
@@ -45,6 +47,8 @@ TEST_FILE_PATTERNS = (
     "tests/**/*_test.py",
     "apps/control-center/src/**/*.test.ts",
     "apps/control-center/src/**/*.test.tsx",
+    "apps/control-center/src/**/*.spec.ts",
+    "apps/control-center/src/**/*.spec.tsx",
     "apps/control-center/tests/**/*.ts",
     "apps/control-center/tests/**/*.tsx",
 )
@@ -80,18 +84,58 @@ def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ..
         ) from exc
 
     refs: list[tuple[str, str]] = []
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+
+    def collected_methods(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        methods: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        next_visiting = {*visiting, class_node.name}
+        for base in class_node.bases:
+            if isinstance(base, ast.Name) and base.id in classes:
+                methods.update(collected_methods(classes[base.id], next_visiting))
+        for child in class_node.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name.startswith("test_"):
+                    methods[child.name] = child
+                else:
+                    methods.pop(child.name, None)
+        return methods
+
+    def has_constructor(class_node: ast.ClassDef, visiting: set[str]) -> bool:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        if any(
+            isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and child.name in {"__init__", "__new__"}
+            for child in class_node.body
+        ):
+            return True
+        next_visiting = {*visiting, class_node.name}
+        return any(
+            has_constructor(classes[base.id], next_visiting)
+            for base in class_node.bases
+            if isinstance(base, ast.Name) and base.id in classes
+        )
+
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.name.startswith("test_"):
                 refs.append((f"{path}::{node.name}", "python_test"))
             continue
-        if not isinstance(node, ast.ClassDef):
+        if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
             continue
-        for child in node.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
-                child.name.startswith("test_")
-            ):
-                refs.append((f"{path}::{node.name}::{child.name}", "python_test"))
+        if has_constructor(node, set()):
+            continue
+        for method_name in collected_methods(node, set()):
+            refs.append((f"{path}::{node.name}::{method_name}", "python_test"))
     return _deduplicate_refs(refs)
 
 
@@ -444,6 +488,8 @@ def _is_test_path(path: str) -> bool:
     return (
         candidate.name.endswith(".test.ts")
         or candidate.name.endswith(".test.tsx")
+        or candidate.name.endswith(".spec.ts")
+        or candidate.name.endswith(".spec.tsx")
         or (
             path.startswith("apps/control-center/tests/")
             and candidate.suffix in {".ts", ".tsx"}
@@ -546,9 +592,23 @@ def _load_ledger(repo: Path) -> dict[str, Any]:
 
 def _load_base_ledger(repo: Path, base_sha: str) -> dict[str, Any]:
     path = RETIREMENT_LEDGER.as_posix()
+    listing = _run_git(
+        repo,
+        ["ls-tree", "--name-only", "-z", base_sha, "--", path],
+    )
+    if listing.returncode != 0:
+        raise TestCorpusGuardError("cannot inspect base test-corpus retirement ledger")
+    try:
+        paths = {item for item in listing.stdout.decode("utf-8").split("\0") if item}
+    except UnicodeDecodeError as exc:
+        raise TestCorpusGuardError(
+            "base test-corpus retirement ledger path is invalid"
+        ) from exc
+    if path not in paths:
+        return {"schema_version": RETIREMENT_SCHEMA, "retirements": []}
     size = _run_git(repo, ["cat-file", "-s", f"{base_sha}:{path}"])
     if size.returncode != 0:
-        return {"schema_version": RETIREMENT_SCHEMA, "retirements": []}
+        raise TestCorpusGuardError("cannot inspect base test-corpus retirement ledger")
     try:
         byte_count = int(size.stdout.decode("ascii").strip())
     except (UnicodeDecodeError, ValueError) as exc:

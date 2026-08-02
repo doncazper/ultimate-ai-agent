@@ -19,6 +19,8 @@ ASSERTION_REF_PATTERN = re.compile(r"assertion-ref:sha256:[0-9a-f]{64}")
 TEST_RESULT_REF_PATTERN = re.compile(r"test-result-ref:sha256:[0-9a-f]{64}")
 ASSERTION_EQUIVALENCE_SCHEMA = "uaa.test_corpus_assertion_equivalence.v1"
 RETIREMENT_EVIDENCE_SCHEMA = "uaa.test_corpus_retirement_evidence.v1"
+ASSERTION_EVIDENCE_SCHEMA = "uaa.test_corpus_assertion_evidence.v1"
+TEST_RESULT_EVIDENCE_SCHEMA = "uaa.test_corpus_test_result_evidence.v1"
 MAX_ARTIFACT_BYTES = 50_000
 MAX_ARTIFACT_REFS = 64
 
@@ -29,7 +31,9 @@ class TestCorpusEvidenceError(RuntimeError):
 
 def retirement_artifact_ref(prefix: str, artifact: dict[str, Any]) -> str:
     if prefix not in {
+        "assertion-ref",
         "assertion-equivalence-ref",
+        "test-result-ref",
         "test-corpus-evidence-ref",
     }:
         raise TestCorpusEvidenceError("retirement artifact ref prefix is invalid")
@@ -44,21 +48,67 @@ def retirement_artifact_ref(prefix: str, artifact: dict[str, Any]) -> str:
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _validate_artifact_ref_list(
+def _validate_safe_summary(value: object, *, label: str) -> None:
+    if (
+        not isinstance(value, str)
+        or not 20 <= len(value.strip()) <= 500
+        or any(ord(character) < 32 for character in value)
+    ):
+        raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+
+
+def _validate_content_bound_evidence(
     value: object,
     *,
     pattern: re.Pattern[str],
+    prefix: str,
+    schema: str,
     label: str,
-) -> list[str]:
+    replacement_refs: list[str],
+) -> list[dict[str, Any]]:
     if (
         not isinstance(value, list)
         or not value
         or len(value) > MAX_ARTIFACT_REFS
-        or any(not isinstance(item, str) for item in value)
-        or len(value) != len(set(value))
-        or any(pattern.fullmatch(item) is None for item in value)
+        or any(not isinstance(item, dict) for item in value)
     ):
-        raise TestCorpusEvidenceError(f"retired test {label} are invalid")
+        raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+    refs: list[str] = []
+    for item in value:
+        if set(item) != {"artifact", "ref"}:
+            raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+        artifact = item.get("artifact")
+        ref = item.get("ref")
+        expected_keys = {"schema_version", "safe_summary", "replacement_ref"}
+        if prefix == "test-result-ref":
+            expected_keys.remove("replacement_ref")
+            expected_keys.add("verified_refs")
+            expected_keys.add("status")
+        if (
+            not isinstance(artifact, dict)
+            or set(artifact) != expected_keys
+            or artifact.get("schema_version") != schema
+            or (
+                prefix == "assertion-ref"
+                and artifact.get("replacement_ref") not in replacement_refs
+            )
+            or (prefix == "test-result-ref" and artifact.get("status") != "passed")
+            or (
+                prefix == "test-result-ref"
+                and artifact.get("verified_refs") != replacement_refs
+            )
+        ):
+            raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+        _validate_safe_summary(artifact.get("safe_summary"), label=label)
+        if (
+            not isinstance(ref, str)
+            or pattern.fullmatch(ref) is None
+            or ref != retirement_artifact_ref(prefix, artifact)
+        ):
+            raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+        refs.append(ref)
+    if len(refs) != len(set(refs)):
+        raise TestCorpusEvidenceError(f"retired test {label} is invalid")
     return value
 
 
@@ -119,7 +169,7 @@ def _validate_retirement_record(
         "schema_version",
         "retired_ref",
         "replacement_refs",
-        "preserved_assertion_refs",
+        "preserved_assertion_evidence",
     }
     if (
         not isinstance(equivalence_artifact, dict)
@@ -131,10 +181,13 @@ def _validate_retirement_record(
         raise TestCorpusEvidenceError(
             f"retired test equivalence artifact is invalid: {retired_ref}"
         )
-    _validate_artifact_ref_list(
-        equivalence_artifact.get("preserved_assertion_refs"),
+    _validate_content_bound_evidence(
+        equivalence_artifact.get("preserved_assertion_evidence"),
         pattern=ASSERTION_REF_PATTERN,
-        label="preserved assertion refs",
+        prefix="assertion-ref",
+        schema=ASSERTION_EVIDENCE_SCHEMA,
+        label="preserved assertion evidence",
+        replacement_refs=replacements,
     )
     if (
         not isinstance(equivalence_ref, str)
@@ -153,7 +206,7 @@ def _validate_retirement_record(
         "schema_version",
         "retired_ref",
         "replacement_refs",
-        "verification_refs",
+        "verification_evidence",
     }
     if (
         not isinstance(evidence_artifact, dict)
@@ -165,10 +218,13 @@ def _validate_retirement_record(
         raise TestCorpusEvidenceError(
             f"retired test evidence artifact is invalid: {retired_ref}"
         )
-    _validate_artifact_ref_list(
-        evidence_artifact.get("verification_refs"),
+    _validate_content_bound_evidence(
+        evidence_artifact.get("verification_evidence"),
         pattern=TEST_RESULT_REF_PATTERN,
-        label="verification refs",
+        prefix="test-result-ref",
+        schema=TEST_RESULT_EVIDENCE_SCHEMA,
+        label="verification evidence",
+        replacement_refs=replacements,
     )
     if (
         not isinstance(evidence_ref, str)
@@ -231,6 +287,12 @@ def validate_retirements(
                 f"historical retirement record changed: {retired_ref}"
             )
     new_retired_refs = set(by_retired_ref) - set(historical)
+    if base_ledger is not None:
+        unexpected = sorted(new_retired_refs - removed_refs)
+        if unexpected:
+            raise TestCorpusEvidenceError(
+                f"retirement records do not match removed tests: {unexpected}"
+            )
 
     for retired_ref, record in by_retired_ref.items():
         if retired_ref in current_refs:
@@ -243,7 +305,19 @@ def validate_retirements(
             raise TestCorpusEvidenceError(
                 f"retired test has missing replacements: {retired_ref}: {missing}"
             )
-        if retired_ref in new_retired_refs and not replacements & current_refs:
+
+    def reaches_active(ref: str, visiting: set[str]) -> bool:
+        if ref in current_refs:
+            return True
+        if ref in visiting or ref not in by_retired_ref:
+            return False
+        return any(
+            reaches_active(replacement, {*visiting, ref})
+            for replacement in by_retired_ref[ref]["replacement_refs"]
+        )
+
+    for retired_ref in by_retired_ref:
+        if not reaches_active(retired_ref, set()):
             raise TestCorpusEvidenceError(
                 f"retired test has no active replacement: {retired_ref}"
             )

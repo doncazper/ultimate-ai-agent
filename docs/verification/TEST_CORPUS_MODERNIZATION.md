@@ -25,8 +25,9 @@ evidence-aware rather than globally one-task-at-a-time.
 ## Phase 01 Contract
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python and
-Control Center test declarations, including parameterized `it.each` and
-`test.each` titles; `scripts/verify_test_corpus_guard.py`
+Control Center `.test`/`.spec` declarations, including inherited pytest class
+tests, parameterized titles, supported import aliases, and extended test APIs;
+`scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed
 declaration must have one durable entry in
@@ -46,13 +47,19 @@ Each retirement entry must identify:
   its canonical JSON.
 
 The assertion artifact binds the retired and replacement refs to one or more
-content-free `assertion-ref:sha256:*` identifiers. The evidence artifact binds
-the same refs to one or more content-free `test-result-ref:sha256:*`
-identifiers. Arbitrary well-shaped hashes are insufficient. Records accepted
+bounded, typed, safe-summary-only assertion artifacts whose canonical JSON is
+recomputed as an `assertion-ref:sha256:*`. The evidence artifact does the same
+for passed verification artifacts and their `test-result-ref:sha256:*` values.
+The nested artifacts and their enclosing artifacts are both content-bound;
+arbitrary well-shaped hashes are insufficient. Records accepted
 on the exact comparison commit are immutable: later candidates must preserve
 the complete typed record field-for-field. If a historical replacement is later
 retired, its own new record must preserve the replacement chain and retain at
 least one active replacement.
+Every newly added retirement record must correspond to a declaration removed
+relative to the bound comparison commit. When a local comparison commit is
+unavailable, existing multi-hop replacement chains remain valid only when they
+terminate at an active test.
 
 Missing or malformed canonical CI base commits, malformed inventories,
 duplicate refs, missing replacements, weak reasons, modified historical

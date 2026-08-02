@@ -5,19 +5,12 @@ from __future__ import annotations
 import re
 
 
-FRONTEND_TEST_PATTERN = re.compile(
-    r"(?<![.\w$])(?:it|test)"
-    r"(?:\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*\s*\("
-)
-FRONTEND_EACH_PATTERN = re.compile(
-    r"(?<![.\w$])(?:it|test)"
-    r"(?:\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
-    r"\.(?:each|for)\b"
-)
-FRONTEND_CONDITIONAL_PATTERN = re.compile(
-    r"(?<![.\w$])(?:it|test)"
-    r"(?:\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
-    r"\.(?:runIf|skipIf)\s*\("
+TEST_API_NAME = r"[A-Za-z_$][\w$]*"
+TEST_MODIFIERS = r"(?:\s*\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
+IMPORT_PATTERN = re.compile(r"\bimport\s*\{(?P<members>[^}]*)\}")
+EXTENSION_PATTERN = re.compile(
+    rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
+    rf"(?P<base>{TEST_API_NAME}){TEST_MODIFIERS}\s*\.extend\s*\("
 )
 
 
@@ -60,12 +53,64 @@ def _skip_comment(text: str, start: int) -> int:
     return start
 
 
+def _is_regex_start(text: str, start: int) -> bool:
+    index = start - 1
+    while index >= 0 and text[index].isspace():
+        index -= 1
+    if index < 0 or text[index] in "([{:;,=!?&|+-*%^~\n":
+        return True
+    if text[max(0, index - 1) : index + 1] == "=>":
+        return True
+    prefix = text[: index + 1]
+    match = re.search(r"([A-Za-z_$][\w$]*)$", prefix)
+    return bool(
+        match
+        and match.group(1) in {"case", "delete", "return", "throw", "typeof", "void"}
+    )
+
+
+def _skip_regex(text: str, start: int) -> int:
+    index = start + 1
+    in_character_class = False
+    while index < len(text):
+        character = text[index]
+        if character in "\r\n":
+            raise FrontendInventoryError(
+                "frontend test inventory has an unterminated regex literal"
+            )
+        if character == "\\":
+            index += 2
+            continue
+        if character == "[":
+            in_character_class = True
+        elif character == "]":
+            in_character_class = False
+        elif character == "/" and not in_character_class:
+            index += 1
+            while index < len(text) and (text[index].isalpha() or text[index] == "_"):
+                index += 1
+            return index
+        index += 1
+    raise FrontendInventoryError(
+        "frontend test inventory has an unterminated regex literal"
+    )
+
+
 def _code_mask(text: str) -> bytearray:
     mask = bytearray(b"\x01" * len(text))
     index = 0
     while index < len(text):
         if text[index] in "\"'`":
             end = _skip_string(text, index)
+            mask[index:end] = b"\x00" * (end - index)
+            index = end
+            continue
+        if (
+            text[index] == "/"
+            and not text.startswith(("//", "/*"), index)
+            and _is_regex_start(text, index)
+        ):
+            end = _skip_regex(text, index)
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
@@ -90,6 +135,13 @@ def _skip_balanced(text: str, start: int) -> int:
         if character in "\"'`":
             index = _skip_string(text, index)
             continue
+        if (
+            character == "/"
+            and not text.startswith(("//", "/*"), index)
+            and _is_regex_start(text, index)
+        ):
+            index = _skip_regex(text, index)
+            continue
         comment_end = _skip_comment(text, index)
         if comment_end != index:
             index = comment_end
@@ -106,11 +158,60 @@ def _skip_balanced(text: str, start: int) -> int:
     )
 
 
-def _parameterized_titles(text: str, code_mask: bytearray) -> tuple[str, ...]:
+def _patterns(
+    api_names: set[str],
+) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+    names = "(?:" + "|".join(re.escape(name) for name in sorted(api_names)) + ")"
+    direct = re.compile(rf"(?<![.\w$]){names}{TEST_MODIFIERS}\s*\(")
+    each = re.compile(rf"(?<![.\w$]){names}{TEST_MODIFIERS}\.(?:each|for)\b")
+    conditional = re.compile(
+        rf"(?<![.\w$]){names}{TEST_MODIFIERS}\.(?:runIf|skipIf)\s*\("
+    )
+    return direct, each, conditional
+
+
+def _test_api_names(scan_text: str) -> set[str]:
+    names = {"it", "test"}
+    for match in IMPORT_PATTERN.finditer(scan_text):
+        for member in match.group("members").split(","):
+            alias = re.fullmatch(
+                rf"\s*(?:it|test)\s+as\s+({TEST_API_NAME})\s*",
+                member,
+            )
+            if alias:
+                names.add(alias.group(1))
+
+    recognized_extensions: set[int] = set()
+    while True:
+        added = False
+        for match in EXTENSION_PATTERN.finditer(scan_text):
+            if match.group("base") in names:
+                recognized_extensions.add(match.start("base"))
+                if match.group("alias") not in names:
+                    names.add(match.group("alias"))
+                    added = True
+        if not added:
+            break
+
+    api_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    for match in re.finditer(
+        rf"(?<![.\w$]){api_pattern}{TEST_MODIFIERS}\s*\.extend\b",
+        scan_text,
+    ):
+        if match.start() not in recognized_extensions:
+            raise FrontendInventoryError(
+                "frontend extended test API cannot be inventoried safely"
+            )
+    return names
+
+
+def _parameterized_titles(
+    text: str,
+    scan_text: str,
+    pattern: re.Pattern[str],
+) -> tuple[str, ...]:
     titles: list[str] = []
-    for match in FRONTEND_EACH_PATTERN.finditer(text):
-        if not code_mask[match.start()]:
-            continue
+    for match in pattern.finditer(scan_text):
         index = match.end()
         while index < len(text) and text[index].isspace():
             index += 1
@@ -137,11 +238,13 @@ def _parameterized_titles(text: str, code_mask: bytearray) -> tuple[str, ...]:
     return tuple(titles)
 
 
-def _conditional_titles(text: str, code_mask: bytearray) -> tuple[str, ...]:
+def _conditional_titles(
+    text: str,
+    scan_text: str,
+    pattern: re.Pattern[str],
+) -> tuple[str, ...]:
     titles: list[str] = []
-    for match in FRONTEND_CONDITIONAL_PATTERN.finditer(text):
-        if not code_mask[match.start()]:
-            continue
+    for match in pattern.finditer(scan_text):
         index = _skip_balanced(text, match.end() - 1)
         while index < len(text) and text[index].isspace():
             index += 1
@@ -161,9 +264,13 @@ def _conditional_titles(text: str, code_mask: bytearray) -> tuple[str, ...]:
 def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
     raw_refs: list[str] = []
     code_mask = _code_mask(text)
-    for match in FRONTEND_TEST_PATTERN.finditer(text):
-        if not code_mask[match.start()]:
-            continue
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    direct_pattern, each_pattern, conditional_pattern = _patterns(
+        _test_api_names(scan_text)
+    )
+    for match in direct_pattern.finditer(scan_text):
         index = match.end()
         while index < len(text) and text[index].isspace():
             index += 1
@@ -180,8 +287,8 @@ def parse_frontend_refs(path: str, text: str) -> tuple[str, ...]:
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
         raw_refs.append(f"{path}::{title}")
     for raw_title in (
-        *_parameterized_titles(text, code_mask),
-        *_conditional_titles(text, code_mask),
+        *_parameterized_titles(text, scan_text, each_pattern),
+        *_conditional_titles(text, scan_text, conditional_pattern),
     ):
         title = _normalized_title(raw_title)
         if not title or len(title) > 500:

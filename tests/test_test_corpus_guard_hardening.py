@@ -14,17 +14,42 @@ def _record(
     replacement_ref: str,
 ) -> dict[str, object]:
     replacement_refs = [replacement_ref]
+    assertion_artifact = {
+        "schema_version": guard.ASSERTION_EVIDENCE_SCHEMA,
+        "replacement_ref": replacement_ref,
+        "safe_summary": "The replacement preserves the exact guarded assertion.",
+    }
+    result_artifact = {
+        "schema_version": guard.TEST_RESULT_EVIDENCE_SCHEMA,
+        "status": "passed",
+        "verified_refs": replacement_refs,
+        "safe_summary": "Focused verification passed for the replacement behavior.",
+    }
     equivalence_artifact = {
         "schema_version": guard.ASSERTION_EQUIVALENCE_SCHEMA,
         "retired_ref": retired_ref,
         "replacement_refs": replacement_refs,
-        "preserved_assertion_refs": ["assertion-ref:sha256:" + ("a" * 64)],
+        "preserved_assertion_evidence": [
+            {
+                "artifact": assertion_artifact,
+                "ref": guard.retirement_artifact_ref(
+                    "assertion-ref", assertion_artifact
+                ),
+            }
+        ],
     }
     evidence_artifact = {
         "schema_version": guard.RETIREMENT_EVIDENCE_SCHEMA,
         "retired_ref": retired_ref,
         "replacement_refs": replacement_refs,
-        "verification_refs": ["test-result-ref:sha256:" + ("b" * 64)],
+        "verification_evidence": [
+            {
+                "artifact": result_artifact,
+                "ref": guard.retirement_artifact_ref(
+                    "test-result-ref", result_artifact
+                ),
+            }
+        ],
     }
     return {
         "retired_ref": retired_ref,
@@ -48,12 +73,12 @@ def _record(
     (
         (
             "assertion_equivalence_artifact",
-            "preserved_assertion_refs",
+            "preserved_assertion_evidence",
             "equivalence ref is invalid",
         ),
         (
             "evidence_artifact",
-            "verification_refs",
+            "verification_evidence",
             "evidence ref is invalid",
         ),
     ),
@@ -68,10 +93,22 @@ def test_retirement_artifact_hashes_are_recomputed(
     record = _record(retired, replacement)
     artifact = record[artifact_field]
     assert isinstance(artifact, dict)
-    artifact[list_field] = (
-        ["assertion-ref:sha256:" + ("c" * 64)]
-        if list_field == "preserved_assertion_refs"
-        else ["test-result-ref:sha256:" + ("c" * 64)]
+    evidence = artifact[list_field]
+    assert isinstance(evidence, list)
+    nested = evidence[0]
+    assert isinstance(nested, dict)
+    nested_artifact = nested["artifact"]
+    assert isinstance(nested_artifact, dict)
+    nested_artifact["safe_summary"] = (
+        "This changed nested artifact no longer matches its content-bound ref."
+    )
+    nested["ref"] = guard.retirement_artifact_ref(
+        (
+            "assertion-ref"
+            if list_field == "preserved_assertion_evidence"
+            else "test-result-ref"
+        ),
+        nested_artifact,
     )
 
     with pytest.raises(guard.TestCorpusGuardError, match=message):
@@ -116,6 +153,41 @@ def test_historical_replacement_retirement_preserves_an_active_chain() -> None:
     )
 
     assert count == 2
+
+
+def test_replacement_chain_reaches_active_test_without_base_ledger() -> None:
+    retired = "tests/test_sample.py::test_removed"
+    replacement = "tests/test_sample.py::test_replacement"
+    successor = "tests/test_sample.py::test_successor"
+
+    count = guard.validate_retirements(
+        {successor},
+        set(),
+        {
+            "retirements": [
+                _record(retired, replacement),
+                _record(replacement, successor),
+            ]
+        },
+    )
+
+    assert count == 2
+
+
+def test_new_retirement_record_must_match_a_removed_test() -> None:
+    retired = "tests/test_sample.py::test_typo"
+    replacement = "tests/test_sample.py::test_replacement"
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="retirement records do not match removed tests",
+    ):
+        guard.validate_retirements(
+            {replacement},
+            set(),
+            {"retirements": [_record(retired, replacement)]},
+            base_ledger={"retirements": []},
+        )
 
 
 def test_worktree_inventory_reader_rejects_symlinked_parent(
@@ -250,6 +322,35 @@ def test_existing_base_blob_read_failure_fails_closed(
 
     with pytest.raises(guard.TestCorpusGuardError, match="cannot read base test file"):
         guard._base_text(Path("."), "a" * 40, "tests/test_example.py")
+
+
+def test_existing_base_ledger_inspection_failure_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = guard.RETIREMENT_LEDGER.as_posix()
+    results = iter(
+        (
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=path.encode("utf-8") + b"\0",
+                stderr=b"",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=1,
+                stdout=b"",
+                stderr=b"",
+            ),
+        )
+    )
+    monkeypatch.setattr(guard, "_run_git", lambda _repo, _args: next(results))
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="cannot inspect base test-corpus retirement ledger",
+    ):
+        guard._load_base_ledger(Path("."), "a" * 40)
 
 
 def test_case_only_rename_retires_the_exact_old_path(

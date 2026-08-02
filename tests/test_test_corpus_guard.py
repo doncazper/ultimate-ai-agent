@@ -11,17 +11,42 @@ def _record(
     replacement_ref: str,
 ) -> dict[str, object]:
     replacement_refs = [replacement_ref]
+    assertion_artifact = {
+        "schema_version": guard.ASSERTION_EVIDENCE_SCHEMA,
+        "replacement_ref": replacement_ref,
+        "safe_summary": "The replacement preserves the exact guarded assertion.",
+    }
+    result_artifact = {
+        "schema_version": guard.TEST_RESULT_EVIDENCE_SCHEMA,
+        "status": "passed",
+        "verified_refs": replacement_refs,
+        "safe_summary": "Focused verification passed for the replacement behavior.",
+    }
     equivalence_artifact = {
         "schema_version": guard.ASSERTION_EQUIVALENCE_SCHEMA,
         "retired_ref": retired_ref,
         "replacement_refs": replacement_refs,
-        "preserved_assertion_refs": ["assertion-ref:sha256:" + ("a" * 64)],
+        "preserved_assertion_evidence": [
+            {
+                "artifact": assertion_artifact,
+                "ref": guard.retirement_artifact_ref(
+                    "assertion-ref", assertion_artifact
+                ),
+            }
+        ],
     }
     evidence_artifact = {
         "schema_version": guard.RETIREMENT_EVIDENCE_SCHEMA,
         "retired_ref": retired_ref,
         "replacement_refs": replacement_refs,
-        "verification_refs": ["test-result-ref:sha256:" + ("b" * 64)],
+        "verification_evidence": [
+            {
+                "artifact": result_artifact,
+                "ref": guard.retirement_artifact_ref(
+                    "test-result-ref", result_artifact
+                ),
+            }
+        ],
     }
     return {
         "retired_ref": retired_ref,
@@ -63,6 +88,24 @@ def helper():
         "tests/test_sample.py::test_sync",
         "tests/test_sample.py::test_async",
         "tests/test_sample.py::TestGroup::test_method",
+    ]
+
+
+def test_python_inventory_matches_inherited_pytest_class_collection() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        """
+class Base:
+    def test_inherited(self):
+        assert True
+
+class TestChild(Base):
+    pass
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::TestChild::test_inherited",
     ]
 
 
@@ -147,6 +190,49 @@ it("real test", () => {});
     assert [item.ref for item in declarations] == [
         "apps/control-center/src/example.test.tsx::real test",
     ]
+
+
+def test_frontend_inventory_handles_comments_and_regex_literals() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.spec.ts",
+        r"""
+const patterns = [/path\//]; it /* lexical trivia */ ("after comment", () => {});
+it.each([/path\//])("matches escaped slash", () => {});
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.spec.ts::after comment",
+        "apps/control-center/src/example.spec.ts::matches escaped slash",
+    ]
+
+
+def test_frontend_inventory_tracks_import_aliases_and_extended_apis() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.spec.ts",
+        """
+import { test as pw } from "@playwright/test";
+const fixtureTest = pw.extend({ account: async ({}, use) => use("safe") });
+pw("aliased test", () => {});
+fixtureTest("extended test", () => {});
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.spec.ts::aliased test",
+        "apps/control-center/src/example.spec.ts::extended test",
+    ]
+
+
+def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="extended test API cannot be inventoried safely",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.spec.ts",
+            "const fixtureTest = test.extend<Fixtures>({});",
+        )
 
 
 def test_parameterized_frontend_inventory_rejects_missing_title() -> None:
@@ -295,6 +381,36 @@ def test_retirement_records_reject_unknown_durable_fields() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="record fields are invalid",
+    ):
+        guard.validate_retirements(
+            {replacement},
+            {retired},
+            {"retirements": [record]},
+        )
+
+
+def test_nested_retirement_evidence_is_content_bound() -> None:
+    retired = "tests/test_sample.py::test_removed"
+    replacement = "tests/test_sample.py::test_replacement"
+    record = _record(retired, replacement)
+    equivalence = record["assertion_equivalence_artifact"]
+    assert isinstance(equivalence, dict)
+    nested_records = equivalence["preserved_assertion_evidence"]
+    assert isinstance(nested_records, list)
+    nested = nested_records[0]
+    assert isinstance(nested, dict)
+    artifact = nested["artifact"]
+    assert isinstance(artifact, dict)
+    artifact["safe_summary"] = (
+        "A fabricated summary that does not match the durable ref."
+    )
+    record["assertion_equivalence_ref"] = guard.retirement_artifact_ref(
+        "assertion-equivalence-ref", equivalence
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="preserved assertion evidence is invalid",
     ):
         guard.validate_retirements(
             {replacement},
@@ -455,6 +571,8 @@ def test_malformed_canonical_ci_base_fails_closed(
         "tests/test_example.py",
         "apps/control-center/src/example.test.ts",
         "apps/control-center/src/example.test.tsx",
+        "apps/control-center/src/example.spec.ts",
+        "apps/control-center/src/example.spec.tsx",
         "apps/control-center/tests/example.spec.ts",
         "apps/control-center/tests/example.spec.tsx",
     ),
