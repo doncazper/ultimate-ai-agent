@@ -14,6 +14,10 @@ IMPORT_PATTERN = re.compile(
     r"\bimport\s*\{(?P<members>[^}]*)\}\s*from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
 )
+NAMESPACE_IMPORT_PATTERN = re.compile(
+    r"\bimport\s+\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)\s+from\s*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+)
 EXTENSION_PATTERN = re.compile(
     rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
     rf"(?P<base>{TEST_API_NAME}){TEST_MODIFIERS}\s*\.extend\s*\("
@@ -132,6 +136,22 @@ def _code_mask(text: str) -> bytearray:
         if text[index] in "\"'`":
             end = _skip_string(text, index)
             mask[index:end] = b"\x00" * (end - index)
+            if text[index] == "`":
+                template_index = index + 1
+                while template_index < end - 1:
+                    if text[template_index] == "\\":
+                        template_index += 2
+                        continue
+                    if text.startswith("${", template_index):
+                        interpolation_end = _skip_balanced(text, template_index + 1)
+                        body_start = template_index + 2
+                        body_end = interpolation_end - 1
+                        mask[body_start:body_end] = _code_mask(
+                            text[body_start:body_end]
+                        )
+                        template_index = interpolation_end
+                        continue
+                    template_index += 1
             index = end
             continue
         if _is_regex_literal_at(text, index, regex_closures):
@@ -217,6 +237,16 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
                 raise FrontendInventoryError(
                     "frontend test API name is shadowed by a non-runner import"
                 )
+    for match in NAMESPACE_IMPORT_PATTERN.finditer(text):
+        if scan_text[match.start() : match.start() + len("import")] != "import":
+            continue
+        if match.group("module") not in RUNNER_MODULES:
+            continue
+        namespace = re.escape(match.group("name"))
+        if re.search(rf"\b{namespace}\s*\.\s*(?:it|test)\b", scan_text):
+            raise FrontendInventoryError(
+                "frontend namespace test API cannot be inventoried safely"
+            )
 
     declaration_pattern = re.compile(
         r"\b(?:const|let|var|function|class)\s+(?P<name>it|test)\b"
@@ -341,8 +371,15 @@ def _const_initializer_source(
     scan_text: str,
     name: str,
     before_offset: int,
-    proven_parameter_call_offsets: frozenset[int] | None = None,
+    proven_parameter_call_ranges: frozenset[tuple[int, int]] | None = None,
+    *,
+    _seen_names: frozenset[str] = frozenset(),
+    _validate_references: bool = True,
 ) -> str | None:
+    if name in _seen_names:
+        raise FrontendInventoryError(
+            "frontend parameterized test binding dependencies are circular"
+        )
     pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
     matches = [match for match in pattern.finditer(scan_text, 0, before_offset)]
     if not matches:
@@ -373,14 +410,59 @@ def _const_initializer_source(
     else:
         value_end = _skip_string(text, value_start)
     semicolon = scan_text.find(";", value_end, before_offset)
-    if semicolon < 0:
+    newline = scan_text.find("\n", value_end, before_offset)
+    boundaries = [boundary for boundary in (semicolon, newline) if boundary >= 0]
+    if not boundaries:
         raise FrontendInventoryError("frontend parameterized test binding is invalid")
+    semicolon = min(boundaries)
     suffix = text[value_end:semicolon].strip()
-    if suffix and re.fullmatch(r"as\s+const", suffix) is None:
+    if _validate_references and suffix and re.fullmatch(r"as\s+const", suffix) is None:
         raise FrontendInventoryError("frontend parameterized test binding is dynamic")
+    initializer_scan = scan_text[value_start:value_end]
+    allowed_identifiers = {
+        "Date",
+        "false",
+        "Infinity",
+        "NaN",
+        "new",
+        "null",
+        "true",
+        "undefined",
+    }
+    dependencies: set[str] = set()
+    for dependency in re.finditer(TEST_API_NAME, initializer_scan):
+        identifier = dependency.group(0)
+        if identifier in allowed_identifiers:
+            continue
+        absolute_start = value_start + dependency.start()
+        absolute_end = value_start + dependency.end()
+        prefix = scan_text[max(value_start, absolute_start - 3) : absolute_start]
+        following = scan_text[absolute_end:value_end]
+        if (prefix.endswith(".") and not prefix.endswith("...")) or re.match(
+            r"\s*:", following
+        ):
+            continue
+        dependencies.add(identifier)
 
     intervening = scan_text[semicolon + 1 : before_offset]
     escaped_name = re.escape(name)
+    function_pattern = re.compile(
+        rf"\b(?:async\s+)?function\s+(?P<name>{TEST_API_NAME})\s*\("
+    )
+    for helper in function_pattern.finditer(scan_text, 0, match.start()):
+        arguments_end = _skip_balanced(text, helper.end() - 1)
+        body_start = arguments_end
+        while body_start < match.start() and text[body_start].isspace():
+            body_start += 1
+        if body_start >= match.start() or text[body_start] != "{":
+            continue
+        body_end = _skip_balanced(text, body_start)
+        if re.search(
+            rf"\b{escaped_name}\b", scan_text[body_start:body_end]
+        ) and re.search(rf"\b{re.escape(helper.group('name'))}\s*\(", intervening):
+            raise FrontendInventoryError(
+                "frontend parameterized test binding is used by an unproven helper"
+            )
     mutation_patterns = (
         rf"\b{escaped_name}\s*(?:\[[^;\n]*\]|\.[A-Za-z_$][\w$]*)?\s*(?:[+\-*/%]=|&&=|\|\|=|\?\?=|=(?!=|>)|\+\+|--)",
         rf"\b{escaped_name}\s*\.\s*(?:add|clear|copyWithin|delete|fill|pop|push|reverse|set|shift|sort|splice|unshift)\s*\(",
@@ -390,37 +472,99 @@ def _const_initializer_source(
         raise FrontendInventoryError(
             "frontend parameterized test binding is mutated before collection"
         )
-    call_pattern = re.compile(
-        rf"(?P<callee>\b{TEST_API_NAME}(?:\s*(?:\.|\?\.)\s*{TEST_API_NAME})*|(?:\]|\)))"
-        r"\s*(?:\?\.)?\s*(?P<opening>\()"
-    )
-    proven_offsets = proven_parameter_call_offsets or frozenset()
-    proven_ranges: list[tuple[int, int]] = []
-    for call in call_pattern.finditer(scan_text, semicolon + 1, before_offset):
-        opening = call.start("opening")
-        call_end = _skip_balanced(text, opening)
-        if call_end > before_offset:
-            continue
-        if call.start() in proven_offsets:
-            proven_ranges.append((call.start(), call_end))
-            continue
-        arguments = scan_text[opening + 1 : call_end - 1]
-        if re.search(rf"\b{escaped_name}\b", arguments):
-            raise FrontendInventoryError(
-                "frontend parameterized test binding is passed to an "
-                "unproven call before collection"
-            )
-    use_pattern = re.compile(rf"\b{escaped_name}\b")
-    for use in use_pattern.finditer(scan_text, semicolon + 1, before_offset):
-        if any(start <= use.start() < end for start, end in proven_ranges):
-            continue
-        prefix = scan_text[max(semicolon + 1, use.start() - 16) : use.start()]
-        if re.search(r"\btypeof\s*$", prefix):
-            continue
-        raise FrontendInventoryError(
-            "frontend parameterized test binding has an unproven use before collection"
+    if _validate_references:
+        call_pattern = re.compile(
+            rf"(?P<callee>\b{TEST_API_NAME}(?:\s*(?:\.|\?\.)\s*{TEST_API_NAME})*|(?:\]|\)))"
+            r"\s*(?:\?\.)?\s*(?P<opening>\()"
         )
-    return text[match.start() : semicolon + 1]
+        proven_ranges = list(proven_parameter_call_ranges or frozenset())
+        proven_offsets = {start for start, _end in proven_ranges}
+        for call in call_pattern.finditer(scan_text, semicolon + 1, before_offset):
+            opening = call.start("opening")
+            call_end = _skip_balanced(text, opening)
+            if call_end > before_offset:
+                continue
+            if call.start() in proven_offsets or any(
+                start <= call.start() < end for start, end in proven_ranges
+            ):
+                continue
+            arguments = scan_text[opening + 1 : call_end - 1]
+            if re.search(rf"\b{escaped_name}\b", arguments):
+                raise FrontendInventoryError(
+                    "frontend parameterized test binding is passed to an "
+                    "unproven call before collection"
+                )
+        use_pattern = re.compile(rf"\b{escaped_name}\b")
+        for use in use_pattern.finditer(scan_text, semicolon + 1, before_offset):
+            if any(start <= use.start() < end for start, end in proven_ranges):
+                continue
+            line_start = scan_text.rfind("\n", semicolon + 1, use.start()) + 1
+            line_prefix = scan_text[line_start : use.start()]
+            if re.search(
+                r"(?:\b(?:export\s+)?type\b[^=]*=|:\s*|\bas\s+|\bsatisfies\s+)"
+                r"[^=;\n]*\btypeof\s*$",
+                line_prefix,
+            ):
+                continue
+            raise FrontendInventoryError(
+                "frontend parameterized test binding has an unproven use before collection"
+            )
+    sources = [text[match.start() : semicolon + 1]]
+    for dependency in sorted(dependencies):
+        dependency_source = _const_initializer_source(
+            text,
+            scan_text,
+            dependency,
+            match.start(),
+            _seen_names=frozenset((*_seen_names, name)),
+            _validate_references=False,
+        )
+        if dependency_source is None:
+            function_pattern = re.compile(
+                rf"\b(?:async\s+)?function\s+{re.escape(dependency)}\s*\("
+            )
+            function_matches = list(
+                function_pattern.finditer(scan_text, 0, match.start())
+            )
+            if len(function_matches) != 1:
+                raise FrontendInventoryError(
+                    "frontend parameterized test binding initializer has unproven dependencies"
+                )
+            function_match = function_matches[0]
+            arguments_end = _skip_balanced(text, function_match.end() - 1)
+            body_start = arguments_end
+            while body_start < match.start() and text[body_start].isspace():
+                body_start += 1
+            if body_start >= match.start() or text[body_start] != "{":
+                raise FrontendInventoryError(
+                    "frontend parameterized test binding initializer has unproven dependencies"
+                )
+            body_end = _skip_balanced(text, body_start)
+            dependency_source = text[function_match.start() : body_end]
+            prior_const_pattern = re.compile(rf"\bconst\s+(?P<name>{TEST_API_NAME})\b")
+            prior_const_names = {
+                candidate.group("name")
+                for candidate in prior_const_pattern.finditer(
+                    scan_text, 0, function_match.start()
+                )
+            }
+            for referenced_name in sorted(prior_const_names):
+                if re.search(
+                    rf"\b{re.escape(referenced_name)}\b",
+                    scan_text[body_start:body_end],
+                ):
+                    referenced_source = _const_initializer_source(
+                        text,
+                        scan_text,
+                        referenced_name,
+                        function_match.start(),
+                        _seen_names=frozenset((*_seen_names, name, dependency)),
+                        _validate_references=False,
+                    )
+                    if referenced_source is not None:
+                        dependency_source += "\n" + referenced_source
+        sources.append(dependency_source)
+    return "\n".join(sources)
 
 
 def _import_binding(
@@ -457,11 +601,15 @@ def _bound_parameter_data(
     parameter_data: str,
     before_offset: int,
     import_binding_resolver: ImportBindingResolver | None,
-    proven_parameter_call_offsets: frozenset[int],
+    proven_parameter_call_ranges: frozenset[tuple[int, int]],
 ) -> str:
     if not (parameter_data.startswith("(") and parameter_data.endswith(")")):
         return parameter_data
     expression = parameter_data[1:-1].strip()
+    while expression.startswith("(") and expression.endswith(")"):
+        if _skip_balanced(expression, 0) != len(expression):
+            break
+        expression = expression[1:-1].strip()
     if re.fullmatch(TEST_API_NAME, expression) is None:
         return parameter_data
 
@@ -470,7 +618,7 @@ def _bound_parameter_data(
         scan_text,
         expression,
         before_offset,
-        proven_parameter_call_offsets,
+        proven_parameter_call_ranges,
     )
     if local_source is not None:
         return local_source
@@ -559,14 +707,26 @@ def _frontend_inventory_entries(
     direct_pattern, each_pattern, conditional_pattern = _patterns(
         _test_api_names(text, scan_text)
     )
+    if re.search(
+        rf"(?<![.\w$])(?:describe|suite){TEST_MODIFIERS}\.(?:each|for)\b",
+        scan_text,
+    ):
+        raise FrontendInventoryError(
+            "frontend parameterized suites cannot be inventoried safely"
+        )
     for match in direct_pattern.finditer(scan_text):
         declaration_end = _skip_balanced(text, match.end() - 1)
         index = match.end()
         while index < len(text) and text[index].isspace():
             index += 1
         if index >= len(text) or text[index] not in "\"'`":
-            if any(
-                modifier in match.group(0) for modifier in (".skip", ".fail", ".fixme")
+            arguments = scan_text[match.end() : declaration_end - 1]
+            if (
+                any(
+                    modifier in match.group(0)
+                    for modifier in (".skip", ".fail", ".fixme")
+                )
+                and re.search(r"=>|\bfunction\b", arguments) is None
             ):
                 continue
             raise FrontendInventoryError(f"frontend test title is invalid: {path}")
@@ -583,8 +743,9 @@ def _frontend_inventory_entries(
         scan_text,
         each_pattern,
     )
-    parameter_call_offsets = frozenset(
-        declaration[0] for declaration in parameterized_declarations
+    parameter_call_ranges = frozenset(
+        (declaration[0], declaration[0] + len(declaration[2]))
+        for declaration in parameterized_declarations
     )
     for (
         offset,
@@ -601,7 +762,7 @@ def _frontend_inventory_entries(
             parameter_data,
             offset,
             import_binding_resolver,
-            parameter_call_offsets,
+            parameter_call_ranges,
         )
         digest = hashlib.sha256(bound_data.encode("utf-8")).hexdigest()
         raw_entries.append(

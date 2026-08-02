@@ -385,6 +385,90 @@ def test_case(value):
     assert class_before[0].ref != class_after[0].ref
 
 
+def test_python_inventory_rejects_pytest_generate_tests() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest_generate_tests cannot be inventoried safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+def pytest_generate_tests(metafunc):
+    metafunc.parametrize("value", ["one", "two"])
+
+def test_case(value):
+    assert value
+""",
+        )
+
+
+def test_python_inventory_rejects_imported_parameter_data() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported Python parameter data cannot be inventoried safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+from data import CASES
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+        )
+
+
+def test_python_inventory_rejects_unresolved_collected_class_base() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test class base cannot be resolved safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+from helpers import Base
+
+class TestChild(Base):
+    pass
+""",
+        )
+
+
+def test_python_inventory_rejects_callable_test_name_assignment() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test-name assignment cannot be inventoried safely",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+def check():
+    pass
+
+test_case = check
+""",
+        )
+
+
+def test_python_inventory_collects_unittest_testcase_regardless_name() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        """
+import unittest as unit
+
+class WidgetCases(unit.TestCase):
+    def test_widget(self):
+        assert True
+""",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::WidgetCases::test_widget"
+    ]
+
+
 def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -732,6 +816,121 @@ test.each(cases)("renders %s", () => {});
         )
 
 
+def test_frontend_inventory_rejects_predeclared_closure_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="used by an unproven helper",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+function trim() { cases.pop(); }
+const cases = [["one"], ["two"]];
+trim();
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
+def test_frontend_inventory_rejects_executable_typeof_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding has an unproven use before collection",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const cases = [["one"], ["two"]];
+typeof cases["pop"]();
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
+def test_frontend_inventory_rejects_executable_typeof_after_type_query() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding is mutated before collection",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+const cases = [["one"], ["two"]];
+const typed: typeof cases = typeof cases["pop"]();
+test.each(cases)("renders %s", () => {});
+""",
+        )
+
+
+def test_frontend_inventory_supports_semicolonless_parameter_binding() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        """
+const cases = [["one"]]
+test.each(cases)("renders %s", () => {})
+""",
+    )
+
+    assert len(declarations) == 1
+
+
+def test_frontend_inventory_binds_parameter_initializer_dependencies() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    before = guard.parse_frontend_declarations(
+        path,
+        """
+const base = [["one"], ["two"]];
+const cases = [...base] as const;
+test.each(cases)("renders %s", () => {});
+""",
+    )
+    after = guard.parse_frontend_declarations(
+        path,
+        """
+const base = [["one"]];
+const cases = [...base] as const;
+test.each(cases)("renders %s", () => {});
+""",
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_resolves_wrapped_parameter_identifier() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    before = guard.parse_frontend_declarations(
+        path,
+        """
+const cases = [["one"], ["two"]];
+test.each((cases))("renders %s", () => {});
+""",
+    )
+    after = guard.parse_frontend_declarations(
+        path,
+        """
+const cases = [["one"]];
+test.each((cases))("renders %s", () => {});
+""",
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_allows_runtime_reads_in_prior_parameter_callback() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        """
+const cases = [["one"]];
+test.each(cases)("first %s", () => {
+  expect(cases).toHaveLength(1);
+});
+test.each(cases)("second %s", () => {});
+""",
+    )
+
+    assert len(declarations) == 2
+
+
 def test_frontend_parameter_binding_ignores_unrelated_initializer_changes() -> None:
     path = "apps/control-center/src/example.test.tsx"
     before = guard.parse_frontend_declarations(
@@ -848,6 +1047,54 @@ it("real test", () => {});
     assert [item.ref for item in declarations] == [
         "apps/control-center/src/example.test.tsx::real test",
     ]
+
+
+def test_frontend_inventory_scans_executable_template_interpolations() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        'const registered = `${test("registered", () => {})}`;\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.tsx::registered"
+    ]
+
+
+def test_frontend_inventory_rejects_runner_namespace_calls() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="namespace test API cannot be inventoried safely",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+import * as vitest from "vitest";
+vitest.test("registered", () => {});
+""",
+        )
+
+
+def test_frontend_inventory_rejects_dynamic_skipped_title() -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match="test title is invalid"):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            "test.skip(title, () => {});",
+        )
+
+
+def test_frontend_inventory_rejects_parameterized_suites() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized suites cannot be inventoried safely",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            """
+describe.each([["one"], ["two"]])("suite %s", () => {
+  test("nested", () => {});
+});
+""",
+        )
 
 
 def test_frontend_inventory_handles_comments_and_regex_literals() -> None:
@@ -1387,6 +1634,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "diff",
@@ -1397,6 +1646,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "diff",
@@ -1406,6 +1657,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "ls-files",
@@ -1415,6 +1668,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
     ]
 
@@ -1450,4 +1705,117 @@ def test_changed_frontend_dataset_rechecks_importing_test(
 
     assert guard._changed_test_paths(tmp_path, "a" * 40) == (
         "apps/control-center/src/example.test.ts",
+    )
+
+
+def test_python_inventory_binds_imported_parameter_module_source(
+    tmp_path: Path,
+) -> None:
+    scripts_root = tmp_path / "scripts"
+    scripts_root.mkdir()
+    source_path = scripts_root / "data.py"
+    source_path.write_text('CASES = ["one", "two"]\n')
+    test_text = """
+import pytest
+from scripts import data
+
+@pytest.mark.parametrize("value", data.CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('CASES = ["one"]\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_from_imported_parameter_module_source(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text('CASES = ["one", "two"]\n')
+    test_text = """
+import pytest
+from data import CASES
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('CASES = ["one"]\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_changed_python_dataset_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts/data.py").write_text('CASES = ["one"]\n')
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_sample.py").write_text(
+        "import pytest\n"
+        "from scripts import data\n"
+        '@pytest.mark.parametrize("value", data.CASES)\n'
+        "def test_case(value): pass\n"
+    )
+    outputs = iter((b"scripts/data.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_sample.py",)
+
+
+def test_changed_frontend_test_dataset_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    (source_root / "cases.test.ts").write_text(
+        'export const CASES = [["one"]] as const;\n'
+    )
+    (source_root / "consumer.test.ts").write_text(
+        'import { CASES } from "./cases.test";\n'
+        'test.each(CASES)("renders %s", () => {});\n'
+    )
+    outputs = iter(
+        (
+            b"apps/control-center/src/cases.test.ts\0",
+            b"",
+            b"",
+            b"",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=next(outputs),
+            stderr=b"",
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == (
+        "apps/control-center/src/cases.test.ts",
+        "apps/control-center/src/consumer.test.ts",
     )

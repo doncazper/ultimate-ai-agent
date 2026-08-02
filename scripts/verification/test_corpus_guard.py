@@ -281,11 +281,32 @@ def _parametrize_aliases(tree: ast.Module) -> set[str]:
     return aliases
 
 
+def _python_import_modules(tree: ast.Module) -> dict[str, tuple[str, ...]]:
+    modules: dict[str, tuple[str, ...]] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for imported in node.names:
+                modules[imported.asname or imported.name.split(".", 1)[0]] = (
+                    imported.name,
+                )
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for imported in node.names:
+                if imported.name == "*":
+                    continue
+                modules[imported.asname or imported.name] = (
+                    f"{node.module}.{imported.name}",
+                    node.module,
+                )
+    return modules
+
+
 def _parameterized_ref(
     raw_ref: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     module_bindings: dict[str, tuple[_ModuleBinding, ...]],
     parametrize_aliases: set[str],
+    imported_modules: dict[str, tuple[str, ...]],
+    import_source_resolver: Callable[[str], str | None] | None,
     *,
     container_decorators: tuple[ast.expr, ...] = (),
 ) -> str:
@@ -321,6 +342,32 @@ def _parameterized_ref(
         ast.dump(decorator, annotate_fields=True, include_attributes=False)
         for decorator in decorators
     ]
+    for decorator in decorators:
+        value_nodes = list(decorator.args[1:])
+        value_nodes.extend(
+            keyword.value
+            for keyword in decorator.keywords
+            if keyword.arg == "argvalues"
+        )
+        for value in value_nodes:
+            root = _root_name(value)
+            if root not in imported_modules:
+                continue
+            resolved_import = next(
+                (
+                    (module, source)
+                    for module in imported_modules[root]
+                    if import_source_resolver is not None
+                    and (source := import_source_resolver(module)) is not None
+                ),
+                None,
+            )
+            if resolved_import is None:
+                raise TestCorpusGuardError(
+                    "imported Python parameter data cannot be inventoried safely"
+                )
+            module, source = resolved_import
+            serialized_parts.append(f"imported-module:{module}\n{source}")
     pending_names = {
         child.id
         for decorator in decorators
@@ -442,6 +489,7 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
 def _python_inventory_entries(
     path: str,
     text: str,
+    import_source_resolver: Callable[[str], str | None] | None = None,
 ) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
         tree = ast.parse(text, filename=path)
@@ -449,6 +497,13 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             f"cannot parse Python test inventory: {path}"
         ) from exc
+
+    if any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "pytest_generate_tests"
+        for node in tree.body
+    ):
+        raise TestCorpusGuardError("pytest_generate_tests cannot be inventoried safely")
 
     for module_node in tree.body:
         if not isinstance(
@@ -462,9 +517,68 @@ def _python_inventory_entries(
     entries: list[tuple[str, str, str]] = []
     source_lines = text.splitlines(keepends=True)
     classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    unittest_roots = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for imported in node.names
+        if imported.name == "unittest"
+    }
+    unittest_test_case_names = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module == "unittest"
+        for imported in node.names
+        if imported.name == "TestCase"
+    }
+    unittest_classes: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for class_node in classes.values():
+            if class_node.name in unittest_classes:
+                continue
+            if any(
+                (
+                    isinstance(base, ast.Attribute)
+                    and base.attr == "TestCase"
+                    and _root_name(base) in unittest_roots
+                )
+                or (
+                    isinstance(base, ast.Name)
+                    and base.id in {*unittest_test_case_names, *unittest_classes}
+                )
+                for base in class_node.bases
+            ):
+                unittest_classes.add(class_node.name)
+                changed = True
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
+    imported_modules = _python_import_modules(tree)
     disabled = _disabled_python_declarations(tree.body)
+    declared_test_names = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("test")
+    }
+
+    for module_node in tree.body:
+        if not isinstance(module_node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            continue
+        targets = (
+            module_node.targets
+            if isinstance(module_node, ast.Assign)
+            else (module_node.target,)
+        )
+        if any(
+            name.startswith("test") and name not in declared_test_names
+            for target in targets
+            for name in _binding_target_names(target)
+        ):
+            raise TestCorpusGuardError(
+                "callable Python test-name assignment cannot be inventoried safely"
+            )
 
     def collected_methods(
         class_node: ast.ClassDef,
@@ -527,6 +641,8 @@ def _python_inventory_entries(
                     node,
                     module_bindings,
                     parametrize_aliases,
+                    imported_modules,
+                    import_source_resolver,
                 )
                 entries.append(
                     (raw_ref, "python_test", _python_node_source(source_lines, node))
@@ -534,18 +650,32 @@ def _python_inventory_entries(
             continue
         if (
             not isinstance(node, ast.ClassDef)
-            or not node.name.startswith("Test")
+            or (not node.name.startswith("Test") and node.name not in unittest_classes)
             or node.name in disabled
         ):
             continue
         if has_constructor(node, set()):
             continue
+        for base in node.bases:
+            if isinstance(base, ast.Name) and base.id in classes:
+                continue
+            if (isinstance(base, ast.Name) and base.id in unittest_test_case_names) or (
+                isinstance(base, ast.Attribute)
+                and base.attr == "TestCase"
+                and _root_name(base) in unittest_roots
+            ):
+                continue
+            raise TestCorpusGuardError(
+                "collected Python test class base cannot be resolved safely"
+            )
         for method_name, method in collected_methods(node, set()).items():
             raw_ref = _parameterized_ref(
                 f"{path}::{node.name}::{method_name}",
                 method,
                 module_bindings,
                 parametrize_aliases,
+                imported_modules,
+                import_source_resolver,
                 container_decorators=tuple(node.decorator_list),
             )
             entries.append(
@@ -566,6 +696,30 @@ def parse_python_declarations(path: str, text: str) -> tuple[TestDeclaration, ..
     return tuple(
         declaration for declaration, _source in _python_inventory_entries(path, text)
     )
+
+
+def _python_module_candidates(module: str) -> tuple[str, ...]:
+    relative = module.replace(".", "/")
+    candidates = (f"{relative}.py", f"{relative}/__init__.py")
+    if module == "ultimate_ai_agent" or module.startswith("ultimate_ai_agent."):
+        candidates = tuple(f"src/{candidate}" for candidate in candidates)
+    return candidates
+
+
+def _python_import_resolver(
+    read_text: Callable[[str], str | None],
+) -> Callable[[str], str | None]:
+    def resolve(module: str) -> str | None:
+        resolved = [
+            f"path={candidate}\n{source}"
+            for candidate in _python_module_candidates(module)
+            if (source := read_text(candidate)) is not None
+        ]
+        if len(resolved) > 1:
+            raise TestCorpusGuardError("imported Python parameter data is ambiguous")
+        return resolved[0] if resolved else None
+
+    return resolve
 
 
 def parse_frontend_declarations(path: str, text: str) -> tuple[TestDeclaration, ...]:
@@ -593,8 +747,8 @@ def _relative_frontend_import_candidates(
     )
     if normalized.startswith("../") or normalized.startswith("/"):
         return ()
-    suffix = Path(normalized).suffix
-    if suffix:
+    suffix = Path(normalized).suffix.removeprefix(".")
+    if suffix in FRONTEND_TEST_EXTENSIONS:
         candidates = (normalized,)
     else:
         candidates = tuple(
@@ -639,7 +793,21 @@ def _parse_worktree_test_declarations(
     text: str,
 ) -> tuple[TestDeclaration, ...]:
     if path.endswith(".py"):
-        return parse_python_declarations(path, text)
+
+        def read_python_import(candidate: str) -> str | None:
+            target = repo / candidate
+            if not target.is_file():
+                return None
+            return _read_worktree_text(repo, candidate)
+
+        return tuple(
+            declaration
+            for declaration, _source in _python_inventory_entries(
+                path,
+                text,
+                _python_import_resolver(read_python_import),
+            )
+        )
 
     def read_import(candidate: str) -> str | None:
         target = repo / candidate
@@ -665,7 +833,16 @@ def _parse_base_test_declarations(
     text: str,
 ) -> tuple[TestDeclaration, ...]:
     if path.endswith(".py"):
-        return parse_python_declarations(path, text)
+        return tuple(
+            declaration
+            for declaration, _source in _python_inventory_entries(
+                path,
+                text,
+                _python_import_resolver(
+                    lambda candidate: _base_text(repo, base_sha, candidate)
+                ),
+            )
+        )
 
     try:
         refs = parse_frontend_refs(
@@ -961,6 +1138,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "diff",
@@ -971,6 +1150,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "diff",
@@ -980,6 +1161,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
         [
             "ls-files",
@@ -989,6 +1172,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "--",
             "tests",
             "apps",
+            "scripts",
+            "src",
         ],
     )
     raw_paths = bytearray()
@@ -1008,7 +1193,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     changed_frontend_sources = {
         path
         for path in all_changed
-        if path.startswith("apps/control-center/") and not _is_test_path(path)
+        if path.startswith("apps/control-center/")
+        and Path(path).suffix.removeprefix(".") in FRONTEND_TEST_EXTENSIONS
     }
     if changed_frontend_sources:
         for test_path in discover_test_files(repo):
@@ -1024,6 +1210,28 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 )
             }
             if dependency_candidates & changed_frontend_sources:
+                changed.add(test_path)
+    changed_python_sources = {
+        path for path in all_changed if path.endswith(".py") and not _is_test_path(path)
+    }
+    if changed_python_sources:
+        for test_path in discover_test_files(repo):
+            if not test_path.endswith(".py") or test_path in changed:
+                continue
+            text = _read_worktree_text(repo, test_path)
+            try:
+                tree = ast.parse(text, filename=test_path)
+            except SyntaxError as exc:
+                raise TestCorpusGuardError(
+                    f"cannot parse Python test inventory: {test_path}"
+                ) from exc
+            dependency_candidates = {
+                candidate
+                for modules in _python_import_modules(tree).values()
+                for module in modules
+                for candidate in _python_module_candidates(module)
+            }
+            if dependency_candidates & changed_python_sources:
                 changed.add(test_path)
     changed_tuple = tuple(sorted(changed))
     if len(changed_tuple) > MAX_CHANGED_TEST_PATHS:
