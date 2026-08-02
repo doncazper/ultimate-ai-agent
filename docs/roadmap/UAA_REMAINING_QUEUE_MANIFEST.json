@@ -5,6 +5,7 @@
   "authority_boundary": {
     "runtime_model_or_provider_calls": false,
     "web_fetch_or_browser_automation": false,
+    "unrestricted_network_access": false,
     "connector_writes": false,
     "unrestricted_shell_or_subprocess": false,
     "remote_execution": false,

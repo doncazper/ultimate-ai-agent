@@ -1346,8 +1346,11 @@ proportional post-merge verification, and cleanup.
   immutable case refs and content hashes. TAW-07 may iterate only on the
   development corpus and must not access the holdout generator seed, parameters,
   generated inputs, case hashes, labels, expected decisions, or per-case results;
-  only the commitment hash and custodian ref are visible until final candidate
-  lock.
+  only the commitment hash and custodian ref are visible to TAW-07 developers
+  and the candidate-building environment through the one-time TAW-08 acceptance
+  decision. After final candidate lock, the custodian may release sealed
+  materials only to the isolated evaluator; they remain inaccessible to the
+  developers and candidate-building environment until that decision is recorded.
 - Run the full development evaluation corpus, performance budgets,
   context-budget tests, fault injection, and stale-cache recovery.
 - Run blind paired ordinary-chat scoring against the frozen direct-local-model
@@ -1443,6 +1446,7 @@ This program does not authorize:
 - new runtime model/provider calls;
 - web fetching, browser automation, browser clicks/forms/auth/cookies,
   downloads/uploads, or POST-style mutations;
+- unrestricted network access;
 - connector writes;
 - unrestricted shell or subprocess execution;
 - remote execution;

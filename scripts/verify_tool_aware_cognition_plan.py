@@ -643,6 +643,12 @@ PLAN_REQUIRED = (
     "memory is recall rather than verified truth",
     "matching selection fingerprint\nalone is insufficient",
     "Freeze and verify a content-addressed manifest of every acceptance-affecting",
+    "only the commitment hash and custodian ref are visible to TAW-07 developers\n"
+    "  and the candidate-building environment through the one-time TAW-08 acceptance\n"
+    "  decision",
+    "After final candidate lock, the custodian may release sealed\n"
+    "  materials only to the isolated evaluator; they remain inaccessible to the\n"
+    "  developers and candidate-building environment until that decision is recorded",
     "before the custodian releases any sealed holdout input",
     "merged tree's acceptance-affecting projection must equal the locked\n"
     "  complete candidate manifest exactly before TAW-08 completion",
@@ -826,13 +832,23 @@ FORBIDDEN_PATTERNS = (
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
     r"have (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)(?: to)?) "
-    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
-    r"creat(?:e|es|ed|ing) calendar events?|"
-    r"publish(?:es|ed|ing)? (?:social )?posts?)\b",
+    r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
+    r"(?:emails?|messages?)|"
+    r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:publish|update|edit|delete|remove|moderate)"
+    r"(?:es|s|ed|ing)? (?:social )?posts?|"
+    r"(?:reply|replies|replied|replying) to (?:social )?posts?)\b",
     r"\b(?:operators?|users?) (?:may|can|will) "
-    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
-    r"creat(?:e|es|ed|ing) calendar events?|"
-    r"publish(?:es|ed|ing)? (?:social )?posts?) "
+    r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
+    r"(?:emails?|messages?)|"
+    r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:publish|update|edit|delete|remove|moderate)"
+    r"(?:es|s|ed|ing)? (?:social )?posts?|"
+    r"(?:reply|replies|replied|replying) to (?:social )?posts?) "
     r"(?:through|via|using) (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core)\b",
     r"\bTAW-(?:0[0-8]) (?:(?:is|has been) )?(?:now )?(?:fully )?"
@@ -852,6 +868,18 @@ FORBIDDEN_PATTERNS = (
     r"(?:browse(?:s|d|ing)? (?:the )?(?:public )?web|"
     r"(?:access|search)(?:es|ed|ing)? (?:the )?(?:internet|web)|"
     r"(?:internet|web) (?:access|search))\b",
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
+    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"(?!(?:not|never|no\s+longer)\b)"
+    r"(?:(?:unrestricted|unbounded|arbitrary) "
+    r"(?:(?:outbound )?network|internet|socket|tcp) access|"
+    r"(?:open|use|establish)(?:s|ed|ing)? (?:unrestricted|unbounded|arbitrary) "
+    r"(?:(?:outbound )?network|internet|socket|tcp) (?:access|connections?))\b",
+    r"\b(?:unrestricted|unbounded|arbitrary) "
+    r"(?:(?:outbound )?network|internet|socket|tcp) access "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
@@ -1110,9 +1138,14 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:send(?:s|ing)? (?:emails?|messages?)|"
-    r"creat(?:e|es|ed|ing) calendar events?|"
-    r"publish(?:es|ed|ing)? (?:social )?posts?)\b",
+    r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
+    r"(?:emails?|messages?)|"
+    r"(?:reply|replies|replied|replying) to (?:emails?|messages?)|"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel)"
+    r"(?:s|d|ed|ing)? calendar events?|"
+    r"(?:publish|update|edit|delete|remove|moderate)"
+    r"(?:es|s|ed|ing)? (?:social )?posts?|"
+    r"(?:reply|replies|replied|replying) to (?:social )?posts?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -1213,6 +1246,7 @@ AUTHORITY_DENIALS = (
     "- new runtime model/provider calls;",
     "- web fetching, browser automation, browser clicks/forms/auth/cookies,",
     "  downloads/uploads, or POST-style mutations;",
+    "- unrestricted network access;",
     "- connector writes;",
     "- unrestricted shell or subprocess execution;",
     "- remote execution;",
@@ -1339,6 +1373,7 @@ EXPECTED_QUEUE_ITEMS = (
 DENIED_AUTHORITY_KEYS = (
     "runtime_model_or_provider_calls",
     "web_fetch_or_browser_automation",
+    "unrestricted_network_access",
     "connector_writes",
     "unrestricted_shell_or_subprocess",
     "remote_execution",
@@ -1385,6 +1420,16 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:\s+\w+){0,8}\s+(?:(?:is|are|may be|can be)\s+"
     r"(?:acceptable|allowed|permitted|tolerated)|"
     r"(?:may|can)\s+(?:be\s+)?accepted)\b",
+    r"\b(?:unsafe authority broadening|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)"
+    r"(?:\s+\w+){0,8}\s+(?:(?:does not|doesn't|need not|will not) "
+    r"(?:block|prevent|invalidate) (?:TAW-08 )?(?:completion|acceptance|promotion)|"
+    r"(?:may|can) be (?:ignored|disregarded) (?:for|during) "
+    r"(?:TAW-08 )?(?:completion|acceptance|promotion)|"
+    r"(?:is|are) compatible with (?:TAW-08 )?"
+    r"(?:completion|acceptance|promotion))\b",
 )
 
 ACCEPTANCE_CONTRADICTION_PATTERNS = (

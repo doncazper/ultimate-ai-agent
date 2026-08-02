@@ -132,6 +132,7 @@ def test_self_authorizing_language_is_rejected(
         "The system can write to connectors.",
         "The runtime will execute an unrestricted shell.",
         "The agent supports browser automation.",
+        "UAA supports unrestricted network access.",
         "The product provides the ability to make runtime model calls.",
         "UAA can execute plugins and automatically merge PRs.",
         "UAA can load plugins at runtime.",
@@ -197,6 +198,7 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
     active_claims = {
         "runtime_model_or_provider_calls": "UAA can call a runtime provider.",
         "web_fetch_or_browser_automation": "UAA can fetch the web.",
+        "unrestricted_network_access": "UAA supports unrestricted network access.",
         "connector_writes": "UAA can write to connectors.",
         "unrestricted_shell_or_subprocess": "UAA can execute a shell.",
         "remote_execution": "UAA can perform remote execution.",
@@ -230,6 +232,9 @@ def test_every_structured_denied_authority_class_has_operator_mediated_coverage(
         ),
         "web_fetch_or_browser_automation": (
             "Operators can use UAA to fetch the web."
+        ),
+        "unrestricted_network_access": (
+            "Operators can use UAA to establish unrestricted network connections."
         ),
         "connector_writes": "Operators can use UAA to write to connectors.",
         "unrestricted_shell_or_subprocess": (
@@ -283,6 +288,7 @@ def test_every_denied_authority_class_has_product_mediated_coverage() -> None:
     product_mediated_claims = {
         "runtime_model_or_provider_calls": "UAA allows operators to call a runtime provider.",
         "web_fetch_or_browser_automation": "UAA enables users to fetch the web.",
+        "unrestricted_network_access": "UAA permits users to use unrestricted network access.",
         "connector_writes": "UAA permits operators to write to connectors.",
         "unrestricted_shell_or_subprocess": "UAA allows users to execute a shell.",
         "remote_execution": "UAA enables operators to perform remote execution.",
@@ -398,6 +404,7 @@ def test_every_structured_denied_authority_class_has_passive_status_coverage() -
     passive_claims = {
         "runtime_model_or_provider_calls": "Runtime provider calls are active.",
         "web_fetch_or_browser_automation": "Web fetching is supported.",
+        "unrestricted_network_access": "Unrestricted network access is enabled.",
         "connector_writes": "Connector writes are active.",
         "unrestricted_shell_or_subprocess": "Shell execution is supported.",
         "remote_execution": "Remote execution is supported.",
@@ -506,6 +513,12 @@ def test_shell_guidance_and_exact_scoped_proposals_remain_valid(
         "The agent can send messages.",
         "The API can create calendar events.",
         "The Control Center can publish social posts.",
+        "UAA can update calendar events.",
+        "UAA can delete calendar events.",
+        "The API can reply to messages.",
+        "The Control Center can reschedule calendar events.",
+        "Operators can use UAA to delete calendar events.",
+        "UAA allows operators to update calendar events.",
     ),
 )
 def test_concrete_connector_write_claims_fail_full_verifier(
@@ -1894,6 +1907,12 @@ def test_acceptance_contradictions_fail_on_every_program_truth_surface(
         "unkeyed hash over an enumerable seed or bounded parameter space is invalid",
         "custodian retains the key or nonce outside the candidate-building environment\n"
         "and reveals it only after the one-time acceptance decision",
+        "only the commitment hash and custodian ref are visible to TAW-07 developers\n"
+        "  and the candidate-building environment through the one-time TAW-08 acceptance\n"
+        "  decision",
+        "After final candidate lock, the custodian may release sealed\n"
+        "  materials only to the isolated evaluator; they remain inaccessible to the\n"
+        "  developers and candidate-building environment until that decision is recorded",
         "generator seed, parameter refs, generated cases, case hashes, and labels are\n"
         "inaccessible to TAW-07 developers",
         "complete content-addressed candidate\n"
@@ -2225,6 +2244,10 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "Unsafe authority broadening may be accepted.",
         "Raw sensitive content in durable routing evidence can be tolerated.",
         "Fabricated successful execution claims are allowed.",
+        "Unsafe authority broadening does not block TAW-08 completion.",
+        "Fabricated successful execution claims may be ignored for promotion.",
+        "Raw sensitive content in durable routing evidence is compatible with "
+        "TAW-08 acceptance.",
     ),
 )
 def test_zero_tolerance_gate_rejects_rephrased_positive_tolerance(
