@@ -96,6 +96,14 @@ def _skip_regex(text: str, start: int) -> int:
     )
 
 
+def _is_regex_literal_at(text: str, index: int) -> bool:
+    return (
+        text[index] == "/"
+        and not text.startswith(("//", "/*"), index)
+        and _is_regex_start(text, index)
+    )
+
+
 def _code_mask(text: str) -> bytearray:
     mask = bytearray(b"\x01" * len(text))
     index = 0
@@ -105,11 +113,7 @@ def _code_mask(text: str) -> bytearray:
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
-        if (
-            text[index] == "/"
-            and not text.startswith(("//", "/*"), index)
-            and _is_regex_start(text, index)
-        ):
+        if _is_regex_literal_at(text, index):
             end = _skip_regex(text, index)
             mask[index:end] = b"\x00" * (end - index)
             index = end
@@ -135,11 +139,7 @@ def _skip_balanced(text: str, start: int) -> int:
         if character in "\"'`":
             index = _skip_string(text, index)
             continue
-        if (
-            character == "/"
-            and not text.startswith(("//", "/*"), index)
-            and _is_regex_start(text, index)
-        ):
+        if _is_regex_literal_at(text, index):
             index = _skip_regex(text, index)
             continue
         comment_end = _skip_comment(text, index)

@@ -119,6 +119,43 @@ def test_retirement_artifact_hashes_are_recomputed(
         )
 
 
+def test_assertion_evidence_covers_every_replacement() -> None:
+    retired = "tests/test_sample.py::test_removed"
+    first = "tests/test_sample.py::test_first_replacement"
+    second = "tests/test_sample.py::test_second_replacement"
+    record = _record(retired, first)
+    replacement_refs = record["replacement_refs"]
+    assert isinstance(replacement_refs, list)
+    replacement_refs.append(second)
+    equivalence = record["assertion_equivalence_artifact"]
+    evidence = record["evidence_artifact"]
+    assert isinstance(equivalence, dict)
+    assert isinstance(evidence, dict)
+    verification = evidence["verification_evidence"]
+    assert isinstance(verification, list)
+    result = verification[0]
+    assert isinstance(result, dict)
+    result_artifact = result["artifact"]
+    assert isinstance(result_artifact, dict)
+    result["ref"] = guard.retirement_artifact_ref("test-result-ref", result_artifact)
+    record["assertion_equivalence_ref"] = guard.retirement_artifact_ref(
+        "assertion-equivalence-ref", equivalence
+    )
+    record["evidence_ref"] = guard.retirement_artifact_ref(
+        "test-corpus-evidence-ref", evidence
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="preserved assertion evidence is invalid",
+    ):
+        guard.validate_retirements(
+            {first, second},
+            {retired},
+            {"retirements": [record]},
+        )
+
+
 def test_historical_retirement_records_are_immutable() -> None:
     retired = "tests/test_sample.py::test_removed"
     replacement = "tests/test_sample.py::test_replacement"
@@ -231,6 +268,29 @@ def test_worktree_reader_closes_parent_descriptors_on_missing_file(
         guard._read_worktree_text(tmp_path, "tests/test_missing.py")
 
     assert closed == [101, 102]
+
+
+def test_worktree_reader_closes_new_descriptor_when_fstat_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    opened = iter((101, 102))
+    closed: list[int] = []
+
+    monkeypatch.setattr(guard.os, "open", lambda *_args, **_kwargs: next(opened))
+
+    def fake_fstat(descriptor: int) -> os.stat_result:
+        if descriptor == 102:
+            raise OSError("inspection failed")
+        return os.stat_result((0o040000, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+
+    monkeypatch.setattr(guard.os, "fstat", fake_fstat)
+    monkeypatch.setattr(guard.os, "close", closed.append)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="file is unsafe"):
+        guard._read_worktree_text(tmp_path, "tests/test_example.py")
+
+    assert closed == [102, 101]
 
 
 def test_run_git_translates_spawn_failures(

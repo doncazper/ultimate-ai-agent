@@ -166,6 +166,15 @@ def discover_test_files(repo: Path) -> tuple[str, ...]:
     )
 
 
+def _close_quietly(*descriptors: int | None) -> None:
+    for descriptor in descriptors:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+
 def _read_bounded_regular_text(
     repo: Path,
     relative_path: Path,
@@ -200,11 +209,14 @@ def _read_bounded_regular_text(
                 directory_flags,
                 dir_fd=parent_descriptor,
             )
-            next_info = os.fstat(next_descriptor)
-            if not stat.S_ISDIR(next_info.st_mode):
-                os.close(next_descriptor)
-                raise TestCorpusGuardError(unsafe_message)
-            os.close(parent_descriptor)
+            try:
+                next_info = os.fstat(next_descriptor)
+                if not stat.S_ISDIR(next_info.st_mode):
+                    raise TestCorpusGuardError(unsafe_message)
+                os.close(parent_descriptor)
+            except BaseException:
+                _close_quietly(next_descriptor)
+                raise
             parent_descriptor = next_descriptor
         descriptor = os.open(
             parts[-1],
@@ -212,28 +224,13 @@ def _read_bounded_regular_text(
             dir_fd=parent_descriptor,
         )
     except FileNotFoundError as exc:
-        for open_descriptor in (descriptor, parent_descriptor):
-            if open_descriptor is not None:
-                try:
-                    os.close(open_descriptor)
-                except OSError:
-                    pass
+        _close_quietly(descriptor, parent_descriptor)
         raise TestCorpusGuardError(invalid_message) from exc
     except TestCorpusGuardError:
-        for open_descriptor in (descriptor, parent_descriptor):
-            if open_descriptor is not None:
-                try:
-                    os.close(open_descriptor)
-                except OSError:
-                    pass
+        _close_quietly(descriptor, parent_descriptor)
         raise
     except OSError as exc:
-        for open_descriptor in (descriptor, parent_descriptor):
-            if open_descriptor is not None:
-                try:
-                    os.close(open_descriptor)
-                except OSError:
-                    pass
+        _close_quietly(descriptor, parent_descriptor)
         raise TestCorpusGuardError(unsafe_message) from exc
 
     try:

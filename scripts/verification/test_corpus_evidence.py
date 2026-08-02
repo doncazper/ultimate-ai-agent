@@ -74,6 +74,7 @@ def _validate_content_bound_evidence(
     ):
         raise TestCorpusEvidenceError(f"retired test {label} is invalid")
     refs: list[str] = []
+    covered_replacements: set[str] = set()
     for item in value:
         if set(item) != {"artifact", "ref"}:
             raise TestCorpusEvidenceError(f"retired test {label} is invalid")
@@ -100,6 +101,8 @@ def _validate_content_bound_evidence(
         ):
             raise TestCorpusEvidenceError(f"retired test {label} is invalid")
         _validate_safe_summary(artifact.get("safe_summary"), label=label)
+        if prefix == "assertion-ref":
+            covered_replacements.add(str(artifact.get("replacement_ref")))
         if (
             not isinstance(ref, str)
             or pattern.fullmatch(ref) is None
@@ -108,6 +111,8 @@ def _validate_content_bound_evidence(
             raise TestCorpusEvidenceError(f"retired test {label} is invalid")
         refs.append(ref)
     if len(refs) != len(set(refs)):
+        raise TestCorpusEvidenceError(f"retired test {label} is invalid")
+    if prefix == "assertion-ref" and covered_replacements != set(replacement_refs):
         raise TestCorpusEvidenceError(f"retired test {label} is invalid")
     return value
 
@@ -306,18 +311,25 @@ def validate_retirements(
                 f"retired test has missing replacements: {retired_ref}: {missing}"
             )
 
-    def reaches_active(ref: str, visiting: set[str]) -> bool:
+    resolved_active: set[str] = set()
+
+    def reaches_active(ref: str, visiting: frozenset[str]) -> bool:
         if ref in current_refs:
             return True
         if ref in visiting or ref not in by_retired_ref:
             return False
-        return any(
-            reaches_active(replacement, {*visiting, ref})
+        if ref in resolved_active:
+            return True
+        outcome = any(
+            reaches_active(replacement, visiting | {ref})
             for replacement in by_retired_ref[ref]["replacement_refs"]
         )
+        if outcome:
+            resolved_active.add(ref)
+        return outcome
 
     for retired_ref in by_retired_ref:
-        if not reaches_active(retired_ref, set()):
+        if not reaches_active(retired_ref, frozenset()):
             raise TestCorpusEvidenceError(
                 f"retired test has no active replacement: {retired_ref}"
             )
