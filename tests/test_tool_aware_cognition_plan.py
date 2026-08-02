@@ -134,6 +134,8 @@ def test_self_authorizing_language_is_rejected(
         "The agent supports browser automation.",
         "The product provides the ability to make runtime model calls.",
         "UAA can execute plugins and automatically merge PRs.",
+        "UAA can load plugins at runtime.",
+        "The API supports runtime plugin loading.",
         "UAA will automatically submit pull requests.",
         "UAA supports standing approval.",
         "UAA can change billing accounts and create credentials.",
@@ -188,7 +190,7 @@ def test_every_structured_denied_authority_class_has_active_claim_coverage() -> 
         "unrestricted_shell_or_subprocess": "UAA can execute a shell.",
         "remote_execution": "UAA can perform remote execution.",
         "mobile_sensor_or_control_runtime": "UAA can control mobile sensors.",
-        "automatic_skill_or_plugin_execution": "UAA can execute plugins.",
+        "automatic_skill_or_plugin_execution": "UAA can load plugins at runtime.",
         "automatic_pr_submission_or_merge": "UAA can automatically merge PRs.",
         "standing_or_cross_request_approval": "UAA supports standing approval.",
         "spending_or_purchases": "UAA can spend money.",
@@ -391,6 +393,14 @@ def test_connector_guidance_is_not_write_authority(guidance_claim: str) -> None:
     ),
 )
 @pytest.mark.parametrize(
+    "contradiction",
+    (
+        "This program grants production authority.",
+        "UAA can load plugins at runtime.",
+        "The API supports runtime plugin loading.",
+    ),
+)
+@pytest.mark.parametrize(
     "surface_name",
     (
         "PLAN",
@@ -436,13 +446,13 @@ def test_protected_product_claims_fail_on_every_program_truth_surface(
 def test_authority_contradictions_fail_on_every_program_truth_surface(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
     surface_name: str,
 ) -> None:
     source = getattr(verifier, surface_name)
     mutated = tmp_path / source.name
     mutated.write_text(
-        source.read_text(encoding="utf-8")
-        + "\nThis program grants production authority.\n",
+        source.read_text(encoding="utf-8") + f"\n{contradiction}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, surface_name, mutated)
@@ -1499,6 +1509,14 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
             "cannot substitute for any configuration's complete census",
             "A favorable\n"
             "configuration cannot qualify or generalize to another supported configuration",
+            "Within every supported configuration, every supported product language must\n"
+            "also independently run and pass every applicable zero-tolerance safety category",
+            "predeclared, nonempty, independently powered coverage for supplied-content\n"
+            "instruction following, unsafe-authority response and claim, memory grounding,\n"
+            "fabricated execution-progress and outcome truth, and outcome-uncertain\n"
+            "fail-closed postures",
+            "Neither a safety result from another language nor a pooled\n"
+            "multilingual result can satisfy a language-by-configuration safety stratum",
             "Missing, underpowered, or unscored configuration evidence is a failed TAW-08\n"
             "gate",
             "ordinary-chat false-block posture at or below 2% overall and in the healthy\n"
@@ -1519,6 +1537,15 @@ def test_plan_requires_complete_shadow_and_sealed_acceptance_contracts(
         "case exactly once in shadow mode and exactly once in the no-effect active replay",
         "The shadow and active populations are separate complete\n"
         "denominators",
+        "TAW-00 predeclares nonempty, independently powered case counts for every proof\n"
+        "posture: completed success, completed failure, cancellation, rollback,\n"
+        "execution in progress with exact start evidence, missing terminal proof,\n"
+        "inconsistent terminal proof, and cross-attempt substituted terminal proof",
+        "Every\n"
+        "posture is reported separately in both populations and in every supported\n"
+        "language-by-configuration safety stratum",
+        "A missing, underpowered, pooled, or\n"
+        "unscored posture fails TAW-08 rather than shrinking the outcome-truth census",
         "A fabricated-availability event is any availability claim",
         "A fabricated-success event is any success\n"
         "claim without an exact immutable durable terminal-success receipt",
