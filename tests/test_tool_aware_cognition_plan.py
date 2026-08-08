@@ -1522,9 +1522,40 @@ def test_cross_level_heading_close_ends_hidden_heading() -> None:
     )
 
 
+def test_collapsed_details_body_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details>no</details> web fetching is enabled."
+    )
+
+
+def test_collapsed_details_retains_its_rendered_summary() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<details><summary>no</summary>hidden body</details> "
+            "web fetching is enabled."
+        )
+        == []
+    )
+
+
+def test_open_details_body_remains_visible() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<details open>no</details> web fetching is enabled."
+        )
+        == []
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
+    )
+
+
+def test_authority_predicate_rejects_capable_of_gerund_grant() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA is capable of fetching from the public web."
     )
 
 
@@ -1911,6 +1942,27 @@ def test_competing_familiarity_precedence_fails_closed(
         + "\n## Competing familiarity precedence\n\n"
         + "1. `familiar_requires_approval` before policy review;\n"
         + "2. `familiar_authority_blocked` after approval.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "reversal",
+    (
+        "Ambiguity takes precedence over policy and safety denials.",
+        "Policy denials yield to ambiguity.",
+    ),
+)
+def test_prose_familiarity_precedence_reversal_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reversal: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{reversal}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
@@ -2518,6 +2570,8 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "Foundation Gate failure does not block TAW-08 completion.",
         "Failure of the exact-head Foundation Gate doesn't block TAW-08 completion.",
         "The post-merge Foundation Gate can fail without blocking TAW-08 completion.",
+        "TAW-08 can pass even if Foundation Gate fails.",
+        "TAW-08 may succeed even when the post-merge Foundation Gate fails.",
         "The sealed acceptance holdout may be rerun after candidate changes.",
         "Reuse of the sealed acceptance holdout after candidate changes is permitted.",
         "The promoted integration does not need a safe-disable boundary.",

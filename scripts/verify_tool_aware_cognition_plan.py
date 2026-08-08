@@ -1334,6 +1334,10 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:background(?: job| task| worker)? execution|scheduled execution) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
 )
+FORBIDDEN_PATTERNS = tuple(
+    pattern.replace("is able to|", "is able to|is capable of|")
+    for pattern in FORBIDDEN_PATTERNS
+)
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
     "This program does not authorize:",
@@ -1457,6 +1461,16 @@ FAMILIARITY_PRECEDENCE = (
     "8. `familiar_requires_approval` when complete inputs bind an existing exact",
     "9. `familiar_supported` when the exact no-effect answer or governed proposal",
     "10. `novel_unsupported`.",
+)
+FAMILIARITY_PRECEDENCE_CONTRADICTION_PATTERNS = (
+    r"\b(?:ambiguity|ambiguous(?: state| outcome)?) "
+    r"(?:takes?|has|receives?) precedence over (?:the )?"
+    r"(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?)\b",
+    r"\b(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?) "
+    r"(?:yield|yields|defer|defers) to (?:the )?"
+    r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
 )
 QUEUE_ORDERED_STEPS = (
     "1. Finish the currently admitted PR or verification atomic unit",
@@ -1641,6 +1655,10 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"(?:does not|doesn't|need not) block TAW-08 completion\b",
     r"\b(?:the )?(?:(?:exact-head|post-merge) )?Foundation Gate "
     r"(?:may|can) fail without blocking TAW-08 completion\b",
+    r"\bTAW-08 (?:may|can|will) (?:be )?"
+    r"(?:complete(?:d)?|pass|proceed|succeed) even (?:if|when) (?:the )?"
+    r"(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)? "
+    r"(?:fails?|failed|does not pass|doesn't pass)\b",
     r"\b(?:the )?sealed acceptance holdout (?:may|can) be "
     r"(?:reused|rerun|re-run) after candidate changes\b",
     r"\b(?:reuse|rerun|re-run) (?:of )?(?:the )?sealed acceptance holdout "
@@ -1688,6 +1706,7 @@ def _visible_markdown_source(text: str) -> str:
     visible = _strip_indented_code_blocks(visible)
     visible = _strip_raw_text_elements(visible)
     visible = _strip_raw_html_constructs(visible)
+    visible = _strip_collapsed_details(visible)
     visible = _strip_html_tags(visible)
     reference_labels = _markdown_reference_labels(visible)
     visible = _strip_markdown_reference_definitions(visible)
@@ -1763,6 +1782,12 @@ def _verify_familiarity_precedence(text: str) -> None:
     )
     end = "\n\nThis ordering prevents"
     visible = _visible_markdown_source(text)
+    normalized_visible = _normalize_markdown_prose(visible)
+    if any(
+        re.search(pattern, normalized_visible, flags=re.IGNORECASE)
+        for pattern in FAMILIARITY_PRECEDENCE_CONTRADICTION_PATTERNS
+    ):
+        raise RuntimeError("familiarity precedence has competing declarations")
     if visible.count(start) != 1 or visible.count(end) != 1:
         raise RuntimeError("familiarity precedence is invalid")
     block = visible.split(start, 1)[1].split(end, 1)[0]
@@ -2722,6 +2747,74 @@ def _strip_raw_html_constructs(text: str) -> str:
     return "".join(output)
 
 
+def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
+    """Remove closed details bodies while retaining their rendered summary."""
+    if depth > 64:
+        raise RuntimeError("HTML details nesting exceeds the scan bound")
+    output: list[str] = []
+    cursor = 0
+    opening = re.compile(r"<details(?=[\s/>])", re.IGNORECASE)
+    while (match := opening.search(text, cursor)) is not None:
+        if _is_markdown_escaped(text, match.start()):
+            output.append(text[cursor : match.start() + 1])
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            break
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            output.append(text[cursor : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        output.append(text[cursor : match.start()])
+        if "open" in _html_attribute_names(attributes):
+            output.append(text[match.start() : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        element_end = _find_balanced_element_end(text, opening_end + 1, "details")
+        if element_end is None:
+            output.append(text[match.start() : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        content_start = opening_end + 1
+        content_end = _matching_closing_start(
+            text, content_start, element_end, "details"
+        )
+        summary_start = content_start
+        while summary_start < content_end and text[summary_start].isspace():
+            summary_start += 1
+        summary_match = re.match(
+            r"<summary(?=[\s/>])", text[summary_start:content_end], re.IGNORECASE
+        )
+        if summary_match is not None:
+            summary_open_end = _find_complete_tag_end(
+                text, summary_start + summary_match.end()
+            )
+            if summary_open_end is not None:
+                summary_attributes = text[
+                    summary_start + summary_match.end() : summary_open_end
+                ]
+                summary_end = _find_balanced_element_end(
+                    text, summary_open_end + 1, "summary"
+                )
+                if (
+                    _valid_html_opening_tag_tail(summary_attributes)
+                    and summary_end is not None
+                    and summary_end <= content_end
+                ):
+                    output.append(" ")
+                    output.append(
+                        _strip_collapsed_details(
+                            text[summary_start:summary_end], depth=depth + 1
+                        )
+                    )
+                    output.append(" ")
+        cursor = element_end
+    output.append(text[cursor:])
+    return "".join(output)
+
+
 def _valid_html_opening_tag_tail(tail: str) -> bool:
     """Return whether a CommonMark opening-tag tail has valid attributes."""
     return re.fullmatch(
@@ -2871,6 +2964,7 @@ def _normalize_markdown_prose(text: str) -> str:
     # in labels without permitting unbounded parser work.
     normalized = _strip_raw_text_elements(text)
     normalized = _strip_raw_html_constructs(normalized)
+    normalized = _strip_collapsed_details(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
