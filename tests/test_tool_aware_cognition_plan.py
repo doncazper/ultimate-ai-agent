@@ -114,6 +114,31 @@ def test_self_authorizing_language_is_rejected(
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA allows web fetching.",
+        "UAA permits browser automation.",
+        "UAA authorizes calendar event updates.",
+        "UAA grants connector writes.",
+    ),
+)
+def test_direct_finite_authority_grants_are_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    claim: str,
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "Runtime model calls are now authorized.",
@@ -1308,6 +1333,22 @@ def test_commented_authority_denials_fail_closed(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan authority boundary is missing"):
+        verifier.verify()
+
+
+def test_commented_required_plan_clause_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    source = verifier.PLAN.read_text(encoding="utf-8")
+    required = "zero additional model calls to the direct-chat path"
+    plan.write_text(
+        source.replace(required, f"<!-- {required} -->", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
         verifier.verify()
 
 
