@@ -5,6 +5,15 @@ The active product/runtime execution plan is the Operator Runtime Excellence
 Program in `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, tracked by
 `docs/kanban/current_board.md`.
 
+Ordered pre-Goat gate: every still-applicable item in the repo-owned
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` retains its immutable order.
+At the recorded boundary after governed self-improvement and before the final
+GoatCitadel comparison, the planned Tool-Aware Cognition And Chat Quality
+TAW-00 through TAW-08 program must be implemented, exact-head accepted, and
+post-merge verified. This is a planning and comparison-order requirement, not
+completion evidence or runtime authority, and it does not replace the
+configured local model.
+
 Current planning overlay: the active product/package baseline is v0.104.0 /
 0.104.0. UAA-P1-065 is complete, UAA-P1-067 is complete for Today-spine
 beta-readiness planning/currentness, UAA-P1-068 is complete for the Today
