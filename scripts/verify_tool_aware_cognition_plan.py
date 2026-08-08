@@ -1594,11 +1594,21 @@ def _require(label: str, text: str, fragments: tuple[str, ...]) -> None:
 def _require_visible_markdown(
     label: str, text: str, fragments: tuple[str, ...]
 ) -> None:
-    visible = _strip_raw_html_constructs(text)
+    visible = _strip_raw_text_elements(text)
+    visible = _strip_raw_html_constructs(visible)
     visible = _strip_html_tags(visible)
     visible = _strip_markdown_reference_definitions(visible)
     visible = _strip_markdown_links(visible)
     _require(label, visible, fragments)
+
+
+def _visible_markdown_source(text: str) -> str:
+    """Remove non-visible Markdown constructs while preserving source structure."""
+    visible = _strip_raw_text_elements(text)
+    visible = _strip_raw_html_constructs(visible)
+    visible = _strip_html_tags(visible)
+    visible = _strip_markdown_reference_definitions(visible)
+    return _strip_markdown_links(visible)
 
 
 def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
@@ -1609,9 +1619,10 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 
 def _verify_exact_phase_headings(text: str) -> None:
+    visible = _visible_markdown_source(text)
     found = tuple(
         line.lstrip()
-        for line in _strip_fenced_code_blocks(text).splitlines()
+        for line in _strip_fenced_code_blocks(visible).splitlines()
         if re.fullmatch(
             r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
             line,
@@ -2115,6 +2126,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 break
             index += 1
         if index >= len(text):
+            output.append(text[match.start() :])
             break
         closing = re.compile(
             rf"</{re.escape(match.group(1))}[ \t\r\n]*>", re.IGNORECASE
@@ -2407,9 +2419,10 @@ def verify() -> dict[str, object]:
     _verify_zero_tolerance_lines(plan)
     _verify_plan_lifecycle_and_authority_boundary(plan)
     _verify_exact_phase_headings(plan)
-    _require("queue insertion", queue, QUEUE_REQUIRED)
-    _verify_queue_lifecycle(queue)
-    _verify_queue_position(queue)
+    visible_queue = _visible_markdown_source(queue)
+    _require("queue insertion", visible_queue, QUEUE_REQUIRED)
+    _verify_queue_lifecycle(visible_queue)
+    _verify_queue_position(visible_queue)
     _require("current board", board, BOARD_REQUIRED)
     _require_visible_markdown("canonical roadmap", roadmap, ROADMAP_REQUIRED)
     _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)

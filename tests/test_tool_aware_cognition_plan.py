@@ -1258,6 +1258,12 @@ def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None
     )
 
 
+def test_incomplete_raw_text_opening_tag_remains_visible() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Document note: <style web fetching is enabled."
+    )
+
+
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:
     assert (
         verifier._find_forbidden_authority_claims(
@@ -1435,6 +1441,20 @@ def test_fenced_phase_headings_do_not_satisfy_structure(
     text = verifier.PLAN.read_text(encoding="utf-8")
     for heading in verifier.PHASE_HEADINGS:
         text = text.replace(heading, f"```markdown\n{heading}\n```")
+    plan.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+def test_commented_phase_headings_do_not_satisfy_structure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    for heading in verifier.PHASE_HEADINGS:
+        text = text.replace(heading, f"<!-- {heading} -->")
     plan.write_text(text, encoding="utf-8")
     monkeypatch.setattr(verifier, "PLAN", plan)
 
@@ -1626,6 +1646,20 @@ def test_reordered_queue_gate_fails_closed(
     monkeypatch.setattr(verifier, "QUEUE", queue)
 
     with pytest.raises(RuntimeError, match="ordered queue insertion is missing"):
+        verifier.verify()
+
+
+def test_commented_queue_insertion_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "<!--\n" + verifier.QUEUE.read_text(encoding="utf-8") + "\n-->\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="queue insertion is missing"):
         verifier.verify()
 
 
