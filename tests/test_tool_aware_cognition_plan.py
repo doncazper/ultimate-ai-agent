@@ -1438,6 +1438,7 @@ def test_initial_visibility_descendant_of_hidden_element_is_scanned() -> None:
         "list-item",
         "table-cell",
         "contents",
+        "inherit",
         "initial",
         "unset",
     ),
@@ -1448,6 +1449,14 @@ def test_inline_display_override_of_hidden_attribute_is_scanned(
     assert verifier._find_forbidden_authority_claims(
         f'<span hidden style="display:{display}">'
         "UAA can fetch from the public web.</span>"
+    )
+
+
+def test_inherited_display_override_of_hidden_attribute_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<div style="display:block">'
+        '<span hidden style="display:inherit">'
+        "UAA can fetch from the public web.</span></div>"
     )
 
 
@@ -1681,6 +1690,33 @@ def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
 ) -> None:
     assert verifier._find_forbidden_authority_claims(
         f'<span style="{style}">no</span> web fetching is enabled.'
+    )
+
+
+@pytest.mark.parametrize(
+    "opacity",
+    ("0", "0.0", ".0", "0%", "-1", "-0.5%", "0e3", "calc(0)"),
+)
+def test_fully_transparent_element_cannot_supply_an_authority_denial(
+    opacity: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="opacity:{opacity}">no</span> web fetching is enabled.'
+    )
+
+
+@pytest.mark.parametrize(
+    "style",
+    (
+        "opacity:0; opacity:1",
+        "opacity:0; opacity:1 !important",
+        "opacity:0 !important; opacity:1 !important",
+        "opacity:definitely-invalid",
+    ),
+)
+def test_visible_opacity_override_remains_scannable(style: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="{style}">UAA can fetch from the public web.</span>'
     )
 
 

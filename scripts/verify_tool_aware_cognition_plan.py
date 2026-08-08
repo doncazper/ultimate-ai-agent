@@ -2625,7 +2625,7 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
     ).lower()
     effective: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
-        r"(?:^|;)\s*(display|visibility)\s*:\s*([^;]*)", normalized
+        r"(?:^|;)\s*(display|opacity|visibility)\s*:\s*([^;]*)", normalized
     ):
         name, raw_value = match.groups()
         important_match = re.search(r"!\s*important\s*$", raw_value)
@@ -2639,13 +2639,30 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
     return {name: value for name, (value, _important) in effective.items()}
 
 
+def _opacity_hides_contents(value: str | None) -> bool:
+    """Return whether an effective opacity value makes a subtree transparent."""
+    if value is None:
+        return False
+    normalized = value.strip()
+    if normalized.startswith("calc(") and normalized.endswith(")"):
+        normalized = normalized[5:-1].strip()
+    match = re.fullmatch(
+        r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(%)?",
+        normalized,
+    )
+    if match is None:
+        return False
+    return float(match.group(1)) <= 0
+
+
 def _inline_style_hides_contents(attributes: str) -> bool:
     """Return whether an inline style suppresses this element's own contents."""
     properties = _inline_style_properties(attributes)
-    return properties.get("display") == "none" or properties.get("visibility") in {
-        "hidden",
-        "collapse",
-    }
+    return (
+        properties.get("display") == "none"
+        or _opacity_hides_contents(properties.get("opacity"))
+        or properties.get("visibility") in {"hidden", "collapse"}
+    )
 
 
 def _visibility_is_visible_override(value: str | None) -> bool:
@@ -2658,7 +2675,7 @@ def _display_definitely_overrides_hidden(value: str | None) -> bool:
     if value is None:
         return False
     normalized = " ".join(value.split())
-    if normalized in {"initial", "unset"}:
+    if normalized in {"inherit", "initial", "unset"}:
         return True
     if normalized in {
         "contents",
@@ -2773,6 +2790,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 _visibility_is_visible_override(properties.get("visibility"))
                 and not _hidden_attribute_suppresses(attribute_names, properties)
                 and properties.get("display") != "none"
+                and not _opacity_hides_contents(properties.get("opacity"))
             ):
                 alternative = _accessible_html_alternative(lower_name, attributes)
                 if alternative is not None:
@@ -2793,6 +2811,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             lower_name in {"script", "style", "template", "iframe"}
             or _hidden_attribute_suppresses(attribute_names, properties)
             or properties.get("display") == "none"
+            or _opacity_hides_contents(properties.get("opacity"))
         ):
             cursor = element_end
             continue
@@ -2862,6 +2881,7 @@ def _strip_raw_text_elements(text: str) -> str:
             name.lower() in {"script", "style", "template", "iframe"}
             or _hidden_attribute_suppresses(attribute_names, style_properties)
             or style_properties.get("display") == "none"
+            or _opacity_hides_contents(style_properties.get("opacity"))
         )
         visibility_hidden = style_properties.get("visibility") in {
             "hidden",
