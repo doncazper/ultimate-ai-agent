@@ -1746,6 +1746,12 @@ def _verify_plan_lifecycle_and_authority_boundary(text: str) -> None:
     bounded = start + block
     if any(bounded.count(fragment) != 1 for fragment in AUTHORITY_DENIALS):
         raise RuntimeError("plan authority boundary is missing required fragments")
+    visible_bounded = _normalize_markdown_prose(bounded)
+    if any(
+        visible_bounded.count(_normalize_markdown_prose(fragment)) != 1
+        for fragment in AUTHORITY_DENIALS
+    ):
+        raise RuntimeError("plan authority boundary is missing required fragments")
 
 
 def _verify_queue_lifecycle(text: str) -> None:
@@ -2003,6 +2009,19 @@ def _strip_markdown_links(text: str) -> str:
     return "".join(output)
 
 
+def _commonmark_declaration_content_start(text: str, start: int) -> int | None:
+    """Return the content start for a valid CommonMark declaration prefix."""
+    if not text.startswith("<!", start):
+        return None
+    index = start + 2
+    name_start = index
+    while index < len(text) and "A" <= text[index] <= "Z":
+        index += 1
+    if index == name_start or index >= len(text) or text[index] not in " \t\r\n\f":
+        return None
+    return index + 1
+
+
 def _strip_raw_html_constructs(text: str) -> str:
     """Remove non-tag CommonMark raw HTML constructs in linear time."""
     output: list[str] = []
@@ -2020,13 +2039,17 @@ def _strip_raw_html_constructs(text: str) -> str:
             terminator = "?>"
         elif text.startswith("<![CDATA[", construct_start):
             terminator = "]]>"
-        elif (
-            text.startswith("<!", construct_start)
-            and construct_start + 2 < len(text)
-            and text[construct_start + 2].isascii()
-            and text[construct_start + 2].isalpha()
-        ):
-            terminator = ">"
+        else:
+            declaration_content_start = _commonmark_declaration_content_start(
+                text, construct_start
+            )
+            if declaration_content_start is not None:
+                declaration_end = text.find(">", declaration_content_start)
+                if declaration_end < 0:
+                    output.append(text[construct_start:])
+                    break
+                cursor = declaration_end + 1
+                continue
         if terminator is None:
             output.append("<")
             cursor = construct_start + 1
@@ -2087,10 +2110,11 @@ def _normalize_markdown_prose(text: str) -> str:
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
     normalized = _strip_raw_html_constructs(text)
+    # Remove tag attributes before balancing link-label brackets. CommonMark
+    # treats brackets inside quoted attributes as HTML data, not label closers.
+    normalized = _strip_html_tags(normalized)
     normalized = _strip_markdown_reference_definitions(normalized)
     normalized = _strip_markdown_links(normalized)
-
-    normalized = _strip_html_tags(normalized)
     normalized = unescape(normalized)
     normalized = re.sub(r"\\(?:\r\n?|\n)", "\n", normalized)
     normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)

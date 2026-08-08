@@ -456,9 +456,11 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
         "Calendar event <strong>updates</strong> are enabled.",
         'Calendar event <span title=">">updates</span> are enabled.',
         'Calendar event <span\n title=">">updates</span> are enabled.',
+        '[Calendar <span title="]">event</span> updates](https://example.invalid) '
+        "are enabled.",
         "Calendar event up<!-- presentation-only -->dates are enabled.",
         "Calendar event <?presentation-only?>updates are enabled.",
-        "Calendar event <!PRESENTATION-ONLY>updates are enabled.",
+        "Calendar event <!PRESENTATION hidden>updates are enabled.",
         "Calendar event <![CDATA[presentation-only]]>updates are enabled.",
         '[Calendar event updates](https://example.invalid\n"title") are enabled.',
         "Calendar event\\\nupdates are enabled.",
@@ -467,6 +469,26 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
 )
 def test_markdown_cannot_hide_forbidden_authority_claims(claim: str) -> None:
     assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_non_commonmark_declaration_literal_remains_visible() -> None:
+    claim = "Calendar event <!note>updates are enabled."
+
+    assert verifier._find_forbidden_authority_claims(claim) == []
+
+
+def test_non_commonmark_declaration_literal_passes_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nCalendar event <!note>updates are enabled.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    assert verifier.verify()["status"] == "passed"
 
 
 def test_unmatched_markdown_brackets_are_scanned_in_bounded_time() -> None:
@@ -481,6 +503,14 @@ def test_unterminated_html_tags_are_scanned_in_bounded_time() -> None:
     started = perf_counter()
 
     assert verifier._find_forbidden_authority_claims("<span " * 8_000) == []
+
+    assert perf_counter() - started < 2.0
+
+
+def test_unterminated_html_declarations_are_scanned_in_bounded_time() -> None:
+    started = perf_counter()
+
+    assert verifier._find_forbidden_authority_claims("<!A " * 8_000) == []
 
     assert perf_counter() - started < 2.0
 
@@ -512,6 +542,11 @@ def test_markdown_authority_claim_fails_full_verifier(
     "claim, error",
     (
         ("Calendar event <?hidden?>updates are enabled.", "self-authorizing"),
+        (
+            '[Calendar <span title="]">event</span> updates]'
+            "(https://example.invalid) are enabled.",
+            "self-authorizing",
+        ),
         (
             '[Calendar event updates](https://example.invalid\n"title") are enabled.',
             "self-authorizing",
@@ -1243,6 +1278,31 @@ def test_missing_structured_authority_denial_fails_closed(
             "- connector writes;",
             "- connector mutations are outside this document;",
         ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan authority boundary is missing"):
+        verifier.verify()
+
+
+def test_commented_authority_denials_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    source = verifier.PLAN.read_text(encoding="utf-8")
+    lead_in = "This program does not authorize:\n\n"
+    section_end = "\n\n## 13. Definition Of Done"
+    prefix, remainder = source.split(lead_in, 1)
+    denials, suffix = remainder.split(section_end, 1)
+    plan.write_text(
+        prefix
+        + lead_in
+        + "<!--\n"
+        + denials
+        + "\n-->"
+        + section_end
+        + suffix,
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
