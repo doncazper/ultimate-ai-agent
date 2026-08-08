@@ -1485,6 +1485,43 @@ def test_rcdata_markup_cannot_create_a_visible_descendant() -> None:
     )
 
 
+def test_raw_text_close_inside_construct_like_payload_is_preserved() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<iframe><? </iframe> ?> UAA can fetch from the public web."
+    )
+
+
+def test_visible_textarea_decodes_character_references() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<textarea style="visibility:visible">'
+        "UAA can f&#101;tch from the public web."
+        "</textarea></span>"
+    )
+
+
+def test_title_cannot_supply_a_synthetic_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<title style="visibility:visible">no</title></span> '
+        "web fetching is enabled."
+    )
+
+
+def test_raw_text_close_does_not_truncate_hidden_heading_descendants() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<h1 style="visibility:hidden"><script></h1></script>'
+        '<span style="visibility:visible">'
+        "UAA can fetch from the public web.</span><h2>x</h2>"
+    )
+
+
+def test_cross_level_heading_close_ends_hidden_heading() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<h1 hidden>x</h2> UAA can fetch from the public web."
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."

@@ -1686,8 +1686,8 @@ def _visible_markdown_source(text: str) -> str:
     """Remove non-visible Markdown constructs while preserving source structure."""
     visible = _strip_fenced_code_blocks(text)
     visible = _strip_indented_code_blocks(visible)
-    visible = _strip_raw_html_constructs(visible)
     visible = _strip_raw_text_elements(visible)
+    visible = _strip_raw_html_constructs(visible)
     visible = _strip_html_tags(visible)
     reference_labels = _markdown_reference_labels(visible)
     visible = _strip_markdown_reference_definitions(visible)
@@ -2284,6 +2284,47 @@ def _valid_commonmark_comment_body(body: str) -> bool:
     )
 
 
+def _raw_html_construct_end(text: str, start: int) -> int | None:
+    """Return the end of one complete, valid non-tag HTML construct."""
+    if _is_markdown_escaped(text, start):
+        return None
+    if text.startswith("<!--", start):
+        terminator = "-->"
+        content_start = start + 4
+    elif text.startswith("<?", start):
+        terminator = "?>"
+        content_start = start + 2
+    elif text.startswith("<![CDATA[", start):
+        terminator = "]]>"
+        content_start = start + 9
+    else:
+        content_start = _commonmark_declaration_content_start(text, start)
+        if content_start is None:
+            return None
+        terminator = ">"
+    terminator_start = text.find(terminator, content_start)
+    if terminator_start < 0:
+        return None
+    if terminator == "-->" and not _valid_commonmark_comment_body(
+        text[content_start:terminator_start]
+    ):
+        return None
+    return terminator_start + len(terminator)
+
+
+def _next_raw_html_construct(
+    text: str, start: int, stop: int
+) -> tuple[int, int] | None:
+    """Return the next complete construct starting before the scan stop."""
+    cursor = text.find("<", start, stop)
+    while cursor >= 0:
+        construct_end = _raw_html_construct_end(text, cursor)
+        if construct_end is not None:
+            return cursor, construct_end
+        cursor = text.find("<", cursor + 1, stop)
+    return None
+
+
 def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
     """Return the end of a same-name-balanced non-raw-text element."""
     depth = 1
@@ -2340,12 +2381,10 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
                 return None
             cursor = closing.end()
             continue
-        if (
-            not is_closing
-            and lower_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
-            and lower_tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
+        if lower_name in {"h1", "h2", "h3", "h4", "h5", "h6"} and (
+            lower_tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
         ):
-            return tag_start
+            return end + 1 if is_closing else tag_start
         if lower_tag_name != lower_name:
             cursor = end + 1
             continue
@@ -2461,26 +2500,32 @@ def _inline_style_hides_contents(attributes: str) -> bool:
 def _matching_closing_start(
     text: str, content_start: int, element_end: int, name: str
 ) -> int:
-    """Return the final matching closing-tag start within a balanced element."""
-    matches = tuple(
-        re.finditer(
-            rf"</{re.escape(name)}[ \t\r\n]*>",
-            text[content_start:element_end],
-            flags=re.IGNORECASE,
-        )
+    """Return the effective terminal closing-tag start, if one was consumed."""
+    closing_name = (
+        r"(?:h1|h2|h3|h4|h5|h6)"
+        if name.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}
+        else re.escape(name)
     )
-    return content_start + matches[-1].start() if matches else element_end
+    match = re.search(
+        rf"</{closing_name}[ \t\r\n]*>$",
+        text[content_start:element_end],
+        flags=re.IGNORECASE,
+    )
+    return content_start + match.start() if match is not None else element_end
 
 
 def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
     """Retain explicit visible descendants of visibility-hidden content."""
     if depth > 64:
         raise RuntimeError("HTML visibility nesting exceeds the scan bound")
-    text = _strip_raw_html_constructs(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
     while (match := opening.search(text, cursor)) is not None:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            cursor = construct[1]
+            continue
         if _is_markdown_escaped(text, match.start()):
             cursor = match.start() + 1
             continue
@@ -2545,8 +2590,15 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             text, content_start, element_end, name
         )
         if lower_name in {"textarea", "title"}:
-            if properties.get("visibility") == "visible":
-                output.append(escape(text[content_start:content_end], quote=False))
+            if (
+                lower_name == "textarea"
+                and properties.get("visibility") == "visible"
+            ):
+                output.append(
+                    escape(
+                        unescape(text[content_start:content_end]), quote=False
+                    )
+                )
             cursor = element_end
             continue
         if properties.get("visibility") == "visible":
@@ -2571,6 +2623,11 @@ def _strip_raw_text_elements(text: str) -> str:
         if match is None:
             output.append(text[cursor:])
             break
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            output.append(text[cursor : construct[1]])
+            cursor = construct[1]
+            continue
         if _is_markdown_escaped(text, match.start()):
             output.append(text[cursor : match.start() + 1])
             cursor = match.start() + 1
@@ -2656,39 +2713,12 @@ def _strip_raw_html_constructs(text: str) -> str:
             output.append("<")
             cursor = construct_start + 1
             continue
-        terminator: str | None = None
-        if text.startswith("<!--", construct_start):
-            terminator = "-->"
-        elif text.startswith("<?", construct_start):
-            terminator = "?>"
-        elif text.startswith("<![CDATA[", construct_start):
-            terminator = "]]>"
-        else:
-            declaration_content_start = _commonmark_declaration_content_start(
-                text, construct_start
-            )
-            if declaration_content_start is not None:
-                declaration_end = text.find(">", declaration_content_start)
-                if declaration_end < 0:
-                    output.append(text[construct_start:])
-                    break
-                cursor = declaration_end + 1
-                continue
-        if terminator is None:
+        construct_end = _raw_html_construct_end(text, construct_start)
+        if construct_end is None:
             output.append("<")
             cursor = construct_start + 1
             continue
-        construct_end = text.find(terminator, construct_start + 2)
-        if construct_end < 0:
-            output.append(text[construct_start:])
-            break
-        if terminator == "-->":
-            comment = text[construct_start + 4 : construct_end]
-            if not _valid_commonmark_comment_body(comment):
-                output.append("<")
-                cursor = construct_start + 1
-                continue
-        cursor = construct_end + len(terminator)
+        cursor = construct_end
     return "".join(output)
 
 
@@ -2839,8 +2869,8 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized = _strip_raw_html_constructs(text)
-    normalized = _strip_raw_text_elements(normalized)
+    normalized = _strip_raw_text_elements(text)
+    normalized = _strip_raw_html_constructs(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
