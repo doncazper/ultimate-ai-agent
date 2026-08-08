@@ -2410,6 +2410,10 @@ def _strip_raw_text_elements(text: str) -> str:
             output.append(text[match.start() :])
             break
         attributes = text[match.end() : index]
+        if not _valid_html_opening_tag_tail(attributes):
+            output.append(text[match.start() : index + 1])
+            cursor = index + 1
+            continue
         name = match.group(1)
         non_rendered = (
             name.lower() in {"script", "style", "template"}
@@ -2491,6 +2495,16 @@ def _strip_raw_html_constructs(text: str) -> str:
         if construct_end < 0:
             output.append(text[construct_start:])
             break
+        if terminator == "-->":
+            comment = text[construct_start + 4 : construct_end]
+            if (
+                comment.startswith((">", "->"))
+                or comment.endswith("-")
+                or "--" in comment
+            ):
+                output.append("<")
+                cursor = construct_start + 1
+                continue
         cursor = construct_end + len(terminator)
     return "".join(output)
 
@@ -2846,24 +2860,23 @@ def verify() -> dict[str, object]:
     # match affirmative grants rather than denial fragments, so the canonical
     # safety language remains valid while a contradictory claim anywhere fails
     # closed.
-    combined = "\n".join(
-        (
-            plan,
-            queue,
-            board,
-            roadmap,
-            canonical_roadmap,
-            truth_packet,
-            docs_readme,
-            documentation_index,
-            root_readme,
-        )
+    truth_surfaces = (
+        plan,
+        queue,
+        board,
+        roadmap,
+        canonical_roadmap,
+        truth_packet,
+        docs_readme,
+        documentation_index,
+        root_readme,
     )
-    _verify_zero_tolerance_contradictions(combined)
-    _verify_acceptance_contract(combined)
-    present = _find_forbidden_authority_claims(combined)
-    if present:
-        raise RuntimeError(f"self-authorizing language found: {present}")
+    for surface in truth_surfaces:
+        _verify_zero_tolerance_contradictions(surface)
+        _verify_acceptance_contract(surface)
+        present = _find_forbidden_authority_claims(surface)
+        if present:
+            raise RuntimeError(f"self-authorizing language found: {present}")
 
     _verify_familiarity_states(plan)
     _verify_familiarity_precedence(plan)

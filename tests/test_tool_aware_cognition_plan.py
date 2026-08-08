@@ -104,7 +104,7 @@ def test_roadmap_required_fragments_must_be_visible(
     roadmap = tmp_path / "roadmap.md"
     roadmap.write_text(
         "<!--\n"
-        + verifier.ROADMAP.read_text(encoding="utf-8")
+        + "\n".join(verifier.ROADMAP_REQUIRED)
         + "\n-->\n",
         encoding="utf-8",
     )
@@ -1357,6 +1357,18 @@ def test_invalid_opening_tag_text_remains_visible_authority_prose() -> None:
     )
 
 
+def test_invalid_hidden_opening_tag_remains_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden == UAA can fetch from the public web.>"
+    )
+
+
+def test_invalid_html_comment_remains_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<!-- a -- b UAA can fetch from the public web. -->"
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
@@ -1554,6 +1566,27 @@ def test_commented_authority_denials_fail_closed(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan authority boundary is missing"):
+        verifier.verify()
+
+
+def test_truth_surfaces_do_not_share_authority_denial_boundaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + "\n\nThis does not claim that",
+        encoding="utf-8",
+    )
+    queue = tmp_path / "queue.md"
+    queue.write_text(
+        "UAA can fetch from the public web.\n\n"
+        + verifier.QUEUE.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="self-authorizing language found"):
         verifier.verify()
 
 
