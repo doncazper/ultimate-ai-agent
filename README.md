@@ -1,117 +1,145 @@
+<div align="center">
+
 # Ultimate AI Agent
 
-**A local-first governed agent foundation and emerging Control Center for the Founder Loop.**
+### A local-first operating environment for your work and life
 
-Ultimate AI Agent helps a single founder/operator plan the day, review safe
-action proposals, inspect evidence, and keep agent behavior inside explicit
-policy, approval, redaction, and verification boundaries.
+**Communication, planning, relationships, knowledge, decisions, and governed
+AI&mdash;designed as one coherent system.**
+
+Built for one person first. Designed to work for anyone.
+
+[Vision](#the-vision) &nbsp;&middot;&nbsp; [Product truth](#product-truth)
+&nbsp;&middot;&nbsp; [Architecture](#architecture-at-a-glance)
+&nbsp;&middot;&nbsp; [Quick start](#quick-start)
+
+<sub>Python Agent Core &nbsp;&middot;&nbsp; FastAPI &nbsp;&middot;&nbsp; React + TypeScript
+&nbsp;&middot;&nbsp; Local-first &nbsp;&middot;&nbsp; MIT licensed</sub>
+
+</div>
+
+---
+
+Most software asks people to assemble their day across disconnected tools.
+Ultimate AI Agent is building a different model: one calm, private environment
+where first-class applications share context, canonical data, governance, and
+evidence without surrendering control to an opaque agent.
+
+UAA is designed for founders and operators first, because their work crosses
+every boundary&mdash;messages, relationships, projects, decisions, research,
+commitments, and execution. The same integrated model can serve a manager, a
+creator, a small team, or anyone who wants technology to work as one system
+instead of a pile of tabs.
+
+> [!IMPORTANT]
+> UAA is active open-source product infrastructure, not a production release or
+> broad-autonomy claim. The repository distinguishes implemented, partial,
+> planned, mock-only, and blocked behavior. Current truth comes from contracts,
+> tests, verifiers, and redacted evidence&mdash;not screenshots or aspirations.
 
 Current active baseline: **v0.104.0**. Package version: **0.104.0**.
+Licensed under the [MIT License](LICENSE).
 
-This repository is open-source under the
-[MIT License](LICENSE). It is a public portfolio view of active local-first
-product infrastructure and demonstrates contract-first AI engineering,
-product judgment, governance boundaries, and evidence-backed iteration. Public
-source availability is not a production autonomous agent platform, public
-beta, supported binary release, or broad-authority runtime claim.
+## The Vision
 
-## Portfolio Snapshot
+### Mission
 
-| Question | Short answer |
+Help people turn information and intent into clear, safe, reviewable action&mdash;
+with the context they need, the controls they expect, and a durable record of
+what happened.
+
+### Product vision
+
+UAA becomes a trusted personal operating environment: useful every day,
+private by default, deeply integrated, and capable of growing from assistant to
+governed operator without hiding decisions or quietly expanding its authority.
+
+This is not a collection of thin AI wrappers. Each built-in application is
+intended to be excellent on its own and materially better together:
+
+| Application | What it owns | Current product truth |
+|---|---|---|
+| **Today** | Priorities, commitments, attention, and the daily operating view | Partial product spine |
+| **Action Inbox** | Review, approval, rejection, deferral, and receipts for proposed changes | Proofed bounded surface; generic execution remains blocked |
+| **Work Board** | Visual planning, ordering, and durable local work state | Partial backend-owned product with exact approved local mutations |
+| **Messenger** | Conversations, rooms, encrypted local search, and human-commanded messaging | Partial acceptance evidence; enrolled remote runtime and persistent multi-device crypto remain incomplete |
+| **CRM** | People, organizations, relationships, follow-ups, and opportunities | Partial backend-owned local product; external sync and writes remain blocked |
+| **Morning Briefing** | A sourced view of what matters, what changed, and what needs attention | Partial; broader sources and background delivery remain staged |
+| **Memory** | Reviewed, correctable recall with visible provenance | Proofed bounded surface; memory is recall, not truth or authority |
+| **Evidence** | Decisions, receipts, provenance, replay, and rollback posture | Proofed bounded surface |
+
+> [!NOTE]
+> **Planned community direction:** Messenger can present a visible **UAA
+> Community** room as an opt-in place for UAA users to meet and help one
+> another. It must never silently connect, join, or expose local conversations,
+> Memory, CRM, tasks, files, or agent context. Identity, moderation, encryption,
+> retention, and leaving the room remain explicit product responsibilities.
+
+The integrated advantage is the flow between those applications. A selected
+message can become a relationship update, a follow-up, a board item, a calendar
+proposal, and a Today commitment&mdash;reviewed as one coherent change set and
+recorded as evidence. That complete flow is the product direction; only its
+explicitly proofed lanes are implemented today.
+
+```text
+Signal or intent
+    -> understand the context
+    -> propose linked changes
+    -> review exact scope
+    -> approve, edit, reject, or defer
+    -> commit through the owning application
+    -> record receipts and evidence
+    -> offer reviewed memory for the future
+```
+
+## Why UAA Is Different
+
+| Principle | What it means in practice |
 |---|---|
-| What is it? | A Python Agent Core with a FastAPI contract boundary, a React/TypeScript Control Center shell, and local-first governance for proposals, approvals, receipts, memory review, and evidence. |
-| What does it demonstrate? | API contracts, route classification, local approval authority, idempotency posture, redacted evidence, durable receipts, frontend/backend parity, and disciplined product-language controls. |
-| What is usable now? | Exact route-surface proof for `/actions`, `/chat`, `/memory`, and `/evidence`; backend-owned partial inspection surfaces for Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, Settings, and local CRM; status surfaces for Runtime and local model readiness; and blocked-state visibility for connector, send/write, and production authority. |
-| What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
+| **One coherent system** | Apps share typed links and one Python Agent Core while preserving one canonical owner for each task, event, relationship, message, and receipt. |
+| **First-class built-ins** | Today, Messenger, Work Board, CRM, Briefing, Memory, and Evidence are product domains&mdash;not decorative dashboard widgets. |
+| **Local-first by design** | Private state stays local by default. Network, connector, provider, and external-write lanes require explicit, separately governed authority. |
+| **Human authority** | Models can interpret and propose. They do not silently approve their own work or turn generated output into authority. |
+| **Evidence over confidence** | Important changes produce durable receipts, provenance, replay posture, and rollback or safe-disable information. |
+| **One contract, every surface** | Control Center, API, CLI, and repository inspection paths converge on backend-owned truth instead of React-only product state. |
 
 ## Product North Star
 
-The current product north star is a calm Control Center for the Founder Loop:
-Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, Settings,
-Plans, Chat, and Setup Assistant. Founder Command Center remains strategy and north-star terminology,
-not a separate app shell. The current UI is not yet close to these images. They
-are product vision targets, not current implementation screenshots or
-implementation evidence; current truth still comes from route/API contracts,
-tests, verifiers, and redacted evidence.
+![Ultimate AI Agent integrated Today workspace product concept](docs/design/control_center_north_star/renders/target-v1/01-today.png)
 
-See [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md)
-for the full visual target, per-surface truth labels, and current UI gap.
+> **Product concept, not implementation evidence.** This image communicates the
+> intended integrated experience. The current UI is not yet this complete.
+> Route/API contracts, tests, verifiers, and redacted evidence remain the source
+> of current product truth. See the
+> [full north star](docs/portfolio/PRODUCT_NORTH_STAR.md) and
+> [current status](docs/portfolio/CURRENT_STATUS.md).
 
-## What This Demonstrates
+## Product Truth
 
-For AI engineering and applied AI roles, this repo demonstrates:
+UAA pairs an ambitious destination with an intentionally conservative release
+posture.
 
-- Contract-first AI system design around Python core models, FastAPI routes,
-  OpenAPI, and `/api/manifest`.
-- Human-in-the-loop approval boundaries where approval refs are identifiers
-  until exact scope is validated.
-- Redacted evidence and receipt posture using safe refs rather than raw
-  prompts, raw responses, raw provider payloads, local paths, logs, or secrets.
-- Memory as governed recall, not truth or hidden runtime authority.
-- CLI/UI parity: operator-relevant Control Center surfaces map back to Python
-  core/API contracts and repo-local inspection scripts.
-- Product-language honesty across implemented, partial, planned, blocked,
-  mock-only, and intentionally out-of-scope states.
-- Verifier-backed iteration: docs, route contracts, product truth, frontend
-  checks, and safety boundaries are checked as part of the implementation.
-
-## Control Center Preview
-
-These are curated static visual-test snapshots of the local Control Center
-shell. They are sanitized demo artifacts, not production screenshots.
-
-| Surface | Preview |
-|---|---|
-| Setup Assistant | [setup](docs/portfolio/assets/control-center-setup.png) |
-| Today | [today](docs/portfolio/assets/control-center-today.png) |
-| Action Inbox | [actions](docs/portfolio/assets/control-center-actions.png) |
-| Evidence | [evidence](docs/portfolio/assets/control-center-evidence.png) |
-| Memory | [memory](docs/portfolio/assets/control-center-memory.png) |
-
-See [docs/portfolio/SCREENSHOTS.md](docs/portfolio/SCREENSHOTS.md) for the
-curated gallery and snapshot caveats.
-
-## What Works Today
-
-| Area | Current status | What to inspect |
+| Proven now | In active development | Intentionally gated |
 |---|---|---|
-| API boundary | Implemented for the generated OpenAPI and `/api/manifest` route contract snapshot. | [docs/api/README.md](docs/api/README.md) |
-| Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task AuthorityLease capability. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
-| Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
-| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
-| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, memory-review events, and one allowlisted Browser/read AuthorityLease-gated WebAccessGateway web evidence preview receipt capability. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
-| Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces, plus the governed product pilot authority profile for exact local runtime/action/evidence/orchestration capabilities. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
-| CRM | Backend-owned local CRM command center with read routes, CLI inspection, local storage posture, redacted import/export preview, and one exact local mutation receipt capability. Connector runtime, account sync, sends, calendar writes, provider/model calls, and external CRM writes remain blocked. | [docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md](docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md) |
-| Inbox/email/calendar connectors | Planned or blocked AuthorityLease capability contracts only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
+| Python Agent Core, typed FastAPI/OpenAPI boundary, `/api/manifest`, policy and approval primitives | A polished daily loop across Today, Briefing, Work Board, CRM, Messenger, and session UX | Public release, broad autonomy, unrestricted browser/network/shell authority |
+| Backend-owned decisions and durable receipts for bounded Action, Chat, Memory, and Evidence lanes | First-class app workflows, canonical cross-app ownership, backup/storage integrity, and performance | Connector writes, remote execution, hidden context injection, and generic action execution |
+| Local-first evidence, redaction, idempotency, replay, and verification gates | Read-only source intelligence with provenance, freshness, and credibility posture | Provider/model authority, autonomous sends, production authority, and silent external side effects |
 
-## Planned Creator Feature: Social Media Intelligence
+### What to inspect today
 
-**Status: planned and dependency-gated.** Social Media Intelligence is a
-creator-focused command view for cross-channel performance, audience signals,
-campaigns, publishing cadence, and high-value conversations. Social explains
-what changed and routes context into UAA Calendar, Work Board,
-Communications, CRM, Studio, and Evidence; it does not replace those apps.
+| Area | Current scope | Evidence |
+|---|---|---|
+| API boundary | Generated OpenAPI and `/api/manifest` route contract snapshot, stable operation inventory, and route classification | [API documentation](docs/api/README.md) |
+| Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task capability | [state machine](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
+| Work Board | Backend-owned Kanban read model plus exact approved local reorder, card creation, and task-record persistence | [surface gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
+| Messenger | Exact bounded local Matrix lanes, synthetic desktop coverage, and a finite partial acceptance packet | [acceptance packet](docs/connectors/MESSENGER_MATRIX_ACCEPTANCE_PACKET.md) |
+| CRM | Local read models, CLI inspection, storage posture, import/export preview, and exact local mutation receipts | [CRM M2](docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md) |
+| Memory and Evidence | Reviewed recall records, read-only indexes, proposal-only context packs, and a safe-ref evidence timeline | [memory spine](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
 
-![Accepted Social Media Intelligence command-view concept](docs/design/control_center_north_star/renders/social-media-v1/01-social-command-view.jpg)
-
-The first milestone is read-only. It does not publish, reply, change external
-accounts, or create a second scheduler, Kanban board, inbox, CRM, or asset
-library. Social owns interpretation; Calendar owns time; Work Board owns
-production; Communications owns conversations; CRM owns relationships; Studio
-owns assets; and Evidence owns proof.
-
-This feature is deliberately deferred. UAA must not recommend it as the next
-implementation lane until **Work Board/Kanban**, **first-class CRM**, and
-**Communications/Messenger** are each accepted as fully implemented with
-current backend, API/CLI, frontend, test, visual, and product-truth evidence.
-Passing all three gates makes Social eligible for prioritization, not
-automatically next.
-
-See the
-[product contract](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md),
-[accepted render pack](docs/design/control_center_north_star/renders/social-media-v1/README.md),
-and
-[gated future implementation prompt](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md).
+For the complete implemented/partial/planned/blocked ledger, read the
+[current status](docs/portfolio/CURRENT_STATUS.md),
+[release truth packet](docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md), and
+[operator shell gap map](docs/control_center/OPERATOR_SHELL_GAP_MAP.md).
 
 ## Architecture At A Glance
 
