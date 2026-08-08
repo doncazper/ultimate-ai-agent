@@ -880,14 +880,14 @@ FORBIDDEN_PATTERNS = (
     r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:browse(?:s|d|ing)? (?:the )?(?:public )?web|"
     r"(?:access|search)(?:es|ed|ing)? (?:the )?(?:internet|web)|"
     r"(?:internet|web) (?:access|search))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:unrestricted|unbounded|arbitrary) "
     r"(?:(?:outbound )?(?:network|internet|socket|tcp|http)) "
@@ -911,7 +911,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:invok(?:e|es|ed|ing) (?:a )?(?:runtime )?(?:models?|providers?)|"
     r"(?:run|perform)(?:s|ed|ing)? (?:runtime )?(?:model )?inference|"
@@ -919,7 +919,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:use|call)(?:s|ed|ing)? (?:the )?provider SDKs?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:call|invoke|use)(?:s|d|ing)? (?:the )?"
     r"(?:(?:[a-z0-9][a-z0-9._/-]*[ -]+){0,3}(?:model|provider)[ -]+apis?|"
@@ -941,7 +941,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:creat(?:e|es|ed|ing)|edit(?:s|ed|ing)?|modif(?:y|ies|ied|ying)|writ(?:e|es|ten|ing)|"
     r"overwrit(?:e|es|ten|ing)|mov(?:e|es|ed|ing)|renam(?:e|es|ed|ing)|"
@@ -956,20 +956,20 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:run|launch|execute)(?:s|d|ing)? (?:arbitrary|unrestricted) "
     r"(?:(?:shell|system) )?(?:commands?|subprocesses?)|"
     r"(?:arbitrary|unrestricted) command execution)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:run|launch|execute)(?:s|d|ing)? (?:(?:shell|system) )?"
     r"(?:commands?|subprocesses?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:unapproved execution|(?:execute|run|perform)(?:s|d|ing)? actions? without approval|"
     r"act(?:s|ed|ing)? without (?:policy|approval) checks?)\b",
@@ -980,7 +980,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can) be (?:skipped|omitted|bypassed|ignored|disregarded))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:accept|honor|trust|use)(?:s|ed|ing)? "
     r"(?:(?:approval (?:references?|refs?)) without (?:exact[- ]scope )?validation|"
@@ -1008,7 +1008,7 @@ FORBIDDEN_PATTERNS = (
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:logs?|stores?|records?|retains?|saves?|persists?|"
     r"archives?|caches?|writes?|writing|written) "
@@ -1029,7 +1029,7 @@ FORBIDDEN_PATTERNS = (
     r"control center|cli|api|python agent core)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:reuse (?:an? )?approvals? (?:across|for|on|with|in) (?:later |future )?(?:requests?|actions?)|"
     r"remember (?:an? )?approvals? for (?:later|future) (?:requests?|actions?)|"
@@ -1070,7 +1070,7 @@ FORBIDDEN_PATTERNS = (
     r"foundation gate|gate checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;])).){0,160}?"
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:ing)?|"
@@ -1114,7 +1114,7 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core))"
     r"(?:(?![.!?]).){1,200}?(?:,|;)\s*(?:but|however|yet|and)\s+(?:it\s+)?"
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?!(?:\bnot\b|\bnever\b|\bno\s+longer\b|\bcannot\b|\bcan['’]t\b|[;.!?])).){0,100}?"
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:ing)?|"
@@ -1169,7 +1169,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:open|available|launched|ready|enabled|complete)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:open|launch|start|enter)(?:s|ed|ing)? (?:a )?public beta|"
     r"(?:publish|release|distribute)(?:s|d|ing)? (?:a )?public "
@@ -1178,7 +1178,7 @@ FORBIDDEN_PATTERNS = (
     r"ultimate ai agent) (?:production[- ]ready|generally available))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:deploy|launch|releas|operat)(?:e|es|ed|ing)? "
     r"(?:the )?(?:product |system |uaa )?(?:to|into|in) production|"
@@ -1190,7 +1190,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:enabled|available|active|supported|complete)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:send|forward|update|edit|delete|remove)(?:s|ed|ing)? "
     r"(?:emails?|messages?)|"
@@ -1214,7 +1214,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:issu(?:e|es|ed|ing)|generat(?:e|es|ed|ing)|"
     r"rotat(?:e|es|ed|ing)|reset(?:s|ting)?) "
@@ -1227,7 +1227,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:(?:open(?:s|ed|ing)?|creat(?:e|es|ed|ing)) (?:pull requests?|PRs?)|"
     r"(?:pull request|PR) (?:opening|creation))\b",
@@ -1236,7 +1236,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:perform(?:s|ing)? remote execution|remote execution|"
     r"ssh(?:es|ed|ing)? (?:into|to) remote (?:machines?|hosts?|servers?|systems?)|"
@@ -1283,7 +1283,7 @@ FORBIDDEN_PATTERNS = (
     r"credential material|secret-like values?|sensitive content)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:spend(?:s|ing)? (?:money|funds)|make(?:s|ing)? (?:purchases?|payments?)|"
     r"purchase(?:s|d|ing)? (?:products?|goods|services)|buy(?:s|ing)? (?:products?|goods|services)|"
@@ -1300,7 +1300,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:click(?:s|ed|ing)? (?:browser )?(?:links?|elements?|buttons?|controls?)|browser clicks?|"
     r"(?:fill(?:s|ed|ing)?|submit(?:s|ted|ting)?) (?:web )?forms?|(?:web )?form (?:filling|submission)|"
@@ -1325,7 +1325,7 @@ FORBIDDEN_PATTERNS = (
     r"(?:enabled|present|active|achieved|supported)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
-    r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
+    r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:execute(?:s|d|ing)? tasks? in (?:the )?background|"
     r"run(?:s|ning)? background (?:jobs?|tasks?|workers?)|"
@@ -2495,6 +2495,16 @@ def _strip_raw_html_constructs(text: str) -> str:
     return "".join(output)
 
 
+def _valid_html_opening_tag_tail(tail: str) -> bool:
+    """Return whether a CommonMark opening-tag tail has valid attributes."""
+    return re.fullmatch(
+        r'(?:[ \t\r\n\f]+[A-Za-z_:][A-Za-z0-9_.:-]*'
+        r'(?:[ \t\r\n\f]*=[ \t\r\n\f]*(?:"[^"]*"|\'[^\']*\'|'
+        r'[^\s"\'=<>`]+))?)*[ \t\r\n\f]*/?',
+        tail,
+    ) is not None
+
+
 def _strip_html_tags(text: str) -> str:
     """Remove ordinary HTML tags while retaining accessible alternative text."""
     output: list[str] = []
@@ -2531,6 +2541,10 @@ def _strip_html_tags(text: str) -> str:
                     output.append(text[candidate_start : index + 1])
                 elif text[candidate_start + 1] != "/":
                     attributes = text[match.end() : index]
+                    if not _valid_html_opening_tag_tail(attributes):
+                        output.append(text[candidate_start : index + 1])
+                        cursor = index + 1
+                        break
                     alternative = _accessible_html_alternative(
                         match.group()[1:].lower(), attributes
                     )

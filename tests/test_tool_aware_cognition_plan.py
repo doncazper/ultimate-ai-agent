@@ -1351,6 +1351,18 @@ def test_invalid_closing_tag_text_remains_visible_authority_prose() -> None:
     )
 
 
+def test_invalid_opening_tag_text_remains_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span = UAA can fetch from the public web.>"
+    )
+
+
+def test_authority_predicate_rejects_is_able_to_grant() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA is able to fetch from the public web."
+    )
+
+
 @pytest.mark.parametrize(
     "style",
     (
