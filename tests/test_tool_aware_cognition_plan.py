@@ -1264,6 +1264,18 @@ def test_incomplete_raw_text_opening_tag_remains_visible() -> None:
     )
 
 
+def test_hidden_element_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden>no</span> web fetching is enabled."
+    )
+
+
+def test_default_ignorable_character_cannot_hide_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA can fetc&ZeroWidthSpace;h from the public web."
+    )
+
+
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:
     assert (
         verifier._find_forbidden_authority_claims(
@@ -1456,6 +1468,21 @@ def test_commented_phase_headings_do_not_satisfy_structure(
     for heading in verifier.PHASE_HEADINGS:
         text = text.replace(heading, f"<!-- {heading} -->")
     plan.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+def test_invalid_backtick_fence_does_not_hide_phase_heading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\n```bad`info\n### TAW-99 — Unauthorized visible phase\n```\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan phase headings"):
@@ -1660,6 +1687,20 @@ def test_commented_queue_insertion_fails_closed(
     monkeypatch.setattr(verifier, "QUEUE", queue)
 
     with pytest.raises(RuntimeError, match="queue insertion is missing"):
+        verifier.verify()
+
+
+def test_commented_current_board_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "board.md"
+    board.write_text(
+        "<!--\n" + verifier.BOARD.read_text(encoding="utf-8") + "\n-->\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="current board is missing"):
         verifier.verify()
 
 

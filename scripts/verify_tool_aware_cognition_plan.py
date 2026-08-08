@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from unicodedata import category
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -2087,6 +2088,9 @@ def _strip_fenced_code_blocks(text: str) -> str:
             if match is None:
                 output.append(line)
                 continue
+            if match.group(1)[0] == "`" and "`" in content[match.end() :]:
+                output.append(line)
+                continue
             fence_character = match.group(1)[0]
             fence_length = len(match.group(1))
             output.append("\n" if line.endswith(("\n", "\r")) else "")
@@ -2103,10 +2107,10 @@ def _strip_fenced_code_blocks(text: str) -> str:
 
 
 def _strip_raw_text_elements(text: str) -> str:
-    """Remove non-prose script/style elements together with their contents."""
+    """Remove elements whose contents do not render as visible prose."""
     output: list[str] = []
     cursor = 0
-    opening = re.compile(r"<(script|style)(?=[\s/>])", re.IGNORECASE)
+    opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
     while True:
         match = opening.search(text, cursor)
         if match is None:
@@ -2128,8 +2132,35 @@ def _strip_raw_text_elements(text: str) -> str:
         if index >= len(text):
             output.append(text[match.start() :])
             break
+        attributes = text[match.end() : index]
+        name = match.group(1)
+        non_rendered = name.lower() in {"script", "style", "template"} or re.search(
+            r"(?:^|\s)hidden(?:\s|=|/|$)", attributes, flags=re.IGNORECASE
+        ) is not None
+        if not non_rendered:
+            output.append(text[match.start() : index + 1])
+            cursor = index + 1
+            continue
+        if attributes.rstrip().endswith("/") or name.lower() in {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }:
+            cursor = index + 1
+            continue
         closing = re.compile(
-            rf"</{re.escape(match.group(1))}[ \t\r\n]*>", re.IGNORECASE
+            rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
         ).search(text, index + 1)
         if closing is None:
             break
@@ -2232,6 +2263,9 @@ def _normalize_markdown_prose(text: str) -> str:
     normalized = _strip_markdown_reference_definitions(normalized)
     normalized = _strip_markdown_links(normalized)
     normalized = unescape(normalized)
+    normalized = "".join(
+        character for character in normalized if category(character) != "Cf"
+    )
     normalized = re.sub(r"\\(?:\r\n?|\n)", "\n", normalized)
     normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)
     normalized = re.sub(
@@ -2423,13 +2457,19 @@ def verify() -> dict[str, object]:
     _require("queue insertion", visible_queue, QUEUE_REQUIRED)
     _verify_queue_lifecycle(visible_queue)
     _verify_queue_position(visible_queue)
-    _require("current board", board, BOARD_REQUIRED)
+    _require_visible_markdown("current board", board, BOARD_REQUIRED)
     _require_visible_markdown("canonical roadmap", roadmap, ROADMAP_REQUIRED)
-    _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)
-    _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
-    _require("docs README navigation", docs_readme, NAVIGATION_REQUIRED)
-    _require("documentation index navigation", documentation_index, NAVIGATION_REQUIRED)
-    _require("root README navigation", root_readme, NAVIGATION_REQUIRED)
+    _require_visible_markdown(
+        "canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED
+    )
+    _require_visible_markdown(
+        "product release truth", truth_packet, TRUTH_PACKET_REQUIRED
+    )
+    _require_visible_markdown("docs README navigation", docs_readme, NAVIGATION_REQUIRED)
+    _require_visible_markdown(
+        "documentation index navigation", documentation_index, NAVIGATION_REQUIRED
+    )
+    _require_visible_markdown("root README navigation", root_readme, NAVIGATION_REQUIRED)
     _verify_manifest(manifest)
 
     # Scan every program truth surface, not only the primary plan. The patterns
