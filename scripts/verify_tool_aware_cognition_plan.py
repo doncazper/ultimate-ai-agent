@@ -794,7 +794,8 @@ PRODUCT_MEDIATED_OPERATOR_PATTERNS = (
     r"\b(?:(?:this|the) "
     r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
     r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
-    r"(?:allows?|enables?|permits?|authorizes?|lets?) (?:operators?|users?) to "
+    r"(?:(?:allows?|enables?|permits?|authorizes?) (?:operators?|users?) to|"
+    r"lets? (?:operators?|users?)) "
     r"(?P<action>[^.!?]{1,240})",
 )
 MEDIATED_PREVENTION_PATTERN = (
@@ -1757,7 +1758,8 @@ def _verify_acceptance_contract(text: str) -> None:
 
 
 def _verify_plan_lifecycle_and_authority_boundary(text: str) -> None:
-    status_lines = tuple(re.findall(r"^Status:.*$", text, flags=re.MULTILINE))
+    visible = _visible_markdown_source(text)
+    status_lines = tuple(re.findall(r"^Status:.*$", visible, flags=re.MULTILINE))
     if status_lines != (PLAN_STATUS_LINE,):
         raise RuntimeError("plan lifecycle status is invalid")
 
@@ -2250,7 +2252,7 @@ def _strip_raw_html_constructs(text: str) -> str:
 
 
 def _strip_html_tags(text: str) -> str:
-    """Remove ordinary HTML tags in linear time, respecting quoted attributes."""
+    """Remove ordinary HTML tags while retaining accessible alternative text."""
     output: list[str] = []
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
@@ -2278,6 +2280,14 @@ def _strip_html_tags(text: str) -> str:
             elif character in "\"'":
                 quote = character
             elif character == ">":
+                if (
+                    text[candidate_start + 1] != "/"
+                    and match.group()[1:].lower() == "img"
+                ):
+                    attributes = text[match.end() : index]
+                    alternative = _html_attribute_value(attributes, "alt")
+                    if alternative is not None:
+                        output.append(alternative)
                 cursor = index + 1
                 break
             index += 1
@@ -2285,6 +2295,47 @@ def _strip_html_tags(text: str) -> str:
             output.append(text[candidate_start:])
             break
     return "".join(output)
+
+
+def _html_attribute_value(attributes: str, name: str) -> str | None:
+    """Return one quoted or unquoted CommonMark HTML attribute value."""
+    match = re.search(
+        rf"(?:^|\s){re.escape(name)}\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s\"'=<>`]+))",
+        attributes,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    return next(value for value in match.groups() if value is not None)
+
+
+DEFAULT_IGNORABLE_CODE_POINT_RANGES = (
+    (0x00AD, 0x00AD),
+    (0x034F, 0x034F),
+    (0x061C, 0x061C),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180F),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x206F),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFEFF, 0xFEFF),
+    (0xFFA0, 0xFFA0),
+    (0xFFF0, 0xFFF8),
+    (0x1BCA0, 0x1BCA3),
+    (0x1D173, 0x1D17A),
+    (0xE0000, 0xE0FFF),
+)
+
+
+def _is_default_ignorable(character: str) -> bool:
+    code_point = ord(character)
+    return any(
+        start <= code_point <= end
+        for start, end in DEFAULT_IGNORABLE_CODE_POINT_RANGES
+    )
 
 
 def _normalize_markdown_prose(text: str) -> str:
@@ -2305,7 +2356,9 @@ def _normalize_markdown_prose(text: str) -> str:
     normalized = _strip_markdown_links(normalized)
     normalized = unescape(normalized)
     normalized = "".join(
-        character for character in normalized if category(character) != "Cf"
+        character
+        for character in normalized
+        if category(character) != "Cf" and not _is_default_ignorable(character)
     )
     normalized = re.sub(r"\\(?:\r\n?|\n)", "\n", normalized)
     normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)

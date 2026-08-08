@@ -357,6 +357,12 @@ def test_product_mediation_and_filesystem_claims_are_detected(claim: str) -> Non
     assert verifier._find_forbidden_authority_claims(claim)
 
 
+def test_product_mediated_let_claim_is_detected() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA lets users browse the public web."
+    )
+
+
 @pytest.mark.parametrize(
     "claim",
     (
@@ -985,6 +991,24 @@ def test_plan_lifecycle_status_is_exact_and_unique(
         verifier.verify()
 
 
+def test_commented_plan_lifecycle_status_is_not_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            verifier.PLAN_STATUS_LINE,
+            f"<!--\n{verifier.PLAN_STATUS_LINE}\n-->",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan lifecycle status is invalid"):
+        verifier.verify()
+
+
 @pytest.mark.parametrize(
     "status",
     (
@@ -1279,6 +1303,18 @@ def test_nested_hidden_element_cannot_supply_an_authority_denial() -> None:
 def test_default_ignorable_character_cannot_hide_authority() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA can fetc&ZeroWidthSpace;h from the public web."
+    )
+
+
+def test_non_format_default_ignorable_cannot_hide_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA can fetc&#847;h from the public web."
+    )
+
+
+def test_image_alternative_text_is_scanned_for_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<img src="missing.invalid" alt="UAA can fetch from the public web.">'
     )
 
 
