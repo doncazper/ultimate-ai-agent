@@ -98,6 +98,22 @@ def test_missing_queue_gate_fails_closed(
         verifier.verify()
 
 
+def test_roadmap_required_fragments_must_be_visible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    roadmap = tmp_path / "roadmap.md"
+    roadmap.write_text(
+        "<!--\n"
+        + verifier.ROADMAP.read_text(encoding="utf-8")
+        + "\n-->\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "ROADMAP", roadmap)
+
+    with pytest.raises(RuntimeError, match="canonical roadmap is missing"):
+        verifier.verify()
+
+
 def test_self_authorizing_language_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -907,6 +923,7 @@ def test_forbidden_authority_batch_fails_on_every_program_truth_surface(
         "production authority.",
         "No schedule is final, production authority is enabled.",
         "No schedule is final, or production authority is enabled.",
+        "Available modes: no limits or UAA can fetch the public web.",
         "No schedule is final, policy checks may be bypassed.",
         "No schedule is final, automatic skill execution is allowed.",
         "No web fetching is authorized; this program grants production authority.",

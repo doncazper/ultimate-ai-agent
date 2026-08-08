@@ -1794,7 +1794,8 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
                 flags=re.IGNORECASE,
             ) is not None
             coordinated_denial = False
-            if re.search(r"\b(?:or|nor)\s*$", tail, re.IGNORECASE):
+            coordinator = re.search(r"\b(or|nor)\s*$", tail, re.IGNORECASE)
+            if coordinator is not None:
                 denial_starts = list(
                     re.finditer(
                         r"(?:^|[:;])\s*(?:no|neither)\b",
@@ -1804,12 +1805,21 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
                 )
                 if denial_starts:
                     denial_items = tail[denial_starts[-1].end() :]
-                    coordinated_denial = re.search(
+                    noun_list = re.search(
                         r"\b(?:is|are|was|were|does|do|did|has|have|had|"
                         r"may|can|will|shall|must)\b",
                         denial_items,
                         flags=re.IGNORECASE,
                     ) is None
+                    coordinated_denial = noun_list and (
+                        coordinator.group(1).lower() == "nor"
+                        or re.search(
+                            r"\b(?:is|are|was|were)\b",
+                            match.group(0),
+                            flags=re.IGNORECASE,
+                        )
+                        is not None
+                    )
             # A match is exempt only when its own passive subject is directly
             # negated, it is governed by an explicit claim/implication denial,
             # or it is the final item in an explicit noun-list denial. The mere
@@ -2322,7 +2332,7 @@ def verify() -> dict[str, object]:
     _verify_queue_lifecycle(queue)
     _verify_queue_position(queue)
     _require("current board", board, BOARD_REQUIRED)
-    _require("canonical roadmap", roadmap, ROADMAP_REQUIRED)
+    _require_visible_markdown("canonical roadmap", roadmap, ROADMAP_REQUIRED)
     _require("canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED)
     _require("product release truth", truth_packet, TRUTH_PACKET_REQUIRED)
     _require("docs README navigation", docs_readme, NAVIGATION_REQUIRED)
