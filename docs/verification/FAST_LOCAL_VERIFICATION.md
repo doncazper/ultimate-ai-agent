@@ -4,6 +4,9 @@ Status: implemented local-development feedback; not merge or release evidence.
 
 The canonical cutover architecture is documented in
 [`RISK_BASED_VERIFICATION_ARCHITECTURE.md`](RISK_BASED_VERIFICATION_ARCHITECTURE.md).
+Pull-request sizing, invariant preflight, finding batching, and the single
+final-candidate review cadence are documented in
+[`REVIEW_CONVERGENCE_POLICY.md`](REVIEW_CONVERGENCE_POLICY.md).
 The stable local commands are compatibility entry points over the same
 backend-owned Tier 0-3 selection used by private diagnosis and CI planning.
 They do not maintain a second rule or command registry and do not produce
@@ -115,6 +118,12 @@ lane together with its dependent Vite build, while retaining selected unit
 tests and safety checks. `make verify` remains the release-grade local
 composition when a deliberate local-only full gate is required, but it does
 not satisfy branch protection.
+
+Before consuming the final complete resource, audit the whole changed contract
+against the review-convergence invariant matrix. Batch all known findings,
+then run one broad local qualification on the final candidate. Publish once
+and request one exact-head CI/review cycle; do not use repeated broad runs or
+duplicate hosted attempts as a substitute for structural preflight.
 
 ## Canonical API snapshot
 
