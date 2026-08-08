@@ -2936,7 +2936,27 @@ def _first_direct_summary_bounds(
             continue
         name = match.group(1)
         element_end = _find_balanced_element_end(text, opening_end + 1, name)
-        if element_end is None or element_end > content_end:
+        if element_end is None:
+            if name.lower() in {
+                "area",
+                "base",
+                "br",
+                "col",
+                "embed",
+                "hr",
+                "img",
+                "input",
+                "link",
+                "meta",
+                "param",
+                "source",
+                "track",
+                "wbr",
+            }:
+                cursor = opening_end + 1
+                continue
+            return None
+        if element_end > content_end:
             cursor = opening_end + 1
             continue
         if name.lower() == "summary":

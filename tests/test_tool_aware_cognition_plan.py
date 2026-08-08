@@ -1562,6 +1562,23 @@ def test_collapsed_details_does_not_promote_a_nested_summary() -> None:
     )
 
 
+def test_collapsed_details_does_not_enter_an_unbalanced_child_for_summary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><div><summary>no</summary></details> "
+        "web fetching is enabled."
+    )
+
+
+def test_collapsed_details_can_find_summary_after_a_void_sibling() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<details><br><summary>no</summary></details> "
+            "web fetching is enabled."
+        )
+        == []
+    )
+
+
 def test_open_details_body_remains_visible() -> None:
     assert (
         verifier._find_forbidden_authority_claims(
