@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from html import unescape
+from html import escape, unescape
 import json
 import re
 import sys
@@ -1686,8 +1686,8 @@ def _visible_markdown_source(text: str) -> str:
     """Remove non-visible Markdown constructs while preserving source structure."""
     visible = _strip_fenced_code_blocks(text)
     visible = _strip_indented_code_blocks(visible)
-    visible = _strip_raw_text_elements(visible)
     visible = _strip_raw_html_constructs(visible)
+    visible = _strip_raw_text_elements(visible)
     visible = _strip_html_tags(visible)
     reference_labels = _markdown_reference_labels(visible)
     visible = _strip_markdown_reference_definitions(visible)
@@ -2324,11 +2324,14 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
         elif not _valid_html_opening_tag_tail(tag_tail):
             cursor = end + 1
             continue
-        if not is_closing and tag_name.lower() in {
+        lower_tag_name = tag_name.lower()
+        lower_name = name.lower()
+        if not is_closing and lower_tag_name in {
             "script",
             "style",
             "textarea",
             "title",
+            "iframe",
         }:
             closing = re.compile(
                 rf"</{re.escape(tag_name)}[ \t\r\n]*>", re.IGNORECASE
@@ -2337,7 +2340,13 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
                 return None
             cursor = closing.end()
             continue
-        if tag_name.lower() != name.lower():
+        if (
+            not is_closing
+            and lower_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
+            and lower_tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
+        ):
+            return tag_start
+        if lower_tag_name != lower_name:
             cursor = end + 1
             continue
         if is_closing:
@@ -2467,6 +2476,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
     """Retain explicit visible descendants of visibility-hidden content."""
     if depth > 64:
         raise RuntimeError("HTML visibility nesting exceeds the scan bound")
+    text = _strip_raw_html_constructs(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -2484,7 +2494,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         name = match.group(1)
         lower_name = name.lower()
-        if lower_name in {
+        void_element = lower_name in {
             "area",
             "base",
             "br",
@@ -2499,10 +2509,21 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             "source",
             "track",
             "wbr",
-        }:
+        }
+        properties = _inline_style_properties(attributes)
+        attribute_names = _html_attribute_names(attributes)
+        if void_element:
+            if (
+                properties.get("visibility") == "visible"
+                and "hidden" not in attribute_names
+                and properties.get("display") != "none"
+            ):
+                alternative = _accessible_html_alternative(lower_name, attributes)
+                if alternative is not None:
+                    output.append(alternative)
             cursor = opening_end + 1
             continue
-        if lower_name in {"script", "style"}:
+        if lower_name in {"script", "style", "textarea", "title", "iframe"}:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, opening_end + 1)
@@ -2512,8 +2533,6 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         if element_end is None or element_end <= opening_end:
             cursor = opening_end + 1
             continue
-        properties = _inline_style_properties(attributes)
-        attribute_names = _html_attribute_names(attributes)
         if (
             lower_name in {"script", "style", "template", "iframe"}
             or "hidden" in attribute_names
@@ -2525,6 +2544,11 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, name
         )
+        if lower_name in {"textarea", "title"}:
+            if properties.get("visibility") == "visible":
+                output.append(escape(text[content_start:content_end], quote=False))
+            cursor = element_end
+            continue
         if properties.get("visibility") == "visible":
             output.append(text[match.start() : element_end])
         else:
@@ -2596,7 +2620,7 @@ def _strip_raw_text_elements(text: str) -> str:
         }:
             cursor = index + 1
             continue
-        raw_text_element = name.lower() in {"script", "style"}
+        raw_text_element = name.lower() in {"script", "style", "iframe"}
         if raw_text_element:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
@@ -2815,8 +2839,8 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized = _strip_raw_text_elements(text)
-    normalized = _strip_raw_html_constructs(normalized)
+    normalized = _strip_raw_html_constructs(text)
+    normalized = _strip_raw_text_elements(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)

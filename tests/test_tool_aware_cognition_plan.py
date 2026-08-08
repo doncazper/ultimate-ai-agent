@@ -1433,6 +1433,58 @@ def test_iframe_fallback_text_cannot_supply_authority_denial() -> None:
     )
 
 
+def test_nested_iframe_markup_uses_raw_text_close_semantics() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<iframe><iframe></iframe> UAA can fetch from the public web."
+    )
+
+
+def test_comment_markup_cannot_create_a_visible_descendant() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<!-- <span style="visibility:visible">no</span> --></span> '
+        "web fetching is enabled."
+    )
+
+
+def test_following_heading_ends_hidden_heading() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<h1 hidden><h2>x</h2> UAA can fetch from the public web."
+    )
+
+
+@pytest.mark.parametrize(
+    "construct",
+    (
+        "<? <span hidden> ?>",
+        "<!DOCTYPE <span hidden>>",
+        "<![CDATA[ <span hidden> ]]>",
+    ),
+)
+def test_non_tag_construct_markup_cannot_hide_following_prose(
+    construct: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"{construct} UAA can fetch from the public web."
+    )
+
+
+def test_visible_void_descendant_alternative_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<img style="visibility:visible" '
+        'alt="UAA can fetch from the public web."></span>'
+    )
+
+
+def test_rcdata_markup_cannot_create_a_visible_descendant() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden"><textarea>'
+        '<span style="visibility:visible">no</span>'
+        "</textarea></span> web fetching is enabled."
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
