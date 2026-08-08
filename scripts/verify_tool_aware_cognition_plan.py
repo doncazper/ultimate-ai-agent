@@ -2267,15 +2267,40 @@ def _find_complete_tag_end(text: str, start: int) -> int | None:
     return None
 
 
+def _is_markdown_escaped(text: str, index: int) -> bool:
+    """Return whether the character at index follows an odd backslash run."""
+    backslashes = 0
+    cursor = index - 1
+    while cursor >= 0 and text[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return backslashes % 2 == 1
+
+
+def _valid_commonmark_comment_body(body: str) -> bool:
+    """Return whether body satisfies CommonMark's HTML comment grammar."""
+    return not (
+        body.startswith((">", "->")) or body.endswith("-") or "--" in body
+    )
+
+
 def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
     """Return the end of a same-name-balanced non-raw-text element."""
     depth = 1
     cursor = start
     while (tag_start := text.find("<", cursor)) >= 0:
+        if _is_markdown_escaped(text, tag_start):
+            cursor = tag_start + 1
+            continue
         if text.startswith("<!--", tag_start):
             comment_end = text.find("-->", tag_start + 4)
             if comment_end < 0:
                 return None
+            if not _valid_commonmark_comment_body(
+                text[tag_start + 4 : comment_end]
+            ):
+                cursor = tag_start + 1
+                continue
             cursor = comment_end + 3
             continue
         match = re.match(
@@ -2289,6 +2314,14 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             return None
         tag_name = match.group(1)
         is_closing = text[tag_start + 1] == "/"
+        tag_tail = text[tag_start + match.end() : end]
+        if is_closing:
+            if tag_tail.strip():
+                cursor = end + 1
+                continue
+        elif not _valid_html_opening_tag_tail(tag_tail):
+            cursor = end + 1
+            continue
         if not is_closing and tag_name.lower() in {
             "script",
             "style",
@@ -2305,11 +2338,7 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
         if tag_name.lower() != name.lower():
             cursor = end + 1
             continue
-        tag_tail = text[tag_start + match.end() : end]
         if is_closing:
-            if tag_tail.strip():
-                cursor = end + 1
-                continue
             depth -= 1
             if depth == 0:
                 return end + 1
@@ -2404,6 +2433,10 @@ def _strip_raw_text_elements(text: str) -> str:
         if match is None:
             output.append(text[cursor:])
             break
+        if _is_markdown_escaped(text, match.start()):
+            output.append(text[cursor : match.start() + 1])
+            cursor = match.start() + 1
+            continue
         output.append(text[cursor : match.start()])
         index = _find_complete_tag_end(text, match.end())
         if index is None:
@@ -2417,10 +2450,7 @@ def _strip_raw_text_elements(text: str) -> str:
         name = match.group(1)
         non_rendered = (
             name.lower() in {"script", "style", "template"}
-            or re.search(
-                r"(?:^|\s)hidden(?:\s|=|/|$)", attributes, flags=re.IGNORECASE
-            )
-            is not None
+            or "hidden" in _html_attribute_names(attributes)
             or _inline_style_hides_contents(attributes)
         )
         if not non_rendered:
@@ -2469,6 +2499,10 @@ def _strip_raw_html_constructs(text: str) -> str:
             output.append(text[cursor:])
             break
         output.append(text[cursor:construct_start])
+        if _is_markdown_escaped(text, construct_start):
+            output.append("<")
+            cursor = construct_start + 1
+            continue
         terminator: str | None = None
         if text.startswith("<!--", construct_start):
             terminator = "-->"
@@ -2497,11 +2531,7 @@ def _strip_raw_html_constructs(text: str) -> str:
             break
         if terminator == "-->":
             comment = text[construct_start + 4 : construct_end]
-            if (
-                comment.startswith((">", "->"))
-                or comment.endswith("-")
-                or "--" in comment
-            ):
+            if not _valid_commonmark_comment_body(comment):
                 output.append("<")
                 cursor = construct_start + 1
                 continue
@@ -2519,6 +2549,21 @@ def _valid_html_opening_tag_tail(tail: str) -> bool:
     ) is not None
 
 
+def _html_attribute_names(attributes: str) -> set[str]:
+    """Return parsed CommonMark attribute names, excluding quoted values."""
+    names: set[str] = set()
+    cursor = 0
+    attribute = re.compile(
+        r'[ \t\r\n\f]+(?P<name>[A-Za-z_:][A-Za-z0-9_.:-]*)'
+        r'(?:[ \t\r\n\f]*=[ \t\r\n\f]*(?:"[^"]*"|\'[^\']*\'|'
+        r'[^\s"\'=<>`]+))?'
+    )
+    while (match := attribute.match(attributes, cursor)) is not None:
+        names.add(match.group("name").lower())
+        cursor = match.end()
+    return names
+
+
 def _strip_html_tags(text: str) -> str:
     """Remove ordinary HTML tags while retaining accessible alternative text."""
     output: list[str] = []
@@ -2530,6 +2575,10 @@ def _strip_html_tags(text: str) -> str:
             output.append(text[cursor:])
             break
         output.append(text[cursor:candidate_start])
+        if _is_markdown_escaped(text, candidate_start):
+            output.append("<")
+            cursor = candidate_start + 1
+            continue
         match = tag_start.match(text, candidate_start)
         if match is None or (
             match.end() < len(text)

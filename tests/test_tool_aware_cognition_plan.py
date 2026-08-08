@@ -1369,6 +1369,31 @@ def test_invalid_html_comment_remains_visible_authority_prose() -> None:
     )
 
 
+def test_invalid_comment_does_not_hide_balanced_outer_close() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><!-- a -- b </span> --> "
+        "UAA can fetch from the public web."
+    )
+
+
+def test_invalid_nested_opener_does_not_increase_hidden_depth() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><span = x></span> UAA can fetch from the public web."
+    )
+
+
+def test_hidden_text_inside_quoted_attribute_remains_visible() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span title=" hidden ">UAA can fetch from the public web.</span>'
+    )
+
+
+def test_escaped_html_comment_opener_remains_visible() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        r"\<!-- UAA can fetch from the public web. -->"
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
