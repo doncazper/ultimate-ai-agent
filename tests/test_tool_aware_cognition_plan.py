@@ -457,6 +457,11 @@ def test_exact_head_authority_paraphrase_batch_fails_full_verifier(
         'Calendar event <span title=">">updates</span> are enabled.',
         'Calendar event <span\n title=">">updates</span> are enabled.',
         "Calendar event up<!-- presentation-only -->dates are enabled.",
+        "Calendar event <?presentation-only?>updates are enabled.",
+        "Calendar event <!PRESENTATION-ONLY>updates are enabled.",
+        "Calendar event <![CDATA[presentation-only]]>updates are enabled.",
+        '[Calendar event updates](https://example.invalid\n"title") are enabled.',
+        "Calendar event\\\nupdates are enabled.",
         "[UAA can fetch the public web]: definitely extra",
     ),
 )
@@ -468,6 +473,14 @@ def test_unmatched_markdown_brackets_are_scanned_in_bounded_time() -> None:
     started = perf_counter()
 
     assert verifier._find_forbidden_authority_claims("[" * 8_000) == []
+
+    assert perf_counter() - started < 2.0
+
+
+def test_unterminated_html_tags_are_scanned_in_bounded_time() -> None:
+    started = perf_counter()
+
+    assert verifier._find_forbidden_authority_claims("<span " * 8_000) == []
 
     assert perf_counter() - started < 2.0
 
@@ -492,6 +505,38 @@ def test_markdown_authority_claim_fails_full_verifier(
     monkeypatch.setattr(verifier, "BOARD", board)
 
     with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim, error",
+    (
+        ("Calendar event <?hidden?>updates are enabled.", "self-authorizing"),
+        (
+            '[Calendar event updates](https://example.invalid\n"title") are enabled.',
+            "self-authorizing",
+        ),
+        ("Calendar event\\\nupdates are enabled.", "self-authorizing"),
+        (
+            "The post-merge Foundation Gate may be bypassed.",
+            "acceptance contract is invalid",
+        ),
+    ),
+)
+def test_exact_review_markdown_bypasses_fail_full_verifier(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    claim: str,
+    error: str,
+) -> None:
+    board = tmp_path / "current_board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{claim}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match=error):
         verifier.verify()
 
 
@@ -1755,6 +1800,9 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
     (
         "TAW-08 completion does not require a passing Foundation Gate receipt.",
         "The post-merge Foundation Gate may be skipped.",
+        "The post-merge Foundation Gate may be bypassed.",
+        "The exact-head Foundation Gate can be circumvented.",
+        "The post-merge Foundation Gate may be disregarded.",
         "The exact-head Foundation Gate report-only verification can be skipped.",
         "Foundation Gate is optional for TAW-08.",
         "TAW-08 may complete without Foundation Gate.",

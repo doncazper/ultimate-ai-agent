@@ -1532,7 +1532,9 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
 ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"\bTAW-08 completion does not require (?:a )?passing Foundation Gate receipt\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)? "
-    r"(?:receipt|verification)?\s*(?:may|can) be (?:skipped|omitted|removed)\b",
+    r"(?:receipt|verification)?\s*(?:may|can) be "
+    r"(?:skipped|omitted|removed|bypassed|circumvented|ignored|"
+    r"disregarded|avoided|sidestepped)\b",
     r"\b(?:the )?(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)?"
     r"(?: receipt| verification)? (?:is|are) optional\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)?"
@@ -1895,10 +1897,10 @@ def _inline_link_end(text: str, start: int) -> int | None:
         index = destination_end
         if index < len(text) and text[index] == ")":
             return index + 1
-        if index >= len(text) or text[index] not in " \t":
+        whitespace_end = _markdown_link_whitespace_end(text, index)
+        if whitespace_end is None:
             return None
-        while index < len(text) and text[index] in " \t":
-            index += 1
+        index = whitespace_end
         if index < len(text) and text[index] == ")":
             return index + 1
 
@@ -1922,6 +1924,23 @@ def _inline_link_end(text: str, start: int) -> int | None:
     while index < len(text) and text[index] in " \t":
         index += 1
     return index + 1 if index < len(text) and text[index] == ")" else None
+
+
+def _markdown_link_whitespace_end(text: str, start: int) -> int | None:
+    """Consume CommonMark link whitespace with at most one line ending."""
+    index = start
+    while index < len(text) and text[index] in " \t":
+        index += 1
+    consumed = index > start
+    if index < len(text) and text[index] in "\r\n":
+        consumed = True
+        if text[index] == "\r" and index + 1 < len(text) and text[index + 1] == "\n":
+            index += 2
+        else:
+            index += 1
+        while index < len(text) and text[index] in " \t":
+            index += 1
+    return index if consumed else None
 
 
 def _balanced_markdown_brackets(text: str) -> dict[int, int]:
@@ -1984,23 +2003,60 @@ def _strip_markdown_links(text: str) -> str:
     return "".join(output)
 
 
+def _strip_raw_html_constructs(text: str) -> str:
+    """Remove non-tag CommonMark raw HTML constructs in linear time."""
+    output: list[str] = []
+    cursor = 0
+    while cursor < len(text):
+        construct_start = text.find("<", cursor)
+        if construct_start < 0:
+            output.append(text[cursor:])
+            break
+        output.append(text[cursor:construct_start])
+        terminator: str | None = None
+        if text.startswith("<!--", construct_start):
+            terminator = "-->"
+        elif text.startswith("<?", construct_start):
+            terminator = "?>"
+        elif text.startswith("<![CDATA[", construct_start):
+            terminator = "]]>"
+        elif (
+            text.startswith("<!", construct_start)
+            and construct_start + 2 < len(text)
+            and text[construct_start + 2].isascii()
+            and text[construct_start + 2].isalpha()
+        ):
+            terminator = ">"
+        if terminator is None:
+            output.append("<")
+            cursor = construct_start + 1
+            continue
+        construct_end = text.find(terminator, construct_start + 2)
+        if construct_end < 0:
+            output.append(text[construct_start:])
+            break
+        cursor = construct_end + len(terminator)
+    return "".join(output)
+
+
 def _strip_html_tags(text: str) -> str:
-    """Remove HTML tags while respecting quoted angle brackets in attributes."""
+    """Remove ordinary HTML tags in linear time, respecting quoted attributes."""
     output: list[str] = []
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
     while cursor < len(text):
-        if text[cursor] != "<":
-            output.append(text[cursor])
-            cursor += 1
-            continue
-        match = tag_start.match(text, cursor)
+        candidate_start = text.find("<", cursor)
+        if candidate_start < 0:
+            output.append(text[cursor:])
+            break
+        output.append(text[cursor:candidate_start])
+        match = tag_start.match(text, candidate_start)
         if match is None or (
             match.end() < len(text)
             and not (text[match.end()].isspace() or text[match.end()] in "/>")
         ):
-            output.append(text[cursor])
-            cursor += 1
+            output.append("<")
+            cursor = candidate_start + 1
             continue
         index = match.end()
         quote: str | None = None
@@ -2016,8 +2072,8 @@ def _strip_html_tags(text: str) -> str:
                 break
             index += 1
         else:
-            output.append(text[cursor])
-            cursor += 1
+            output.append(text[candidate_start:])
+            break
     return "".join(output)
 
 
@@ -2030,12 +2086,13 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    normalized = _strip_raw_html_constructs(text)
     normalized = _strip_markdown_reference_definitions(normalized)
     normalized = _strip_markdown_links(normalized)
 
     normalized = _strip_html_tags(normalized)
     normalized = unescape(normalized)
+    normalized = re.sub(r"\\(?:\r\n?|\n)", "\n", normalized)
     normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)
     normalized = re.sub(
         r"^[ \t]{0,3}(?:#{1,6}|[-+*]|\d+[.)])[ \t]+",
