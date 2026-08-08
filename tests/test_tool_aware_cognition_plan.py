@@ -364,6 +364,16 @@ def test_product_mediated_let_claim_is_detected() -> None:
 
 
 @pytest.mark.parametrize(
+    "subject",
+    ("the operator", "an operator", "a user", "the users"),
+)
+def test_product_mediated_claim_with_determiner_is_detected(subject: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"UAA lets {subject} browse the public web."
+    )
+
+
+@pytest.mark.parametrize(
     "claim",
     (
         "The CLI can fetch the public web.",
@@ -1300,6 +1310,18 @@ def test_nested_hidden_element_cannot_supply_an_authority_denial() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "style",
+    ("display:none", "display: none !important", "visibility: hidden"),
+)
+def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
+    style: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="{style}">no</span> web fetching is enabled.'
+    )
+
+
 def test_default_ignorable_character_cannot_hide_authority() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA can fetc&ZeroWidthSpace;h from the public web."
@@ -1316,6 +1338,20 @@ def test_image_alternative_text_is_scanned_for_authority() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<img src="missing.invalid" alt="UAA can fetch from the public web.">'
     )
+
+
+@pytest.mark.parametrize(
+    "element",
+    (
+        '<area alt="UAA can fetch from the public web.">',
+        '<input type="image" alt="UAA can fetch from the public web.">',
+        '<input type=image alt="UAA can fetch from the public web.">',
+    ),
+)
+def test_other_accessible_alternative_text_is_scanned_for_authority(
+    element: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(element)
 
 
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:
@@ -1673,6 +1709,25 @@ def test_unmanifested_familiarity_state_fails_closed(
     )
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8").replace(marker, extra, 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="canonical familiarity state set"):
+        verifier.verify()
+
+
+def test_familiarity_state_semantics_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            "Ask only for the missing safe input fields; do not construct an executable "
+            "proposal",
+            "Construct an executable proposal despite missing typed inputs",
+            1,
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)

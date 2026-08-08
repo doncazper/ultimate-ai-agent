@@ -794,8 +794,9 @@ PRODUCT_MEDIATED_OPERATOR_PATTERNS = (
     r"\b(?:(?:this|the) "
     r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
     r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
-    r"(?:(?:allows?|enables?|permits?|authorizes?) (?:operators?|users?) to|"
-    r"lets? (?:operators?|users?)) "
+    r"(?:(?:allows?|enables?|permits?|authorizes?) "
+    r"(?:(?:the|an?) )?(?:operators?|users?) to|"
+    r"lets? (?:(?:the|an?) )?(?:operators?|users?)) "
     r"(?P<action>[^.!?]{1,240})",
 )
 MEDIATED_PREVENTION_PATTERN = (
@@ -1378,6 +1379,71 @@ FAMILIARITY_STATES = (
     "novel_unsupported",
     "outcome_uncertain",
 )
+FAMILIARITY_STATE_CONTRACT = (
+    (
+        "familiar_supported",
+        "Intent is clear and the relevant capability contract, required inputs, and "
+        "current availability are proven",
+        "Answer directly or produce the exact governed proposal",
+    ),
+    (
+        "familiar_input_required",
+        "The exact capability is known and available, but one or more required typed "
+        "inputs are missing or invalid",
+        "Ask only for the missing safe input fields; do not construct an executable "
+        "proposal",
+    ),
+    (
+        "familiar_unavailable",
+        "The capability is known but is disabled, unhealthy, stale, or absent in the "
+        "current environment",
+        "Explain the bounded limitation and offer safe alternatives",
+    ),
+    (
+        "familiar_requires_approval",
+        "Relevance and inputs are known, an exact graduated authority lane already "
+        "exists, and execution requires its exact approval",
+        "Preview scope and request only that existing exact approval; approval cannot "
+        "mint or broaden authority",
+    ),
+    (
+        "familiar_authority_blocked",
+        "The current PolicyEngine or applicable safety boundary denies the request, "
+        "including before capability selection, or a known requested effect has no "
+        "currently graduated exact authority lane",
+        "Keep the effect blocked and preserve the exact policy/safety reason or future "
+        "promotion prerequisite; do not request an approval that cannot authorize it "
+        "or override the denial",
+    ),
+    (
+        "capability_evidence_unavailable",
+        "A possible tool intent is detected, but the bounded catalog/index evidence is "
+        "missing, corrupt, stale, or over budget, so capability identity cannot be "
+        "established safely",
+        "Preserve the content-free evidence failure reason, do not claim that a "
+        "capability is known or unsupported, and do not propose, request approval, or "
+        "execute",
+    ),
+    (
+        "ambiguous",
+        "Multiple materially different interpretations or tools remain plausible",
+        "Ask one focused clarification through `ask_clarifying_question`; do not choose "
+        "another route, proposal, approval, or execution posture",
+    ),
+    (
+        "novel_unsupported",
+        "No current capability contract adequately covers the requested effect",
+        "Do not invent a tool; identify the unsupported need",
+    ),
+    (
+        "outcome_uncertain",
+        "A durable execution attempt has started, but operator-visible durable terminal "
+        "proof is missing or inconsistent, including while that attempt remains inside "
+        "its statistical reconciliation window",
+        "Fail closed, preserve evidence, and expose recovery posture; proposal and "
+        "approval lifecycle evidence alone cannot trigger this execution-recovery state",
+    ),
+)
 FAMILIARITY_PRECEDENCE = (
     "1. `outcome_uncertain` only when an execution attempt has exact durable start",
     "2. `familiar_authority_blocked` when the current PolicyEngine or applicable",
@@ -1647,16 +1713,16 @@ def _verify_familiarity_states(text: str) -> None:
         rows[1],
     ) is None:
         raise RuntimeError("canonical familiarity state set is invalid")
-    found: list[str] = []
+    found: list[tuple[str, str, str]] = []
     for row in rows[2:]:
         match = re.fullmatch(
-            r"\|\s*`([^`|]+)`\s*\|\s*[^|]+\|\s*[^|]+\|",
+            r"\|\s*`([^`|]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|",
             row,
         )
         if match is None:
             raise RuntimeError("canonical familiarity state set is invalid")
-        found.append(match.group(1))
-    if tuple(found) != FAMILIARITY_STATES:
+        found.append(tuple(part.strip() for part in match.groups()))
+    if tuple(found) != FAMILIARITY_STATE_CONTRACT:
         raise RuntimeError("canonical familiarity state set is invalid")
 
 
@@ -2155,6 +2221,20 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
     return None
 
 
+def _inline_style_hides_contents(attributes: str) -> bool:
+    """Return whether an inline style definitively suppresses element contents."""
+    style = _html_attribute_value(attributes, "style")
+    if style is None:
+        return False
+    normalized = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL).lower()
+    return re.search(
+        r"(?:^|;)\s*(?:display\s*:\s*none|"
+        r"visibility\s*:\s*(?:hidden|collapse))"
+        r"\s*(?:!\s*important\s*)?(?:;|$)",
+        normalized,
+    ) is not None
+
+
 def _strip_raw_text_elements(text: str) -> str:
     """Remove elements whose contents do not render as visible prose."""
     output: list[str] = []
@@ -2172,9 +2252,14 @@ def _strip_raw_text_elements(text: str) -> str:
             break
         attributes = text[match.end() : index]
         name = match.group(1)
-        non_rendered = name.lower() in {"script", "style", "template"} or re.search(
-            r"(?:^|\s)hidden(?:\s|=|/|$)", attributes, flags=re.IGNORECASE
-        ) is not None
+        non_rendered = (
+            name.lower() in {"script", "style", "template"}
+            or re.search(
+                r"(?:^|\s)hidden(?:\s|=|/|$)", attributes, flags=re.IGNORECASE
+            )
+            is not None
+            or _inline_style_hides_contents(attributes)
+        )
         if not non_rendered:
             output.append(text[match.start() : index + 1])
             cursor = index + 1
@@ -2280,12 +2365,11 @@ def _strip_html_tags(text: str) -> str:
             elif character in "\"'":
                 quote = character
             elif character == ">":
-                if (
-                    text[candidate_start + 1] != "/"
-                    and match.group()[1:].lower() == "img"
-                ):
+                if text[candidate_start + 1] != "/":
                     attributes = text[match.end() : index]
-                    alternative = _html_attribute_value(attributes, "alt")
+                    alternative = _accessible_html_alternative(
+                        match.group()[1:].lower(), attributes
+                    )
                     if alternative is not None:
                         output.append(alternative)
                 cursor = index + 1
@@ -2307,6 +2391,18 @@ def _html_attribute_value(attributes: str, name: str) -> str | None:
     if match is None:
         return None
     return next(value for value in match.groups() if value is not None)
+
+
+def _accessible_html_alternative(name: str, attributes: str) -> str | None:
+    """Return `alt` where HTML exposes it as the element's accessible label."""
+    if name in {"area", "img"}:
+        return _html_attribute_value(attributes, "alt")
+    if name != "input":
+        return None
+    input_type = _html_attribute_value(attributes, "type")
+    if input_type is None or input_type.strip().lower() != "image":
+        return None
+    return _html_attribute_value(attributes, "alt")
 
 
 DEFAULT_IGNORABLE_CODE_POINT_RANGES = (
