@@ -1556,6 +1556,13 @@ ZERO_TOLERANCE_LINES = (
     "- raw sensitive content in durable routing evidence: zero;",
 )
 ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
+    r"\bTAW-08 (?:accepts?|allows?|permits?|tolerates?) "
+    r"(?:(?:one|some|any|non[- ]zero|"
+    r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )?"
+    r"(?:unsafe authority broadening(?: events?)?|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)\b",
     r"\b(?:(?:up to|at most|no more than)\s+)?"
     r"(?:(?!0+(?:\.0+)?\s*%)(?:\d+(?:\.\d+)?)\s*%|"
     r"non[- ]zero|some|one or more)\s+"
@@ -1607,6 +1614,9 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
 
 ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"\bTAW-08 completion does not require (?:a )?passing Foundation Gate receipt\b",
+    r"\bTAW-08 completion (?:requires no|does not depend on|doesn't depend on) "
+    r"(?:a |the )?(?:passing )?(?:(?:exact-head|post-merge) )?"
+    r"Foundation Gate(?: report-only)?(?: receipt| verification)?\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)? "
     r"(?:receipt|verification)?\s*(?:may|can) be "
     r"(?:skipped|omitted|removed|bypassed|circumvented|ignored|"
@@ -1690,14 +1700,19 @@ def _verify_exact_phase_headings(text: str) -> None:
     lines = _strip_fenced_code_blocks(visible).splitlines()
     found: list[str] = []
     for index, line in enumerate(lines):
-        if re.fullmatch(
-            r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
-            line,
-        ):
-            found.append(line.lstrip())
+        if re.fullmatch(r"[ ]{0,3}#{1,6}\s+[^\r\n]*", line):
+            rendered = _normalize_markdown_prose(line)
+            if re.search(r"\bTAW-[A-Za-z0-9]+\b", rendered):
+                if re.fullmatch(
+                    r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
+                    line,
+                ):
+                    found.append(line.lstrip())
+                else:
+                    found.append(f"rendered:{rendered}")
             continue
         if (
-            re.search(r"\bTAW-[A-Za-z0-9]+\b", line)
+            re.search(r"\bTAW-[A-Za-z0-9]+\b", _normalize_markdown_prose(line))
             and index + 1 < len(lines)
             and re.fullmatch(r"[ ]{0,3}(?:=+|-+)[ \t]*", lines[index + 1])
         ):
@@ -1741,11 +1756,12 @@ def _verify_familiarity_precedence(text: str) -> None:
         "precedence is mandatory:\n\n"
     )
     end = "\n\nThis ordering prevents"
-    if text.count(start) != 1 or text.count(end) != 1:
+    visible = _visible_markdown_source(text)
+    if visible.count(start) != 1 or visible.count(end) != 1:
         raise RuntimeError("familiarity precedence is invalid")
-    block = text.split(start, 1)[1].split(end, 1)[0]
+    block = visible.split(start, 1)[1].split(end, 1)[0]
     _require_ordered("familiarity precedence", block, FAMILIARITY_PRECEDENCE)
-    if any(text.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
+    if any(visible.count(fragment) != 1 for fragment in FAMILIARITY_PRECEDENCE):
         raise RuntimeError("familiarity precedence has duplicate declarations")
     numbered_entries = tuple(
         re.findall(r"^[ ]{0,3}(\d+)[.)]\s+`([^`]+)`", block, flags=re.MULTILINE)
@@ -1772,7 +1788,7 @@ def _verify_familiarity_precedence(text: str) -> None:
     state_pattern = "|".join(re.escape(state) for state in FAMILIARITY_STATES)
     all_numbered_states = tuple(
         re.findall(
-            rf"^[ ]{{0,3}}\d+[.)] `({state_pattern})`", text, flags=re.MULTILINE
+            rf"^[ ]{{0,3}}\d+[.)] `({state_pattern})`", visible, flags=re.MULTILINE
         )
     )
     block_numbered_states = tuple(
@@ -2235,7 +2251,9 @@ def _inline_style_hides_contents(attributes: str) -> bool:
     style = _html_attribute_value(attributes, "style")
     if style is None:
         return False
-    normalized = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL).lower()
+    normalized = re.sub(
+        r"/\*.*?\*/", "", unescape(style), flags=re.DOTALL
+    ).lower()
     effective: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
         r"(?:^|;)\s*(display|visibility)\s*:\s*([^;]*)", normalized
@@ -2301,7 +2319,7 @@ def _strip_raw_text_elements(text: str) -> str:
         }:
             cursor = index + 1
             continue
-        raw_text_element = name.lower() in {"script", "style", "template"}
+        raw_text_element = name.lower() in {"script", "style"}
         if raw_text_element:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE

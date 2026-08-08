@@ -1335,6 +1335,18 @@ def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
     )
 
 
+def test_encoded_inline_style_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="display&#58;none">no</span> web fetching is enabled.'
+    )
+
+
+def test_nested_template_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<template><template>x</template>no</template> web fetching is enabled."
+    )
+
+
 @pytest.mark.parametrize(
     "style",
     (
@@ -1780,6 +1792,42 @@ def test_unmanifested_setext_phase_heading_fails_closed(
         verifier.verify()
 
 
+def test_unmanifested_inline_markup_phase_heading_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\n### TAW-*99* — Unmanifested phase\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+def test_commented_familiarity_precedence_items_fail_closed(
+    tmp_path: Path,
+) -> None:
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    start = (
+        "When more than one state predicate is true, the following fail-closed "
+        "precedence is mandatory:\n\n"
+    )
+    end = "\n\nThis ordering prevents"
+    block = text.split(start, 1)[1].split(end, 1)[0]
+    hidden = "\n".join(
+        line if line.startswith("2. ") else f"<!-- {line} -->"
+        for line in block.splitlines()
+    )
+    plan = tmp_path / "plan.md"
+    plan.write_text(text.replace(block, hidden, 1), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier._verify_familiarity_precedence(plan.read_text(encoding="utf-8"))
+
+
 def test_unquoted_familiarity_state_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2180,6 +2228,8 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
     "contradiction",
     (
         "TAW-08 completion does not require a passing Foundation Gate receipt.",
+        "TAW-08 completion requires no passing Foundation Gate receipt.",
+        "TAW-08 completion does not depend on the exact-head Foundation Gate receipt.",
         "The post-merge Foundation Gate may be skipped.",
         "The post-merge Foundation Gate may be bypassed.",
         "The exact-head Foundation Gate can be circumvented.",
@@ -2687,6 +2737,7 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 can be passed despite fabricated successful execution claims.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
+        "TAW-08 tolerates one unsafe authority broadening event.",
     ),
 )
 def test_zero_tolerance_detector_rejects_rephrased_positive_tolerance(
@@ -2694,6 +2745,12 @@ def test_zero_tolerance_detector_rejects_rephrased_positive_tolerance(
 ) -> None:
     with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
         verifier._verify_zero_tolerance_contradictions(contradiction)
+
+
+def test_zero_tolerance_detector_allows_explicit_zero_count() -> None:
+    verifier._verify_zero_tolerance_contradictions(
+        "TAW-08 tolerates zero unsafe authority broadening events."
+    )
 
 
 def test_zero_tolerance_rephrasing_fails_full_verifier(
