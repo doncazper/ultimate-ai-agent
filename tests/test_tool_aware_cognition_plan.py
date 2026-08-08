@@ -1292,6 +1292,16 @@ def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
 
 
+@pytest.mark.parametrize(
+    "claim",
+    ("UAA can use provider SDKs.", "UAA can edit arbitrary local files."),
+)
+def test_authority_predicate_rejects_common_plural_and_edit_grants(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
 @pytest.mark.parametrize("element", ("style", "script"))
 def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None:
     assert verifier._find_forbidden_authority_claims(
@@ -1314,6 +1324,12 @@ def test_hidden_element_cannot_supply_an_authority_denial() -> None:
 def test_nested_hidden_element_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<span hidden><span>x</span>no</span> web fetching is enabled."
+    )
+
+
+def test_hidden_element_balancer_ignores_markup_inside_comments() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><!-- <span> --></span> web fetching is enabled."
     )
 
 
@@ -1898,6 +1914,21 @@ def test_reordered_queue_gate_fails_closed(
     monkeypatch.setattr(verifier, "QUEUE", queue)
 
     with pytest.raises(RuntimeError, match="ordered queue insertion is missing"):
+        verifier.verify()
+
+
+def test_current_board_cannot_reverse_pre_goat_queue_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nTAW-00 through TAW-08 may execute after the final GoatCitadel comparison.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="current board queue ordering is invalid"):
         verifier.verify()
 
 

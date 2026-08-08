@@ -915,8 +915,8 @@ FORBIDDEN_PATTERNS = (
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:invok(?:e|es|ed|ing) (?:a )?(?:runtime )?(?:models?|providers?)|"
     r"(?:run|perform)(?:s|ed|ing)? (?:runtime )?(?:model )?inference|"
-    r"provider SDK (?:calls?|access|use|invocations?)|"
-    r"(?:use|call)(?:s|ed|ing)? (?:the )?provider SDK)\b",
+    r"provider SDKs? (?:calls?|access|use|invocations?)|"
+    r"(?:use|call)(?:s|ed|ing)? (?:the )?provider SDKs?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to) "
@@ -943,10 +943,10 @@ FORBIDDEN_PATTERNS = (
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|supports?|enables?|provides? (?:the )?ability to|offers?) "
     r"(?!(?:not|never|no\s+longer)\b)"
-    r"(?:(?:creat(?:e|es|ed|ing)|modif(?:y|ies|ied|ying)|writ(?:e|es|ten|ing)|"
+    r"(?:(?:creat(?:e|es|ed|ing)|edit(?:s|ed|ing)?|modif(?:y|ies|ied|ying)|writ(?:e|es|ten|ing)|"
     r"overwrit(?:e|es|ten|ing)|mov(?:e|es|ed|ing)|renam(?:e|es|ed|ing)|"
     r"delet(?:e|es|ed|ing)|remov(?:e|es|ed|ing)) (?:to )?"
-    r"(?:(?:local|unscoped|arbitrary) )?(?:files?|directories|folders)|"
+    r"(?:(?:local|unscoped|arbitrary) ){0,2}(?:files?|directories|folders)|"
     r"(?:perform|execute)(?:s|d|ing)? (?:unscoped |arbitrary )?filesystem mutations?|"
     r"(?:unscoped |arbitrary )?filesystem mutation)\b",
     r"\b(?:(?:unscoped|arbitrary|local) )?"
@@ -1825,6 +1825,18 @@ def _verify_queue_position(text: str) -> None:
         raise RuntimeError("ordered queue insertion has competing declarations")
 
 
+def _verify_board_queue_order(text: str) -> None:
+    """Reject active-board prose that reverses the immutable pre-Goat sequence."""
+    visible = _normalize_markdown_prose(_visible_markdown_source(text))
+    if re.search(
+        r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
+        r"(?:execute|run|proceed|occur) after (?:the )?final GoatCitadel comparison\b",
+        visible,
+        flags=re.IGNORECASE,
+    ):
+        raise RuntimeError("current board queue ordering is invalid")
+
+
 def _verify_zero_tolerance_lines(text: str) -> None:
     lines = [line.strip() for line in text.splitlines()]
     for required in ZERO_TOLERANCE_LINES:
@@ -2230,15 +2242,39 @@ def _find_complete_tag_end(text: str, start: int) -> int | None:
 
 def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
     """Return the end of a same-name-balanced non-raw-text element."""
-    candidate = re.compile(rf"</?{re.escape(name)}(?=[\s/>])", re.IGNORECASE)
     depth = 1
     cursor = start
-    while (match := candidate.search(text, cursor)) is not None:
-        end = _find_complete_tag_end(text, match.end())
+    while (tag_start := text.find("<", cursor)) >= 0:
+        if text.startswith("<!--", tag_start):
+            comment_end = text.find("-->", tag_start + 4)
+            if comment_end < 0:
+                return None
+            cursor = comment_end + 3
+            continue
+        match = re.match(
+            r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])", text[tag_start:]
+        )
+        if match is None:
+            cursor = tag_start + 1
+            continue
+        end = _find_complete_tag_end(text, tag_start + match.end())
         if end is None:
             return None
-        tag_tail = text[match.end() : end]
-        if text[match.start() + 1] == "/":
+        tag_name = match.group(1)
+        is_closing = text[tag_start + 1] == "/"
+        if not is_closing and tag_name.lower() in {"script", "style"}:
+            closing = re.compile(
+                rf"</{re.escape(tag_name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, end + 1)
+            if closing is None:
+                return None
+            cursor = closing.end()
+            continue
+        if tag_name.lower() != name.lower():
+            cursor = end + 1
+            continue
+        tag_tail = text[tag_start + match.end() : end]
+        if is_closing:
             if tag_tail.strip():
                 cursor = end + 1
                 continue
@@ -2739,6 +2775,7 @@ def verify() -> dict[str, object]:
     _verify_queue_lifecycle(visible_queue)
     _verify_queue_position(visible_queue)
     _require_visible_markdown("current board", board, BOARD_REQUIRED)
+    _verify_board_queue_order(board)
     _require_visible_markdown("canonical roadmap", roadmap, ROADMAP_REQUIRED)
     _require_visible_markdown(
         "canonical roadmap truth", canonical_roadmap, CANONICAL_ROADMAP_REQUIRED
