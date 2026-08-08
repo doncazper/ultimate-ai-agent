@@ -1341,9 +1341,21 @@ def test_encoded_inline_style_cannot_supply_an_authority_denial() -> None:
     )
 
 
+def test_css_escaped_inline_style_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        r'<span style="display:n\6f ne">no</span> web fetching is enabled.'
+    )
+
+
 def test_nested_template_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<template><template>x</template>no</template> web fetching is enabled."
+    )
+
+
+def test_slashed_non_void_tag_remains_balanced_inside_hidden_element() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><span/>x</span>no</span> web fetching is enabled."
     )
 
 
@@ -2230,6 +2242,8 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "TAW-08 completion does not require a passing Foundation Gate receipt.",
         "TAW-08 completion requires no passing Foundation Gate receipt.",
         "TAW-08 completion does not depend on the exact-head Foundation Gate receipt.",
+        "TAW-08 completion requires neither an exact-head nor a post-merge "
+        "Foundation Gate receipt.",
         "The post-merge Foundation Gate may be skipped.",
         "The post-merge Foundation Gate may be bypassed.",
         "The exact-head Foundation Gate can be circumvented.",
@@ -2738,6 +2752,7 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
         "TAW-08 tolerates one unsafe authority broadening event.",
+        "TAW-08 tolerates a single unsafe authority broadening event.",
     ),
 )
 def test_zero_tolerance_detector_rejects_rephrased_positive_tolerance(

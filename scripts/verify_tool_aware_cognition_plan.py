@@ -1557,7 +1557,7 @@ ZERO_TOLERANCE_LINES = (
 )
 ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"\bTAW-08 (?:accepts?|allows?|permits?|tolerates?) "
-    r"(?:(?:one|some|any|non[- ]zero|"
+    r"(?:(?:one|some|any|a single|non[- ]zero|"
     r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )?"
     r"(?:unsafe authority broadening(?: events?)?|"
     r"fabricated (?:availability(?: or successful execution)?|"
@@ -1616,6 +1616,11 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"\bTAW-08 completion does not require (?:a )?passing Foundation Gate receipt\b",
     r"\bTAW-08 completion (?:requires no|does not depend on|doesn't depend on) "
     r"(?:a |the )?(?:passing )?(?:(?:exact-head|post-merge) )?"
+    r"Foundation Gate(?: report-only)?(?: receipt| verification)?\b",
+    r"\bTAW-08 completion requires neither "
+    r"(?:an? |the )?(?:passing )?(?:exact-head|post-merge)"
+    r"(?: Foundation Gate(?: report-only)?(?: receipt| verification)?)? nor "
+    r"(?:an? |the )?(?:passing )?(?:exact-head|post-merge) "
     r"Foundation Gate(?: report-only)?(?: receipt| verification)?\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)? "
     r"(?:receipt|verification)?\s*(?:may|can) be "
@@ -2240,10 +2245,59 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             depth -= 1
             if depth == 0:
                 return end + 1
-        elif not tag_tail.rstrip().endswith("/"):
+        else:
             depth += 1
         cursor = end + 1
     return None
+
+
+def _decode_css_escapes(value: str) -> str:
+    """Decode CSS escapes before interpreting security-relevant declarations."""
+    output: list[str] = []
+    cursor = 0
+    while cursor < len(value):
+        if value[cursor] != "\\":
+            output.append(value[cursor])
+            cursor += 1
+            continue
+        cursor += 1
+        if cursor >= len(value):
+            output.append("\ufffd")
+            break
+        if value[cursor] in "\n\f":
+            cursor += 1
+            continue
+        if value[cursor] == "\r":
+            cursor += (
+                2
+                if cursor + 1 < len(value) and value[cursor + 1] == "\n"
+                else 1
+            )
+            continue
+        match = re.match(r"[0-9a-fA-F]{1,6}", value[cursor:])
+        if match is None:
+            output.append(value[cursor])
+            cursor += 1
+            continue
+        codepoint = int(match.group(), 16)
+        output.append(
+            chr(codepoint)
+            if codepoint != 0
+            and codepoint <= 0x10FFFF
+            and not 0xD800 <= codepoint <= 0xDFFF
+            else "\ufffd"
+        )
+        cursor += len(match.group())
+        if cursor < len(value) and value[cursor] in " \t\r\n\f":
+            if (
+                value[cursor] == "\r"
+                and cursor + 1 < len(value)
+                and value[cursor + 1] == "\n"
+            ):
+                cursor += 2
+            else:
+                cursor += 1
+    return "".join(output)
 
 
 def _inline_style_hides_contents(attributes: str) -> bool:
@@ -2252,7 +2306,7 @@ def _inline_style_hides_contents(attributes: str) -> bool:
     if style is None:
         return False
     normalized = re.sub(
-        r"/\*.*?\*/", "", unescape(style), flags=re.DOTALL
+        r"/\*.*?\*/", "", _decode_css_escapes(unescape(style)), flags=re.DOTALL
     ).lower()
     effective: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
@@ -2301,7 +2355,7 @@ def _strip_raw_text_elements(text: str) -> str:
             output.append(text[match.start() : index + 1])
             cursor = index + 1
             continue
-        if attributes.rstrip().endswith("/") or name.lower() in {
+        if name.lower() in {
             "area",
             "base",
             "br",
