@@ -1611,7 +1611,7 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 def _verify_exact_phase_headings(text: str) -> None:
     found = tuple(
         line.lstrip()
-        for line in text.splitlines()
+        for line in _strip_fenced_code_blocks(text).splitlines()
         if re.fullmatch(
             r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
             line,
@@ -1787,7 +1787,7 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
             tail = prefix.rstrip()
             direct_denial = re.search(r"\bno\s*$", tail, re.IGNORECASE) is not None
             governing_clause_denial = re.search(
-                r"\b(?:(?:do|does|did) not|don['’]t|doesn['’]t|didn['’]t) "
+                r"\b(?:(?:do|does|did) not|don['’]t|doesn['’]t|didn['’]t|never) "
                 r"(?:claim|mean|imply|indicate|assert|state)(?: that)?\s*$|"
                 r"\bis not (?:a )?(?:claim|assertion|indication) that\s*$",
                 tail,
@@ -1811,14 +1811,29 @@ def _scan_forbidden_authority_claims(text: str) -> list[str]:
                         denial_items,
                         flags=re.IGNORECASE,
                     ) is None
-                    coordinated_denial = noun_list and (
-                        coordinator.group(1).lower() == "nor"
+                    denial_lead = tail[: denial_starts[-1].start()]
+                    explicit_denial_context = (
+                        denial_starts[-1].start() == 0
                         or re.search(
-                            r"\b(?:is|are|was|were)\b",
-                            match.group(0),
+                            r"\b(?:non-authorizing|not authorized|blocked|prohibited|"
+                            r"forbidden|denied)\s*$",
+                            denial_lead,
                             flags=re.IGNORECASE,
                         )
                         is not None
+                    )
+                    coordinated_denial = noun_list and (
+                        coordinator.group(1).lower() == "nor"
+                        or (
+                            explicit_denial_context
+                            and "," in denial_items
+                            and re.search(
+                                r"\b(?:is|are|was|were)\b",
+                                match.group(0),
+                                flags=re.IGNORECASE,
+                            )
+                            is not None
+                        )
                     )
             # A match is exempt only when its own passive subject is directly
             # negated, it is governed by an explicit claim/implication denial,
@@ -2048,6 +2063,68 @@ def _commonmark_declaration_content_start(text: str, start: int) -> int | None:
     return index + 1
 
 
+def _strip_fenced_code_blocks(text: str) -> str:
+    """Remove CommonMark-style fenced code blocks before structure checks."""
+    output: list[str] = []
+    fence_character: str | None = None
+    fence_length = 0
+    opening = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        if fence_character is None:
+            match = opening.match(content)
+            if match is None:
+                output.append(line)
+                continue
+            fence_character = match.group(1)[0]
+            fence_length = len(match.group(1))
+            output.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+        closing = re.fullmatch(
+            rf"[ ]{{0,3}}{re.escape(fence_character)}{{{fence_length},}}[ \t]*",
+            content,
+        )
+        if closing is not None:
+            fence_character = None
+            fence_length = 0
+        output.append("\n" if line.endswith(("\n", "\r")) else "")
+    return "".join(output)
+
+
+def _strip_raw_text_elements(text: str) -> str:
+    """Remove non-prose script/style elements together with their contents."""
+    output: list[str] = []
+    cursor = 0
+    opening = re.compile(r"<(script|style)(?=[\s/>])", re.IGNORECASE)
+    while True:
+        match = opening.search(text, cursor)
+        if match is None:
+            output.append(text[cursor:])
+            break
+        output.append(text[cursor : match.start()])
+        index = match.end()
+        quote: str | None = None
+        while index < len(text):
+            character = text[index]
+            if quote is not None:
+                if character == quote:
+                    quote = None
+            elif character in "\"'":
+                quote = character
+            elif character == ">":
+                break
+            index += 1
+        if index >= len(text):
+            break
+        closing = re.compile(
+            rf"</{re.escape(match.group(1))}[ \t\r\n]*>", re.IGNORECASE
+        ).search(text, index + 1)
+        if closing is None:
+            break
+        cursor = closing.end()
+    return "".join(output)
+
+
 def _strip_raw_html_constructs(text: str) -> str:
     """Remove non-tag CommonMark raw HTML constructs in linear time."""
     output: list[str] = []
@@ -2135,7 +2212,8 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized = _strip_raw_html_constructs(text)
+    normalized = _strip_raw_text_elements(text)
+    normalized = _strip_raw_html_constructs(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
@@ -2328,6 +2406,7 @@ def verify() -> dict[str, object]:
     _require_visible_markdown("plan", plan, PLAN_REQUIRED)
     _verify_zero_tolerance_lines(plan)
     _verify_plan_lifecycle_and_authority_boundary(plan)
+    _verify_exact_phase_headings(plan)
     _require("queue insertion", queue, QUEUE_REQUIRED)
     _verify_queue_lifecycle(queue)
     _verify_queue_position(queue)
@@ -2363,7 +2442,6 @@ def verify() -> dict[str, object]:
     if present:
         raise RuntimeError(f"self-authorizing language found: {present}")
 
-    _verify_exact_phase_headings(plan)
     _verify_familiarity_states(plan)
     _verify_familiarity_precedence(plan)
 

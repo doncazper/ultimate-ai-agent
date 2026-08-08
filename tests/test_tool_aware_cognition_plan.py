@@ -924,6 +924,7 @@ def test_forbidden_authority_batch_fails_on_every_program_truth_surface(
         "No schedule is final, production authority is enabled.",
         "No schedule is final, or production authority is enabled.",
         "Available modes: no limits or UAA can fetch the public web.",
+        "Available modes: no limits or web fetching is enabled.",
         "No schedule is final, policy checks may be bypassed.",
         "No schedule is final, automatic skill execution is allowed.",
         "No web fetching is authorized; this program grants production authority.",
@@ -1250,6 +1251,13 @@ def test_authority_predicate_denials_remain_valid(denial: str) -> None:
     assert verifier._find_forbidden_authority_claims(denial) == []
 
 
+@pytest.mark.parametrize("element", ("style", "script"))
+def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"<{element}>no</{element}> web fetching is enabled."
+    )
+
+
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:
     assert (
         verifier._find_forbidden_authority_claims(
@@ -1272,6 +1280,7 @@ def test_prevention_wording_does_not_hide_coordinated_authority() -> None:
         "This does not mean UAA can execute plugins.",
         "The plan doesn't imply that the API can write to connectors.",
         "This is not a claim that UAA can run shell commands.",
+        "Never state that web fetching is enabled.",
     ),
 )
 def test_governing_clause_denials_remain_valid(denial: str) -> None:
@@ -1413,6 +1422,20 @@ def test_unmanifested_phase_heading_fails_closed(
         + "\n### TAW-09 — Extra implementation phase\n",
         encoding="utf-8",
     )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
+        verifier.verify()
+
+
+def test_fenced_phase_headings_do_not_satisfy_structure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    text = verifier.PLAN.read_text(encoding="utf-8")
+    for heading in verifier.PHASE_HEADINGS:
+        text = text.replace(heading, f"```markdown\n{heading}\n```")
+    plan.write_text(text, encoding="utf-8")
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="plan phase headings"):
