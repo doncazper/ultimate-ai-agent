@@ -2295,7 +2295,8 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
         if text.startswith("<!--", tag_start):
             comment_end = text.find("-->", tag_start + 4)
             if comment_end < 0:
-                return None
+                cursor = tag_start + 1
+                continue
             if not _valid_commonmark_comment_body(
                 text[tag_start + 4 : comment_end]
             ):
@@ -2311,7 +2312,8 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             continue
         end = _find_complete_tag_end(text, tag_start + match.end())
         if end is None:
-            return None
+            cursor = tag_start + 1
+            continue
         tag_name = match.group(1)
         is_closing = text[tag_start + 1] == "/"
         tag_tail = text[tag_start + match.end() : end]
@@ -2343,6 +2345,23 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             if depth == 0:
                 return end + 1
         else:
+            if name.lower() in {
+                "p",
+                "li",
+                "dt",
+                "dd",
+                "rt",
+                "rp",
+                "optgroup",
+                "option",
+                "thead",
+                "tbody",
+                "tfoot",
+                "tr",
+                "td",
+                "th",
+            }:
+                return tag_start
             depth += 1
         cursor = end + 1
     return None
@@ -2397,11 +2416,11 @@ def _decode_css_escapes(value: str) -> str:
     return "".join(output)
 
 
-def _inline_style_hides_contents(attributes: str) -> bool:
-    """Return whether an inline style definitively suppresses element contents."""
+def _inline_style_properties(attributes: str) -> dict[str, str]:
+    """Return effective visibility-relevant inline style properties."""
     style = _html_attribute_value(attributes, "style")
     if style is None:
-        return False
+        return {}
     normalized = re.sub(
         r"/\*.*?\*/", "", _decode_css_escapes(unescape(style)), flags=re.DOTALL
     ).lower()
@@ -2418,9 +2437,104 @@ def _inline_style_hides_contents(attributes: str) -> bool:
         previous = effective.get(name)
         if previous is None or important or not previous[1]:
             effective[name] = (value, important)
-    return effective.get("display", ("", False))[0] == "none" or effective.get(
-        "visibility", ("", False)
-    )[0] in {"hidden", "collapse"}
+    return {name: value for name, (value, _important) in effective.items()}
+
+
+def _inline_style_hides_contents(attributes: str) -> bool:
+    """Return whether an inline style suppresses this element's own contents."""
+    properties = _inline_style_properties(attributes)
+    return properties.get("display") == "none" or properties.get("visibility") in {
+        "hidden",
+        "collapse",
+    }
+
+
+def _matching_closing_start(
+    text: str, content_start: int, element_end: int, name: str
+) -> int:
+    """Return the final matching closing-tag start within a balanced element."""
+    matches = tuple(
+        re.finditer(
+            rf"</{re.escape(name)}[ \t\r\n]*>",
+            text[content_start:element_end],
+            flags=re.IGNORECASE,
+        )
+    )
+    return content_start + matches[-1].start() if matches else element_end
+
+
+def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
+    """Retain explicit visible descendants of visibility-hidden content."""
+    if depth > 64:
+        raise RuntimeError("HTML visibility nesting exceeds the scan bound")
+    output: list[str] = []
+    cursor = 0
+    opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
+    while (match := opening.search(text, cursor)) is not None:
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            cursor = match.start() + 1
+            continue
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            cursor = opening_end + 1
+            continue
+        name = match.group(1)
+        lower_name = name.lower()
+        if lower_name in {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }:
+            cursor = opening_end + 1
+            continue
+        if lower_name in {"script", "style"}:
+            closing = re.compile(
+                rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, opening_end + 1)
+            element_end = None if closing is None else closing.end()
+        else:
+            element_end = _find_balanced_element_end(text, opening_end + 1, name)
+        if element_end is None or element_end <= opening_end:
+            cursor = opening_end + 1
+            continue
+        properties = _inline_style_properties(attributes)
+        attribute_names = _html_attribute_names(attributes)
+        if (
+            lower_name in {"script", "style", "template", "iframe"}
+            or "hidden" in attribute_names
+            or properties.get("display") == "none"
+        ):
+            cursor = element_end
+            continue
+        content_start = opening_end + 1
+        content_end = _matching_closing_start(
+            text, content_start, element_end, name
+        )
+        if properties.get("visibility") == "visible":
+            output.append(text[match.start() : element_end])
+        else:
+            output.append(
+                _visibility_visible_descendants(
+                    text[content_start:content_end], depth=depth + 1
+                )
+            )
+        cursor = element_end
+    return "".join(output)
 
 
 def _strip_raw_text_elements(text: str) -> str:
@@ -2448,11 +2562,18 @@ def _strip_raw_text_elements(text: str) -> str:
             cursor = index + 1
             continue
         name = match.group(1)
-        non_rendered = (
-            name.lower() in {"script", "style", "template"}
-            or "hidden" in _html_attribute_names(attributes)
-            or _inline_style_hides_contents(attributes)
+        attribute_names = _html_attribute_names(attributes)
+        style_properties = _inline_style_properties(attributes)
+        subtree_non_rendered = (
+            name.lower() in {"script", "style", "template", "iframe"}
+            or "hidden" in attribute_names
+            or style_properties.get("display") == "none"
         )
+        visibility_hidden = style_properties.get("visibility") in {
+            "hidden",
+            "collapse",
+        }
+        non_rendered = subtree_non_rendered or visibility_hidden
         if not non_rendered:
             output.append(text[match.start() : index + 1])
             cursor = index + 1
@@ -2485,6 +2606,14 @@ def _strip_raw_text_elements(text: str) -> str:
             closing_end = _find_balanced_element_end(text, index + 1, name)
         if closing_end is None:
             break
+        if visibility_hidden and not subtree_non_rendered:
+            content_start = index + 1
+            content_end = _matching_closing_start(
+                text, content_start, closing_end, name
+            )
+            output.append(
+                _visibility_visible_descendants(text[content_start:content_end])
+            )
         cursor = closing_end
     return "".join(output)
 
@@ -2551,17 +2680,26 @@ def _valid_html_opening_tag_tail(tail: str) -> bool:
 
 def _html_attribute_names(attributes: str) -> set[str]:
     """Return parsed CommonMark attribute names, excluding quoted values."""
-    names: set[str] = set()
+    return set(_html_attributes(attributes))
+
+
+def _html_attributes(attributes: str) -> dict[str, str | None]:
+    """Return a quote-aware map of CommonMark HTML attributes."""
+    parsed: dict[str, str | None] = {}
     cursor = 0
     attribute = re.compile(
         r'[ \t\r\n\f]+(?P<name>[A-Za-z_:][A-Za-z0-9_.:-]*)'
-        r'(?:[ \t\r\n\f]*=[ \t\r\n\f]*(?:"[^"]*"|\'[^\']*\'|'
-        r'[^\s"\'=<>`]+))?'
+        r'(?:[ \t\r\n\f]*=[ \t\r\n\f]*(?:"(?P<double>[^"]*)"|'
+        r"'(?P<single>[^']*)'|(?P<unquoted>[^\s\"'=<>`]+)))?"
     )
     while (match := attribute.match(attributes, cursor)) is not None:
-        names.add(match.group("name").lower())
+        value = next(
+            (match.group(group) for group in ("double", "single", "unquoted") if match.group(group) is not None),
+            None,
+        )
+        parsed.setdefault(match.group("name").lower(), value)
         cursor = match.end()
-    return names
+    return parsed
 
 
 def _strip_html_tags(text: str) -> str:
@@ -2624,14 +2762,7 @@ def _strip_html_tags(text: str) -> str:
 
 def _html_attribute_value(attributes: str, name: str) -> str | None:
     """Return one quoted or unquoted CommonMark HTML attribute value."""
-    match = re.search(
-        rf"(?:^|\s){re.escape(name)}\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s\"'=<>`]+))",
-        attributes,
-        flags=re.IGNORECASE,
-    )
-    if match is None:
-        return None
-    return next(value for value in match.groups() if value is not None)
+    return _html_attributes(attributes).get(name.lower())
 
 
 def _accessible_html_alternative(name: str, attributes: str) -> str | None:

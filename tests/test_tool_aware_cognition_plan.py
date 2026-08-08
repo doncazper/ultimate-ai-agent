@@ -1394,6 +1394,45 @@ def test_escaped_html_comment_opener_remains_visible() -> None:
     )
 
 
+def test_unterminated_comment_does_not_abort_hidden_balancing() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><!-- malformed </span> UAA can fetch from the public web."
+    )
+
+
+def test_incomplete_nested_opener_does_not_abort_hidden_balancing() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span hidden><span title="</span> UAA can fetch from the public web.'
+    )
+
+
+def test_style_text_inside_quoted_attribute_remains_visible() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span title=" style=display:none ">'
+        "UAA can fetch from the public web.</span>"
+    )
+
+
+def test_visible_descendant_of_visibility_hidden_element_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<span style="visibility:visible">'
+        "UAA can fetch from the public web.</span></span>"
+    )
+
+
+def test_implied_end_tag_does_not_hide_following_visible_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<p hidden><p>x</p> UAA can fetch from the public web."
+    )
+
+
+def test_iframe_fallback_text_cannot_supply_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<iframe>no</iframe> web fetching is enabled."
+    )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
