@@ -365,7 +365,14 @@ def test_product_mediated_let_claim_is_detected() -> None:
 
 @pytest.mark.parametrize(
     "subject",
-    ("the operator", "an operator", "a user", "the users"),
+    (
+        "the operator",
+        "an operator",
+        "a user",
+        "the users",
+        "its users",
+        "our operators",
+    ),
 )
 def test_product_mediated_claim_with_determiner_is_detected(subject: str) -> None:
     assert verifier._find_forbidden_authority_claims(
@@ -1312,13 +1319,34 @@ def test_nested_hidden_element_cannot_supply_an_authority_denial() -> None:
 
 @pytest.mark.parametrize(
     "style",
-    ("display:none", "display: none !important", "visibility: hidden"),
+    (
+        "display:none",
+        "display: none !important",
+        "display:block; display:none",
+        "display:none !important; display:block",
+        "visibility: hidden",
+    ),
 )
 def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
     style: str,
 ) -> None:
     assert verifier._find_forbidden_authority_claims(
         f'<span style="{style}">no</span> web fetching is enabled.'
+    )
+
+
+@pytest.mark.parametrize(
+    "style",
+    (
+        "display:none; display:block",
+        "display:none; display:block !important",
+        "display:none !important; display:block !important",
+        "visibility:hidden; visibility:visible",
+    ),
+)
+def test_inline_style_visible_override_remains_scannable(style: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="{style}">UAA can fetch from the public web.</span>'
     )
 
 
@@ -1346,6 +1374,7 @@ def test_image_alternative_text_is_scanned_for_authority() -> None:
         '<area alt="UAA can fetch from the public web.">',
         '<input type="image" alt="UAA can fetch from the public web.">',
         '<input type=image alt="UAA can fetch from the public web.">',
+        '<input type="im&#97;ge" alt="UAA can fetch from the public web.">',
     ),
 )
 def test_other_accessible_alternative_text_is_scanned_for_authority(
@@ -1733,6 +1762,21 @@ def test_familiarity_state_semantics_fail_closed(
     monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="canonical familiarity state set"):
+        verifier.verify()
+
+
+def test_unmanifested_setext_phase_heading_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nTAW-99 — Unmanifested phase\n---------------------------\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan phase headings"):
         verifier.verify()
 
 

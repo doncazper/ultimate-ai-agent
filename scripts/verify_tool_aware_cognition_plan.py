@@ -795,8 +795,10 @@ PRODUCT_MEDIATED_OPERATOR_PATTERNS = (
     r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
     r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:(?:allows?|enables?|permits?|authorizes?) "
-    r"(?:(?:the|an?) )?(?:operators?|users?) to|"
-    r"lets? (?:(?:the|an?) )?(?:operators?|users?)) "
+    r"(?:(?:the|an?|its|our|your|their|his|her|my) )?"
+    r"(?:operators?|users?) to|"
+    r"lets? (?:(?:the|an?|its|our|your|their|his|her|my) )?"
+    r"(?:operators?|users?)) "
     r"(?P<action>[^.!?]{1,240})",
 )
 MEDIATED_PREVENTION_PATTERN = (
@@ -1685,15 +1687,22 @@ def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
 
 def _verify_exact_phase_headings(text: str) -> None:
     visible = _visible_markdown_source(text)
-    found = tuple(
-        line.lstrip()
-        for line in _strip_fenced_code_blocks(visible).splitlines()
+    lines = _strip_fenced_code_blocks(visible).splitlines()
+    found: list[str] = []
+    for index, line in enumerate(lines):
         if re.fullmatch(
             r"[ ]{0,3}#{1,6}\s+.*\bTAW-[A-Za-z0-9]+\b[^\r\n]*",
             line,
-        )
-    )
-    if found != PHASE_HEADINGS:
+        ):
+            found.append(line.lstrip())
+            continue
+        if (
+            re.search(r"\bTAW-[A-Za-z0-9]+\b", line)
+            and index + 1 < len(lines)
+            and re.fullmatch(r"[ ]{0,3}(?:=+|-+)[ \t]*", lines[index + 1])
+        ):
+            found.append(f"setext:{line.strip()}")
+    if tuple(found) != PHASE_HEADINGS:
         raise RuntimeError(
             "plan phase headings is missing or contains unmanifested entries"
         )
@@ -2227,12 +2236,22 @@ def _inline_style_hides_contents(attributes: str) -> bool:
     if style is None:
         return False
     normalized = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL).lower()
-    return re.search(
-        r"(?:^|;)\s*(?:display\s*:\s*none|"
-        r"visibility\s*:\s*(?:hidden|collapse))"
-        r"\s*(?:!\s*important\s*)?(?:;|$)",
-        normalized,
-    ) is not None
+    effective: dict[str, tuple[str, bool]] = {}
+    for match in re.finditer(
+        r"(?:^|;)\s*(display|visibility)\s*:\s*([^;]*)", normalized
+    ):
+        name, raw_value = match.groups()
+        important_match = re.search(r"!\s*important\s*$", raw_value)
+        important = important_match is not None
+        value = (
+            raw_value[: important_match.start()] if important_match else raw_value
+        ).strip()
+        previous = effective.get(name)
+        if previous is None or important or not previous[1]:
+            effective[name] = (value, important)
+    return effective.get("display", ("", False))[0] == "none" or effective.get(
+        "visibility", ("", False)
+    )[0] in {"hidden", "collapse"}
 
 
 def _strip_raw_text_elements(text: str) -> str:
@@ -2400,7 +2419,7 @@ def _accessible_html_alternative(name: str, attributes: str) -> str | None:
     if name != "input":
         return None
     input_type = _html_attribute_value(attributes, "type")
-    if input_type is None or input_type.strip().lower() != "image":
+    if input_type is None or unescape(input_type).strip().lower() != "image":
         return None
     return _html_attribute_value(attributes, "alt")
 
