@@ -1595,17 +1595,14 @@ def _require(label: str, text: str, fragments: tuple[str, ...]) -> None:
 def _require_visible_markdown(
     label: str, text: str, fragments: tuple[str, ...]
 ) -> None:
-    visible = _strip_raw_text_elements(text)
-    visible = _strip_raw_html_constructs(visible)
-    visible = _strip_html_tags(visible)
-    visible = _strip_markdown_reference_definitions(visible)
-    visible = _strip_markdown_links(visible)
-    _require(label, visible, fragments)
+    _require(label, _visible_markdown_source(text), fragments)
 
 
 def _visible_markdown_source(text: str) -> str:
     """Remove non-visible Markdown constructs while preserving source structure."""
-    visible = _strip_raw_text_elements(text)
+    visible = _strip_fenced_code_blocks(text)
+    visible = _strip_indented_code_blocks(visible)
+    visible = _strip_raw_text_elements(visible)
     visible = _strip_raw_html_constructs(visible)
     visible = _strip_html_tags(visible)
     visible = _strip_markdown_reference_definitions(visible)
@@ -2106,6 +2103,56 @@ def _strip_fenced_code_blocks(text: str) -> str:
     return "".join(output)
 
 
+def _strip_indented_code_blocks(text: str) -> str:
+    """Remove four-space and tab-indented code lines from source checks."""
+    return "".join(
+        ("\n" if line.endswith(("\n", "\r")) else "")
+        if line.startswith(("    ", "\t"))
+        else line
+        for line in text.splitlines(keepends=True)
+    )
+
+
+def _find_complete_tag_end(text: str, start: int) -> int | None:
+    """Return the closing-angle index for one quote-aware HTML tag."""
+    index = start
+    quote: str | None = None
+    while index < len(text):
+        character = text[index]
+        if quote is not None:
+            if character == quote:
+                quote = None
+        elif character in "\"'":
+            quote = character
+        elif character == ">":
+            return index
+        index += 1
+    return None
+
+
+def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
+    """Return the end of a same-name-balanced non-raw-text element."""
+    candidate = re.compile(rf"</?{re.escape(name)}(?=[\s/>])", re.IGNORECASE)
+    depth = 1
+    cursor = start
+    while (match := candidate.search(text, cursor)) is not None:
+        end = _find_complete_tag_end(text, match.end())
+        if end is None:
+            return None
+        tag_tail = text[match.end() : end]
+        if text[match.start() + 1] == "/":
+            if tag_tail.strip():
+                cursor = end + 1
+                continue
+            depth -= 1
+            if depth == 0:
+                return end + 1
+        elif not tag_tail.rstrip().endswith("/"):
+            depth += 1
+        cursor = end + 1
+    return None
+
+
 def _strip_raw_text_elements(text: str) -> str:
     """Remove elements whose contents do not render as visible prose."""
     output: list[str] = []
@@ -2117,19 +2164,8 @@ def _strip_raw_text_elements(text: str) -> str:
             output.append(text[cursor:])
             break
         output.append(text[cursor : match.start()])
-        index = match.end()
-        quote: str | None = None
-        while index < len(text):
-            character = text[index]
-            if quote is not None:
-                if character == quote:
-                    quote = None
-            elif character in "\"'":
-                quote = character
-            elif character == ">":
-                break
-            index += 1
-        if index >= len(text):
+        index = _find_complete_tag_end(text, match.end())
+        if index is None:
             output.append(text[match.start() :])
             break
         attributes = text[match.end() : index]
@@ -2159,12 +2195,17 @@ def _strip_raw_text_elements(text: str) -> str:
         }:
             cursor = index + 1
             continue
-        closing = re.compile(
-            rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
-        ).search(text, index + 1)
-        if closing is None:
+        raw_text_element = name.lower() in {"script", "style", "template"}
+        if raw_text_element:
+            closing = re.compile(
+                rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, index + 1)
+            closing_end = None if closing is None else closing.end()
+        else:
+            closing_end = _find_balanced_element_end(text, index + 1, name)
+        if closing_end is None:
             break
-        cursor = closing.end()
+        cursor = closing_end
     return "".join(output)
 
 

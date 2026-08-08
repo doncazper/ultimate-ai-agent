@@ -1270,6 +1270,12 @@ def test_hidden_element_cannot_supply_an_authority_denial() -> None:
     )
 
 
+def test_nested_hidden_element_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><span>x</span>no</span> web fetching is enabled."
+    )
+
+
 def test_default_ignorable_character_cannot_hide_authority() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA can fetc&ZeroWidthSpace;h from the public web."
@@ -1388,6 +1394,30 @@ def test_commented_required_plan_clause_fails_closed(
     required = "zero additional model calls to the direct-chat path"
     plan.write_text(
         source.replace(required, f"<!-- {required} -->", 1),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "hidden_clause",
+    (
+        "```text\napproval cannot mint or broaden authority\n```",
+        "    approval cannot mint or broaden authority",
+    ),
+)
+def test_code_block_required_plan_clause_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hidden_clause: str
+) -> None:
+    plan = tmp_path / "plan.md"
+    source = verifier.PLAN.read_text(encoding="utf-8")
+    required = "approval cannot mint or broaden authority"
+    plan.write_text(
+        source.replace(required, "approval remains separately governed", 1)
+        + f"\n{hidden_clause}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)
