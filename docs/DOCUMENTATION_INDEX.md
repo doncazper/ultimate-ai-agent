@@ -143,7 +143,7 @@ blocked, planned, and future-scoped states distinct.
 | Operational maturity and AuthorityLease runtime | `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, `docs/runtime/UAA_AUTHORITY_LEASE_BUDGET_LEDGER.md`, `docs/runtime/UAA_AUTHORITY_DISPATCHER_V1.md`, `docs/runtime/UAA_AUTHORITY_MISSION_WORKER_V1.md`, `docs/runtime/UAA_SEALED_CALCULATION_ADAPTER.md`, `docs/runtime/UAA_GOATCITADEL_PARITY_MATRIX.md`, `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
-| Verification architecture, maintainability, and independent hardening | `docs/verification/RISK_BASED_VERIFICATION_ARCHITECTURE.md`, `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification architecture, maintainability, and independent hardening | `docs/verification/RISK_BASED_VERIFICATION_ARCHITECTURE.md`, `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/TEST_CORPUS_MODERNIZATION.md`, `docs/verification/test_corpus_retirements.json`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md`, `docs/security/PUBLIC_SOURCE_READINESS_AUDIT.md` |
 | Release evidence and exact-head CI DAG | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/developer/GITHUB_HOSTED_CI.md`, `docs/developer/CI_EVIDENCE_DAG_ARCHITECTURE.md` |
@@ -527,6 +527,8 @@ docs/control_center/route_status_manifest.json
 docs/verification/milestone_status_manifest.json
 docs/verification/RISK_BASED_VERIFICATION_ARCHITECTURE.md
 docs/verification/FAST_LOCAL_VERIFICATION.md
+docs/verification/TEST_CORPUS_MODERNIZATION.md
+docs/verification/test_corpus_retirements.json
 docs/verification/verification_maintainability_policy.json
 docs/cua/COMPUTER_USE_CUA_CONTRACT.md
 docs/cua/cua_release_surface_manifest.json

@@ -10,6 +10,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification.repo import load_json, read_text, repo_path  # noqa: E402
+from scripts.verification.test_corpus_guard import (  # noqa: E402
+    BASE_SHA_ENV,
+    RETIREMENT_LEDGER,
+    RETIREMENT_SCHEMA,
+    TestCorpusGuardError,
+    verify_test_corpus_guard,
+)
 
 
 POLICY_PATH = "docs/verification/verification_maintainability_policy.json"
@@ -42,10 +49,7 @@ def _append_line_budget_findings(
     section: dict[str, Any],
 ) -> None:
     enforcement = section.get("enforcement", "hard")
-    if (
-        not isinstance(enforcement, str)
-        or enforcement not in LINE_BUDGET_ENFORCEMENTS
-    ):
+    if not isinstance(enforcement, str) or enforcement not in LINE_BUDGET_ENFORCEMENTS:
         failures.append(
             f"{label} has unsupported line budget enforcement {enforcement!r}"
         )
@@ -58,7 +62,9 @@ def _append_line_budget_findings(
     for path in sorted(set(paths)):
         rel = _relative(path)
         allowed = allowlist.get(rel)
-        effective_max = int(allowed.get("max_lines", max_lines)) if allowed else max_lines
+        effective_max = (
+            int(allowed.get("max_lines", max_lines)) if allowed else max_lines
+        )
         line_count = _line_count(path)
         if line_count > effective_max:
             finding = (
@@ -69,11 +75,15 @@ def _append_line_budget_findings(
             (warnings if enforcement == "advisory" else failures).append(finding)
 
 
-def _append_future_milestone_failures(failures: list[str], policy: dict[str, Any]) -> None:
+def _append_future_milestone_failures(
+    failures: list[str], policy: dict[str, Any]
+) -> None:
     for rel_path in policy.get("milestone_future_reference_check", {}).get("paths", []):
         path = repo_path(rel_path)
         if not path.exists():
-            failures.append(f"future milestone reference check missing path: {rel_path}")
+            failures.append(
+                f"future milestone reference check missing path: {rel_path}"
+            )
             continue
         own_match = MILESTONE_PATTERN.search(path.name.replace("_", "-").upper())
         if own_match is None:
@@ -88,7 +98,9 @@ def _append_future_milestone_failures(failures: list[str], policy: dict[str, Any
                 )
 
 
-def _append_duplicate_helper_failures(failures: list[str], policy: dict[str, Any]) -> None:
+def _append_duplicate_helper_failures(
+    failures: list[str], policy: dict[str, Any]
+) -> None:
     for rule in policy.get("banned_duplicate_helpers", []):
         pattern = rule["pattern"]
         allowed_paths = set(rule.get("allowed_paths", []))
@@ -100,7 +112,9 @@ def _append_duplicate_helper_failures(failures: list[str], policy: dict[str, Any
                 failures.append(f"{rel} duplicates banned helper pattern {pattern!r}")
 
 
-def _append_shared_api_lane_failures(failures: list[str], policy: dict[str, Any]) -> None:
+def _append_shared_api_lane_failures(
+    failures: list[str], policy: dict[str, Any]
+) -> None:
     section = policy.get("shared_api_lane_setup", {})
     forbidden_patterns = section.get("forbidden_patterns", [])
     for rel_path in section.get("paths", []):
@@ -116,6 +130,32 @@ def _append_shared_api_lane_failures(failures: list[str], policy: dict[str, Any]
                 )
 
 
+def _append_test_corpus_guard_failures(
+    failures: list[str], policy: dict[str, Any]
+) -> None:
+    expected = {
+        "schema_version": RETIREMENT_SCHEMA,
+        "retirement_ledger": RETIREMENT_LEDGER.as_posix(),
+        "comparison_base_env": BASE_SHA_ENV,
+        "enforcement": "fail_closed_when_exact_base_is_available",
+        "required_evidence": [
+            "replacement_refs",
+            "assertion_equivalence_artifact",
+            "assertion_equivalence_ref",
+            "evidence_artifact",
+            "evidence_ref",
+            "reason",
+        ],
+    }
+    if policy.get("test_corpus_guard") != expected:
+        failures.append("test corpus guard policy section is missing or invalid")
+        return
+    try:
+        verify_test_corpus_guard(ROOT)
+    except TestCorpusGuardError as exc:
+        failures.append(f"test corpus guard failed: {exc}")
+
+
 def main() -> int:
     failures: list[str] = []
     warnings: list[str] = []
@@ -126,6 +166,7 @@ def main() -> int:
     _append_future_milestone_failures(failures, policy)
     _append_duplicate_helper_failures(failures, policy)
     _append_shared_api_lane_failures(failures, policy)
+    _append_test_corpus_guard_failures(failures, policy)
 
     for warning in warnings:
         print(f"WARNING: {warning}")

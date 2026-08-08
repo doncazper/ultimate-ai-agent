@@ -237,6 +237,15 @@ def test_independent_preflights_and_full_pytest_start_after_manifest() -> None:
     assert 'git cat-file -e "${UAA_CI_COMPARISON_BASE_SHA}^{commit}"' in preflight
 
 
+def test_static_verification_fetches_the_comparison_base_for_corpus_guard() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    static = _extract_job_block(workflow, "static-verification")
+
+    assert "fetch-depth: 0" in static
+    assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in static
+    assert "--lane ci-static" in static
+
+
 def test_release_lanes_are_visible_jobs_using_shared_command_definitions() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     lanes = lane_registry()

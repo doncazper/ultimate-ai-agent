@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from scripts import verify_cua_contract_lane
@@ -19,6 +20,7 @@ def test_cua_release_manifest_marks_lane_blocked_or_experimental() -> None:
 
 
 def test_cua_verifier_passes_current_contract_lane() -> None:
+    assert str(verify_cua_contract_lane.ROOT / "src") in sys.path
     assert verify_cua_contract_lane.verify() == []
 
 
