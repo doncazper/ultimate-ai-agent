@@ -1333,6 +1333,24 @@ def test_hidden_element_balancer_ignores_markup_inside_comments() -> None:
     )
 
 
+def test_hidden_element_balancer_ignores_markup_inside_rcdata() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span hidden><textarea><span></textarea></span> web fetching is enabled."
+    )
+
+
+def test_unresolved_reference_label_remains_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "[note][UAA can fetch from the public web.]"
+    )
+
+
+def test_invalid_closing_tag_text_remains_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "</span UAA can fetch from the public web.>"
+    )
+
+
 @pytest.mark.parametrize(
     "style",
     (
@@ -1924,6 +1942,21 @@ def test_current_board_cannot_reverse_pre_goat_queue_order(
     board.write_text(
         verifier.BOARD.read_text(encoding="utf-8")
         + "\nTAW-00 through TAW-08 may execute after the final GoatCitadel comparison.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="current board queue ordering is invalid"):
+        verifier.verify()
+
+
+def test_current_board_cannot_qualify_reversed_pre_goat_queue_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    board = tmp_path / "board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8")
+        + "\nTAW-00 through TAW-08 must run only after the final GoatCitadel comparison.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "BOARD", board)

@@ -1689,8 +1689,9 @@ def _visible_markdown_source(text: str) -> str:
     visible = _strip_raw_text_elements(visible)
     visible = _strip_raw_html_constructs(visible)
     visible = _strip_html_tags(visible)
+    reference_labels = _markdown_reference_labels(visible)
     visible = _strip_markdown_reference_definitions(visible)
-    return _strip_markdown_links(visible)
+    return _strip_markdown_links(visible, reference_labels)
 
 
 def _require_ordered(label: str, text: str, fragments: tuple[str, ...]) -> None:
@@ -1830,7 +1831,8 @@ def _verify_board_queue_order(text: str) -> None:
     visible = _normalize_markdown_prose(_visible_markdown_source(text))
     if re.search(
         r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
-        r"(?:execute|run|proceed|occur) after (?:the )?final GoatCitadel comparison\b",
+        r"(?:execute|run|proceed|occur|be (?:executed|run)) (?:only )?after "
+        r"(?:the )?final GoatCitadel comparison\b",
         visible,
         flags=re.IGNORECASE,
     ):
@@ -2133,7 +2135,18 @@ def _balanced_markdown_brackets(text: str) -> dict[int, int]:
     return pairs
 
 
-def _strip_markdown_links(text: str) -> str:
+def _normalize_reference_label(label: str) -> str:
+    return re.sub(r"\s+", " ", label.strip()).casefold()
+
+
+def _markdown_reference_labels(text: str) -> set[str]:
+    return {
+        _normalize_reference_label(match.group(1))
+        for match in re.finditer(r"^[ ]{0,3}\[([^\]\r\n]+)\]:", text, re.MULTILINE)
+    }
+
+
+def _strip_markdown_links(text: str, reference_labels: set[str]) -> str:
     """Retain link labels and consume destinations/references in linear time."""
     bracket_pairs = _balanced_markdown_brackets(text)
     output: list[str] = []
@@ -2152,13 +2165,27 @@ def _strip_markdown_links(text: str) -> str:
 
         suffix_start = closing_bracket + 1
         link_end: int | None = None
+        unresolved_reference = False
         if text[suffix_start] == "(":
             link_end = _inline_link_end(text, suffix_start + 1)
         elif text[suffix_start] == "[":
             reference_end = bracket_pairs.get(suffix_start)
             if reference_end is not None:
-                link_end = reference_end + 1
+                reference = text[suffix_start + 1 : reference_end]
+                resolved_label = (
+                    text[label_start + 1 : closing_bracket]
+                    if not reference
+                    else reference
+                )
+                if _normalize_reference_label(resolved_label) in reference_labels:
+                    link_end = reference_end + 1
+                else:
+                    unresolved_reference = True
         if link_end is None:
+            if unresolved_reference:
+                output.append(text[label_start + 1 : closing_bracket] + " ")
+                cursor = closing_bracket + 1
+                continue
             output.append(text[label_start])
             cursor = label_start + 1
             continue
@@ -2262,7 +2289,12 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             return None
         tag_name = match.group(1)
         is_closing = text[tag_start + 1] == "/"
-        if not is_closing and tag_name.lower() in {"script", "style"}:
+        if not is_closing and tag_name.lower() in {
+            "script",
+            "style",
+            "textarea",
+            "title",
+        }:
             closing = re.compile(
                 rf"</{re.escape(tag_name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, end + 1)
@@ -2492,7 +2524,12 @@ def _strip_html_tags(text: str) -> str:
             elif character in "\"'":
                 quote = character
             elif character == ">":
-                if text[candidate_start + 1] != "/":
+                if (
+                    text[candidate_start + 1] == "/"
+                    and text[match.end() : index].strip()
+                ):
+                    output.append(text[candidate_start : index + 1])
+                elif text[candidate_start + 1] != "/":
                     attributes = text[match.end() : index]
                     alternative = _accessible_html_alternative(
                         match.group()[1:].lower(), attributes
@@ -2575,8 +2612,9 @@ def _normalize_markdown_prose(text: str) -> str:
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
+    reference_labels = _markdown_reference_labels(normalized)
     normalized = _strip_markdown_reference_definitions(normalized)
-    normalized = _strip_markdown_links(normalized)
+    normalized = _strip_markdown_links(normalized, reference_labels)
     normalized = unescape(normalized)
     normalized = "".join(
         character
