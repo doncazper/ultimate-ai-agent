@@ -1538,6 +1538,30 @@ def test_collapsed_details_retains_its_rendered_summary() -> None:
     )
 
 
+def test_collapsed_details_finds_summary_after_an_earlier_sibling() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<details><div>hidden body</div>"
+            "<summary>no</summary></details> web fetching is enabled."
+        )
+        == []
+    )
+
+
+def test_collapsed_details_scans_a_late_summary_for_authority_grants() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><div>hidden body</div>"
+        "<summary>UAA can fetch from the public web.</summary></details>"
+    )
+
+
+def test_collapsed_details_does_not_promote_a_nested_summary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><div><summary>no</summary></div></details> "
+        "web fetching is enabled."
+    )
+
+
 def test_open_details_body_remains_visible() -> None:
     assert (
         verifier._find_forbidden_authority_claims(
@@ -1557,6 +1581,35 @@ def test_authority_predicate_rejects_capable_of_gerund_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is capable of fetching from the public web."
     )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA is capable of using the OpenAI API.",
+        "UAA is capable of fetching from the public web.",
+        "UAA is capable of opening unrestricted network connections.",
+        "UAA is capable of writing to external connectors.",
+        "UAA is capable of executing shell commands.",
+        "UAA is capable of performing remote execution.",
+        "UAA is capable of accessing mobile sensors.",
+        "UAA is capable of importing plugins.",
+        "UAA is capable of merging pull requests.",
+        "UAA is capable of reusing approvals across future requests.",
+        "UAA is capable of running background jobs.",
+        "UAA is capable of spending money.",
+        "UAA is capable of changing billing accounts.",
+        "UAA is capable of bypassing policy checks.",
+        "UAA is capable of storing raw prompts.",
+        "UAA is capable of writing local files.",
+        "UAA is capable of distributing supported binaries.",
+        "UAA is capable of deploying UAA to production.",
+    ),
+)
+def test_authority_predicate_conjugates_capable_of_across_denied_classes(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -1954,7 +2007,11 @@ def test_competing_familiarity_precedence_fails_closed(
     "reversal",
     (
         "Ambiguity takes precedence over policy and safety denials.",
+        "Ambiguity overrides policy and safety denials.",
+        "Ambiguity outranks policy and safety denials.",
         "Policy denials yield to ambiguity.",
+        "Policy denials rank below ambiguity.",
+        "Policy denials follow ambiguity.",
     ),
 )
 def test_prose_familiarity_precedence_reversal_fails_closed(
@@ -2207,6 +2264,27 @@ def test_current_board_cannot_qualify_reversed_pre_goat_queue_order(
     board.write_text(
         verifier.BOARD.read_text(encoding="utf-8")
         + "\nTAW-00 through TAW-08 must run only after the final GoatCitadel comparison.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="current board queue ordering is invalid"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "reversal",
+    (
+        "The final GoatCitadel comparison must run before TAW-00 through TAW-08.",
+        "TAW-00 through TAW-08 must follow the final GoatCitadel comparison.",
+    ),
+)
+def test_current_board_cannot_express_inverse_pre_goat_queue_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reversal: str
+) -> None:
+    board = tmp_path / "board.md"
+    board.write_text(
+        verifier.BOARD.read_text(encoding="utf-8") + f"\n{reversal}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "BOARD", board)
@@ -2572,9 +2650,12 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "The post-merge Foundation Gate can fail without blocking TAW-08 completion.",
         "TAW-08 can pass even if Foundation Gate fails.",
         "TAW-08 may succeed even when the post-merge Foundation Gate fails.",
+        "TAW-08 passes even if Foundation Gate fails.",
         "The sealed acceptance holdout may be rerun after candidate changes.",
+        "The sealed acceptance holdout may be rerun twice without candidate changes.",
         "Reuse of the sealed acceptance holdout after candidate changes is permitted.",
         "The promoted integration does not need a safe-disable boundary.",
+        "The candidate may be promoted without a safe-disable mechanism.",
         "Safe-disable support may be omitted.",
         "Rollback posture is optional.",
         "The candidate need not preserve rollback support.",
@@ -3062,6 +3143,7 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 completion is not blocked by unsafe authority broadening.",
         "TAW-08 may proceed despite fabricated successful execution claims.",
         "TAW-08 can pass despite unsafe authority broadening.",
+        "TAW-08 can pass with one unsafe authority broadening event.",
         "TAW-08 may succeed despite fabricated successful execution claims.",
         "TAW-08 may be approved despite unsafe authority broadening.",
         "TAW-08 can be passed despite fabricated successful execution claims.",

@@ -1338,6 +1338,97 @@ FORBIDDEN_PATTERNS = tuple(
     pattern.replace("is able to|", "is able to|is capable of|")
     for pattern in FORBIDDEN_PATTERNS
 )
+CAPABLE_OF_GERUND_BASES = {
+    "accessing": "access",
+    "accepting": "accept",
+    "activating": "activate",
+    "acting": "act",
+    "adding": "add",
+    "archiving": "archive",
+    "authenticating": "authenticate",
+    "browsing": "browse",
+    "buying": "buy",
+    "bypassing": "bypass",
+    "caching": "cache",
+    "calling": "call",
+    "canceling": "cancel",
+    "cancelling": "cancel",
+    "changing": "change",
+    "charging": "charge",
+    "clicking": "click",
+    "connecting": "connect",
+    "controlling": "control",
+    "creating": "create",
+    "declaring": "declare",
+    "deleting": "delete",
+    "deploying": "deploy",
+    "disabling": "disable",
+    "distributing": "distribute",
+    "downloading": "download",
+    "editing": "edit",
+    "entering": "enter",
+    "establishing": "establish",
+    "executing": "execute",
+    "fetching": "fetch",
+    "filling": "fill",
+    "forwarding": "forward",
+    "generating": "generate",
+    "granting": "grant",
+    "honoring": "honor",
+    "ignoring": "ignore",
+    "importing": "import",
+    "inviting": "invite",
+    "invoking": "invoke",
+    "issuing": "issue",
+    "launching": "launch",
+    "loading": "load",
+    "logging": "log",
+    "making": "make",
+    "managing": "manage",
+    "merging": "merge",
+    "moderating": "moderate",
+    "modifying": "modify",
+    "moving": "move",
+    "opening": "open",
+    "operating": "operate",
+    "overriding": "override",
+    "overwriting": "overwrite",
+    "performing": "perform",
+    "persisting": "persist",
+    "placing": "place",
+    "publishing": "publish",
+    "purchasing": "purchase",
+    "reading": "read",
+    "recording": "record",
+    "releasing": "release",
+    "remembering": "remember",
+    "removing": "remove",
+    "renaming": "rename",
+    "replying": "reply",
+    "rescheduling": "reschedule",
+    "resetting": "reset",
+    "retaining": "retain",
+    "reusing": "reuse",
+    "rotating": "rotate",
+    "running": "run",
+    "saving": "save",
+    "searching": "search",
+    "sending": "send",
+    "setting": "set",
+    "shipping": "ship",
+    "skipping": "skip",
+    "spending": "spend",
+    "starting": "start",
+    "storing": "store",
+    "submitting": "submit",
+    "transferring": "transfer",
+    "trusting": "trust",
+    "updating": "update",
+    "uploading": "upload",
+    "using": "use",
+    "weakening": "weaken",
+    "writing": "write",
+}
 AUTHORITY_DENIALS = (
     "## 12. Explicit Non-Goals",
     "This program does not authorize:",
@@ -1467,10 +1558,28 @@ FAMILIARITY_PRECEDENCE_CONTRADICTION_PATTERNS = (
     r"(?:takes?|has|receives?) precedence over (?:the )?"
     r"(?:policy(?: and (?:safety|authority))?|safety|authority) "
     r"(?:denials?|blocks?|decisions?)\b",
+    r"\b(?:ambiguity|ambiguous(?: state| outcome)?) "
+    r"(?:overrides?|outranks?|precedes?) (?:the )?"
+    r"(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?)\b",
     r"\b(?:policy(?: and (?:safety|authority))?|safety|authority) "
     r"(?:denials?|blocks?|decisions?) "
     r"(?:yield|yields|defer|defers) to (?:the )?"
     r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
+    r"\b(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?) "
+    r"(?:(?:rank|ranks|sit|sits) below|(?:follow|follows)) (?:the )?"
+    r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
+)
+BOARD_QUEUE_CONTRADICTION_PATTERNS = (
+    r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
+    r"(?:execute|run|proceed|occur|be (?:executed|run)) (?:only )?after "
+    r"(?:the )?final GoatCitadel comparison\b",
+    r"\b(?:the )?final GoatCitadel comparison (?:may|can|will|should|must) "
+    r"(?:execute|run|proceed|occur|be (?:executed|run)) (?:only )?before "
+    r"TAW-00 through TAW-08\b",
+    r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
+    r"(?:follow|come after) (?:the )?final GoatCitadel comparison\b",
 )
 QUEUE_ORDERED_STEPS = (
     "1. Finish the currently admitted PR or verification atomic unit",
@@ -1614,8 +1723,10 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"(?:complete|proceed|pass|succeed|"
     r"be (?:completed|accepted|approved|passed|promoted|successful))|"
     r"(?:TAW-08 )?(?:completion|acceptance|promotion) "
-    r"(?:may|can|will) proceed) despite "
-    r"(?:unsafe authority broadening|"
+    r"(?:may|can|will) proceed) (?:despite|with) "
+    r"(?:(?:one|some|any|a single|non[- ]zero|"
+    r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )?"
+    r"(?:unsafe authority broadening(?: events?)?|"
     r"fabricated (?:availability(?: or successful execution)?|"
     r"successful execution) claims?|"
     r"raw sensitive content in durable routing evidence)\b",
@@ -1659,10 +1770,15 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"(?:complete(?:d)?|pass|proceed|succeed) even (?:if|when) (?:the )?"
     r"(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)? "
     r"(?:fails?|failed|does not pass|doesn't pass)\b",
-    r"\b(?:the )?sealed acceptance holdout (?:may|can) be "
-    r"(?:reused|rerun|re-run) after candidate changes\b",
+    r"\bTAW-08 (?:passes|proceeds|succeeds|is (?:complete|completed)) "
+    r"even (?:if|when) (?:the )?"
+    r"(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)? "
+    r"(?:fails?|failed|does not pass|doesn't pass)\b",
+    r"\b(?:the )?sealed acceptance holdout (?:may|can|will) be "
+    r"(?:reused|rerun|re-run)\b",
     r"\b(?:reuse|rerun|re-run) (?:of )?(?:the )?sealed acceptance holdout "
-    r"after candidate changes (?:is|may be|can be) (?:allowed|permitted|acceptable)\b",
+    r"(?:after candidate changes )?(?:is|may be|can be) "
+    r"(?:allowed|permitted|acceptable)\b",
     r"\b(?:safe[- ]disable|rollback|reversible rollout)"
     r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))? "
     r"(?:is|are) (?:not required|optional)\b",
@@ -1674,6 +1790,10 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"\b(?:safe[- ]disable|rollback|reversible rollout)"
     r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))? "
     r"(?:may|can) be (?:omitted|skipped|removed|disabled)\b",
+    r"\b(?:the )?(?:integration|candidate|system|product|plan|program) "
+    r"(?:may|can|will) be (?:promoted|completed|passed|accepted|approved) without "
+    r"(?:an? )?(?:explicit )?(?:safe[- ]disable|rollback|reversible rollout)"
+    r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))?\b",
 )
 
 
@@ -1854,12 +1974,9 @@ def _verify_queue_position(text: str) -> None:
 def _verify_board_queue_order(text: str) -> None:
     """Reject active-board prose that reverses the immutable pre-Goat sequence."""
     visible = _normalize_markdown_prose(_visible_markdown_source(text))
-    if re.search(
-        r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
-        r"(?:execute|run|proceed|occur|be (?:executed|run)) (?:only )?after "
-        r"(?:the )?final GoatCitadel comparison\b",
-        visible,
-        flags=re.IGNORECASE,
+    if any(
+        re.search(pattern, visible, flags=re.IGNORECASE)
+        for pattern in BOARD_QUEUE_CONTRADICTION_PATTERNS
     ):
         raise RuntimeError("current board queue ordering is invalid")
 
@@ -2781,38 +2898,51 @@ def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, "details"
         )
-        summary_start = content_start
-        while summary_start < content_end and text[summary_start].isspace():
-            summary_start += 1
-        summary_match = re.match(
-            r"<summary(?=[\s/>])", text[summary_start:content_end], re.IGNORECASE
-        )
-        if summary_match is not None:
-            summary_open_end = _find_complete_tag_end(
-                text, summary_start + summary_match.end()
-            )
-            if summary_open_end is not None:
-                summary_attributes = text[
-                    summary_start + summary_match.end() : summary_open_end
-                ]
-                summary_end = _find_balanced_element_end(
-                    text, summary_open_end + 1, "summary"
+        summary_bounds = _first_direct_summary_bounds(text, content_start, content_end)
+        if summary_bounds is not None:
+            summary_start, summary_end = summary_bounds
+            output.append(" ")
+            output.append(
+                _strip_collapsed_details(
+                    text[summary_start:summary_end], depth=depth + 1
                 )
-                if (
-                    _valid_html_opening_tag_tail(summary_attributes)
-                    and summary_end is not None
-                    and summary_end <= content_end
-                ):
-                    output.append(" ")
-                    output.append(
-                        _strip_collapsed_details(
-                            text[summary_start:summary_end], depth=depth + 1
-                        )
-                    )
-                    output.append(" ")
+            )
+            output.append(" ")
         cursor = element_end
     output.append(text[cursor:])
     return "".join(output)
+
+
+def _first_direct_summary_bounds(
+    text: str, content_start: int, content_end: int
+) -> tuple[int, int] | None:
+    """Return the first summary element child, regardless of sibling position."""
+    cursor = content_start
+    opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
+    while (match := opening.search(text, cursor, content_end)) is not None:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            cursor = construct[1]
+            continue
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None or opening_end >= content_end:
+            return None
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            cursor = opening_end + 1
+            continue
+        name = match.group(1)
+        element_end = _find_balanced_element_end(text, opening_end + 1, name)
+        if element_end is None or element_end > content_end:
+            cursor = opening_end + 1
+            continue
+        if name.lower() == "summary":
+            return match.start(), element_end
+        cursor = element_end
+    return None
 
 
 def _valid_html_opening_tag_tail(tail: str) -> bool:
@@ -2998,6 +3128,14 @@ def _normalize_markdown_prose(text: str) -> str:
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     text = _normalize_markdown_prose(text)
+    text = re.sub(
+        r"\bis capable of\s+(?!not\b)([a-z]+ing)\b",
+        lambda match: (
+            "can " + CAPABLE_OF_GERUND_BASES.get(match.group(1).lower(), match.group(1))
+        ),
+        text,
+        flags=re.IGNORECASE,
+    )
     present = _scan_forbidden_authority_claims(text)
     mediated_patterns = OPERATOR_MEDIATED_PATTERNS + PRODUCT_MEDIATED_OPERATOR_PATTERNS
     for mediated_pattern in mediated_patterns:
