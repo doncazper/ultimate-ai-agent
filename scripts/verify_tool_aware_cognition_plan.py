@@ -1794,6 +1794,15 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"(?:may|can|will) be (?:promoted|completed|passed|accepted|approved) without "
     r"(?:an? )?(?:explicit )?(?:safe[- ]disable|rollback|reversible rollout)"
     r"(?: (?:boundary|support|plan|posture|readiness|capability|mechanism))?\b",
+    r"\b(?:it )?(?:is )?(?:not required to|need not|does not need to|"
+    r"doesn't need to) (?:achieve|attain|clear|demonstrate|meet|satisfy|show) "
+    r"(?:a |the )?recall of an applicable capability at or above 95%(?!\w)",
+    r"\b(?:TAW-08|promotion|the (?:candidate|plan|program|system))"
+    r"(?: completion)? (?:does not|doesn't|need not) "
+    r"(?:(?:need to )?(?:achieve|attain|clear|demonstrate|meet|require|satisfy|show) )?"
+    r"(?:a |the )?recall of an applicable capability at or above 95%(?!\w)",
+    r"\brecall of an applicable capability at or above 95% "
+    r"(?:is|becomes|remains) (?:advisory|not required|optional)\b",
 )
 
 
@@ -2639,6 +2648,66 @@ def _inline_style_hides_contents(attributes: str) -> bool:
     }
 
 
+def _visibility_is_visible_override(value: str | None) -> bool:
+    """Return whether a visibility declaration definitely restores rendering."""
+    return value in {"visible", "initial"}
+
+
+def _display_definitely_overrides_hidden(value: str | None) -> bool:
+    """Return whether a valid inline display value overrides ``hidden``."""
+    if value is None:
+        return False
+    normalized = " ".join(value.split())
+    if normalized in {"initial", "unset"}:
+        return True
+    if normalized in {
+        "contents",
+        "inline-block",
+        "inline-table",
+        "inline-flex",
+        "inline-grid",
+        "table-row-group",
+        "table-header-group",
+        "table-footer-group",
+        "table-row",
+        "table-cell",
+        "table-column-group",
+        "table-column",
+        "table-caption",
+        "ruby-base",
+        "ruby-text",
+        "ruby-base-container",
+        "ruby-text-container",
+    }:
+        return True
+    tokens = normalized.split()
+    if not tokens or len(tokens) != len(set(tokens)):
+        return False
+    outside = {"block", "inline", "run-in"}
+    inside = {"flow", "flow-root", "table", "flex", "grid", "ruby", "math"}
+    if "list-item" in tokens:
+        remaining = set(tokens) - {"list-item"}
+        return (
+            remaining <= outside | {"flow", "flow-root"}
+            and len(remaining & outside) <= 1
+            and len(remaining & {"flow", "flow-root"}) <= 1
+        )
+    return (
+        set(tokens) <= outside | inside
+        and len(set(tokens) & outside) <= 1
+        and len(set(tokens) & inside) <= 1
+    )
+
+
+def _hidden_attribute_suppresses(
+    attribute_names: set[str], properties: dict[str, str]
+) -> bool:
+    """Return whether the HTML hidden state remains effective after inline CSS."""
+    return "hidden" in attribute_names and not _display_definitely_overrides_hidden(
+        properties.get("display")
+    )
+
+
 def _matching_closing_start(
     text: str, content_start: int, element_end: int, name: str
 ) -> int:
@@ -2701,8 +2770,8 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         attribute_names = _html_attribute_names(attributes)
         if void_element:
             if (
-                properties.get("visibility") == "visible"
-                and "hidden" not in attribute_names
+                _visibility_is_visible_override(properties.get("visibility"))
+                and not _hidden_attribute_suppresses(attribute_names, properties)
                 and properties.get("display") != "none"
             ):
                 alternative = _accessible_html_alternative(lower_name, attributes)
@@ -2722,7 +2791,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         if (
             lower_name in {"script", "style", "template", "iframe"}
-            or "hidden" in attribute_names
+            or _hidden_attribute_suppresses(attribute_names, properties)
             or properties.get("display") == "none"
         ):
             cursor = element_end
@@ -2734,7 +2803,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         if lower_name in {"textarea", "title"}:
             if (
                 lower_name == "textarea"
-                and properties.get("visibility") == "visible"
+                and _visibility_is_visible_override(
+                    properties.get("visibility")
+                )
             ):
                 output.append(
                     escape(
@@ -2743,7 +2814,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 )
             cursor = element_end
             continue
-        if properties.get("visibility") == "visible":
+        if _visibility_is_visible_override(properties.get("visibility")):
             output.append(text[match.start() : element_end])
         else:
             output.append(
@@ -2789,7 +2860,7 @@ def _strip_raw_text_elements(text: str) -> str:
         style_properties = _inline_style_properties(attributes)
         subtree_non_rendered = (
             name.lower() in {"script", "style", "template", "iframe"}
-            or "hidden" in attribute_names
+            or _hidden_attribute_suppresses(attribute_names, style_properties)
             or style_properties.get("display") == "none"
         )
         visibility_hidden = style_properties.get("visibility") in {

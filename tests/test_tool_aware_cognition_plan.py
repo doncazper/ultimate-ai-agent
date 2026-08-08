@@ -1421,6 +1421,43 @@ def test_visible_descendant_of_visibility_hidden_element_is_scanned() -> None:
     )
 
 
+def test_initial_visibility_descendant_of_hidden_element_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<span style="visibility:initial">'
+        "UAA can fetch from the public web.</span></span>"
+    )
+
+
+@pytest.mark.parametrize(
+    "display",
+    (
+        "block",
+        "inline flow-root",
+        "inline-block",
+        "list-item",
+        "table-cell",
+        "contents",
+        "initial",
+        "unset",
+    ),
+)
+def test_inline_display_override_of_hidden_attribute_is_scanned(
+    display: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span hidden style="display:{display}">'
+        "UAA can fetch from the public web.</span>"
+    )
+
+
+def test_invalid_inline_display_does_not_override_hidden_attribute() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span hidden style="display:definitely-invalid">no</span> '
+        "web fetching is enabled."
+    )
+
+
 def test_implied_end_tag_does_not_hide_following_visible_prose() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<p hidden><p>x</p> UAA can fetch from the public web."
@@ -2677,6 +2714,11 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "Rollback posture is optional.",
         "The candidate need not preserve rollback support.",
         "Reversible rollout may be skipped.",
+        "It is not required to achieve recall of an applicable capability "
+        "at or above 95% on the accepted tool-required corpus.",
+        "TAW-08 does not require recall of an applicable capability at or "
+        "above 95%.",
+        "Recall of an applicable capability at or above 95% is optional.",
     ),
 )
 def test_acceptance_contract_rejects_direct_contradictions(
