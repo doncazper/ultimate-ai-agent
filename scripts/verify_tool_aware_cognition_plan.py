@@ -4653,6 +4653,22 @@ def _code_token(
     return f"{delimiters[0]}uaa-{kind}-code:{index}{delimiters[1]}"
 
 
+def _restore_code_tokens(
+    text: str,
+    replacements: dict[str, str],
+    delimiters: tuple[str, str],
+) -> str:
+    """Restore protected code tokens in one bounded pass over the text."""
+    if not replacements:
+        return text
+    token_pattern = re.compile(
+        re.escape(delimiters[0])
+        + r"uaa-(?:fenced|indented|inline)-code:\d+"
+        + re.escape(delimiters[1])
+    )
+    return token_pattern.sub(lambda match: replacements[match.group()], text)
+
+
 def _extract_visible_fenced_code(
     text: str,
     *,
@@ -4916,15 +4932,9 @@ def _normalize_markdown_prose(text: str) -> str:
             for token, visible_code in indented_code + fenced_code
         },
     }
-    if code_replacements:
-        token_pattern = re.compile(
-            re.escape(token_delimiters[0])
-            + r"uaa-(?:fenced|indented|inline)-code:\d+"
-            + re.escape(token_delimiters[1])
-        )
-        normalized = token_pattern.sub(
-            lambda match: code_replacements[match.group()], normalized
-        )
+    normalized = _restore_code_tokens(
+        normalized, code_replacements, token_delimiters
+    )
     normalized = normalize("NFKC", normalized)
     normalized = "".join(
         character

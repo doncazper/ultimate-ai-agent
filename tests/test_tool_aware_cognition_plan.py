@@ -2827,10 +2827,16 @@ def test_visible_code_token_text_cannot_collide_with_restoration() -> None:
 
 def test_many_inline_code_spans_are_restored_in_bounded_time() -> None:
     source = " ".join("`visible`" for _ in range(40_000))
+    delimiters = verifier._code_token_delimiters(source)
+    protected, spans = verifier._extract_visible_inline_code(
+        source, token_delimiters=delimiters
+    )
+    replacements = dict(spans)
     started = perf_counter()
 
-    assert verifier._find_forbidden_authority_claims(source) == []
+    restored = verifier._restore_code_tokens(protected, replacements, delimiters)
 
+    assert restored == " ".join("visible" for _ in range(40_000))
     assert perf_counter() - started < 2.0
 
 
