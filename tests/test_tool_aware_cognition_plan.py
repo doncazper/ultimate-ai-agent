@@ -155,6 +155,27 @@ def test_direct_finite_authority_grants_are_rejected(
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA browses the public web.",
+        "UAA invokes runtime models.",
+        "UAA clicks browser links.",
+        "UAA spends money.",
+        "UAA sends arbitrary outbound network requests.",
+        "UAA runs commands on remote machines.",
+        "UAA reads mobile sensors.",
+        "UAA executes tasks in the background.",
+        "UAA sends email.",
+        "UAA deletes local files.",
+        "UAA distributes supported binaries.",
+        "UAA deploys to production.",
+    ),
+)
+def test_direct_finite_prohibited_capability_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
     "contradiction",
     (
         "Runtime model calls are now authorized.",
@@ -985,6 +1006,21 @@ def test_authority_negation_does_not_escape_its_clause(
     ),
 )
 def test_passive_hard_boundary_bypasses_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Route side-effect classification can be bypassed.",
+        "PolicyEngine checks can be bypassed.",
+        "LocalApprovalAuthority validation can be bypassed.",
+        "UAA can bypass PolicyEngine checks.",
+        "UAA bypasses LocalApprovalAuthority validation.",
+        "The runtime overrides route side-effect classification.",
+    ),
+)
+def test_canonical_hard_boundary_bypasses_are_detected(claim: str) -> None:
     assert verifier._find_forbidden_authority_claims(claim)
 
 
@@ -2300,9 +2336,22 @@ def test_listbox_select_retains_all_option_prose(attributes: str) -> None:
     )
 
 
+def test_select_size_uses_html_non_negative_integer_grammar() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<select size="+2"><option>benign.</option><option>no </option></select>'
+        "web fetching is enabled."
+    )
+
+
 def test_closed_dialog_body_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<dialog>no </dialog>UAA can fetch from the public web."
+    )
+
+
+def test_closed_popover_body_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<span popover>no </span>web fetching is enabled."
     )
 
 
@@ -2370,6 +2419,16 @@ def test_css_variable_inside_opacity_calculation_is_resolved() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="--x:0; opacity:calc(var(--x) + 0)">no </span>'
         "web fetching is enabled."
+    )
+
+
+@pytest.mark.parametrize(
+    "opacity",
+    ("min(0, 1)", "max(0, -1)", "clamp(0, 0, 1)"),
+)
+def test_zero_valued_constant_css_math_hides_denial_prose(opacity: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="opacity:{opacity}">no </span>web fetching is enabled.'
     )
 
 

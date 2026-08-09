@@ -880,8 +880,11 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
-    r"\b(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"\b(?:policyengine(?: checks?)?|policy(?: checks?)?|"
+    r"localapprovalauthority(?: checks?| validation| gates?)?|"
+    r"approval(?: checks?| validation| gates?)?|"
+    r"route(?: side[- ]effect classification| classification| checks?| gates?)?|"
+    r"openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|foundation gate(?: checks?)?|gate checks?) "
     r"(?:may|can|could|might|will|would|shall|should|must) be "
     r"(?:bypassed|skipped|ignored|disabled|overridden|weakened)\b",
@@ -994,11 +997,42 @@ FORBIDDEN_PATTERNS = (
     r"unvalidated approval (?:references?|refs?))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:fetch(?:es|ing)? (?:from )?(?:the )?(?:public )?web|web fetch(?:es|ing)?|"
+    r"brows(?:e|es|ing) (?:the )?(?:public )?web|"
+    r"(?:access|search)(?:es|ing)? (?:the )?(?:public )?(?:web|internet)|"
     r"call(?:s|ing)? (?:a )?(?:runtime )?(?:model|provider)|"
+    r"invok(?:e|es|ing) (?:a )?(?:runtime )?(?:models?|providers?)|"
     r"(?:make|perform)(?:s|ing)? (?:runtime )?(?:model|provider) calls?|"
+    r"(?:run|perform)(?:s|ning|ing)? (?:runtime )?(?:model )?inference|"
     r"writ(?:e|es|ing) (?:to )?(?:external )?connectors?|connector writes?|"
     r"execut(?:e|es|ing) (?:an? )?(?:unrestricted )?(?:shell|subprocess)|"
+    r"(?:run|launch|execute)(?:s|d|ing)? (?:(?:shell|system) )?"
+    r"(?:commands?|subprocesses?)|"
     r"perform(?:s|ing)? browser automation|"
+    r"click(?:s|ing)? browser (?:links?|buttons?)|"
+    r"(?:fill|submit)(?:s|ting|ing)? (?:web )?forms?|"
+    r"authenticates? to websites?|logs? in to websites?|"
+    r"manag(?:e|es|ing) cookies?|(?:download|upload)(?:s|ing)? files?|"
+    r"(?:perform|send|make)(?:s|ing)? (?:post|put|patch|delete)[- ]style mutations?|"
+    r"(?:send|make)(?:s|ing)? (?:unrestricted|unbounded|arbitrary) "
+    r"(?:outbound )?(?:network|internet|http|tcp) requests?|"
+    r"open(?:s|ing)? (?:unrestricted|unbounded|arbitrary) sockets?|"
+    r"connect(?:s|ing)? to (?:unrestricted|unbounded|arbitrary) "
+    r"(?:hosts?|endpoints?|networks?)|"
+    r"(?:run|execute)(?:s|ning|ing)? commands? on remote (?:machines?|hosts?)|"
+    r"ssh(?:es|ing)? into remote (?:servers?|machines?|hosts?)|"
+    r"(?:read|access|control)(?:s|ing)? (?:the )?(?:mobile |device )?"
+    r"(?:sensors?|camera|microphone|location)|"
+    r"(?:execute|run)(?:s|ning|ing)? tasks? (?:in the background|in background)|"
+    r"schedul(?:e|es|ing) (?:background )?(?:tasks?|execution)|"
+    r"(?:send|forward|update|edit|delete|remove)(?:s|ing)? "
+    r"(?:emails?|messages?)|"
+    r"(?:reply|replies|replying) to (?:emails?|messages?)|"
+    r"(?:create|update|edit|delete|remove|reschedule|cancel|move)"
+    r"(?:s|ing)? calendar events?|"
+    r"(?:invite|add|remove|update|change)(?:s|ing)? "
+    r"(?:calendar )?attendees?|"
+    r"(?:publish|update|edit|delete|remove|moderate)(?:s|ing)? "
+    r"(?:social )?posts?|"
     r"(?:automatically )?(?:import(?:s|ing)?|activat(?:e|es|ing)|execut(?:e|es|ing)) (?:skills?|plugins?)|"
     r"load(?:s|ed|ing)? (?:skills?|plugins?)(?: at runtime)?|"
     r"(?:runtime )?(?:skill|plugin) loading|"
@@ -1007,10 +1041,25 @@ FORBIDDEN_PATTERNS = (
     r"(?:chang(?:e|es|ing)|modif(?:y|ies|ying)|creat(?:e|es|ing)|"
     r"manag(?:e|es|ing)|delet(?:e|es|ing)) (?:billing(?: accounts?)?|accounts?)|"
     r"creat(?:e|es|ing) credentials?|"
+    r"spend(?:s|ing)? money|(?:buy|purchase)(?:s|ing)? products?|"
+    r"(?:make|send)(?:s|ing)? payments?|"
+    r"(?:transfer|move)(?:s|ring|ing)? funds?|place(?:s|ing)? orders?|"
+    r"charg(?:e|es|ing) accounts?|"
+    r"(?:create|write|edit|modify|overwrite|move|rename|delete|remove)"
+    r"(?:s|ing)? (?:local|unscoped|arbitrary) "
+    r"(?:files?|directories|folders)|"
+    r"(?:ship|publish|distribute)(?:s|ping|ing)? "
+    r"(?:downloadable )?supported (?:binaries|executables|installers)|"
+    r"deploy(?:s|ing)? to production|"
+    r"(?:publish|ship|distribute)(?:es|s|ping|ing)? "
+    r"(?:a )?public (?:release|distribution)|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
-    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"(?:policyengine(?: checks?)?|policy(?: checks?)?|"
+    r"localapprovalauthority(?: checks?| validation| gates?)?|"
+    r"approval(?: checks?| validation| gates?)?|"
+    r"route(?: side[- ]effect classification| classification| checks?| gates?)?|"
+    r"openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -1077,8 +1126,11 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to) "
     r"(?:bypass|skip|ignore|disable|override|weaken) (?:the )?"
-    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"(?:policyengine(?: checks?)?|policy(?: checks?)?|"
+    r"localapprovalauthority(?: checks?| validation| gates?)?|"
+    r"approval(?: checks?| validation| gates?)?|"
+    r"route(?: side[- ]effect classification| classification| checks?| gates?)?|"
+    r"openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|"
     r"foundation gate|gate checks?)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
@@ -1106,8 +1158,11 @@ FORBIDDEN_PATTERNS = (
     r"creat(?:e|es|ing) credentials?|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
-    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"(?:policyengine(?: checks?)?|policy(?: checks?)?|"
+    r"localapprovalauthority(?: checks?| validation| gates?)?|"
+    r"approval(?: checks?| validation| gates?)?|"
+    r"route(?: side[- ]effect classification| classification| checks?| gates?)?|"
+    r"openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:runtime )?(?:model|provider) calls?|"
@@ -1150,8 +1205,11 @@ FORBIDDEN_PATTERNS = (
     r"creat(?:e|es|ing) credentials?|"
     r"(?:bypass(?:es|ing)?|skip(?:s|ping)?|ignor(?:e|es|ing)|"
     r"disabl(?:e|es|ing)|overrid(?:e|es|ing)|weaken(?:s|ing)?) (?:the )?"
-    r"(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
-    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"(?:policyengine(?: checks?)?|policy(?: checks?)?|"
+    r"localapprovalauthority(?: checks?| validation| gates?)?|"
+    r"approval(?: checks?| validation| gates?)?|"
+    r"route(?: side[- ]effect classification| classification| checks?| gates?)?|"
+    r"openapi(?: checks?| contract)?|"
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
@@ -3017,8 +3075,8 @@ def _opacity_hides_contents(value: str | None) -> bool:
 
 
 def _constant_css_calculation(value: str) -> float | None:
-    """Evaluate a bounded numeric CSS ``calc()`` expression without ``eval``."""
-    if not value.startswith("calc"):
+    """Evaluate bounded constant CSS math functions without ``eval``."""
+    if not re.match(r"(?:calc|min|max|clamp)\(", value):
         return None
     tokens: list[tuple[str, str, int, int]] = []
     cursor = 0
@@ -3031,13 +3089,25 @@ def _constant_css_calculation(value: str) -> float | None:
         if numeric is not None:
             tokens.append(("number", numeric.group(), cursor, numeric.end()))
             cursor = numeric.end()
-        elif value.startswith("calc", cursor) and (
-            cursor + 4 == len(value)
-            or not (value[cursor + 4].isalnum() or value[cursor + 4] in "_-")
+        elif any(
+            value.startswith(function, cursor)
+            and (
+                cursor + len(function) == len(value)
+                or not (
+                    value[cursor + len(function)].isalnum()
+                    or value[cursor + len(function)] in "_-"
+                )
+            )
+            for function in ("calc", "min", "max", "clamp")
         ):
-            tokens.append(("calc", "calc", cursor, cursor + 4))
-            cursor += 4
-        elif value[cursor] in "+-*/()":
+            function = next(
+                function
+                for function in ("calc", "min", "max", "clamp")
+                if value.startswith(function, cursor)
+            )
+            tokens.append((function, function, cursor, cursor + len(function)))
+            cursor += len(function)
+        elif value[cursor] in "+-*/(),":
             tokens.append((value[cursor], value[cursor], cursor, cursor + 1))
             cursor += 1
         else:
@@ -3133,7 +3203,7 @@ def _constant_css_calculation(value: str) -> float | None:
                 if isfinite(parsed)
                 else None
             )
-        if kind == "calc":
+        if kind in {"calc", "min", "max", "clamp"}:
             index += 1
             if (
                 index >= len(tokens)
@@ -3144,11 +3214,37 @@ def _constant_css_calculation(value: str) -> float | None:
         elif kind != "(":
             return None
         index += 1
+        arguments: list[tuple[float, str]] = []
         parsed = parse_expression(depth + 1)
-        if parsed is None or index >= len(tokens) or tokens[index][0] != ")":
+        if parsed is None:
+            return None
+        arguments.append(parsed)
+        while index < len(tokens) and tokens[index][0] == ",":
+            index += 1
+            parsed = parse_expression(depth + 1)
+            if parsed is None:
+                return None
+            arguments.append(parsed)
+        if index >= len(tokens) or tokens[index][0] != ")":
             return None
         index += 1
-        return parsed
+        if kind in {"(", "calc"}:
+            return arguments[0] if len(arguments) == 1 else None
+        if kind == "clamp":
+            if len(arguments) != 3:
+                return None
+            minimum, preferred, maximum = (item[0] for item in arguments)
+            calculated = max(minimum, min(preferred, maximum))
+        elif kind == "min":
+            calculated = min(item[0] for item in arguments)
+        else:
+            calculated = max(item[0] for item in arguments)
+        return (
+            calculated,
+            "percentage"
+            if any(item[1] == "percentage" for item in arguments)
+            else "number",
+        )
 
     result = parse_expression()
     return result[0] if result is not None and index == len(tokens) else None
@@ -3396,6 +3492,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
+            or "popover" in attribute_names
             or _hidden_attribute_suppresses(attributes, properties)
             or properties.get("display") == "none"
             or _opacity_hides_contents(properties.get("opacity"))
@@ -3490,6 +3587,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
+            or "popover" in attribute_names
             or _hidden_attribute_suppresses(attributes, style_properties)
             or style_properties.get("display") == "none"
             or _opacity_hides_contents(style_properties.get("opacity"))
@@ -3678,10 +3776,8 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
             continue
         attribute_names = _html_attribute_names(attributes)
         raw_size = _html_attribute_value(attributes, "size")
-        try:
-            list_size = int(unescape(raw_size).strip()) if raw_size else 0
-        except ValueError:
-            list_size = 0
+        decoded_size = unescape(raw_size).strip() if raw_size else ""
+        list_size = int(decoded_size) if re.fullmatch(r"[0-9]+", decoded_size) else 0
         if "multiple" in attribute_names or list_size > 1:
             output.append(text[cursor : opening_end + 1])
             cursor = opening_end + 1
