@@ -1018,6 +1018,7 @@ FORBIDDEN_PATTERNS = (
     r"open(?:s|ing)? (?:unrestricted|unbounded|arbitrary) sockets?|"
     r"connect(?:s|ing)? to (?:unrestricted|unbounded|arbitrary) "
     r"(?:hosts?|endpoints?|networks?)|"
+    r"perform(?:s|ed|ing)? remote execution|"
     r"(?:run|execute)(?:s|ning|ing)? commands? on remote (?:machines?|hosts?)|"
     r"ssh(?:es|ing)? into remote (?:servers?|machines?|hosts?)|"
     r"(?:read|access|control)(?:s|ing)? (?:the )?(?:mobile |device )?"
@@ -2900,11 +2901,22 @@ def _decode_css_escapes(value: str) -> str:
     return "".join(output)
 
 
+def _reject_ambiguous_opacity_escapes(style: str) -> None:
+    """Fail closed when CSS escapes could change an opacity token's type."""
+    raw_style = unescape(style)
+    if "\\" not in raw_style:
+        return
+    decoded_style = _decode_css_escapes(raw_style)
+    if re.search(r"(?:^|;)\s*opacity\s*:", decoded_style, flags=re.IGNORECASE):
+        raise RuntimeError("escaped CSS opacity token type is unsupported")
+
+
 def _inline_style_properties(attributes: str) -> dict[str, str]:
     """Return effective visibility-relevant inline style properties."""
     style = _html_attribute_value(attributes, "style")
     if style is None:
         return {}
+    _reject_ambiguous_opacity_escapes(style)
     normalized = re.sub(
         r"/\*.*?\*/", "", _decode_css_escapes(unescape(style)), flags=re.DOTALL
     )
@@ -3374,6 +3386,59 @@ def _hidden_attribute_suppresses(
     return not _display_definitely_overrides_hidden(properties.get("display"))
 
 
+def _declarative_shadow_root_renders(attributes: str) -> bool:
+    """Return whether a template declares rendered shadow-root contents."""
+    mode = _html_attribute_value(attributes, "shadowrootmode")
+    return mode is not None and unescape(mode).strip().lower() in {"open", "closed"}
+
+
+def _popover_suppresses(
+    lower_name: str,
+    attribute_names: set[str],
+    ancestor_names: frozenset[str],
+) -> bool:
+    """Apply initial popover hiding only where HTML popover semantics are known."""
+    if "popover" not in attribute_names:
+        return False
+    if lower_name in {"svg", "math"} or ancestor_names.intersection({"svg", "math"}):
+        raise RuntimeError("foreign-namespace popover visibility is unsupported")
+    return True
+
+
+def _reject_embedded_visibility_styles(text: str) -> None:
+    """Fail closed when an embedded stylesheet can alter rendered truth prose."""
+    style = re.compile(r"<style(?=[\s/>])", re.IGNORECASE)
+    cursor = 0
+    while (match := style.search(text, cursor)) is not None:
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            return
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            cursor = opening_end + 1
+            continue
+        closing = re.compile(r"</style[ \t\r\n]*>", re.IGNORECASE).search(
+            text, opening_end + 1
+        )
+        if closing is None:
+            return
+        stylesheet = re.sub(
+            r"/\*.*?\*/",
+            "",
+            _decode_css_escapes(
+                unescape(text[opening_end + 1 : closing.start()])
+            ),
+            flags=re.DOTALL,
+        )
+        if re.search(
+            r"(?:^|[;{])\s*(?:display|opacity|visibility)\s*:",
+            stylesheet,
+            flags=re.IGNORECASE,
+        ):
+            raise RuntimeError("embedded visibility stylesheet is unsupported")
+        cursor = closing.end()
+
+
 def _matching_closing_start(
     text: str, content_start: int, element_end: int, name: str
 ) -> int:
@@ -3432,6 +3497,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         void_element = lower_name in HTML_VOID_ELEMENTS
         properties = _inline_style_properties(attributes)
         attribute_names = _html_attribute_names(attributes)
+        ancestor_names = ancestor_scopes.get(match.start(), frozenset())
         if void_element:
             if (
                 _visibility_is_visible_override(properties.get("visibility"))
@@ -3480,11 +3546,14 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             lower_name in {
                 "script",
                 "style",
-                "template",
                 "iframe",
                 "progress",
                 "meter",
             }
+            or (
+                lower_name == "template"
+                and not _declarative_shadow_root_renders(attributes)
+            )
             or (
                 lower_name == "datalist"
                 and not _display_definitely_overrides_hidden(
@@ -3492,7 +3561,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
-            or "popover" in attribute_names
+            or _popover_suppresses(lower_name, attribute_names, ancestor_names)
             or _hidden_attribute_suppresses(attributes, properties)
             or properties.get("display") == "none"
             or _opacity_hides_contents(properties.get("opacity"))
@@ -3539,6 +3608,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
 
 def _strip_raw_text_elements(text: str) -> str:
     """Remove elements whose contents do not render as visible prose."""
+    _reject_embedded_visibility_styles(text)
     ancestor_scopes = _html_ancestor_scopes(text)
     output: list[str] = []
     cursor = 0
@@ -3570,16 +3640,20 @@ def _strip_raw_text_elements(text: str) -> str:
         name = match.group(1)
         lower_name = name.lower()
         attribute_names = _html_attribute_names(attributes)
+        ancestor_names = ancestor_scopes.get(match.start(), frozenset())
         style_properties = _inline_style_properties(attributes)
         subtree_non_rendered = (
             lower_name in {
                 "script",
                 "style",
-                "template",
                 "iframe",
                 "progress",
                 "meter",
             }
+            or (
+                lower_name == "template"
+                and not _declarative_shadow_root_renders(attributes)
+            )
             or (
                 lower_name == "datalist"
                 and not _display_definitely_overrides_hidden(
@@ -3587,7 +3661,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
-            or "popover" in attribute_names
+            or _popover_suppresses(lower_name, attribute_names, ancestor_names)
             or _hidden_attribute_suppresses(attributes, style_properties)
             or style_properties.get("display") == "none"
             or _opacity_hides_contents(style_properties.get("opacity"))
@@ -3777,8 +3851,13 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
         attribute_names = _html_attribute_names(attributes)
         raw_size = _html_attribute_value(attributes, "size")
         decoded_size = unescape(raw_size).strip() if raw_size else ""
-        list_size = int(decoded_size) if re.fullmatch(r"[0-9]+", decoded_size) else 0
-        if "multiple" in attribute_names or list_size > 1:
+        normalized_size = (
+            decoded_size.lstrip("0")
+            if re.fullmatch(r"[0-9]+", decoded_size)
+            else ""
+        )
+        listbox_size = len(normalized_size) > 1 or normalized_size not in {"", "1"}
+        if "multiple" in attribute_names or listbox_size:
             output.append(text[cursor : opening_end + 1])
             cursor = opening_end + 1
             continue

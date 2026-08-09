@@ -2120,6 +2120,12 @@ def test_authority_predicate_rejects_capable_of_gerund_grant() -> None:
     )
 
 
+def test_direct_finite_remote_execution_grant_is_rejected() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA performs remote execution."
+    )
+
+
 @pytest.mark.parametrize(
     "claim",
     (
@@ -2343,6 +2349,16 @@ def test_select_size_uses_html_non_negative_integer_grammar() -> None:
     )
 
 
+def test_select_size_conversion_is_bounded() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            f'<select size="{"9" * 5000}"><option>benign.</option>'
+            "<option>no </option></select>web fetching is enabled."
+        )
+        == []
+    )
+
+
 def test_closed_dialog_body_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<dialog>no </dialog>UAA can fetch from the public web."
@@ -2353,6 +2369,16 @@ def test_closed_popover_body_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<span popover>no </span>web fetching is enabled."
     )
+
+
+def test_foreign_namespace_popover_visibility_fails_closed() -> None:
+    with pytest.raises(
+        RuntimeError, match="foreign-namespace popover visibility is unsupported"
+    ):
+        verifier._find_forbidden_authority_claims(
+            '<svg popover width="500" height="40"><text x="0" y="20">'
+            "UAA browses the public web.</text></svg>"
+        )
 
 
 def test_open_dialog_body_cannot_negate_following_block_prose() -> None:
@@ -2373,9 +2399,35 @@ def test_css_escaped_inline_style_cannot_supply_an_authority_denial() -> None:
     )
 
 
+def test_escaped_opacity_identifier_token_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="escaped CSS opacity token type"):
+        verifier._find_forbidden_authority_claims(
+            r'<span style="opacity:\30">UAA browses the public web.</span>'
+        )
+
+
+@pytest.mark.parametrize(
+    "declaration", ("display:none", r"d\69 splay:none", "display/**/:none")
+)
+def test_embedded_visibility_stylesheet_fails_closed(declaration: str) -> None:
+    with pytest.raises(RuntimeError, match="embedded visibility stylesheet"):
+        verifier._find_forbidden_authority_claims(
+            f"<style>.denial {{ {declaration} }}</style>"
+            '<span class="denial">no </span>web fetching is enabled.'
+        )
+
+
 def test_nested_template_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<template><template>x</template>no</template> web fetching is enabled."
+    )
+
+
+@pytest.mark.parametrize("mode", ("open", "closed"))
+def test_declarative_shadow_root_contents_remain_scannable(mode: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<div><template shadowrootmode="{mode}"><span>'
+        "UAA browses the public web.</span></template></div>"
     )
 
 
