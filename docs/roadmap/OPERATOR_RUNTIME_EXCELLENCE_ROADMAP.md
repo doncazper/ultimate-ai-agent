@@ -1,5 +1,13 @@
 # Operator Runtime Excellence Roadmap
 
+Ordered queue insertion: the Tool-Aware Cognition And Chat Quality program in
+`docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` extends the
+accepted Turn Contract Router and must reach its TAW-08 acceptance gate before
+the final GoatCitadel comparison. Independent implementation and verification
+may proceed concurrently where contracts and files do not overlap; exact merge
+admission remains dependency- and evidence-aware. This planning order grants no
+runtime authority and does not replace the configured local model.
+
 Status: Active product/runtime excellence plan.
 
 This plan is a repo-owned execution artifact for bringing Ultimate AI Agent to

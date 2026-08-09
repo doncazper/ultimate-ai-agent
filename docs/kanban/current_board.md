@@ -7,6 +7,20 @@ Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`.
 Founder Command Center product-loop planning board:
 `docs/kanban/founder_command_center_board.md`.
 
+Ordered queue insertion: Tool-Aware Cognition And Chat Quality is a finite
+TAW-00 through TAW-08 implementation program that extends the existing Turn
+Contract Router, preserves the local model as the language/reasoning engine,
+and keeps ordinary chat on a zero-extra-model-call fast path. It must be fully
+implemented and exact-head accepted before the final GoatCitadel comparison;
+post-merge verification is also required. The planning artifact does not grant
+runtime authority and is not completion evidence. Canonical plan:
+`docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`; ordered
+execution record:
+`docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`.
+The exact intervening item order, pre-Goat insertion boundary, and
+machine-readable no-new-authority declaration are pinned in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.
+
 Product hardening implementation is ready for review: strict no-mock
 production Control Center mode, memory-only launcher bearer handoff, real
 Founder Loop SQLite/JSONL recovery, unknown-schema protection, build identity,
