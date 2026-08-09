@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from html import escape, unescape
 import json
+from math import isfinite
 import re
 import sys
 from pathlib import Path
@@ -2644,15 +2645,129 @@ def _opacity_hides_contents(value: str | None) -> bool:
     if value is None:
         return False
     normalized = value.strip()
-    if normalized.startswith("calc(") and normalized.endswith(")"):
-        normalized = normalized[5:-1].strip()
     match = re.fullmatch(
         r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(%)?",
         normalized,
     )
-    if match is None:
-        return False
-    return float(match.group(1)) <= 0
+    if match is not None:
+        return float(match.group(1)) <= 0
+    calculated = _constant_css_calculation(normalized)
+    return calculated is not None and calculated <= 0
+
+
+def _constant_css_calculation(value: str) -> float | None:
+    """Evaluate a bounded numeric CSS ``calc()`` expression without ``eval``."""
+    if not value.startswith("calc"):
+        return None
+    tokens: list[tuple[str, str, int, int]] = []
+    cursor = 0
+    number = re.compile(r"(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?%?")
+    while cursor < len(value):
+        if value[cursor].isspace():
+            cursor += 1
+            continue
+        numeric = number.match(value, cursor)
+        if numeric is not None:
+            tokens.append(("number", numeric.group(), cursor, numeric.end()))
+            cursor = numeric.end()
+        elif value.startswith("calc", cursor) and (
+            cursor + 4 == len(value)
+            or not (value[cursor + 4].isalnum() or value[cursor + 4] in "_-")
+        ):
+            tokens.append(("calc", "calc", cursor, cursor + 4))
+            cursor += 4
+        elif value[cursor] in "+-*/()":
+            tokens.append((value[cursor], value[cursor], cursor, cursor + 1))
+            cursor += 1
+        else:
+            return None
+        if len(tokens) > 256:
+            return None
+
+    index = 0
+
+    def parse_expression(depth: int = 0) -> float | None:
+        nonlocal index
+        left = parse_term(depth + 1)
+        if left is None:
+            return None
+        while index < len(tokens) and tokens[index][0] in {"+", "-"}:
+            operator, _raw, start, end = tokens[index]
+            if (
+                start == 0
+                or end == len(value)
+                or not value[start - 1].isspace()
+                or not value[end].isspace()
+            ):
+                return None
+            index += 1
+            right = parse_term(depth + 1)
+            if right is None:
+                return None
+            left = left + right if operator == "+" else left - right
+            if not isfinite(left):
+                return None
+        return left
+
+    def parse_term(depth: int) -> float | None:
+        nonlocal index
+        left = parse_unary(depth + 1)
+        if left is None:
+            return None
+        while index < len(tokens) and tokens[index][0] in {"*", "/"}:
+            operator = tokens[index][0]
+            index += 1
+            right = parse_unary(depth + 1)
+            if right is None or (operator == "/" and right == 0):
+                return None
+            left = left * right if operator == "*" else left / right
+            if not isfinite(left):
+                return None
+        return left
+
+    def parse_unary(depth: int) -> float | None:
+        nonlocal index
+        if depth > 64 or index >= len(tokens):
+            return None
+        if tokens[index][0] in {"+", "-"}:
+            operator = tokens[index][0]
+            index += 1
+            operand = parse_unary(depth + 1)
+            if operand is None:
+                return None
+            return operand if operator == "+" else -operand
+        return parse_primary(depth + 1)
+
+    def parse_primary(depth: int) -> float | None:
+        nonlocal index
+        if depth > 64 or index >= len(tokens):
+            return None
+        kind, raw, _start, end = tokens[index]
+        if kind == "number":
+            index += 1
+            percentage = raw.endswith("%")
+            parsed = float(raw[:-1] if percentage else raw)
+            parsed = parsed / 100 if percentage else parsed
+            return parsed if isfinite(parsed) else None
+        if kind == "calc":
+            index += 1
+            if (
+                index >= len(tokens)
+                or tokens[index][0] != "("
+                or tokens[index][2] != end
+            ):
+                return None
+        elif kind != "(":
+            return None
+        index += 1
+        parsed = parse_expression(depth + 1)
+        if parsed is None or index >= len(tokens) or tokens[index][0] != ")":
+            return None
+        index += 1
+        return parsed
+
+    result = parse_expression()
+    return result if result is not None and index == len(tokens) else None
 
 
 def _inline_style_hides_contents(attributes: str) -> bool:
@@ -3154,15 +3269,37 @@ def _html_attribute_value(attributes: str, name: str) -> str | None:
 
 
 def _accessible_html_alternative(name: str, attributes: str) -> str | None:
-    """Return `alt` where HTML exposes it as the element's accessible label."""
+    """Return text visibly rendered by a void HTML element."""
     if name in {"area", "img"}:
         return _html_attribute_value(attributes, "alt")
     if name != "input":
         return None
-    input_type = _html_attribute_value(attributes, "type")
-    if input_type is None or unescape(input_type).strip().lower() != "image":
+    raw_input_type = _html_attribute_value(attributes, "type")
+    input_type = (
+        unescape(raw_input_type).strip().lower()
+        if raw_input_type is not None
+        else "text"
+    )
+    if input_type == "image":
+        return _html_attribute_value(attributes, "alt")
+    if input_type == "hidden":
         return None
-    return _html_attribute_value(attributes, "alt")
+    value = _html_attribute_value(attributes, "value")
+    if input_type in {"button", "reset", "submit"}:
+        return value
+    if input_type in {"checkbox", "color", "file", "radio", "range"}:
+        return None
+    if input_type == "password":
+        return (
+            _html_attribute_value(attributes, "placeholder")
+            if value in {None, ""}
+            else None
+        )
+    return (
+        value
+        if value not in {None, ""}
+        else _html_attribute_value(attributes, "placeholder")
+    )
 
 
 DEFAULT_IGNORABLE_CODE_POINT_RANGES = (

@@ -1695,7 +1695,19 @@ def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
 
 @pytest.mark.parametrize(
     "opacity",
-    ("0", "0.0", ".0", "0%", "-1", "-0.5%", "0e3", "calc(0)"),
+    (
+        "0",
+        "0.0",
+        ".0",
+        "0%",
+        "-1",
+        "-0.5%",
+        "0e3",
+        "calc(0)",
+        "calc(1 - 1)",
+        "calc((25% * 4) - 1)",
+        "calc(calc(2 / 2) - 1)",
+    ),
 )
 def test_fully_transparent_element_cannot_supply_an_authority_denial(
     opacity: str,
@@ -1717,6 +1729,50 @@ def test_fully_transparent_element_cannot_supply_an_authority_denial(
 def test_visible_opacity_override_remains_scannable(style: str) -> None:
     assert verifier._find_forbidden_authority_claims(
         f'<span style="{style}">UAA can fetch from the public web.</span>'
+    )
+
+
+def test_nonzero_constant_opacity_calculation_remains_scannable() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="opacity:calc(2 - 1)">'
+        "UAA can fetch from the public web.</span>"
+    )
+
+
+@pytest.mark.parametrize("opacity", ("calc(1-1)", "calc (1 - 1)"))
+def test_invalid_constant_opacity_calculation_remains_scannable(
+    opacity: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="opacity:{opacity}">'
+        "UAA can fetch from the public web.</span>"
+    )
+
+
+def test_visible_text_input_value_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<input value="UAA can fetch from the public web.">'
+    )
+
+
+def test_visible_empty_text_input_placeholder_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<input value="" placeholder="UAA can fetch from the public web.">'
+    )
+
+
+def test_text_input_placeholder_cannot_override_a_rendered_value() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<input value="UAA can fetch from the public web." placeholder="no">'
+    )
+
+
+@pytest.mark.parametrize("input_type", ("hidden", "checkbox", "radio"))
+def test_non_textual_input_value_cannot_supply_an_authority_denial(
+    input_type: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<input type="{input_type}" value="no"> web fetching is enabled.'
     )
 
 
