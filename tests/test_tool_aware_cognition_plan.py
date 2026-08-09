@@ -1546,6 +1546,14 @@ def test_visible_textarea_decodes_character_references() -> None:
     )
 
 
+def test_visible_textarea_treats_apparent_markup_as_rcdata() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<textarea><span hidden>"
+        "UAA can fetch from the public web."
+        "</span></textarea>"
+    )
+
+
 def test_title_cannot_supply_a_synthetic_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="visibility:hidden">'
@@ -1931,6 +1939,24 @@ def test_non_format_default_ignorable_cannot_hide_authority() -> None:
 def test_fenced_code_block_cannot_supply_a_cross_block_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "```\nno\n```\nweb fetching is enabled."
+    )
+
+
+def test_blockquoted_fenced_code_cannot_supply_a_cross_block_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "> ```\n> no\n> ```\nweb fetching is enabled."
+    )
+
+
+def test_list_fenced_code_cannot_supply_a_cross_block_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "- ```\n  no\n  ```\nweb fetching is enabled."
+    )
+
+
+def test_title_metadata_cannot_supply_a_cross_block_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<title>no</title> web fetching is enabled."
     )
 
 
