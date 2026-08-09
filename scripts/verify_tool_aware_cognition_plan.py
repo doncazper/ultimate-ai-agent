@@ -2149,12 +2149,28 @@ def _verify_queue_position(text: str) -> None:
 
     numbered_pattern = re.compile(r"^[ ]{0,3}(\d+)[.)]\s+.*$", flags=re.MULTILINE)
     all_numbered = tuple(numbered_pattern.findall(text))
-    block_numbered = tuple(numbered_pattern.findall(block))
+    entry_starts = tuple(
+        re.finditer(r"^[ ]{0,3}(\d+)[.)]\s+", block, flags=re.MULTILINE)
+    )
+    block_numbered = tuple(match.group(1) for match in entry_starts)
     if (
         all_numbered != block_numbered
         or block_numbered != ("1", "2", "3", "4")
     ):
         raise RuntimeError("ordered queue insertion has competing declarations")
+    for index, (match, required_prefix) in enumerate(
+        zip(entry_starts, QUEUE_ORDERED_STEPS, strict=True)
+    ):
+        entry_end = (
+            entry_starts[index + 1].start()
+            if index + 1 < len(entry_starts)
+            else len(block)
+        )
+        entry = f"{match.group(1)}. {block[match.end():entry_end]}"
+        normalized_entry = re.sub(r"\s+", " ", entry).strip()
+        normalized_prefix = re.sub(r"\s+", " ", required_prefix).strip()
+        if not normalized_entry.startswith(normalized_prefix):
+            raise RuntimeError("ordered queue insertion entries are invalid")
 
 
 def _verify_board_queue_order(text: str) -> None:
@@ -2525,8 +2541,26 @@ def _strip_markdown_links(text: str, reference_labels: set[str]) -> str:
             output.append(text[label_start])
             cursor = label_start + 1
             continue
-        if label_start > 0 and text[label_start - 1] == "!" and output[-1].endswith("!"):
+        if (
+            label_start > 0
+            and text[label_start - 1] == "!"
+            and output
+            and output[-1].endswith("!")
+        ):
+            image_alt = text[label_start + 1 : closing_bracket]
+            if re.search(
+                r"\b(?:no|not|never|cannot|can't|disabled|enabled|allows?|"
+                r"authorizes?|grants?|permits?|can|brows(?:e|es)|fetch(?:es|ing)?|"
+                r"execut(?:e|es|ed|ing)|writes?)\b",
+                image_alt,
+                flags=re.IGNORECASE,
+            ):
+                raise RuntimeError(
+                    "conditional Markdown image rendering is unsupported"
+                )
             output[-1] = output[-1][:-1]
+            cursor = link_end
+            continue
         output.append(text[label_start + 1 : closing_bracket])
         cursor = link_end
     return "".join(output)
@@ -2547,42 +2581,23 @@ def _commonmark_declaration_content_start(text: str, start: int) -> int | None:
 
 def _strip_fenced_code_blocks(text: str) -> str:
     """Remove CommonMark-style fenced code blocks before structure checks."""
-    output: list[str] = []
-    fence_character: str | None = None
-    fence_length = 0
-    opening = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
-    for line in text.splitlines(keepends=True):
-        content = line.rstrip("\r\n")
-        if fence_character is None:
-            match = opening.match(content)
-            if match is None:
-                output.append(line)
-                continue
-            if match.group(1)[0] == "`" and "`" in content[match.end() :]:
-                output.append(line)
-                continue
-            fence_character = match.group(1)[0]
-            fence_length = len(match.group(1))
-            output.append("\n" if line.endswith(("\n", "\r")) else "")
-            continue
-        closing = re.fullmatch(
-            rf"[ ]{{0,3}}{re.escape(fence_character)}{{{fence_length},}}[ \t]*",
-            content,
-        )
-        if closing is not None:
-            fence_character = None
-            fence_length = 0
-        output.append("\n" if line.endswith(("\n", "\r")) else "")
-    return "".join(output)
+    delimiters = _code_token_delimiters(text)
+    protected, blocks = _extract_visible_fenced_code(
+        text, token_delimiters=delimiters
+    )
+    return _restore_code_tokens(
+        protected, {token: "" for token, _content in blocks}, delimiters
+    )
 
 
 def _strip_indented_code_blocks(text: str) -> str:
     """Remove four-space and tab-indented code lines from source checks."""
-    return "".join(
-        ("\n" if line.endswith(("\n", "\r")) else "")
-        if line.startswith(("    ", "\t"))
-        else line
-        for line in text.splitlines(keepends=True)
+    delimiters = _code_token_delimiters(text)
+    protected, blocks = _extract_visible_indented_code(
+        text, token_delimiters=delimiters
+    )
+    return _restore_code_tokens(
+        protected, {token: "" for token, _content in blocks}, delimiters
     )
 
 
@@ -3953,6 +3968,8 @@ def _strip_raw_text_elements(text: str) -> str:
         attribute_names = _html_attribute_names(attributes)
         ancestor_frame = ancestor_contexts.get(match.start())
         ancestor_names = _html_ancestor_names(ancestor_frame)
+        if lower_name == "noscript":
+            raise RuntimeError("conditional noscript rendering is unsupported")
         _reject_svg_presentation_visibility(
             lower_name, attribute_names, ancestor_names
         )
@@ -4790,6 +4807,25 @@ def _strip_code_indent(line: str) -> str | None:
     return line[cursor:] if columns >= 4 else None
 
 
+def _markdown_line_opens_paragraph(line: str) -> bool:
+    """Return whether a non-indented line leaves a paragraph open."""
+    content = line.rstrip("\r\n")
+    if not content.strip():
+        return False
+    if "uaa-fenced-code:" in content or "uaa-indented-code:" in content:
+        return False
+    return re.match(
+        r"^[ ]{0,3}(?:"
+        r"#{1,6}(?:[ \t]+|$)|"
+        r"`{3,}|~{3,}|"
+        r"(?:=+|-+)[ \t]*$|"
+        r"(?:\*[ \t]*){3,}$|(?:_[ \t]*){3,}$|"
+        r"</?[A-Za-z]|<!--|<\?|<![A-Z]|<!\[CDATA\["
+        r")",
+        content,
+    ) is None
+
+
 def _extract_visible_indented_code(
     text: str,
     *,
@@ -4801,10 +4837,13 @@ def _extract_visible_indented_code(
     blocks: list[tuple[str, str]] = []
     delimiters = token_delimiters or _code_token_delimiters(text)
     index = 0
+    paragraph_open = False
     while index < len(lines):
         first = _strip_code_indent(lines[index])
-        if first is None:
+        if first is None or paragraph_open:
             output.append(lines[index])
+            if first is None:
+                paragraph_open = _markdown_line_opens_paragraph(lines[index])
             index += 1
             continue
         visible = [first]
@@ -4823,6 +4862,7 @@ def _extract_visible_indented_code(
         token = _code_token(delimiters, "indented", len(blocks))
         blocks.append((token, "".join(visible)))
         output.append(f"\n{token}\n")
+        paragraph_open = False
     return "".join(output), blocks
 
 

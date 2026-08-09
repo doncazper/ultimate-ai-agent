@@ -1727,15 +1727,24 @@ def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None
 
 
 def test_noscript_cannot_supply_an_authority_denial() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        "<noscript>no </noscript>web fetching is enabled."
-    )
+    with pytest.raises(RuntimeError, match="noscript"):
+        verifier._find_forbidden_authority_claims(
+            "<noscript>no </noscript>web fetching is enabled."
+        )
 
 
 def test_noscript_raw_text_nesting_cannot_hide_following_authority() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        "<noscript><noscript></noscript>UAA browses the public web."
-    )
+    with pytest.raises(RuntimeError, match="noscript"):
+        verifier._find_forbidden_authority_claims(
+            "<noscript><noscript></noscript>UAA browses the public web."
+        )
+
+
+def test_noscript_authority_claim_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="noscript"):
+        verifier._find_forbidden_authority_claims(
+            "<noscript>UAA can fetch from the public web.</noscript>"
+        )
 
 
 def test_foreign_namespace_noscript_fails_closed() -> None:
@@ -2819,6 +2828,19 @@ def test_visible_inline_code_html_is_scanned_as_literal_prose() -> None:
     )
 
 
+def test_markdown_image_alt_denial_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="Markdown image"):
+        verifier._find_forbidden_authority_claims(
+            "![no](asset.png) web fetching is enabled."
+        )
+
+
+def test_inert_markdown_image_alt_is_not_treated_as_visible_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "![status badge](asset.png) UAA can fetch from the public web."
+    )
+
+
 def test_visible_code_token_text_cannot_collide_with_restoration() -> None:
     assert verifier._find_forbidden_authority_claims(
         "`no`. \ue004uaa-inline-code-0\ue005 web fetching is enabled."
@@ -2843,6 +2865,12 @@ def test_many_inline_code_spans_are_restored_in_bounded_time() -> None:
 def test_visible_indented_code_html_is_scanned_as_literal_prose() -> None:
     assert verifier._find_forbidden_authority_claims(
         "    <span hidden>UAA can fetch from the public web.</span>\n"
+    )
+
+
+def test_indented_paragraph_continuation_remains_visible_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Operators can use UAA to\n    execute unrestricted shell commands."
     )
 
 
@@ -3201,6 +3229,8 @@ def test_commented_required_plan_clause_fails_closed(
     "hidden_clause",
     (
         "```text\napproval cannot mint or broaden authority\n```",
+        "> ```text\n> approval cannot mint or broaden authority\n> ```",
+        "- ```text\n  approval cannot mint or broaden authority\n  ```",
         "    approval cannot mint or broaden authority",
     ),
 )
@@ -3593,6 +3623,26 @@ def test_reordered_queue_gate_fails_closed(
     monkeypatch.setattr(verifier, "QUEUE", queue)
 
     with pytest.raises(RuntimeError, match="ordered queue insertion is missing"):
+        verifier.verify()
+
+
+def test_queue_prefixes_must_belong_to_numbered_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue = tmp_path / "queue.md"
+    text = verifier.QUEUE.read_text(encoding="utf-8")
+    for index, prefix in enumerate(verifier.QUEUE_ORDERED_STEPS, start=1):
+        text = text.replace(prefix, f"{index}. Perform an unrelated queue action", 1)
+    text = text.replace(
+        "\n\nThis position prevents",
+        "\n\nDecoy prefixes: " + " ".join(verifier.QUEUE_ORDERED_STEPS)
+        + "\n\nThis position prevents",
+        1,
+    )
+    queue.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(verifier, "QUEUE", queue)
+
+    with pytest.raises(RuntimeError, match="ordered queue insertion entries"):
         verifier.verify()
 
 
