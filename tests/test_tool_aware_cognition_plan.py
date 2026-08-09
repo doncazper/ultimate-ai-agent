@@ -879,6 +879,8 @@ def test_new_authority_guidance_is_not_execution_authority(
         "UAA is generally available for production use.",
         "Ultimate AI Agent is GA.",
         "The product has reached general availability.",
+        "The tool-aware cognition program is production ready.",
+        "TAW-08 is production ready.",
     ),
 )
 def test_protected_product_claims_are_detected(contradiction: str) -> None:
@@ -972,6 +974,18 @@ def test_authority_negation_does_not_escape_its_clause(
     contradiction: str,
 ) -> None:
     assert verifier._find_forbidden_authority_claims(contradiction)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "OpenAPI checks can be bypassed.",
+        "Foundation Gate checks may be skipped.",
+        "Redaction checks can be ignored.",
+    ),
+)
+def test_passive_hard_boundary_bypasses_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 def test_plan_authority_denial_lead_in_is_exact_and_bounded(
@@ -1179,6 +1193,13 @@ def test_volatile_raw_prompt_handling_with_explicit_nonpersistence_is_safe() -> 
             "persisted to durable evidence."
         )
         == []
+    )
+
+
+def test_durable_raw_sink_cannot_be_masked_by_a_volatile_qualifier() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Raw prompts are stored in durable logs and transient request memory and "
+        "never persisted to durable evidence."
     )
 
 
@@ -1519,10 +1540,28 @@ def test_untrusted_content_policy_modifiers_are_not_authority_claims(
     assert verifier._find_forbidden_authority_claims(claim) == []
 
 
+def test_policy_input_cannot_coordinate_an_authority_assignment() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Fetched web content is a policy input and authority."
+    )
+
+
 def test_authority_predicate_rejects_control_center_cli_parity_negation() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Control Center workflow does not require a CLI inspection path."
     )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Control Center actions are UI-only and have no command-line inspection path.",
+        "Control Center workflows have no CLI parity.",
+        "Control Center mutations are unavailable from the CLI.",
+    ),
+)
+def test_control_center_ui_only_workflow_claims_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 @pytest.mark.parametrize(
@@ -2323,6 +2362,13 @@ def test_declared_css_variable_precedes_its_fallback() -> None:
 def test_cyclic_declared_css_variable_uses_outer_fallback() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="--x:var(--x); opacity:var(--x,0)">no </span>'
+        "web fetching is enabled."
+    )
+
+
+def test_css_variable_inside_opacity_calculation_is_resolved() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="--x:0; opacity:calc(var(--x) + 0)">no </span>'
         "web fetching is enabled."
     )
 
@@ -3923,6 +3969,8 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 can be passed despite fabricated successful execution claims.",
         "Execution may be reported successful without terminal proof.",
         "Execution may succeed without terminal proof.",
+        "Execution succeeds without terminal proof.",
+        "Execution completes without terminal proof.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
         "TAW-08 tolerates one unsafe authority broadening event.",

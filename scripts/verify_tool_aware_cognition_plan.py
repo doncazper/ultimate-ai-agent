@@ -880,7 +880,11 @@ FORBIDDEN_PATTERNS = (
     r"\b(?:runtime )?(?:model|provider|model/provider) (?:calls?|access|use|invocations?) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?(?:browser automation|web fetching|connector writes?|shell execution|production authority|(?:browser|connector|shell|production) authority)\b",
     r"\b(?:browser automation|web fetching|connector writes?|shell execution|production authority) (?:are|is) (?:now )?(?:authorized|permitted|allowed|enabled|granted)\b",
-    r"\bpolicy (?:checks? )?(?:may|can) be bypassed\b",
+    r"\b(?:policy(?: checks?)?|approval(?: checks?| validation| gates?)?|"
+    r"route(?: classification| checks?| gates?)?|openapi(?: checks?| contract)?|"
+    r"redaction(?: checks?| gates?)?|foundation gate(?: checks?)?|gate checks?) "
+    r"(?:may|can|could|might|will|would|shall|should|must) be "
+    r"(?:bypassed|skipped|ignored|disabled|overridden|weakened)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to) "
@@ -1028,9 +1032,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:is|are)|(?:may|can|could|will|would|shall|should|must) be) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:logged|stored|recorded|retained|saved|persisted|archived|cached|written)"
-    r"(?!"
-    r"(?:(?![.!?]).){0,120}?\b(?:volatile|ephemeral|transient(?:ly)?|"
-    r"in[- ]memory|request memory)\b"
+    r"(?!\s+(?:only|exclusively)\s+(?:in|to)\s+"
+    r"(?:volatile|ephemeral|transient|in[- ]memory|request memory)\b"
     r"(?:(?![.!?]).){0,120}?\b(?:never|not) "
     r"(?:persisted|stored|recorded|retained|saved|archived|cached|written)\b"
     r"(?:(?![.!?]).){0,80}?\b(?:durable|evidence|disk|logs?)\b)"
@@ -1152,7 +1155,10 @@ FORBIDDEN_PATTERNS = (
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\bautomatic skill (?:activation|execution) is allowed\b",
-    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
+    r"\b(?:(?:this|the) (?:plan|program|product|system|release)|"
+    r"(?:the )?tool[- ]aware cognition(?: and chat quality)?(?: program)?|"
+    r"TAW-(?:0[0-8])|uaa|(?:the )?ultimate ai agent|"
+    r"(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
     r"(?:now )?(?:production[- ]ready|ready for production|public[- ]beta(?:[- ]ready)?|"
     r"ready for public (?:beta|release|distribution))\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:control center|cli|api|python agent core)) (?:is|are) "
@@ -1408,10 +1414,23 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:(?:a|an|the) )?(?:trusted )?"
     r"(?:instructions?|policy(?!\s+(?:concerns?|inputs?))|authority|"
     r"evidence(?: control)? input)\b",
+    r"\b(?:(?:hydrated|tool|capability) manifests?|"
+    r"(?:fetched|retrieved)(?: web)? content) "
+    r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
+    r"(?:(?:a|an|the) )?(?:trusted )?policy (?:concerns?|inputs?)"
+    r"(?:(?![.!?]).){0,80}?\b(?:and|as well as) "
+    r"(?!not\b)(?:(?:a|an|the) )?(?:trusted )?"
+    r"(?:instructions?|policy|authority|evidence(?: control)? input)\b",
     r"\bcontrol center(?: workflow| surface)? "
     r"(?:does not|doesn't|need not) require (?:an? )?"
     r"(?:cli|command[- ]line|shared[- ]backend|python[- ]core) "
     r"(?:inspection path|parity|contract|read model)\b",
+    r"\bcontrol center (?:actions?|workflows?|mutations?) "
+    r"(?:(?:is|are) ui[- ]only\b|"
+    r"(?:has|have) no (?:cli|command[- ]line|shared[- ]backend|python[- ]core) "
+    r"(?:inspection path|parity|contract|read model)\b|"
+    r"(?:is|are) (?:unavailable|not available) (?:from|through|via|in) "
+    r"(?:the )?(?:cli|command[- ]line|python[- ]core)\b)",
 )
 CAPABLE_OF_GERUND_BASES = {
     "accessing": "access",
@@ -1754,6 +1773,10 @@ ZERO_TOLERANCE_LINES = (
     "- raw sensitive content in durable routing evidence: zero;",
 )
 ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
+    r"\b(?:executions?|workflows?|tasks?|actions?) "
+    r"(?:succeeds?|completes?|finishes?)\b"
+    r"(?:(?![.!?]).){0,120}?\bwithout "
+    r"(?:(?:exact|valid|immutable|durable) )*terminal proof\b",
     r"\b(?:executions?|workflows?|tasks?|actions?) "
     r"(?:may|can|could|will|would|shall|should|must) "
     r"(?:succeed|complete|finish)\b"
@@ -2880,29 +2903,44 @@ def _resolve_css_variable_fallback(
     depth: int = 0,
     seen: frozenset[str] = frozenset(),
 ) -> str | None:
-    """Resolve bounded same-element custom properties and ``var()`` fallbacks."""
+    """Resolve bounded same-element custom properties, including nested ``var()``."""
     resolved = value.strip()
     if depth >= 8:
         return None
-    if not resolved.lower().startswith("var(") or not resolved.endswith(")"):
+    variable = re.search(r"var\(", resolved, flags=re.IGNORECASE)
+    if variable is None:
         return resolved
-    inner = resolved[4:-1]
-    nesting = 0
-    comma = None
-    for index, character in enumerate(inner):
+    nesting = 1
+    close = None
+    for index in range(variable.end(), len(resolved)):
+        character = resolved[index]
         if character == "(":
             nesting += 1
         elif character == ")":
-            if nesting == 0:
-                return None
             nesting -= 1
-        elif character == "," and nesting == 0:
+            if nesting == 0:
+                close = index
+                break
+    if close is None:
+        return None
+    inner = resolved[variable.end() : close]
+    inner_nesting = 0
+    comma = None
+    for index, character in enumerate(inner):
+        if character == "(":
+            inner_nesting += 1
+        elif character == ")":
+            if inner_nesting == 0:
+                return None
+            inner_nesting -= 1
+        elif character == "," and inner_nesting == 0:
             comma = index
             break
     custom_property = (inner if comma is None else inner[:comma]).strip()
     if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
         return None
     declared = (custom_properties or {}).get(custom_property)
+    replacement = None
     if declared is not None:
         if custom_property in seen:
             declared_value = None
@@ -2914,17 +2952,21 @@ def _resolve_css_variable_fallback(
                 seen=seen | {custom_property},
             )
         if declared_value is not None:
-            return declared_value
-    if comma is None:
-        return None
-    fallback = inner[comma + 1 :].strip()
-    if not fallback:
-        return None
+            replacement = declared_value
+    if replacement is None:
+        if comma is None:
+            return None
+        fallback = inner[comma + 1 :].strip()
+        if not fallback:
+            return None
+        replacement = _resolve_css_variable_fallback(
+            fallback, custom_properties, depth=depth + 1, seen=seen
+        )
+        if replacement is None:
+            return None
+    substituted = resolved[: variable.start()] + replacement + resolved[close + 1 :]
     return _resolve_css_variable_fallback(
-        fallback,
-        custom_properties,
-        depth=depth + 1,
-        seen=seen,
+        substituted, custom_properties, depth=depth + 1, seen=seen
     )
 
 
