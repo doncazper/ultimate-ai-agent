@@ -629,6 +629,49 @@ if True:
         )
 
 
+@pytest.mark.parametrize(
+    ("source", "message"),
+    (
+        (
+            "class TestOriginal:\n    def test_case(self): pass\n"
+            "TestAlias = TestOriginal\n",
+            "test-class assignment",
+        ),
+        (
+            'def test_case(): pass\nglobals()["test_case"] = None\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "def test_case(): pass\nname = get_name()\nglobals()[name] = None\n",
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "class TestGroup:\n    if enabled:\n        def test_case(self): pass\n",
+            "class control flow",
+        ),
+        (
+            "import pytest\n"
+            "p = pytest.mark.parametrize\n"
+            'pytestmark = p("value", [1, 2])\n'
+            "def test_case(value): pass\n",
+            "module-level pytestmark parametrization",
+        ),
+        (
+            "import pytest\n"
+            "def test_case(value): pass\n"
+            'pytest.mark.parametrize("value", [1, 2])(test_case)\n',
+            "post-definition Python parametrization",
+        ),
+    ),
+)
+def test_python_inventory_rejects_dynamic_collection_rebinding(
+    source: str,
+    message: str,
+) -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match=message):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
 def test_python_source_ref_hashes_only_the_replacement_declaration() -> None:
     test_ref = "tests/test_sample.py::test_replacement"
     before = """
@@ -1673,7 +1716,10 @@ def test_changed_test_paths_disable_rename_collapsing(
         "tests/test_new.py",
         "tests/test_old.py",
     )
-    config_paths = sorted(guard.PYTEST_COLLECTION_CONFIG_PATHS)
+    config_paths = [
+        *sorted(guard.PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
+    ]
     assert all(args[-len(config_paths) :] == config_paths for args in captured_args)
     captured_without_configs = [args[: -len(config_paths)] for args in captured_args]
     assert captured_without_configs == [
@@ -2132,6 +2178,45 @@ def test_changed_setup_cfg_pytest_collection_configuration_fails_closed(
     )
 
     with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize(
+    "config_path",
+    sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
+)
+def test_changed_frontend_collection_configuration_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_path: str,
+) -> None:
+    current = 'export default { test: { exclude: ["tests/visual/**"] } };\n'
+    prior = "export default { test: { exclude: [] } };\n"
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(current)
+    outputs = iter(
+        (
+            f"{config_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend collection configuration",
+    ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 

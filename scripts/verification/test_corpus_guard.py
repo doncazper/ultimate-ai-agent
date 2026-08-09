@@ -57,6 +57,11 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
     "setup.cfg",
     "tox.ini",
 }
+FRONTEND_COLLECTION_CONFIG_PATHS = {
+    "apps/control-center/vite.config.ts",
+    "apps/control-center/playwright.smoke.config.ts",
+    "apps/control-center/playwright.visual.config.ts",
+}
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
     "count",
@@ -135,6 +140,30 @@ def _binding_target_names(node: ast.AST) -> set[str]:
     if isinstance(node, (ast.Tuple, ast.List)):
         return {name for child in node.elts for name in _binding_target_names(child)}
     return set()
+
+
+def _module_namespace_write_targets(node: ast.AST) -> tuple[str | None, ...]:
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return tuple(
+            target
+            for child in node.elts
+            for target in _module_namespace_write_targets(child)
+        )
+    if not isinstance(node, ast.Subscript):
+        return ()
+    namespace = node.value
+    if not (
+        isinstance(namespace, ast.Call)
+        and isinstance(namespace.func, ast.Name)
+        and namespace.func.id == "globals"
+        and not namespace.args
+        and not namespace.keywords
+    ):
+        return ()
+    key = node.slice
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        return (key.value,)
+    return (None,)
 
 
 def _statement_binding_names(node: ast.AST) -> set[str]:
@@ -306,6 +335,31 @@ def _parametrize_aliases(tree: ast.Module) -> set[str]:
                         aliases.add(name)
                         changed = True
     return aliases
+
+
+def _is_parametrize_callable(node: ast.AST, aliases: set[str]) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr == "parametrize") or (
+        isinstance(node, ast.Name) and node.id in aliases
+    )
+
+
+def _post_definition_parametrize_targets(
+    tree: ast.AST,
+    aliases: set[str],
+) -> set[str]:
+    targets: set[str] = set()
+    for child in ast.walk(tree):
+        if (
+            not isinstance(child, ast.Call)
+            or not isinstance(child.func, ast.Call)
+            or not _is_parametrize_callable(child.func.func, aliases)
+        ):
+            continue
+        for argument in child.args:
+            root = _root_name(argument)
+            if root is not None:
+                targets.add(root)
+    return targets
 
 
 def _python_import_modules(
@@ -1105,7 +1159,8 @@ def _python_inventory_entries(
             continue
         value = module_node.value
         if value is not None and any(
-            isinstance(child, ast.Attribute) and child.attr == "parametrize"
+            isinstance(child, ast.Call)
+            and _is_parametrize_callable(child.func, parametrize_aliases)
             for child in ast.walk(value)
         ):
             raise TestCorpusGuardError(
@@ -1139,6 +1194,49 @@ def _python_inventory_entries(
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name.startswith("test")
     }
+    declared_test_class_names = {
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name.startswith("Test")
+    }
+    collected_binding_names = declared_test_names | {
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and (node.name.startswith("Test") or node.name in unittest_classes)
+    }
+
+    if _post_definition_parametrize_targets(tree, parametrize_aliases) & (
+        declared_test_names | declared_test_class_names
+    ):
+        raise TestCorpusGuardError(
+            "post-definition Python parametrization cannot be inventoried safely"
+        )
+
+    for module_node in tree.body:
+        if isinstance(module_node, ast.Assign):
+            targets = module_node.targets
+        elif isinstance(module_node, (ast.AnnAssign, ast.AugAssign)):
+            targets = (module_node.target,)
+        elif isinstance(module_node, ast.Delete):
+            targets = module_node.targets
+        else:
+            continue
+        namespace_targets = tuple(
+            name
+            for target in targets
+            for name in _module_namespace_write_targets(target)
+        )
+        if any(
+            name is None
+            or name in collected_binding_names
+            or name.startswith("test")
+            or name.startswith("Test")
+            for name in namespace_targets
+        ):
+            raise TestCorpusGuardError(
+                "indirect Python test-name rebinding cannot be inventoried safely"
+            )
 
     for module_node in tree.body:
         if not isinstance(module_node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
@@ -1148,10 +1246,16 @@ def _python_inventory_entries(
             if isinstance(module_node, ast.Assign)
             else (module_node.target,)
         )
+        assigned_names = {
+            name for target in targets for name in _binding_target_names(target)
+        }
+        if any(name.startswith("Test") for name in assigned_names):
+            raise TestCorpusGuardError(
+                "callable Python test-class assignment cannot be inventoried safely"
+            )
         if any(
             name.startswith("test") and name not in declared_test_names
-            for target in targets
-            for name in _binding_target_names(target)
+            for name in assigned_names
         ):
             raise TestCorpusGuardError(
                 "callable Python test-name assignment cannot be inventoried safely"
@@ -1186,6 +1290,10 @@ def _python_inventory_entries(
                 else:
                     methods.pop(child.name, None)
                 continue
+            if _has_nested_python_tests(child):
+                raise TestCorpusGuardError(
+                    "Python tests inside class control flow cannot be inventoried safely"
+                )
             rebound: set[str] = set()
             if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                 targets = (
@@ -1929,6 +2037,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         "scripts",
         "src",
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
     ]
     commands = (
         [
@@ -1980,6 +2089,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    for path in FRONTEND_COLLECTION_CONFIG_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if current != prior:
+            raise TestCorpusGuardError(
+                "changed frontend collection configuration cannot be inventoried safely"
+            )
     for path in PYTEST_COLLECTION_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
