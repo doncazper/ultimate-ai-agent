@@ -87,6 +87,31 @@ def test_policy_denial_must_precede_ambiguity(
         verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "contradiction",
+    (
+        "Ambiguity is evaluated before policy denials.",
+        "Ambiguity has higher priority than policy denials.",
+        "Policy denials are evaluated after ambiguity.",
+        "Policy denials have lower priority than ambiguity.",
+    ),
+)
+def test_familiarity_precedence_rejects_direct_ordering_contradictions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    contradiction: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="familiarity precedence"):
+        verifier.verify()
+
+
 def test_missing_queue_gate_fails_closed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2182,6 +2207,36 @@ def test_collapsed_details_scans_a_late_summary_for_authority_grants() -> None:
     )
 
 
+def test_collapsed_details_scans_operator_expandable_body_for_authority_grants() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><summary>Capabilities</summary>"
+        "UAA can fetch from the public web.</details>"
+    )
+
+
+def test_collapsed_details_body_grant_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\n<details><summary>Capabilities</summary>"
+        "UAA can fetch from the public web.</details>\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+def test_collapsed_details_body_denial_cannot_negate_surrounding_grant() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><summary>Capabilities</summary>no</details> "
+        "web fetching is enabled."
+    )
+
+
 def test_collapsed_details_does_not_promote_a_nested_summary() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<details><div><summary>no</summary></div></details> "
@@ -2223,6 +2278,39 @@ def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
     )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA has permission to browse the public web.",
+        "UAA has the permission to invoke runtime models.",
+        "The Control Center has permission to execute shell commands.",
+    ),
+)
+def test_authority_predicate_rejects_permission_based_grants(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_authority_predicate_allows_permission_based_denial() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        "UAA does not have permission to browse the public web."
+    )
+
+
+def test_permission_based_grant_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nUAA has permission to browse the public web.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
 
 
 def test_authority_predicate_rejects_capable_of_gerund_grant() -> None:
@@ -3763,6 +3851,9 @@ def test_current_board_cannot_qualify_reversed_pre_goat_queue_order(
     (
         "The final GoatCitadel comparison must run before TAW-00 through TAW-08.",
         "TAW-00 through TAW-08 must follow the final GoatCitadel comparison.",
+        "Run the final GoatCitadel comparison before TAW-00.",
+        "The final GoatCitadel comparison comes before TAW-04.",
+        "TAW-08 comes after the final GoatCitadel comparison.",
     ),
 )
 def test_current_board_cannot_express_inverse_pre_goat_queue_order(
@@ -4158,6 +4249,10 @@ def test_plan_requires_statistical_reproducibility_and_manifest_injection_gates(
         "TAW-08 may complete without Foundation Gate.",
         "The exact-head Foundation Gate receipt can be omitted.",
         "The post-merge Foundation Gate need not pass.",
+        "The post-merge Foundation Gate does not have to pass.",
+        "TAW-08 does not have to pass the Foundation Gate.",
+        "Foundation Gate is not mandatory.",
+        "Passing the Foundation Gate is not mandatory.",
         "Foundation Gate failure does not block TAW-08 completion.",
         "Failure of the exact-head Foundation Gate doesn't block TAW-08 completion.",
         "The post-merge Foundation Gate can fail without blocking TAW-08 completion.",
@@ -4229,6 +4324,21 @@ def test_wrapped_acceptance_contradiction_fails_full_verifier(
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "BOARD", board)
+
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier.verify()
+
+
+def test_nonmandatory_foundation_gate_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nTAW-08 does not have to pass the Foundation Gate.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
 
     with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
         verifier.verify()
@@ -4673,6 +4783,9 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "routing evidence.",
         "TAW-08 tolerates one unsafe authority broadening event.",
         "TAW-08 tolerates a single unsafe authority broadening event.",
+        "A single unsafe authority broadening event does not fail TAW-08.",
+        "One unsafe authority broadening event is within tolerance.",
+        "TAW-08 has a tolerance of one unsafe authority broadening event.",
     ),
 )
 def test_zero_tolerance_detector_rejects_rephrased_positive_tolerance(
@@ -4695,6 +4808,21 @@ def test_zero_tolerance_rephrasing_fails_full_verifier(
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
         + "\nTAW-08 may be approved despite unsafe authority broadening.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="zero-tolerance gate is invalid"):
+        verifier.verify()
+
+
+def test_nonzero_tolerance_does_not_fail_wording_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nA single unsafe authority broadening event does not fail TAW-08.\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)

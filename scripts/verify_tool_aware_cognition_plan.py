@@ -1747,6 +1747,24 @@ FAMILIARITY_PRECEDENCE_CONTRADICTION_PATTERNS = (
     r"(?:denials?|blocks?|decisions?) "
     r"(?:(?:rank|ranks|sit|sits) below|(?:follow|follows)) (?:the )?"
     r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
+    r"\b(?:ambiguity|ambiguous(?: state| outcome)?) "
+    r"(?:is |are )?(?:evaluated|checked|considered|resolved|handled|ranked) "
+    r"(?:first |earlier )?(?:before|ahead of) (?:the )?"
+    r"(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?)\b",
+    r"\b(?:ambiguity|ambiguous(?: state| outcome)?) "
+    r"(?:has|receives?) (?:a )?(?:higher|greater) priority than (?:the )?"
+    r"(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?)\b",
+    r"\b(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?) "
+    r"(?:is |are )?(?:evaluated|checked|considered|resolved|handled|ranked) "
+    r"(?:only )?(?:after|behind) (?:the )?"
+    r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
+    r"\b(?:policy(?: and (?:safety|authority))?|safety|authority) "
+    r"(?:denials?|blocks?|decisions?) "
+    r"(?:has|have|receives?) (?:a )?(?:lower|lesser) priority than (?:the )?"
+    r"(?:ambiguity|ambiguous(?: state| outcome)?)\b",
 )
 BOARD_QUEUE_CONTRADICTION_PATTERNS = (
     r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
@@ -1757,6 +1775,16 @@ BOARD_QUEUE_CONTRADICTION_PATTERNS = (
     r"TAW-00 through TAW-08\b",
     r"\bTAW-00 through TAW-08 (?:may|can|will|should|must) "
     r"(?:follow|come after) (?:the )?final GoatCitadel comparison\b",
+    r"\b(?:(?:run|execute|perform|start|begin|conduct|complete) )?"
+    r"(?:the )?final GoatCitadel comparison "
+    r"(?:(?:may|can|will|should|must) )?"
+    r"(?:(?:run|execute|proceed|occur|start|begin|comes?) )?(?:only )?"
+    r"(?:before|ahead of|preceding) "
+    r"(?:any )?TAW-(?:0[0-8])(?: through TAW-08)?\b",
+    r"\bTAW-(?:0[0-8])(?: through TAW-08)? "
+    r"(?:(?:may|can|will|should|must) )?"
+    r"(?:(?:run|execute|proceed|occur|start|begin|comes?) )?(?:only )?"
+    r"(?:after|behind|following) (?:the )?final GoatCitadel comparison\b",
 )
 QUEUE_ORDERED_STEPS = (
     "1. Finish the currently admitted PR or verification atomic unit",
@@ -1927,6 +1955,28 @@ ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
     r"fabricated (?:availability(?: or successful execution)?|"
     r"successful execution) claims?|"
     r"raw sensitive content in durable routing evidence)\b",
+    r"\b(?:(?:one|a single|some|any|non[- ]zero|"
+    r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )"
+    r"(?:unsafe authority broadening(?: events?)?|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence) "
+    r"(?:does not|doesn't|will not|won't) fail TAW-08\b",
+    r"\b(?:(?:one|a single|some|any|non[- ]zero|"
+    r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )?"
+    r"(?:unsafe authority broadening(?: events?)?|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence) "
+    r"(?:is|are) within (?:the )?(?:TAW-08 )?(?:accepted )?tolerance\b",
+    r"\b(?:TAW-08|(?:the )?(?:completion|acceptance|promotion) gate) "
+    r"has (?:an? )?(?:accepted )?tolerance of "
+    r"(?!(?:zero|0+(?:\.0+)?)\b)"
+    r"(?:one|a single|some|any|non[- ]zero|\d+(?:\.\d+)?) "
+    r"(?:unsafe authority broadening(?: events?)?|"
+    r"fabricated (?:availability(?: or successful execution)?|"
+    r"successful execution) claims?|"
+    r"raw sensitive content in durable routing evidence)\b",
 )
 
 ACCEPTANCE_CONTRADICTION_PATTERNS = (
@@ -1944,11 +1994,17 @@ ACCEPTANCE_CONTRADICTION_PATTERNS = (
     r"(?:skipped|omitted|removed|bypassed|circumvented|ignored|"
     r"disregarded|avoided|sidestepped)\b",
     r"\b(?:the )?(?:(?:exact-head|post-merge) )?Foundation Gate(?: report-only)?"
-    r"(?: receipt| verification)? (?:is|are) optional\b",
+    r"(?: receipt| verification)? (?:is|are) (?:optional|not mandatory)\b",
     r"\b(?:the )?(?:exact-head|post-merge) Foundation Gate(?: report-only)?"
     r"(?: receipt| verification)? "
-    r"(?:need not|does not need to|doesn't need to) "
+    r"(?:need not|does not need to|doesn't need to|does not have to|"
+    r"doesn't have to|is not required to) "
     r"(?:pass|run|succeed|complete)\b",
+    r"\bTAW-08 (?:does not|doesn't) have to pass (?:the )?"
+    r"Foundation Gate(?: report-only)?\b",
+    r"\bpassing (?:the )?(?:(?:exact-head|post-merge) )?"
+    r"Foundation Gate(?: report-only)?(?: receipt| verification)? "
+    r"(?:is|remains) not mandatory\b",
     r"\bTAW-08 (?:may|can|will) (?:be )?complete(?:d)? without "
     r"(?:a )?(?:passing )?(?:(?:exact-head|post-merge) )?"
     r"Foundation Gate(?: report-only)?(?: receipt| verification)?\b",
@@ -4152,8 +4208,13 @@ def _strip_raw_html_constructs(text: str) -> str:
     return "".join(output)
 
 
-def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
-    """Remove closed details bodies while retaining their rendered summary."""
+def _strip_collapsed_details(
+    text: str,
+    *,
+    depth: int = 0,
+    retain_expandable_bodies: bool = False,
+) -> str:
+    """Retain summaries and optionally isolate operator-expandable bodies."""
     if depth > 64:
         raise RuntimeError("HTML details nesting exceeds the scan bound")
     output: list[str] = []
@@ -4199,9 +4260,26 @@ def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
                 _strip_collapsed_details(
                     text[summary_start:summary_end],
                     depth=depth + 1,
+                    retain_expandable_bodies=retain_expandable_bodies,
                 )
             )
             output.append(" ")
+        if retain_expandable_bodies:
+            body = text[content_start:content_end]
+            if summary_bounds is not None:
+                body = (
+                    text[content_start:summary_start]
+                    + text[summary_end:content_end]
+                )
+            output.append("\n.\n")
+            output.append(
+                _strip_collapsed_details(
+                    body,
+                    depth=depth + 1,
+                    retain_expandable_bodies=True,
+                )
+            )
+            output.append("\n.\n")
         cursor = element_end
     output.append(text[cursor:])
     return "".join(output)
@@ -5018,7 +5096,9 @@ def _protect_escaped_markdown_punctuation(
     return protected, punctuation
 
 
-def _normalize_markdown_prose(text: str) -> str:
+def _normalize_markdown_prose(
+    text: str, *, retain_expandable_details: bool = False
+) -> str:
     """Return a bounded approximation of the prose Markdown renders visibly."""
     if len(text) > MAX_MARKDOWN_PROSE_CHARS:
         raise RuntimeError("program truth surface exceeds the prose scan bound")
@@ -5039,7 +5119,10 @@ def _normalize_markdown_prose(text: str) -> str:
     )
     normalized = _strip_raw_text_elements(normalized)
     normalized = _strip_raw_html_constructs(normalized)
-    normalized = _strip_collapsed_details(normalized)
+    normalized = _strip_collapsed_details(
+        normalized,
+        retain_expandable_bodies=retain_expandable_details,
+    )
     normalized = _strip_collapsed_selects(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
@@ -5127,7 +5210,13 @@ def _coordinated_product_action_is_forbidden(
 
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
-    text = _normalize_markdown_prose(text)
+    text = _normalize_markdown_prose(text, retain_expandable_details=True)
+    text = re.sub(
+        r"\bhas (?:the )?permission to\b",
+        "has authority to",
+        text,
+        flags=re.IGNORECASE,
+    )
     text = re.sub(
         r"\bnot\s+(?:only|merely|just)\b", "", text, flags=re.IGNORECASE
     )
