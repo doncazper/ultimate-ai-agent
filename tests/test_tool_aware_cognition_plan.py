@@ -2283,6 +2283,44 @@ def test_authority_predicate_rejects_is_able_to_grant() -> None:
 @pytest.mark.parametrize(
     "claim",
     (
+        "UAA has access to the public web.",
+        "The Control Center has direct internet access.",
+        "UAA's Control Center has public web access.",
+    ),
+)
+def test_access_based_web_authority_grant_is_rejected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "denial",
+    (
+        "UAA does not have access to the public web.",
+        "UAA has no public web access.",
+    ),
+)
+def test_access_based_web_authority_denial_remains_allowed(denial: str) -> None:
+    assert not verifier._find_forbidden_authority_claims(denial)
+
+
+def test_access_based_web_authority_grant_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nUAA has access to the public web.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "UAA's Control Center can fetch from the public web.",
         "UAA’s Control Center can fetch from the public web.",
         "Ultimate AI Agent's Control Center can fetch from the public web.",
@@ -2636,10 +2674,14 @@ def test_valueless_number_input_renders_its_placeholder() -> None:
     )
 
 
-def test_collapsed_select_retains_only_the_selected_option() -> None:
+def test_collapsed_select_retains_every_operator_visible_option() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<select><option>no </option><option selected>"
         "UAA can fetch from the public web.</option></select>"
+    )
+    assert verifier._find_forbidden_authority_claims(
+        "<select><option>Safe</option>"
+        "<option>UAA can fetch from the public web.</option></select>"
     )
 
 
@@ -2710,6 +2752,13 @@ def test_closed_dialog_body_cannot_supply_an_authority_denial() -> None:
 def test_closed_popover_body_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<span popover>no </span>web fetching is enabled."
+    )
+
+
+def test_operator_expandable_popover_authority_claim_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<button popovertarget="p">Capabilities</button>'
+        '<div id="p" popover>UAA can fetch from the public web.</div>'
     )
 
 
@@ -2935,6 +2984,12 @@ def test_replaced_control_fallback_cannot_supply_authority_denial(
 def test_canvas_fallback_authority_claim_is_scanned() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<canvas>UAA can fetch from the public web.</canvas>"
+    )
+
+
+def test_audio_fallback_authority_claim_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<audio>UAA can fetch from the public web.</audio>"
     )
 
 

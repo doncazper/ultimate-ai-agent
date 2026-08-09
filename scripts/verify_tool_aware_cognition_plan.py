@@ -838,6 +838,10 @@ FORBIDDEN_PATTERNS = (
     rf"(?:is|are) (?!(?:not|never)\b)(?:now )?)"
     rf"(?:made|performed|run|invoked) by "
     rf"{GOVERNED_PRODUCT_AGENT_PATTERN}\b",
+    rf"\b{GOVERNED_PRODUCT_AGENT_PATTERN}\b (?:has|have) "
+    rf"(?!(?:no|not)\b)(?:(?:direct|unrestricted) )?"
+    rf"(?:access to (?:the )?(?:public )?(?:web|internet)|"
+    rf"(?:the )?(?:public )?(?:web|internet) access)\b",
     r"\b(?:operators?|users?) (?:may|can|will) "
     r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
@@ -4045,6 +4049,8 @@ def _strip_raw_text_elements(text: str) -> str:
         _reject_svg_presentation_visibility(
             lower_name, attribute_names, ancestor_names
         )
+        if "popover" in attribute_names:
+            _popover_suppresses(lower_name, attribute_names, ancestor_names)
         style_properties = _inline_style_properties(attributes)
         declarative_shadow_renders = (
             lower_name == "template"
@@ -4061,7 +4067,6 @@ def _strip_raw_text_elements(text: str) -> str:
             )
         subtree_non_rendered = (
             lower_name in {
-                "audio",
                 "script",
                 "style",
                 "iframe",
@@ -4081,7 +4086,6 @@ def _strip_raw_text_elements(text: str) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
-            or _popover_suppresses(lower_name, attribute_names, ancestor_names)
             or _hidden_attribute_suppresses(attributes, style_properties)
             or style_properties.get("display") == "none"
             or _opacity_hides_contents(style_properties.get("opacity"))
@@ -4288,8 +4292,13 @@ def _strip_collapsed_details(
     return "".join(output)
 
 
-def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
-    """Retain only the initially rendered option of collapsed selects."""
+def _strip_collapsed_selects(
+    text: str,
+    *,
+    depth: int = 0,
+    retain_expandable_options: bool = False,
+) -> str:
+    """Retain selected options plus optional isolated expandable options."""
     if depth > 64:
         raise RuntimeError("HTML select nesting exceeds the scan bound")
     output: list[str] = []
@@ -4326,14 +4335,17 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, "select"
         )
-        if "multiple" in attribute_names or listbox_size:
+        if (
+            retain_expandable_options
+            or "multiple" in attribute_names
+            or listbox_size
+        ):
             output.append(text[cursor : opening_end + 1])
             output.append(
                 _strip_collapsed_selects(
-                    _retain_listbox_labels(
-                        text[content_start:content_end]
-                    ),
+                    _retain_listbox_labels(text[content_start:content_end]),
                     depth=depth + 1,
+                    retain_expandable_options=retain_expandable_options,
                 )
             )
             output.append(text[content_end:element_end])
@@ -4344,7 +4356,11 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
         if option_prose is not None:
             output.append("\n.\n")
             output.append(
-                _strip_collapsed_selects(option_prose, depth=depth + 1)
+                _strip_collapsed_selects(
+                    option_prose,
+                    depth=depth + 1,
+                    retain_expandable_options=False,
+                )
             )
             output.append("\n.\n")
         cursor = element_end
@@ -4550,6 +4566,7 @@ def _strip_html_tags(text: str) -> str:
         "address",
         "article",
         "aside",
+        "audio",
         "blockquote",
         "br",
         "button",
@@ -4586,6 +4603,8 @@ def _strip_html_tags(text: str) -> str:
         "nav",
         "object",
         "ol",
+        "optgroup",
+        "option",
         "output",
         "p",
         "pre",
@@ -4667,6 +4686,7 @@ def _strip_html_tags(text: str) -> str:
                         output.append(text[candidate_start : index + 1])
                         cursor = index + 1
                         break
+                    attribute_names = _html_attribute_names(attributes)
                     if tag_name == "area":
                         map_attributes = next(
                             (
@@ -4691,7 +4711,7 @@ def _strip_html_tags(text: str) -> str:
                         alternative = (
                             _html_attribute_value(attributes, "alt")
                             if map_name in referenced_image_maps
-                            and "href" in _html_attribute_names(attributes)
+                            and "href" in attribute_names
                             else None
                         )
                     else:
@@ -4714,7 +4734,10 @@ def _strip_html_tags(text: str) -> str:
                     )
                     element_boundary = _inline_display_creates_prose_boundary(
                         _inline_style_properties(attributes).get("display"),
-                        default_boundary=tag_name in prose_boundary_tags,
+                        default_boundary=(
+                            tag_name in prose_boundary_tags
+                            or "popover" in attribute_names
+                        ),
                         inherited_boundary=parent_boundary,
                     )
                     alternatives = tuple(
@@ -5167,7 +5190,10 @@ def _normalize_markdown_prose(
         normalized,
         retain_expandable_bodies=retain_expandable_details,
     )
-    normalized = _strip_collapsed_selects(normalized)
+    normalized = _strip_collapsed_selects(
+        normalized,
+        retain_expandable_options=retain_expandable_details,
+    )
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
