@@ -1500,6 +1500,40 @@ def test_nested_inline_span_cannot_consume_outer_css_block_boundary() -> None:
     )
 
 
+def test_slashed_non_void_css_block_tracks_its_closing_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="display:block"/>no</span>web fetching is enabled.'
+    )
+
+
+def test_inherited_display_uses_parent_block_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<div><span style="display:inherit">no</span>'
+        "web fetching is enabled.</div>"
+    )
+
+
+def test_inherited_display_uses_parent_inline_posture() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        '<span><span style="display:inherit">no </span>'
+        "web fetching is enabled.</span>"
+    )
+
+
+def test_inherited_display_uses_parent_inline_override() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        '<div style="display:inline"><span style="display:inherit">no </span>'
+        "web fetching is enabled.</div>"
+    )
+
+
+def test_invalid_display_falls_back_to_element_default_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<div style="display:definitely-invalid">no</div>'
+        "web fetching is enabled."
+    )
+
+
 @pytest.mark.parametrize("element", ("style", "script"))
 def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None:
     assert verifier._find_forbidden_authority_claims(

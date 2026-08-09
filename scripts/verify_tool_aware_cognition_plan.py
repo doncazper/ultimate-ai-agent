@@ -2948,18 +2948,22 @@ def _display_definitely_overrides_hidden(value: str | None) -> bool:
     )
 
 
-def _inline_display_creates_prose_boundary(value: str | None) -> bool:
-    """Return whether inline CSS gives an element a block-like outer box."""
+def _inline_display_creates_prose_boundary(
+    value: str | None,
+    *,
+    default_boundary: bool = False,
+    inherited_boundary: bool = False,
+) -> bool:
+    """Return the element's effective block-like outer-box posture."""
     if value is None:
-        return False
+        return default_boundary
     normalized = " ".join(value.split())
+    if normalized == "inherit":
+        return inherited_boundary
     if normalized in {
         "none",
         "contents",
-        "inherit",
         "initial",
-        "revert",
-        "revert-layer",
         "unset",
         "inline",
         "inline-block",
@@ -2968,12 +2972,14 @@ def _inline_display_creates_prose_boundary(value: str | None) -> bool:
         "inline-grid",
     }:
         return False
+    if normalized in {"revert", "revert-layer"}:
+        return default_boundary
     tokens = normalized.split()
     if "inline" in tokens:
         return False
     if {"block", "run-in", "list-item"} & set(tokens):
         return True
-    return normalized in {
+    if normalized in {
         "flow-root",
         "table",
         "flex",
@@ -2984,7 +2990,9 @@ def _inline_display_creates_prose_boundary(value: str | None) -> bool:
         "table-row",
         "table-cell",
         "table-caption",
-    }
+    }:
+        return True
+    return default_boundary
 
 
 def _hidden_attribute_suppresses(
@@ -3038,22 +3046,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         name = match.group(1)
         lower_name = name.lower()
-        void_element = lower_name in {
-            "area",
-            "base",
-            "br",
-            "col",
-            "embed",
-            "hr",
-            "img",
-            "input",
-            "link",
-            "meta",
-            "param",
-            "source",
-            "track",
-            "wbr",
-        }
+        void_element = lower_name in HTML_VOID_ELEMENTS
         properties = _inline_style_properties(attributes)
         attribute_names = _html_attribute_names(attributes)
         if void_element:
@@ -3419,22 +3412,7 @@ def _first_direct_summary_bounds(
         name = match.group(1)
         element_end = _find_balanced_element_end(text, opening_end + 1, name)
         if element_end is None:
-            if name.lower() in {
-                "area",
-                "base",
-                "br",
-                "col",
-                "embed",
-                "hr",
-                "img",
-                "input",
-                "link",
-                "meta",
-                "param",
-                "source",
-                "track",
-                "wbr",
-            }:
+            if name.lower() in HTML_VOID_ELEMENTS:
                 cursor = opening_end + 1
                 continue
             return None
@@ -3455,6 +3433,24 @@ def _valid_html_opening_tag_tail(tail: str) -> bool:
         r'[^\s"\'=<>`]+))?)*[ \t\r\n\f]*/?',
         tail,
     ) is not None
+
+
+HTML_VOID_ELEMENTS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 
 
 def _html_attribute_names(attributes: str) -> set[str]:
@@ -3531,7 +3527,7 @@ def _strip_html_tags(text: str) -> str:
         "ul",
     }
     output: list[str] = []
-    dynamic_boundary_stack: dict[str, list[bool]] = {}
+    open_element_boundaries: list[tuple[str, bool]] = []
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
     while cursor < len(text):
@@ -3568,18 +3564,24 @@ def _strip_html_tags(text: str) -> str:
                     if raw_tag.startswith("</")
                     else raw_tag[1:].lower()
                 )
-                dynamic_boundary = False
+                element_boundary = tag_name in prose_boundary_tags
                 if (
                     text[candidate_start + 1] == "/"
                     and text[match.end() : index].strip()
                 ):
                     output.append(text[candidate_start : index + 1])
                 elif text[candidate_start + 1] == "/":
-                    opening_boundaries = dynamic_boundary_stack.get(tag_name)
-                    if opening_boundaries:
-                        dynamic_boundary = opening_boundaries.pop()
-                        if not opening_boundaries:
-                            del dynamic_boundary_stack[tag_name]
+                    matching_open = next(
+                        (
+                            position
+                            for position in range(len(open_element_boundaries) - 1, -1, -1)
+                            if open_element_boundaries[position][0] == tag_name
+                        ),
+                        None,
+                    )
+                    if matching_open is not None:
+                        element_boundary = open_element_boundaries[matching_open][1]
+                        del open_element_boundaries[matching_open:]
                 elif text[candidate_start + 1] != "/":
                     attributes = text[match.end() : index]
                     if not _valid_html_opening_tag_tail(attributes):
@@ -3591,14 +3593,21 @@ def _strip_html_tags(text: str) -> str:
                     )
                     if alternative is not None:
                         output.append(alternative)
-                    dynamic_boundary = _inline_display_creates_prose_boundary(
-                        _inline_style_properties(attributes).get("display")
+                    parent_boundary = (
+                        open_element_boundaries[-1][1]
+                        if open_element_boundaries
+                        else False
                     )
-                    if not attributes.rstrip().endswith("/"):
-                        dynamic_boundary_stack.setdefault(tag_name, []).append(
-                            dynamic_boundary
+                    element_boundary = _inline_display_creates_prose_boundary(
+                        _inline_style_properties(attributes).get("display"),
+                        default_boundary=tag_name in prose_boundary_tags,
+                        inherited_boundary=parent_boundary,
+                    )
+                    if tag_name not in HTML_VOID_ELEMENTS:
+                        open_element_boundaries.append(
+                            (tag_name, element_boundary)
                         )
-                if tag_name in prose_boundary_tags or dynamic_boundary:
+                if element_boundary:
                     output.append("\n. \n")
                 cursor = index + 1
                 break
