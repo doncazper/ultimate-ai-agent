@@ -1837,6 +1837,7 @@ def _visible_markdown_source(text: str) -> str:
     visible = _strip_raw_text_elements(visible)
     visible = _strip_raw_html_constructs(visible)
     visible = _strip_collapsed_details(visible)
+    visible = _strip_collapsed_selects(visible)
     visible = _strip_html_tags(visible)
     reference_labels = _markdown_reference_labels(visible)
     visible = _strip_markdown_reference_definitions(visible)
@@ -2050,6 +2051,14 @@ def _verify_queue_lifecycle(text: str) -> None:
 
 
 def _scan_forbidden_authority_claims(text: str) -> list[str]:
+    text = re.sub(
+        r"\b(?:has|have) been (?=(?:now )?(?:authorized|permitted|allowed|"
+        r"enabled|granted|supported|active|available|open|launched|ready|"
+        r"complete|present|achieved)\b)",
+        "is ",
+        text,
+        flags=re.IGNORECASE,
+    )
     present: list[str] = []
     for pattern in FORBIDDEN_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
@@ -2519,6 +2528,8 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             continue
         lower_tag_name = tag_name.lower()
         lower_name = name.lower()
+        if not is_closing and lower_tag_name == "plaintext":
+            return None
         if not is_closing and lower_tag_name in {
             "script",
             "style",
@@ -2968,7 +2979,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                     output.append(alternative)
             cursor = opening_end + 1
             continue
-        if lower_name in {"script", "style", "textarea", "title", "iframe"}:
+        if lower_name == "plaintext":
+            element_end = len(text)
+        elif lower_name in {"script", "style", "textarea", "title", "iframe"}:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, opening_end + 1)
@@ -2991,16 +3004,18 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, name
         )
-        if lower_name in {"textarea", "title"}:
+        if lower_name in {"plaintext", "textarea", "title"}:
             if (
-                lower_name == "textarea"
+                lower_name in {"plaintext", "textarea"}
                 and _visibility_is_visible_override(
                     properties.get("visibility")
                 )
             ):
+                content = text[content_start:content_end]
                 output.append(
                     escape(
-                        unescape(text[content_start:content_end]), quote=False
+                        unescape(content) if lower_name == "textarea" else content,
+                        quote=False,
                     )
                 )
             cursor = element_end
@@ -3062,17 +3077,25 @@ def _strip_raw_text_elements(text: str) -> str:
             "collapse",
         }
         non_rendered = subtree_non_rendered or visibility_hidden
-        if lower_name in {"textarea", "title"}:
-            closing = re.compile(
-                rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
-            ).search(text, index + 1)
-            content_end = len(text) if closing is None else closing.start()
-            closing_end = len(text) if closing is None else closing.end()
-            if lower_name == "textarea" and not non_rendered:
-                # Textarea contents are RCDATA: apparent markup is rendered as
-                # literal text rather than participating in element visibility.
+        if lower_name in {"plaintext", "textarea", "title"}:
+            if lower_name == "plaintext":
+                content_end = len(text)
+                closing_end = len(text)
+            else:
+                closing = re.compile(
+                    rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
+                ).search(text, index + 1)
+                content_end = len(text) if closing is None else closing.start()
+                closing_end = len(text) if closing is None else closing.end()
+            if lower_name in {"plaintext", "textarea"} and not non_rendered:
+                # Textarea contents are RCDATA and plaintext consumes raw text
+                # through EOF. Apparent markup in either is rendered literally.
+                content = text[index + 1 : content_end]
                 output.append(
-                    escape(unescape(text[index + 1 : content_end]), quote=False)
+                    escape(
+                        unescape(content) if lower_name == "textarea" else content,
+                        quote=False,
+                    )
                 )
             cursor = closing_end
             continue
@@ -3511,10 +3534,14 @@ def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]
     output: list[str] = []
     blocks: list[tuple[str, str]] = []
     lines = text.splitlines(keepends=True)
+    quote_container = r"[ ]{0,3}>[ \t]?"
+    list_container = r"[ ]{0,3}(?:[-+*]|\d{1,9}[.)])[ \t]{1,4}"
     opening = re.compile(
-        r"^(?P<quotes>(?:[ ]{0,3}>[ \t]?)*)(?P<list>"
-        r"[ ]{0,3}(?:[-+*]|\d{1,9}[.)])[ \t]{1,4})?"
+        rf"^(?P<containers>(?:{quote_container}|{list_container})*)"
         r"(?P<indent>[ ]{0,3})(?P<fence>`{3,}|~{3,})"
+    )
+    container = re.compile(
+        rf"(?P<quote>{quote_container})|(?P<list>{list_container})"
     )
     index = 0
     while index < len(lines):
@@ -3526,8 +3553,27 @@ def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]
             output.append(lines[index])
             index += 1
             continue
-        quote_depth = match.group("quotes").count(">")
-        list_indent = len((match.group("list") or "").expandtabs(4))
+        containers: list[tuple[str, int]] = []
+        container_prefix = match.group("containers")
+        container_cursor = 0
+        valid_containers = True
+        while container_cursor < len(container_prefix):
+            container_match = container.match(container_prefix, container_cursor)
+            if container_match is None or len(containers) >= 64:
+                valid_containers = False
+                break
+            raw_container = container_match.group()
+            containers.append(
+                (
+                    "quote" if container_match.group("quote") is not None else "list",
+                    len(raw_container.expandtabs(4)),
+                )
+            )
+            container_cursor = container_match.end()
+        if not valid_containers or container_cursor != len(container_prefix):
+            output.append(lines[index])
+            index += 1
+            continue
         fence_character = match.group("fence")[0]
         fence_length = len(match.group("fence"))
         index += 1
@@ -3536,27 +3582,38 @@ def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]
             raw_candidate = lines[index].rstrip("\r\n")
             line_ending = lines[index][len(raw_candidate) :]
             candidate = raw_candidate
-            if quote_depth:
-                cursor = 0
-                complete_prefix = True
-                for _ in range(quote_depth):
-                    quote = re.match(r"[ ]{0,3}>[ \t]?", candidate[cursor:])
-                    if quote is None:
+            cursor = 0
+            complete_prefix = True
+            for kind, width in containers:
+                if kind == "quote":
+                    prefix = re.match(r"[ ]{0,3}>[ \t]?", candidate[cursor:])
+                    if prefix is None:
                         complete_prefix = False
                         break
-                    cursor += quote.end()
-                if not complete_prefix:
-                    # A non-lazy line leaves the blockquote container and cannot
-                    # be swallowed by an unclosed fence inside that container.
+                    cursor += prefix.end()
+                    continue
+                indentation_cursor = cursor
+                indentation_columns = 0
+                while indentation_columns < width and indentation_cursor < len(
+                    candidate
+                ):
+                    character = candidate[indentation_cursor]
+                    if character == " ":
+                        indentation_columns += 1
+                    elif character == "\t":
+                        indentation_columns += 4 - (indentation_columns % 4)
+                    else:
+                        break
+                    indentation_cursor += 1
+                if indentation_columns < width:
+                    complete_prefix = False
                     break
-                candidate = candidate[cursor:]
-            if list_indent:
-                indentation = re.match(r"[ \t]*", candidate)
-                assert indentation is not None
-                prefix = indentation.group()
-                if len(prefix.expandtabs(4)) < list_indent:
-                    break
-                candidate = candidate[len(prefix) :]
+                cursor = indentation_cursor
+            if not complete_prefix:
+                # A non-lazy line leaves its container and cannot be swallowed
+                # by an unclosed fence nested inside that container.
+                break
+            candidate = candidate[cursor:]
             if re.fullmatch(
                 rf"[ ]{{0,3}}{re.escape(fence_character)}"
                 rf"{{{fence_length},}}[ \t]*",

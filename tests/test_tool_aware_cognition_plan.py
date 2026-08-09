@@ -161,6 +161,8 @@ def test_direct_finite_authority_grants_are_rejected(
         "This program permits new runtime model calls.",
         "The plan allows provider access.",
         "Browser automation is enabled.",
+        "Web fetching has been enabled.",
+        "Connector writes have been enabled.",
         "This program grants browser authority.",
         "Policy checks may be bypassed.",
         "UAA can bypass policy checks.",
@@ -1026,6 +1028,26 @@ def test_commented_plan_lifecycle_status_is_not_accepted(
         verifier.verify()
 
 
+def test_unselected_plan_lifecycle_status_is_not_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            verifier.PLAN_STATUS_LINE,
+            "<select><option selected>Planning only</option><option>\n"
+            f"{verifier.PLAN_STATUS_LINE}\n"
+            "</option></select>",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan lifecycle status is invalid"):
+        verifier.verify()
+
+
 @pytest.mark.parametrize(
     "status",
     (
@@ -1554,6 +1576,12 @@ def test_visible_textarea_treats_apparent_markup_as_rcdata() -> None:
     )
 
 
+def test_plaintext_treats_apparent_markup_as_rendered_text() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<plaintext><span hidden>UAA can fetch from the public web.</span>"
+    )
+
+
 def test_title_cannot_supply_a_synthetic_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="visibility:hidden">'
@@ -1952,6 +1980,20 @@ def test_list_fenced_code_cannot_supply_a_cross_block_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "- ```\n  no\n  ```\nweb fetching is enabled."
     )
+
+
+def test_nested_list_fenced_code_cannot_supply_a_cross_block_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "- - ```\n    no\n    ```\nweb fetching is enabled."
+    )
+
+
+def test_excessive_fence_container_nesting_is_not_extracted() -> None:
+    source = f"{'- ' * 65}```\n{'  ' * 65}no\n{'  ' * 65}```\n"
+
+    _, blocks = verifier._extract_visible_fenced_code(source)
+
+    assert blocks == []
 
 
 def test_title_metadata_cannot_supply_a_cross_block_denial() -> None:
