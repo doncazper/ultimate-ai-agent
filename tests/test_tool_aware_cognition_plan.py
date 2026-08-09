@@ -1756,6 +1756,22 @@ def test_dimensionally_invalid_opacity_calculation_remains_scannable() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "style",
+    (
+        "display:none;display:definitely-invalid",
+        "visibility:hidden;visibility:definitely-invalid",
+        "opacity:0;opacity:definitely-invalid",
+    ),
+)
+def test_invalid_inline_declaration_does_not_override_hidden_value(
+    style: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="{style}">no</span> web fetching is enabled.'
+    )
+
+
 def test_visible_text_input_value_is_scanned() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<input value="UAA can fetch from the public web.">'
@@ -1805,6 +1821,12 @@ def test_invalid_number_input_renders_its_placeholder() -> None:
     )
 
 
+def test_valueless_number_input_renders_its_placeholder() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<input type="number" placeholder="UAA can fetch from the public web.">'
+    )
+
+
 def test_collapsed_select_retains_only_the_selected_option() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<select><option>no </option><option selected>"
@@ -1819,6 +1841,13 @@ def test_collapsed_select_defaults_to_its_first_option() -> None:
             "web fetching is enabled."
         )
         == []
+    )
+
+
+def test_collapsed_select_uses_the_selected_option_label() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<select><option selected label="UAA can fetch from the public web.">'
+        "no</option></select>"
     )
 
 
@@ -1896,6 +1925,18 @@ def test_default_ignorable_character_cannot_hide_authority() -> None:
 def test_non_format_default_ignorable_cannot_hide_authority() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA can fetc&#847;h from the public web."
+    )
+
+
+def test_fenced_code_block_cannot_supply_a_cross_block_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "```\nno\n```\nweb fetching is enabled."
+    )
+
+
+def test_unicode_compatibility_characters_cannot_hide_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "ＵＡＡ can fetch from the public web."
     )
 
 

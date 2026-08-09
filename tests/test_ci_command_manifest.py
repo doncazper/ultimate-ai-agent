@@ -91,8 +91,8 @@ def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
     latency_gate = manifest.command_registry()["command:performance.latency-gate"]
     assert latency_gate.argv[-2:] == ("--warmup", "1")
     assert dict(latency_gate.env) == {
-        "FOUNDATION_GATE_MAX_BEST_MS": "45000",
-        "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
+        "FOUNDATION_GATE_MAX_BEST_MS": "75000",
+        "FOUNDATION_GATE_MAX_MEAN_MS": "75000",
     }
     foundation_gate = manifest.command_registry()[
         "command:foundation-gate.ci-parallel"
@@ -258,8 +258,8 @@ def test_canonical_ci_commands_are_fixed_argv_and_safe_environment() -> None:
     )
     assert commands["command:affected.preflight"].argv[-2:] == ("--tier", "fast")
     assert dict(commands["command:performance.latency-gate"].env) == {
-        "FOUNDATION_GATE_MAX_BEST_MS": "45000",
-        "FOUNDATION_GATE_MAX_MEAN_MS": "45000",
+        "FOUNDATION_GATE_MAX_BEST_MS": "75000",
+        "FOUNDATION_GATE_MAX_MEAN_MS": "75000",
     }
     for shard_index in range(manifest.CANONICAL_PYTEST_SHARD_COUNT):
         lane_ref = f"ci-pytest-shard-{shard_index}-reproduce"

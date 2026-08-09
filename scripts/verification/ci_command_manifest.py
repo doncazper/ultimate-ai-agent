@@ -130,9 +130,11 @@ def _command_from_release(command: LaneCommand) -> CommandSpec:
     env = tuple(sorted(command.env.items()))
     argv = tuple(command.argv)
     if command.command_ref == "command:performance.latency-gate":
+        # The full evaluator has a hosted macOS ARM wall-clock budget distinct
+        # from the independently enforced release-path p50/p95 budgets.
         env = (
-            ("FOUNDATION_GATE_MAX_BEST_MS", "45000"),
-            ("FOUNDATION_GATE_MAX_MEAN_MS", "45000"),
+            ("FOUNDATION_GATE_MAX_BEST_MS", "75000"),
+            ("FOUNDATION_GATE_MAX_MEAN_MS", "75000"),
         )
         argv = (*argv, "--warmup", "1")
     category = (

@@ -9,7 +9,7 @@ from math import isfinite
 import re
 import sys
 from pathlib import Path
-from unicodedata import category
+from unicodedata import category, normalize
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -2634,10 +2634,43 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         value = (
             raw_value[: important_match.start()] if important_match else raw_value
         ).strip()
+        if not _valid_inline_style_property_value(name, value):
+            continue
         previous = effective.get(name)
         if previous is None or important or not previous[1]:
             effective[name] = (value, important)
     return {name: value for name, (value, _important) in effective.items()}
+
+
+def _valid_inline_style_property_value(name: str, value: str) -> bool:
+    """Return whether one visibility-relevant declaration has valid syntax."""
+    normalized = " ".join(value.split())
+    css_wide_keywords = {"inherit", "initial", "revert", "revert-layer", "unset"}
+    if not normalized:
+        return False
+    if name == "display":
+        return (
+            normalized == "none"
+            or normalized in css_wide_keywords
+            or _display_definitely_overrides_hidden(normalized)
+        )
+    if name == "visibility":
+        return normalized in {
+            "collapse",
+            "hidden",
+            "visible",
+            *css_wide_keywords,
+        }
+    if name != "opacity":
+        return False
+    if normalized in css_wide_keywords:
+        return True
+    if re.fullmatch(
+        r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?%?",
+        normalized,
+    ):
+        return True
+    return _constant_css_calculation(normalized) is not None
 
 
 def _opacity_hides_contents(value: str | None) -> bool:
@@ -3184,14 +3217,11 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, "select"
         )
-        option_bounds = _selected_option_bounds(text, content_start, content_end)
-        if option_bounds is not None:
-            option_start, option_end = option_bounds
+        option_prose = _selected_option_prose(text, content_start, content_end)
+        if option_prose is not None:
             output.append(" ")
             output.append(
-                _strip_collapsed_selects(
-                    text[option_start:option_end], depth=depth + 1
-                )
+                _strip_collapsed_selects(option_prose, depth=depth + 1)
             )
             output.append(" ")
         cursor = element_end
@@ -3199,13 +3229,13 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
     return "".join(output)
 
 
-def _selected_option_bounds(
+def _selected_option_prose(
     text: str, content_start: int, content_end: int
-) -> tuple[int, int] | None:
-    """Return the selected option body, or the first option body by default."""
+) -> str | None:
+    """Return the rendered selected-option label or body."""
     cursor = content_start
-    first: tuple[int, int] | None = None
-    selected: tuple[int, int] | None = None
+    first: str | None = None
+    selected: str | None = None
     opening = re.compile(r"<option(?=[\s/>])", re.IGNORECASE)
     while (match := opening.search(text, cursor, content_end)) is not None:
         if _is_markdown_escaped(text, match.start()):
@@ -3224,13 +3254,18 @@ def _selected_option_bounds(
         body_end = _matching_closing_start(
             text, opening_end + 1, option_end, "option"
         )
-        bounds = (opening_end + 1, body_end)
+        label = _html_attribute_value(attributes, "label")
+        prose = (
+            escape(unescape(label), quote=False)
+            if label is not None
+            else text[opening_end + 1 : body_end]
+        )
         if first is None:
-            first = bounds
+            first = prose
         if "selected" in _html_attribute_names(attributes):
-            selected = bounds
+            selected = prose
         cursor = max(option_end, opening_end + 1)
-    return selected or first
+    return selected if selected is not None else first
 
 
 def _first_direct_summary_bounds(
@@ -3404,14 +3439,11 @@ def _accessible_html_alternative(name: str, attributes: str) -> str | None:
     if input_type in {"checkbox", "color", "file", "radio", "range"}:
         return None
     if input_type == "number":
-        valid_number = value is not None and re.fullmatch(
+        if value is not None and re.fullmatch(
             r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?", value
-        )
-        return (
-            None
-            if valid_number is not None
-            else _html_attribute_value(attributes, "placeholder")
-        )
+        ) is not None:
+            return None
+        return _html_attribute_value(attributes, "placeholder")
     if input_type in {"date", "datetime-local", "month", "time", "week"}:
         return None
     if input_type == "password":
@@ -3456,6 +3488,46 @@ def _is_default_ignorable(character: str) -> bool:
     )
 
 
+def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]:
+    """Protect visible fenced-code text and retain its block boundaries."""
+    token_prefix = "\ue000uaa_fenced_code_"
+    while token_prefix in text:
+        token_prefix += "_"
+    output: list[str] = []
+    blocks: list[tuple[str, str]] = []
+    lines = text.splitlines(keepends=True)
+    opening = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+    index = 0
+    while index < len(lines):
+        content = lines[index].rstrip("\r\n")
+        match = opening.match(content)
+        if match is None or (
+            match.group(1)[0] == "`" and "`" in content[match.end() :]
+        ):
+            output.append(lines[index])
+            index += 1
+            continue
+        fence_character = match.group(1)[0]
+        fence_length = len(match.group(1))
+        index += 1
+        visible_lines: list[str] = []
+        while index < len(lines):
+            candidate = lines[index].rstrip("\r\n")
+            if re.fullmatch(
+                rf"[ ]{{0,3}}{re.escape(fence_character)}"
+                rf"{{{fence_length},}}[ \t]*",
+                candidate,
+            ):
+                index += 1
+                break
+            visible_lines.append(lines[index])
+            index += 1
+        token = f"{token_prefix}{len(blocks)}\ue001"
+        blocks.append((token, "".join(visible_lines)))
+        output.append(f"\n{token}\n")
+    return "".join(output), blocks
+
+
 def _normalize_markdown_prose(text: str) -> str:
     """Return a bounded approximation of the prose Markdown renders visibly."""
     if len(text) > MAX_MARKDOWN_PROSE_CHARS:
@@ -3465,7 +3537,8 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized = _strip_raw_text_elements(text)
+    normalized, fenced_code = _extract_visible_fenced_code(text)
+    normalized = _strip_raw_text_elements(normalized)
     normalized = _strip_raw_html_constructs(normalized)
     normalized = _strip_collapsed_details(normalized)
     normalized = _strip_collapsed_selects(normalized)
@@ -3476,11 +3549,6 @@ def _normalize_markdown_prose(text: str) -> str:
     normalized = _strip_markdown_reference_definitions(normalized)
     normalized = _strip_markdown_links(normalized, reference_labels)
     normalized = unescape(normalized)
-    normalized = "".join(
-        character
-        for character in normalized
-        if category(character) != "Cf" and not _is_default_ignorable(character)
-    )
     normalized = re.sub(r"\\(?:\r\n?|\n)", "\n", normalized)
     normalized = re.sub(r"\n[ \t]*\n+", "\n. \n", normalized)
     normalized = re.sub(
@@ -3497,6 +3565,16 @@ def _normalize_markdown_prose(text: str) -> str:
     )
     normalized = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", r"\1", normalized)
     normalized = normalized.translate(str.maketrans("", "", "`*_~[]"))
+    for token, visible_code in fenced_code:
+        normalized = normalized.replace(token, f"\n. \n{visible_code}\n. \n")
+    normalized = normalize("NFKC", normalized)
+    normalized = "".join(
+        character
+        for character in normalized
+        if category(character) != "Cf" and not _is_default_ignorable(character)
+    )
+    if len(normalized) > MAX_MARKDOWN_PROSE_CHARS:
+        raise RuntimeError("normalized program truth surface exceeds the prose scan bound")
     return re.sub(r"\s+", " ", normalized).strip()
 
 
