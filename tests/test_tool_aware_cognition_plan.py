@@ -1699,6 +1699,18 @@ def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None
     )
 
 
+def test_noscript_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<noscript>no </noscript>web fetching is enabled."
+    )
+
+
+def test_noscript_raw_text_nesting_cannot_hide_following_authority() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<noscript><noscript></noscript>UAA browses the public web."
+    )
+
+
 def test_incomplete_raw_text_opening_tag_remains_visible() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Document note: <style web fetching is enabled."
@@ -2108,6 +2120,16 @@ def test_open_details_body_cannot_negate_following_block_prose() -> None:
     )
 
 
+def test_only_first_open_member_of_named_details_group_renders_open() -> None:
+    with pytest.raises(RuntimeError, match="named details-group visibility"):
+        verifier._find_forbidden_authority_claims(
+            '<details name="x" open style="display:inline">'
+            "<summary>first</summary>benign.</details>"
+            '<details name="x" open style="display:inline">'
+            "<summary>second</summary>no </details>web fetching is enabled."
+        )
+
+
 def test_authority_predicate_rejects_is_able_to_grant() -> None:
     assert verifier._find_forbidden_authority_claims(
         "UAA is able to fetch from the public web."
@@ -2171,6 +2193,16 @@ def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
     assert verifier._find_forbidden_authority_claims(
         f'<span style="{style}">no</span> web fetching is enabled.'
     )
+
+
+@pytest.mark.parametrize(
+    "declaration", ("font-size:0", "font-size/**/:0", r"f\6f nt-size:0")
+)
+def test_unsupported_inline_css_visibility_fails_closed(declaration: str) -> None:
+    with pytest.raises(RuntimeError, match="unsupported inline CSS property"):
+        verifier._find_forbidden_authority_claims(
+            f'<span style="{declaration}">no </span>web fetching is enabled.'
+        )
 
 
 @pytest.mark.parametrize(
@@ -2431,6 +2463,21 @@ def test_declarative_shadow_root_contents_remain_scannable(mode: str) -> None:
     )
 
 
+def test_ineligible_declarative_shadow_host_keeps_template_inert() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<a><template shadowrootmode="open"><span>no </span></template></a>'
+        "web fetching is enabled."
+    )
+
+
+def test_custom_declarative_shadow_host_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="custom declarative shadow host"):
+        verifier._find_forbidden_authority_claims(
+            '<x-host><template shadowrootmode="open">'
+            "UAA browses the public web.</template></x-host>"
+        )
+
+
 def test_datalist_contents_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<datalist>no </datalist>web fetching is enabled."
@@ -2589,7 +2636,6 @@ def test_image_alternative_text_is_scanned_for_authority() -> None:
 @pytest.mark.parametrize(
     "element",
     (
-        '<area alt="UAA can fetch from the public web.">',
         '<input type="image" alt="UAA can fetch from the public web.">',
         '<input type=image alt="UAA can fetch from the public web.">',
         '<input type="im&#97;ge" alt="UAA can fetch from the public web.">',
@@ -2599,6 +2645,21 @@ def test_other_accessible_alternative_text_is_scanned_for_authority(
     element: str,
 ) -> None:
     assert verifier._find_forbidden_authority_claims(element)
+
+
+def test_unassociated_area_alt_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<area alt="no ">web fetching is enabled.'
+    )
+
+
+def test_unassociated_area_alt_is_not_visible_authority_prose() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            '<area alt="UAA browses the public web.">'
+        )
+        == []
+    )
 
 
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:

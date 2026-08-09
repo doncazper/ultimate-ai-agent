@@ -2653,9 +2653,9 @@ def _next_raw_html_construct(
     return None
 
 
-def _html_ancestor_scopes(text: str) -> dict[int, frozenset[str]]:
-    """Return ordinary open-element names at each opening tag in one pass."""
-    scopes: dict[int, frozenset[str]] = {}
+def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
+    """Return ordered open-element names at each opening tag in one pass."""
+    scopes: dict[int, tuple[str, ...]] = {}
     stack: list[str] = []
     cursor = 0
     tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -2686,16 +2686,24 @@ def _html_ancestor_scopes(text: str) -> dict[int, frozenset[str]]:
             cursor = end + 1
             continue
         if lower_name in HTML_VOID_ELEMENTS:
-            scopes[match.start()] = frozenset(stack)
+            scopes[match.start()] = tuple(stack)
             cursor = end + 1
             continue
         if lower_name == "form" and "form" in stack:
-            scopes[match.start()] = frozenset(stack)
+            scopes[match.start()] = tuple(stack)
             cursor = end + 1
             continue
-        scopes[match.start()] = frozenset(stack)
+        scopes[match.start()] = tuple(stack)
         stack.append(lower_name)
-        if lower_name in {"script", "style", "textarea", "title", "iframe", "xmp"}:
+        if lower_name in {
+            "script",
+            "style",
+            "textarea",
+            "title",
+            "iframe",
+            "xmp",
+            "noscript",
+        }:
             closing = re.compile(
                 rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, end + 1)
@@ -2713,7 +2721,7 @@ def _find_balanced_element_end(
     start: int,
     name: str,
     *,
-    ancestor_names: frozenset[str] = frozenset(),
+    ancestor_names: tuple[str, ...] = (),
 ) -> int | None:
     """Return the end of a same-name-balanced non-raw-text element."""
     depth = 1
@@ -2765,6 +2773,7 @@ def _find_balanced_element_end(
             "title",
             "iframe",
             "xmp",
+            "noscript",
         }:
             closing = re.compile(
                 rf"</{re.escape(tag_name)}[ \t\r\n]*>", re.IGNORECASE
@@ -2911,12 +2920,30 @@ def _reject_ambiguous_opacity_escapes(style: str) -> None:
         raise RuntimeError("escaped CSS opacity token type is unsupported")
 
 
+def _reject_unsupported_inline_style_properties(style: str) -> None:
+    """Fail closed on inline CSS outside the bounded visibility model."""
+    normalized = re.sub(
+        r"/\*.*?\*/",
+        "",
+        _decode_css_escapes(unescape(style)),
+        flags=re.DOTALL,
+    )
+    for match in re.finditer(
+        r"(?:^|;)\s*([A-Za-z_-][A-Za-z0-9_-]*)\s*:", normalized
+    ):
+        name = match.group(1).lower()
+        if name.startswith("--") or name in {"display", "opacity", "visibility"}:
+            continue
+        raise RuntimeError("unsupported inline CSS property affects truth visibility")
+
+
 def _inline_style_properties(attributes: str) -> dict[str, str]:
     """Return effective visibility-relevant inline style properties."""
     style = _html_attribute_value(attributes, "style")
     if style is None:
         return {}
     _reject_ambiguous_opacity_escapes(style)
+    _reject_unsupported_inline_style_properties(style)
     normalized = re.sub(
         r"/\*.*?\*/", "", _decode_css_escapes(unescape(style)), flags=re.DOTALL
     )
@@ -3386,21 +3413,54 @@ def _hidden_attribute_suppresses(
     return not _display_definitely_overrides_hidden(properties.get("display"))
 
 
-def _declarative_shadow_root_renders(attributes: str) -> bool:
+DECLARATIVE_SHADOW_HOSTS = {
+    "article",
+    "aside",
+    "blockquote",
+    "body",
+    "div",
+    "footer",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "main",
+    "nav",
+    "p",
+    "section",
+    "span",
+}
+
+
+def _declarative_shadow_root_renders(
+    attributes: str, ancestor_names: tuple[str, ...]
+) -> bool:
     """Return whether a template declares rendered shadow-root contents."""
     mode = _html_attribute_value(attributes, "shadowrootmode")
-    return mode is not None and unescape(mode).strip().lower() in {"open", "closed"}
+    parent_name = ancestor_names[-1] if ancestor_names else None
+    normalized_mode = unescape(mode).strip().lower() if mode is not None else ""
+    if normalized_mode in {"open", "closed"} and parent_name and "-" in parent_name:
+        raise RuntimeError("custom declarative shadow host is unsupported")
+    return (
+        normalized_mode in {"open", "closed"}
+        and parent_name in DECLARATIVE_SHADOW_HOSTS
+    )
 
 
 def _popover_suppresses(
     lower_name: str,
     attribute_names: set[str],
-    ancestor_names: frozenset[str],
+    ancestor_names: tuple[str, ...],
 ) -> bool:
     """Apply initial popover hiding only where HTML popover semantics are known."""
     if "popover" not in attribute_names:
         return False
-    if lower_name in {"svg", "math"} or ancestor_names.intersection({"svg", "math"}):
+    if lower_name in {"svg", "math"} or any(
+        name in {"svg", "math"} for name in ancestor_names
+    ):
         raise RuntimeError("foreign-namespace popover visibility is unsupported")
     return True
 
@@ -3497,7 +3557,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         void_element = lower_name in HTML_VOID_ELEMENTS
         properties = _inline_style_properties(attributes)
         attribute_names = _html_attribute_names(attributes)
-        ancestor_names = ancestor_scopes.get(match.start(), frozenset())
+        ancestor_names = ancestor_scopes.get(match.start(), ())
         if void_element:
             if (
                 _visibility_is_visible_override(properties.get("visibility"))
@@ -3519,6 +3579,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             "title",
             "iframe",
             "xmp",
+            "noscript",
         }:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
@@ -3534,9 +3595,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 opening_end + 1,
                 name,
                 ancestor_names=(
-                    ancestor_scopes.get(match.start(), frozenset())
+                    ancestor_scopes.get(match.start(), ())
                     if lower_name == "p"
-                    else frozenset()
+                    else ()
                 ),
             )
         if element_end is None or element_end <= opening_end:
@@ -3552,8 +3613,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             }
             or (
                 lower_name == "template"
-                and not _declarative_shadow_root_renders(attributes)
+                and not _declarative_shadow_root_renders(attributes, ancestor_names)
             )
+            or lower_name == "noscript"
             or (
                 lower_name == "datalist"
                 and not _display_definitely_overrides_hidden(
@@ -3640,7 +3702,7 @@ def _strip_raw_text_elements(text: str) -> str:
         name = match.group(1)
         lower_name = name.lower()
         attribute_names = _html_attribute_names(attributes)
-        ancestor_names = ancestor_scopes.get(match.start(), frozenset())
+        ancestor_names = ancestor_scopes.get(match.start(), ())
         style_properties = _inline_style_properties(attributes)
         subtree_non_rendered = (
             lower_name in {
@@ -3652,8 +3714,9 @@ def _strip_raw_text_elements(text: str) -> str:
             }
             or (
                 lower_name == "template"
-                and not _declarative_shadow_root_renders(attributes)
+                and not _declarative_shadow_root_renders(attributes, ancestor_names)
             )
+            or lower_name == "noscript"
             or (
                 lower_name == "datalist"
                 and not _display_definitely_overrides_hidden(
@@ -3721,7 +3784,13 @@ def _strip_raw_text_elements(text: str) -> str:
         }:
             cursor = index + 1
             continue
-        raw_text_element = lower_name in {"script", "style", "iframe", "xmp"}
+        raw_text_element = lower_name in {
+            "script",
+            "style",
+            "iframe",
+            "xmp",
+            "noscript",
+        }
         if raw_text_element:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
@@ -3733,9 +3802,9 @@ def _strip_raw_text_elements(text: str) -> str:
                 index + 1,
                 name,
                 ancestor_names=(
-                    ancestor_scopes.get(match.start(), frozenset())
+                    ancestor_scopes.get(match.start(), ())
                     if lower_name == "p"
-                    else frozenset()
+                    else ()
                 ),
             )
         if closing_end is None:
@@ -3800,7 +3869,12 @@ def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
             cursor = opening_end + 1
             continue
         output.append(text[cursor : match.start()])
-        if "open" in _html_attribute_names(attributes):
+        attribute_names = _html_attribute_names(attributes)
+        raw_group_name = _html_attribute_value(attributes, "name")
+        group_name = unescape(raw_group_name) if raw_group_name is not None else ""
+        if group_name:
+            raise RuntimeError("named details-group visibility is unsupported")
+        if "open" in attribute_names:
             output.append(text[match.start() : opening_end + 1])
             cursor = opening_end + 1
             continue
@@ -3819,7 +3893,8 @@ def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
             output.append(" ")
             output.append(
                 _strip_collapsed_details(
-                    text[summary_start:summary_end], depth=depth + 1
+                    text[summary_start:summary_end],
+                    depth=depth + 1,
                 )
             )
             output.append(" ")
@@ -4160,7 +4235,7 @@ def _html_attribute_value(attributes: str, name: str) -> str | None:
 
 def _accessible_html_alternative(name: str, attributes: str) -> str | None:
     """Return text visibly rendered by a void HTML element."""
-    if name in {"area", "img"}:
+    if name == "img":
         return _html_attribute_value(attributes, "alt")
     if name != "input":
         return None
