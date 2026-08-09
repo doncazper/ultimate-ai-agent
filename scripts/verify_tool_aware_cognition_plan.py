@@ -1028,6 +1028,12 @@ FORBIDDEN_PATTERNS = (
     r"(?:(?:is|are)|(?:may|can|could|will|would|shall|should|must) be) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:logged|stored|recorded|retained|saved|persisted|archived|cached|written)"
+    r"(?!"
+    r"(?:(?![.!?]).){0,120}?\b(?:volatile|ephemeral|transient(?:ly)?|"
+    r"in[- ]memory|request memory)\b"
+    r"(?:(?![.!?]).){0,120}?\b(?:never|not) "
+    r"(?:persisted|stored|recorded|retained|saved|archived|cached|written)\b"
+    r"(?:(?![.!?]).){0,80}?\b(?:durable|evidence|disk|logs?)\b)"
     r"(?: to storage)?"
     r"(?: by (?:the )?(?:uaa|ultimate ai agent|product|system|release|router|"
     r"runtime|agent|control center|cli|api|python agent core))?\b",
@@ -1400,7 +1406,8 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:fetched|retrieved)(?: web)? content) "
     r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
     r"(?:(?:a|an|the) )?(?:trusted )?"
-    r"(?:instructions?|policy|authority|evidence(?: control)? input)\b",
+    r"(?:instructions?|policy(?!\s+(?:concerns?|inputs?))|authority|"
+    r"evidence(?: control)? input)\b",
     r"\bcontrol center(?: workflow| surface)? "
     r"(?:does not|doesn't|need not) require (?:an? )?"
     r"(?:cli|command[- ]line|shared[- ]backend|python[- ]core) "
@@ -1747,6 +1754,11 @@ ZERO_TOLERANCE_LINES = (
     "- raw sensitive content in durable routing evidence: zero;",
 )
 ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
+    r"\b(?:executions?|workflows?|tasks?|actions?) "
+    r"(?:may|can|could|will|would|shall|should|must) "
+    r"(?:succeed|complete|finish)\b"
+    r"(?:(?![.!?]).){0,120}?\bwithout "
+    r"(?:(?:exact|valid|immutable|durable) )*terminal proof\b",
     r"\b(?:executions?|workflows?|tasks?|actions?) "
     r"(?:(?:is|are)|(?:may|can|could|will|would|shall|should|must) be) "
     r"(?:(?:reported|declared|marked|treated|considered) (?:as )?)?"
@@ -2559,12 +2571,13 @@ def _next_raw_html_construct(
     return None
 
 
-def _open_html_ancestor_names(text: str, stop: int) -> frozenset[str]:
-    """Return ordinary open-element names before one opening tag."""
+def _html_ancestor_scopes(text: str) -> dict[int, frozenset[str]]:
+    """Return ordinary open-element names at each opening tag in one pass."""
+    scopes: dict[int, frozenset[str]] = {}
     stack: list[str] = []
     cursor = 0
     tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
-    while (match := tag.search(text, cursor, stop)) is not None:
+    while (match := tag.search(text, cursor)) is not None:
         construct = _next_raw_html_construct(text, cursor, match.start() + 1)
         if construct is not None:
             cursor = construct[1]
@@ -2573,7 +2586,7 @@ def _open_html_ancestor_names(text: str, stop: int) -> frozenset[str]:
             cursor = match.start() + 1
             continue
         end = _find_complete_tag_end(text, match.end())
-        if end is None or end >= stop:
+        if end is None:
             break
         is_closing = text[match.start() + 1] == "/"
         tail = text[match.end() : end]
@@ -2591,20 +2604,26 @@ def _open_html_ancestor_names(text: str, stop: int) -> frozenset[str]:
             cursor = end + 1
             continue
         if lower_name in HTML_VOID_ELEMENTS:
+            scopes[match.start()] = frozenset(stack)
             cursor = end + 1
             continue
+        if lower_name == "form" and "form" in stack:
+            scopes[match.start()] = frozenset(stack)
+            cursor = end + 1
+            continue
+        scopes[match.start()] = frozenset(stack)
         stack.append(lower_name)
         if lower_name in {"script", "style", "textarea", "title", "iframe", "xmp"}:
             closing = re.compile(
                 rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
-            ).search(text, end + 1, stop)
+            ).search(text, end + 1)
             if closing is None:
                 break
             stack.pop()
             cursor = closing.end()
             continue
         cursor = end + 1
-    return frozenset(stack)
+    return scopes
 
 
 def _find_balanced_element_end(
@@ -2842,7 +2861,10 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         resolved_value = _resolve_css_variable_fallback(
             value,
             {key: item[0] for key, item in custom_properties.items()},
-        ).lower()
+        )
+        if resolved_value is None:
+            continue
+        resolved_value = resolved_value.lower()
         if not _valid_inline_style_property_value(name, resolved_value):
             continue
         previous = effective.get(name)
@@ -2857,10 +2879,12 @@ def _resolve_css_variable_fallback(
     *,
     depth: int = 0,
     seen: frozenset[str] = frozenset(),
-) -> str:
+) -> str | None:
     """Resolve bounded same-element custom properties and ``var()`` fallbacks."""
     resolved = value.strip()
-    if depth >= 8 or not resolved.lower().startswith("var(") or not resolved.endswith(")"):
+    if depth >= 8:
+        return None
+    if not resolved.lower().startswith("var(") or not resolved.endswith(")"):
         return resolved
     inner = resolved[4:-1]
     nesting = 0
@@ -2870,27 +2894,32 @@ def _resolve_css_variable_fallback(
             nesting += 1
         elif character == ")":
             if nesting == 0:
-                return resolved
+                return None
             nesting -= 1
         elif character == "," and nesting == 0:
             comma = index
             break
     custom_property = (inner if comma is None else inner[:comma]).strip()
     if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
-        return resolved
+        return None
     declared = (custom_properties or {}).get(custom_property)
-    if declared is not None and custom_property not in seen:
-        return _resolve_css_variable_fallback(
-            declared,
-            custom_properties,
-            depth=depth + 1,
-            seen=seen | {custom_property},
-        )
+    if declared is not None:
+        if custom_property in seen:
+            declared_value = None
+        else:
+            declared_value = _resolve_css_variable_fallback(
+                declared,
+                custom_properties,
+                depth=depth + 1,
+                seen=seen | {custom_property},
+            )
+        if declared_value is not None:
+            return declared_value
     if comma is None:
-        return resolved
+        return None
     fallback = inner[comma + 1 :].strip()
     if not fallback:
-        return resolved
+        return None
     return _resolve_css_variable_fallback(
         fallback,
         custom_properties,
@@ -3240,6 +3269,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
     """Retain explicit visible descendants of visibility-hidden content."""
     if depth > 64:
         raise RuntimeError("HTML visibility nesting exceeds the scan bound")
+    ancestor_scopes = _html_ancestor_scopes(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -3300,7 +3330,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 opening_end + 1,
                 name,
                 ancestor_names=(
-                    _open_html_ancestor_names(text, match.start())
+                    ancestor_scopes.get(match.start(), frozenset())
                     if lower_name == "p"
                     else frozenset()
                 ),
@@ -3370,6 +3400,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
 
 def _strip_raw_text_elements(text: str) -> str:
     """Remove elements whose contents do not render as visible prose."""
+    ancestor_scopes = _html_ancestor_scopes(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -3488,7 +3519,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 index + 1,
                 name,
                 ancestor_names=(
-                    _open_html_ancestor_names(text, match.start())
+                    ancestor_scopes.get(match.start(), frozenset())
                     if lower_name == "p"
                     else frozenset()
                 ),

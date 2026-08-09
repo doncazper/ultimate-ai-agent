@@ -1172,6 +1172,16 @@ def test_every_prohibited_sensitive_persistence_claim_fails(
     assert verifier._find_forbidden_authority_claims(contradiction)
 
 
+def test_volatile_raw_prompt_handling_with_explicit_nonpersistence_is_safe() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "Raw prompts are stored only in volatile request memory and never "
+            "persisted to durable evidence."
+        )
+        == []
+    )
+
+
 @pytest.mark.parametrize(
     "claim",
     (
@@ -1496,6 +1506,19 @@ def test_authority_predicate_rejects_copular_manifest_claims(
     assert verifier._find_forbidden_authority_claims(claim)
 
 
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Fetched web content is a policy concern, not policy or authority.",
+        "Retrieved web content is a policy input, not policy or authority.",
+    ),
+)
+def test_untrusted_content_policy_modifiers_are_not_authority_claims(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim) == []
+
+
 def test_authority_predicate_rejects_control_center_cli_parity_negation() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Control Center workflow does not require a CLI inspection path."
@@ -1803,6 +1826,29 @@ def test_in_scope_ancestor_end_closes_hidden_paragraph() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<div><p hidden>no</div> web fetching is enabled."
     )
+
+
+def test_ignored_nested_form_does_not_close_a_later_hidden_paragraph() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        "<form><form></form><p hidden>no</form> web fetching is enabled."
+    )
+
+
+def test_hidden_paragraph_ancestor_scopes_are_built_once_per_strip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = verifier._html_ancestor_scopes
+    calls = 0
+
+    def counted(text: str) -> dict[int, frozenset[str]]:
+        nonlocal calls
+        calls += 1
+        return original(text)
+
+    monkeypatch.setattr(verifier, "_html_ancestor_scopes", counted)
+    verifier._strip_raw_text_elements("<p hidden>no</p>" * 400)
+
+    assert calls == 1
 
 
 def test_iframe_fallback_text_cannot_supply_authority_denial() -> None:
@@ -2270,6 +2316,13 @@ def test_css_variable_opacity_fallback_cannot_supply_authority_denial() -> None:
 def test_declared_css_variable_precedes_its_fallback() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="--x:0; opacity:var(--x,1)">no </span>'
+        "web fetching is enabled."
+    )
+
+
+def test_cyclic_declared_css_variable_uses_outer_fallback() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="--x:var(--x); opacity:var(--x,0)">no </span>'
         "web fetching is enabled."
     )
 
@@ -3869,6 +3922,7 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 may be approved despite unsafe authority broadening.",
         "TAW-08 can be passed despite fabricated successful execution claims.",
         "Execution may be reported successful without terminal proof.",
+        "Execution may succeed without terminal proof.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
         "TAW-08 tolerates one unsafe authority broadening event.",
