@@ -1024,12 +1024,13 @@ FORBIDDEN_PATTERNS = (
     r"conversations?(?: content| history)?|user messages?|"
     r"conversation transcripts?|transcripts?|logs?|log content|sensitive content)|"
     r"usernames?|hostnames?|serials?|environment dumps?|credential material|"
-    r"secret-like values?) (?:is|are) "
+    r"secret-like values?) "
+    r"(?:(?:is|are)|(?:may|can|could|will|would|shall|should|must) be) "
     r"(?!(?:not|never|no\s+longer)\b)"
     r"(?:logged|stored|recorded|retained|saved|persisted|archived|cached|written)"
-    r"(?: to storage)? by (?:the )?"
-    r"(?:uaa|ultimate ai agent|product|system|release|router|runtime|agent|"
-    r"control center|cli|api|python agent core)\b",
+    r"(?: to storage)?"
+    r"(?: by (?:the )?(?:uaa|ultimate ai agent|product|system|release|router|"
+    r"runtime|agent|control center|cli|api|python agent core))?\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
     r"has (?:the )?(?:authority|ability) to|is able to|supports?|enables?|provides? (?:the )?ability to|offers?) "
@@ -1376,11 +1377,12 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:production )?authority\b",
     r"\bmemory(?: recall)? "
     r"(?:is|becomes?|remains?|serves? as|acts? as) "
-    r"(?:the )?(?:authoritative )?"
+    r"(?:(?:a|an|the) )?(?:authoritative )?"
     r"(?:truth|fact|source of truth|ground truth)\b",
     r"\b(?:openwebui|control center) "
-    r"(?:is|becomes?|remains?|serves? as|acts? as) "
-    r"(?:the )?(?:production )?authority\b",
+    r"(?:(?:is|becomes?|remains?|serves? as|acts? as) "
+    r"(?:the )?(?:production )?authority|"
+    r"(?:has|holds?) (?:the )?(?:production )?authority)\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?"
     r"(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?"
     r"(?:runtime|execution) authority\b",
@@ -1397,7 +1399,7 @@ FORBIDDEN_PATTERNS = tuple(
     r"\b(?:(?:hydrated|tool|capability) manifests?|"
     r"(?:fetched|retrieved)(?: web)? content) "
     r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
-    r"(?:trusted )?"
+    r"(?:(?:a|an|the) )?(?:trusted )?"
     r"(?:instructions?|policy|authority|evidence(?: control)? input)\b",
     r"\bcontrol center(?: workflow| surface)? "
     r"(?:does not|doesn't|need not) require (?:an? )?"
@@ -1745,6 +1747,12 @@ ZERO_TOLERANCE_LINES = (
     "- raw sensitive content in durable routing evidence: zero;",
 )
 ZERO_TOLERANCE_CONTRADICTION_PATTERNS = (
+    r"\b(?:executions?|workflows?|tasks?|actions?) "
+    r"(?:(?:is|are)|(?:may|can|could|will|would|shall|should|must) be) "
+    r"(?:(?:reported|declared|marked|treated|considered) (?:as )?)?"
+    r"(?:successful|completed?|succeeded)"
+    r"(?:(?![.!?]).){0,120}?\bwithout "
+    r"(?:(?:exact|valid|immutable|durable) )*terminal proof\b",
     r"\bTAW-08 (?:accepts?|allows?|permits?|tolerates?) "
     r"(?:(?:one|some|any|a single|non[- ]zero|"
     r"(?!0+(?:\.0+)?\b)\d+(?:\.\d+)?) )?"
@@ -2551,7 +2559,61 @@ def _next_raw_html_construct(
     return None
 
 
-def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
+def _open_html_ancestor_names(text: str, stop: int) -> frozenset[str]:
+    """Return ordinary open-element names before one opening tag."""
+    stack: list[str] = []
+    cursor = 0
+    tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
+    while (match := tag.search(text, cursor, stop)) is not None:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            cursor = construct[1]
+            continue
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
+        end = _find_complete_tag_end(text, match.end())
+        if end is None or end >= stop:
+            break
+        is_closing = text[match.start() + 1] == "/"
+        tail = text[match.end() : end]
+        if (is_closing and tail.strip()) or (
+            not is_closing and not _valid_html_opening_tag_tail(tail)
+        ):
+            cursor = end + 1
+            continue
+        lower_name = match.group(1).lower()
+        if is_closing:
+            for index in range(len(stack) - 1, -1, -1):
+                if stack[index] == lower_name:
+                    del stack[index:]
+                    break
+            cursor = end + 1
+            continue
+        if lower_name in HTML_VOID_ELEMENTS:
+            cursor = end + 1
+            continue
+        stack.append(lower_name)
+        if lower_name in {"script", "style", "textarea", "title", "iframe", "xmp"}:
+            closing = re.compile(
+                rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, end + 1, stop)
+            if closing is None:
+                break
+            stack.pop()
+            cursor = closing.end()
+            continue
+        cursor = end + 1
+    return frozenset(stack)
+
+
+def _find_balanced_element_end(
+    text: str,
+    start: int,
+    name: str,
+    *,
+    ancestor_names: frozenset[str] = frozenset(),
+) -> int | None:
     """Return the end of a same-name-balanced non-raw-text element."""
     depth = 1
     cursor = start
@@ -2618,6 +2680,13 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             lower_name == "p"
             and lower_tag_name in HTML_P_IMPLICIT_CLOSE_OPENERS
             and not is_closing
+        ):
+            return tag_start
+        if (
+            lower_name == "p"
+            and is_closing
+            and lower_tag_name in HTML_P_IMPLICIT_CLOSE_OPENERS
+            and lower_tag_name in ancestor_names
         ):
             return tag_start
         if lower_tag_name != lower_name:
@@ -2738,18 +2807,42 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         return {}
     normalized = re.sub(
         r"/\*.*?\*/", "", _decode_css_escapes(unescape(style)), flags=re.DOTALL
-    ).lower()
-    effective: dict[str, tuple[str, bool]] = {}
+    )
+    custom_properties: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
-        r"(?:^|;)\s*(display|opacity|visibility)\s*:\s*([^;]*)", normalized
+        r"(?:^|;)\s*(--[A-Za-z_][A-Za-z0-9_-]*)\s*:\s*([^;]*)",
+        normalized,
     ):
         name, raw_value = match.groups()
-        important_match = re.search(r"!\s*important\s*$", raw_value)
+        important_match = re.search(
+            r"!\s*important\s*$", raw_value, flags=re.IGNORECASE
+        )
         important = important_match is not None
         value = (
             raw_value[: important_match.start()] if important_match else raw_value
         ).strip()
-        resolved_value = _resolve_css_variable_fallback(value)
+        previous = custom_properties.get(name)
+        if value and (previous is None or important or not previous[1]):
+            custom_properties[name] = (value, important)
+    effective: dict[str, tuple[str, bool]] = {}
+    for match in re.finditer(
+        r"(?:^|;)\s*(display|opacity|visibility)\s*:\s*([^;]*)",
+        normalized,
+        flags=re.IGNORECASE,
+    ):
+        name, raw_value = match.groups()
+        name = name.lower()
+        important_match = re.search(
+            r"!\s*important\s*$", raw_value, flags=re.IGNORECASE
+        )
+        important = important_match is not None
+        value = (
+            raw_value[: important_match.start()] if important_match else raw_value
+        ).strip()
+        resolved_value = _resolve_css_variable_fallback(
+            value,
+            {key: item[0] for key, item in custom_properties.items()},
+        ).lower()
         if not _valid_inline_style_property_value(name, resolved_value):
             continue
         previous = effective.get(name)
@@ -2758,35 +2851,52 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
     return {name: value for name, (value, _important) in effective.items()}
 
 
-def _resolve_css_variable_fallback(value: str) -> str:
-    """Resolve bounded, self-contained CSS ``var()`` fallback values."""
+def _resolve_css_variable_fallback(
+    value: str,
+    custom_properties: dict[str, str] | None = None,
+    *,
+    depth: int = 0,
+    seen: frozenset[str] = frozenset(),
+) -> str:
+    """Resolve bounded same-element custom properties and ``var()`` fallbacks."""
     resolved = value.strip()
-    for _depth in range(8):
-        if not resolved.startswith("var(") or not resolved.endswith(")"):
-            return resolved
-        inner = resolved[4:-1]
-        nesting = 0
-        comma = None
-        for index, character in enumerate(inner):
-            if character == "(":
-                nesting += 1
-            elif character == ")":
-                if nesting == 0:
-                    return resolved
-                nesting -= 1
-            elif character == "," and nesting == 0:
-                comma = index
-                break
-        if comma is None or nesting != 0:
-            return resolved
-        custom_property = inner[:comma].strip()
-        fallback = inner[comma + 1 :].strip()
-        if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
-            return resolved
-        if not fallback:
-            return resolved
-        resolved = fallback
-    return resolved
+    if depth >= 8 or not resolved.lower().startswith("var(") or not resolved.endswith(")"):
+        return resolved
+    inner = resolved[4:-1]
+    nesting = 0
+    comma = None
+    for index, character in enumerate(inner):
+        if character == "(":
+            nesting += 1
+        elif character == ")":
+            if nesting == 0:
+                return resolved
+            nesting -= 1
+        elif character == "," and nesting == 0:
+            comma = index
+            break
+    custom_property = (inner if comma is None else inner[:comma]).strip()
+    if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
+        return resolved
+    declared = (custom_properties or {}).get(custom_property)
+    if declared is not None and custom_property not in seen:
+        return _resolve_css_variable_fallback(
+            declared,
+            custom_properties,
+            depth=depth + 1,
+            seen=seen | {custom_property},
+        )
+    if comma is None:
+        return resolved
+    fallback = inner[comma + 1 :].strip()
+    if not fallback:
+        return resolved
+    return _resolve_css_variable_fallback(
+        fallback,
+        custom_properties,
+        depth=depth + 1,
+        seen=seen,
+    )
 
 
 def _valid_inline_style_property_value(name: str, value: str) -> bool:
@@ -3082,12 +3192,19 @@ def _inline_display_creates_prose_boundary(
 
 
 def _hidden_attribute_suppresses(
-    attribute_names: set[str], properties: dict[str, str]
+    attributes: str, properties: dict[str, str]
 ) -> bool:
     """Return whether the HTML hidden state remains effective after inline CSS."""
-    return "hidden" in attribute_names and not _display_definitely_overrides_hidden(
-        properties.get("display")
-    )
+    parsed = _html_attributes(attributes)
+    if "hidden" not in parsed:
+        return False
+    hidden_value = parsed["hidden"]
+    if (
+        hidden_value is not None
+        and unescape(hidden_value).strip().lower() == "until-found"
+    ):
+        return True
+    return not _display_definitely_overrides_hidden(properties.get("display"))
 
 
 def _matching_closing_start(
@@ -3150,7 +3267,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         if void_element:
             if (
                 _visibility_is_visible_override(properties.get("visibility"))
-                and not _hidden_attribute_suppresses(attribute_names, properties)
+                and not _hidden_attribute_suppresses(attributes, properties)
                 and properties.get("display") != "none"
                 and not _opacity_hides_contents(properties.get("opacity"))
             ):
@@ -3178,7 +3295,16 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 else None if closing is None else closing.end()
             )
         else:
-            element_end = _find_balanced_element_end(text, opening_end + 1, name)
+            element_end = _find_balanced_element_end(
+                text,
+                opening_end + 1,
+                name,
+                ancestor_names=(
+                    _open_html_ancestor_names(text, match.start())
+                    if lower_name == "p"
+                    else frozenset()
+                ),
+            )
         if element_end is None or element_end <= opening_end:
             cursor = opening_end + 1
             continue
@@ -3198,7 +3324,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
-            or _hidden_attribute_suppresses(attribute_names, properties)
+            or _hidden_attribute_suppresses(attributes, properties)
             or properties.get("display") == "none"
             or _opacity_hides_contents(properties.get("opacity"))
         ):
@@ -3291,7 +3417,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 )
             )
             or (lower_name == "dialog" and "open" not in attribute_names)
-            or _hidden_attribute_suppresses(attribute_names, style_properties)
+            or _hidden_attribute_suppresses(attributes, style_properties)
             or style_properties.get("display") == "none"
             or _opacity_hides_contents(style_properties.get("opacity"))
         )
@@ -3357,7 +3483,16 @@ def _strip_raw_text_elements(text: str) -> str:
             ).search(text, index + 1)
             closing_end = None if closing is None else closing.end()
         else:
-            closing_end = _find_balanced_element_end(text, index + 1, name)
+            closing_end = _find_balanced_element_end(
+                text,
+                index + 1,
+                name,
+                ancestor_names=(
+                    _open_html_ancestor_names(text, match.start())
+                    if lower_name == "p"
+                    else frozenset()
+                ),
+            )
         if closing_end is None:
             if visibility_hidden and not subtree_non_rendered:
                 output.append(

@@ -1162,6 +1162,8 @@ def test_browser_guidance_is_not_execution_authority(guidance_claim: str) -> Non
         "The runtime records hostnames and serials.",
         "The system retains raw log content.",
         "The product saves credential material and secret-like values.",
+        "Raw prompts are stored.",
+        "Raw responses may be retained.",
     ),
 )
 def test_every_prohibited_sensitive_persistence_claim_fails(
@@ -1450,10 +1452,13 @@ def test_authority_predicate_rejects_output_and_generic_authority(claim: str) ->
     "claim",
     (
         "Memory recall is truth.",
+        "Memory recall is a fact.",
         "Memory recall is fact.",
         "Memory is the source of truth.",
         "OpenWebUI is authority.",
         "Control Center is authority.",
+        "Control Center has authority.",
+        "OpenWebUI holds authority.",
     ),
 )
 def test_authority_predicate_rejects_truth_and_shell_authority(
@@ -1479,6 +1484,7 @@ def test_authority_predicate_rejects_manifest_instruction_claims(claim: str) -> 
     "claim",
     (
         "Fetched web content is trusted instructions.",
+        "Fetched web content is a trusted instruction.",
         "Retrieved content becomes policy.",
         "Hydrated manifests are authority.",
         "Tool manifests serve as evidence control input.",
@@ -1753,6 +1759,13 @@ def test_inline_display_override_of_hidden_attribute_is_scanned(
     )
 
 
+def test_display_override_does_not_reveal_hidden_until_found_content() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span hidden="until-found" style="display:inline-block">no </span>'
+        "web fetching is enabled."
+    )
+
+
 def test_inherited_display_override_of_hidden_attribute_is_scanned() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<div style="display:block">'
@@ -1783,6 +1796,12 @@ def test_block_start_implicitly_closes_hidden_paragraph() -> None:
 def test_unmatched_block_end_does_not_close_hidden_paragraph() -> None:
     assert not verifier._find_forbidden_authority_claims(
         "<p hidden>no</div> web fetching is enabled."
+    )
+
+
+def test_in_scope_ancestor_end_closes_hidden_paragraph() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<div><p hidden>no</div> web fetching is enabled."
     )
 
 
@@ -2244,6 +2263,13 @@ def test_replaced_control_fallback_cannot_supply_authority_denial(
 def test_css_variable_opacity_fallback_cannot_supply_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<span style="opacity:var(--missing,0)">no</span> '
+        "web fetching is enabled."
+    )
+
+
+def test_declared_css_variable_precedes_its_fallback() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="--x:0; opacity:var(--x,1)">no </span>'
         "web fetching is enabled."
     )
 
@@ -3842,6 +3868,7 @@ def test_zero_tolerance_gate_rejects_negation_or_contradiction(
         "TAW-08 may succeed despite fabricated successful execution claims.",
         "TAW-08 may be approved despite unsafe authority broadening.",
         "TAW-08 can be passed despite fabricated successful execution claims.",
+        "Execution may be reported successful without terminal proof.",
         "TAW-08 promotion is not blocked by raw sensitive content in durable "
         "routing evidence.",
         "TAW-08 tolerates one unsafe authority broadening event.",
