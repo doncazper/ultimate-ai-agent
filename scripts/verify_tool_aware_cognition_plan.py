@@ -1448,7 +1448,8 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
     r"(?:production )?authority\b",
     r"\bmemory(?: recall)? "
-    r"(?:is|becomes?|remains?|serves? as|acts? as) "
+    r"(?:is|becomes?|remains?|serves? as|acts? as|constitutes?|provides?|"
+    r"represents?|(?:should|must) be treated as|is treated as) "
     r"(?:(?:a|an|the) )?(?:production )?(?:authoritative )?"
     r"(?:truth|fact|source of truth|ground truth)\b",
     r"\b(?:openwebui|control center) "
@@ -2650,6 +2651,11 @@ def _next_raw_html_construct(
         construct_end = _raw_html_construct_end(text, cursor)
         if construct_end is not None:
             return cursor, construct_end
+        if (
+            text.startswith(("<!--", "<?", "<![CDATA["), cursor)
+            or _commonmark_declaration_content_start(text, cursor) is not None
+        ):
+            raise RuntimeError("unterminated or invalid raw HTML construct")
         cursor = text.find("<", cursor + 1, stop)
     return None
 
@@ -2717,15 +2723,27 @@ def _html_ancestor_contexts(text: str) -> dict[int, _HtmlAncestorFrame | None]:
         if lower_name == "iframe" and "srcdoc" in attribute_names:
             raise RuntimeError("iframe srcdoc rendering is unsupported")
         if lower_name in {
+            "animate",
+            "animatemotion",
+            "animatetransform",
             "clippath",
+            "desc",
             "defs",
+            "discard",
             "filter",
+            "foreignobject",
             "lineargradient",
             "marker",
             "mask",
+            "metadata",
+            "mpath",
             "pattern",
             "radialgradient",
+            "set",
             "symbol",
+            "title",
+            "use",
+            "view",
         } and any(frame.name == "svg" for frame in stack):
             raise RuntimeError("SVG definition rendering is unsupported")
         parent = stack[-1] if stack else None
@@ -2779,8 +2797,7 @@ def _find_balanced_element_end(
         if text.startswith("<!--", tag_start):
             comment_end = text.find("-->", tag_start + 4)
             if comment_end < 0:
-                cursor = tag_start + 1
-                continue
+                raise RuntimeError("unterminated or invalid raw HTML construct")
             if not _valid_commonmark_comment_body(
                 text[tag_start + 4 : comment_end]
             ):
@@ -2843,6 +2860,12 @@ def _find_balanced_element_end(
             and is_closing
             and lower_tag_name in HTML_P_IMPLICIT_CLOSE_OPENERS
             and lower_tag_name in ancestor_names
+        ):
+            return tag_start
+        if (
+            lower_name in {"a", "button"}
+            and lower_tag_name == lower_name
+            and not is_closing
         ):
             return tag_start
         if lower_tag_name != lower_name:
@@ -2992,6 +3015,17 @@ def _is_supported_css_custom_property_name(name: str) -> bool:
     )
 
 
+def _reject_unsupported_visibility_value_functions(value: str) -> None:
+    """Fail closed on CSS functions outside the bounded visibility model."""
+    functions = {
+        match.lower()
+        for match in re.findall(r"\b([A-Za-z][A-Za-z0-9-]*)\s*\(", value)
+    }
+    unsupported = functions.difference({"calc", "clamp", "max", "min", "var"})
+    if unsupported:
+        raise RuntimeError("unsupported visibility CSS value function")
+
+
 def _inline_style_properties(attributes: str) -> dict[str, str]:
     """Return effective visibility-relevant inline style properties."""
     style = _html_attribute_value(attributes, "style")
@@ -3018,6 +3052,19 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         previous = custom_properties.get(name)
         if value and (previous is None or important or not previous[1]):
             custom_properties[name] = (value, important)
+    for value, _important in custom_properties.values():
+        referenced_properties = set(
+            re.findall(
+                r"var\(\s*(--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+)",
+                value,
+                flags=re.IGNORECASE,
+            )
+        )
+        if referenced_properties.difference(custom_properties):
+            raise RuntimeError(
+                "unresolved visibility custom property is unsupported"
+            )
+        _reject_unsupported_visibility_value_functions(value)
     effective: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
         r"(?:^|;)\s*(display|opacity|visibility)\s*:\s*([^;]*)",
@@ -3033,6 +3080,7 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         value = (
             raw_value[: important_match.start()] if important_match else raw_value
         ).strip()
+        _reject_unsupported_visibility_value_functions(value)
         referenced_properties = set(
             re.findall(
                 r"var\(\s*(--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+)",
@@ -3611,7 +3659,8 @@ def _reject_embedded_visibility_styles(text: str) -> None:
             flags=re.DOTALL,
         )
         if re.search(
-            r"(?:^|[;{])\s*(?:display|opacity|visibility)\s*:",
+            r"(?:^|[;{])\s*(?:--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+|"
+            r"[A-Za-z-]+)\s*:",
             stylesheet,
             flags=re.IGNORECASE,
         ):
@@ -3730,11 +3779,14 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         if (
             lower_name in {
+                "audio",
+                "canvas",
                 "script",
                 "style",
                 "iframe",
                 "progress",
                 "meter",
+                "video",
             }
             or (
                 lower_name == "template"
@@ -3848,11 +3900,14 @@ def _strip_raw_text_elements(text: str) -> str:
             )
         subtree_non_rendered = (
             lower_name in {
+                "audio",
+                "canvas",
                 "script",
                 "style",
                 "iframe",
                 "progress",
                 "meter",
+                "video",
             }
             or (
                 lower_name == "template"
@@ -3955,6 +4010,12 @@ def _strip_raw_text_elements(text: str) -> str:
                     _visibility_visible_descendants(text[index + 1 :])
                 )
             break
+        if lower_name == "table":
+            table_content_end = _matching_closing_start(
+                text, index + 1, closing_end, name
+            )
+            if text[index + 1 : table_content_end].strip():
+                raise RuntimeError("hidden table foster-parenting is unsupported")
         if visibility_hidden and not subtree_non_rendered:
             content_start = index + 1
             content_end = _matching_closing_start(
@@ -4653,6 +4714,17 @@ def _normalize_markdown_prose(text: str) -> str:
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     text = _normalize_markdown_prose(text)
+    text = re.sub(r"\bnot\s+only\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"(\b(?:UAA|(?:the )?Ultimate AI Agent|(?:the )?Control Center|"
+        r"(?:the )?(?:CLI|API|Python Agent Core))\b"
+        r"(?:(?![.!?]).){0,300}[.!?]\s*)"
+        r"It(?=\s+(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|"
+        r"supports?|enables?|provides?))",
+        r"\1UAA",
+        text,
+        flags=re.IGNORECASE,
+    )
     text = re.sub(
         r"\bis capable of\s+(?!not\b)([a-z]+ing)\b",
         lambda match: (

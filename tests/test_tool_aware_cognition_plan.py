@@ -1520,6 +1520,9 @@ def test_authority_predicate_rejects_output_and_generic_authority(claim: str) ->
     (
         "Memory recall is truth.",
         "Memory recall is production truth.",
+        "Memory recall constitutes production truth.",
+        "Memory recall provides production truth.",
+        "Memory should be treated as production truth.",
         "Memory recall is a fact.",
         "Memory recall is fact.",
         "Memory is the source of truth.",
@@ -1532,6 +1535,23 @@ def test_authority_predicate_rejects_output_and_generic_authority(claim: str) ->
 def test_authority_predicate_rejects_truth_and_shell_authority(
     claim: str,
 ) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_not_only_is_affirmative_capability_wording() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "UAA can not only fetch the public web but also execute plugins."
+    )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA answers chat. It can fetch the public web.",
+        "The Control Center is local. It can execute plugins.",
+    ),
+)
+def test_product_antecedent_pronoun_authority_claim_is_rejected(claim: str) -> None:
     assert verifier._find_forbidden_authority_claims(claim)
 
 
@@ -1795,11 +1815,12 @@ def test_invalid_html_comment_remains_visible_authority_prose() -> None:
     )
 
 
-def test_invalid_comment_does_not_hide_balanced_outer_close() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        "<span hidden><!-- a -- b </span> --> "
-        "UAA can fetch from the public web."
-    )
+def test_invalid_comment_during_balancing_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unterminated or invalid raw HTML"):
+        verifier._find_forbidden_authority_claims(
+            "<span hidden><!-- a -- b </span> --> "
+            "UAA can fetch from the public web."
+        )
 
 
 def test_invalid_nested_opener_does_not_increase_hidden_depth() -> None:
@@ -1820,10 +1841,11 @@ def test_escaped_html_comment_opener_remains_visible() -> None:
     )
 
 
-def test_unterminated_comment_does_not_abort_hidden_balancing() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        "<span hidden><!-- malformed </span> UAA can fetch from the public web."
-    )
+def test_unterminated_comment_during_balancing_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unterminated or invalid raw HTML"):
+        verifier._find_forbidden_authority_claims(
+            "<span hidden><!-- malformed </span> UAA can fetch from the public web."
+        )
 
 
 def test_incomplete_nested_opener_does_not_abort_hidden_balancing() -> None:
@@ -1996,6 +2018,13 @@ def test_non_tag_construct_markup_cannot_hide_following_prose(
     assert verifier._find_forbidden_authority_claims(
         f"{construct} UAA can fetch from the public web."
     )
+
+
+def test_repeated_unterminated_raw_html_constructs_fail_closed() -> None:
+    with pytest.raises(RuntimeError, match="unterminated or invalid raw HTML"):
+        verifier._html_ancestor_contexts(
+            "<!--x<br>" * 16_000 + "UAA browses the public web."
+        )
 
 
 def test_visible_void_descendant_alternative_is_scanned() -> None:
@@ -2270,6 +2299,23 @@ def test_inherited_visibility_custom_property_with_fallback_fails_closed() -> No
         )
 
 
+def test_inherited_variable_inside_local_binding_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unresolved visibility custom property"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="--missing:0"><i '
+            'style="--x:var(--missing,1);opacity:var(--x)">'
+            "no </i></span>web fetching is enabled."
+        )
+
+
+def test_css_environment_variable_fallback_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unsupported visibility CSS value"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="opacity:env(unknown,0)">no </span>'
+            "web fetching is enabled."
+        )
+
+
 @pytest.mark.parametrize(
     "style",
     (
@@ -2480,7 +2526,15 @@ def test_escaped_opacity_identifier_token_fails_closed() -> None:
 
 
 @pytest.mark.parametrize(
-    "declaration", ("display:none", r"d\69 splay:none", "display/**/:none")
+    "declaration",
+    (
+        "display:none",
+        r"d\69 splay:none",
+        "display/**/:none",
+        "font-size:0",
+        "content-visibility:hidden",
+        "color:transparent",
+    ),
 )
 def test_embedded_visibility_stylesheet_fails_closed(declaration: str) -> None:
     with pytest.raises(RuntimeError, match="embedded visibility stylesheet"):
@@ -2563,7 +2617,9 @@ def test_many_declarative_shadow_hosts_use_one_ancestor_scan(
     assert calls == 1
 
 
-@pytest.mark.parametrize("element", ("progress", "meter"))
+@pytest.mark.parametrize(
+    "element", ("audio", "canvas", "meter", "progress", "video")
+)
 def test_replaced_control_fallback_cannot_supply_authority_denial(
     element: str,
 ) -> None:
@@ -2787,6 +2843,14 @@ def test_svg_definition_contents_fail_closed() -> None:
         )
 
 
+@pytest.mark.parametrize("element", ("metadata", "view", "animate"))
+def test_nonrendering_svg_containers_fail_closed(element: str) -> None:
+    with pytest.raises(RuntimeError, match="SVG definition rendering"):
+        verifier._find_forbidden_authority_claims(
+            f"<svg><{element}>no </{element}></svg>web fetching is enabled."
+        )
+
+
 def test_html_ancestor_depth_is_bounded() -> None:
     with pytest.raises(RuntimeError, match="ancestor nesting exceeds"):
         verifier._find_forbidden_authority_claims(
@@ -2818,6 +2882,23 @@ def test_html_ancestor_contexts_share_deep_snapshots() -> None:
         context is deepest
         for offset, context in contexts.items()
         if offset >= text.index("<br>")
+    )
+
+
+def test_hidden_table_with_foster_parented_text_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="hidden table foster-parenting"):
+        verifier._find_forbidden_authority_claims(
+            "<table hidden>UAA browses the public web.</table>"
+        )
+
+
+@pytest.mark.parametrize("element", ("a", "button"))
+def test_nested_interactive_element_implicitly_closes_hidden_parent(
+    element: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"<{element} hidden>no<{element}>"
+        f"UAA browses the public web.</{element}>"
     )
 
 
