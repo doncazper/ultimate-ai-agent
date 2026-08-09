@@ -1519,6 +1519,7 @@ def test_authority_predicate_rejects_output_and_generic_authority(claim: str) ->
     "claim",
     (
         "Memory recall is truth.",
+        "Memory recall is production truth.",
         "Memory recall is a fact.",
         "Memory recall is fact.",
         "Memory is the source of truth.",
@@ -1929,18 +1930,20 @@ def test_ignored_nested_form_does_not_close_a_later_hidden_paragraph() -> None:
     )
 
 
-def test_hidden_paragraph_ancestor_scopes_are_built_once_per_strip(
+def test_hidden_paragraph_ancestor_contexts_are_built_once_per_strip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    original = verifier._html_ancestor_scopes
+    original = verifier._html_ancestor_contexts
     calls = 0
 
-    def counted(text: str) -> dict[int, frozenset[str]]:
+    def counted(
+        text: str,
+    ) -> dict[int, verifier._HtmlAncestorFrame | None]:
         nonlocal calls
         calls += 1
         return original(text)
 
-    monkeypatch.setattr(verifier, "_html_ancestor_scopes", counted)
+    monkeypatch.setattr(verifier, "_html_ancestor_contexts", counted)
     verifier._strip_raw_text_elements("<p hidden>no</p>" * 400)
 
     assert calls == 1
@@ -1950,6 +1953,13 @@ def test_iframe_fallback_text_cannot_supply_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<iframe>no</iframe> web fetching is enabled."
     )
+
+
+def test_iframe_srcdoc_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="iframe srcdoc rendering"):
+        verifier._find_forbidden_authority_claims(
+            '<iframe srcdoc="UAA browses the public web."></iframe>'
+        )
 
 
 def test_nested_iframe_markup_uses_raw_text_close_semantics() -> None:
@@ -2252,6 +2262,14 @@ def test_fully_transparent_element_cannot_supply_an_authority_denial(
     )
 
 
+def test_inherited_visibility_custom_property_with_fallback_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unresolved visibility custom property"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="--x:0"><i style="opacity:var(--x, 1)">'
+            "no </i></span>web fetching is enabled."
+        )
+
+
 @pytest.mark.parametrize(
     "style",
     (
@@ -2524,6 +2542,27 @@ def test_datalist_contents_cannot_supply_an_authority_denial() -> None:
     )
 
 
+def test_many_declarative_shadow_hosts_use_one_ancestor_scan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = verifier._html_ancestor_contexts
+    calls = 0
+
+    def counted(
+        text: str,
+    ) -> dict[int, verifier._HtmlAncestorFrame | None]:
+        nonlocal calls
+        calls += 1
+        return original(text)
+
+    monkeypatch.setattr(verifier, "_html_ancestor_contexts", counted)
+    verifier._strip_raw_text_elements(
+        '<span><template shadowrootmode="open"></template></span>' * 400
+    )
+
+    assert calls == 1
+
+
 @pytest.mark.parametrize("element", ("progress", "meter"))
 def test_replaced_control_fallback_cannot_supply_authority_denial(
     element: str,
@@ -2533,11 +2572,12 @@ def test_replaced_control_fallback_cannot_supply_authority_denial(
     )
 
 
-def test_css_variable_opacity_fallback_cannot_supply_authority_denial() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        '<span style="opacity:var(--missing,0)">no</span> '
-        "web fetching is enabled."
-    )
+def test_css_variable_opacity_fallback_without_local_binding_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unresolved visibility custom property"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="opacity:var(--missing,0)">no</span> '
+            "web fetching is enabled."
+        )
 
 
 def test_declared_css_variable_precedes_its_fallback() -> None:
@@ -2596,6 +2636,13 @@ def test_slashed_non_void_tag_remains_balanced_inside_hidden_element() -> None:
 def test_inline_style_visible_override_remains_scannable(style: str) -> None:
     assert verifier._find_forbidden_authority_claims(
         f'<span style="{style}">UAA can fetch from the public web.</span>'
+    )
+
+
+def test_visibility_revert_under_hidden_ancestor_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="visibility:hidden">'
+        '<i style="visibility:revert">UAA browses the public web.</i></span>'
     )
 
 
@@ -2732,6 +2779,14 @@ def test_svg_presentation_visibility_fails_closed() -> None:
         )
 
 
+def test_svg_definition_contents_fail_closed() -> None:
+    with pytest.raises(RuntimeError, match="SVG definition rendering"):
+        verifier._find_forbidden_authority_claims(
+            "<svg><defs><text>no </text></defs></svg>"
+            "web fetching is enabled."
+        )
+
+
 def test_html_ancestor_depth_is_bounded() -> None:
     with pytest.raises(RuntimeError, match="ancestor nesting exceeds"):
         verifier._find_forbidden_authority_claims(
@@ -2746,6 +2801,23 @@ def test_unrelated_location_availability_is_not_sensor_authority() -> None:
             "The documentation location is available."
         )
         == []
+    )
+
+
+def test_html_ancestor_contexts_share_deep_snapshots() -> None:
+    text = "<div>" * verifier.MAX_HTML_ANCESTOR_DEPTH + "<br>" * 50_000
+    contexts = verifier._html_ancestor_contexts(text)
+    deepest = contexts[text.index("<br>")]
+
+    assert deepest is not None
+    assert (
+        len(verifier._html_ancestor_names(deepest))
+        == verifier.MAX_HTML_ANCESTOR_DEPTH
+    )
+    assert all(
+        context is deepest
+        for offset, context in contexts.items()
+        if offset >= text.index("<br>")
     )
 
 

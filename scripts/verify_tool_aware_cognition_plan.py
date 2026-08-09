@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import escape, unescape
 import json
 from math import isfinite
@@ -1448,7 +1449,7 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:production )?authority\b",
     r"\bmemory(?: recall)? "
     r"(?:is|becomes?|remains?|serves? as|acts? as) "
-    r"(?:(?:a|an|the) )?(?:authoritative )?"
+    r"(?:(?:a|an|the) )?(?:production )?(?:authoritative )?"
     r"(?:truth|fact|source of truth|ground truth)\b",
     r"\b(?:openwebui|control center) "
     r"(?:(?:is|becomes?|remains?|serves? as|acts? as) "
@@ -2656,10 +2657,30 @@ def _next_raw_html_construct(
 MAX_HTML_ANCESTOR_DEPTH = 256
 
 
-def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
-    """Return ordered open-element names at each opening tag in one pass."""
-    scopes: dict[int, tuple[str, ...]] = {}
-    stack: list[str] = []
+@dataclass(frozen=True, slots=True)
+class _HtmlAncestorFrame:
+    """One persistent HTML ancestor frame shared by descendant tag contexts."""
+
+    name: str
+    start: int
+    opening_end: int
+    parent: _HtmlAncestorFrame | None
+
+
+def _html_ancestor_names(frame: _HtmlAncestorFrame | None) -> tuple[str, ...]:
+    """Materialize one bounded ancestor chain only when a tag needs it."""
+    names: list[str] = []
+    while frame is not None:
+        names.append(frame.name)
+        frame = frame.parent
+    names.reverse()
+    return tuple(names)
+
+
+def _html_ancestor_contexts(text: str) -> dict[int, _HtmlAncestorFrame | None]:
+    """Return persistent open-element contexts at opening tags in one pass."""
+    contexts: dict[int, _HtmlAncestorFrame | None] = {}
+    stack: list[_HtmlAncestorFrame] = []
     cursor = 0
     tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
     while (match := tag.search(text, cursor)) is not None:
@@ -2682,28 +2703,44 @@ def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
             continue
         lower_name = match.group(1).lower()
         if lower_name == "noscript" and any(
-            name in {"svg", "math"} for name in stack
+            frame.name in {"svg", "math"} for frame in stack
         ):
             raise RuntimeError("foreign-namespace noscript visibility is unsupported")
         if is_closing:
             for index in range(len(stack) - 1, -1, -1):
-                if stack[index] == lower_name:
+                if stack[index].name == lower_name:
                     del stack[index:]
                     break
             cursor = end + 1
             continue
+        attribute_names = _html_attribute_names(tail)
+        if lower_name == "iframe" and "srcdoc" in attribute_names:
+            raise RuntimeError("iframe srcdoc rendering is unsupported")
+        if lower_name in {
+            "clippath",
+            "defs",
+            "filter",
+            "lineargradient",
+            "marker",
+            "mask",
+            "pattern",
+            "radialgradient",
+            "symbol",
+        } and any(frame.name == "svg" for frame in stack):
+            raise RuntimeError("SVG definition rendering is unsupported")
+        parent = stack[-1] if stack else None
         if lower_name in HTML_VOID_ELEMENTS:
-            scopes[match.start()] = tuple(stack)
+            contexts[match.start()] = parent
             cursor = end + 1
             continue
-        if lower_name == "form" and "form" in stack:
-            scopes[match.start()] = tuple(stack)
+        if lower_name == "form" and any(frame.name == "form" for frame in stack):
+            contexts[match.start()] = parent
             cursor = end + 1
             continue
         if len(stack) >= MAX_HTML_ANCESTOR_DEPTH:
             raise RuntimeError("HTML ancestor nesting exceeds the scan bound")
-        scopes[match.start()] = tuple(stack)
-        stack.append(lower_name)
+        contexts[match.start()] = parent
+        stack.append(_HtmlAncestorFrame(lower_name, match.start(), end, parent))
         if lower_name in {
             "script",
             "style",
@@ -2722,7 +2759,7 @@ def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
             cursor = closing.end()
             continue
         cursor = end + 1
-    return scopes
+    return contexts
 
 
 def _find_balanced_element_end(
@@ -2996,6 +3033,17 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         value = (
             raw_value[: important_match.start()] if important_match else raw_value
         ).strip()
+        referenced_properties = set(
+            re.findall(
+                r"var\(\s*(--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+)",
+                value,
+                flags=re.IGNORECASE,
+            )
+        )
+        if referenced_properties.difference(custom_properties):
+            raise RuntimeError(
+                "unresolved visibility custom property is unsupported"
+            )
         resolved_value = _resolve_css_variable_fallback(
             value,
             {key: item[0] for key, item in custom_properties.items()},
@@ -3323,7 +3371,7 @@ def _inline_style_hides_contents(attributes: str) -> bool:
 
 def _visibility_is_visible_override(value: str | None) -> bool:
     """Return whether a visibility declaration definitely restores rendering."""
-    return value in {"visible", "initial"}
+    return value in {"visible", "initial", "revert", "revert-layer"}
 
 
 def _display_definitely_overrides_hidden(value: str | None) -> bool:
@@ -3481,79 +3529,17 @@ def _declarative_shadow_root_renders(
     )
 
 
-def _html_open_frames_before(
-    text: str, stop: int
-) -> tuple[tuple[str, int, int], ...]:
-    """Return bounded open-element frames immediately before one tag."""
-    stack: list[tuple[str, int, int]] = []
-    cursor = 0
-    tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
-    while (match := tag.search(text, cursor)) is not None and match.start() < stop:
-        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
-        if construct is not None:
-            cursor = construct[1]
-            continue
-        if _is_markdown_escaped(text, match.start()):
-            cursor = match.start() + 1
-            continue
-        end = _find_complete_tag_end(text, match.end())
-        if end is None or end >= stop:
-            break
-        is_closing = text[match.start() + 1] == "/"
-        tail = text[match.end() : end]
-        if (is_closing and tail.strip()) or (
-            not is_closing and not _valid_html_opening_tag_tail(tail)
-        ):
-            cursor = end + 1
-            continue
-        lower_name = match.group(1).lower()
-        if is_closing:
-            for index in range(len(stack) - 1, -1, -1):
-                if stack[index][0] == lower_name:
-                    del stack[index:]
-                    break
-            cursor = end + 1
-            continue
-        if lower_name in HTML_VOID_ELEMENTS or (
-            lower_name == "form" and any(frame[0] == "form" for frame in stack)
-        ):
-            cursor = end + 1
-            continue
-        if len(stack) >= MAX_HTML_ANCESTOR_DEPTH:
-            raise RuntimeError("HTML ancestor nesting exceeds the scan bound")
-        stack.append((lower_name, match.start(), end))
-        if lower_name in {
-            "script",
-            "style",
-            "textarea",
-            "title",
-            "iframe",
-            "xmp",
-            "noscript",
-        }:
-            closing = re.compile(
-                rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
-            ).search(text, end + 1)
-            if closing is None or closing.end() > stop:
-                break
-            stack.pop()
-            cursor = closing.end()
-            continue
-        cursor = end + 1
-    return tuple(stack)
-
-
 def _reject_declarative_shadow_light_dom(
     text: str,
     template_start: int,
     template_end: int,
-    ancestor_names: tuple[str, ...],
+    parent: _HtmlAncestorFrame | None,
 ) -> None:
     """Fail closed when a shadow host also has unmodeled light-DOM children."""
-    frames = _html_open_frames_before(text, template_start)
-    if tuple(frame[0] for frame in frames) != ancestor_names or not frames:
+    if parent is None:
         raise RuntimeError("declarative shadow host ancestry cannot be reconstructed")
-    parent_name, _parent_start, parent_open_end = frames[-1]
+    parent_name = parent.name
+    parent_open_end = parent.opening_end
     parent_end = _find_balanced_element_end(
         text, parent_open_end + 1, parent_name
     )
@@ -3666,7 +3652,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
     """Retain explicit visible descendants of visibility-hidden content."""
     if depth > 64:
         raise RuntimeError("HTML visibility nesting exceeds the scan bound")
-    ancestor_scopes = _html_ancestor_scopes(text)
+    ancestor_contexts = _html_ancestor_contexts(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -3691,7 +3677,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         void_element = lower_name in HTML_VOID_ELEMENTS
         properties = _inline_style_properties(attributes)
         attribute_names = _html_attribute_names(attributes)
-        ancestor_names = ancestor_scopes.get(match.start(), ())
+        ancestor_names = _html_ancestor_names(
+            ancestor_contexts.get(match.start())
+        )
         _reject_svg_presentation_visibility(
             lower_name, attribute_names, ancestor_names
         )
@@ -3732,7 +3720,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 opening_end + 1,
                 name,
                 ancestor_names=(
-                    ancestor_scopes.get(match.start(), ())
+                    ancestor_names
                     if lower_name == "p"
                     else ()
                 ),
@@ -3808,7 +3796,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
 def _strip_raw_text_elements(text: str) -> str:
     """Remove elements whose contents do not render as visible prose."""
     _reject_embedded_visibility_styles(text)
-    ancestor_scopes = _html_ancestor_scopes(text)
+    ancestor_contexts = _html_ancestor_contexts(text)
     output: list[str] = []
     cursor = 0
     opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
@@ -3839,7 +3827,8 @@ def _strip_raw_text_elements(text: str) -> str:
         name = match.group(1)
         lower_name = name.lower()
         attribute_names = _html_attribute_names(attributes)
-        ancestor_names = ancestor_scopes.get(match.start(), ())
+        ancestor_frame = ancestor_contexts.get(match.start())
+        ancestor_names = _html_ancestor_names(ancestor_frame)
         _reject_svg_presentation_visibility(
             lower_name, attribute_names, ancestor_names
         )
@@ -3855,7 +3844,7 @@ def _strip_raw_text_elements(text: str) -> str:
                     "declarative shadow template boundary cannot be reconstructed"
                 )
             _reject_declarative_shadow_light_dom(
-                text, match.start(), template_end, ancestor_names
+                text, match.start(), template_end, ancestor_frame
             )
         subtree_non_rendered = (
             lower_name in {
@@ -3955,7 +3944,7 @@ def _strip_raw_text_elements(text: str) -> str:
                 index + 1,
                 name,
                 ancestor_names=(
-                    ancestor_scopes.get(match.start(), ())
+                    ancestor_names
                     if lower_name == "p"
                     else ()
                 ),
