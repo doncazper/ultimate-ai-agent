@@ -1,0 +1,142 @@
+{
+  "schema_version": "uaa.remaining_queue_manifest.v1",
+  "artifact_status": "planning_order_only",
+  "source_manifest_sha256": "b039e6b977f0f49092f5100ae5665f7c07bde974c98bcd1dbdd3015e06a77b09",
+  "authority_boundary": {
+    "runtime_model_or_provider_calls": false,
+    "web_fetch_or_browser_automation": false,
+    "unrestricted_network_access": false,
+    "connector_writes": false,
+    "unrestricted_shell_or_subprocess": false,
+    "remote_execution": false,
+    "mobile_sensor_or_control_runtime": false,
+    "automatic_skill_or_plugin_execution": false,
+    "automatic_pr_submission_or_merge": false,
+    "standing_or_cross_request_approval": false,
+    "background_or_scheduled_execution": false,
+    "spending_or_purchases": false,
+    "billing_account_or_credential_changes": false,
+    "policy_approval_route_openapi_redaction_or_gate_bypass": false,
+    "raw_sensitive_content_persistence": false,
+    "unscoped_filesystem_mutation": false,
+    "supported_binary_distribution": false,
+    "public_release_or_production_authority": false
+  },
+  "pre_goat_insertion": {
+    "after_item_id": "governed-self-improvement",
+    "program_id": "tool-aware-cognition-and-chat-quality",
+    "phase_ids": [
+      "TAW-00",
+      "TAW-01",
+      "TAW-02",
+      "TAW-03",
+      "TAW-04",
+      "TAW-05",
+      "TAW-06",
+      "TAW-07",
+      "TAW-08"
+    ],
+    "before_item_id": "queue-09-final-goat-comparison"
+  },
+  "items": [
+    {
+      "position": 1,
+      "item_id": "queue-03-hermes-openclaw-parity",
+      "title": "Queue 03 — Hermes and OpenClaw parity",
+      "filename": "03_queue_03_hermes_openclaw_parity.prompt.md",
+      "sha256": "c16cdbe70548b72d91f6f93861df87998aa24e21945238bf26004b5781ece93a",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-03-hermes-openclaw-parity",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 2,
+      "item_id": "queue-04-delegated-mission-document-organization",
+      "title": "Queue 04 — Delegated mission and document organization",
+      "filename": "04_queue_04_delegated_mission_document_organization.prompt.md",
+      "sha256": "4e5f3cdf7059f29bec053ce5a850754ce69e847f579bb083bf10cdb6ac1a070b",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-04-delegated-mission-document-organization",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 3,
+      "item_id": "queue-05-capability-evaluation-lab",
+      "title": "Queue 05 — Capability evaluation lab",
+      "filename": "05_queue_05_capability_evaluation_lab.prompt.md",
+      "sha256": "b097a483c595333a77a513fa2b4fb7231908159c3601289afa2f2324782adbda",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-05-capability-evaluation-lab",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 4,
+      "item_id": "queue-06-kanban-work-board",
+      "title": "Queue 06 — Kanban work board",
+      "filename": "06_queue_06_kanban_work_board.prompt.md",
+      "sha256": "6053f24f1fd221ae48d94ab9b723047f7ecf10b85b6de5fee0fd93dbfe01de75",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-06-kanban-work-board",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 5,
+      "item_id": "queue-07-news-signals",
+      "title": "Queue 07 — News and signals",
+      "filename": "07_queue_07_news_signals.prompt.md",
+      "sha256": "839e2c4ecfa1241f038bf217f38e8eef733d8989c588cd7878b4ddad880ebbcd",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-07-news-signals",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 6,
+      "item_id": "queue-08-autocorrect-controls",
+      "title": "Queue 08 — Autocorrect controls",
+      "filename": "08_queue_08_autocorrect_controls.prompt.md",
+      "sha256": "25237cf2f6f7528bc5d7490e9523c1ad4c7c840bd1b200ec3094b1c05d81dcd3",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-08-autocorrect-controls",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 7,
+      "item_id": "governed-cross-platform-social-publishing",
+      "title": "Governed cross-platform social publishing",
+      "filename": "09_governed_cross_platform_social_publishing.prompt.md",
+      "sha256": "99691cba334deab8e5a1696681b69d7b609a7b9604e6731273e26a68972c66d9",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:governed-cross-platform-social-publishing",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 8,
+      "item_id": "governed-self-improvement",
+      "title": "Governed self-improvement program",
+      "filename": "10_governed_self_improvement_program.prompt.md",
+      "sha256": "ec4a65e75cafe302c1173879759444813cba501f70d6cb82c4ba5c42b0daadd0",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:governed-self-improvement",
+      "execution_status": "blocked_pending_exact_source"
+    },
+    {
+      "position": 9,
+      "item_id": "queue-09-final-goat-comparison",
+      "title": "Queue 09 — Final GoatCitadel comparison",
+      "filename": "11_queue_09_final_goat_comparison.prompt.md",
+      "sha256": "b437f83fc55d22fc4d583b2553b3d043b28189f5e3e525c36f6be6b650dd26b2",
+      "source_kind": "external_prompt",
+      "source_status": "not_materialized",
+      "source_ref": "external-ref:uaa-remaining-queue:queue-09-final-goat-comparison",
+      "execution_status": "blocked_pending_exact_source"
+    }
+  ]
+}

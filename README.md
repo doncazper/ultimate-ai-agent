@@ -8,6 +8,14 @@ policy, approval, redaction, and verification boundaries.
 
 Current active baseline: **v0.104.0**. Package version: **0.104.0**.
 
+Tool-aware cognition and normal-chat quality are governed by
+`docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` and its
+ordered pre-Goat queue record,
+`docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`, with immutable
+queue identity and dependency order in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. These are acceptance and
+sequencing contracts, not runtime authority or product-completion evidence.
+
 This repository is open-source under the
 [MIT License](LICENSE). It is a public portfolio view of active local-first
 product infrastructure and demonstrates contract-first AI engineering,
