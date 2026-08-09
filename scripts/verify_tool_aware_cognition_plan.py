@@ -1449,7 +1449,7 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:production )?authority\b",
     r"\bmemory(?: recall)? "
     r"(?:is|becomes?|remains?|serves? as|acts? as|constitutes?|provides?|"
-    r"represents?|(?:should|must) be treated as|is treated as) "
+    r"represents?|suppl(?:y|ies)|(?:should|must) be treated as|is treated as) "
     r"(?:(?:a|an|the) )?(?:production )?(?:authoritative )?"
     r"(?:truth|fact|source of truth|ground truth)\b",
     r"\b(?:openwebui|control center) "
@@ -2722,6 +2722,12 @@ def _html_ancestor_contexts(text: str) -> dict[int, _HtmlAncestorFrame | None]:
         attribute_names = _html_attribute_names(tail)
         if lower_name == "iframe" and "srcdoc" in attribute_names:
             raise RuntimeError("iframe srcdoc rendering is unsupported")
+        if lower_name == "object":
+            raise RuntimeError("object fallback rendering is unsupported")
+        if lower_name in {"annotation", "annotation-xml"} and any(
+            frame.name == "math" for frame in stack
+        ):
+            raise RuntimeError("MathML annotation rendering is unsupported")
         if lower_name in {
             "animate",
             "animatemotion",
@@ -2866,6 +2872,16 @@ def _find_balanced_element_end(
             lower_name in {"a", "button"}
             and lower_tag_name == lower_name
             and not is_closing
+        ):
+            return tag_start
+        if (
+            not is_closing
+            and (
+                lower_name in {"dt", "dd"}
+                and lower_tag_name in {"dt", "dd"}
+                or lower_name in {"td", "th"}
+                and lower_tag_name in {"td", "th"}
+            )
         ):
             return tag_start
         if lower_tag_name != lower_name:
@@ -3629,15 +3645,30 @@ def _reject_svg_presentation_visibility(
     """Fail closed on SVG presentation visibility outside the CSS model."""
     if (
         lower_name == "svg" or "svg" in ancestor_names
-    ) and attribute_names.intersection({"display", "opacity", "visibility"}):
+    ) and attribute_names.intersection(
+        {
+            "display",
+            "opacity",
+            "requiredextensions",
+            "systemlanguage",
+            "visibility",
+        }
+    ):
         raise RuntimeError("SVG presentation visibility attributes are unsupported")
 
 
 def _reject_embedded_visibility_styles(text: str) -> None:
     """Fail closed when an embedded stylesheet can alter rendered truth prose."""
-    style = re.compile(r"<style(?=[\s/>])", re.IGNORECASE)
+    opening = re.compile(r"<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
     cursor = 0
-    while (match := style.search(text, cursor)) is not None:
+    while (match := opening.search(text, cursor)) is not None:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            cursor = construct[1]
+            continue
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
         opening_end = _find_complete_tag_end(text, match.end())
         if opening_end is None:
             return
@@ -3645,27 +3676,46 @@ def _reject_embedded_visibility_styles(text: str) -> None:
         if not _valid_html_opening_tag_tail(attributes):
             cursor = opening_end + 1
             continue
-        closing = re.compile(r"</style[ \t\r\n]*>", re.IGNORECASE).search(
-            text, opening_end + 1
-        )
-        if closing is None:
-            return
-        stylesheet = re.sub(
-            r"/\*.*?\*/",
-            "",
-            _decode_css_escapes(
-                unescape(text[opening_end + 1 : closing.start()])
-            ),
-            flags=re.DOTALL,
-        )
-        if re.search(
-            r"(?:^|[;{])\s*(?:--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+|"
-            r"[A-Za-z-]+)\s*:",
-            stylesheet,
-            flags=re.IGNORECASE,
-        ):
+        lower_name = match.group(1).lower()
+        if lower_name == "style":
+            closing = re.compile(r"</style[ \t\r\n]*>", re.IGNORECASE).search(
+                text, opening_end + 1
+            )
+            if closing is None:
+                return
+            stylesheet = re.sub(
+                r"/\*.*?\*/",
+                "",
+                _decode_css_escapes(
+                    unescape(text[opening_end + 1 : closing.start()])
+                ),
+                flags=re.DOTALL,
+            )
+            if re.search(r"@import\b", stylesheet, flags=re.IGNORECASE) or re.search(
+                r"(?:^|[;{])\s*(?:--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+|"
+                r"[A-Za-z-]+)\s*:",
+                stylesheet,
+                flags=re.IGNORECASE,
+            ):
+                raise RuntimeError("embedded visibility stylesheet is unsupported")
+            cursor = closing.end()
+            continue
+        if lower_name == "link" and "stylesheet" in {
+            token.lower()
+            for token in unescape(
+                _html_attribute_value(attributes, "rel") or ""
+            ).split()
+        }:
             raise RuntimeError("embedded visibility stylesheet is unsupported")
-        cursor = closing.end()
+        if lower_name in {"script", "textarea", "title", "iframe", "xmp"}:
+            closing = re.compile(
+                rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, opening_end + 1)
+            if closing is None:
+                return
+            cursor = closing.end()
+            continue
+        cursor = opening_end + 1
 
 
 def _matching_closing_start(
@@ -4662,6 +4712,107 @@ def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]
     return "".join(output), blocks
 
 
+def _strip_code_indent(line: str) -> str | None:
+    """Remove exactly four indentation columns from a code-block line."""
+    cursor = 0
+    columns = 0
+    while cursor < len(line) and columns < 4:
+        character = line[cursor]
+        if character == " ":
+            columns += 1
+        elif character == "\t":
+            columns += 4 - (columns % 4)
+        else:
+            return None
+        cursor += 1
+    return line[cursor:] if columns >= 4 else None
+
+
+def _extract_visible_indented_code(
+    text: str,
+) -> tuple[str, list[tuple[str, str]]]:
+    """Protect visible indented-code text before raw HTML interpretation."""
+    lines = text.splitlines(keepends=True)
+    output: list[str] = []
+    blocks: list[tuple[str, str]] = []
+    token_prefix = "\ue002uaa-indented-code-"
+    index = 0
+    while index < len(lines):
+        first = _strip_code_indent(lines[index])
+        if first is None:
+            output.append(lines[index])
+            index += 1
+            continue
+        visible = [first]
+        index += 1
+        while index < len(lines):
+            candidate = _strip_code_indent(lines[index])
+            if candidate is not None:
+                visible.append(candidate)
+                index += 1
+                continue
+            if not lines[index].strip():
+                visible.append(lines[index])
+                index += 1
+                continue
+            break
+        token = f"{token_prefix}{len(blocks)}\ue003"
+        blocks.append((token, "".join(visible)))
+        output.append(f"\n{token}\n")
+    return "".join(output), blocks
+
+
+def _extract_visible_inline_code(
+    text: str,
+) -> tuple[str, list[tuple[str, str]]]:
+    """Protect CommonMark code-span literals before raw HTML interpretation."""
+    output: list[str] = []
+    spans: list[tuple[str, str]] = []
+    token_prefix = "\ue004uaa-inline-code-"
+    cursor = 0
+    while cursor < len(text):
+        start = text.find("`", cursor)
+        if start < 0:
+            output.append(text[cursor:])
+            break
+        output.append(text[cursor:start])
+        if _is_markdown_escaped(text, start):
+            output.append("`")
+            cursor = start + 1
+            continue
+        opening_end = start
+        while opening_end < len(text) and text[opening_end] == "`":
+            opening_end += 1
+        fence = text[start:opening_end]
+        search = opening_end
+        closing_start = -1
+        while (candidate := text.find(fence, search)) >= 0:
+            before_is_tick = candidate > 0 and text[candidate - 1] == "`"
+            after = candidate + len(fence)
+            after_is_tick = after < len(text) and text[after] == "`"
+            if not before_is_tick and not after_is_tick:
+                closing_start = candidate
+                break
+            search = candidate + 1
+        if closing_start < 0:
+            output.append(fence)
+            cursor = opening_end
+            continue
+        visible = re.sub(r"[\r\n]+", " ", text[opening_end:closing_start])
+        if (
+            len(visible) >= 2
+            and visible.startswith(" ")
+            and visible.endswith(" ")
+            and visible.strip(" ")
+        ):
+            visible = visible[1:-1]
+        token = f"{token_prefix}{len(spans)}\ue005"
+        spans.append((token, visible))
+        output.append(token)
+        cursor = closing_start + len(fence)
+    return "".join(output), spans
+
+
 def _normalize_markdown_prose(text: str) -> str:
     """Return a bounded approximation of the prose Markdown renders visibly."""
     if len(text) > MAX_MARKDOWN_PROSE_CHARS:
@@ -4672,6 +4823,8 @@ def _normalize_markdown_prose(text: str) -> str:
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
     normalized, fenced_code = _extract_visible_fenced_code(text)
+    normalized, indented_code = _extract_visible_indented_code(normalized)
+    normalized, inline_code = _extract_visible_inline_code(normalized)
     normalized = _strip_raw_text_elements(normalized)
     normalized = _strip_raw_html_constructs(normalized)
     normalized = _strip_collapsed_details(normalized)
@@ -4699,6 +4852,10 @@ def _normalize_markdown_prose(text: str) -> str:
     )
     normalized = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", r"\1", normalized)
     normalized = normalized.translate(str.maketrans("", "", "`*_~[]"))
+    for token, visible_code in inline_code:
+        normalized = normalized.replace(token, visible_code)
+    for token, visible_code in indented_code:
+        normalized = normalized.replace(token, f"\n. \n{visible_code}\n. \n")
     for token, visible_code in fenced_code:
         normalized = normalized.replace(token, f"\n. \n{visible_code}\n. \n")
     normalized = normalize("NFKC", normalized)
@@ -4714,11 +4871,13 @@ def _normalize_markdown_prose(text: str) -> str:
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     text = _normalize_markdown_prose(text)
-    text = re.sub(r"\bnot\s+only\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\bnot\s+(?:only|merely|just)\b", "", text, flags=re.IGNORECASE
+    )
     text = re.sub(
         r"(\b(?:UAA|(?:the )?Ultimate AI Agent|(?:the )?Control Center|"
         r"(?:the )?(?:CLI|API|Python Agent Core))\b"
-        r"(?:(?![.!?]).){0,300}[.!?]\s*)"
+        r"(?:(?![.!?;:]).){0,300}[.!?;:]\s*)"
         r"It(?=\s+(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|"
         r"supports?|enables?|provides?))",
         r"\1UAA",

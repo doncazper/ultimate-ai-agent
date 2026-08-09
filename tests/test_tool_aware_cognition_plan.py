@@ -1522,6 +1522,7 @@ def test_authority_predicate_rejects_output_and_generic_authority(claim: str) ->
         "Memory recall is production truth.",
         "Memory recall constitutes production truth.",
         "Memory recall provides production truth.",
+        "Memory recall supplies production truth.",
         "Memory should be treated as production truth.",
         "Memory recall is a fact.",
         "Memory recall is fact.",
@@ -1538,9 +1539,10 @@ def test_authority_predicate_rejects_truth_and_shell_authority(
     assert verifier._find_forbidden_authority_claims(claim)
 
 
-def test_not_only_is_affirmative_capability_wording() -> None:
+@pytest.mark.parametrize("modifier", ("only", "merely", "just"))
+def test_not_only_is_affirmative_capability_wording(modifier: str) -> None:
     assert verifier._find_forbidden_authority_claims(
-        "UAA can not only fetch the public web but also execute plugins."
+        f"UAA can not {modifier} fetch the public web but also execute plugins."
     )
 
 
@@ -1549,6 +1551,8 @@ def test_not_only_is_affirmative_capability_wording() -> None:
     (
         "UAA answers chat. It can fetch the public web.",
         "The Control Center is local. It can execute plugins.",
+        "UAA answers chat; it can fetch the public web.",
+        "The Control Center is local: it can execute plugins.",
     ),
 )
 def test_product_antecedent_pronoun_authority_claim_is_rejected(claim: str) -> None:
@@ -2544,6 +2548,58 @@ def test_embedded_visibility_stylesheet_fails_closed(declaration: str) -> None:
         )
 
 
+def test_imported_visibility_stylesheet_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="embedded visibility stylesheet"):
+        verifier._find_forbidden_authority_claims(
+            '<style>@import "data:text/css,.x%7Bdisplay:none%7D";</style>'
+            '<span class="x">no </span>web fetching is enabled.'
+        )
+
+
+def test_linked_visibility_stylesheet_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="embedded visibility stylesheet"):
+        verifier._find_forbidden_authority_claims(
+            '<link rel="stylesheet" href="style.css">'
+            '<span class="x">no </span>web fetching is enabled.'
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "<!-- <style>.x{display:none}</style> -->",
+        '<script>"<style>.x{display:none}</style>"</script>',
+    ),
+)
+def test_non_rendering_style_like_text_is_ignored(source: str) -> None:
+    assert verifier._find_forbidden_authority_claims(source) == []
+
+
+def test_object_fallback_rendering_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="object fallback rendering"):
+        verifier._find_forbidden_authority_claims(
+            '<object data="asset.svg">no </object>web fetching is enabled.'
+        )
+
+
+@pytest.mark.parametrize("attribute", ("requiredExtensions", "systemLanguage"))
+def test_svg_conditional_rendering_fails_closed(attribute: str) -> None:
+    with pytest.raises(RuntimeError, match="SVG presentation visibility"):
+        verifier._find_forbidden_authority_claims(
+            f'<svg><text {attribute}="urn:missing">no </text></svg>'
+            "web fetching is enabled."
+        )
+
+
+@pytest.mark.parametrize("element", ("annotation", "annotation-xml"))
+def test_mathml_annotation_rendering_fails_closed(element: str) -> None:
+    with pytest.raises(RuntimeError, match="MathML annotation rendering"):
+        verifier._find_forbidden_authority_claims(
+            f"<math><semantics><mrow></mrow><{element}>no </{element}>"
+            "</semantics></math>web fetching is enabled."
+        )
+
+
 def test_nested_template_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<template><template>x</template>no</template> web fetching is enabled."
@@ -2726,6 +2782,18 @@ def test_visible_fenced_code_authority_claim_is_scanned() -> None:
     )
 
 
+def test_visible_inline_code_html_is_scanned_as_literal_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "`<span hidden>UAA can fetch from the public web.</span>`"
+    )
+
+
+def test_visible_indented_code_html_is_scanned_as_literal_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "    <span hidden>UAA can fetch from the public web.</span>\n"
+    )
+
+
 def test_blockquoted_fenced_code_cannot_supply_a_cross_block_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "> ```\n> no\n> ```\nweb fetching is enabled."
@@ -2899,6 +2967,22 @@ def test_nested_interactive_element_implicitly_closes_hidden_parent(
     assert verifier._find_forbidden_authority_claims(
         f"<{element} hidden>no<{element}>"
         f"UAA browses the public web.</{element}>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("container", "first", "second"),
+    (("dl", "dt", "dd"), ("table><tr", "td", "th")),
+)
+def test_cross_name_optional_end_tag_closes_hidden_parent(
+    container: str,
+    first: str,
+    second: str,
+) -> None:
+    closing = "tr></table" if container == "table><tr" else "dl"
+    assert verifier._find_forbidden_authority_claims(
+        f"<{container}><{first} hidden>no <{second}>"
+        f"UAA can fetch from the public web.</{closing}>"
     )
 
 
