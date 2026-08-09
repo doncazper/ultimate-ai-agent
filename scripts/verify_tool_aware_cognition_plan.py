@@ -821,7 +821,23 @@ DIRECT_PRODUCT_ACTION_PATTERN = (
     r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?P<action>[^.!?]{1,300})"
 )
+GOVERNED_PRODUCT_AGENT_PATTERN = (
+    r"(?:(?:this|the) "
+    r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
+    r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core))"
+)
 FORBIDDEN_PATTERNS = (
+    rf"\b(?:the )?(?:public )?(?:web|internet) "
+    rf"(?:(?:may|can|will|shall) (?!(?:not|never)\b)be |"
+    rf"(?:is|are) (?!(?:not|never)\b)(?:now )?)"
+    rf"(?:browsed|fetched|accessed|searched) by "
+    rf"{GOVERNED_PRODUCT_AGENT_PATTERN}\b",
+    rf"\b(?:runtime )?(?:model|provider) "
+    rf"(?:calls?|inference) "
+    rf"(?:(?:may|can|will|shall) (?!(?:not|never)\b)be |"
+    rf"(?:is|are) (?!(?:not|never)\b)(?:now )?)"
+    rf"(?:made|performed|run|invoked) by "
+    rf"{GOVERNED_PRODUCT_AGENT_PATTERN}\b",
     r"\b(?:operators?|users?) (?:may|can|will) "
     r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
     r"(?:uaa|ultimate ai agent|control center|cli|api|python agent core) to|"
@@ -2548,16 +2564,12 @@ def _strip_markdown_links(text: str, reference_labels: set[str]) -> str:
             and output[-1].endswith("!")
         ):
             image_alt = text[label_start + 1 : closing_bracket]
-            if re.search(
-                r"\b(?:no|not|never|cannot|can't|disabled|enabled|allows?|"
-                r"authorizes?|grants?|permits?|can|brows(?:e|es)|fetch(?:es|ing)?|"
-                r"execut(?:e|es|ed|ing)|writes?)\b",
-                image_alt,
-                flags=re.IGNORECASE,
-            ):
+            try:
+                _conditional_image_alternative(image_alt)
+            except RuntimeError as exc:
                 raise RuntimeError(
                     "conditional Markdown image rendering is unsupported"
-                )
+                ) from exc
             output[-1] = output[-1][:-1]
             cursor = link_end
             continue
@@ -4237,7 +4249,7 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
             output.append(text[cursor : opening_end + 1])
             output.append(
                 _strip_collapsed_selects(
-                    _retain_listbox_optgroup_labels(
+                    _retain_listbox_labels(
                         text[content_start:content_end]
                     ),
                     depth=depth + 1,
@@ -4259,11 +4271,11 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
     return "".join(output)
 
 
-def _retain_listbox_optgroup_labels(text: str) -> str:
-    """Insert visibly rendered optgroup labels into listbox content."""
+def _retain_listbox_labels(text: str) -> str:
+    """Project visibly rendered optgroup and option labels into listbox content."""
     output: list[str] = []
     cursor = 0
-    opening = re.compile(r"<optgroup(?=[\s/>])", re.IGNORECASE)
+    opening = re.compile(r"<(?P<name>optgroup|option)(?=[\s/>])", re.IGNORECASE)
     while (match := opening.search(text, cursor)) is not None:
         construct = _next_raw_html_construct(text, cursor, match.start() + 1)
         if construct is not None:
@@ -4283,6 +4295,18 @@ def _retain_listbox_optgroup_labels(text: str) -> str:
             label = _html_attribute_value(attributes, "label")
             if label is not None:
                 output.append(f" {escape(unescape(label), quote=False)} ")
+                if match.group("name").lower() == "option":
+                    option_end = _find_balanced_element_end(
+                        text, opening_end + 1, "option"
+                    )
+                    if option_end is None:
+                        option_end = len(text)
+                    body_end = _matching_closing_start(
+                        text, opening_end + 1, option_end, "option"
+                    )
+                    output.append(text[body_end:option_end])
+                    cursor = option_end
+                    continue
         cursor = opening_end + 1
     output.append(text[cursor:])
     return "".join(output)
@@ -4618,7 +4642,9 @@ def _html_attribute_value(attributes: str, name: str) -> str | None:
 def _accessible_html_alternative(name: str, attributes: str) -> str | None:
     """Return text visibly rendered by a void HTML element."""
     if name == "img":
-        return _html_attribute_value(attributes, "alt")
+        return _conditional_image_alternative(
+            _html_attribute_value(attributes, "alt")
+        )
     if name != "input":
         return None
     raw_input_type = _html_attribute_value(attributes, "type")
@@ -4628,7 +4654,9 @@ def _accessible_html_alternative(name: str, attributes: str) -> str | None:
         else "text"
     )
     if input_type == "image":
-        return _html_attribute_value(attributes, "alt")
+        return _conditional_image_alternative(
+            _html_attribute_value(attributes, "alt")
+        )
     if input_type == "hidden":
         return None
     value = _html_attribute_value(attributes, "value")
@@ -4655,6 +4683,19 @@ def _accessible_html_alternative(name: str, attributes: str) -> str | None:
         if value not in {None, ""}
         else _html_attribute_value(attributes, "placeholder")
     )
+
+
+def _conditional_image_alternative(alternative: str | None) -> None:
+    """Reject image alternatives that can change an authority scan by load state."""
+    if alternative is not None and re.search(
+        r"\b(?:no|not|never|cannot|can't|disabled|enabled|allows?|"
+        r"authorizes?|grants?|permits?|can|brows(?:e|es)|fetch(?:es|ing)?|"
+        r"execut(?:e|es|ed|ing)|writes?)\b",
+        unescape(alternative),
+        flags=re.IGNORECASE,
+    ):
+        raise RuntimeError("conditional HTML image rendering is unsupported")
+    return None
 
 
 DEFAULT_IGNORABLE_CODE_POINT_RANGES = (
@@ -4718,7 +4759,7 @@ def _restore_code_tokens(
         return text
     token_pattern = re.compile(
         re.escape(delimiters[0])
-        + r"uaa-(?:fenced|indented|inline)-code:\d+"
+        + r"uaa-(?:escaped|fenced|indented|inline)-code:\d+"
         + re.escape(delimiters[1])
     )
     return token_pattern.sub(lambda match: replacements[match.group()], text)
@@ -4962,6 +5003,21 @@ def _extract_visible_inline_code(
     return "".join(output), spans
 
 
+def _protect_escaped_markdown_punctuation(
+    text: str, delimiters: tuple[str, str]
+) -> tuple[str, list[tuple[str, str]]]:
+    """Protect CommonMark-escaped punctuation from delimiter normalization."""
+    punctuation: list[tuple[str, str]] = []
+
+    def replace(match: re.Match[str]) -> str:
+        token = _code_token(delimiters, "escaped", len(punctuation))
+        punctuation.append((token, match.group(1)))
+        return token
+
+    protected = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", replace, text)
+    return protected, punctuation
+
+
 def _normalize_markdown_prose(text: str) -> str:
     """Return a bounded approximation of the prose Markdown renders visibly."""
     if len(text) > MAX_MARKDOWN_PROSE_CHARS:
@@ -5006,10 +5062,15 @@ def _normalize_markdown_prose(text: str) -> str:
         normalized,
         flags=re.MULTILINE,
     )
-    normalized = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", r"\1", normalized)
-    normalized = normalized.translate(str.maketrans("", "", "`*_~[]"))
+    normalized, escaped_punctuation = _protect_escaped_markdown_punctuation(
+        normalized, token_delimiters
+    )
+    normalized = normalized.translate(
+        str.maketrans({"`": None, "*": None, "_": None, "~": None, "[": " ", "]": " "})
+    )
     code_replacements = {
         **{token: visible_code for token, visible_code in inline_code},
+        **dict(escaped_punctuation),
         **{
             token: f"\n. \n{visible_code}\n. \n"
             for token, visible_code in indented_code + fenced_code

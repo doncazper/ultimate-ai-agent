@@ -1012,6 +1012,32 @@ def test_passive_hard_boundary_bypasses_are_detected(claim: str) -> None:
 @pytest.mark.parametrize(
     "claim",
     (
+        "The public web can be browsed by UAA.",
+        "The internet is accessed by the Control Center.",
+        "Runtime model calls can be made by UAA.",
+        "Provider inference is performed by the Python Agent Core.",
+    ),
+)
+def test_passive_product_authority_grants_are_detected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "The public web cannot be browsed by UAA.",
+        "The public web can not be browsed by UAA.",
+        "Runtime model calls are not made by UAA.",
+        "Provider inference can never be performed by the Python Agent Core.",
+    ),
+)
+def test_negated_passive_product_authority_is_not_a_grant(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim) == []
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "Route side-effect classification can be bypassed.",
         "PolicyEngine checks can be bypassed.",
         "LocalApprovalAuthority validation can be bypassed.",
@@ -2043,11 +2069,12 @@ def test_repeated_unterminated_raw_html_constructs_fail_closed() -> None:
 
 
 def test_visible_void_descendant_alternative_is_scanned() -> None:
-    assert verifier._find_forbidden_authority_claims(
-        '<span style="visibility:hidden">'
-        '<img style="visibility:visible" '
-        'alt="UAA can fetch from the public web."></span>'
-    )
+    with pytest.raises(RuntimeError, match="conditional HTML image"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="visibility:hidden">'
+            '<img style="visibility:visible" '
+            'alt="UAA can fetch from the public web."></span>'
+        )
 
 
 def test_rcdata_markup_cannot_create_a_visible_descendant() -> None:
@@ -2484,6 +2511,20 @@ def test_listbox_select_retains_optgroup_labels(attributes: str) -> None:
     )
 
 
+@pytest.mark.parametrize("attributes", ("multiple", 'size="2"'))
+def test_listbox_select_uses_option_labels_instead_of_bodies(
+    attributes: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<select {attributes}><option label="UAA can fetch from the public web.">'
+        "Safe</option></select>"
+    )
+    assert verifier._find_forbidden_authority_claims(
+        f'<select {attributes}><option label="Safe">no</option></select> '
+        "web fetching is enabled."
+    )
+
+
 def test_select_size_uses_html_non_negative_integer_grammar() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<select size="+2"><option>benign.</option><option>no </option></select>'
@@ -2891,6 +2932,15 @@ def test_indented_blank_line_terminates_paragraph_before_visible_code() -> None:
     )
 
 
+@pytest.mark.parametrize("denial", (r"n\[o\]", "n[o]", r"n\*o\*", r"n\_o\_"))
+def test_literal_markdown_punctuation_cannot_synthesize_a_denial(
+    denial: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"{denial} web fetching is enabled."
+    )
+
+
 def test_blockquoted_fenced_code_cannot_supply_a_cross_block_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "> ```\n> no\n> ```\nweb fetching is enabled."
@@ -2935,10 +2985,24 @@ def test_unicode_compatibility_characters_cannot_hide_authority() -> None:
     )
 
 
-def test_image_alternative_text_is_scanned_for_authority() -> None:
+def test_conditional_html_image_alternative_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="conditional HTML image"):
+        verifier._find_forbidden_authority_claims(
+            '<img src="asset.png" alt="UAA can fetch from the public web.">'
+        )
+
+
+def test_inert_html_image_alternative_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
-        '<img src="missing.invalid" alt="UAA can fetch from the public web.">'
+        '<img src="asset.png" alt="status badge">web fetching is enabled.'
     )
+
+
+def test_conditional_html_image_denial_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="conditional HTML image"):
+        verifier._find_forbidden_authority_claims(
+            '<img src="asset.png" alt="no"> web fetching is enabled.'
+        )
 
 
 @pytest.mark.parametrize(
@@ -2952,7 +3016,8 @@ def test_image_alternative_text_is_scanned_for_authority() -> None:
 def test_other_accessible_alternative_text_is_scanned_for_authority(
     element: str,
 ) -> None:
-    assert verifier._find_forbidden_authority_claims(element)
+    with pytest.raises(RuntimeError, match="conditional HTML image"):
+        verifier._find_forbidden_authority_claims(element)
 
 
 def test_unassociated_area_alt_cannot_supply_an_authority_denial() -> None:
