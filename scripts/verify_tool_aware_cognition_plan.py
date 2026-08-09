@@ -1349,10 +1349,22 @@ FORBIDDEN_PATTERNS = tuple(
     for pattern in FORBIDDEN_PATTERNS
 ) + (
     r"\bapproval (?:references?|refs?) (?:alone )?"
-    r"(?:authorizes?|permits?|allows?|enables?|grants?) "
+    r"(?:(?:can|could|may|might|will|would|shall) "
+    r"(?:authorize|permit|allow|enable|grant)|"
+    r"(?:authorizes?|permits?|allows?|enables?|grants?)) "
     r"(?:the )?(?:work|actions?|execution|mutations?)\b",
     r"\bapproval (?:references?|refs?) (?:alone )?"
     r"(?:is|are) (?:an? )?(?:authorization|authority)\b",
+    r"\bprovider SDKs? (?:calls?|access|use|invocations?) "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:policy|approval|route|openapi|redaction|foundation gate) "
+    r"(?:checks?|validation|classification|gates?|contract) "
+    r"(?:is|are|becomes?|remains?) "
+    r"(?:optional|advisory|not required|unnecessary)\b",
+    r"\b(?:optional|advisory|not[- ]required|unnecessary) "
+    r"(?:policy|approval|route|openapi|redaction|foundation gate) "
+    r"(?:checks?|validation|classification|gates?|contract)\b",
 )
 CAPABLE_OF_GERUND_BASES = {
     "accessing": "access",
@@ -3415,13 +3427,19 @@ def _strip_html_tags(text: str) -> str:
         "aside",
         "blockquote",
         "br",
+        "center",
         "dd",
+        "details",
+        "dialog",
+        "dir",
         "div",
         "dl",
         "dt",
+        "fieldset",
         "figcaption",
         "figure",
         "footer",
+        "form",
         "h1",
         "h2",
         "h3",
@@ -3429,14 +3447,18 @@ def _strip_html_tags(text: str) -> str:
         "h5",
         "h6",
         "header",
+        "hgroup",
         "hr",
         "li",
         "main",
+        "menu",
         "nav",
         "ol",
         "p",
         "pre",
+        "search",
         "section",
+        "summary",
         "table",
         "tbody",
         "td",

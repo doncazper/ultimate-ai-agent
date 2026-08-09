@@ -1332,6 +1332,74 @@ def test_authority_predicate_rejects_common_plural_and_edit_grants(
     assert verifier._find_forbidden_authority_claims(claim)
 
 
+@pytest.mark.parametrize(
+    "modal",
+    ("can", "could", "may", "might", "will", "would", "shall"),
+)
+def test_authority_predicate_rejects_modal_approval_reference_grants(
+    modal: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"Approval references {modal} authorize work."
+    )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Provider SDK calls are enabled.",
+        "Provider SDK access is authorized.",
+        "Provider SDK use is available.",
+        "Provider SDK invocations are supported.",
+    ),
+)
+def test_authority_predicate_rejects_standalone_provider_sdk_grants(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Policy checks are optional.",
+        "Approval validation is advisory.",
+        "Route classification is not required.",
+        "OpenAPI checks are unnecessary.",
+        "Redaction gates remain optional.",
+        "Foundation Gate checks are optional.",
+        "Optional policy checks are sufficient.",
+    ),
+)
+def test_authority_predicate_rejects_optional_hard_boundaries(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    ("element", "attributes"),
+    (
+        ("center", ""),
+        ("details", " open"),
+        ("dialog", " open"),
+        ("dir", ""),
+        ("fieldset", ""),
+        ("form", ""),
+        ("hgroup", ""),
+        ("menu", ""),
+        ("search", ""),
+        ("summary", ""),
+    ),
+)
+def test_block_html_elements_preserve_visible_prose_boundaries(
+    element: str,
+    attributes: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"<{element}{attributes}>Planning</{element}>"
+        f"<{element}{attributes}>web fetching is enabled.</{element}>"
+    )
+
+
 @pytest.mark.parametrize("element", ("style", "script"))
 def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None:
     assert verifier._find_forbidden_authority_claims(
@@ -1618,23 +1686,17 @@ def test_collapsed_details_body_cannot_supply_an_authority_denial() -> None:
     )
 
 
-def test_collapsed_details_retains_its_rendered_summary() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<details><summary>no</summary>hidden body</details> "
-            "web fetching is enabled."
-        )
-        == []
+def test_collapsed_details_summary_cannot_negate_following_block_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><summary>no</summary>hidden body</details> "
+        "web fetching is enabled."
     )
 
 
-def test_collapsed_details_finds_summary_after_an_earlier_sibling() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<details><div>hidden body</div>"
-            "<summary>no</summary></details> web fetching is enabled."
-        )
-        == []
+def test_late_details_summary_cannot_negate_following_block_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><div>hidden body</div>"
+        "<summary>no</summary></details> web fetching is enabled."
     )
 
 
@@ -1659,22 +1721,16 @@ def test_collapsed_details_does_not_enter_an_unbalanced_child_for_summary() -> N
     )
 
 
-def test_collapsed_details_can_find_summary_after_a_void_sibling() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<details><br><summary>no</summary></details> "
-            "web fetching is enabled."
-        )
-        == []
+def test_details_summary_after_void_cannot_negate_following_block_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details><br><summary>no</summary></details> "
+        "web fetching is enabled."
     )
 
 
-def test_open_details_body_remains_visible() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<details open>no</details> web fetching is enabled."
-        )
-        == []
+def test_open_details_body_cannot_negate_following_block_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<details open>no</details> web fetching is enabled."
     )
 
 
@@ -1912,12 +1968,9 @@ def test_closed_dialog_body_cannot_supply_an_authority_denial() -> None:
     )
 
 
-def test_open_dialog_body_remains_visible() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<dialog open>no </dialog>web fetching is enabled."
-        )
-        == []
+def test_open_dialog_body_cannot_negate_following_block_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<dialog open>no </dialog>web fetching is enabled."
     )
 
 
