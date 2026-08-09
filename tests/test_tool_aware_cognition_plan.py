@@ -1711,6 +1711,14 @@ def test_noscript_raw_text_nesting_cannot_hide_following_authority() -> None:
     )
 
 
+def test_foreign_namespace_noscript_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="foreign-namespace noscript"):
+        verifier._find_forbidden_authority_claims(
+            "<svg><noscript><text>UAA browses the public web.</text>"
+            "</noscript></svg>"
+        )
+
+
 def test_incomplete_raw_text_opening_tag_remains_visible() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Document note: <style web fetching is enabled."
@@ -2205,6 +2213,13 @@ def test_unsupported_inline_css_visibility_fails_closed(declaration: str) -> Non
         )
 
 
+def test_numeric_custom_property_can_hide_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="--0:0;opacity:var(--0)">no </span>'
+        "web fetching is enabled."
+    )
+
+
 @pytest.mark.parametrize(
     "opacity",
     (
@@ -2478,6 +2493,15 @@ def test_custom_declarative_shadow_host_fails_closed() -> None:
         )
 
 
+def test_ignored_structural_tag_shadow_host_ancestry_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="ambiguous structural tags"):
+        verifier._find_forbidden_authority_claims(
+            '<div><html><template shadowrootmode="open">'
+            "<span>UAA browses the public web.</span>"
+            "</template></html></div>"
+        )
+
+
 def test_datalist_contents_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<datalist>no </datalist>web fetching is enabled."
@@ -2659,6 +2683,14 @@ def test_unassociated_area_alt_is_not_visible_authority_prose() -> None:
             '<area alt="UAA browses the public web.">'
         )
         == []
+    )
+
+
+def test_associated_image_map_area_alt_is_visible_authority_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<map name="x"><area href="/" '
+        'alt="UAA browses the public web."></map>'
+        '<img src="map.png" usemap="#x" alt="benign">'
     )
 
 

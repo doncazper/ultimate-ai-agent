@@ -2678,6 +2678,10 @@ def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
             cursor = end + 1
             continue
         lower_name = match.group(1).lower()
+        if lower_name == "noscript" and any(
+            name in {"svg", "math"} for name in stack
+        ):
+            raise RuntimeError("foreign-namespace noscript visibility is unsupported")
         if is_closing:
             for index in range(len(stack) - 1, -1, -1):
                 if stack[index] == lower_name:
@@ -2928,13 +2932,22 @@ def _reject_unsupported_inline_style_properties(style: str) -> None:
         _decode_css_escapes(unescape(style)),
         flags=re.DOTALL,
     )
-    for match in re.finditer(
-        r"(?:^|;)\s*([A-Za-z_-][A-Za-z0-9_-]*)\s*:", normalized
-    ):
-        name = match.group(1).lower()
-        if name.startswith("--") or name in {"display", "opacity", "visibility"}:
+    for match in re.finditer(r"(?:^|;)\s*([^:;]+?)\s*:", normalized):
+        name = match.group(1).strip().lower()
+        if _is_supported_css_custom_property_name(name) or name in {
+            "display",
+            "opacity",
+            "visibility",
+        }:
             continue
         raise RuntimeError("unsupported inline CSS property affects truth visibility")
+
+
+def _is_supported_css_custom_property_name(name: str) -> bool:
+    """Return whether a decoded CSS custom-property name can be modeled."""
+    return (
+        re.fullmatch(r"--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+", name) is not None
+    )
 
 
 def _inline_style_properties(attributes: str) -> dict[str, str]:
@@ -2949,7 +2962,7 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
     )
     custom_properties: dict[str, tuple[str, bool]] = {}
     for match in re.finditer(
-        r"(?:^|;)\s*(--[A-Za-z_][A-Za-z0-9_-]*)\s*:\s*([^;]*)",
+        r"(?:^|;)\s*(--(?:[A-Za-z0-9_-]|[^\x00-\x7f])+)\s*:\s*([^;]*)",
         normalized,
     ):
         name, raw_value = match.groups()
@@ -3034,7 +3047,7 @@ def _resolve_css_variable_fallback(
             comma = index
             break
     custom_property = (inner if comma is None else inner[:comma]).strip()
-    if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
+    if not _is_supported_css_custom_property_name(custom_property):
         return None
     declared = (custom_properties or {}).get(custom_property)
     replacement = None
@@ -3442,6 +3455,15 @@ def _declarative_shadow_root_renders(
     mode = _html_attribute_value(attributes, "shadowrootmode")
     parent_name = ancestor_names[-1] if ancestor_names else None
     normalized_mode = unescape(mode).strip().lower() if mode is not None else ""
+    if normalized_mode in {"open", "closed"}:
+        for index, ancestor_name in enumerate(ancestor_names):
+            if (ancestor_name == "html" and index != 0) or (
+                ancestor_name in {"head", "body"}
+                and (index == 0 or ancestor_names[index - 1] != "html")
+            ):
+                raise RuntimeError(
+                    "declarative shadow host ancestry has ambiguous structural tags"
+                )
     if normalized_mode in {"open", "closed"} and parent_name and "-" in parent_name:
         raise RuntimeError("custom declarative shadow host is unsupported")
     return (
@@ -4086,6 +4108,29 @@ def _html_attributes(attributes: str) -> dict[str, str | None]:
     return parsed
 
 
+def _referenced_image_map_names(text: str) -> frozenset[str]:
+    """Return decoded image-map fragments referenced by visible image elements."""
+    names: set[str] = set()
+    cursor = 0
+    opening = re.compile(r"<img(?=[\s/>])", flags=re.IGNORECASE)
+    while (match := opening.search(text, cursor)) is not None:
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            break
+        attributes = text[match.end() : opening_end]
+        cursor = opening_end + 1
+        if not _valid_html_opening_tag_tail(attributes):
+            continue
+        raw_usemap = _html_attribute_value(attributes, "usemap")
+        usemap = unescape(raw_usemap).strip() if raw_usemap is not None else ""
+        if "#" not in usemap:
+            continue
+        fragment = usemap.rsplit("#", 1)[1].strip()
+        if fragment:
+            names.add(fragment.casefold())
+    return frozenset(names)
+
+
 def _strip_html_tags(text: str) -> str:
     """Remove ordinary HTML tags while retaining accessible alternative text."""
     prose_boundary_tags = {
@@ -4137,7 +4182,8 @@ def _strip_html_tags(text: str) -> str:
         "ul",
     }
     output: list[str] = []
-    open_element_boundaries: list[tuple[str, bool]] = []
+    referenced_image_maps = _referenced_image_map_names(text)
+    open_element_boundaries: list[tuple[str, bool, str]] = []
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
     while cursor < len(text):
@@ -4198,9 +4244,36 @@ def _strip_html_tags(text: str) -> str:
                         output.append(text[candidate_start : index + 1])
                         cursor = index + 1
                         break
-                    alternative = _accessible_html_alternative(
-                        tag_name, attributes
-                    )
+                    if tag_name == "area":
+                        map_attributes = next(
+                            (
+                                open_attributes
+                                for open_name, _boundary, open_attributes in reversed(
+                                    open_element_boundaries
+                                )
+                                if open_name == "map"
+                            ),
+                            None,
+                        )
+                        raw_map_name = (
+                            _html_attribute_value(map_attributes, "name")
+                            if map_attributes is not None
+                            else None
+                        )
+                        map_name = (
+                            unescape(raw_map_name).strip().casefold()
+                            if raw_map_name is not None
+                            else ""
+                        )
+                        alternative = (
+                            _html_attribute_value(attributes, "alt")
+                            if map_name in referenced_image_maps
+                            else None
+                        )
+                    else:
+                        alternative = _accessible_html_alternative(
+                            tag_name, attributes
+                        )
                     if alternative is not None:
                         output.append(alternative)
                     parent_boundary = (
@@ -4215,7 +4288,7 @@ def _strip_html_tags(text: str) -> str:
                     )
                     if tag_name not in HTML_VOID_ELEMENTS:
                         open_element_boundaries.append(
-                            (tag_name, element_boundary)
+                            (tag_name, element_boundary, attributes)
                         )
                 if element_boundary:
                     output.append("\n. \n")
