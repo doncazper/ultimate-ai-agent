@@ -2653,6 +2653,9 @@ def _next_raw_html_construct(
     return None
 
 
+MAX_HTML_ANCESTOR_DEPTH = 256
+
+
 def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
     """Return ordered open-element names at each opening tag in one pass."""
     scopes: dict[int, tuple[str, ...]] = {}
@@ -2697,6 +2700,8 @@ def _html_ancestor_scopes(text: str) -> dict[int, tuple[str, ...]]:
             scopes[match.start()] = tuple(stack)
             cursor = end + 1
             continue
+        if len(stack) >= MAX_HTML_ANCESTOR_DEPTH:
+            raise RuntimeError("HTML ancestor nesting exceeds the scan bound")
         scopes[match.start()] = tuple(stack)
         stack.append(lower_name)
         if lower_name in {
@@ -2996,6 +3001,10 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
             {key: item[0] for key, item in custom_properties.items()},
         )
         if resolved_value is None:
+            if re.search(r"var\(", value, flags=re.IGNORECASE):
+                raise RuntimeError(
+                    "unresolved visibility custom property is unsupported"
+                )
             continue
         resolved_value = resolved_value.lower()
         if not _valid_inline_style_property_value(name, resolved_value):
@@ -3472,6 +3481,97 @@ def _declarative_shadow_root_renders(
     )
 
 
+def _html_open_frames_before(
+    text: str, stop: int
+) -> tuple[tuple[str, int, int], ...]:
+    """Return bounded open-element frames immediately before one tag."""
+    stack: list[tuple[str, int, int]] = []
+    cursor = 0
+    tag = re.compile(r"</?([A-Za-z][A-Za-z0-9-]*)(?=[\s/>])")
+    while (match := tag.search(text, cursor)) is not None and match.start() < stop:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            cursor = construct[1]
+            continue
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
+        end = _find_complete_tag_end(text, match.end())
+        if end is None or end >= stop:
+            break
+        is_closing = text[match.start() + 1] == "/"
+        tail = text[match.end() : end]
+        if (is_closing and tail.strip()) or (
+            not is_closing and not _valid_html_opening_tag_tail(tail)
+        ):
+            cursor = end + 1
+            continue
+        lower_name = match.group(1).lower()
+        if is_closing:
+            for index in range(len(stack) - 1, -1, -1):
+                if stack[index][0] == lower_name:
+                    del stack[index:]
+                    break
+            cursor = end + 1
+            continue
+        if lower_name in HTML_VOID_ELEMENTS or (
+            lower_name == "form" and any(frame[0] == "form" for frame in stack)
+        ):
+            cursor = end + 1
+            continue
+        if len(stack) >= MAX_HTML_ANCESTOR_DEPTH:
+            raise RuntimeError("HTML ancestor nesting exceeds the scan bound")
+        stack.append((lower_name, match.start(), end))
+        if lower_name in {
+            "script",
+            "style",
+            "textarea",
+            "title",
+            "iframe",
+            "xmp",
+            "noscript",
+        }:
+            closing = re.compile(
+                rf"</{re.escape(lower_name)}[ \t\r\n]*>", re.IGNORECASE
+            ).search(text, end + 1)
+            if closing is None or closing.end() > stop:
+                break
+            stack.pop()
+            cursor = closing.end()
+            continue
+        cursor = end + 1
+    return tuple(stack)
+
+
+def _reject_declarative_shadow_light_dom(
+    text: str,
+    template_start: int,
+    template_end: int,
+    ancestor_names: tuple[str, ...],
+) -> None:
+    """Fail closed when a shadow host also has unmodeled light-DOM children."""
+    frames = _html_open_frames_before(text, template_start)
+    if tuple(frame[0] for frame in frames) != ancestor_names or not frames:
+        raise RuntimeError("declarative shadow host ancestry cannot be reconstructed")
+    parent_name, _parent_start, parent_open_end = frames[-1]
+    parent_end = _find_balanced_element_end(
+        text, parent_open_end + 1, parent_name
+    )
+    if parent_end is None:
+        raise RuntimeError("declarative shadow host boundary cannot be reconstructed")
+    parent_close_start = _matching_closing_start(
+        text, parent_open_end + 1, parent_end, parent_name
+    )
+    if template_end > parent_close_start:
+        raise RuntimeError("declarative shadow template exceeds its host boundary")
+    light_dom = (
+        text[parent_open_end + 1 : template_start]
+        + text[template_end:parent_close_start]
+    )
+    if _strip_raw_html_constructs(light_dom).strip():
+        raise RuntimeError("declarative shadow light DOM is unsupported")
+
+
 def _popover_suppresses(
     lower_name: str,
     attribute_names: set[str],
@@ -3485,6 +3585,18 @@ def _popover_suppresses(
     ):
         raise RuntimeError("foreign-namespace popover visibility is unsupported")
     return True
+
+
+def _reject_svg_presentation_visibility(
+    lower_name: str,
+    attribute_names: set[str],
+    ancestor_names: tuple[str, ...],
+) -> None:
+    """Fail closed on SVG presentation visibility outside the CSS model."""
+    if (
+        lower_name == "svg" or "svg" in ancestor_names
+    ) and attribute_names.intersection({"display", "opacity", "visibility"}):
+        raise RuntimeError("SVG presentation visibility attributes are unsupported")
 
 
 def _reject_embedded_visibility_styles(text: str) -> None:
@@ -3580,6 +3692,9 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         properties = _inline_style_properties(attributes)
         attribute_names = _html_attribute_names(attributes)
         ancestor_names = ancestor_scopes.get(match.start(), ())
+        _reject_svg_presentation_visibility(
+            lower_name, attribute_names, ancestor_names
+        )
         if void_element:
             if (
                 _visibility_is_visible_override(properties.get("visibility"))
@@ -3725,7 +3840,23 @@ def _strip_raw_text_elements(text: str) -> str:
         lower_name = name.lower()
         attribute_names = _html_attribute_names(attributes)
         ancestor_names = ancestor_scopes.get(match.start(), ())
+        _reject_svg_presentation_visibility(
+            lower_name, attribute_names, ancestor_names
+        )
         style_properties = _inline_style_properties(attributes)
+        declarative_shadow_renders = (
+            lower_name == "template"
+            and _declarative_shadow_root_renders(attributes, ancestor_names)
+        )
+        if declarative_shadow_renders:
+            template_end = _find_balanced_element_end(text, index + 1, name)
+            if template_end is None:
+                raise RuntimeError(
+                    "declarative shadow template boundary cannot be reconstructed"
+                )
+            _reject_declarative_shadow_light_dom(
+                text, match.start(), template_end, ancestor_names
+            )
         subtree_non_rendered = (
             lower_name in {
                 "script",
@@ -3736,7 +3867,7 @@ def _strip_raw_text_elements(text: str) -> str:
             }
             or (
                 lower_name == "template"
-                and not _declarative_shadow_root_renders(attributes, ancestor_names)
+                and not declarative_shadow_renders
             )
             or lower_name == "noscript"
             or (
@@ -4123,9 +4254,9 @@ def _referenced_image_map_names(text: str) -> frozenset[str]:
             continue
         raw_usemap = _html_attribute_value(attributes, "usemap")
         usemap = unescape(raw_usemap).strip() if raw_usemap is not None else ""
-        if "#" not in usemap:
+        if re.fullmatch(r"#[^\s#]+", usemap) is None:
             continue
-        fragment = usemap.rsplit("#", 1)[1].strip()
+        fragment = usemap[1:]
         if fragment:
             names.add(fragment.casefold())
     return frozenset(names)
@@ -4268,6 +4399,7 @@ def _strip_html_tags(text: str) -> str:
                         alternative = (
                             _html_attribute_value(attributes, "alt")
                             if map_name in referenced_image_maps
+                            and "href" in _html_attribute_names(attributes)
                             else None
                         )
                     else:

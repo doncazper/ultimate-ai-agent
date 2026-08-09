@@ -2220,6 +2220,14 @@ def test_numeric_custom_property_can_hide_an_authority_denial() -> None:
     )
 
 
+def test_inherited_visibility_custom_property_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="unresolved visibility custom property"):
+        verifier._find_forbidden_authority_claims(
+            '<span style="--x:0"><i style="opacity:var(--x)">'
+            "no </i></span>web fetching is enabled."
+        )
+
+
 @pytest.mark.parametrize(
     "opacity",
     (
@@ -2502,6 +2510,14 @@ def test_ignored_structural_tag_shadow_host_ancestry_fails_closed() -> None:
         )
 
 
+def test_declarative_shadow_host_light_dom_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="declarative shadow light DOM"):
+        verifier._find_forbidden_authority_claims(
+            '<span><template shadowrootmode="open"></template>'
+            "no </span>web fetching is enabled."
+        )
+
+
 def test_datalist_contents_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<datalist>no </datalist>web fetching is enabled."
@@ -2692,6 +2708,36 @@ def test_associated_image_map_area_alt_is_visible_authority_prose() -> None:
         'alt="UAA browses the public web."></map>'
         '<img src="map.png" usemap="#x" alt="benign">'
     )
+
+
+def test_referenced_image_map_area_without_href_has_no_visible_alt() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<map name="x"><area alt="no "></map>'
+        '<img usemap="#x" alt="">web fetching is enabled.'
+    )
+
+
+def test_nonlocal_usemap_does_not_associate_area_alt() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<map name="x"><area href="/" alt="no "></map>'
+        '<img usemap="invalid#x" alt="">web fetching is enabled.'
+    )
+
+
+def test_svg_presentation_visibility_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="SVG presentation visibility"):
+        verifier._find_forbidden_authority_claims(
+            '<svg><text opacity="0">no </text></svg>'
+            "web fetching is enabled."
+        )
+
+
+def test_html_ancestor_depth_is_bounded() -> None:
+    with pytest.raises(RuntimeError, match="ancestor nesting exceeds"):
+        verifier._find_forbidden_authority_claims(
+            "<div>" * (verifier.MAX_HTML_ANCESTOR_DEPTH + 1)
+            + "UAA browses the public web."
+        )
 
 
 def test_unrelated_location_availability_is_not_sensor_authority() -> None:
