@@ -1101,7 +1101,8 @@ FORBIDDEN_PATTERNS = (
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:runtime )?(?:model|provider) calls?|"
-    r"web fetching|(?:public )?(?:web|internet) access|browser automation|"
+    r"web fetching|(?:public )?(?:web|internet) access|"
+    r"access to (?:the )?(?:public )?(?:web|internet)|browser automation|"
     r"connector writes?|"
     r"(?:unrestricted )?(?:shell|subprocess) execution|"
     r"(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
@@ -1373,6 +1374,13 @@ FORBIDDEN_PATTERNS = tuple(
     r"\b(?:memory recall|preview output|(?:model|provider|openwebui|runtime) output) "
     r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
     r"(?:production )?authority\b",
+    r"\bmemory(?: recall)? "
+    r"(?:is|becomes?|remains?|serves? as|acts? as) "
+    r"(?:the )?(?:authoritative )?"
+    r"(?:truth|fact|source of truth|ground truth)\b",
+    r"\b(?:openwebui|control center) "
+    r"(?:is|becomes?|remains?|serves? as|acts? as) "
+    r"(?:the )?(?:production )?authority\b",
     r"\b(?:this|the) (?:plan|program) (?:now )?"
     r"(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?"
     r"(?:runtime|execution) authority\b",
@@ -1386,6 +1394,11 @@ FORBIDDEN_PATTERNS = tuple(
     r"act as (?:instructions?|policy|authority|evidence(?: control)? input)|"
     r"(?:alter|override|change|weaken|bypass|control) "
     r"(?:policy|authority|evidence controls?))\b",
+    r"\b(?:(?:hydrated|tool|capability) manifests?|"
+    r"(?:fetched|retrieved)(?: web)? content) "
+    r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
+    r"(?:trusted )?"
+    r"(?:instructions?|policy|authority|evidence(?: control)? input)\b",
     r"\bcontrol center(?: workflow| surface)? "
     r"(?:does not|doesn't|need not) require (?:an? )?"
     r"(?:cli|command[- ]line|shared[- ]backend|python[- ]core) "
@@ -2604,7 +2617,7 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
         if (
             lower_name == "p"
             and lower_tag_name in HTML_P_IMPLICIT_CLOSE_OPENERS
-            and (not is_closing or lower_tag_name != "p")
+            and not is_closing
         ):
             return tag_start
         if lower_tag_name != lower_name:
@@ -2736,12 +2749,44 @@ def _inline_style_properties(attributes: str) -> dict[str, str]:
         value = (
             raw_value[: important_match.start()] if important_match else raw_value
         ).strip()
-        if not _valid_inline_style_property_value(name, value):
+        resolved_value = _resolve_css_variable_fallback(value)
+        if not _valid_inline_style_property_value(name, resolved_value):
             continue
         previous = effective.get(name)
         if previous is None or important or not previous[1]:
-            effective[name] = (value, important)
+            effective[name] = (resolved_value, important)
     return {name: value for name, (value, _important) in effective.items()}
+
+
+def _resolve_css_variable_fallback(value: str) -> str:
+    """Resolve bounded, self-contained CSS ``var()`` fallback values."""
+    resolved = value.strip()
+    for _depth in range(8):
+        if not resolved.startswith("var(") or not resolved.endswith(")"):
+            return resolved
+        inner = resolved[4:-1]
+        nesting = 0
+        comma = None
+        for index, character in enumerate(inner):
+            if character == "(":
+                nesting += 1
+            elif character == ")":
+                if nesting == 0:
+                    return resolved
+                nesting -= 1
+            elif character == "," and nesting == 0:
+                comma = index
+                break
+        if comma is None or nesting != 0:
+            return resolved
+        custom_property = inner[:comma].strip()
+        fallback = inner[comma + 1 :].strip()
+        if not re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", custom_property):
+            return resolved
+        if not fallback:
+            return resolved
+        resolved = fallback
+    return resolved
 
 
 def _valid_inline_style_property_value(name: str, value: str) -> bool:
@@ -3064,10 +3109,10 @@ def _matching_closing_start(
 
 def _textarea_rendered_text(content: str, attributes: str) -> str:
     """Return a textarea's visible initial value or its visible placeholder."""
-    normalized = re.sub(r"\r\n?", "\n", content)
+    normalized = re.sub(r"\r\n?", "\n", unescape(content))
     if normalized.startswith("\n"):
         normalized = normalized[1:]
-    value = unescape(normalized)
+    value = normalized
     if value:
         return value
     placeholder = _html_attribute_value(attributes, "placeholder")
@@ -3127,7 +3172,11 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, opening_end + 1)
-            element_end = None if closing is None else closing.end()
+            element_end = (
+                len(text)
+                if closing is None and lower_name == "xmp"
+                else None if closing is None else closing.end()
+            )
         else:
             element_end = _find_balanced_element_end(text, opening_end + 1, name)
         if element_end is None or element_end <= opening_end:
@@ -3139,6 +3188,8 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                 "style",
                 "template",
                 "iframe",
+                "progress",
+                "meter",
             }
             or (
                 lower_name == "datalist"
@@ -3230,6 +3281,8 @@ def _strip_raw_text_elements(text: str) -> str:
                 "style",
                 "template",
                 "iframe",
+                "progress",
+                "meter",
             }
             or (
                 lower_name == "datalist"
@@ -3306,6 +3359,10 @@ def _strip_raw_text_elements(text: str) -> str:
         else:
             closing_end = _find_balanced_element_end(text, index + 1, name)
         if closing_end is None:
+            if visibility_hidden and not subtree_non_rendered:
+                output.append(
+                    _visibility_visible_descendants(text[index + 1 :])
+                )
             break
         if visibility_hidden and not subtree_non_rendered:
             content_start = index + 1
