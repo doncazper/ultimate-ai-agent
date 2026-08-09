@@ -4604,6 +4604,7 @@ def _strip_html_tags(text: str) -> str:
         "ul",
     }
     output: list[str] = []
+    tooltip_alternatives: list[str] = []
     referenced_image_maps = _referenced_image_map_names(text)
     open_element_boundaries: list[tuple[str, bool, str]] = []
     cursor = 0
@@ -4698,6 +4699,14 @@ def _strip_html_tags(text: str) -> str:
                             tag_name, attributes
                         )
                     aria_alternative = _aria_accessible_name(attributes)
+                    raw_title = _html_attribute_value(attributes, "title")
+                    title_alternative = (
+                        escape(unescape(raw_title), quote=False)
+                        if raw_title is not None
+                        else None
+                    )
+                    if title_alternative not in {None, ""}:
+                        tooltip_alternatives.append(title_alternative)
                     parent_boundary = (
                         open_element_boundaries[-1][1]
                         if open_element_boundaries
@@ -4710,7 +4719,10 @@ def _strip_html_tags(text: str) -> str:
                     )
                     alternatives = tuple(
                         candidate
-                        for candidate in (alternative, aria_alternative)
+                        for candidate in (
+                            alternative,
+                            aria_alternative,
+                        )
                         if candidate not in {None, ""}
                     )
                     if alternatives:
@@ -4729,7 +4741,10 @@ def _strip_html_tags(text: str) -> str:
         else:
             output.append(text[candidate_start:])
             break
-    return "".join(output)
+    rendered = "".join(output)
+    if tooltip_alternatives:
+        rendered += "\n. \n" + "\n. \n".join(tooltip_alternatives) + "\n. \n"
+    return rendered
 
 
 def _html_attribute_value(attributes: str, name: str) -> str | None:
@@ -5240,6 +5255,13 @@ def _coordinated_product_action_is_forbidden(
 
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     text = _normalize_markdown_prose(text, retain_expandable_details=True)
+    text = re.sub(
+        r"\b(?:UAA|(?:the )?Ultimate AI Agent)['’]s "
+        r"(?:Control Center|CLI|API|Python Agent Core)\b",
+        "UAA",
+        text,
+        flags=re.IGNORECASE,
+    )
     text = re.sub(
         r"\bhas (?:the )?permission to\b",
         "has authority to",

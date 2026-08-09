@@ -2283,6 +2283,40 @@ def test_authority_predicate_rejects_is_able_to_grant() -> None:
 @pytest.mark.parametrize(
     "claim",
     (
+        "UAA's Control Center can fetch from the public web.",
+        "UAA’s Control Center can fetch from the public web.",
+        "Ultimate AI Agent's Control Center can fetch from the public web.",
+        "The Ultimate AI Agent’s CLI can execute shell commands.",
+    ),
+)
+def test_possessive_governed_product_subject_is_rejected(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_possessive_governed_product_denial_remains_allowed() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        "UAA's Control Center cannot fetch from the public web."
+    )
+
+
+def test_possessive_governed_product_grant_fails_full_verifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8")
+        + "\nUAA's Control Center can fetch from the public web.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="self-authorizing"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "UAA has permission to browse the public web.",
         "UAA has the permission to invoke runtime models.",
         "The Control Center has permission to execute shell commands.",
@@ -2551,6 +2585,21 @@ def test_aria_labelledby_fails_closed() -> None:
             '<button aria-labelledby="claim">Safe</button>'
             '<span id="claim">UAA can fetch from the public web.</span>'
         )
+
+
+def test_title_tooltip_is_scanned_as_isolated_operator_visible_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span title="UAA can fetch from the public web.">Safe</span>'
+    )
+    assert verifier._find_forbidden_authority_claims(
+        '<span title="no"></span>UAA can fetch from the public web.'
+    )
+
+
+def test_hidden_title_tooltip_is_not_scanned() -> None:
+    assert not verifier._find_forbidden_authority_claims(
+        '<span hidden title="UAA can fetch from the public web.">Safe</span>'
+    )
 
 
 @pytest.mark.parametrize("input_type", ("hidden", "checkbox", "radio"))
