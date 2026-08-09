@@ -1553,6 +1553,8 @@ def test_not_only_is_affirmative_capability_wording(modifier: str) -> None:
         "The Control Center is local. It can execute plugins.",
         "UAA answers chat; it can fetch the public web.",
         "The Control Center is local: it can execute plugins.",
+        "UAA answers chat. It browses the public web.",
+        "UAA answers chat. It is able to fetch the public web.",
     ),
 )
 def test_product_antecedent_pronoun_authority_claim_is_rejected(claim: str) -> None:
@@ -2591,12 +2593,41 @@ def test_svg_conditional_rendering_fails_closed(attribute: str) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "attribute",
+    ('fill="none"', 'fill-opacity="0"', 'font-size="0"', 'transform="scale(0)"'),
+)
+def test_svg_text_hiding_presentation_attributes_fail_closed(
+    attribute: str,
+) -> None:
+    with pytest.raises(RuntimeError, match="SVG presentation visibility"):
+        verifier._find_forbidden_authority_claims(
+            f"<svg><text {attribute}>no </text></svg>web fetching is enabled."
+        )
+
+
 @pytest.mark.parametrize("element", ("annotation", "annotation-xml"))
 def test_mathml_annotation_rendering_fails_closed(element: str) -> None:
     with pytest.raises(RuntimeError, match="MathML annotation rendering"):
         verifier._find_forbidden_authority_claims(
             f"<math><semantics><mrow></mrow><{element}>no </{element}>"
             "</semantics></math>web fetching is enabled."
+        )
+
+
+def test_mathml_phantom_rendering_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="MathML non-rendering content"):
+        verifier._find_forbidden_authority_claims(
+            "<math><mphantom><mtext>no </mtext></mphantom></math>"
+            "web fetching is enabled."
+        )
+
+
+def test_ruby_fallback_rendering_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="ruby fallback rendering"):
+        verifier._find_forbidden_authority_claims(
+            "<ruby>word<rp>no </rp><rt>reading</rt></ruby>"
+            "web fetching is enabled."
         )
 
 
@@ -2786,6 +2817,21 @@ def test_visible_inline_code_html_is_scanned_as_literal_prose() -> None:
     assert verifier._find_forbidden_authority_claims(
         "`<span hidden>UAA can fetch from the public web.</span>`"
     )
+
+
+def test_visible_code_token_text_cannot_collide_with_restoration() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "`no`. \ue004uaa-inline-code-0\ue005 web fetching is enabled."
+    )
+
+
+def test_many_inline_code_spans_are_restored_in_bounded_time() -> None:
+    source = " ".join("`visible`" for _ in range(40_000))
+    started = perf_counter()
+
+    assert verifier._find_forbidden_authority_claims(source) == []
+
+    assert perf_counter() - started < 2.0
 
 
 def test_visible_indented_code_html_is_scanned_as_literal_prose() -> None:
@@ -2984,6 +3030,33 @@ def test_cross_name_optional_end_tag_closes_hidden_parent(
         f"<{container}><{first} hidden>no <{second}>"
         f"UAA can fetch from the public web.</{closing}>"
     )
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    (("thead", "tbody"), ("tbody", "tfoot"), ("tfoot", "tbody")),
+)
+def test_cross_name_table_section_closes_hidden_parent(
+    first: str,
+    second: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"<table><{first} hidden>no <{second}><tr><td>"
+        "UAA can fetch from the public web.</table>"
+    )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "UAA cannot fetch the public web but can execute plugins.",
+        "UAA blocks connector writes yet executes plugins.",
+    ),
+)
+def test_direct_product_subject_propagates_to_positive_coordination(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
 
 
 def test_prevention_wording_does_not_hide_coordinated_authority() -> None:

@@ -815,6 +815,12 @@ MEDIATED_POSITIVE_COORDINATION_PATTERN = (
     r"\b(?:but|yet|while|then|and(?: also| then)?)\s+"
     r"(?P<action>[^.!?]{1,200})"
 )
+DIRECT_PRODUCT_ACTION_PATTERN = (
+    r"\b(?:(?:this|the) "
+    r"(?:plan|program|product|system|release|router|runtime|agent|control center)|"
+    r"uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
+    r"(?P<action>[^.!?]{1,300})"
+)
 FORBIDDEN_PATTERNS = (
     r"\b(?:operators?|users?) (?:may|can|will) "
     r"(?:(?:use|ask|direct|instruct|get) (?:the )?"
@@ -2728,6 +2734,12 @@ def _html_ancestor_contexts(text: str) -> dict[int, _HtmlAncestorFrame | None]:
             frame.name == "math" for frame in stack
         ):
             raise RuntimeError("MathML annotation rendering is unsupported")
+        if lower_name == "mphantom" and any(
+            frame.name == "math" for frame in stack
+        ):
+            raise RuntimeError("MathML non-rendering content is unsupported")
+        if lower_name == "rp" and any(frame.name == "ruby" for frame in stack):
+            raise RuntimeError("ruby fallback rendering is unsupported")
         if lower_name in {
             "animate",
             "animatemotion",
@@ -2874,14 +2886,15 @@ def _find_balanced_element_end(
             and not is_closing
         ):
             return tag_start
-        if (
-            not is_closing
-            and (
-                lower_name in {"dt", "dd"}
-                and lower_tag_name in {"dt", "dd"}
-                or lower_name in {"td", "th"}
-                and lower_tag_name in {"td", "th"}
-            )
+        cross_name_optional_end_groups = (
+            {"dt", "dd"},
+            {"rt", "rp"},
+            {"thead", "tbody", "tfoot"},
+            {"td", "th"},
+        )
+        if not is_closing and any(
+            lower_name in group and lower_tag_name in group
+            for group in cross_name_optional_end_groups
         ):
             return tag_start
         if lower_tag_name != lower_name:
@@ -3648,9 +3661,18 @@ def _reject_svg_presentation_visibility(
     ) and attribute_names.intersection(
         {
             "display",
+            "fill",
+            "fill-opacity",
+            "filter",
+            "font-size",
+            "mask",
             "opacity",
             "requiredextensions",
+            "stroke",
+            "stroke-opacity",
+            "stroke-width",
             "systemlanguage",
+            "transform",
             "visibility",
         }
     ):
@@ -4609,11 +4631,35 @@ def _is_default_ignorable(character: str) -> bool:
     )
 
 
-def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]:
+def _code_token_delimiters(text: str) -> tuple[str, str]:
+    """Return two private-use delimiters absent from the entire source."""
+    present = set(text)
+    available = (
+        chr(codepoint)
+        for start, stop in ((0xE000, 0xF900), (0xF0000, 0xFFFFE))
+        for codepoint in range(start, stop)
+        if chr(codepoint) not in present
+    )
+    try:
+        return next(available), next(available)
+    except StopIteration as exc:
+        raise RuntimeError("code token delimiter space is exhausted") from exc
+
+
+def _code_token(
+    delimiters: tuple[str, str], kind: str, index: int
+) -> str:
+    """Return one collision-free token using source-absent delimiters."""
+    return f"{delimiters[0]}uaa-{kind}-code:{index}{delimiters[1]}"
+
+
+def _extract_visible_fenced_code(
+    text: str,
+    *,
+    token_delimiters: tuple[str, str] | None = None,
+) -> tuple[str, list[tuple[str, str]]]:
     """Protect visible fenced-code text and retain its block boundaries."""
-    token_prefix = "\ue000UAAFENCEDCODE"
-    while token_prefix in text:
-        token_prefix += "X"
+    delimiters = token_delimiters or _code_token_delimiters(text)
     output: list[str] = []
     blocks: list[tuple[str, str]] = []
     lines = text.splitlines(keepends=True)
@@ -4706,7 +4752,7 @@ def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]
                 break
             visible_lines.append(candidate + line_ending)
             index += 1
-        token = f"{token_prefix}{len(blocks)}\ue001"
+        token = _code_token(delimiters, "fenced", len(blocks))
         blocks.append((token, "".join(visible_lines)))
         output.append(f"\n{token}\n")
     return "".join(output), blocks
@@ -4730,12 +4776,14 @@ def _strip_code_indent(line: str) -> str | None:
 
 def _extract_visible_indented_code(
     text: str,
+    *,
+    token_delimiters: tuple[str, str] | None = None,
 ) -> tuple[str, list[tuple[str, str]]]:
     """Protect visible indented-code text before raw HTML interpretation."""
     lines = text.splitlines(keepends=True)
     output: list[str] = []
     blocks: list[tuple[str, str]] = []
-    token_prefix = "\ue002uaa-indented-code-"
+    delimiters = token_delimiters or _code_token_delimiters(text)
     index = 0
     while index < len(lines):
         first = _strip_code_indent(lines[index])
@@ -4756,7 +4804,7 @@ def _extract_visible_indented_code(
                 index += 1
                 continue
             break
-        token = f"{token_prefix}{len(blocks)}\ue003"
+        token = _code_token(delimiters, "indented", len(blocks))
         blocks.append((token, "".join(visible)))
         output.append(f"\n{token}\n")
     return "".join(output), blocks
@@ -4764,11 +4812,13 @@ def _extract_visible_indented_code(
 
 def _extract_visible_inline_code(
     text: str,
+    *,
+    token_delimiters: tuple[str, str] | None = None,
 ) -> tuple[str, list[tuple[str, str]]]:
     """Protect CommonMark code-span literals before raw HTML interpretation."""
     output: list[str] = []
     spans: list[tuple[str, str]] = []
-    token_prefix = "\ue004uaa-inline-code-"
+    delimiters = token_delimiters or _code_token_delimiters(text)
     cursor = 0
     while cursor < len(text):
         start = text.find("`", cursor)
@@ -4806,7 +4856,7 @@ def _extract_visible_inline_code(
             and visible.strip(" ")
         ):
             visible = visible[1:-1]
-        token = f"{token_prefix}{len(spans)}\ue005"
+        token = _code_token(delimiters, "inline", len(spans))
         spans.append((token, visible))
         output.append(token)
         cursor = closing_start + len(fence)
@@ -4822,9 +4872,16 @@ def _normalize_markdown_prose(text: str) -> str:
     # visible prose. Labels and element contents are, so retain those before
     # removing presentation delimiters. Iterate links to cover nested emphasis
     # in labels without permitting unbounded parser work.
-    normalized, fenced_code = _extract_visible_fenced_code(text)
-    normalized, indented_code = _extract_visible_indented_code(normalized)
-    normalized, inline_code = _extract_visible_inline_code(normalized)
+    token_delimiters = _code_token_delimiters(text)
+    normalized, fenced_code = _extract_visible_fenced_code(
+        text, token_delimiters=token_delimiters
+    )
+    normalized, indented_code = _extract_visible_indented_code(
+        normalized, token_delimiters=token_delimiters
+    )
+    normalized, inline_code = _extract_visible_inline_code(
+        normalized, token_delimiters=token_delimiters
+    )
     normalized = _strip_raw_text_elements(normalized)
     normalized = _strip_raw_html_constructs(normalized)
     normalized = _strip_collapsed_details(normalized)
@@ -4852,12 +4909,22 @@ def _normalize_markdown_prose(text: str) -> str:
     )
     normalized = re.sub(r"\\([\\`*{}\[\]()#+\-.!_>~])", r"\1", normalized)
     normalized = normalized.translate(str.maketrans("", "", "`*_~[]"))
-    for token, visible_code in inline_code:
-        normalized = normalized.replace(token, visible_code)
-    for token, visible_code in indented_code:
-        normalized = normalized.replace(token, f"\n. \n{visible_code}\n. \n")
-    for token, visible_code in fenced_code:
-        normalized = normalized.replace(token, f"\n. \n{visible_code}\n. \n")
+    code_replacements = {
+        **{token: visible_code for token, visible_code in inline_code},
+        **{
+            token: f"\n. \n{visible_code}\n. \n"
+            for token, visible_code in indented_code + fenced_code
+        },
+    }
+    if code_replacements:
+        token_pattern = re.compile(
+            re.escape(token_delimiters[0])
+            + r"uaa-(?:fenced|indented|inline)-code:\d+"
+            + re.escape(token_delimiters[1])
+        )
+        normalized = token_pattern.sub(
+            lambda match: code_replacements[match.group()], normalized
+        )
     normalized = normalize("NFKC", normalized)
     normalized = "".join(
         character
@@ -4869,6 +4936,42 @@ def _normalize_markdown_prose(text: str) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
+def _coordinated_product_action_is_forbidden(
+    action: str, *, depth: int = 0
+) -> bool:
+    """Scan one subject-inheriting action without losing nested negations."""
+    if depth > 8:
+        raise RuntimeError("product coordination nesting exceeds the scan bound")
+    normalized = re.sub(
+        r"^(?:may|can|will|shall)\s+",
+        "",
+        action.strip(),
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    negative = re.match(
+        MEDIATED_PREVENTION_PATTERN, normalized, flags=re.IGNORECASE
+    ) or re.match(
+        r"^(?:can(?:not|'t)|can\s+not|does\s+not|doesn't|"
+        r"will\s+not|won't|may\s+not|must\s+not|"
+        r"[a-z]+(?:s|es|ed|ing)?\s+no)\b",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if negative:
+        return any(
+            _coordinated_product_action_is_forbidden(
+                coordination.group("action"), depth=depth + 1
+            )
+            for coordination in re.finditer(
+                MEDIATED_POSITIVE_COORDINATION_PATTERN,
+                normalized,
+                flags=re.IGNORECASE,
+            )
+        )
+    return bool(_scan_forbidden_authority_claims(f"UAA can {normalized}"))
+
+
 def _find_forbidden_authority_claims(text: str) -> list[str]:
     text = _normalize_markdown_prose(text)
     text = re.sub(
@@ -4878,8 +4981,7 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
         r"(\b(?:UAA|(?:the )?Ultimate AI Agent|(?:the )?Control Center|"
         r"(?:the )?(?:CLI|API|Python Agent Core))\b"
         r"(?:(?![.!?;:]).){0,300}[.!?;:]\s*)"
-        r"It(?=\s+(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|"
-        r"supports?|enables?|provides?))",
+        r"It\b",
         r"\1UAA",
         text,
         flags=re.IGNORECASE,
@@ -4893,6 +4995,30 @@ def _find_forbidden_authority_claims(text: str) -> list[str]:
         flags=re.IGNORECASE,
     )
     present = _scan_forbidden_authority_claims(text)
+    for product_match in re.finditer(
+        DIRECT_PRODUCT_ACTION_PATTERN, text, flags=re.IGNORECASE
+    ):
+        action = product_match.group("action")
+        if not (
+            re.match(MEDIATED_PREVENTION_PATTERN, action, flags=re.IGNORECASE)
+            or re.match(
+                r"^(?:can(?:not|'t)|can\s+not|does\s+not|doesn't|"
+                r"will\s+not|won't|may\s+not|must\s+not)\b",
+                action,
+                flags=re.IGNORECASE,
+            )
+        ):
+            continue
+        for coordination in re.finditer(
+            MEDIATED_POSITIVE_COORDINATION_PATTERN,
+            action,
+            flags=re.IGNORECASE,
+        ):
+            if _coordinated_product_action_is_forbidden(
+                coordination.group("action")
+            ):
+                present.append(DIRECT_PRODUCT_ACTION_PATTERN)
+                break
     mediated_patterns = OPERATOR_MEDIATED_PATTERNS + PRODUCT_MEDIATED_OPERATOR_PATTERNS
     for mediated_pattern in mediated_patterns:
         for match in re.finditer(mediated_pattern, text, flags=re.IGNORECASE):
