@@ -1101,7 +1101,8 @@ FORBIDDEN_PATTERNS = (
     r"redaction(?: checks?| gates?)?|foundation gate|gate checks?)|"
     r"persist(?:s|ing)? raw (?:prompts?|responses?|provider payloads?|local paths?|sensitive content))\b",
     r"\b(?:(?:runtime )?(?:model|provider) calls?|"
-    r"web fetching|browser automation|connector writes?|"
+    r"web fetching|(?:public )?(?:web|internet) access|browser automation|"
+    r"connector writes?|"
     r"(?:unrestricted )?(?:shell|subprocess) execution|"
     r"(?:automatic )?(?:skill|plugin) (?:import|activation|execution)|"
     r"(?:runtime )?(?:skill|plugin) loading|"
@@ -1113,7 +1114,8 @@ FORBIDDEN_PATTERNS = (
     r"(?:policy|approval|route|openapi|redaction|foundation gate) bypass|"
     r"raw (?:prompt|response|provider payload|local-path|sensitive content) persistence|"
     r"public (?:release|distribution)|production authority) "
-    r"(?:is|are) (?:now )?(?:authorized|permitted|allowed|enabled|granted|supported|active)\b",
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core))"
     r"(?:(?![.!?]).){1,200}?(?:,|;)\s*(?:but|however|yet|and)\s+(?:it\s+)?"
     r"(?:may|can|will|shall|allows?|permits?|authorizes?|grants?|is (?:now )?(?:authorized|permitted|allowed) to|"
@@ -2586,6 +2588,7 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             "textarea",
             "title",
             "iframe",
+            "xmp",
         }:
             closing = re.compile(
                 rf"</{re.escape(tag_name)}[ \t\r\n]*>", re.IGNORECASE
@@ -2598,6 +2601,12 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             lower_tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}
         ):
             return end + 1 if is_closing else tag_start
+        if (
+            lower_name == "p"
+            and lower_tag_name in HTML_P_IMPLICIT_CLOSE_OPENERS
+            and (not is_closing or lower_tag_name != "p")
+        ):
+            return tag_start
         if lower_tag_name != lower_name:
             cursor = end + 1
             continue
@@ -2626,6 +2635,38 @@ def _find_balanced_element_end(text: str, start: int, name: str) -> int | None:
             depth += 1
         cursor = end + 1
     return None
+
+
+HTML_P_IMPLICIT_CLOSE_OPENERS = {
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "div",
+    "dl",
+    "fieldset",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hgroup",
+    "hr",
+    "main",
+    "menu",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "search",
+    "section",
+    "table",
+    "ul",
+}
 
 
 def _decode_css_escapes(value: str) -> str:
@@ -3021,6 +3062,18 @@ def _matching_closing_start(
     return content_start + match.start() if match is not None else element_end
 
 
+def _textarea_rendered_text(content: str, attributes: str) -> str:
+    """Return a textarea's visible initial value or its visible placeholder."""
+    normalized = re.sub(r"\r\n?", "\n", content)
+    if normalized.startswith("\n"):
+        normalized = normalized[1:]
+    value = unescape(normalized)
+    if value:
+        return value
+    placeholder = _html_attribute_value(attributes, "placeholder")
+    return unescape(placeholder) if placeholder is not None else ""
+
+
 def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
     """Retain explicit visible descendants of visibility-hidden content."""
     if depth > 64:
@@ -3063,7 +3116,14 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         if lower_name == "plaintext":
             element_end = len(text)
-        elif lower_name in {"script", "style", "textarea", "title", "iframe"}:
+        elif lower_name in {
+            "script",
+            "style",
+            "textarea",
+            "title",
+            "iframe",
+            "xmp",
+        }:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
             ).search(text, opening_end + 1)
@@ -3074,7 +3134,18 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             cursor = opening_end + 1
             continue
         if (
-            lower_name in {"script", "style", "template", "iframe"}
+            lower_name in {
+                "script",
+                "style",
+                "template",
+                "iframe",
+            }
+            or (
+                lower_name == "datalist"
+                and not _display_definitely_overrides_hidden(
+                    properties.get("display")
+                )
+            )
             or (lower_name == "dialog" and "open" not in attribute_names)
             or _hidden_attribute_suppresses(attribute_names, properties)
             or properties.get("display") == "none"
@@ -3086,20 +3157,26 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
         content_end = _matching_closing_start(
             text, content_start, element_end, name
         )
-        if lower_name in {"plaintext", "textarea", "title"}:
+        if lower_name in {"plaintext", "textarea", "title", "xmp"}:
             if (
-                lower_name in {"plaintext", "textarea"}
+                lower_name in {"plaintext", "textarea", "xmp"}
                 and _visibility_is_visible_override(
                     properties.get("visibility")
                 )
             ):
                 content = text[content_start:content_end]
-                output.append(
-                    escape(
-                        unescape(content) if lower_name == "textarea" else content,
-                        quote=False,
-                    )
+                rendered = (
+                    _textarea_rendered_text(content, attributes)
+                    if lower_name == "textarea"
+                    else content
                 )
+                if lower_name == "xmp":
+                    output.append("\n. \n")
+                output.append(
+                    escape(rendered, quote=False)
+                )
+                if lower_name == "xmp":
+                    output.append("\n. \n")
             cursor = element_end
             continue
         if _visibility_is_visible_override(properties.get("visibility")):
@@ -3148,7 +3225,18 @@ def _strip_raw_text_elements(text: str) -> str:
         attribute_names = _html_attribute_names(attributes)
         style_properties = _inline_style_properties(attributes)
         subtree_non_rendered = (
-            lower_name in {"script", "style", "template", "iframe"}
+            lower_name in {
+                "script",
+                "style",
+                "template",
+                "iframe",
+            }
+            or (
+                lower_name == "datalist"
+                and not _display_definitely_overrides_hidden(
+                    style_properties.get("display")
+                )
+            )
             or (lower_name == "dialog" and "open" not in attribute_names)
             or _hidden_attribute_suppresses(attribute_names, style_properties)
             or style_properties.get("display") == "none"
@@ -3159,7 +3247,7 @@ def _strip_raw_text_elements(text: str) -> str:
             "collapse",
         }
         non_rendered = subtree_non_rendered or visibility_hidden
-        if lower_name in {"plaintext", "textarea", "title"}:
+        if lower_name in {"plaintext", "textarea", "title", "xmp"}:
             if lower_name == "plaintext":
                 content_end = len(text)
                 closing_end = len(text)
@@ -3169,16 +3257,22 @@ def _strip_raw_text_elements(text: str) -> str:
                 ).search(text, index + 1)
                 content_end = len(text) if closing is None else closing.start()
                 closing_end = len(text) if closing is None else closing.end()
-            if lower_name in {"plaintext", "textarea"} and not non_rendered:
-                # Textarea contents are RCDATA and plaintext consumes raw text
-                # through EOF. Apparent markup in either is rendered literally.
+            if lower_name in {"plaintext", "textarea", "xmp"} and not non_rendered:
+                # Textarea contents are RCDATA; plaintext consumes through EOF;
+                # and XMP uses raw-text parsing. Apparent markup stays literal.
                 content = text[index + 1 : content_end]
-                output.append(
-                    escape(
-                        unescape(content) if lower_name == "textarea" else content,
-                        quote=False,
-                    )
+                rendered = (
+                    _textarea_rendered_text(content, attributes)
+                    if lower_name == "textarea"
+                    else content
                 )
+                if lower_name == "xmp":
+                    output.append("\n. \n")
+                output.append(
+                    escape(rendered, quote=False)
+                )
+                if lower_name == "xmp":
+                    output.append("\n. \n")
             cursor = closing_end
             continue
         if not non_rendered:
@@ -3203,7 +3297,7 @@ def _strip_raw_text_elements(text: str) -> str:
         }:
             cursor = index + 1
             continue
-        raw_text_element = lower_name in {"script", "style", "iframe"}
+        raw_text_element = lower_name in {"script", "style", "iframe", "xmp"}
         if raw_text_element:
             closing = re.compile(
                 rf"</{re.escape(name)}[ \t\r\n]*>", re.IGNORECASE
@@ -3508,6 +3602,7 @@ def _strip_html_tags(text: str) -> str:
         "hgroup",
         "hr",
         "li",
+        "legend",
         "main",
         "menu",
         "nav",

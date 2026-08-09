@@ -1388,6 +1388,20 @@ def test_authority_predicate_rejects_standalone_provider_sdk_grants(
 @pytest.mark.parametrize(
     "claim",
     (
+        "Public web access is enabled.",
+        "Web access is authorized.",
+        "Internet access is available.",
+    ),
+)
+def test_authority_predicate_rejects_standalone_web_access_grants(
+    claim: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
         "Policy checks are optional.",
         "Approval validation is advisory.",
         "Route classification is not required.",
@@ -1534,6 +1548,13 @@ def test_invalid_display_falls_back_to_element_default_boundary() -> None:
     )
 
 
+def test_legend_preserves_its_default_visible_prose_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<fieldset><legend>no</legend>"
+        "web fetching is enabled.</fieldset>"
+    )
+
+
 @pytest.mark.parametrize("element", ("style", "script"))
 def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None:
     assert verifier._find_forbidden_authority_claims(
@@ -1544,6 +1565,13 @@ def test_hidden_raw_text_cannot_supply_an_authority_denial(element: str) -> None
 def test_incomplete_raw_text_opening_tag_remains_visible() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Document note: <style web fetching is enabled."
+    )
+
+
+def test_xmp_treats_apparent_markup_as_visible_raw_text() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<xmp><span hidden>"
+        "UAA can fetch from the public web.</span></xmp>"
     )
 
 
@@ -1705,6 +1733,18 @@ def test_implied_end_tag_does_not_hide_following_visible_prose() -> None:
     )
 
 
+def test_block_start_implicitly_closes_hidden_paragraph() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<p hidden>no<div>UAA can fetch from the public web.</div>"
+    )
+
+
+def test_block_end_implicitly_closes_hidden_paragraph() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<div><p hidden>no</div>UAA can fetch from the public web."
+    )
+
+
 def test_iframe_fallback_text_cannot_supply_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<iframe>no</iframe> web fetching is enabled."
@@ -1783,6 +1823,18 @@ def test_visible_textarea_treats_apparent_markup_as_rcdata() -> None:
         "<textarea><span hidden>"
         "UAA can fetch from the public web."
         "</span></textarea>"
+    )
+
+
+def test_empty_textarea_uses_its_visible_placeholder() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<textarea placeholder="UAA can fetch from the public web."></textarea>'
+    )
+
+
+def test_textarea_ignored_leading_newline_uses_visible_placeholder() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<textarea placeholder="UAA can fetch from the public web.">\n</textarea>'
     )
 
 
@@ -2123,6 +2175,19 @@ def test_css_escaped_inline_style_cannot_supply_an_authority_denial() -> None:
 def test_nested_template_cannot_supply_an_authority_denial() -> None:
     assert verifier._find_forbidden_authority_claims(
         "<template><template>x</template>no</template> web fetching is enabled."
+    )
+
+
+def test_datalist_contents_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<datalist>no </datalist>web fetching is enabled."
+    )
+
+
+def test_visible_display_override_restores_datalist_prose() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<datalist style="display:block">'
+        "UAA can fetch from the public web.</datalist>"
     )
 
 
