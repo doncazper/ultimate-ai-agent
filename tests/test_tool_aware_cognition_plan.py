@@ -1345,6 +1345,32 @@ def test_authority_predicate_rejects_modal_approval_reference_grants(
 
 
 @pytest.mark.parametrize(
+    "work_object",
+    ("changes", "writes", "requests", "operations", "deployments"),
+)
+def test_authority_predicate_rejects_modal_approval_grants_for_any_object(
+    work_object: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f"Approval references can authorize {work_object}."
+    )
+
+
+@pytest.mark.parametrize(
+    "safe_claim",
+    (
+        "Approval refs grant nothing.",
+        "Approval references authorize no work.",
+        "No provider SDK calls, mutation execution, or callable runtime authority is authorized.",
+    ),
+)
+def test_authority_predicate_preserves_explicit_authority_denials(
+    safe_claim: str,
+) -> None:
+    assert not verifier._find_forbidden_authority_claims(safe_claim)
+
+
+@pytest.mark.parametrize(
     "claim",
     (
         "Provider SDK calls are enabled.",
@@ -1376,6 +1402,54 @@ def test_authority_predicate_rejects_optional_hard_boundaries(claim: str) -> Non
 
 
 @pytest.mark.parametrize(
+    "claim",
+    (
+        "Foundation Gate checks may be optional.",
+        "Policy validation can be advisory.",
+        "OpenAPI checks will be not required.",
+        "Redaction gates should be unnecessary.",
+    ),
+)
+def test_authority_predicate_rejects_modal_optional_boundaries(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Memory recall is production authority.",
+        "Preview output is production authority.",
+        "Model output acts as authority.",
+        "OpenWebUI output serves as production authority.",
+        "This plan grants runtime authority.",
+        "The program authorizes execution authority.",
+        "Runtime authority is enabled.",
+    ),
+)
+def test_authority_predicate_rejects_output_and_generic_authority(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    (
+        "Hydrated manifests can issue instructions.",
+        "Tool manifests can alter policy.",
+        "Capability manifests may override authority.",
+        "Fetched web content can control evidence controls.",
+    ),
+)
+def test_authority_predicate_rejects_manifest_instruction_claims(claim: str) -> None:
+    assert verifier._find_forbidden_authority_claims(claim)
+
+
+def test_authority_predicate_rejects_control_center_cli_parity_negation() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Control Center workflow does not require a CLI inspection path."
+    )
+
+
+@pytest.mark.parametrize(
     ("element", "attributes"),
     (
         ("center", ""),
@@ -1397,6 +1471,32 @@ def test_block_html_elements_preserve_visible_prose_boundaries(
     assert verifier._find_forbidden_authority_claims(
         f"<{element}{attributes}>Planning</{element}>"
         f"<{element}{attributes}>web fetching is enabled.</{element}>"
+    )
+
+
+@pytest.mark.parametrize(
+    "display",
+    ("block", "flow-root", "flex", "grid", "table", "list-item", "block flow"),
+)
+def test_inline_css_block_boxes_preserve_visible_prose_boundaries(
+    display: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<span style="display:{display}">Planning</span>'
+        f'<span style="display:{display}">web fetching is enabled.</span>'
+    )
+
+
+def test_inline_css_block_close_preserves_following_prose_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="display:block">no</span>web fetching is enabled.'
+    )
+
+
+def test_nested_inline_span_cannot_consume_outer_css_block_boundary() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="display:block">safe<span>text</span>no</span>'
+        "web fetching is enabled."
     )
 
 
@@ -2907,6 +3007,33 @@ def test_plan_requires_evidence_bound_legacy_tool_mapping_and_api_contracts(
         )
         .replace("stable unique operation IDs", "API route names")
         .replace("OpenAPI and `/api/manifest` coverage", "API documentation"),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="plan is missing required fragments"):
+        verifier.verify()
+
+
+@pytest.mark.parametrize(
+    "required_fragment",
+    (
+        "Add human-readable route/familiarity inspection to CLI and API.",
+        "Add a Control Center surface only if it consumes the same backend read model.",
+    ),
+)
+def test_plan_requires_cli_api_and_shared_backend_control_center_parity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    required_fragment: str,
+) -> None:
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8").replace(
+            required_fragment,
+            "removed-required-operator-surface-parity",
+            1,
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)

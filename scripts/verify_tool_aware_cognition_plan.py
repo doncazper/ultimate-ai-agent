@@ -552,6 +552,8 @@ PLAN_REQUIRED = (
     "  mutated by receipt",
     "No\n  receipt-arrival handler mutates a durable statistics store",
     "stable unique operation IDs",
+    "Add human-readable route/familiarity inspection to CLI and API.",
+    "Add a Control Center surface only if it consumes the same backend read model.",
     "OpenAPI and `/api/manifest` coverage",
     "declare route side-effect",
     "If the optional Control Center surface is added, require focused frontend\n"
@@ -1351,8 +1353,8 @@ FORBIDDEN_PATTERNS = tuple(
     r"\bapproval (?:references?|refs?) (?:alone )?"
     r"(?:(?:can|could|may|might|will|would|shall) "
     r"(?:authorize|permit|allow|enable|grant)|"
-    r"(?:authorizes?|permits?|allows?|enables?|grants?)) "
-    r"(?:the )?(?:work|actions?|execution|mutations?)\b",
+    r"(?:authorizes?|permits?|allows?|enables?|grants?))\b"
+    r"(?!\s+(?:nothing|no|neither)\b)",
     r"\bapproval (?:references?|refs?) (?:alone )?"
     r"(?:is|are) (?:an? )?(?:authorization|authority)\b",
     r"\bprovider SDKs? (?:calls?|access|use|invocations?) "
@@ -1360,11 +1362,32 @@ FORBIDDEN_PATTERNS = tuple(
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:policy|approval|route|openapi|redaction|foundation gate) "
     r"(?:checks?|validation|classification|gates?|contract) "
-    r"(?:is|are|becomes?|remains?) "
+    r"(?:is|are|becomes?|remains?|"
+    r"(?:can|could|may|might|will|would|shall|should) be) "
     r"(?:optional|advisory|not required|unnecessary)\b",
     r"\b(?:optional|advisory|not[- ]required|unnecessary) "
     r"(?:policy|approval|route|openapi|redaction|foundation gate) "
     r"(?:checks?|validation|classification|gates?|contract)\b",
+    r"\b(?:memory recall|preview output|(?:model|provider|openwebui|runtime) output) "
+    r"(?:is|are|becomes?|remains?|serves? as|acts? as) "
+    r"(?:production )?authority\b",
+    r"\b(?:this|the) (?:plan|program) (?:now )?"
+    r"(?:authorizes?|permits?|allows?|enables?|grants?) (?:new )?"
+    r"(?:runtime|execution) authority\b",
+    r"\b(?:(?:callable|broad|new) )?(?:runtime|execution) authority "
+    r"(?:is|are) (?:now )?"
+    r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
+    r"\b(?:(?:hydrated|tool|capability) manifests?|"
+    r"(?:fetched|retrieved)(?: web)? content) "
+    r"(?:can|could|may|might|will|would|shall|should|must) "
+    r"(?:(?:issue|supply|provide|contain) instructions?|"
+    r"act as (?:instructions?|policy|authority|evidence(?: control)? input)|"
+    r"(?:alter|override|change|weaken|bypass|control) "
+    r"(?:policy|authority|evidence controls?))\b",
+    r"\bcontrol center(?: workflow| surface)? "
+    r"(?:does not|doesn't|need not) require (?:an? )?"
+    r"(?:cli|command[- ]line|shared[- ]backend|python[- ]core) "
+    r"(?:inspection path|parity|contract|read model)\b",
 )
 CAPABLE_OF_GERUND_BASES = {
     "accessing": "access",
@@ -2925,6 +2948,45 @@ def _display_definitely_overrides_hidden(value: str | None) -> bool:
     )
 
 
+def _inline_display_creates_prose_boundary(value: str | None) -> bool:
+    """Return whether inline CSS gives an element a block-like outer box."""
+    if value is None:
+        return False
+    normalized = " ".join(value.split())
+    if normalized in {
+        "none",
+        "contents",
+        "inherit",
+        "initial",
+        "revert",
+        "revert-layer",
+        "unset",
+        "inline",
+        "inline-block",
+        "inline-table",
+        "inline-flex",
+        "inline-grid",
+    }:
+        return False
+    tokens = normalized.split()
+    if "inline" in tokens:
+        return False
+    if {"block", "run-in", "list-item"} & set(tokens):
+        return True
+    return normalized in {
+        "flow-root",
+        "table",
+        "flex",
+        "grid",
+        "table-row-group",
+        "table-header-group",
+        "table-footer-group",
+        "table-row",
+        "table-cell",
+        "table-caption",
+    }
+
+
 def _hidden_attribute_suppresses(
     attribute_names: set[str], properties: dict[str, str]
 ) -> bool:
@@ -3469,6 +3531,7 @@ def _strip_html_tags(text: str) -> str:
         "ul",
     }
     output: list[str] = []
+    dynamic_boundary_stack: dict[str, list[bool]] = {}
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
     while cursor < len(text):
@@ -3505,11 +3568,18 @@ def _strip_html_tags(text: str) -> str:
                     if raw_tag.startswith("</")
                     else raw_tag[1:].lower()
                 )
+                dynamic_boundary = False
                 if (
                     text[candidate_start + 1] == "/"
                     and text[match.end() : index].strip()
                 ):
                     output.append(text[candidate_start : index + 1])
+                elif text[candidate_start + 1] == "/":
+                    opening_boundaries = dynamic_boundary_stack.get(tag_name)
+                    if opening_boundaries:
+                        dynamic_boundary = opening_boundaries.pop()
+                        if not opening_boundaries:
+                            del dynamic_boundary_stack[tag_name]
                 elif text[candidate_start + 1] != "/":
                     attributes = text[match.end() : index]
                     if not _valid_html_opening_tag_tail(attributes):
@@ -3521,7 +3591,14 @@ def _strip_html_tags(text: str) -> str:
                     )
                     if alternative is not None:
                         output.append(alternative)
-                if tag_name in prose_boundary_tags:
+                    dynamic_boundary = _inline_display_creates_prose_boundary(
+                        _inline_style_properties(attributes).get("display")
+                    )
+                    if not attributes.rstrip().endswith("/"):
+                        dynamic_boundary_stack.setdefault(tag_name, []).append(
+                            dynamic_boundary
+                        )
+                if tag_name in prose_boundary_tags or dynamic_boundary:
                     output.append("\n. \n")
                 cursor = index + 1
                 break
