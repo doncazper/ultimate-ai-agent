@@ -2519,6 +2519,40 @@ def test_text_input_placeholder_cannot_override_a_rendered_value() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "control",
+    (
+        "<button>no </button>",
+        '<input value="no">',
+        "<select><option>no</option></select>",
+        "<textarea>no </textarea>",
+    ),
+)
+def test_form_control_text_cannot_negate_surrounding_authority_claim(
+    control: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        control + "web fetching is enabled."
+    )
+
+
+def test_aria_label_is_scanned_as_an_isolated_accessible_name() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<button aria-label="UAA can fetch from the public web.">Safe</button>'
+    )
+    assert verifier._find_forbidden_authority_claims(
+        '<button aria-label="no">Safe</button>web fetching is enabled.'
+    )
+
+
+def test_aria_labelledby_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="ARIA referenced accessible name"):
+        verifier._find_forbidden_authority_claims(
+            '<button aria-labelledby="claim">Safe</button>'
+            '<span id="claim">UAA can fetch from the public web.</span>'
+        )
+
+
 @pytest.mark.parametrize("input_type", ("hidden", "checkbox", "radio"))
 def test_non_textual_input_value_cannot_supply_an_authority_denial(
     input_type: str,
@@ -2541,12 +2575,9 @@ def test_sanitized_typed_input_value_cannot_supply_an_authority_denial(
 
 
 def test_invalid_number_input_renders_its_placeholder() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            '<input type="number" value="no" placeholder="no"> '
-            "web fetching is enabled."
-        )
-        == []
+    assert verifier._find_forbidden_authority_claims(
+        '<input type="number" value="no" placeholder="no"> '
+        "web fetching is enabled."
     )
 
 
@@ -2564,12 +2595,9 @@ def test_collapsed_select_retains_only_the_selected_option() -> None:
 
 
 def test_collapsed_select_defaults_to_its_first_option() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            "<select><option>no</option><option>hidden</option></select> "
-            "web fetching is enabled."
-        )
-        == []
+    assert verifier._find_forbidden_authority_claims(
+        "<select><option>no</option><option>hidden</option></select> "
+        "web fetching is enabled."
     )
 
 
@@ -2582,12 +2610,9 @@ def test_collapsed_select_uses_the_selected_option_label() -> None:
 
 @pytest.mark.parametrize("attributes", ("multiple", 'size="2"'))
 def test_listbox_select_retains_all_option_prose(attributes: str) -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            f"<select {attributes}><option>no</option>"
-            "<option></option></select> web fetching is enabled."
-        )
-        == []
+    assert verifier._find_forbidden_authority_claims(
+        f"<select {attributes}><option>no</option>"
+        "<option></option></select> web fetching is enabled."
     )
 
 
@@ -2621,12 +2646,9 @@ def test_select_size_uses_html_non_negative_integer_grammar() -> None:
 
 
 def test_select_size_conversion_is_bounded() -> None:
-    assert (
-        verifier._find_forbidden_authority_claims(
-            f'<select size="{"9" * 5000}"><option>benign.</option>'
-            "<option>no </option></select>web fetching is enabled."
-        )
-        == []
+    assert verifier._find_forbidden_authority_claims(
+        f'<select size="{"9" * 5000}"><option>benign.</option>'
+        "<option>no </option></select>web fetching is enabled."
     )
 
 
@@ -2858,6 +2880,12 @@ def test_replaced_control_fallback_cannot_supply_authority_denial(
 ) -> None:
     assert verifier._find_forbidden_authority_claims(
         f"<{element}>no </{element}>web fetching is enabled."
+    )
+
+
+def test_canvas_fallback_authority_claim_is_scanned() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<canvas>UAA can fetch from the public web.</canvas>"
     )
 
 
@@ -4336,6 +4364,27 @@ def test_nonmandatory_foundation_gate_fails_full_verifier(
     plan.write_text(
         verifier.PLAN.read_text(encoding="utf-8")
         + "\nTAW-08 does not have to pass the Foundation Gate.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(verifier, "PLAN", plan)
+
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier.verify()
+
+
+def test_expandable_details_cannot_hide_acceptance_contradiction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    contradiction = (
+        "<details><summary>Gate policy</summary>"
+        "TAW-08 does not have to pass the Foundation Gate.</details>"
+    )
+    with pytest.raises(RuntimeError, match="acceptance contract is invalid"):
+        verifier._verify_acceptance_contract(contradiction)
+
+    plan = tmp_path / "plan.md"
+    plan.write_text(
+        verifier.PLAN.read_text(encoding="utf-8") + f"\n{contradiction}\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(verifier, "PLAN", plan)

@@ -2159,13 +2159,15 @@ def _verify_familiarity_precedence(text: str) -> None:
         "precedence is mandatory:\n\n"
     )
     end = "\n\nThis ordering prevents"
-    visible = _visible_markdown_source(text)
-    normalized_visible = _normalize_markdown_prose(visible)
+    normalized_visible = _normalize_markdown_prose(
+        text, retain_expandable_details=True
+    )
     if any(
         re.search(pattern, normalized_visible, flags=re.IGNORECASE)
         for pattern in FAMILIARITY_PRECEDENCE_CONTRADICTION_PATTERNS
     ):
         raise RuntimeError("familiarity precedence has competing declarations")
+    visible = _visible_markdown_source(text)
     if visible.count(start) != 1 or visible.count(end) != 1:
         raise RuntimeError("familiarity precedence is invalid")
     block = visible.split(start, 1)[1].split(end, 1)[0]
@@ -2247,7 +2249,9 @@ def _verify_queue_position(text: str) -> None:
 
 def _verify_board_queue_order(text: str) -> None:
     """Reject active-board prose that reverses the immutable pre-Goat sequence."""
-    visible = _normalize_markdown_prose(_visible_markdown_source(text))
+    visible = _normalize_markdown_prose(
+        text, retain_expandable_details=True
+    )
     if any(
         re.search(pattern, visible, flags=re.IGNORECASE)
         for pattern in BOARD_QUEUE_CONTRADICTION_PATTERNS
@@ -2266,7 +2270,7 @@ def _verify_zero_tolerance_lines(text: str) -> None:
 
 
 def _verify_zero_tolerance_contradictions(text: str) -> None:
-    text = _normalize_markdown_prose(text)
+    text = _normalize_markdown_prose(text, retain_expandable_details=True)
     if any(
         re.search(pattern, text, flags=re.IGNORECASE)
         for pattern in ZERO_TOLERANCE_CONTRADICTION_PATTERNS
@@ -2275,7 +2279,7 @@ def _verify_zero_tolerance_contradictions(text: str) -> None:
 
 
 def _verify_acceptance_contract(text: str) -> None:
-    text = _normalize_markdown_prose(text)
+    text = _normalize_markdown_prose(text, retain_expandable_details=True)
     if any(
         re.search(pattern, text, flags=re.IGNORECASE)
         for pattern in ACCEPTANCE_CONTRADICTION_PATTERNS
@@ -3979,12 +3983,12 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
                     if lower_name == "textarea"
                     else content
                 )
-                if lower_name == "xmp":
+                if lower_name in {"textarea", "xmp"}:
                     output.append("\n. \n")
                 output.append(
                     escape(rendered, quote=False)
                 )
-                if lower_name == "xmp":
+                if lower_name in {"textarea", "xmp"}:
                     output.append("\n. \n")
             cursor = element_end
             continue
@@ -4058,7 +4062,6 @@ def _strip_raw_text_elements(text: str) -> str:
         subtree_non_rendered = (
             lower_name in {
                 "audio",
-                "canvas",
                 "script",
                 "style",
                 "iframe",
@@ -4107,12 +4110,12 @@ def _strip_raw_text_elements(text: str) -> str:
                     if lower_name == "textarea"
                     else content
                 )
-                if lower_name == "xmp":
+                if lower_name in {"textarea", "xmp"}:
                     output.append("\n. \n")
                 output.append(
                     escape(rendered, quote=False)
                 )
-                if lower_name == "xmp":
+                if lower_name in {"textarea", "xmp"}:
                     output.append("\n. \n")
             cursor = closing_end
             continue
@@ -4339,11 +4342,11 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
         output.append(text[cursor : match.start()])
         option_prose = _selected_option_prose(text, content_start, content_end)
         if option_prose is not None:
-            output.append(" ")
+            output.append("\n.\n")
             output.append(
                 _strip_collapsed_selects(option_prose, depth=depth + 1)
             )
-            output.append(" ")
+            output.append("\n.\n")
         cursor = element_end
     output.append(text[cursor:])
     return "".join(output)
@@ -4549,6 +4552,8 @@ def _strip_html_tags(text: str) -> str:
         "aside",
         "blockquote",
         "br",
+        "button",
+        "canvas",
         "center",
         "dd",
         "details",
@@ -4557,6 +4562,7 @@ def _strip_html_tags(text: str) -> str:
         "div",
         "dl",
         "dt",
+        "embed",
         "fieldset",
         "figcaption",
         "figure",
@@ -4571,16 +4577,21 @@ def _strip_html_tags(text: str) -> str:
         "header",
         "hgroup",
         "hr",
+        "img",
+        "input",
         "li",
         "legend",
         "main",
         "menu",
         "nav",
+        "object",
         "ol",
+        "output",
         "p",
         "pre",
         "search",
         "section",
+        "select",
         "summary",
         "table",
         "tbody",
@@ -4588,6 +4599,7 @@ def _strip_html_tags(text: str) -> str:
         "tfoot",
         "th",
         "thead",
+        "textarea",
         "tr",
         "ul",
     }
@@ -4685,8 +4697,7 @@ def _strip_html_tags(text: str) -> str:
                         alternative = _accessible_html_alternative(
                             tag_name, attributes
                         )
-                    if alternative is not None:
-                        output.append(alternative)
+                    aria_alternative = _aria_accessible_name(attributes)
                     parent_boundary = (
                         open_element_boundaries[-1][1]
                         if open_element_boundaries
@@ -4697,6 +4708,15 @@ def _strip_html_tags(text: str) -> str:
                         default_boundary=tag_name in prose_boundary_tags,
                         inherited_boundary=parent_boundary,
                     )
+                    alternatives = tuple(
+                        candidate
+                        for candidate in (alternative, aria_alternative)
+                        if candidate not in {None, ""}
+                    )
+                    if alternatives:
+                        output.append("\n. \n")
+                        output.append("\n. \n".join(alternatives))
+                        output.append("\n. \n")
                     if tag_name not in HTML_VOID_ELEMENTS:
                         open_element_boundaries.append(
                             (tag_name, element_boundary, attributes)
@@ -4715,6 +4735,15 @@ def _strip_html_tags(text: str) -> str:
 def _html_attribute_value(attributes: str, name: str) -> str | None:
     """Return one quoted or unquoted CommonMark HTML attribute value."""
     return _html_attributes(attributes).get(name.lower())
+
+
+def _aria_accessible_name(attributes: str) -> str | None:
+    """Return a direct ARIA name and fail closed on referenced-name graphs."""
+    attribute_names = _html_attribute_names(attributes)
+    if "aria-labelledby" in attribute_names:
+        raise RuntimeError("ARIA referenced accessible name is unsupported")
+    label = _html_attribute_value(attributes, "aria-label")
+    return escape(unescape(label), quote=False) if label is not None else None
 
 
 def _accessible_html_alternative(name: str, attributes: str) -> str | None:
