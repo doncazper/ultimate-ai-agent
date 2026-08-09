@@ -4224,20 +4224,29 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
             else ""
         )
         listbox_size = len(normalized_size) > 1 or normalized_size not in {"", "1"}
-        if "multiple" in attribute_names or listbox_size:
-            output.append(text[cursor : opening_end + 1])
-            cursor = opening_end + 1
-            continue
         element_end = _find_balanced_element_end(text, opening_end + 1, "select")
         if element_end is None:
             output.append(text[cursor : opening_end + 1])
             cursor = opening_end + 1
             continue
-        output.append(text[cursor : match.start()])
         content_start = opening_end + 1
         content_end = _matching_closing_start(
             text, content_start, element_end, "select"
         )
+        if "multiple" in attribute_names or listbox_size:
+            output.append(text[cursor : opening_end + 1])
+            output.append(
+                _strip_collapsed_selects(
+                    _retain_listbox_optgroup_labels(
+                        text[content_start:content_end]
+                    ),
+                    depth=depth + 1,
+                )
+            )
+            output.append(text[content_end:element_end])
+            cursor = element_end
+            continue
+        output.append(text[cursor : match.start()])
         option_prose = _selected_option_prose(text, content_start, content_end)
         if option_prose is not None:
             output.append(" ")
@@ -4246,6 +4255,35 @@ def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
             )
             output.append(" ")
         cursor = element_end
+    output.append(text[cursor:])
+    return "".join(output)
+
+
+def _retain_listbox_optgroup_labels(text: str) -> str:
+    """Insert visibly rendered optgroup labels into listbox content."""
+    output: list[str] = []
+    cursor = 0
+    opening = re.compile(r"<optgroup(?=[\s/>])", re.IGNORECASE)
+    while (match := opening.search(text, cursor)) is not None:
+        construct = _next_raw_html_construct(text, cursor, match.start() + 1)
+        if construct is not None:
+            output.append(text[cursor : construct[1]])
+            cursor = construct[1]
+            continue
+        if _is_markdown_escaped(text, match.start()):
+            output.append(text[cursor : match.start() + 1])
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            break
+        attributes = text[match.end() : opening_end]
+        output.append(text[cursor : opening_end + 1])
+        if _valid_html_opening_tag_tail(attributes):
+            label = _html_attribute_value(attributes, "label")
+            if label is not None:
+                output.append(f" {escape(unescape(label), quote=False)} ")
+        cursor = opening_end + 1
     output.append(text[cursor:])
     return "".join(output)
 
@@ -4839,6 +4877,11 @@ def _extract_visible_indented_code(
     index = 0
     paragraph_open = False
     while index < len(lines):
+        if not lines[index].strip():
+            output.append(lines[index])
+            paragraph_open = False
+            index += 1
+            continue
         first = _strip_code_indent(lines[index])
         if first is None or paragraph_open:
             output.append(lines[index])

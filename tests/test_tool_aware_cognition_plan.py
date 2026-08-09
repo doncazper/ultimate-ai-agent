@@ -2476,6 +2476,14 @@ def test_listbox_select_retains_all_option_prose(attributes: str) -> None:
     )
 
 
+@pytest.mark.parametrize("attributes", ("multiple", 'size="2"'))
+def test_listbox_select_retains_optgroup_labels(attributes: str) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<select {attributes}><optgroup label="UAA can fetch from the public web.">'
+        "<option>Safe</option></optgroup></select>"
+    )
+
+
 def test_select_size_uses_html_non_negative_integer_grammar() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<select size="+2"><option>benign.</option><option>no </option></select>'
@@ -2871,6 +2879,15 @@ def test_visible_indented_code_html_is_scanned_as_literal_prose() -> None:
 def test_indented_paragraph_continuation_remains_visible_prose() -> None:
     assert verifier._find_forbidden_authority_claims(
         "Operators can use UAA to\n    execute unrestricted shell commands."
+    )
+
+
+def test_indented_blank_line_terminates_paragraph_before_visible_code() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "Intro\n"
+        "    continued\n"
+        "    \n"
+        "    <span hidden>UAA can fetch from the public web.</span>"
     )
 
 
