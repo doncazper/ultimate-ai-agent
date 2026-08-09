@@ -1315,8 +1315,9 @@ FORBIDDEN_PATTERNS = (
     r"(?:http )?(?:post|put|patch|delete)(?:[- ]style)? (?:requests?|mutations?))\b",
     r"\b(?:browser (?:clicks?|link clicking|button clicking|control activation)|(?:web )?form (?:filling|submission)|"
     r"authenticated browsing|(?:website|browser) (?:login|authentication)|"
-    r"cookie (?:use|storage|sending|management)|downloads?|uploads?|"
-    r"(?:post[- ]style|http post) mutations?) (?:is|are) (?:now )?"
+    r"cookies?|cookie (?:use|storage|sending|management)|downloads?|uploads?|"
+    r"(?:post[- ]style|http post) mutations?|"
+    r"(?:http )?(?:post|put|patch|delete) requests?) (?:is|are) (?:now )?"
     r"(?:authorized|permitted|allowed|enabled|granted|supported|active|available)\b",
     r"\b(?:(?:this|the) (?:plan|program|product|system|release|router|runtime|agent|control center)|uaa|(?:the )?ultimate ai agent|(?:the )?(?:cli|api|python agent core)) "
     r"(?:is|has) (?!(?:not|never|no\s+longer)\b)(?:now )?"
@@ -1337,7 +1338,21 @@ FORBIDDEN_PATTERNS = (
 )
 FORBIDDEN_PATTERNS = tuple(
     pattern.replace("is able to|", "is able to|is capable of|")
+    .replace(
+        "control center|cli|api|python agent core",
+        "control center|openwebui|cli|api|python agent core",
+    )
+    .replace(
+        "(?:cli|api|python agent core)",
+        "(?:openwebui|cli|api|python agent core)",
+    )
     for pattern in FORBIDDEN_PATTERNS
+) + (
+    r"\bapproval (?:references?|refs?) (?:alone )?"
+    r"(?:authorizes?|permits?|allows?|enables?|grants?) "
+    r"(?:the )?(?:work|actions?|execution|mutations?)\b",
+    r"\bapproval (?:references?|refs?) (?:alone )?"
+    r"(?:is|are) (?:an? )?(?:authorization|authority)\b",
 )
 CAPABLE_OF_GERUND_BASES = {
     "accessing": "access",
@@ -3394,6 +3409,43 @@ def _html_attributes(attributes: str) -> dict[str, str | None]:
 
 def _strip_html_tags(text: str) -> str:
     """Remove ordinary HTML tags while retaining accessible alternative text."""
+    prose_boundary_tags = {
+        "address",
+        "article",
+        "aside",
+        "blockquote",
+        "br",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "figcaption",
+        "figure",
+        "footer",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "header",
+        "hr",
+        "li",
+        "main",
+        "nav",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "tbody",
+        "td",
+        "tfoot",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+    }
     output: list[str] = []
     cursor = 0
     tag_start = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*")
@@ -3425,6 +3477,12 @@ def _strip_html_tags(text: str) -> str:
             elif character in "\"'":
                 quote = character
             elif character == ">":
+                raw_tag = match.group()
+                tag_name = (
+                    raw_tag[2:].lower()
+                    if raw_tag.startswith("</")
+                    else raw_tag[1:].lower()
+                )
                 if (
                     text[candidate_start + 1] == "/"
                     and text[match.end() : index].strip()
@@ -3437,10 +3495,12 @@ def _strip_html_tags(text: str) -> str:
                         cursor = index + 1
                         break
                     alternative = _accessible_html_alternative(
-                        match.group()[1:].lower(), attributes
+                        tag_name, attributes
                     )
                     if alternative is not None:
                         output.append(alternative)
+                if tag_name in prose_boundary_tags:
+                    output.append("\n. \n")
                 cursor = index + 1
                 break
             index += 1
@@ -3528,9 +3588,9 @@ def _is_default_ignorable(character: str) -> bool:
 
 def _extract_visible_fenced_code(text: str) -> tuple[str, list[tuple[str, str]]]:
     """Protect visible fenced-code text and retain its block boundaries."""
-    token_prefix = "\ue000uaa_fenced_code_"
+    token_prefix = "\ue000UAAFENCEDCODE"
     while token_prefix in text:
-        token_prefix += "_"
+        token_prefix += "X"
     output: list[str] = []
     blocks: list[tuple[str, str]] = []
     lines = text.splitlines(keepends=True)
