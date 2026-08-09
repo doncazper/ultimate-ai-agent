@@ -1705,7 +1705,7 @@ def test_inline_style_hidden_element_cannot_supply_an_authority_denial(
         "0e3",
         "calc(0)",
         "calc(1 - 1)",
-        "calc((25% * 4) - 1)",
+        "calc(25% - 25%)",
         "calc(calc(2 / 2) - 1)",
     ),
 )
@@ -1749,6 +1749,13 @@ def test_invalid_constant_opacity_calculation_remains_scannable(
     )
 
 
+def test_dimensionally_invalid_opacity_calculation_remains_scannable() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        '<span style="opacity:1;opacity:calc(0% * 0%)">'
+        "UAA can fetch from the public web.</span>"
+    )
+
+
 def test_visible_text_input_value_is_scanned() -> None:
     assert verifier._find_forbidden_authority_claims(
         '<input value="UAA can fetch from the public web.">'
@@ -1773,6 +1780,71 @@ def test_non_textual_input_value_cannot_supply_an_authority_denial(
 ) -> None:
     assert verifier._find_forbidden_authority_claims(
         f'<input type="{input_type}" value="no"> web fetching is enabled.'
+    )
+
+
+@pytest.mark.parametrize(
+    "input_type",
+    ("number", "date", "datetime-local", "month", "time", "week"),
+)
+def test_sanitized_typed_input_value_cannot_supply_an_authority_denial(
+    input_type: str,
+) -> None:
+    assert verifier._find_forbidden_authority_claims(
+        f'<input type="{input_type}" value="no"> web fetching is enabled.'
+    )
+
+
+def test_invalid_number_input_renders_its_placeholder() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            '<input type="number" value="no" placeholder="no"> '
+            "web fetching is enabled."
+        )
+        == []
+    )
+
+
+def test_collapsed_select_retains_only_the_selected_option() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<select><option>no </option><option selected>"
+        "UAA can fetch from the public web.</option></select>"
+    )
+
+
+def test_collapsed_select_defaults_to_its_first_option() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<select><option>no</option><option>hidden</option></select> "
+            "web fetching is enabled."
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("attributes", ("multiple", 'size="2"'))
+def test_listbox_select_retains_all_option_prose(attributes: str) -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            f"<select {attributes}><option>no</option>"
+            "<option></option></select> web fetching is enabled."
+        )
+        == []
+    )
+
+
+def test_closed_dialog_body_cannot_supply_an_authority_denial() -> None:
+    assert verifier._find_forbidden_authority_claims(
+        "<dialog>no </dialog>UAA can fetch from the public web."
+    )
+
+
+def test_open_dialog_body_remains_visible() -> None:
+    assert (
+        verifier._find_forbidden_authority_claims(
+            "<dialog open>no </dialog>web fetching is enabled."
+        )
+        == []
     )
 
 

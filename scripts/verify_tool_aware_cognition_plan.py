@@ -2686,7 +2686,7 @@ def _constant_css_calculation(value: str) -> float | None:
 
     index = 0
 
-    def parse_expression(depth: int = 0) -> float | None:
+    def parse_expression(depth: int = 0) -> tuple[float, str] | None:
         nonlocal index
         left = parse_term(depth + 1)
         if left is None:
@@ -2704,12 +2704,17 @@ def _constant_css_calculation(value: str) -> float | None:
             right = parse_term(depth + 1)
             if right is None:
                 return None
-            left = left + right if operator == "+" else left - right
-            if not isfinite(left):
+            left = (
+                left[0] + right[0] if operator == "+" else left[0] - right[0],
+                "percentage"
+                if "percentage" in {left[1], right[1]}
+                else "number",
+            )
+            if not isfinite(left[0]):
                 return None
         return left
 
-    def parse_term(depth: int) -> float | None:
+    def parse_term(depth: int) -> tuple[float, str] | None:
         nonlocal index
         left = parse_unary(depth + 1)
         if left is None:
@@ -2718,14 +2723,28 @@ def _constant_css_calculation(value: str) -> float | None:
             operator = tokens[index][0]
             index += 1
             right = parse_unary(depth + 1)
-            if right is None or (operator == "/" and right == 0):
+            if right is None or (operator == "/" and right[0] == 0):
                 return None
-            left = left * right if operator == "*" else left / right
-            if not isfinite(left):
+            if operator == "*":
+                if left[1] != "number" and right[1] != "number":
+                    return None
+                left = (
+                    left[0] * right[0],
+                    "percentage"
+                    if "percentage" in {left[1], right[1]}
+                    else "number",
+                )
+            elif right[1] == "number":
+                left = (left[0] / right[0], left[1])
+            elif left[1] == "percentage":
+                left = (left[0] / right[0], "number")
+            else:
+                return None
+            if not isfinite(left[0]):
                 return None
         return left
 
-    def parse_unary(depth: int) -> float | None:
+    def parse_unary(depth: int) -> tuple[float, str] | None:
         nonlocal index
         if depth > 64 or index >= len(tokens):
             return None
@@ -2735,10 +2754,10 @@ def _constant_css_calculation(value: str) -> float | None:
             operand = parse_unary(depth + 1)
             if operand is None:
                 return None
-            return operand if operator == "+" else -operand
+            return operand if operator == "+" else (-operand[0], operand[1])
         return parse_primary(depth + 1)
 
-    def parse_primary(depth: int) -> float | None:
+    def parse_primary(depth: int) -> tuple[float, str] | None:
         nonlocal index
         if depth > 64 or index >= len(tokens):
             return None
@@ -2748,7 +2767,11 @@ def _constant_css_calculation(value: str) -> float | None:
             percentage = raw.endswith("%")
             parsed = float(raw[:-1] if percentage else raw)
             parsed = parsed / 100 if percentage else parsed
-            return parsed if isfinite(parsed) else None
+            return (
+                (parsed, "percentage" if percentage else "number")
+                if isfinite(parsed)
+                else None
+            )
         if kind == "calc":
             index += 1
             if (
@@ -2767,7 +2790,7 @@ def _constant_css_calculation(value: str) -> float | None:
         return parsed
 
     result = parse_expression()
-    return result if result is not None and index == len(tokens) else None
+    return result[0] if result is not None and index == len(tokens) else None
 
 
 def _inline_style_hides_contents(attributes: str) -> bool:
@@ -2924,6 +2947,7 @@ def _visibility_visible_descendants(text: str, *, depth: int = 0) -> str:
             continue
         if (
             lower_name in {"script", "style", "template", "iframe"}
+            or (lower_name == "dialog" and "open" not in attribute_names)
             or _hidden_attribute_suppresses(attribute_names, properties)
             or properties.get("display") == "none"
             or _opacity_hides_contents(properties.get("opacity"))
@@ -2994,6 +3018,7 @@ def _strip_raw_text_elements(text: str) -> str:
         style_properties = _inline_style_properties(attributes)
         subtree_non_rendered = (
             name.lower() in {"script", "style", "template", "iframe"}
+            or (name.lower() == "dialog" and "open" not in attribute_names)
             or _hidden_attribute_suppresses(attribute_names, style_properties)
             or style_properties.get("display") == "none"
             or _opacity_hides_contents(style_properties.get("opacity"))
@@ -3117,6 +3142,95 @@ def _strip_collapsed_details(text: str, *, depth: int = 0) -> str:
         cursor = element_end
     output.append(text[cursor:])
     return "".join(output)
+
+
+def _strip_collapsed_selects(text: str, *, depth: int = 0) -> str:
+    """Retain only the initially rendered option of collapsed selects."""
+    if depth > 64:
+        raise RuntimeError("HTML select nesting exceeds the scan bound")
+    output: list[str] = []
+    cursor = 0
+    opening = re.compile(r"<select(?=[\s/>])", re.IGNORECASE)
+    while (match := opening.search(text, cursor)) is not None:
+        if _is_markdown_escaped(text, match.start()):
+            output.append(text[cursor : match.start() + 1])
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None:
+            break
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            output.append(text[cursor : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        attribute_names = _html_attribute_names(attributes)
+        raw_size = _html_attribute_value(attributes, "size")
+        try:
+            list_size = int(unescape(raw_size).strip()) if raw_size else 0
+        except ValueError:
+            list_size = 0
+        if "multiple" in attribute_names or list_size > 1:
+            output.append(text[cursor : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        element_end = _find_balanced_element_end(text, opening_end + 1, "select")
+        if element_end is None:
+            output.append(text[cursor : opening_end + 1])
+            cursor = opening_end + 1
+            continue
+        output.append(text[cursor : match.start()])
+        content_start = opening_end + 1
+        content_end = _matching_closing_start(
+            text, content_start, element_end, "select"
+        )
+        option_bounds = _selected_option_bounds(text, content_start, content_end)
+        if option_bounds is not None:
+            option_start, option_end = option_bounds
+            output.append(" ")
+            output.append(
+                _strip_collapsed_selects(
+                    text[option_start:option_end], depth=depth + 1
+                )
+            )
+            output.append(" ")
+        cursor = element_end
+    output.append(text[cursor:])
+    return "".join(output)
+
+
+def _selected_option_bounds(
+    text: str, content_start: int, content_end: int
+) -> tuple[int, int] | None:
+    """Return the selected option body, or the first option body by default."""
+    cursor = content_start
+    first: tuple[int, int] | None = None
+    selected: tuple[int, int] | None = None
+    opening = re.compile(r"<option(?=[\s/>])", re.IGNORECASE)
+    while (match := opening.search(text, cursor, content_end)) is not None:
+        if _is_markdown_escaped(text, match.start()):
+            cursor = match.start() + 1
+            continue
+        opening_end = _find_complete_tag_end(text, match.end())
+        if opening_end is None or opening_end >= content_end:
+            break
+        attributes = text[match.end() : opening_end]
+        if not _valid_html_opening_tag_tail(attributes):
+            cursor = opening_end + 1
+            continue
+        option_end = _find_balanced_element_end(text, opening_end + 1, "option")
+        if option_end is None or option_end > content_end:
+            option_end = content_end
+        body_end = _matching_closing_start(
+            text, opening_end + 1, option_end, "option"
+        )
+        bounds = (opening_end + 1, body_end)
+        if first is None:
+            first = bounds
+        if "selected" in _html_attribute_names(attributes):
+            selected = bounds
+        cursor = max(option_end, opening_end + 1)
+    return selected or first
 
 
 def _first_direct_summary_bounds(
@@ -3289,6 +3403,17 @@ def _accessible_html_alternative(name: str, attributes: str) -> str | None:
         return value
     if input_type in {"checkbox", "color", "file", "radio", "range"}:
         return None
+    if input_type == "number":
+        valid_number = value is not None and re.fullmatch(
+            r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?", value
+        )
+        return (
+            None
+            if valid_number is not None
+            else _html_attribute_value(attributes, "placeholder")
+        )
+    if input_type in {"date", "datetime-local", "month", "time", "week"}:
+        return None
     if input_type == "password":
         return (
             _html_attribute_value(attributes, "placeholder")
@@ -3343,6 +3468,7 @@ def _normalize_markdown_prose(text: str) -> str:
     normalized = _strip_raw_text_elements(text)
     normalized = _strip_raw_html_constructs(normalized)
     normalized = _strip_collapsed_details(normalized)
+    normalized = _strip_collapsed_selects(normalized)
     # Remove tag attributes before balancing link-label brackets. CommonMark
     # treats brackets inside quoted attributes as HTML data, not label closers.
     normalized = _strip_html_tags(normalized)
