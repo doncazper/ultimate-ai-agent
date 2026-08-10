@@ -59,7 +59,8 @@ another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks, including custom Python item/module/directory collectors,
 fail closed. Collection hooks in changed repository plugins
-registered through a `conftest.py` `pytest_plugins` binding also fail closed,
+registered through a `conftest.py` `pytest_plugins` binding, including one in a
+hidden directory beneath `tests`, also fail closed,
 as do parameterized fixtures declared by those registered plugins.
 Wildcard imports in tests, class-body parameter bindings,
 repository-file/directory-backed local or imported parameter data (including
@@ -89,7 +90,8 @@ closed; bounded function aliases participate in static function-level `__test__`
 writes (including assignment-expression aliases), deletion of a resolved
 function-level `__test__` override restores the declaration, bounded static
 falsy function-level values are treated as disabled, incompatible execution-time
-rebinding of a recognized `unittest.TestCase` alias, including from executable
+rebinding of a recognized `unittest.TestCase` alias, including conditional
+constructor targets and class-body writes through `globals()`, and including from executable
 function defaults, annotations, decorators, or class bodies that write a declared
 global, fails closed,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
@@ -97,8 +99,10 @@ decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
-bodies, instance-field initializers, relative side-effect imports, and
-expression-conditional registrations fail closed; ordinary, typed,
+bodies, ordinary or computed instance-field initializers, relative side-effect
+imports even when comments separate the keyword and module, conditional suite
+exits before later registrations, and expression-conditional registrations fail
+closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 including nontrivial wrapped initializers that contain a recognized runner API,
 and recognized runner APIs also fail closed when shadowed in a local

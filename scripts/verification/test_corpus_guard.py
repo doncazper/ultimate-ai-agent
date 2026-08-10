@@ -1897,6 +1897,10 @@ def _python_inventory_entries(
             return value.id in class_aliases
         if isinstance(value, ast.NamedExpr):
             return may_resolve_local_class(value.value)
+        if isinstance(value, ast.IfExp):
+            return may_resolve_local_class(value.body) or may_resolve_local_class(
+                value.orelse
+            )
         return False
 
     for module_node in _module_execution_nodes(tree):
@@ -2147,8 +2151,32 @@ def _python_inventory_entries(
             elif isinstance(execution_node, ast.AnnAssign):
                 targets = (execution_node.target,)
                 value = execution_node.value
+            elif isinstance(execution_node, ast.AugAssign):
+                targets = (execution_node.target,)
+                value = execution_node.value
+            elif isinstance(execution_node, ast.Delete):
+                targets = execution_node.targets
+                value = None
             else:
                 continue
+            namespace_targets = tuple(
+                name
+                for target in targets
+                for name in _module_namespace_write_targets(target)
+            )
+            if any(name is None for name in namespace_targets):
+                rebound.update(unittest_test_case_aliases)
+                rebound.update(unresolved_unittest_test_case_aliases)
+            else:
+                rebound.update(
+                    name
+                    for name in namespace_targets
+                    if name
+                    in {
+                        *unittest_test_case_aliases,
+                        *unresolved_unittest_test_case_aliases,
+                    }
+                )
             for target in targets:
                 rebound.update(
                     name
@@ -3464,14 +3492,15 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
 def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
     discovered: list[str] = []
     for root, directory_names, file_names in os.walk(repo, followlinks=False):
+        root_path = Path(root)
         directory_names[:] = sorted(
             name
             for name in directory_names
-            if not _is_pytest_ignored_directory_name(name)
+            if not _is_discovery_ignored_directory(repo, root_path, name)
         )
         if "conftest.py" not in file_names:
             continue
-        relative = (Path(root) / "conftest.py").relative_to(repo).as_posix()
+        relative = (root_path / "conftest.py").relative_to(repo).as_posix()
         discovered.append(relative)
         if len(discovered) > MAX_CHANGED_TEST_PATHS:
             raise TestCorpusGuardError("pytest conftest path count exceeds budget")

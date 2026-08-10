@@ -16,7 +16,9 @@ IMPORT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
 )
 SIDE_EFFECT_IMPORT_PATTERN = re.compile(
-    r"\bimport\s*(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+    r"\bimport(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r?\n|$))*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)",
+    re.DOTALL,
 )
 NAMESPACE_IMPORT_PATTERN = re.compile(
     r"\bimport\s+\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)\s+from\s*"
@@ -395,14 +397,17 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             scan_text,
             initializer_start,
         )
-        initializer = scan_text[initializer_start:initializer_end]
-        if re.search(
-            rf"<[^;\r\n]+>\s*{api_names_pattern}\b",
-            initializer,
-        ):
-            raise FrontendInventoryError(
-                "frontend test API alias cannot be inventoried safely"
-            )
+        for assertion_start in range(initializer_start, initializer_end):
+            if scan_text[assertion_start] != "<":
+                continue
+            assertion_end = angle_assertion_end(assertion_start)
+            if assertion_end is None or assertion_end > initializer_end:
+                continue
+            base_start = _skip_static_trivia(text, assertion_end)
+            if re.match(api_names_pattern, scan_text[base_start:initializer_end]):
+                raise FrontendInventoryError(
+                    "frontend test API alias cannot be inventoried safely"
+                )
 
     declaration_pattern = re.compile(
         rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
@@ -1821,7 +1826,7 @@ def _unproven_registration_regions(
         rf"(?:^|[;\r\n])\s*"
         rf"(?P<modifiers>(?:(?:public|private|protected|readonly|declare|"
         rf"abstract|override|accessor|static)\s+)*)"
-        rf"(?:#{TEST_API_NAME}|{TEST_API_NAME})(?:[!?])?"
+        rf"(?:#{TEST_API_NAME}|{TEST_API_NAME}|\[[^\]\r\n]+\])(?:[!?])?"
         rf"(?:\s*:\s*[^=;\r\n]+)?\s*=\s*"
     )
     for class_match in class_pattern.finditer(scan_text):
@@ -1842,6 +1847,46 @@ def _unproven_registration_regions(
                     ),
                 )
             )
+
+    nested_suite_bodies = tuple(suite_bodies)
+    conditional_pattern = re.compile(r"\bif\s*(?P<condition>\()")
+    for suite_start, suite_end in suite_bodies:
+        for conditional_match in conditional_pattern.finditer(
+            scan_text,
+            suite_start + 1,
+            suite_end - 1,
+        ):
+            conditional_start = conditional_match.start()
+            if any(
+                start < conditional_start < end
+                for start, end in (*block_regions, *expression_regions)
+            ) or any(
+                start < conditional_start < end
+                for start, end in nested_suite_bodies
+                if (start, end) != (suite_start, suite_end)
+            ):
+                continue
+            condition_end = _skip_balanced(
+                text,
+                conditional_match.start("condition"),
+            )
+            statement_start = _skip_static_trivia(text, condition_end)
+            if statement_start >= suite_end:
+                continue
+            statement_end = (
+                _skip_balanced(text, statement_start)
+                if text[statement_start] == "{"
+                else _unbraced_expression_end(
+                    text,
+                    scan_text,
+                    statement_start,
+                )
+            )
+            if re.search(
+                r"\b(?:return|throw)\b",
+                scan_text[statement_start:statement_end],
+            ):
+                expression_regions.add((statement_end, suite_end))
 
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
 
