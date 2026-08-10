@@ -58,7 +58,9 @@ import-function aliases, and module-executed dynamic Python code through `exec`,
 imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Changes to an ancestor
 test-package `__init__.py` also recheck every test beneath that package because
-package initialization is an implicit collection dependency. Dynamic, mutated,
+package initialization is an implicit collection dependency; a changed
+initializer that contains a module-level pytest collection abort in either
+revision fails closed. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks, including custom Python item/module/directory collectors,
 fail closed. Collection hooks in changed repository plugins
@@ -66,7 +68,9 @@ registered through a `conftest.py` `pytest_plugins` binding or imported directly
 under a recognized hook name, including one in a hidden directory beneath
 `tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
-as do parameterized fixtures declared by those registered plugins. Configuration-
+as do parameterized fixtures declared by those registered plugins. The pytest
+plugins loaded directly by the canonical shard runner, plus their bounded local
+dependency closure, are part of the same fail-closed change boundary. Configuration-
 and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
 `pytest_configure`, `pytest_load_initial_conftests`, `pytest_plugin_registered`,
 and `pytest_sessionstart` are included in that fail-closed hook boundary.
@@ -94,7 +98,8 @@ or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
-safely. Parameterized fixtures, execution-time rebinding of imported pytest
+safely. Parameterized fixtures, including parameterized fixture factories
+applied after function definition, execution-time rebinding of imported pytest
 fixture roots, their `fixture` attributes, or directly imported fixture aliases,
 and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), with
@@ -115,7 +120,8 @@ constructor targets, indirect `setattr`/`delattr` mutations, imported `unittest`
 module aliases, and class-body writes through `globals()`, including from executable
 function defaults, annotations, decorators, or class bodies that write a declared
 global, fails closed,
-class-level parametrizing `pytestmark`, unresolved or bare parametrization
+class-level parametrizing `pytestmark`, rebound or mutated imported pytest mark
+aliases, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed.
 Statically non-callable module constants and literal containers may retain

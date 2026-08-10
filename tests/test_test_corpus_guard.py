@@ -933,6 +933,29 @@ def test_python_inventory_rejects_bare_parametrize_decorators(
         )
 
 
+@pytest.mark.parametrize(
+    "rebind",
+    (
+        "mark = object()",
+        "mark.disable = lambda function: None",
+    ),
+)
+def test_python_inventory_rejects_rebound_imported_pytest_mark(
+    rebind: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="Python test decorator",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "from pytest import mark\n"
+            f"{rebind}\n"
+            "@mark.disable\n"
+            "def test_case(): pass\n",
+        )
+
+
 def test_python_inventory_rejects_tests_inside_module_control_flow() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -980,6 +1003,13 @@ if True:
             "def test_case(value): pass\n"
             'pytest.mark.parametrize("value", [1, 2])(test_case)\n',
             "post-definition Python parametrization",
+        ),
+        (
+            "import pytest\n"
+            "def value(): return 1\n"
+            "value = pytest.fixture(params=[1, 2])(value)\n"
+            "def test_case(value): assert value\n",
+            "parameterized Python fixtures",
         ),
         (
             'def test_case(): pass\nglobals().update({"test_case": None})\n',
@@ -2593,6 +2623,7 @@ def test_changed_test_paths_disable_rename_collapsing(
         "apps",
         guard.PYTHON_TEST_GIT_PATHSPEC,
         *guard.FRONTEND_SOURCE_GIT_PATHSPECS,
+        *sorted(guard._pytest_runner_plugin_dependency_paths(Path("."))),
     ]
     assert captured_without_configs == [
         [
@@ -2992,15 +3023,28 @@ def test_changed_python_dataset_rechecks_importing_test(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_sample.py",)
 
 
-def test_changed_python_package_initializer_rechecks_package_tests(
+@pytest.mark.parametrize(
+    ("current", "prior"),
+    (
+        (
+            "import pytest\npytest.skip('disabled', allow_module_level=True)\n",
+            "",
+        ),
+        (
+            "",
+            "import pytest\npytest.skip('disabled', allow_module_level=True)\n",
+        ),
+    ),
+)
+def test_changed_python_package_initializer_collection_abort_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    current: str,
+    prior: str,
 ) -> None:
     package = tmp_path / "tests/pkg"
     package.mkdir(parents=True)
-    (package / "__init__.py").write_text(
-        "import pytest\npytest.skip('disabled', allow_module_level=True)\n"
-    )
+    (package / "__init__.py").write_text(current)
     (package / "test_sample.py").write_text("def test_case(): pass\n")
     outputs = iter((b"tests/pkg/__init__.py\0", b"", b"", b""))
     monkeypatch.setattr(
@@ -3010,6 +3054,36 @@ def test_changed_python_package_initializer_rechecks_package_tests(
             args=[], returncode=0, stdout=next(outputs), stderr=b""
         ),
     )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: prior if path == "tests/pkg/__init__.py" else None,
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="package initializer collection abort",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_python_package_initializer_rechecks_package_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = tmp_path / "tests/pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("PACKAGE_MODE = 'current'\n")
+    (package / "test_sample.py").write_text("def test_case(): pass\n")
+    outputs = iter((b"tests/pkg/__init__.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
 
     assert guard._changed_test_paths(tmp_path, "a" * 40) == (
         "tests/pkg/test_sample.py",
@@ -3210,6 +3284,43 @@ def test_changed_pytest_runner_configuration_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="pytest runner configuration",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize(
+    "changed_path",
+    (
+        "scripts/verification/collection_helper.py",
+        "scripts/verification/__init__.py",
+    ),
+)
+def test_changed_runner_loaded_pytest_plugin_dependency_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changed_path: str,
+) -> None:
+    verification = tmp_path / "scripts/verification"
+    verification.mkdir(parents=True)
+    (verification / "pytest_collection_evidence.py").write_text(
+        "from scripts.verification import collection_helper\n"
+    )
+    (verification / "collection_helper.py").write_text(
+        "def pytest_collection_modifyitems(items): items.clear()\n"
+    )
+    (verification / "__init__.py").write_text("")
+    outputs = iter((f"{changed_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runner-loaded pytest plugin",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

@@ -68,6 +68,12 @@ PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/run_pytest_shards.py",
 }
+PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
+    {
+        "scripts.verification.pytest_collection_evidence",
+        "scripts.verification.pytest_safe_failure_plugin",
+    }
+)
 VITEST_CONFIG_EXTENSIONS = ("js", "mjs", "cjs", "ts", "mts", "cts")
 FRONTEND_COLLECTION_CONFIG_PATHS = {
     *(
@@ -854,6 +860,34 @@ def _post_definition_parametrize_targets(
     return targets
 
 
+def _post_definition_parameterized_fixture_targets(
+    tree: ast.Module,
+    fixture_aliases: set[str],
+    factory_aliases: set[str],
+) -> set[str]:
+    targets: set[str] = set()
+    for child in ast.walk(tree):
+        if not isinstance(child, ast.Call):
+            continue
+        factory = child.func
+        is_parameterized_factory = (
+            isinstance(factory, ast.Call)
+            and _is_fixture_callable(factory.func, fixture_aliases)
+            and any(keyword.arg in {None, "params"} for keyword in factory.keywords)
+        ) or (isinstance(factory, ast.Name) and factory.id in factory_aliases)
+        if not is_parameterized_factory:
+            continue
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(child.lineno, child.col_offset),
+        )
+        for argument in child.args:
+            root = _root_name(argument)
+            if root is not None:
+                targets.add(name_aliases.get(root, root))
+    return targets
+
+
 def _python_import_modules(
     tree: ast.Module,
     *,
@@ -1026,6 +1060,17 @@ def _is_pytest_collection_abort_call(
         and isinstance(keyword.value, ast.Constant)
         and keyword.value.value is True
         for keyword in node.keywords
+    )
+
+
+def _has_module_level_pytest_collection_abort(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    aliases = _pytest_collection_abort_aliases(tree, imported_modules)
+    return any(
+        _is_pytest_collection_abort_call(node, imported_modules, aliases)
+        for node in _module_execution_nodes(tree)
     )
 
 
@@ -1559,6 +1604,43 @@ def _python_import_requirements(
     return requirements
 
 
+def _is_unrebound_pytest_mark(
+    target: ast.expr,
+    imported_modules: dict[str, tuple[str, ...]],
+    module_bindings: dict[str, tuple[_ModuleBinding, ...]],
+    *,
+    cutoff: tuple[int, int],
+    shadowed_import_names: frozenset[str] = frozenset(),
+) -> bool:
+    if not isinstance(target, ast.Attribute):
+        return False
+    attributes: list[str] = []
+    current: ast.expr = target
+    while isinstance(current, ast.Attribute):
+        attributes.append(current.attr)
+        current = current.value
+    if not isinstance(current, ast.Name):
+        return False
+    candidates = imported_modules.get(current.id, ())
+    imported_from_pytest = any(
+        candidate == "pytest" or candidate.startswith("pytest.")
+        for candidate in candidates
+    )
+    rebound_before_collection = any(
+        (binding.node.lineno, binding.node.col_offset) < cutoff
+        for binding in module_bindings.get(current.id, ())
+    )
+    return (
+        imported_from_pytest
+        and current.id not in shadowed_import_names
+        and not rebound_before_collection
+        and (
+            "mark" in attributes
+            or (current.id == "mark" and "pytest.mark" in candidates)
+        )
+    )
+
+
 def _parameterized_ref(
     raw_ref: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -1569,27 +1651,17 @@ def _parameterized_ref(
     *,
     container_decorators: tuple[ast.expr, ...] = (),
     collection_lineno: int | None = None,
+    shadowed_import_names: frozenset[str] = frozenset(),
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
 
     def is_proven_pytest_mark(target: ast.expr) -> bool:
-        if not isinstance(target, ast.Attribute):
-            return False
-        attributes: list[str] = []
-        current: ast.expr = target
-        while isinstance(current, ast.Attribute):
-            attributes.append(current.attr)
-            current = current.value
-        if not isinstance(current, ast.Name):
-            return False
-        candidates = imported_modules.get(current.id, ())
-        imported_from_pytest = any(
-            candidate == "pytest" or candidate.startswith("pytest.")
-            for candidate in candidates
-        )
-        return imported_from_pytest and (
-            "mark" in attributes
-            or (current.id == "mark" and "pytest.mark" in candidates)
+        return _is_unrebound_pytest_mark(
+            target,
+            imported_modules,
+            module_bindings,
+            cutoff=(collection_lineno or node.lineno, 0),
+            shadowed_import_names=shadowed_import_names,
         )
 
     def is_supported_decorator(decorator: ast.expr) -> bool:
@@ -2030,11 +2102,6 @@ def _python_inventory_entries(
         ) from exc
 
     imported_modules = _python_import_modules(tree)
-    collection_abort_aliases = _pytest_collection_abort_aliases(
-        tree,
-        imported_modules,
-    )
-
     if any(
         isinstance(node, ast.ImportFrom)
         and any(imported.name == "*" for imported in node.names)
@@ -2063,14 +2130,7 @@ def _python_inventory_entries(
                 )
             imported_test_class_candidates.append((local, candidates))
 
-    if any(
-        _is_pytest_collection_abort_call(
-            node,
-            imported_modules,
-            collection_abort_aliases,
-        )
-        for node in _module_execution_nodes(tree)
-    ):
+    if _has_module_level_pytest_collection_abort(tree, imported_modules):
         raise TestCorpusGuardError(
             "module-level pytest collection abort cannot be inventoried safely"
         )
@@ -2135,6 +2195,11 @@ def _python_inventory_entries(
             "module-level dynamic Python code cannot be inventoried safely"
         )
 
+    defined_function_names = {
+        child.name
+        for child in ast.walk(tree)
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
     if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "pytest_generate_tests"
@@ -2883,6 +2948,13 @@ def _python_inventory_entries(
             for decorator in node.decorator_list
         )
         for node in ast.walk(tree)
+    ) or (
+        _post_definition_parameterized_fixture_targets(
+            tree,
+            fixture_aliases,
+            parameterized_fixture_factories,
+        )
+        & defined_function_names
     ):
         raise TestCorpusGuardError(
             "parameterized Python fixtures cannot be inventoried safely"
@@ -3255,9 +3327,12 @@ def _python_inventory_entries(
             is_parametrize = (
                 isinstance(target, ast.Attribute) and target.attr == "parametrize"
             ) or (isinstance(target, ast.Name) and target.id in parametrize_aliases)
-            is_static_pytest_mark = isinstance(target, ast.Attribute) and _root_name(
-                target
-            ) in {"pytest", "mark"}
+            is_static_pytest_mark = _is_unrebound_pytest_mark(
+                target,
+                imported_modules,
+                module_bindings,
+                cutoff=(class_node.lineno, 0),
+            )
             if not is_parametrize and not is_static_pytest_mark:
                 raise TestCorpusGuardError(
                     "Python test class decorator cannot be inventoried safely"
@@ -3332,6 +3407,21 @@ def _python_inventory_entries(
             )
             for name in _binding_target_names(target)
         }
+        class_shadowed_import_names = set(class_binding_names)
+        for class_execution_node in _scope_execution_nodes(node.body):
+            if isinstance(class_execution_node, ast.Assign):
+                mutation_targets = class_execution_node.targets
+            elif isinstance(class_execution_node, (ast.AnnAssign, ast.AugAssign)):
+                mutation_targets = (class_execution_node.target,)
+            elif isinstance(class_execution_node, ast.Delete):
+                mutation_targets = class_execution_node.targets
+            else:
+                continue
+            class_shadowed_import_names.update(
+                root
+                for target in mutation_targets
+                if (root := _root_name(target)) is not None
+            )
         for method_name, method in collected_methods(node, set()).items():
             if fixture_decorated(method):
                 continue
@@ -3354,6 +3444,7 @@ def _python_inventory_entries(
                 import_source_resolver,
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
+                shadowed_import_names=frozenset(class_shadowed_import_names),
             )
             entries.append(
                 (raw_ref, "python_test", _python_node_source(source_lines, method))
@@ -3396,6 +3487,15 @@ def _python_package_initializer_paths(path: str) -> set[str]:
     parent = Path(path).parent
     initializers: set[str] = set()
     while parent.parts and parent.parts[0] == "tests":
+        initializers.add((parent / "__init__.py").as_posix())
+        parent = parent.parent
+    return initializers
+
+
+def _python_ancestor_initializer_paths(path: str) -> set[str]:
+    parent = Path(path).parent
+    initializers: set[str] = set()
+    while parent.parts:
         initializers.add((parent / "__init__.py").as_posix())
         parent = parent.parent
     return initializers
@@ -3469,6 +3569,20 @@ def _python_dependency_paths(
         dependency_paths.update(candidate_paths)
         pending.extend(imported_module_names)
     return dependency_paths
+
+
+def _pytest_runner_plugin_dependency_paths(repo: Path) -> set[str]:
+    dependencies = _python_dependency_paths(
+        repo,
+        set(PYTEST_RUNNER_PLUGIN_MODULES),
+    )
+    dependencies.update(
+        initializer
+        for dependency in tuple(dependencies)
+        if dependency.endswith(".py")
+        for initializer in _python_ancestor_initializer_paths(dependency)
+    )
+    return dependencies
 
 
 def _python_import_resolver(
@@ -4009,6 +4123,20 @@ def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
     factory_aliases = _parameterized_fixture_factory_aliases(tree, fixture_aliases)
     if factory_aliases:
         return True
+    defined_function_names = {
+        child.name
+        for child in ast.walk(tree)
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    if (
+        _post_definition_parameterized_fixture_targets(
+            tree,
+            fixture_aliases,
+            factory_aliases,
+        )
+        & defined_function_names
+    ):
+        return True
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
@@ -4150,10 +4278,12 @@ def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
 
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
+    runner_plugin_dependencies = _pytest_runner_plugin_dependency_paths(repo)
     change_roots = [
         "apps",
         PYTHON_TEST_GIT_PATHSPEC,
         *FRONTEND_SOURCE_GIT_PATHSPECS,
+        *sorted(runner_plugin_dependencies),
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
@@ -4209,6 +4339,28 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    if all_changed & runner_plugin_dependencies:
+        raise TestCorpusGuardError(
+            "changed runner-loaded pytest plugin cannot be inventoried safely"
+        )
+    for path in all_changed:
+        if not path.startswith("tests/") or Path(path).name != "__init__.py":
+            continue
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        for source in (current, prior):
+            try:
+                tree = ast.parse(source, filename=path)
+            except SyntaxError as exc:
+                raise TestCorpusGuardError(
+                    "changed Python package initializer cannot be inventoried safely"
+                ) from exc
+            imported_modules = _python_import_modules(tree)
+            if _has_module_level_pytest_collection_abort(tree, imported_modules):
+                raise TestCorpusGuardError(
+                    "changed Python package initializer collection abort cannot be "
+                    "inventoried safely"
+                )
     current_frontend_config_dependencies = _frontend_dependency_paths(
         set(FRONTEND_COLLECTION_CONFIG_PATHS),
         lambda candidate: (
