@@ -15,6 +15,9 @@ IMPORT_PATTERN = re.compile(
     r"\bimport\s*\{(?P<members>[^}]*)\}\s*from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
 )
+SIDE_EFFECT_IMPORT_PATTERN = re.compile(
+    r"\bimport\s*(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+)
 NAMESPACE_IMPORT_PATTERN = re.compile(
     r"\bimport\s+\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)\s+from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
@@ -385,6 +388,21 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         raise FrontendInventoryError(
             "frontend test API alias cannot be inventoried safely"
         )
+    for match in angle_alias_pattern.finditer(scan_text):
+        initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        initializer_end = _unbraced_expression_end(
+            text,
+            scan_text,
+            initializer_start,
+        )
+        initializer = scan_text[initializer_start:initializer_end]
+        if re.search(
+            rf"<[^;\r\n]+>\s*{api_names_pattern}\b",
+            initializer,
+        ):
+            raise FrontendInventoryError(
+                "frontend test API alias cannot be inventoried safely"
+            )
 
     declaration_pattern = re.compile(
         rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
@@ -1796,6 +1814,35 @@ def _unproven_registration_regions(
         if body_start is not None:
             record_body(body_start)
 
+    class_pattern = re.compile(
+        rf"\bclass(?:\s+{TEST_API_NAME})?[^{{}};\r\n]*?(?P<body>\{{)"
+    )
+    field_pattern = re.compile(
+        rf"(?:^|[;\r\n])\s*"
+        rf"(?P<modifiers>(?:(?:public|private|protected|readonly|declare|"
+        rf"abstract|override|accessor|static)\s+)*)"
+        rf"(?:#{TEST_API_NAME}|{TEST_API_NAME})(?:[!?])?"
+        rf"(?:\s*:\s*[^=;\r\n]+)?\s*=\s*"
+    )
+    for class_match in class_pattern.finditer(scan_text):
+        body_start = class_match.start("body")
+        body_end = _skip_balanced(text, body_start)
+        body_scan = scan_text[body_start + 1 : body_end - 1]
+        for field_match in field_pattern.finditer(body_scan):
+            if "static" in field_match.group("modifiers").split():
+                continue
+            initializer_start = body_start + 1 + field_match.end()
+            expression_regions.add(
+                (
+                    initializer_start,
+                    _unbraced_expression_end(
+                        text,
+                        scan_text,
+                        initializer_start,
+                    ),
+                )
+            )
+
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
 
 
@@ -2010,6 +2057,14 @@ def _frontend_inventory_entries(
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
+    if any(
+        match.group("module").startswith(".")
+        and scan_text[match.start() : match.start() + len("import")] == "import"
+        for match in SIDE_EFFECT_IMPORT_PATTERN.finditer(text)
+    ):
+        raise FrontendInventoryError(
+            "frontend side-effect import cannot be inventoried safely"
+        )
     direct_pattern, each_pattern, conditional_pattern = _patterns(
         _test_api_names(text, scan_text)
     )

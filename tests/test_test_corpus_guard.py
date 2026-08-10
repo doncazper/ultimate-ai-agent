@@ -1084,6 +1084,12 @@ if True:
             "post-definition Python class constructor mutation",
         ),
         (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "(Alias := TestGroup).__init__ = lambda self: None\n",
+            "post-definition Python class constructor mutation",
+        ),
+        (
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Base.__new__ = lambda cls: object.__new__(cls)\n"
@@ -1105,6 +1111,16 @@ if True:
             "Alias.__test__ = False\n"
             "class TestGroup(Base): pass\n",
             "post-definition Python class __test__ mutation",
+        ),
+        (
+            "import unittest\n"
+            "Case = unittest.TestCase\n"
+            "class Helper:\n"
+            "    global Case\n"
+            "    Case = object\n"
+            "class WidgetCases(Case):\n"
+            "    def test_widget(self): pass\n",
+            "unittest.TestCase alias",
         ),
     ),
 )
@@ -1786,6 +1802,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
             "test API alias",
         ),
         (
+            'const spec = (0, <typeof test>test);\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
             "const spec = <ReturnType<() => typeof test>>test;\n"
             'spec("case", () => {});\n',
             "test API alias",
@@ -2220,10 +2240,7 @@ def test_malformed_canonical_ci_base_fails_closed(
 @pytest.mark.parametrize(
     "path",
     (
-        "tests/example_test.py",
         "tests/test_example.py",
-        "scripts/example_test.py",
-        "src/package/test_example.py",
         "apps/control-center/src/example.test.ts",
         "apps/control-center/src/example.test.tsx",
         "apps/control-center/src/example.spec.ts",
@@ -2236,17 +2253,23 @@ def test_supported_test_paths_cover_collector_suffixes(path: str) -> None:
     assert guard._is_test_path(path)
 
 
-def test_discovery_covers_python_tests_outside_tests_directory(tmp_path: Path) -> None:
+def test_python_discovery_matches_shard_runner_including_hidden_paths(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "tests/.hidden").mkdir(parents=True)
     (tmp_path / "src/package").mkdir(parents=True)
     (tmp_path / "scripts").mkdir()
     (tmp_path / ".venv/lib").mkdir(parents=True)
+    (tmp_path / "tests/test_visible.py").write_text("def test_case(): pass\n")
+    (tmp_path / "tests/.hidden/test_hidden.py").write_text("def test_case(): pass\n")
+    (tmp_path / "tests/example_test.py").write_text("def test_case(): pass\n")
     (tmp_path / "src/package/test_feature.py").write_text("def test_case(): pass\n")
     (tmp_path / "scripts/feature_test.py").write_text("def test_case(): pass\n")
     (tmp_path / ".venv/lib/test_ignored.py").write_text("def test_case(): pass\n")
 
     assert guard.discover_test_files(tmp_path) == (
-        "scripts/feature_test.py",
-        "src/package/test_feature.py",
+        "tests/.hidden/test_hidden.py",
+        "tests/test_visible.py",
     )
 
 
@@ -3769,6 +3792,10 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            'class Registrar { registration = test("case", () => {}); }\n',
+            "registration context",
+        ),
+        (
             'class Helper { register<T>() { test("case", () => {}); } }\n',
             "registration context",
         ),
@@ -3837,6 +3864,28 @@ describe("function suite", function () {
     assert len(declarations) == 2
     assert declarations[0].ref.endswith("::case")
     assert declarations[1].ref.endswith("::function case")
+
+
+def test_frontend_inventory_allows_static_field_registration() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        'class Registrar { static registration = test("case", () => {}); }\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.ts::case"
+    ]
+
+
+def test_frontend_inventory_rejects_relative_side_effect_imports() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="side-effect import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'import "./registerCases";\n',
+        )
 
 
 def test_frontend_inventory_binds_nested_spread_parameter_data() -> None:

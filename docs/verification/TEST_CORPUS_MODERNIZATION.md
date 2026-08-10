@@ -25,7 +25,8 @@ evidence-aware rather than globally one-task-at-a-time.
 ## Phase 01 Contract
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python test-file
-declarations repository-wide and Control Center `.test`/`.spec` declarations
+declarations from the shard runner's exact recursive `tests/test_*.py` scope,
+including hidden subdirectories, and Control Center `.test`/`.spec` declarations
 across the complete default Vitest file scope; Control Center discovery applies
 Vitest's `node_modules` and `.git` directory exclusions instead of pytest's
 broader generated-environment exclusions,
@@ -89,13 +90,15 @@ writes (including assignment-expression aliases), deletion of a resolved
 function-level `__test__` override restores the declaration, bounded static
 falsy function-level values are treated as disabled, incompatible execution-time
 rebinding of a recognized `unittest.TestCase` alias, including from executable
-function defaults, annotations, or decorators, fails closed,
+function defaults, annotations, decorators, or class bodies that write a declared
+global, fails closed,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
-bodies and expression-conditional registrations fail closed; ordinary, typed,
+bodies, instance-field initializers, relative side-effect imports, and
+expression-conditional registrations fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 including nontrivial wrapped initializers that contain a recognized runner API,
 and recognized runner APIs also fail closed when shadowed in a local

@@ -1891,6 +1891,14 @@ def _python_inventory_entries(
         if not added:
             break
         class_aliases.update(added)
+
+    def may_resolve_local_class(value: ast.AST) -> bool:
+        if isinstance(value, ast.Name):
+            return value.id in class_aliases
+        if isinstance(value, ast.NamedExpr):
+            return may_resolve_local_class(value.value)
+        return False
+
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.Assign):
             targets = module_node.targets
@@ -1904,8 +1912,7 @@ def _python_inventory_entries(
             target.attr
             for target in targets
             if isinstance(target, ast.Attribute)
-            and isinstance(target.value, ast.Name)
-            and target.value.id in class_aliases
+            and may_resolve_local_class(target.value)
             and target.attr in {"__test__", "__init__", "__new__"}
         }
         if "__test__" in mutated_attributes:
@@ -2119,9 +2126,47 @@ def _python_inventory_entries(
             return candidates
         return set()
 
+    def class_global_unittest_rebindings(class_node: ast.ClassDef) -> set[str]:
+        execution_nodes = _scope_execution_nodes(class_node.body)
+        global_names = {
+            name
+            for execution_node in execution_nodes
+            if isinstance(execution_node, ast.Global)
+            for name in execution_node.names
+        }
+        rebound = {
+            name
+            for execution_node in execution_nodes
+            for name in execution_time_unittest_rebindings(execution_node)
+            if name in global_names
+        }
+        for execution_node in execution_nodes:
+            if isinstance(execution_node, ast.Assign):
+                targets = execution_node.targets
+                value = execution_node.value
+            elif isinstance(execution_node, ast.AnnAssign):
+                targets = (execution_node.target,)
+                value = execution_node.value
+            else:
+                continue
+            for target in targets:
+                rebound.update(
+                    name
+                    for name in unresolved_unittest_aliases(target, value)
+                    if name in global_names
+                )
+        for execution_node in execution_nodes:
+            if isinstance(execution_node, ast.ClassDef):
+                rebound.update(class_global_unittest_rebindings(execution_node))
+        return rebound
+
     for module_node in _module_execution_nodes(tree):
         unresolved_unittest_test_case_aliases.update(
             execution_time_unittest_rebindings(module_node)
+        )
+    for class_node in class_nodes:
+        unresolved_unittest_test_case_aliases.update(
+            class_global_unittest_rebindings(class_node)
         )
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.AugAssign):
@@ -3680,6 +3725,8 @@ def _is_discovery_ignored_directory(repo: Path, root: Path, name: str) -> bool:
     relative = (root / name).relative_to(repo)
     if relative.parts[:2] == ("apps", "control-center"):
         return name in FRONTEND_IGNORED_DIRECTORY_NAMES
+    if relative.parts and relative.parts[0] == "tests":
+        return False
     return _is_pytest_ignored_directory_name(name)
 
 
@@ -3687,10 +3734,8 @@ def _is_python_test_path(path: str) -> bool:
     candidate = Path(path)
     return (
         candidate.suffix == ".py"
-        and (candidate.name.startswith("test_") or candidate.name.endswith("_test.py"))
-        and not any(
-            _is_pytest_ignored_directory_name(part) for part in candidate.parts[:-1]
-        )
+        and candidate.name.startswith("test_")
+        and candidate.parts[:1] == ("tests",)
     )
 
 
