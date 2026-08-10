@@ -657,6 +657,21 @@ def test_python_inventory_rejects_rebound_unittest_testcase_alias() -> None:
         )
 
 
+def test_python_inventory_rejects_loop_rebound_unittest_testcase_alias() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic unittest.TestCase alias",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            "Case = unittest.TestCase\n"
+            "for Case in [object]: pass\n"
+            "class WidgetCases(Case):\n"
+            "    def test_widget(self): pass\n",
+        )
+
+
 def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -800,6 +815,24 @@ def test_python_inventory_tracks_function_alias_test_mutation(
     )
 
     assert declarations == ()
+
+
+def test_python_inventory_tracks_walrus_function_alias_mutation() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(): pass\n(Alias := test_case).__test__ = False\n",
+    )
+
+    assert declarations == ()
+
+
+def test_python_inventory_reenables_deleted_function_test_attribute() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(): pass\ntest_case.__test__ = False\ndel test_case.__test__\n",
+    )
+
+    assert [item.ref for item in declarations] == ["tests/test_sample.py::test_case"]
 
 
 def test_python_inventory_rejects_dynamic_function_alias_test_mutation() -> None:
@@ -1704,6 +1737,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         ),
         (
             'const spec = <typeof test>test;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = (<typeof test>test);\nspec("case", () => {});\n',
             "test API alias",
         ),
         (
@@ -3637,6 +3674,11 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         (
             "function register(): keyof { a: string } { "
             'test("case", () => {}); return "a"; }\nregister();\n',
+            "registration context",
+        ),
+        (
+            "function register(value: unknown): value is { a: string } { "
+            'test("case", () => {}); return true; }\nregister();\n',
             "registration context",
         ),
         (

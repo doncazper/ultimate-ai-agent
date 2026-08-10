@@ -322,21 +322,25 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         return index if angle_depth == 0 else None
 
     def angle_asserted_alias(match: re.Match[str]) -> bool:
-        initializer_start = _skip_static_trivia(text, match.end("assignment"))
-        assertion_end = angle_assertion_end(initializer_start)
+        index = _skip_static_trivia(text, match.end("assignment"))
+        outer_wrapper_count = 0
+        while index < len(scan_text) and scan_text[index] == "(":
+            outer_wrapper_count += 1
+            index = _skip_static_trivia(text, index + 1)
+        assertion_end = angle_assertion_end(index)
         if assertion_end is None:
             return False
         index = _skip_static_trivia(text, assertion_end)
-        wrapper_count = 0
+        inner_wrapper_count = 0
         while index < len(scan_text) and scan_text[index] == "(":
-            wrapper_count += 1
+            inner_wrapper_count += 1
             index = _skip_static_trivia(text, index + 1)
         base_match = re.match(api_names_pattern, scan_text[index:])
         if base_match is None:
             return False
         base = base_match.group(0)
         index += len(base)
-        for _ in range(wrapper_count):
+        for _ in range(outer_wrapper_count + inner_wrapper_count):
             index = _skip_static_trivia(text, index)
             if index >= len(scan_text) or scan_text[index] != ")":
                 return False
@@ -1616,7 +1620,7 @@ def _function_body_after_parameters(
                 or (
                     trailing_word is not None
                     and trailing_word.group(1)
-                    in {"extends", "infer", "keyof", "readonly", "typeof"}
+                    in {"extends", "infer", "is", "keyof", "readonly", "typeof"}
                 )
             ):
                 index = _skip_balanced(text, index)

@@ -1564,15 +1564,23 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
                 else:
                     unresolved_function_aliases.discard(name)
 
+    def function_mutation_declaration(value: ast.AST) -> str | None:
+        if isinstance(value, ast.NamedExpr):
+            update_function_alias(value.target, value.value)
+            root = value.target.id if isinstance(value.target, ast.Name) else None
+        else:
+            root = _root_name(value)
+        if root in unresolved_function_aliases or (
+            root is None and may_resolve_function(value)
+        ):
+            raise TestCorpusGuardError(
+                "dynamic Python function __test__ mutation cannot be inventoried safely"
+            )
+        return root if root in active else function_aliases.get(root or "")
+
     def update_test_binding(target: ast.AST, value: ast.AST) -> None:
         if isinstance(target, ast.Attribute) and target.attr == "__test__":
-            root = _root_name(target.value)
-            if root in unresolved_function_aliases:
-                raise TestCorpusGuardError(
-                    "dynamic Python function __test__ mutation cannot be "
-                    "inventoried safely"
-                )
-            declaration = root if root in active else function_aliases.get(root or "")
+            declaration = function_mutation_declaration(target.value)
             if declaration is None:
                 return
             if isinstance(value, ast.Constant):
@@ -1618,6 +1626,16 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
                 strict=True,
             ):
                 update_test_binding(target_item, value_item)
+
+    def delete_test_binding(target: ast.AST) -> None:
+        if isinstance(target, ast.Attribute) and target.attr == "__test__":
+            declaration = function_mutation_declaration(target.value)
+            if declaration is not None:
+                disabled.discard(declaration)
+            return
+        if isinstance(target, (ast.List, ast.Tuple)):
+            for target_item in target.elts:
+                delete_test_binding(target_item)
 
     for node in body:
         if isinstance(
@@ -1682,6 +1700,8 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
         elif isinstance(node, (ast.AugAssign, ast.Delete)):
             targets = node.targets if isinstance(node, ast.Delete) else (node.target,)
             for target in targets:
+                if isinstance(node, ast.Delete):
+                    delete_test_binding(target)
                 for name in _binding_target_names(target):
                     function_aliases.pop(name, None)
                     unresolved_function_aliases.discard(name)
@@ -1998,6 +2018,69 @@ def _python_inventory_entries(
             break
         unittest_test_case_aliases.update(added)
         unresolved_unittest_test_case_aliases.update(unresolved_added)
+
+    def execution_time_unittest_rebindings(module_node: ast.AST) -> set[str]:
+        targets: tuple[ast.AST, ...] = ()
+        values: tuple[ast.AST, ...] = ()
+        direct_names: set[str] = set()
+        if isinstance(module_node, (ast.For, ast.AsyncFor)):
+            targets = (module_node.target,)
+            values = (module_node.iter,)
+        elif isinstance(module_node, (ast.With, ast.AsyncWith)):
+            targets = tuple(
+                item.optional_vars
+                for item in module_node.items
+                if item.optional_vars is not None
+            )
+            values = tuple(item.context_expr for item in module_node.items)
+        elif isinstance(module_node, ast.NamedExpr):
+            targets = (module_node.target,)
+            values = (module_node.value,)
+        elif isinstance(module_node, ast.ExceptHandler):
+            if module_node.name is not None:
+                direct_names.add(module_node.name)
+        elif isinstance(
+            module_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ):
+            direct_names.add(module_node.name)
+        elif isinstance(module_node, ast.Import):
+            direct_names.update(
+                imported.asname or imported.name.split(".", 1)[0]
+                for imported in module_node.names
+            )
+        elif isinstance(module_node, ast.ImportFrom):
+            direct_names.update(
+                imported.asname or imported.name for imported in module_node.names
+            )
+            if module_node.module == "unittest":
+                direct_names.difference_update(
+                    imported.asname or imported.name
+                    for imported in module_node.names
+                    if imported.name == "TestCase"
+                )
+        elif isinstance(module_node, ast.MatchAs):
+            if module_node.name is not None:
+                direct_names.add(module_node.name)
+        elif isinstance(module_node, ast.MatchStar):
+            if module_node.name is not None:
+                direct_names.add(module_node.name)
+        elif isinstance(module_node, ast.MatchMapping):
+            if module_node.rest is not None:
+                direct_names.add(module_node.rest)
+        target_names = {
+            name for target in targets for name in _binding_target_names(target)
+        }
+        candidates = direct_names | target_names
+        if candidates & unittest_test_case_aliases or any(
+            may_resolve_unittest_test_case(value) for value in values
+        ):
+            return candidates
+        return set()
+
+    for module_node in _module_execution_nodes(tree):
+        unresolved_unittest_test_case_aliases.update(
+            execution_time_unittest_rebindings(module_node)
+        )
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.AugAssign):
             mutation_targets = (module_node.target,)
