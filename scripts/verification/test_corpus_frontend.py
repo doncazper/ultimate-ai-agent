@@ -387,6 +387,43 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         suffix_start = _skip_static_trivia(text, match.end("base"))
         return not text.startswith(".extend", suffix_start)
 
+    def has_unproven_runner_reference(
+        initializer_start: int,
+        initializer_end: int,
+    ) -> bool:
+        for runner_match in re.finditer(
+            rf"(?<![.\w$]){api_names_pattern}(?![\w$])",
+            scan_text[initializer_start:initializer_end],
+        ):
+            index = _skip_static_trivia(
+                text,
+                initializer_start + runner_match.end(),
+            )
+            if index >= initializer_end:
+                return True
+            if scan_text[index] == "(":
+                continue
+            if scan_text[index] != ".":
+                return True
+            member_match = re.match(
+                rf"(?:\s*\.\s*{TEST_API_NAME})+",
+                scan_text[index:initializer_end],
+            )
+            if member_match is None:
+                return True
+            member_source = member_match.group(0)
+            index = _skip_static_trivia(text, index + member_match.end())
+            if index >= initializer_end or scan_text[index] != "(":
+                return True
+            call_end = _skip_balanced(text, index)
+            if re.search(r"\.\s*extend\b", member_source):
+                continue
+            if re.search(r"\.\s*each\b", member_source):
+                next_call = _skip_static_trivia(text, call_end)
+                if next_call >= initializer_end or scan_text[next_call] != "(":
+                    return True
+        return False
+
     if any(
         match.group("alias") != match.group("base")
         and match.start("alias") not in recognized_extensions
@@ -398,6 +435,7 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         raise FrontendInventoryError(
             "frontend test API alias cannot be inventoried safely"
         )
+    unproven_runner_alias = False
     for match in angle_alias_pattern.finditer(scan_text):
         initializer_start = _skip_static_trivia(text, match.end("assignment"))
         initializer_end = _unbraced_expression_end(
@@ -424,6 +462,10 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             raise FrontendInventoryError(
                 "frontend test API alias cannot be inventoried safely"
             )
+        unproven_runner_alias = unproven_runner_alias or (
+            match.start("alias") not in recognized_extensions
+            and has_unproven_runner_reference(initializer_start, initializer_end)
+        )
 
     declaration_pattern = re.compile(
         rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
@@ -491,6 +533,10 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             raise FrontendInventoryError(
                 "frontend extended test API cannot be inventoried safely"
             )
+    if unproven_runner_alias:
+        raise FrontendInventoryError(
+            "frontend test API alias cannot be inventoried safely"
+        )
     return names
 
 

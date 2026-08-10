@@ -72,7 +72,8 @@ in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute.
 Python test-class aliases, assigned or imported `unittest.TestCase` aliases
-(with dynamic construction or incompatible rebinding rejected),
+(with dynamic construction, module-attribute writes, or incompatible rebinding
+rejected),
 collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), direct module
@@ -82,7 +83,8 @@ or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
-safely. Parameterized fixtures and local parameterized-fixture decorator
+safely. Parameterized fixtures, execution-time rebinding of imported pytest
+fixture roots or directly imported fixture aliases, and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), with
 unqualified attribute-based fixture decorators rejected rather than silently
 treated as pytest fixtures, dynamic
@@ -90,7 +92,7 @@ module/class `pytestmark` mutations through direct, aliased, or chained-assignme
 bindings, post-definition `__test__` writes to local classes or their direct or
 bounded-unpacking aliases, post-definition `__init__` or `__new__` writes to
 local classes or their aliases, and direct, augmented, deleted, conditional, or
-indirect function-level `__test__` writes fail
+indirect function-level `__test__` writes (including through bounded aliases) fail
 closed; bounded function aliases participate in static function-level `__test__`
 writes (including assignment-expression aliases), deletion of a resolved
 function-level `__test__` override restores the declaration, bounded static
@@ -111,7 +113,8 @@ keyword and module or the runtime import uses an empty named clause, conditional
 `if`/`switch` suite exits before later registrations, and expression-conditional
 registrations and runner aliases fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
-including nontrivial wrapped initializers that contain a recognized runner API,
+including bounded nontrivial initializers that retain a recognized runner API
+reference rather than invoking it,
 and recognized runner APIs also fail closed when shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to the Control Center Vitest or

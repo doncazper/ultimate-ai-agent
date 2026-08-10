@@ -230,14 +230,22 @@ def _module_namespace_write_targets(
     return (None,)
 
 
-def _is_globals_call(node: ast.AST) -> bool:
+def _is_module_namespace_call(
+    node: ast.AST,
+    *,
+    accessors: frozenset[str] = frozenset({"globals"}),
+) -> bool:
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id == "globals"
+        and node.func.id in accessors
         and not node.args
         and not node.keywords
     )
+
+
+def _is_globals_call(node: ast.AST) -> bool:
+    return _is_module_namespace_call(node)
 
 
 def _is_globals_namespace_mutator_call(node: ast.AST) -> bool:
@@ -249,7 +257,11 @@ def _is_globals_namespace_mutator_call(node: ast.AST) -> bool:
     )
 
 
-def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
+def _is_module_namespace_alias_binding(
+    node: ast.AST,
+    *,
+    accessors: frozenset[str] = frozenset({"globals"}),
+) -> bool:
     if isinstance(node, ast.Assign):
         targets = node.targets
         value = node.value
@@ -261,9 +273,13 @@ def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
         value = node.value
     else:
         return False
-    return _is_globals_call(value) and any(
+    return _is_module_namespace_call(value, accessors=accessors) and any(
         _binding_target_names(target) for target in targets
     )
+
+
+def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
+    return _is_module_namespace_alias_binding(node)
 
 
 def _module_name_aliases(
@@ -483,11 +499,53 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
         if imported.name == "pytest"
     }
     aliases = {f"{root}.fixture" for root in pytest_roots}
+    imported_fixture_names: set[str] = set()
     for node in tree.body:
         if isinstance(node, ast.ImportFrom) and node.module == "pytest":
             for imported in node.names:
                 if imported.name == "fixture":
-                    aliases.add(imported.asname or imported.name)
+                    local_name = imported.asname or imported.name
+                    aliases.add(local_name)
+                    imported_fixture_names.add(local_name)
+    protected_names = pytest_roots | imported_fixture_names
+    for node in _module_execution_nodes(tree):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = (node.target,)
+        elif isinstance(node, ast.Delete):
+            targets = node.targets
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            targets = (node.target,)
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            targets = tuple(
+                item.optional_vars
+                for item in node.items
+                if item.optional_vars is not None
+            )
+        else:
+            targets = ()
+        rebound = {name for target in targets for name in _binding_target_names(target)}
+        if isinstance(node, ast.ExceptHandler) and node.name is not None:
+            rebound.add(node.name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            rebound.add(node.name)
+        elif isinstance(node, ast.Import):
+            rebound.update(
+                imported.asname or imported.name.split(".", 1)[0]
+                for imported in node.names
+                if imported.name != "pytest"
+            )
+        elif isinstance(node, ast.ImportFrom):
+            rebound.update(
+                imported.asname or imported.name
+                for imported in node.names
+                if not (node.module == "pytest" and imported.name == "fixture")
+            )
+        if rebound & protected_names:
+            raise TestCorpusGuardError(
+                "dynamic pytest fixture alias cannot be inventoried safely"
+            )
     changed = True
     while changed:
         changed = False
@@ -1980,6 +2038,33 @@ def _python_inventory_entries(
         for imported in node.names
         if imported.name == "unittest"
     }
+    for module_node in _module_execution_nodes(tree):
+        if isinstance(module_node, ast.Assign):
+            targets = module_node.targets
+        elif isinstance(module_node, (ast.AnnAssign, ast.AugAssign)):
+            targets = (module_node.target,)
+        elif isinstance(module_node, ast.Delete):
+            targets = module_node.targets
+        else:
+            targets = ()
+        if any(
+            isinstance(target, ast.Attribute)
+            and target.attr == "TestCase"
+            and _root_name(target.value) in unittest_roots
+            for target in targets
+        ):
+            raise TestCorpusGuardError(
+                "dynamic unittest.TestCase attribute cannot be inventoried safely"
+            )
+        mutation = mutated_attribute_call(module_node)
+        if (
+            mutation is not None
+            and _root_name(mutation[0]) in unittest_roots
+            and mutation[1] in {None, "TestCase"}
+        ):
+            raise TestCorpusGuardError(
+                "dynamic unittest.TestCase attribute cannot be inventoried safely"
+            )
     used_unittest_roots = {
         root
         for class_node in class_nodes
@@ -2541,6 +2626,12 @@ def _python_inventory_entries(
         if mutation is None:
             continue
         target_root = _root_name(mutation[0])
+        if target_root is not None:
+            aliases = _module_name_aliases(
+                tree,
+                before=(module_node.lineno, module_node.col_offset),
+            )
+            target_root = aliases.get(target_root, target_root)
         if target_root not in collected_binding_names:
             continue
         if mutation[1] is None or mutation[1] == "__test__":
@@ -2552,7 +2643,13 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
-    if any(_is_globals_namespace_alias_binding(node) for node in ast.walk(tree)):
+    if any(
+        _is_module_namespace_alias_binding(
+            node,
+            accessors=frozenset({"globals", "locals", "vars"}),
+        )
+        for node in ast.walk(tree)
+    ):
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
@@ -3562,7 +3659,31 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
             "pytest plugin registration cannot be inventoried safely"
         ) from exc
     modules: set[str] = set()
+    if any(
+        _is_globals_namespace_mutator_call(node)
+        or _is_globals_namespace_alias_binding(node)
+        for node in ast.walk(tree)
+    ):
+        raise TestCorpusGuardError(
+            "pytest plugin registration cannot be inventoried safely"
+        )
     for node in _module_execution_nodes(tree):
+        if isinstance(node, ast.Assign):
+            indirect_targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            indirect_targets = (node.target,)
+        elif isinstance(node, ast.Delete):
+            indirect_targets = node.targets
+        else:
+            indirect_targets = ()
+        if any(
+            target is None or target == "pytest_plugins"
+            for indirect_target in indirect_targets
+            for target in _module_namespace_write_targets(indirect_target)
+        ):
+            raise TestCorpusGuardError(
+                "pytest plugin registration cannot be inventoried safely"
+            )
         if isinstance(node, (ast.AugAssign, ast.Delete)) and any(
             name == "pytest_plugins"
             for target in (

@@ -1106,6 +1106,12 @@ if True:
             "function __test__ mutation",
         ),
         (
+            "def test_case(): pass\n"
+            "alias = test_case\n"
+            "setattr(alias, '__test__', False)\n",
+            "function __test__ mutation",
+        ),
+        (
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Base.__new__ = lambda cls: object.__new__(cls)\n"
@@ -1146,11 +1152,43 @@ if True:
             "unittest module alias",
         ),
         (
+            "import unittest as u\n"
+            "Original = u.TestCase\n"
+            "u.TestCase = object\n"
+            "class WidgetCases(u.TestCase):\n"
+            "    def test_widget(self): pass\n"
+            "u.TestCase = Original\n",
+            "unittest.TestCase attribute",
+        ),
+        (
+            "import pytest as p\np = helpers\n@p.fixture\ndef test_case(): pass\n",
+            "pytest fixture alias",
+        ),
+        (
+            "from pytest import fixture as fx\n"
+            "fx = helpers.fixture\n"
+            "@fx\n"
+            "def test_case(): pass\n",
+            "pytest fixture alias",
+        ),
+        (
             "def test_case(): pass\nlocals()['test_case'] = None\n",
             "indirect Python test-name rebinding",
         ),
         (
             "def test_case(): pass\nvars()['test_case'] = None\n",
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "def test_case(): pass\n"
+            "namespace = locals()\n"
+            "namespace['test_case'] = None\n",
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "def test_case(): pass\n"
+            "namespace = vars()\n"
+            "namespace['test_case'] = None\n",
             "indirect Python test-name rebinding",
         ),
         (
@@ -1871,6 +1909,14 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         ),
         (
             'const spec = enabled ? test : helper;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = (helper, test);\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = (helper, test.only);\nspec("case", () => {});\n',
             "test API alias",
         ),
         (
@@ -4088,6 +4134,22 @@ def test_changed_conftest_pytest_plugins_binding_fails_closed(
         match="changed pytest plugin registration",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'globals()["pytest_plugins"] = ["tests.collection_plugin"]\n',
+        "namespace = globals()\n"
+        'namespace["pytest_plugins"] = ["tests.collection_plugin"]\n',
+    ),
+)
+def test_indirect_pytest_plugins_binding_fails_closed(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest plugin registration",
+    ):
+        guard._pytest_plugin_modules(source, "tests/conftest.py")
 
 
 def test_changed_conftest_parameterized_fixture_fails_closed(
