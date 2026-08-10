@@ -672,6 +672,30 @@ def test_python_inventory_rejects_loop_rebound_unittest_testcase_alias() -> None
         )
 
 
+@pytest.mark.parametrize(
+    "definition",
+    (
+        "def helper(value=(Case := object)): pass",
+        "@((Case := object))\ndef helper(): pass",
+    ),
+)
+def test_python_inventory_rejects_definition_time_unittest_alias_rebinding(
+    definition: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic unittest.TestCase alias",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            "Case = unittest.TestCase\n"
+            f"{definition}\n"
+            "class WidgetCases(Case):\n"
+            "    def test_widget(self): pass\n",
+        )
+
+
 def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -1051,6 +1075,20 @@ if True:
             "Base.__test__ = False\n"
             "class TestGroup(Base): pass\n",
             "post-definition Python class __test__ mutation",
+        ),
+        (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "Alias = TestGroup\n"
+            "Alias.__init__ = lambda self: None\n",
+            "post-definition Python class constructor mutation",
+        ),
+        (
+            "class Base:\n"
+            "    def test_inherited(self): pass\n"
+            "Base.__new__ = lambda cls: object.__new__(cls)\n"
+            "class TestGroup(Base): pass\n",
+            "post-definition Python class constructor mutation",
         ),
         (
             "class Base:\n"
@@ -1744,6 +1782,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
             "test API alias",
         ),
         (
+            'const spec = ((<typeof test>test), test);\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
             "const spec = <ReturnType<() => typeof test>>test;\n"
             'spec("case", () => {});\n',
             "test API alias",
@@ -2269,6 +2311,7 @@ def test_changed_test_paths_disable_rename_collapsing(
     )
     config_paths = [
         *sorted(guard.PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(guard.PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
         *sorted(guard.FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
     ]
@@ -2807,6 +2850,42 @@ def test_changed_pytest_collection_configuration_fails_closed(
     )
 
     with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize("config_path", sorted(guard.PYTEST_RUNNER_CONFIG_PATHS))
+def test_changed_pytest_runner_configuration_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_path: str,
+) -> None:
+    current = "current runner configuration\n"
+    prior = "prior runner configuration\n"
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(current)
+    outputs = iter(
+        (
+            f"{config_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest runner configuration",
+    ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 

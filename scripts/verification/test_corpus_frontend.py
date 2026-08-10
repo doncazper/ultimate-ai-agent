@@ -343,7 +343,9 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         for _ in range(outer_wrapper_count + inner_wrapper_count):
             index = _skip_static_trivia(text, index)
             if index >= len(scan_text) or scan_text[index] != ")":
-                return False
+                raise FrontendInventoryError(
+                    "frontend test API alias cannot be inventoried safely"
+                )
             index += 1
         suffix_start = _skip_static_trivia(text, index)
         return (

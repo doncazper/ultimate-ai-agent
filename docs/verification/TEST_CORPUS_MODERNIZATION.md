@@ -66,6 +66,8 @@ aliased readers, directory enumeration, and constructed classes), and changes
 to pytest collection configuration
 in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
+Changes to the canonical pytest shard runner or its command manifest also fail
+closed because those files define which Python tests execute.
 Python test-class aliases, assigned or imported `unittest.TestCase` aliases
 (with dynamic construction or incompatible rebinding rejected),
 collected-class
@@ -80,12 +82,14 @@ safely. Parameterized fixtures and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
 bindings, post-definition `__test__` writes to local classes or their direct or
-bounded-unpacking aliases, and dynamic function-level `__test__` writes fail
+bounded-unpacking aliases, post-definition `__init__` or `__new__` writes to
+local classes or their aliases, and dynamic function-level `__test__` writes fail
 closed; bounded function aliases participate in static function-level `__test__`
 writes (including assignment-expression aliases), deletion of a resolved
 function-level `__test__` override restores the declaration, bounded static
 falsy function-level values are treated as disabled, incompatible execution-time
-rebinding of a recognized `unittest.TestCase` alias fails closed,
+rebinding of a recognized `unittest.TestCase` alias, including from executable
+function defaults, annotations, or decorators, fails closed,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
@@ -93,6 +97,7 @@ registrations inside unresolved function (including one with a bounded TypeScrip
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
 bodies and expression-conditional registrations fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
+including nontrivial wrapped initializers that contain a recognized runner API,
 and recognized runner APIs also fail closed when shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to the Control Center Vitest or

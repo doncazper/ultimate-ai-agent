@@ -61,6 +61,10 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
     "setup.cfg",
     "tox.ini",
 }
+PYTEST_RUNNER_CONFIG_PATHS = {
+    "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/run_pytest_shards.py",
+}
 FRONTEND_COLLECTION_CONFIG_PATHS = {
     "apps/control-center/vite.config.ts",
     "apps/control-center/playwright.smoke.config.ts",
@@ -626,6 +630,36 @@ def _python_import_modules(
     return modules
 
 
+def _definition_time_nodes(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> tuple[ast.AST, ...]:
+    expressions: list[ast.AST] = [*node.decorator_list]
+    expressions.extend(getattr(node, "type_params", ()))
+    if isinstance(node, ast.ClassDef):
+        expressions.extend(node.bases)
+        expressions.extend(keyword.value for keyword in node.keywords)
+        return tuple(expressions)
+    arguments = node.args
+    expressions.extend(arguments.defaults)
+    expressions.extend(
+        default for default in arguments.kw_defaults if default is not None
+    )
+    expressions.extend(
+        argument.annotation
+        for argument in (
+            *arguments.posonlyargs,
+            *arguments.args,
+            *arguments.kwonlyargs,
+            *((arguments.vararg,) if arguments.vararg is not None else ()),
+            *((arguments.kwarg,) if arguments.kwarg is not None else ()),
+        )
+        if argument.annotation is not None
+    )
+    if node.returns is not None:
+        expressions.append(node.returns)
+    return tuple(expressions)
+
+
 def _scope_execution_nodes(body: list[ast.stmt]) -> tuple[ast.AST, ...]:
     pending: list[ast.AST] = list(reversed(body))
     nodes: list[ast.AST] = []
@@ -633,6 +667,7 @@ def _scope_execution_nodes(body: list[ast.stmt]) -> tuple[ast.AST, ...]:
         node = pending.pop()
         nodes.append(node)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            pending.extend(reversed(_definition_time_nodes(node)))
             continue
         pending.extend(reversed(tuple(ast.iter_child_nodes(node))))
     return tuple(nodes)
@@ -1865,15 +1900,22 @@ def _python_inventory_entries(
             targets = module_node.targets
         else:
             continue
-        if any(
-            isinstance(target, ast.Attribute)
-            and target.attr == "__test__"
+        mutated_attributes = {
+            target.attr
+            for target in targets
+            if isinstance(target, ast.Attribute)
             and isinstance(target.value, ast.Name)
             and target.value.id in class_aliases
-            for target in targets
-        ):
+            and target.attr in {"__test__", "__init__", "__new__"}
+        }
+        if "__test__" in mutated_attributes:
             raise TestCorpusGuardError(
                 "post-definition Python class __test__ mutation cannot be "
+                "inventoried safely"
+            )
+        if mutated_attributes & {"__init__", "__new__"}:
+            raise TestCorpusGuardError(
+                "post-definition Python class constructor mutation cannot be "
                 "inventoried safely"
             )
     unittest_roots = {
@@ -3397,6 +3439,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         PYTHON_TEST_GIT_PATHSPEC,
         *FRONTEND_SOURCE_GIT_PATHSPECS,
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
         *sorted(FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
     ]
@@ -3450,6 +3493,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if current != prior:
+            raise TestCorpusGuardError(
+                "changed pytest runner configuration cannot be inventoried safely"
+            )
     for path in FRONTEND_COLLECTION_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
