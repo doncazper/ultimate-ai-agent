@@ -568,6 +568,31 @@ class WidgetCases(unit.TestCase):
     ]
 
 
+@pytest.mark.parametrize(
+    "alias_assignment",
+    (
+        "Case = unittest.TestCase",
+        "Case = unittest.TestCase\nTransitiveCase = Case",
+        "(Case,) = (unittest.TestCase,)",
+    ),
+)
+def test_python_inventory_collects_assigned_unittest_testcase_aliases(
+    alias_assignment: str,
+) -> None:
+    base_name = "TransitiveCase" if "TransitiveCase" in alias_assignment else "Case"
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "import unittest\n"
+        f"{alias_assignment}\n"
+        f"class WidgetCases({base_name}):\n"
+        "    def test_widget(self): pass\n",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::WidgetCases::test_widget"
+    ]
+
+
 def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -656,6 +681,42 @@ class TestCases(Base):
 """,
     )
     assert class_declarations == ()
+
+
+@pytest.mark.parametrize("disabled_value", ("False", "None", "0", "0.0", "''", "[]"))
+def test_python_inventory_treats_static_falsy_test_values_as_disabled(
+    disabled_value: str,
+) -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        f"def test_disabled(): pass\ntest_disabled.__test__ = {disabled_value}\n",
+    )
+
+    assert declarations == ()
+
+
+def test_python_inventory_tracks_unpacked_and_reenabled_test_values() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_disabled(): pass\n"
+        "(test_disabled.__test__, marker) = (0, object())\n"
+        "def test_enabled(): pass\n"
+        "test_enabled.__test__ = False\n"
+        "test_enabled.__test__ = True\n",
+    )
+
+    assert [item.ref for item in declarations] == ["tests/test_sample.py::test_enabled"]
+
+
+def test_python_inventory_rejects_dynamic_function_test_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python function __test__ mutation",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "def test_case(): pass\ntest_case.__test__ = enabled\n",
+        )
 
 
 def test_python_inventory_rejects_unresolved_parametrize_alias() -> None:
@@ -3462,6 +3523,10 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            'function register(): void { test("case", () => {}); }\nregister();\n',
+            "registration context",
+        ),
+        (
             'const helper = { register() { test("case", () => {}); } };\n',
             "registration context",
         ),
@@ -3584,6 +3649,8 @@ test.each([...CASES])("case %s", () => {});
     (
         "def pytest_collection_modifyitems(items):\n    items.clear()\n",
         "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n",
+        "def pytest_pycollect_makeitem(collector, name, obj):\n    return []\n",
+        "def pytest_collect_directory(path, parent):\n    return None\n",
     ),
 )
 def test_changed_conftest_collection_hook_fails_closed(

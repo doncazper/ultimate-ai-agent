@@ -56,7 +56,8 @@ import-function aliases, fail closed. Changes to an
 imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
-`conftest.py` hooks fail closed. Collection hooks in changed repository plugins
+`conftest.py` hooks, including custom Python item/module/directory collectors,
+fail closed. Collection hooks in changed repository plugins
 registered through a `conftest.py` `pytest_plugins` binding also fail closed,
 as do parameterized fixtures declared by those registered plugins.
 Wildcard imports in tests, class-body parameter bindings,
@@ -65,7 +66,8 @@ aliased readers, directory enumeration, and constructed classes), and changes
 to pytest collection configuration
 in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
-Python test-class aliases, collected-class
+Python test-class aliases, assigned or imported `unittest.TestCase` aliases,
+collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
@@ -77,11 +79,13 @@ safely. Parameterized fixtures and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
 bindings, post-definition `__test__` writes to local classes or their direct or
-bounded-unpacking aliases,
+bounded-unpacking aliases, and dynamic function-level `__test__` writes fail
+closed; bounded static falsy function-level values are treated as disabled,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
-registrations inside unresolved function, constrained generic method, or callback
+registrations inside unresolved function (including one with a TypeScript return
+annotation), constrained generic method, or callback
 bodies and expression-conditional registrations fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 and recognized runner APIs also fail closed when shadowed in a local

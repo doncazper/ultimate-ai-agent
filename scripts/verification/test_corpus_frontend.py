@@ -1572,6 +1572,59 @@ def _unbraced_expression_end(text: str, scan_text: str, start: int) -> int:
     return len(text)
 
 
+def _function_body_after_parameters(
+    text: str,
+    scan_text: str,
+    parameters_end: int,
+) -> int | None:
+    """Locate a function body after an optional bounded TypeScript return type."""
+
+    index = _skip_static_trivia(text, parameters_end)
+    if index >= len(text):
+        return None
+    if text[index] == "{":
+        return index
+    if text[index] != ":":
+        return None
+
+    index = _skip_static_trivia(text, index + 1)
+    return_type_start = index
+    angle_depth = 0
+    while index < len(text):
+        character = scan_text[index]
+        if character.isspace():
+            index += 1
+            continue
+        if character in "([":
+            index = _skip_balanced(text, index)
+            continue
+        if character == "<":
+            angle_depth += 1
+            index += 1
+            continue
+        if character == ">" and angle_depth:
+            angle_depth -= 1
+            index += 1
+            continue
+        if character == "{":
+            prefix = scan_text[return_type_start:index].rstrip()
+            if (
+                angle_depth
+                or index == return_type_start
+                or prefix.endswith(("=>", "?", ":", "|", "&"))
+            ):
+                index = _skip_balanced(text, index)
+                continue
+            return index
+        if not angle_depth and scan_text.startswith("=>", index):
+            index += 2
+            continue
+        if not angle_depth and character in ";=":
+            return None
+        index += 1
+    return None
+
+
 def _suite_callback_body(
     text: str,
     start: int,
@@ -1663,10 +1716,12 @@ def _unproven_registration_regions(
     )
     for match in function_pattern.finditer(scan_text):
         parameters_end = _skip_balanced(text, match.start("parameters"))
-        body_start = parameters_end
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
-        if body_start < len(text) and text[body_start] == "{":
+        body_start = _function_body_after_parameters(
+            text,
+            scan_text,
+            parameters_end,
+        )
+        if body_start is not None:
             record_body(body_start)
 
     def record_arrow_body(body_start: int) -> None:
@@ -1685,8 +1740,12 @@ def _unproven_registration_regions(
         if match.group("name") in {"catch", "for", "if", "switch", "while", "with"}:
             continue
         parameters_end = _skip_balanced(text, match.start("parameters"))
-        body_start = _skip_static_trivia(text, parameters_end)
-        if body_start < len(text) and text[body_start] == "{":
+        body_start = _function_body_after_parameters(
+            text,
+            scan_text,
+            parameters_end,
+        )
+        if body_start is not None:
             record_body(body_start)
 
     generic_method_pattern = re.compile(
@@ -1717,8 +1776,12 @@ def _unproven_registration_regions(
         if parameters_start >= len(text) or text[parameters_start] != "(":
             continue
         parameters_end = _skip_balanced(text, parameters_start)
-        body_start = _skip_static_trivia(text, parameters_end)
-        if body_start < len(text) and text[body_start] == "{":
+        body_start = _function_body_after_parameters(
+            text,
+            scan_text,
+            parameters_end,
+        )
+        if body_start is not None:
             record_body(body_start)
 
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))

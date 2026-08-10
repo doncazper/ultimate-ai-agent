@@ -1510,6 +1510,51 @@ def _has_nested_python_tests(node: ast.AST) -> bool:
 def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
     active: set[str] = set()
     disabled: set[str] = set()
+
+    def update_test_binding(target: ast.AST, value: ast.AST) -> None:
+        if isinstance(target, ast.Attribute) and target.attr == "__test__":
+            root = _root_name(target.value)
+            if root not in active:
+                return
+            if isinstance(value, ast.Constant):
+                is_enabled = bool(value.value)
+            elif isinstance(value, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
+                is_enabled = bool(
+                    value.keys if isinstance(value, ast.Dict) else value.elts
+                )
+            else:
+                raise TestCorpusGuardError(
+                    "dynamic Python function __test__ mutation cannot be "
+                    "inventoried safely"
+                )
+            if is_enabled:
+                disabled.discard(root)
+            else:
+                disabled.add(root)
+            return
+        if isinstance(target, (ast.List, ast.Tuple)):
+            if not (
+                isinstance(value, (ast.List, ast.Tuple))
+                and len(target.elts) == len(value.elts)
+            ):
+                if any(
+                    isinstance(child, ast.Attribute)
+                    and child.attr == "__test__"
+                    and _root_name(child.value) in active
+                    for child in ast.walk(target)
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic Python function __test__ mutation cannot be "
+                        "inventoried safely"
+                    )
+                return
+            for target_item, value_item in zip(
+                target.elts,
+                value.elts,
+                strict=True,
+            ):
+                update_test_binding(target_item, value_item)
+
     for node in body:
         if isinstance(
             node, (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -1536,14 +1581,18 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
         disabled.update(active & rebound)
 
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
-            value = node.value
             targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
-            if isinstance(value, ast.Constant) and value.value is False:
-                for target in targets:
-                    if isinstance(target, ast.Attribute) and target.attr == "__test__":
-                        root = _root_name(target.value)
-                        if root in active:
-                            disabled.add(root)
+            for target in targets:
+                update_test_binding(target, node.value)
+        elif (
+            isinstance(node, ast.AugAssign)
+            and isinstance(node.target, ast.Attribute)
+            and node.target.attr == "__test__"
+            and _root_name(node.target.value) in active
+        ):
+            raise TestCorpusGuardError(
+                "dynamic Python function __test__ mutation cannot be inventoried safely"
+            )
     return disabled
 
 
@@ -1729,6 +1778,47 @@ def _python_inventory_entries(
         for imported in node.names
         if imported.name == "TestCase"
     }
+    unittest_test_case_aliases = set(unittest_test_case_names)
+
+    def resolved_unittest_aliases(target: ast.AST, value: ast.AST) -> set[str]:
+        if isinstance(target, ast.Name):
+            if (
+                isinstance(value, ast.Attribute)
+                and value.attr == "TestCase"
+                and _root_name(value) in unittest_roots
+            ) or (
+                isinstance(value, ast.Name) and value.id in unittest_test_case_aliases
+            ):
+                return {target.id}
+            return set()
+        if (
+            isinstance(target, (ast.List, ast.Tuple))
+            and isinstance(value, (ast.List, ast.Tuple))
+            and len(target.elts) == len(value.elts)
+        ):
+            return {
+                alias
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for alias in resolved_unittest_aliases(target_item, value_item)
+            }
+        return set()
+
+    while True:
+        added: set[str] = set()
+        for module_node in _module_execution_nodes(tree):
+            if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
+                continue
+            targets = (
+                module_node.targets
+                if isinstance(module_node, ast.Assign)
+                else (module_node.target,)
+            )
+            for target in targets:
+                added.update(resolved_unittest_aliases(target, module_node.value))
+        added -= unittest_test_case_aliases
+        if not added:
+            break
+        unittest_test_case_aliases.update(added)
     unittest_classes: set[str] = set()
     changed = True
     while changed:
@@ -1744,7 +1834,7 @@ def _python_inventory_entries(
                 )
                 or (
                     isinstance(base, ast.Name)
-                    and base.id in {*unittest_test_case_names, *unittest_classes}
+                    and base.id in {*unittest_test_case_aliases, *unittest_classes}
                 )
                 for base in class_node.bases
             ):
@@ -2157,7 +2247,9 @@ def _python_inventory_entries(
             if isinstance(base, ast.Name) and base.id in classes:
                 validate_class_bases(classes[base.id], next_visiting)
                 continue
-            if (isinstance(base, ast.Name) and base.id in unittest_test_case_names) or (
+            if (
+                isinstance(base, ast.Name) and base.id in unittest_test_case_aliases
+            ) or (
                 isinstance(base, ast.Attribute)
                 and base.attr == "TestCase"
                 and _root_name(base) in unittest_roots
@@ -3088,10 +3180,17 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             )
     collection_hook_names = (
         "collect_ignore",
+        "pytest_collection",
         "pytest_generate_tests",
         "pytest_ignore_collect",
+        "pytest_collect_directory",
         "pytest_collect_file",
+        "pytest_pycollect_makemodule",
+        "pytest_pycollect_makeitem",
+        "pytest_make_collect_report",
+        "pytest_itemcollected",
         "pytest_collection_modifyitems",
+        "pytest_collection_finish",
     )
     for path in all_changed:
         if Path(path).name != "conftest.py":
