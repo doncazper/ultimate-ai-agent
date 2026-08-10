@@ -88,6 +88,24 @@ READ_ONLY_COLLECTION_METHODS = {
     "keys",
     "values",
 }
+REPOSITORY_READER_ATTRIBUTES = {
+    "open",
+    "read",
+    "read_bytes",
+    "read_text",
+    "readlines",
+}
+REPOSITORY_READER_IMPORTS = {
+    "builtins.open",
+    "bz2.open",
+    "codecs.open",
+    "gzip.open",
+    "io.open",
+    "lzma.open",
+    "os.fdopen",
+    "os.open",
+    "tokenize.open",
+}
 FRONTEND_TEST_EXTENSIONS = (
     "js",
     "jsx",
@@ -477,6 +495,45 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
     return aliases
 
 
+def _parameterized_fixture_factory_aliases(
+    tree: ast.Module,
+    fixture_aliases: set[str],
+) -> set[str]:
+    aliases: set[str] = set()
+    scope_nodes = (
+        *_module_execution_nodes(tree),
+        *(
+            scope_node
+            for class_node in ast.walk(tree)
+            if isinstance(class_node, ast.ClassDef)
+            for scope_node in _scope_execution_nodes(class_node.body)
+        ),
+    )
+    changed = True
+    while changed:
+        changed = False
+        for node in scope_nodes:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            resolves = (
+                isinstance(value, ast.Call)
+                and _is_fixture_callable(value.func, fixture_aliases)
+                and any(keyword.arg == "params" for keyword in value.keywords)
+            ) or (isinstance(value, ast.Name) and value.id in aliases)
+            if not resolves:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
 def _is_fixture_callable(node: ast.AST, aliases: set[str]) -> bool:
     return (isinstance(node, ast.Attribute) and node.attr == "fixture") or (
         isinstance(node, ast.Name) and node.id in aliases
@@ -562,8 +619,8 @@ def _python_import_modules(
     return modules
 
 
-def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
-    pending: list[ast.AST] = list(reversed(tree.body))
+def _scope_execution_nodes(body: list[ast.stmt]) -> tuple[ast.AST, ...]:
+    pending: list[ast.AST] = list(reversed(body))
     nodes: list[ast.AST] = []
     while pending:
         node = pending.pop()
@@ -574,22 +631,26 @@ def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
     return tuple(nodes)
 
 
-def _is_pytest_collection_abort_call(
+def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
+    return _scope_execution_nodes(tree.body)
+
+
+def _pytest_collection_abort_callable_name(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
-) -> bool:
-    if not isinstance(node, ast.Call):
-        return False
-    if isinstance(node.func, ast.Attribute):
-        root = _root_name(node.func)
+    aliases: dict[str, str],
+) -> str:
+    if isinstance(node, ast.Attribute):
+        root = _root_name(node)
         if root is None:
-            return False
+            return ""
         candidates = imported_modules.get(root, ())
-        is_pytest = root == "pytest" or "pytest" in candidates
-        name = node.func.attr if is_pytest else ""
-    elif isinstance(node.func, ast.Name):
-        candidates = imported_modules.get(node.func.id, ())
-        name = next(
+        return node.attr if root == "pytest" or "pytest" in candidates else ""
+    if isinstance(node, ast.Name):
+        if node.id in aliases:
+            return aliases[node.id]
+        candidates = imported_modules.get(node.id, ())
+        return next(
             (
                 candidate.rsplit(".", 1)[-1]
                 for candidate in candidates
@@ -597,8 +658,51 @@ def _is_pytest_collection_abort_call(
             ),
             "",
         )
-    else:
+    return ""
+
+
+def _pytest_collection_abort_aliases(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            name = _pytest_collection_abort_callable_name(
+                value,
+                imported_modules,
+                aliases,
+            )
+            if name not in {"importorskip", "skip"}:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for alias in _binding_target_names(target):
+                    if aliases.get(alias) != name:
+                        aliases[alias] = name
+                        changed = True
+    return aliases
+
+
+def _is_pytest_collection_abort_call(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    if not isinstance(node, ast.Call):
         return False
+    name = _pytest_collection_abort_callable_name(
+        node.func,
+        imported_modules,
+        aliases,
+    )
     if name == "importorskip":
         return True
     return name == "skip" and any(
@@ -607,6 +711,164 @@ def _is_pytest_collection_abort_call(
         and keyword.value.value is True
         for keyword in node.keywords
     )
+
+
+def _reject_repository_reader_calls(
+    nodes: tuple[ast.AST, ...] | list[ast.AST],
+    imported_modules: dict[str, tuple[str, ...]],
+    *,
+    root_nodes: tuple[ast.AST, ...] = (),
+    root_callable_names: tuple[str, ...] = (),
+) -> None:
+    binding_nodes = {
+        (node.lineno, node.col_offset): node
+        for node in nodes
+        if hasattr(node, "lineno")
+    }
+    construction_nodes = {
+        position: node
+        for position, node in binding_nodes.items()
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+    }
+    callable_nodes = {
+        node.name: node
+        for node in binding_nodes.values()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    }
+    pending_constructors = {
+        child.func.id
+        for node in (*construction_nodes.values(), *root_nodes)
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+    }
+    pending_constructors.update(root_callable_names)
+    inspected_constructors: set[str] = set()
+    while pending_constructors:
+        name = pending_constructors.pop()
+        if name in inspected_constructors or name not in callable_nodes:
+            continue
+        inspected_constructors.add(name)
+        callable_node = callable_nodes[name]
+        if isinstance(callable_node, ast.ClassDef):
+            methods = {
+                child.name: child
+                for child in callable_node.body
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+            pending_methods = [
+                method for method in ("__init__", "__new__") if method in methods
+            ]
+            inspected_methods: set[str] = set()
+            while pending_methods:
+                method_name = pending_methods.pop()
+                if method_name in inspected_methods:
+                    continue
+                inspected_methods.add(method_name)
+                method = methods[method_name]
+                construction_nodes[(method.lineno, method.col_offset)] = method
+                pending_methods.extend(
+                    child.func.attr
+                    for child in ast.walk(method)
+                    if isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Attribute)
+                    and isinstance(child.func.value, ast.Name)
+                    and child.func.value.id in {"self", "cls"}
+                    and child.func.attr in methods
+                )
+            callable_scan_nodes: tuple[ast.AST, ...] = tuple(
+                methods[method] for method in inspected_methods
+            )
+        else:
+            construction_nodes[(callable_node.lineno, callable_node.col_offset)] = (
+                callable_node
+            )
+            callable_scan_nodes = (callable_node,)
+        pending_constructors.update(
+            child.func.id
+            for scan_node in callable_scan_nodes
+            for child in ast.walk(scan_node)
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+        )
+    inspected_nodes = tuple(construction_nodes.values())
+    reader_aliases = {"open"}
+    reader_aliases.update(
+        local_name
+        for local_name, candidates in imported_modules.items()
+        if REPOSITORY_READER_IMPORTS.intersection(candidates)
+    )
+    alias_assignments: list[tuple[tuple[str, ...], ast.expr]] = []
+
+    def assigned_names(target: ast.AST) -> tuple[str, ...]:
+        if isinstance(target, ast.Name):
+            return (target.id,)
+        if isinstance(target, (ast.List, ast.Tuple)):
+            return tuple(name for item in target.elts for name in assigned_names(item))
+        return ()
+
+    for node in inspected_nodes:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                names = tuple(
+                    name for target in child.targets for name in assigned_names(target)
+                )
+                alias_assignments.append((names, child.value))
+            elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                alias_assignments.append((assigned_names(child.target), child.value))
+            elif isinstance(child, ast.NamedExpr):
+                alias_assignments.append((assigned_names(child.target), child.value))
+    while True:
+        added = {
+            name
+            for names, value in alias_assignments
+            if (isinstance(value, ast.Name) and value.id in reader_aliases)
+            or (
+                isinstance(value, ast.Attribute)
+                and value.attr in REPOSITORY_READER_ATTRIBUTES
+            )
+            for name in names
+        } - reader_aliases
+        if not added:
+            break
+        reader_aliases.update(added)
+    if any(
+        isinstance(child, ast.Call)
+        and (
+            (isinstance(child.func, ast.Name) and child.func.id in reader_aliases)
+            or (
+                isinstance(child.func, ast.Attribute)
+                and child.func.attr in REPOSITORY_READER_ATTRIBUTES
+            )
+        )
+        for node in inspected_nodes
+        for child in ast.walk(node)
+    ):
+        raise TestCorpusGuardError(
+            "repository-file Python parameter data cannot be inventoried safely"
+        )
+
+
+def _has_dynamic_pytestmark_mutation(nodes: tuple[ast.AST, ...]) -> bool:
+    for node in nodes:
+        if isinstance(node, ast.AugAssign) and _root_name(node.target) == "pytestmark":
+            return True
+        if isinstance(node, ast.Delete) and any(
+            _root_name(target) == "pytestmark" for target in node.targets
+        ):
+            return True
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            if any(
+                _root_name(target) == "pytestmark" and not isinstance(target, ast.Name)
+                for target in targets
+            ):
+                return True
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and _root_name(node.func) == "pytestmark"
+        ):
+            return True
+    return False
 
 
 def _python_star_import_modules(
@@ -830,113 +1092,7 @@ def _python_imported_binding_source(
         ast.dump(node, annotate_fields=True, include_attributes=False)
         for _position, node in sorted(binding_nodes.items())
     ]
-    construction_nodes = {
-        position: node
-        for position, node in binding_nodes.items()
-        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign))
-    }
-    function_nodes = {
-        node.name: node
-        for node in binding_nodes.values()
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-    pending_constructors = {
-        child.func.id
-        for node in construction_nodes.values()
-        for child in ast.walk(node)
-        if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
-    }
-    inspected_constructors: set[str] = set()
-    while pending_constructors:
-        name = pending_constructors.pop()
-        if name in inspected_constructors or name not in function_nodes:
-            continue
-        inspected_constructors.add(name)
-        function_node = function_nodes[name]
-        construction_nodes[(function_node.lineno, function_node.col_offset)] = (
-            function_node
-        )
-        pending_constructors.update(
-            child.func.id
-            for child in ast.walk(function_node)
-            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
-        )
-    repository_reader_attributes = {
-        "open",
-        "read",
-        "read_bytes",
-        "read_text",
-        "readlines",
-    }
-    repository_reader_aliases = {"open"}
-    repository_reader_imports = {
-        "builtins.open",
-        "bz2.open",
-        "codecs.open",
-        "gzip.open",
-        "io.open",
-        "lzma.open",
-        "os.fdopen",
-        "os.open",
-        "tokenize.open",
-    }
-    repository_reader_aliases.update(
-        local_name
-        for local_name, candidates in imported_modules.items()
-        if repository_reader_imports.intersection(candidates)
-    )
-    alias_assignments: list[tuple[tuple[str, ...], ast.expr]] = []
-
-    def assigned_names(target: ast.expr) -> tuple[str, ...]:
-        if isinstance(target, ast.Name):
-            return (target.id,)
-        if isinstance(target, (ast.List, ast.Tuple)):
-            return tuple(name for item in target.elts for name in assigned_names(item))
-        return ()
-
-    for node in construction_nodes.values():
-        for child in ast.walk(node):
-            if isinstance(child, ast.Assign):
-                names = tuple(
-                    name for target in child.targets for name in assigned_names(target)
-                )
-                alias_assignments.append((names, child.value))
-            elif isinstance(child, ast.AnnAssign) and child.value is not None:
-                alias_assignments.append((assigned_names(child.target), child.value))
-            elif isinstance(child, ast.NamedExpr):
-                alias_assignments.append((assigned_names(child.target), child.value))
-    while True:
-        added = {
-            name
-            for names, value in alias_assignments
-            if (isinstance(value, ast.Name) and value.id in repository_reader_aliases)
-            or (
-                isinstance(value, ast.Attribute)
-                and value.attr in repository_reader_attributes
-            )
-            for name in names
-        } - repository_reader_aliases
-        if not added:
-            break
-        repository_reader_aliases.update(added)
-    if any(
-        isinstance(child, ast.Call)
-        and (
-            (
-                isinstance(child.func, ast.Name)
-                and child.func.id in repository_reader_aliases
-            )
-            or (
-                isinstance(child.func, ast.Attribute)
-                and child.func.attr in repository_reader_attributes
-            )
-        )
-        for node in construction_nodes.values()
-        for child in ast.walk(node)
-    ):
-        raise TestCorpusGuardError(
-            "repository-file Python parameter data cannot be inventoried safely"
-        )
+    _reject_repository_reader_calls(tuple(binding_nodes.values()), imported_modules)
     for root, names in sorted(imported_requirements.items()):
         candidates = imported_modules[root]
         if not candidates:
@@ -1041,19 +1197,21 @@ def _parameterized_ref(
             for candidate in candidates
         )
         return imported_from_pytest and (
-            "mark" in attributes or current.id == "mark" and "pytest.mark" in candidates
+            "mark" in attributes
+            or (current.id == "mark" and "pytest.mark" in candidates)
         )
 
     def is_supported_decorator(decorator: ast.expr) -> bool:
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
-        if (
+        is_parametrize = (
             isinstance(target, ast.Attribute)
             and target.attr == "parametrize"
             and is_proven_pytest_mark(target)
-        ) or (isinstance(target, ast.Name) and target.id in parametrize_aliases):
-            return True
+        ) or (isinstance(target, ast.Name) and target.id in parametrize_aliases)
+        if is_parametrize:
+            return isinstance(decorator, ast.Call)
         if isinstance(target, ast.Name) and "parametrize" in target.id.lower():
-            return True
+            return isinstance(decorator, ast.Call)
         if is_proven_pytest_mark(target):
             return True
         if isinstance(target, ast.Name) and target.id in {"given", "settings"}:
@@ -1063,6 +1221,26 @@ def _parameterized_ref(
             return root is not None and "hypothesis" in imported_modules.get(root, ())
         return False
 
+    bare_parametrize = any(
+        not isinstance(decorator, ast.Call)
+        and (
+            (
+                isinstance(decorator, ast.Attribute)
+                and decorator.attr == "parametrize"
+                and is_proven_pytest_mark(decorator)
+            )
+            or (
+                isinstance(decorator, ast.Name)
+                and (
+                    decorator.id in parametrize_aliases
+                    or "parametrize" in decorator.id.lower()
+                )
+            )
+        )
+        for decorator in candidate_decorators
+    )
+    if bare_parametrize:
+        raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
     if any(not is_supported_decorator(item) for item in candidate_decorators):
         raise TestCorpusGuardError("Python test decorator cannot be inventoried safely")
     decorators = tuple(
@@ -1097,11 +1275,11 @@ def _parameterized_ref(
         for decorator in decorators
     ]
     for decorator in decorators:
-        value_nodes = list(decorator.args[1:])
+        value_nodes = list(decorator.args)
         value_nodes.extend(
             keyword.value
             for keyword in decorator.keywords
-            if keyword.arg in {"argvalues", "ids"}
+            if keyword.arg in {"argnames", "argvalues", "ids"}
         )
         for value in value_nodes:
             for root, binding_names in _python_import_requirements(
@@ -1189,6 +1367,11 @@ def _parameterized_ref(
                 for child in ast.walk(binding)
                 if isinstance(child, ast.Name) and child.id not in resolved_names
             )
+    _reject_repository_reader_calls(
+        tuple(binding_nodes.values()),
+        imported_modules,
+        root_nodes=decorators,
+    )
     binding_parts = [
         "binding:" + ast.dump(binding, annotate_fields=True, include_attributes=False)
         for _position, binding in sorted(binding_nodes.items())
@@ -1295,6 +1478,10 @@ def _python_inventory_entries(
         ) from exc
 
     imported_modules = _python_import_modules(tree)
+    collection_abort_aliases = _pytest_collection_abort_aliases(
+        tree,
+        imported_modules,
+    )
 
     if any(
         isinstance(node, ast.ImportFrom)
@@ -1325,7 +1512,11 @@ def _python_inventory_entries(
             imported_test_class_candidates.append((local, candidates))
 
     if any(
-        _is_pytest_collection_abort_call(node, imported_modules)
+        _is_pytest_collection_abort_call(
+            node,
+            imported_modules,
+            collection_abort_aliases,
+        )
         for node in _module_execution_nodes(tree)
     ):
         raise TestCorpusGuardError(
@@ -1375,6 +1566,13 @@ def _python_inventory_entries(
     entries: list[tuple[str, str, str]] = []
     source_lines = text.splitlines(keepends=True)
     class_nodes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+    if _has_dynamic_pytestmark_mutation(_module_execution_nodes(tree)) or any(
+        _has_dynamic_pytestmark_mutation(_scope_execution_nodes(node.body))
+        for node in class_nodes
+    ):
+        raise TestCorpusGuardError(
+            "dynamic pytestmark mutation cannot be inventoried safely"
+        )
     class_names = [node.name for node in class_nodes]
     if len(class_names) != len(set(class_names)):
         raise TestCorpusGuardError(
@@ -1419,6 +1617,10 @@ def _python_inventory_entries(
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
     fixture_aliases = _fixture_aliases(tree)
+    parameterized_fixture_factories = _parameterized_fixture_factory_aliases(
+        tree,
+        fixture_aliases,
+    )
 
     def imported_class_has_builtin_exception_base(
         local_name: str,
@@ -1559,9 +1761,15 @@ def _python_inventory_entries(
     if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and any(
-            isinstance(decorator, ast.Call)
-            and _is_fixture_callable(decorator.func, fixture_aliases)
-            and any(keyword.arg == "params" for keyword in decorator.keywords)
+            (
+                isinstance(decorator, ast.Call)
+                and _is_fixture_callable(decorator.func, fixture_aliases)
+                and any(keyword.arg == "params" for keyword in decorator.keywords)
+            )
+            or (
+                isinstance(decorator, ast.Name)
+                and decorator.id in parameterized_fixture_factories
+            )
             for decorator in node.decorator_list
         )
         for node in ast.walk(tree)
@@ -2511,6 +2719,75 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
     return None
 
 
+def _collection_config_section(value: str, section: str) -> str:
+    match = re.search(
+        rf"(?ms)^\[{re.escape(section)}\]\s*$.*?(?=^\[|\Z)",
+        value,
+    )
+    return match.group(0).strip() if match is not None else ""
+
+
+def _pytest_plugin_modules(source: str, path: str) -> set[str]:
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "pytest plugin registration cannot be inventoried safely"
+        ) from exc
+    modules: set[str] = set()
+    for node in _module_execution_nodes(tree):
+        if isinstance(node, (ast.AugAssign, ast.Delete)) and any(
+            name == "pytest_plugins"
+            for target in (
+                (node.target,) if isinstance(node, ast.AugAssign) else node.targets
+            )
+            for name in _binding_target_names(target)
+        ):
+            raise TestCorpusGuardError(
+                "pytest plugin registration cannot be inventoried safely"
+            )
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        if "pytest_plugins" not in {
+            name for target in targets for name in _binding_target_names(target)
+        }:
+            continue
+        value = node.value
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            values = (value,)
+        elif isinstance(value, (ast.List, ast.Tuple)):
+            values = tuple(value.elts)
+        else:
+            raise TestCorpusGuardError(
+                "pytest plugin registration cannot be inventoried safely"
+            )
+        for item in values:
+            if not isinstance(item, ast.Constant) or not isinstance(item.value, str):
+                raise TestCorpusGuardError(
+                    "pytest plugin registration cannot be inventoried safely"
+                )
+            modules.add(item.value)
+    return modules
+
+
+def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
+    discovered: list[str] = []
+    for root, directory_names, file_names in os.walk(repo, followlinks=False):
+        directory_names[:] = sorted(
+            name
+            for name in directory_names
+            if not _is_pytest_ignored_directory_name(name)
+        )
+        if "conftest.py" not in file_names:
+            continue
+        relative = (Path(root) / "conftest.py").relative_to(repo).as_posix()
+        discovered.append(relative)
+        if len(discovered) > MAX_CHANGED_TEST_PATHS:
+            raise TestCorpusGuardError("pytest conftest path count exceeds budget")
+    return tuple(sorted(discovered))
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     change_roots = [
         "apps",
@@ -2579,18 +2856,19 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
 
+        if path == "tox.ini" and current != prior:
+            raise TestCorpusGuardError(
+                "changed pytest collection configuration cannot be inventoried safely"
+            )
+
         section = {
             "pyproject.toml": "tool.pytest.ini_options",
             "setup.cfg": "tool:pytest",
         }.get(path, "pytest")
-
-        def collection_config_section(value: str) -> str:
-            match = re.search(
-                rf"(?ms)^\[{re.escape(section)}\]\s*$.*?(?=^\[|\Z)", value
-            )
-            return match.group(0).strip() if match is not None else ""
-
-        if collection_config_section(current) != collection_config_section(prior):
+        if _collection_config_section(current, section) != _collection_config_section(
+            prior,
+            section,
+        ):
             raise TestCorpusGuardError(
                 "changed pytest collection configuration cannot be inventoried safely"
             )
@@ -2610,6 +2888,42 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest collection hooks cannot be inventoried safely"
             )
+    changed_python_sources = {path for path in all_changed if path.endswith(".py")}
+    if changed_python_sources:
+        changed_modules: dict[str, set[str]] = {}
+        for path in changed_python_sources:
+            changed_modules.setdefault(_python_module_name_for_path(path), set()).add(
+                path
+            )
+        registered_plugins: set[str] = set()
+        conftest_paths = set(_discover_conftest_files(repo))
+        conftest_paths.update(
+            path for path in all_changed if Path(path).name == "conftest.py"
+        )
+        for conftest_path in sorted(conftest_paths):
+            if (repo / conftest_path).is_file():
+                current = _read_worktree_text(repo, conftest_path)
+                registered_plugins.update(
+                    _pytest_plugin_modules(current, conftest_path)
+                )
+            if conftest_path in all_changed:
+                prior = _base_text(repo, base_sha, conftest_path) or ""
+                registered_plugins.update(_pytest_plugin_modules(prior, conftest_path))
+        for module in registered_plugins & set(changed_modules):
+            for plugin_path in changed_modules[module]:
+                current = (
+                    _read_worktree_text(repo, plugin_path)
+                    if (repo / plugin_path).is_file()
+                    else ""
+                )
+                prior = _base_text(repo, base_sha, plugin_path) or ""
+                if any(
+                    name in current or name in prior for name in collection_hook_names
+                ):
+                    raise TestCorpusGuardError(
+                        "changed registered pytest collection hooks cannot be "
+                        "inventoried safely"
+                    )
     changed = {path for path in all_changed if _is_test_path(path)}
     changed_frontend_sources = {
         path
@@ -2632,7 +2946,6 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             }
             if dependency_candidates & changed_frontend_sources:
                 changed.add(test_path)
-    changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
         python_dependency_cache: dict[str, tuple[set[str], set[str]]] = {}
         for test_path in discover_test_files(repo):

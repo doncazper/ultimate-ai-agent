@@ -643,6 +643,26 @@ def test_case(value):
         )
 
 
+@pytest.mark.parametrize(
+    "decorator",
+    ("custom_parametrize", "pytest.mark.parametrize", "parametrize_alias"),
+)
+def test_python_inventory_rejects_bare_parametrize_decorators(
+    decorator: str,
+) -> None:
+    imports = "import pytest\n"
+    if decorator == "parametrize_alias":
+        imports += "parametrize_alias = pytest.mark.parametrize\n"
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parametrize decorator cannot be resolved",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            f"{imports}@{decorator}\ndef test_case(value): pass\n",
+        )
+
+
 def test_python_inventory_rejects_tests_inside_module_control_flow() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -755,6 +775,21 @@ if True:
             '    pytestmark = pytest.mark.parametrize("value", [1, 2])\n'
             "    def test_case(self, value): pass\n",
             "class-level pytestmark parametrization",
+        ),
+        (
+            "import pytest\n"
+            "pytestmark = []\n"
+            'pytestmark.append(pytest.mark.parametrize("value", [1, 2]))\n'
+            "def test_case(value): pass\n",
+            "dynamic pytestmark mutation",
+        ),
+        (
+            "import pytest\n"
+            "class TestGroup:\n"
+            "    pytestmark = []\n"
+            '    pytestmark += [pytest.mark.parametrize("value", [1, 2])]\n'
+            "    def test_case(self, value): pass\n",
+            "dynamic pytestmark mutation",
         ),
         (
             "class RemoveTests(type): pass\n"
@@ -1397,6 +1432,14 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
             "test API alias",
         ),
         (
+            'const spec = (test);\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec: typeof test = test;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
             'const group = describe;\ngroup("suite", () => {});\n',
             "suite API alias",
         ),
@@ -1410,6 +1453,55 @@ def test_frontend_inventory_rejects_ordinary_runner_aliases(
         guard.parse_frontend_declarations(
             "apps/control-center/src/example.spec.ts",
             source,
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "const { describe } = helpers;\ndescribe('suite', () => {});\n",
+        "const [suite] = helpers;\nsuite('suite', () => {});\n",
+        "const helper = (describe) => describe('suite', () => {});\n",
+        "import { describe as group } from 'vitest';\n"
+        "group.each([[1]])('suite %s', () => {});\n",
+    ),
+)
+def test_frontend_inventory_rejects_shadowed_or_parameterized_suite_apis(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError, match="frontend (suite API|parameterized suites)"
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.spec.ts",
+            source,
+        )
+
+
+def test_frontend_inventory_binds_identifiers_inside_literal_parameter_data() -> None:
+    before = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.spec.ts",
+        'const CASE_A = "one";\ntest.each([[CASE_A]])("case %s", () => {});\n',
+    )
+    after = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.spec.ts",
+        'const CASE_A = "two";\ntest.each([[CASE_A]])("case %s", () => {});\n',
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_rejects_hoisted_transitive_parameter_helpers() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="unproven transitive helper dependencies",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.spec.ts",
+            "function buildCases() { return later(); }\n"
+            "const cases = [buildCases()];\n"
+            "function later() { return [[1], [2]]; }\n"
+            'test.each(cases)("case %s", () => {});\n',
         )
 
 
@@ -2101,6 +2193,65 @@ def test_python_inventory_rejects_repository_file_parameter_data(
         )
 
 
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import json\n"
+        "from pathlib import Path\n"
+        "import pytest\n"
+        'CASES = json.loads(Path("tests/cases.json").read_text())\n'
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): pass\n",
+        "from pathlib import Path\n"
+        "import pytest\n"
+        "class Cases:\n"
+        "    def __init__(self):\n"
+        '        self.values = Path("tests/cases.json").read_text()\n'
+        "CASES = Cases()\n"
+        '@pytest.mark.parametrize("value", CASES)\n'
+        "def test_case(value): pass\n",
+        "from pathlib import Path\n"
+        "import pytest\n"
+        "def load_cases():\n"
+        '    return Path("tests/cases.json").read_text()\n'
+        '@pytest.mark.parametrize("value", load_cases())\n'
+        "def test_case(value): pass\n",
+    ),
+)
+def test_python_inventory_rejects_local_repository_file_parameter_data(
+    source: str,
+) -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match="repository-file"):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+def test_python_inventory_binds_imported_parametrize_argnames(tmp_path: Path) -> None:
+    scripts_root = tmp_path / "scripts"
+    scripts_root.mkdir()
+    source_path = scripts_root / "data.py"
+    source_path.write_text('ARGNAMES = "value"\n')
+    (tmp_path / "tests").mkdir()
+    test_text = (
+        "import pytest\n"
+        "from scripts.data import ARGNAMES\n"
+        "@pytest.mark.parametrize(ARGNAMES, [(1,)])\n"
+        "def test_case(value): pass\n"
+    )
+    before = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "tests/test_sample.py",
+        test_text,
+    )
+    source_path.write_text('ARGNAMES = "other"\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path,
+        "tests/test_sample.py",
+        test_text,
+    )
+
+    assert before[0].ref != after[0].ref
+
+
 def test_python_inventory_rejects_aliased_repository_file_reader(
     tmp_path: Path,
 ) -> None:
@@ -2352,6 +2503,35 @@ def test_changed_setup_cfg_pytest_collection_configuration_fails_closed(
     outputs = iter(
         (
             b"setup.cfg\0",
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_every_changed_tox_configuration_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = "[testenv]\ncommands = pytest tests/test_new.py\n"
+    prior = "[testenv]\ncommands = pytest tests/test_old.py\n"
+    (tmp_path / "tox.ini").write_text(current)
+    outputs = iter(
+        (
+            b"tox.ini\0",
             b"",
             b"",
             b"",
@@ -2663,6 +2843,47 @@ def test_collected(value):
 import pytest
 
 class TestGroup:
+    parameterized_fixture = pytest.fixture(params=["one", "two"])
+
+    @parameterized_fixture
+    def value(self, request):
+        return request.param
+
+    def test_collected(self, value):
+        assert value
+""",
+        )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+
+parameterized_fixture = pytest.fixture(params=["one", "two"])
+
+@parameterized_fixture
+def value(request):
+    return request.param
+
+def test_collected(value):
+    assert value
+""",
+        )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+
+class TestGroup:
     @pytest.fixture(params=["one", "two"])
     def value(self, request):
         return request.param
@@ -2774,6 +2995,14 @@ def test_python_inventory_rejects_locally_imported_test_class(
         "def test_case(): pass\n",
         "from pytest import importorskip as require_module\n"
         'require_module("optional_dependency")\n'
+        "def test_case(): pass\n",
+        "import pytest\n"
+        "abort = pytest.importorskip\n"
+        'abort("optional_dependency")\n'
+        "def test_case(): pass\n",
+        "import pytest\n"
+        "skip_module = pytest.skip\n"
+        'skip_module("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
     ),
 )
@@ -3077,6 +3306,45 @@ def test_changed_conftest_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        'pytest_plugins = ["tests.collection_plugin"]\n'
+    )
+    plugin_path = tests_root / "collection_plugin.py"
+    plugin_path.write_text(
+        "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n"
+    )
+    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def pytest_generate_tests(metafunc):\n"
+            "    metafunc.parametrize('value', [1, 2])\n"
+            if path == "tests/collection_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest collection hooks",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

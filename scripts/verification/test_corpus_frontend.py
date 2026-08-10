@@ -283,17 +283,30 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         if not added:
             break
 
-    recognized_name_pattern = (
+    api_names_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
     )
     ordinary_alias_pattern = re.compile(
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
+        rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
-        rf"(?P<base>{recognized_name_pattern})\b"
+        rf"(?P<wrapper>\(*\s*)"
+        rf"(?P<base>{api_names_pattern})\b"
+        rf"(?P<closers>\s*\)*)"
     )
 
     def is_ordinary_alias(match: re.Match[str]) -> bool:
-        if _skip_static_trivia(text, match.end("assignment")) != match.start("base"):
+        initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        if match.group("wrapper"):
+            if (
+                initializer_start >= match.start("base")
+                or text[initializer_start] != "("
+                or match.group("closers").count(")") < match.group("wrapper").count("(")
+            ):
+                return False
+            suffix_start = _skip_static_trivia(text, match.end("closers"))
+            return not text.startswith("=>", suffix_start)
+        if initializer_start != match.start("base"):
             return False
         suffix_start = _skip_static_trivia(text, match.end("base"))
         return not text.startswith(".extend", suffix_start)
@@ -308,9 +321,6 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             "frontend test API alias cannot be inventoried safely"
         )
 
-    api_names_pattern = (
-        "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
-    )
     declaration_pattern = re.compile(
         rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
     )
@@ -408,18 +418,69 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
     names_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
     ordinary_alias_pattern = re.compile(
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
+        rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
+        rf"(?P<wrapper>\(*\s*)"
         rf"(?P<base>{names_pattern})\b"
+        rf"(?P<closers>\s*\)*)"
     )
+
+    def is_ordinary_alias(match: re.Match[str]) -> bool:
+        initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        if match.group("wrapper"):
+            if (
+                initializer_start >= match.start("base")
+                or text[initializer_start] != "("
+                or match.group("closers").count(")") < match.group("wrapper").count("(")
+            ):
+                return False
+            suffix_start = _skip_static_trivia(text, match.end("closers"))
+            return not text.startswith("=>", suffix_start)
+        return initializer_start == match.start("base")
+
     if any(
-        match.group("alias") != match.group("base")
-        and _skip_static_trivia(text, match.end("assignment")) == match.start("base")
+        match.group("alias") != match.group("base") and is_ordinary_alias(match)
         for match in ordinary_alias_pattern.finditer(scan_text)
     ):
         raise FrontendInventoryError(
             "frontend suite API alias cannot be inventoried safely"
         )
     if re.search(rf"\b(?:const|let|var|function|class)\s+{names_pattern}\b", scan_text):
+        raise FrontendInventoryError(
+            "frontend suite API name is shadowed by a local declaration"
+        )
+    destructuring_pattern = re.compile(
+        r"\b(?:const|let|var)\s*\{(?P<bindings>[^{}]*)\}"
+    )
+    if re.search(r"\b(?:const|let|var)\s*\{[^{}]*\{", scan_text):
+        raise FrontendInventoryError(
+            "frontend nested destructuring cannot be inventoried safely"
+        )
+    for match in destructuring_pattern.finditer(scan_text):
+        for member in match.group("bindings").split(","):
+            local = member.split(":", 1)[-1].split("=", 1)[0].strip()
+            local = local.removeprefix("...").strip()
+            if local in names:
+                raise FrontendInventoryError(
+                    "frontend suite API name is shadowed by a local declaration"
+                )
+    array_destructuring_pattern = re.compile(
+        r"\b(?:const|let|var)\s*\[(?P<bindings>[^\[\]]*)\]"
+    )
+    if re.search(r"\b(?:const|let|var)\s*\[[^\[\]]*\[", scan_text):
+        raise FrontendInventoryError(
+            "frontend nested destructuring cannot be inventoried safely"
+        )
+    for match in array_destructuring_pattern.finditer(scan_text):
+        if re.search(rf"\b{names_pattern}\b", match.group("bindings")):
+            raise FrontendInventoryError(
+                "frontend suite API name is shadowed by a local declaration"
+            )
+    parameter_pattern = re.compile(r"\((?P<parameters>[^()]*)\)\s*(?:=>|\{)")
+    if any(
+        re.search(rf"\b{names_pattern}\b", match.group("parameters"))
+        for match in parameter_pattern.finditer(scan_text)
+    ) or re.search(rf"\b{names_pattern}\s*=>", scan_text):
         raise FrontendInventoryError(
             "frontend suite API name is shadowed by a local declaration"
         )
@@ -656,9 +717,7 @@ def _const_initializer_source(
             )
             declared_helpers = {
                 candidate.group("name")
-                for candidate in all_helper_pattern.finditer(
-                    scan_text, 0, match.start()
-                )
+                for candidate in all_helper_pattern.finditer(scan_text)
             }
             called_helpers = {
                 candidate.group("name")
@@ -755,42 +814,91 @@ def _bound_parameter_data(
             literal_collection = not literal_suffix or bool(
                 re.fullmatch(r"as\s+const", literal_suffix)
             )
-        if literal_collection:
-            dependencies = {
-                match.group("name")
-                for match in re.finditer(
-                    rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\s*(?=[,\]}}])",
-                    expression_scan,
-                )
-            }
-            if not dependencies:
-                return parameter_data
-        else:
-            dependencies = set()
+        dependencies: set[str] = set()
         allowed_identifiers = {
             "Array",
             "Object",
             "Date",
             "Infinity",
             "NaN",
+            "as",
+            "async",
+            "await",
+            "break",
+            "case",
+            "catch",
+            "class",
+            "const",
+            "continue",
+            "default",
+            "delete",
+            "do",
+            "else",
+            "export",
+            "extends",
             "false",
+            "finally",
+            "for",
+            "from",
+            "function",
+            "if",
+            "import",
+            "in",
+            "instanceof",
+            "let",
+            "new",
             "null",
+            "of",
+            "return",
+            "satisfies",
+            "switch",
+            "throw",
             "true",
+            "try",
+            "typeof",
             "undefined",
+            "var",
+            "void",
+            "while",
+            "with",
+            "yield",
         }
-        if not literal_collection:
-            for match in re.finditer(TEST_API_NAME, expression_scan):
-                name = match.group(0)
-                prefix = expression_scan[max(0, match.start() - 3) : match.start()]
-                following = expression_scan[match.end() :]
-                if (
-                    name in allowed_identifiers
-                    or (prefix.endswith(".") and not prefix.endswith("..."))
-                    or re.match(r"\s*:", following)
-                    or re.match(r"\s*=>", following)
-                ):
-                    continue
-                dependencies.add(name)
+        dependency_scan = (
+            expression_scan[:literal_end] if literal_collection else expression_scan
+        )
+        local_binding_names = {
+            candidate.group("name")
+            for candidate in re.finditer(
+                rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\b",
+                dependency_scan,
+            )
+        }
+        for candidate in re.finditer(
+            rf"(?:\((?P<parameters>[^()]*)\)|(?P<single>{TEST_API_NAME}))\s*=>",
+            dependency_scan,
+        ):
+            parameters = candidate.group("parameters")
+            if parameters is None:
+                parameters = candidate.group("single") or ""
+            local_binding_names.update(re.findall(TEST_API_NAME, parameters))
+        for match in re.finditer(TEST_API_NAME, dependency_scan):
+            name = match.group(0)
+            prefix = dependency_scan[max(0, match.start() - 3) : match.start()]
+            following = dependency_scan[match.end() :]
+            if (
+                name in allowed_identifiers
+                or name in local_binding_names
+                or (match.start() > 0 and dependency_scan[match.start() - 1].isdigit())
+                or (prefix.endswith(".") and not prefix.endswith("..."))
+                or re.match(r"\s*:", following)
+                or re.match(r"\s*=>", following)
+                or re.match(r"\s*\(", following)
+                or re.match(r"\s*\.", following)
+            ):
+                continue
+            dependencies.add(name)
+        if literal_collection and not dependencies:
+            return parameter_data
         if not dependencies:
             raise FrontendInventoryError(
                 "frontend parameterized test data expression cannot be resolved safely"
@@ -1707,8 +1815,11 @@ def _frontend_inventory_entries(
         _test_api_names(text, scan_text)
     )
     suite_api_names = _suite_api_names(text, scan_text)
+    suite_api_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"
+    )
     if re.search(
-        rf"(?<![.\w$])(?:describe|suite){TEST_MODIFIERS}\.(?:each|for)\b",
+        rf"(?<![.\w$]){suite_api_pattern}{TEST_MODIFIERS}\.(?:each|for)\b",
         scan_text,
     ):
         raise FrontendInventoryError(

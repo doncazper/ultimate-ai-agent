@@ -33,8 +33,9 @@ collection time, parameter-data-bound frontend titles, supported runner import
 aliases, and extended test APIs. Changes to a parameter set change its stable
 declaration ref, so removing a collected case cannot retain the prior inventory
 identity.
-Identifier-backed frontend parameter sets bind to the preceding static `const`
-initializer or to a relative import's exported static `const` initializer.
+Identifier-backed frontend parameter sets, including identifiers embedded in
+literal arrays or objects, bind to the preceding static `const` initializer or
+to a relative import's exported static `const` initializer.
 Nested spread and supported collection expressions bind to the same sources.
 Supported static frontend registration loops resolve the collected runtime title
 and emit one declaration identity per collection item. Identity binds only to
@@ -50,11 +51,14 @@ the exact referenced declaration and its recursively resolvable local
 dependencies. Changes to an imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
-`conftest.py` hooks fail closed. Wildcard imports in tests, class-body parameter
-bindings, repository-file-backed parameter data (including aliased readers),
-and changes to pytest collection configuration in `pyproject.toml`, `pytest.toml`,
-`.pytest.toml`, `pytest.ini`, `.pytest.ini`, `tox.ini`, or `setup.cfg` also fail
-closed. Python test-class aliases, collected-class
+`conftest.py` hooks fail closed. Collection hooks in changed repository plugins
+registered through a `conftest.py` `pytest_plugins` binding also fail closed.
+Wildcard imports in tests, class-body parameter bindings,
+repository-file-backed local or imported parameter data (including aliased
+readers and constructed classes), and changes to pytest collection configuration
+in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
+`tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
+Python test-class aliases, collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
@@ -62,13 +66,16 @@ or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
-safely. Parameterized fixtures at module or class scope, class-level parametrizing
-`pytestmark`, unresolved test-function decorators, module-level collection-aborting
-pytest calls, and changed `pytest_generate_tests` hooks also fail closed. Frontend
+safely. Parameterized fixtures and local parameterized-fixture decorator
+factories at module or class scope, dynamic module/class `pytestmark` mutations,
+class-level parametrizing `pytestmark`, unresolved or bare parametrization
+decorators, module-level collection-aborting pytest calls and their assignment
+aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
 registrations inside unresolved function, constrained generic method, or callback
-bodies fail closed; ordinary test/suite API aliases are rejected, and recognized
-runner APIs also fail closed when shadowed by a local declaration or non-runner
-import. Changes to the Control Center Vitest or Playwright collection
+bodies fail closed; ordinary, typed, or parenthesized test/suite API aliases are
+rejected, and recognized runner APIs also fail closed when shadowed in a local
+binding position or by a non-runner import. Parameterized-suite detection uses
+the complete resolved runner-alias set. Changes to the Control Center Vitest or Playwright collection
 configuration also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
