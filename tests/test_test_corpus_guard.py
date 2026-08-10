@@ -1096,6 +1096,16 @@ if True:
             "post-definition Python class constructor mutation",
         ),
         (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "setattr(TestGroup, '__init__', lambda self: None)\n",
+            "post-definition Python class constructor mutation",
+        ),
+        (
+            "def test_case(): pass\nsetattr(test_case, '__test__', False)\n",
+            "function __test__ mutation",
+        ),
+        (
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Base.__new__ = lambda cls: object.__new__(cls)\n"
@@ -1127,6 +1137,35 @@ if True:
             "class WidgetCases(Case):\n"
             "    def test_widget(self): pass\n",
             "unittest.TestCase alias",
+        ),
+        (
+            "import unittest\n"
+            "unittest = Fake\n"
+            "class WidgetCases(unittest.TestCase):\n"
+            "    def test_widget(self): pass\n",
+            "unittest module alias",
+        ),
+        (
+            "def test_case(): pass\nlocals()['test_case'] = None\n",
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "def test_case(): pass\nvars()['test_case'] = None\n",
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "def test_case(): pass\n"
+            "test_case.__test__ = False\n"
+            "if enabled:\n    del test_case.__test__\n",
+            "__test__ mutation inside module control flow",
+        ),
+        (
+            "def test_case(): pass\nif enabled:\n    test_case.__test__ += True\n",
+            "__test__ mutation inside module control flow",
+        ),
+        (
+            "@helpers.fixture\ndef test_case(): pass\n",
+            "test decorator",
         ),
         (
             "import unittest\n"
@@ -1828,6 +1867,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         (
             "const spec = <ReturnType<() => typeof test>>test;\n"
             'spec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = enabled ? test : helper;\nspec("case", () => {});\n',
             "test API alias",
         ),
         (
@@ -3820,12 +3863,21 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            'class Registrar { method() {} registration = test("case", () => {}); }\n',
+            "registration context",
+        ),
+        (
             'describe("suite", () => { if (!enabled) return; '
             'test("case", () => {}); });\n',
             "registration context",
         ),
         (
             'describe("suite", () => { if (!enabled) { throw new Error(); } '
+            'test("case", () => {}); });\n',
+            "registration context",
+        ),
+        (
+            'describe("suite", () => { switch (mode) { case "off": return; } '
             'test("case", () => {}); });\n',
             "registration context",
         ),
@@ -3917,6 +3969,7 @@ def test_frontend_inventory_allows_static_field_registration() -> None:
         'import "./registerCases";\n',
         'import /* collection registration */ "./registerCases";\n',
         'import // collection registration\n "./registerCases";\n',
+        'import {} from "./registerCases";\n',
     ),
 )
 def test_frontend_inventory_rejects_relative_side_effect_imports(source: str) -> None:
@@ -3998,6 +4051,41 @@ def test_changed_conftest_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_conftest_pytest_plugins_binding_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        'pytest_plugins = ["tests.collection_plugin"]\n'
+    )
+    (tests_root / "collection_plugin.py").write_text(
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "pytest_plugins = []\n" if path == "tests/conftest.py" else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed pytest plugin registration",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

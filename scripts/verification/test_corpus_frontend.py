@@ -20,6 +20,14 @@ SIDE_EFFECT_IMPORT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)",
     re.DOTALL,
 )
+EMPTY_NAMED_IMPORT_PATTERN = re.compile(
+    r"\bimport(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r?\n|$))*"
+    r"\{(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r?\n|$))*\}"
+    r"(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r?\n|$))*from"
+    r"(?:\s+|/\*.*?\*/|//[^\r\n]*(?:\r?\n|$))*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)",
+    re.DOTALL,
+)
 NAMESPACE_IMPORT_PATTERN = re.compile(
     r"\bimport\s+\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)\s+from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
@@ -408,6 +416,14 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
                 raise FrontendInventoryError(
                     "frontend test API alias cannot be inventoried safely"
                 )
+        initializer = scan_text[initializer_start:initializer_end]
+        if re.search(r"(?:\?|&&|\|\|)", initializer) and re.search(
+            rf"(?<![.\w$]){api_names_pattern}(?![\w$])",
+            initializer,
+        ):
+            raise FrontendInventoryError(
+                "frontend test API alias cannot be inventoried safely"
+            )
 
     declaration_pattern = re.compile(
         rf"\b(?:const|let|var|function|class)\s+(?P<name>{api_names_pattern})\b"
@@ -1823,7 +1839,7 @@ def _unproven_registration_regions(
         rf"\bclass(?:\s+{TEST_API_NAME})?[^{{}};\r\n]*?(?P<body>\{{)"
     )
     field_pattern = re.compile(
-        rf"(?:^|[;\r\n])\s*"
+        rf"(?:^|[;\r\n}}])\s*"
         rf"(?P<modifiers>(?:(?:public|private|protected|readonly|declare|"
         rf"abstract|override|accessor|static)\s+)*)"
         rf"(?:#{TEST_API_NAME}|{TEST_API_NAME}|\[[^\]\r\n]+\])(?:[!?])?"
@@ -1849,7 +1865,7 @@ def _unproven_registration_regions(
             )
 
     nested_suite_bodies = tuple(suite_bodies)
-    conditional_pattern = re.compile(r"\bif\s*(?P<condition>\()")
+    conditional_pattern = re.compile(r"\b(?P<keyword>if|switch)\s*(?P<condition>\()")
     for suite_start, suite_end in suite_bodies:
         for conditional_match in conditional_pattern.finditer(
             scan_text,
@@ -2106,6 +2122,10 @@ def _frontend_inventory_entries(
         match.group("module").startswith(".")
         and scan_text[match.start() : match.start() + len("import")] == "import"
         for match in SIDE_EFFECT_IMPORT_PATTERN.finditer(text)
+    ) or any(
+        match.group("module").startswith(".")
+        and scan_text[match.start() : match.start() + len("import")] == "import"
+        for match in EMPTY_NAMED_IMPORT_PATTERN.finditer(text)
     ):
         raise FrontendInventoryError(
             "frontend side-effect import cannot be inventoried safely"

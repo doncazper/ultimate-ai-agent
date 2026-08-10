@@ -60,7 +60,8 @@ ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks, including custom Python item/module/directory collectors,
 fail closed. Collection hooks in changed repository plugins
 registered through a `conftest.py` `pytest_plugins` binding, including one in a
-hidden directory beneath `tests`, also fail closed,
+hidden directory beneath `tests`, also fail closed, and changes to the plugin
+registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins.
 Wildcard imports in tests, class-body parameter bindings,
 repository-file/directory-backed local or imported parameter data (including
@@ -74,24 +75,29 @@ Python test-class aliases, assigned or imported `unittest.TestCase` aliases
 (with dynamic construction or incompatible rebinding rejected),
 collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
-namespace mutation (including assignment-expression aliases), indirect module
+namespace mutation (including assignment-expression aliases), direct module
+namespace writes through zero-argument `globals()`, `locals()`, or `vars()`, indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
 or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
 safely. Parameterized fixtures and local parameterized-fixture decorator
-factories at module or class scope (including expanded option mappings), dynamic
+factories at module or class scope (including expanded option mappings), with
+unqualified attribute-based fixture decorators rejected rather than silently
+treated as pytest fixtures, dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
 bindings, post-definition `__test__` writes to local classes or their direct or
 bounded-unpacking aliases, post-definition `__init__` or `__new__` writes to
-local classes or their aliases, and dynamic function-level `__test__` writes fail
+local classes or their aliases, and direct, augmented, deleted, conditional, or
+indirect function-level `__test__` writes fail
 closed; bounded function aliases participate in static function-level `__test__`
 writes (including assignment-expression aliases), deletion of a resolved
 function-level `__test__` override restores the declaration, bounded static
 falsy function-level values are treated as disabled, incompatible execution-time
 rebinding of a recognized `unittest.TestCase` alias, including conditional
-constructor targets and class-body writes through `globals()`, and including from executable
+constructor targets, indirect `setattr`/`delattr` mutations, imported `unittest`
+module aliases, and class-body writes through `globals()`, including from executable
 function defaults, annotations, decorators, or class bodies that write a declared
 global, fails closed,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
@@ -99,10 +105,11 @@ decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
-bodies, ordinary or computed instance-field initializers, relative side-effect
-imports even when comments separate the keyword and module, conditional suite
-exits before later registrations, and expression-conditional registrations fail
-closed; ordinary, typed,
+bodies, ordinary or computed instance-field initializers (including fields after
+method bodies), relative side-effect imports even when comments separate the
+keyword and module or the runtime import uses an empty named clause, conditional
+`if`/`switch` suite exits before later registrations, and expression-conditional
+registrations and runner aliases fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 including nontrivial wrapped initializers that contain a recognized runner API,
 and recognized runner APIs also fail closed when shadowed in a local
