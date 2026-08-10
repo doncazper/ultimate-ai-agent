@@ -24,9 +24,10 @@ evidence-aware rather than globally one-task-at-a-time.
 
 ## Phase 01 Contract
 
-`scripts/verification/test_corpus_guard.py` inventories stable Python and
-Control Center `.test`/`.spec` declarations, including inherited pytest class
-tests, Python parameterization bound to resolvable decorator syntax, ordered
+`scripts/verification/test_corpus_guard.py` inventories stable Python test-file
+declarations repository-wide and Control Center `.test`/`.spec` declarations,
+including inherited pytest class tests, Python parameterization bound to
+resolvable decorator syntax, ordered
 pre-declaration parameter-data bindings, and in-place mutations visible at
 collection time, parameter-data-bound frontend titles, supported runner import
 aliases, and extended test APIs. Changes to a parameter set change its stable
@@ -44,22 +45,24 @@ preserved exactly; numeric-title coercion, sparse arrays, asynchronous
 registration loops, unresolved helper calls, and mutated aliases fail closed.
 Enclosing static suite titles are part of each frontend identity, and
 comment-separated or compound unbraced control-flow registrations fail closed.
-Python imported parameter data is bound to the exact referenced declaration and
-its recursively resolvable local
-dependencies. Changes to an imported initializer, including one in another test
-module, recheck the dependent test file. Dynamic, mutated, ambiguous, or
-unresolved parameter bindings and collection-changing `conftest.py` hooks fail
-closed. Wildcard imports in tests, class-body parameter bindings,
-repository-file-backed parameter data (including aliased readers), and changes
-to pytest collection configuration in `pyproject.toml`, `pytest.ini`, `tox.ini`,
-or `setup.cfg` also fail closed. Python test-class aliases, indirect module
-namespace rebinding, test methods nested in class-body control flow, aliased
-module-level `pytestmark` parameterization, and post-definition
-parameterization calls are likewise rejected because their collected identities
-cannot be represented safely. Frontend files fail closed when any recognized
-runner alias is shadowed by a local declaration or non-runner import. Changes to
-the Control Center Vitest or Playwright collection configuration also fail
-closed.
+Python imported parameter data and imported parameter-ID helpers are bound to
+the exact referenced declaration and its recursively resolvable local
+dependencies. Changes to an imported initializer or ID helper, including one in
+another test module, recheck the dependent test file. Dynamic, mutated,
+ambiguous, or unresolved parameter bindings and collection-changing
+`conftest.py` hooks fail closed. Wildcard imports in tests, class-body parameter
+bindings, repository-file-backed parameter data (including aliased readers),
+and changes to pytest collection configuration in `pyproject.toml`, `pytest.ini`, `tox.ini`,
+or `setup.cfg` also fail closed. Python test-class aliases, collected-class
+metaclasses (including inherited local metaclasses), direct `globals()`
+namespace mutators, indirect module namespace rebinding, test methods assigned
+or declared inside class-body control flow, aliased module-level `pytestmark`
+parameterization, and post-definition parameterization calls through aliases
+are likewise rejected because their collected identities cannot be represented
+safely. Frontend registrations inside unresolved function, method, or callback
+bodies fail closed; recognized runner aliases also fail closed when shadowed by
+a local declaration or non-runner import. Changes to the Control Center Vitest
+or Playwright collection configuration also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

@@ -476,6 +476,35 @@ class TestChild(Base):
         )
 
 
+def test_python_inventory_skips_builtin_exception_classes() -> None:
+    assert (
+        guard.parse_python_declarations(
+            "scripts/test_evidence.py",
+            """
+class TestEvidenceError(RuntimeError):
+    pass
+""",
+        )
+        == ()
+    )
+
+
+def test_python_inventory_skips_dataclass_with_generated_constructor() -> None:
+    assert (
+        guard.parse_python_declarations(
+            "scripts/test_contract.py",
+            """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class TestContract:
+    value: str
+""",
+        )
+        == ()
+    )
+
+
 def test_python_inventory_rejects_callable_test_name_assignment() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -661,6 +690,49 @@ if True:
             "def test_case(value): pass\n"
             'pytest.mark.parametrize("value", [1, 2])(test_case)\n',
             "post-definition Python parametrization",
+        ),
+        (
+            'def test_case(): pass\nglobals().update({"test_case": None})\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
+            'def test_case(): pass\nglobals().pop("test_case")\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
+            "import pytest\n"
+            "def test_case(value): pass\n"
+            "alias = test_case\n"
+            'pytest.mark.parametrize("value", [1, 2])(alias)\n',
+            "post-definition Python parametrization",
+        ),
+        (
+            "import pytest\n"
+            "def test_case(value): pass\n"
+            "alias = test_case\n"
+            'pytest.mark.parametrize("value", [1, 2])(alias)\n'
+            "alias = object\n",
+            "post-definition Python parametrization",
+        ),
+        (
+            "def helper(self): pass\n"
+            "class TestGroup:\n"
+            "    if enabled:\n"
+            "        test_case = helper\n",
+            "class control flow",
+        ),
+        (
+            "class RemoveTests(type): pass\n"
+            "class TestGroup(metaclass=RemoveTests):\n"
+            "    def test_case(self): pass\n",
+            "test class metaclass",
+        ),
+        (
+            "class RemoveTests(type): pass\n"
+            "class Base(metaclass=RemoveTests): pass\n"
+            "class TestGroup(Base):\n"
+            "    def test_case(self): pass\n",
+            "test class metaclass",
         ),
     ),
 )
@@ -1497,7 +1569,7 @@ def test_nested_retirement_evidence_is_content_bound() -> None:
 
 def test_retired_ref_must_use_a_supported_safe_test_path() -> None:
     replacement = "tests/test_sample.py::test_replacement"
-    retired = "docs/not_a_test.py::test_removed"
+    retired = "docs/not_a_test.txt::test_removed"
 
     with pytest.raises(guard.TestCorpusGuardError, match="retired test ref is invalid"):
         _validate_retirements(
@@ -1645,6 +1717,8 @@ def test_malformed_canonical_ci_base_fails_closed(
     (
         "tests/example_test.py",
         "tests/test_example.py",
+        "scripts/example_test.py",
+        "src/package/test_example.py",
         "apps/control-center/src/example.test.ts",
         "apps/control-center/src/example.test.tsx",
         "apps/control-center/src/example.spec.ts",
@@ -1655,6 +1729,20 @@ def test_malformed_canonical_ci_base_fails_closed(
 )
 def test_supported_test_paths_cover_collector_suffixes(path: str) -> None:
     assert guard._is_test_path(path)
+
+
+def test_discovery_covers_python_tests_outside_tests_directory(tmp_path: Path) -> None:
+    (tmp_path / "src/package").mkdir(parents=True)
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / ".venv/lib").mkdir(parents=True)
+    (tmp_path / "src/package/test_feature.py").write_text("def test_case(): pass\n")
+    (tmp_path / "scripts/feature_test.py").write_text("def test_case(): pass\n")
+    (tmp_path / ".venv/lib/test_ignored.py").write_text("def test_case(): pass\n")
+
+    assert guard.discover_test_files(tmp_path) == (
+        "scripts/feature_test.py",
+        "src/package/test_feature.py",
+    )
 
 
 @pytest.mark.parametrize(
@@ -1731,10 +1819,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "a" * 40,
             "HEAD",
             "--",
-            "tests",
             "apps",
-            "scripts",
-            "src",
+            guard.PYTHON_TEST_GIT_PATHSPEC,
         ],
         [
             "diff",
@@ -1743,10 +1829,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--no-renames",
             "-z",
             "--",
-            "tests",
             "apps",
-            "scripts",
-            "src",
+            guard.PYTHON_TEST_GIT_PATHSPEC,
         ],
         [
             "diff",
@@ -1754,10 +1838,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--no-renames",
             "-z",
             "--",
-            "tests",
             "apps",
-            "scripts",
-            "src",
+            guard.PYTHON_TEST_GIT_PATHSPEC,
         ],
         [
             "ls-files",
@@ -1765,10 +1847,8 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--exclude-standard",
             "-z",
             "--",
-            "tests",
             "apps",
-            "scripts",
-            "src",
+            guard.PYTHON_TEST_GIT_PATHSPEC,
         ],
     ]
 
@@ -1850,6 +1930,28 @@ def test_case(value):
         tmp_path, "tests/test_sample.py", test_text
     )
     source_path.write_text('CASES = ["one"]\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_imported_parameter_id_helper(tmp_path: Path) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text('def make_id(value):\n    return f"before-{value}"\n')
+    test_text = """
+import pytest
+from data import make_id
+
+@pytest.mark.parametrize("value", ["one"], ids=make_id)
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('def make_id(value):\n    return f"after-{value}"\n')
     after = guard._parse_worktree_test_declarations(
         tmp_path, "tests/test_sample.py", test_text
     )
@@ -2685,6 +2787,22 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         ),
         (
             'function register() { test("case", () => {}); }\nregister();\n',
+            "registration context",
+        ),
+        (
+            'const helper = { register() { test("case", () => {}); } };\n',
+            "registration context",
+        ),
+        (
+            'class Helper { register() { test("case", () => {}); } }\n',
+            "registration context",
+        ),
+        (
+            'const register = () => test("case", () => {});\n',
+            "registration context",
+        ),
+        (
+            'consume(() => { test("case", () => {}); });\n',
             "registration context",
         ),
         (

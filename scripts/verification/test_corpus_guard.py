@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import hashlib
 import json
 import os
@@ -62,6 +63,16 @@ FRONTEND_COLLECTION_CONFIG_PATHS = {
     "apps/control-center/playwright.smoke.config.ts",
     "apps/control-center/playwright.visual.config.ts",
 }
+GLOBALS_NAMESPACE_MUTATOR_METHODS = {
+    "__delitem__",
+    "__ior__",
+    "__setitem__",
+    "clear",
+    "pop",
+    "popitem",
+    "setdefault",
+    "update",
+}
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
     "count",
@@ -88,9 +99,7 @@ FRONTEND_TEST_EXTENSIONS = (
     "mts",
     "mtsx",
 )
-TEST_FILE_PATTERNS = (
-    "tests/**/test_*.py",
-    "tests/**/*_test.py",
+FRONTEND_TEST_FILE_PATTERNS = (
     *(
         f"apps/control-center/src/**/*.{kind}.{extension}"
         for kind in ("test", "spec")
@@ -101,6 +110,22 @@ TEST_FILE_PATTERNS = (
         for kind in ("test", "spec")
         for extension in FRONTEND_TEST_EXTENSIONS
     ),
+)
+PYTHON_TEST_GIT_PATHSPEC = ":(glob)**/*.py"
+PYTEST_IGNORED_DIRECTORY_NAMES = {
+    "CVS",
+    "__pycache__",
+    "_darcs",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "{arch}",
+}
+BUILTIN_EXCEPTION_CLASS_NAMES = frozenset(
+    name
+    for name, value in vars(builtins).items()
+    if isinstance(value, type) and issubclass(value, BaseException)
 )
 
 
@@ -164,6 +189,62 @@ def _module_namespace_write_targets(node: ast.AST) -> tuple[str | None, ...]:
     if isinstance(key, ast.Constant) and isinstance(key.value, str):
         return (key.value,)
     return (None,)
+
+
+def _is_globals_call(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "globals"
+        and not node.args
+        and not node.keywords
+    )
+
+
+def _is_globals_namespace_mutator_call(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in GLOBALS_NAMESPACE_MUTATOR_METHODS
+        and _is_globals_call(node.func.value)
+    )
+
+
+def _module_name_aliases(
+    tree: ast.Module,
+    *,
+    before: tuple[int, int],
+) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in tree.body:
+        position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+        if position >= before:
+            break
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = (node.target,)
+            value = node.value
+        elif isinstance(node, (ast.AugAssign, ast.Delete)):
+            targets = (
+                (node.target,) if isinstance(node, ast.AugAssign) else node.targets
+            )
+            value = None
+        else:
+            continue
+        target_names = {
+            name for target in targets for name in _binding_target_names(target)
+        }
+        if isinstance(value, ast.Name):
+            resolved = aliases.get(value.id, value.id)
+            for name in target_names:
+                if name != resolved:
+                    aliases[name] = resolved
+        else:
+            for name in target_names:
+                aliases.pop(name, None)
+    return aliases
 
 
 def _statement_binding_names(node: ast.AST) -> set[str]:
@@ -344,7 +425,7 @@ def _is_parametrize_callable(node: ast.AST, aliases: set[str]) -> bool:
 
 
 def _post_definition_parametrize_targets(
-    tree: ast.AST,
+    tree: ast.Module,
     aliases: set[str],
 ) -> set[str]:
     targets: set[str] = set()
@@ -355,10 +436,14 @@ def _post_definition_parametrize_targets(
             or not _is_parametrize_callable(child.func.func, aliases)
         ):
             continue
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(child.lineno, child.col_offset),
+        )
         for argument in child.args:
             root = _root_name(argument)
             if root is not None:
-                targets.add(root)
+                targets.add(name_aliases.get(root, root))
     return targets
 
 
@@ -863,7 +948,7 @@ def _parameterized_ref(
         value_nodes.extend(
             keyword.value
             for keyword in decorator.keywords
-            if keyword.arg == "argvalues"
+            if keyword.arg in {"argvalues", "ids"}
         )
         for value in value_nodes:
             for root, binding_names in _python_import_requirements(
@@ -981,6 +1066,24 @@ def _has_nested_python_tests(node: ast.AST) -> bool:
             and child.name.startswith("test")
         )
         or (isinstance(child, ast.ClassDef) and child.name.startswith("Test"))
+        or (
+            isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+            and any(
+                name.startswith(("test", "Test"))
+                for target in (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                for name in _binding_target_names(target)
+            )
+        )
+        or (
+            isinstance(child, ast.Delete)
+            and any(
+                name.startswith(("test", "Test"))
+                for target in child.targets
+                for name in _binding_target_names(target)
+            )
+        )
         for child in ast.walk(node)
         if child is not node
     )
@@ -1134,6 +1237,83 @@ def _python_inventory_entries(
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
     imported_modules = _python_import_modules(tree)
+
+    def imported_class_has_builtin_exception_base(
+        local_name: str,
+        candidates: tuple[str, ...],
+        seen: frozenset[tuple[str, str]] = frozenset(),
+    ) -> bool:
+        if import_source_resolver is None:
+            return False
+        resolved_sources = [
+            (candidate, source)
+            for candidate in candidates
+            if (source := import_source_resolver(candidate)) is not None
+        ]
+        if len(resolved_sources) != 1:
+            return False
+        module, source = resolved_sources[0]
+        binding_name = _binding_name_for_resolved_import(
+            candidates,
+            module,
+            local_name,
+        )
+        binding_key = (module, binding_name)
+        if binding_key in seen:
+            return False
+        source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
+        source_path = source.split("\n", 1)[0].removeprefix("path=")
+        try:
+            imported_tree = ast.parse(source_text, filename=module)
+        except SyntaxError:
+            return False
+        relative_package = module
+        if not source_path.endswith("/__init__.py") and "." in module:
+            relative_package = module.rsplit(".", 1)[0]
+        imported_classes = {
+            node.name: node
+            for node in imported_tree.body
+            if isinstance(node, ast.ClassDef)
+        }
+        imported_bindings = _python_module_bindings(imported_tree)
+        nested_imports = _python_import_modules(
+            imported_tree,
+            relative_package=relative_package,
+        )
+
+        def class_has_exception_base(
+            class_name: str,
+            visiting: frozenset[str],
+        ) -> bool:
+            if class_name in visiting or class_name not in imported_classes:
+                return False
+            class_node = imported_classes[class_name]
+            next_visiting = frozenset((*visiting, class_name))
+            return any(
+                (
+                    isinstance(base, ast.Name)
+                    and base.id in BUILTIN_EXCEPTION_CLASS_NAMES
+                    and base.id not in imported_bindings
+                    and base.id not in nested_imports
+                )
+                or (
+                    isinstance(base, ast.Name)
+                    and class_has_exception_base(base.id, next_visiting)
+                )
+                or (
+                    isinstance(base, ast.Name)
+                    and base.id in nested_imports
+                    and imported_class_has_builtin_exception_base(
+                        base.id,
+                        nested_imports[base.id],
+                        frozenset((*seen, binding_key)),
+                    )
+                )
+                for base in class_node.bases
+            )
+
+        return class_has_exception_base(binding_name, frozenset())
+
     disabled = _disabled_python_declarations(tree.body)
     module_test_names = [
         node.name
@@ -1205,6 +1385,11 @@ def _python_inventory_entries(
         if isinstance(node, ast.ClassDef)
         and (node.name.startswith("Test") or node.name in unittest_classes)
     }
+
+    if any(_is_globals_namespace_mutator_call(node) for node in ast.walk(tree)):
+        raise TestCorpusGuardError(
+            "indirect Python test-name rebinding cannot be inventoried safely"
+        )
 
     if _post_definition_parametrize_targets(tree, parametrize_aliases) & (
         declared_test_names | declared_test_class_names
@@ -1340,11 +1525,71 @@ def _python_inventory_entries(
             for child in class_node.body
         ):
             return True
+        for decorator in class_node.decorator_list:
+            target = decorator.func if isinstance(decorator, ast.Call) else decorator
+            is_dataclass = (
+                isinstance(target, ast.Name)
+                and "dataclasses.dataclass" in imported_modules.get(target.id, ())
+            ) or (
+                isinstance(target, ast.Attribute)
+                and target.attr == "dataclass"
+                and "dataclasses" in imported_modules.get(_root_name(target), ())
+            )
+            if not is_dataclass:
+                continue
+            init_keyword = (
+                next(
+                    (
+                        keyword.value
+                        for keyword in decorator.keywords
+                        if keyword.arg == "init"
+                    ),
+                    None,
+                )
+                if isinstance(decorator, ast.Call)
+                else None
+            )
+            if not (
+                isinstance(init_keyword, ast.Constant) and init_keyword.value is False
+            ):
+                return True
         next_visiting = {*visiting, class_node.name}
         return any(
             has_constructor(classes[base.id], next_visiting)
             for base in class_node.bases
             if isinstance(base, ast.Name) and base.id in classes
+        )
+
+    def has_builtin_exception_base(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> bool:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        next_visiting = {*visiting, class_node.name}
+        return any(
+            (
+                isinstance(base, ast.Name)
+                and base.id in BUILTIN_EXCEPTION_CLASS_NAMES
+                and base.id not in module_bindings
+                and base.id not in imported_modules
+            )
+            or (
+                isinstance(base, ast.Name)
+                and base.id in imported_modules
+                and imported_class_has_builtin_exception_base(
+                    base.id,
+                    imported_modules[base.id],
+                )
+            )
+            or (
+                isinstance(base, ast.Name)
+                and base.id in classes
+                and has_builtin_exception_base(classes[base.id], next_visiting)
+            )
+            for base in class_node.bases
         )
 
     def validate_class_bases(class_node: ast.ClassDef, visiting: set[str]) -> None:
@@ -1353,6 +1598,10 @@ def _python_inventory_entries(
                 f"cannot resolve Python test class inheritance: {path}"
             )
         next_visiting = {*visiting, class_node.name}
+        if class_node.keywords:
+            raise TestCorpusGuardError(
+                "collected Python test class metaclass cannot be inventoried safely"
+            )
         for base in class_node.bases:
             if isinstance(base, ast.Name) and base.id == "object":
                 continue
@@ -1465,6 +1714,14 @@ def _python_inventory_entries(
             or (not node.name.startswith("Test") and node.name not in unittest_classes)
             or node.name in disabled
             or class_is_disabled(node)
+        ):
+            continue
+        if node.keywords:
+            raise TestCorpusGuardError(
+                "collected Python test class metaclass cannot be inventoried safely"
+            )
+        if node.name not in unittest_classes and has_builtin_exception_base(
+            node, set()
         ):
             continue
         validate_class_bases(node, set())
@@ -1763,16 +2020,24 @@ def _parse_base_test_declarations(
 
 
 def discover_test_files(repo: Path) -> tuple[str, ...]:
-    return tuple(
-        sorted(
-            {
-                path.relative_to(repo).as_posix()
-                for pattern in TEST_FILE_PATTERNS
-                for path in repo.glob(pattern)
-                if path.is_file()
-            }
+    discovered = {
+        path.relative_to(repo).as_posix()
+        for pattern in FRONTEND_TEST_FILE_PATTERNS
+        for path in repo.glob(pattern)
+        if path.is_file()
+    }
+    for root, directory_names, file_names in os.walk(repo, followlinks=False):
+        directory_names[:] = sorted(
+            name
+            for name in directory_names
+            if not _is_pytest_ignored_directory_name(name)
         )
-    )
+        root_path = Path(root)
+        for file_name in sorted(file_names):
+            relative = (root_path / file_name).relative_to(repo).as_posix()
+            if _is_python_test_path(relative):
+                discovered.add(relative)
+    return tuple(sorted(discovered))
 
 
 def _close_quietly(*descriptors: int | None) -> None:
@@ -2032,10 +2297,8 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     change_roots = [
-        "tests",
         "apps",
-        "scripts",
-        "src",
+        PYTHON_TEST_GIT_PATHSPEC,
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
     ]
@@ -2194,12 +2457,29 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     return changed_tuple
 
 
+def _is_pytest_ignored_directory_name(name: str) -> bool:
+    return (
+        name.startswith(".")
+        or name in PYTEST_IGNORED_DIRECTORY_NAMES
+        or name.endswith(".egg")
+    )
+
+
+def _is_python_test_path(path: str) -> bool:
+    candidate = Path(path)
+    return (
+        candidate.suffix == ".py"
+        and (candidate.name.startswith("test_") or candidate.name.endswith("_test.py"))
+        and not any(
+            _is_pytest_ignored_directory_name(part) for part in candidate.parts[:-1]
+        )
+    )
+
+
 def _is_test_path(path: str) -> bool:
     candidate = Path(path)
-    if path.startswith("tests/"):
-        return candidate.suffix == ".py" and (
-            candidate.name.startswith("test_") or candidate.name.endswith("_test.py")
-        )
+    if _is_python_test_path(path):
+        return True
     if not path.startswith("apps/control-center/"):
         return False
     vitest_suffixes = tuple(

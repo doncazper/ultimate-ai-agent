@@ -1348,6 +1348,20 @@ def _unbraced_statement_contains_offset(
     return False
 
 
+def _unbraced_expression_end(text: str, scan_text: str, start: int) -> int:
+    index = start
+    while index < len(text):
+        while index < len(text) and scan_text[index].isspace():
+            index += 1
+        if index >= len(text) or scan_text[index] in ",;)]}":
+            return index
+        if scan_text[index] in "([{":
+            index = _skip_balanced(text, index)
+            continue
+        index += 1
+    return len(text)
+
+
 def _suite_callback_body(
     text: str,
     start: int,
@@ -1418,6 +1432,56 @@ def _suite_context_regions(
     return tuple(sorted(contexts))
 
 
+def _unproven_registration_regions(
+    text: str,
+    scan_text: str,
+    suite_context_regions: tuple[tuple[int, int, str, str], ...],
+) -> tuple[tuple[tuple[int, int], ...], tuple[tuple[int, int], ...]]:
+    suite_bodies = {
+        (start, end) for start, end, _title, _source in suite_context_regions
+    }
+    block_regions: set[tuple[int, int]] = set()
+    expression_regions: set[tuple[int, int]] = set()
+
+    def record_body(body_start: int) -> None:
+        body_end = _skip_balanced(text, body_start)
+        if (body_start, body_end) not in suite_bodies:
+            block_regions.add((body_start, body_end))
+
+    function_pattern = re.compile(
+        rf"\b(?:async\s+)?function\s*\*?(?:\s+{TEST_API_NAME})?\s*(?P<parameters>\()"
+    )
+    for match in function_pattern.finditer(scan_text):
+        parameters_end = _skip_balanced(text, match.start("parameters"))
+        body_start = parameters_end
+        while body_start < len(text) and text[body_start].isspace():
+            body_start += 1
+        if body_start < len(text) and text[body_start] == "{":
+            record_body(body_start)
+
+    def record_arrow_body(body_start: int) -> None:
+        if body_start < len(text) and text[body_start] == "{":
+            record_body(body_start)
+        else:
+            expression_regions.add(
+                (body_start, _unbraced_expression_end(text, scan_text, body_start))
+            )
+
+    for match in re.compile(r"=>").finditer(scan_text):
+        record_arrow_body(_skip_static_trivia(text, match.end()))
+
+    method_pattern = re.compile(rf"\b(?P<name>{TEST_API_NAME})\s*(?P<parameters>\()")
+    for match in method_pattern.finditer(scan_text):
+        if match.group("name") in {"catch", "for", "if", "switch", "while", "with"}:
+            continue
+        parameters_end = _skip_balanced(text, match.start("parameters"))
+        body_start = _skip_static_trivia(text, parameters_end)
+        if body_start < len(text) and text[body_start] == "{":
+            record_body(body_start)
+
+    return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
+
+
 def _registration_contexts(
     text: str,
     scan_text: str,
@@ -1425,45 +1489,21 @@ def _registration_contexts(
     title_literal: str,
     import_binding_resolver: ImportBindingResolver | None,
     suite_context_regions: tuple[tuple[int, int, str, str], ...],
+    unproven_block_regions: tuple[tuple[int, int], ...],
+    unproven_expression_regions: tuple[tuple[int, int], ...],
 ) -> tuple[_RegistrationContext, ...]:
+    if any(start < offset < end for start, end in unproven_block_regions) or any(
+        start <= offset < end for start, end in unproven_expression_regions
+    ):
+        raise FrontendInventoryError(
+            "frontend test registration context cannot be inventoried safely"
+        )
+
     def reject_enclosing_body(body_start: int) -> None:
         if body_start < offset < _skip_balanced(text, body_start):
             raise FrontendInventoryError(
                 "frontend test registration context cannot be inventoried safely"
             )
-
-    function_pattern = re.compile(
-        rf"\b(?:async\s+)?function\s+{TEST_API_NAME}\s*(?P<parameters>\()"
-    )
-    for match in function_pattern.finditer(scan_text, 0, offset):
-        parameters_end = _skip_balanced(text, match.start("parameters"))
-        body_start = parameters_end
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
-        if body_start < len(text) and text[body_start] == "{":
-            reject_enclosing_body(body_start)
-
-    arrow_pattern = re.compile(
-        rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*"
-        rf"(?P<parameters>\(|{TEST_API_NAME})"
-    )
-    for match in arrow_pattern.finditer(scan_text, 0, offset):
-        parameters_start = match.start("parameters")
-        parameters_end = (
-            _skip_balanced(text, parameters_start)
-            if text[parameters_start] == "("
-            else match.end("parameters")
-        )
-        arrow_start = parameters_end
-        while arrow_start < len(text) and text[arrow_start].isspace():
-            arrow_start += 1
-        if not text.startswith("=>", arrow_start):
-            continue
-        body_start = arrow_start + 2
-        while body_start < len(text) and text[body_start].isspace():
-            body_start += 1
-        if body_start < len(text) and text[body_start] == "{":
-            reject_enclosing_body(body_start)
 
     control_pattern = re.compile(r"\b(?:while|if|switch|catch)\s*(?P<header>\()")
     for match in control_pattern.finditer(scan_text, 0, offset):
@@ -1609,6 +1649,14 @@ def _frontend_inventory_entries(
         scan_text,
         suite_api_names,
     )
+    (
+        unproven_block_regions,
+        unproven_expression_regions,
+    ) = _unproven_registration_regions(
+        text,
+        scan_text,
+        suite_context_regions,
+    )
 
     for match in direct_pattern.finditer(scan_text):
         declaration_end = _skip_balanced(text, match.end() - 1)
@@ -1635,6 +1683,8 @@ def _frontend_inventory_entries(
             title_literal,
             import_binding_resolver,
             suite_context_regions,
+            unproven_block_regions,
+            unproven_expression_regions,
         )
         declaration_source = text[match.start() : declaration_end]
         for context in contexts:
@@ -1673,6 +1723,8 @@ def _frontend_inventory_entries(
             raw_title,
             import_binding_resolver,
             suite_context_regions,
+            unproven_block_regions,
+            unproven_expression_regions,
         )
         bound_data = _bound_parameter_data(
             text,
@@ -1707,6 +1759,8 @@ def _frontend_inventory_entries(
             raw_title,
             import_binding_resolver,
             suite_context_regions,
+            unproven_block_regions,
+            unproven_expression_regions,
         )
         for context in contexts:
             title = context.title
