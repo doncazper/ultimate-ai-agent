@@ -290,7 +290,7 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
         rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
-        rf"(?P<assertion><\s*[^>;\r\n]+>\s*)?"
+        rf"(?P<assertion><\s*[^;\r\n]+>\s*)?"
         rf"(?P<wrapper>\(*\s*)"
         rf"(?P<base>{api_names_pattern})\b"
         rf"(?P<closers>\s*\)*)"
@@ -425,7 +425,7 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
         rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
-        rf"(?P<assertion><\s*[^>;\r\n]+>\s*)?"
+        rf"(?P<assertion><\s*[^;\r\n]+>\s*)?"
         rf"(?P<wrapper>\(*\s*)"
         rf"(?P<base>{names_pattern})\b"
         rf"(?P<closers>\s*\)*)"
@@ -1687,9 +1687,42 @@ def _registration_contexts(
             "frontend test registration context cannot be inventoried safely"
         )
 
-    statement_start = max(
-        scan_text.rfind(delimiter, 0, offset) for delimiter in (";", "{", "}")
-    )
+    statement_start = -1
+    delimiter_stack: list[tuple[str, bool]] = []
+    delimiter_pairs = {"(": ")", "[": "]", "{": "}"}
+
+    def inside_expression() -> bool:
+        nearest_block = max(
+            (
+                index
+                for index, (opener, is_block) in enumerate(delimiter_stack)
+                if opener == "{" and is_block
+            ),
+            default=-1,
+        )
+        return any(
+            opener in "([" for opener, _is_block in delimiter_stack[nearest_block + 1 :]
+        )
+
+    for index, character in enumerate(scan_text[:offset]):
+        if character in delimiter_pairs:
+            prefix = scan_text[:index].rstrip()
+            is_block = character == "{" and (
+                prefix.endswith(("=>", ")")) or not inside_expression()
+            )
+            if is_block:
+                statement_start = index
+            delimiter_stack.append((character, is_block))
+            continue
+        if character in ")]}" and delimiter_stack:
+            opener, is_block = delimiter_stack[-1]
+            if delimiter_pairs[opener] == character:
+                delimiter_stack.pop()
+                if character == "}" and is_block:
+                    statement_start = index
+            continue
+        if character == ";" and not inside_expression():
+            statement_start = index
     statement_prefix = scan_text[statement_start + 1 : offset]
     if re.search(r"&&|\|\||\?\?", statement_prefix) or re.search(
         r"\?(?![.?])", statement_prefix

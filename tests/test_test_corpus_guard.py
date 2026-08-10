@@ -793,6 +793,13 @@ if True:
         ),
         (
             "import pytest\n"
+            "pytestmark = marks = []\n"
+            'marks.append(pytest.mark.parametrize("value", [1, 2]))\n'
+            "def test_case(value): pass\n",
+            "dynamic pytestmark mutation",
+        ),
+        (
+            "import pytest\n"
             "class TestGroup:\n"
             "    pytestmark = []\n"
             '    pytestmark += [pytest.mark.parametrize("value", [1, 2])]\n'
@@ -805,6 +812,13 @@ if True:
             "class TestGroup(Base):\n"
             "    def test_case(self): pass\n",
             "test class metaclass",
+        ),
+        (
+            "class Base:\n"
+            "    def test_inherited(self): pass\n"
+            "Base.__test__ = False\n"
+            "class TestGroup(Base): pass\n",
+            "post-definition Python class __test__ mutation",
         ),
     ),
 )
@@ -1452,6 +1466,11 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
             "test API alias",
         ),
         (
+            "const spec = <ReturnType<() => typeof test>>test;\n"
+            'spec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
             'const group = describe;\ngroup("suite", () => {});\n',
             "suite API alias",
         ),
@@ -1968,6 +1987,7 @@ def test_changed_test_paths_disable_rename_collapsing(
     config_paths = [
         *sorted(guard.PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
+        *sorted(guard.FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
     ]
     assert all(args[-len(config_paths) :] == config_paths for args in captured_args)
     captured_without_configs = [args[: -len(config_paths)] for args in captured_args]
@@ -2664,6 +2684,38 @@ def test_changed_frontend_collection_configuration_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_frontend_test_script_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = "apps/control-center/package.json"
+    current = '{"scripts":{"test":"vitest --exclude src/example.test.ts"}}\n'
+    prior = '{"scripts":{"test":"vitest"}}\n'
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(current)
+    outputs = iter(
+        (
+            f"{config_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="frontend test script"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_frontend_test_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3338,6 +3390,10 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             'enabled ? test("case", () => {}) : undefined;',
             "conditional test registration",
         ),
+        (
+            'const enabled = true; enabled && ({}, test("case", () => {}));',
+            "conditional test registration",
+        ),
     ),
 )
 def test_frontend_inventory_rejects_unproven_registration_constructs(
@@ -3349,6 +3405,26 @@ def test_frontend_inventory_rejects_unproven_registration_constructs(
             "apps/control-center/src/example.test.ts",
             source,
         )
+
+
+def test_frontend_inventory_allows_callback_ternary_before_registration() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        """
+describe("suite", () => {
+  const expected = enabled ? "one" : "two";
+  test("case", () => expect(expected).toBe("one"));
+});
+describe("function suite", function () {
+  const expected = enabled ? "one" : "two";
+  test("function case", () => expect(expected).toBe("one"));
+});
+""",
+    )
+
+    assert len(declarations) == 2
+    assert declarations[0].ref.endswith("::case")
+    assert declarations[1].ref.endswith("::function case")
 
 
 def test_frontend_inventory_binds_nested_spread_parameter_data() -> None:
@@ -3483,6 +3559,48 @@ def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed registered pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_registered_pytest_plugin_parameterized_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        'pytest_plugins = ["tests.collection_plugin"]\n'
+    )
+    plugin_path = tests_root / "collection_plugin.py"
+    plugin_path.write_text(
+        "import pytest\n"
+        '@pytest.fixture(params=["one"])\n'
+        "def shared_value(request): return request.param\n"
+    )
+    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "import pytest\n"
+            '@pytest.fixture(params=["one", "two"])\n'
+            "def shared_value(request): return request.param\n"
+            if path == "tests/collection_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered parameterized pytest fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

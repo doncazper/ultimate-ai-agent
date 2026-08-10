@@ -52,7 +52,8 @@ dependencies. Changes to an imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks fail closed. Collection hooks in changed repository plugins
-registered through a `conftest.py` `pytest_plugins` binding also fail closed.
+registered through a `conftest.py` `pytest_plugins` binding also fail closed,
+as do parameterized fixtures declared by those registered plugins.
 Wildcard imports in tests, class-body parameter bindings,
 repository-file/directory-backed local or imported parameter data (including
 aliased readers, directory enumeration, and constructed classes), and changes
@@ -69,17 +70,19 @@ parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
 safely. Parameterized fixtures and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), dynamic
-module/class `pytestmark` mutations through direct or aliased bindings,
+module/class `pytestmark` mutations through direct, aliased, or chained-assignment
+bindings, post-definition `__test__` writes to local classes,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
 registrations inside unresolved function, constrained generic method, or callback
 bodies and expression-conditional registrations fail closed; ordinary, typed,
-parenthesized, or angle-bracket-asserted test/suite API aliases are rejected,
+parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 and recognized runner APIs also fail closed when shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
-the complete resolved runner-alias set. Changes to the Control Center Vitest or Playwright collection
-configuration also fail closed.
+the complete resolved runner-alias set. Changes to the Control Center Vitest or
+Playwright collection configuration, or to its `package.json` `scripts.test`
+command, also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

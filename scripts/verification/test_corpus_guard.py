@@ -66,6 +66,9 @@ FRONTEND_COLLECTION_CONFIG_PATHS = {
     "apps/control-center/playwright.smoke.config.ts",
     "apps/control-center/playwright.visual.config.ts",
 }
+FRONTEND_TEST_SCRIPT_CONFIG_PATHS = {
+    "apps/control-center/package.json",
+}
 GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "__delitem__",
     "__ior__",
@@ -864,7 +867,7 @@ def _reject_repository_reader_calls(
 
 def _has_dynamic_pytestmark_mutation(nodes: tuple[ast.AST, ...]) -> bool:
     aliases = {"pytestmark"}
-    assignments: list[tuple[tuple[str, ...], ast.AST]] = []
+    assignments: list[tuple[tuple[str, ...], ast.AST, bool]] = []
     for node in nodes:
         if isinstance(node, ast.Assign):
             assignments.append(
@@ -875,15 +878,17 @@ def _has_dynamic_pytestmark_mutation(nodes: tuple[ast.AST, ...]) -> bool:
                         for name in _binding_target_names(target)
                     ),
                     node.value,
+                    len(node.targets) > 1,
                 )
             )
         elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            assignments.append((_binding_target_names(node.target), node.value))
+            assignments.append((_binding_target_names(node.target), node.value, False))
     while True:
         added = {
             name
-            for names, value in assignments
+            for names, value, shares_value in assignments
             if _root_name(value) in aliases
+            or (shares_value and any(alias in aliases for alias in names))
             for name in names
         } - aliases
         if not added:
@@ -1621,6 +1626,26 @@ def _python_inventory_entries(
             "duplicate Python class bindings cannot be inventoried safely"
         )
     classes = {node.name: node for node in class_nodes}
+    for module_node in _module_execution_nodes(tree):
+        if isinstance(module_node, ast.Assign):
+            targets = module_node.targets
+        elif isinstance(module_node, (ast.AnnAssign, ast.AugAssign)):
+            targets = (module_node.target,)
+        elif isinstance(module_node, ast.Delete):
+            targets = module_node.targets
+        else:
+            continue
+        if any(
+            isinstance(target, ast.Attribute)
+            and target.attr == "__test__"
+            and isinstance(target.value, ast.Name)
+            and target.value.id in classes
+            for target in targets
+        ):
+            raise TestCorpusGuardError(
+                "post-definition Python class __test__ mutation cannot be "
+                "inventoried safely"
+            )
     unittest_roots = {
         imported.asname or imported.name
         for node in tree.body
@@ -2789,6 +2814,32 @@ def _collection_config_section(value: str, section: str) -> str:
     return match.group(0).strip() if match is not None else ""
 
 
+def _frontend_test_script(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        payload = json.loads(value)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise TestCorpusGuardError(
+            "frontend test script configuration cannot be inventoried safely"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise TestCorpusGuardError(
+            "frontend test script configuration cannot be inventoried safely"
+        )
+    scripts = payload.get("scripts", {})
+    if not isinstance(scripts, dict):
+        raise TestCorpusGuardError(
+            "frontend test script configuration cannot be inventoried safely"
+        )
+    test_script = scripts.get("test", "")
+    if not isinstance(test_script, str):
+        raise TestCorpusGuardError(
+            "frontend test script configuration cannot be inventoried safely"
+        )
+    return test_script
+
+
 def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
     try:
         tree = ast.parse(source, filename=path)
@@ -2883,6 +2934,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         *FRONTEND_SOURCE_GIT_PATHSPECS,
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
+        *sorted(FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
     ]
     commands = (
         [
@@ -2940,6 +2992,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         if current != prior:
             raise TestCorpusGuardError(
                 "changed frontend collection configuration cannot be inventoried safely"
+            )
+    for path in FRONTEND_TEST_SCRIPT_CONFIG_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if _frontend_test_script(current) != _frontend_test_script(prior):
+            raise TestCorpusGuardError(
+                "changed frontend test script cannot be inventoried safely"
             )
     for path in PYTEST_COLLECTION_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
@@ -3017,6 +3076,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 ):
                     raise TestCorpusGuardError(
                         "changed registered pytest collection hooks cannot be "
+                        "inventoried safely"
+                    )
+                if _has_parameterized_fixture_declaration(
+                    current, plugin_path
+                ) or _has_parameterized_fixture_declaration(prior, plugin_path):
+                    raise TestCorpusGuardError(
+                        "changed registered parameterized pytest fixtures cannot be "
                         "inventoried safely"
                     )
     changed = {path for path in all_changed if _is_test_path(path)}
