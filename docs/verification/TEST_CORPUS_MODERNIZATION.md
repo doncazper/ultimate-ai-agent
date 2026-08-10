@@ -77,7 +77,8 @@ rejected),
 collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), direct module
-namespace writes through zero-argument `globals()`, `locals()`, or `vars()`, indirect module
+namespace writes or mutator calls through zero-argument `globals()`, `locals()`, or
+`vars()`, indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
 or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`

@@ -976,6 +976,14 @@ if True:
             "indirect Python test-name rebinding",
         ),
         (
+            'def test_case(): pass\nlocals().pop("test_case")\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
+            'def test_case(): pass\nvars().update({"test_case": None})\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
             'def test_case(): pass\nnamespace = globals()\nnamespace.pop("test_case")\n',
             "indirect Python test-name rebinding",
         ),

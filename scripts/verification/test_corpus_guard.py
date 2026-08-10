@@ -83,6 +83,7 @@ GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "setdefault",
     "update",
 }
+MODULE_NAMESPACE_ACCESSORS = frozenset({"globals", "locals", "vars"})
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
     "count",
@@ -248,12 +249,15 @@ def _is_globals_call(node: ast.AST) -> bool:
     return _is_module_namespace_call(node)
 
 
-def _is_globals_namespace_mutator_call(node: ast.AST) -> bool:
+def _is_module_namespace_mutator_call(node: ast.AST) -> bool:
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in GLOBALS_NAMESPACE_MUTATOR_METHODS
-        and _is_globals_call(node.func.value)
+        and _is_module_namespace_call(
+            node.func.value,
+            accessors=MODULE_NAMESPACE_ACCESSORS,
+        )
     )
 
 
@@ -2639,14 +2643,14 @@ def _python_inventory_entries(
                 "dynamic Python function __test__ mutation cannot be inventoried safely"
             )
 
-    if any(_is_globals_namespace_mutator_call(node) for node in ast.walk(tree)):
+    if any(_is_module_namespace_mutator_call(node) for node in ast.walk(tree)):
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
     if any(
         _is_module_namespace_alias_binding(
             node,
-            accessors=frozenset({"globals", "locals", "vars"}),
+            accessors=MODULE_NAMESPACE_ACCESSORS,
         )
         for node in ast.walk(tree)
     ):
@@ -2675,7 +2679,7 @@ def _python_inventory_entries(
             for target in targets
             for name in _module_namespace_write_targets(
                 target,
-                accessors=frozenset({"globals", "locals", "vars"}),
+                accessors=MODULE_NAMESPACE_ACCESSORS,
             )
         )
         if any(
@@ -3660,7 +3664,7 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
         ) from exc
     modules: set[str] = set()
     if any(
-        _is_globals_namespace_mutator_call(node)
+        _is_module_namespace_mutator_call(node)
         or _is_globals_namespace_alias_binding(node)
         for node in ast.walk(tree)
     ):
