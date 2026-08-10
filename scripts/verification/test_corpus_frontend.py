@@ -1608,10 +1608,16 @@ def _function_body_after_parameters(
             continue
         if character == "{":
             prefix = scan_text[return_type_start:index].rstrip()
+            trailing_word = re.search(r"([A-Za-z_$][\w$]*)$", prefix)
             if (
                 angle_depth
                 or index == return_type_start
                 or prefix.endswith(("=>", "?", ":", "|", "&"))
+                or (
+                    trailing_word is not None
+                    and trailing_word.group(1)
+                    in {"extends", "infer", "keyof", "readonly", "typeof"}
+                )
             ):
                 index = _skip_balanced(text, index)
                 continue

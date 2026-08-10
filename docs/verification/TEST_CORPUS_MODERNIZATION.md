@@ -66,7 +66,8 @@ aliased readers, directory enumeration, and constructed classes), and changes
 to pytest collection configuration
 in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
-Python test-class aliases, assigned or imported `unittest.TestCase` aliases,
+Python test-class aliases, assigned or imported `unittest.TestCase` aliases
+(with dynamic construction or incompatible rebinding rejected),
 collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), indirect module
@@ -80,12 +81,13 @@ factories at module or class scope (including expanded option mappings), dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
 bindings, post-definition `__test__` writes to local classes or their direct or
 bounded-unpacking aliases, and dynamic function-level `__test__` writes fail
-closed; bounded static falsy function-level values are treated as disabled,
+closed; bounded function aliases participate in static function-level `__test__`
+writes, bounded static falsy function-level values are treated as disabled,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
-registrations inside unresolved function (including one with a TypeScript return
-annotation), constrained generic method, or callback
+registrations inside unresolved function (including one with a bounded TypeScript
+return annotation or object-type operator), constrained generic method, or callback
 bodies and expression-conditional registrations fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 and recognized runner APIs also fail closed when shadowed in a local

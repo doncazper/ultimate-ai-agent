@@ -593,6 +593,70 @@ def test_python_inventory_collects_assigned_unittest_testcase_aliases(
     ]
 
 
+@pytest.mark.parametrize(
+    ("alias_assignment", "base"),
+    (
+        ('Case = getattr(unittest, "TestCase")', "Case"),
+        (
+            'Case = unittest.TestCase\nCase = getattr(unittest, "TestCase")',
+            "Case",
+        ),
+        (
+            'RawCase = getattr(unittest, "TestCase")\nCase = RawCase',
+            "Case",
+        ),
+        (
+            'Case = RawCase\nRawCase = getattr(unittest, "TestCase")',
+            "Case",
+        ),
+        (
+            "Case = unittest.TestCase\n"
+            'Case = getattr(unittest, "TestCase")\nAlias = Case',
+            "Alias",
+        ),
+        (
+            '(Case, OtherCase) = (getattr(unittest, "TestCase"), unittest.TestCase)',
+            "Case",
+        ),
+        (
+            "from unittest import TestCase as BaseCase\nCase = identity(BaseCase)",
+            "Case",
+        ),
+        ("", 'getattr(unittest, "TestCase")'),
+    ),
+)
+def test_python_inventory_rejects_dynamic_unittest_testcase_alias(
+    alias_assignment: str,
+    base: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic unittest.TestCase alias",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            f"{alias_assignment}\n"
+            f"class WidgetCases({base}):\n"
+            "    def test_widget(self): pass\n",
+        )
+
+
+def test_python_inventory_rejects_rebound_unittest_testcase_alias() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic unittest.TestCase alias",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            "Case = unittest.TestCase\n"
+            "Case = object\n"
+            "class WidgetCases(Case):\n"
+            "    def test_widget(self): pass\n",
+        )
+
+
 def test_python_inventory_binds_global_mutation_helpers_not_read_only_uses() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -717,6 +781,50 @@ def test_python_inventory_rejects_dynamic_function_test_mutation() -> None:
             "tests/test_sample.py",
             "def test_case(): pass\ntest_case.__test__ = enabled\n",
         )
+
+
+@pytest.mark.parametrize(
+    "alias_assignment",
+    (
+        "Alias = test_case",
+        "Intermediate = test_case\nAlias = Intermediate",
+        "(Alias, marker) = (test_case, object())",
+    ),
+)
+def test_python_inventory_tracks_function_alias_test_mutation(
+    alias_assignment: str,
+) -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        f"def test_case(): pass\n{alias_assignment}\nAlias.__test__ = False\n",
+    )
+
+    assert declarations == ()
+
+
+def test_python_inventory_rejects_dynamic_function_alias_test_mutation() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python function __test__ mutation",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "def test_case(): pass\n"
+            "Alias = identity(test_case)\n"
+            "Alias.__test__ = False\n",
+        )
+
+
+def test_python_inventory_does_not_reuse_rebound_function_alias() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(): pass\n"
+        "Alias = test_case\n"
+        "Alias = object()\n"
+        "Alias.__test__ = False\n",
+    )
+
+    assert [item.ref for item in declarations] == ["tests/test_sample.py::test_case"]
 
 
 def test_python_inventory_rejects_unresolved_parametrize_alias() -> None:
@@ -3524,6 +3632,11 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         ),
         (
             'function register(): void { test("case", () => {}); }\nregister();\n',
+            "registration context",
+        ),
+        (
+            "function register(): keyof { a: string } { "
+            'test("case", () => {}); return "a"; }\nregister();\n',
             "registration context",
         ),
         (

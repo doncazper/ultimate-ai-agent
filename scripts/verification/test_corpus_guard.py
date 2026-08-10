@@ -1509,12 +1509,71 @@ def _has_nested_python_tests(node: ast.AST) -> bool:
 
 def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
     active: set[str] = set()
+    active_functions: set[str] = set()
+    function_aliases: dict[str, str] = {}
+    unresolved_function_aliases: set[str] = set()
     disabled: set[str] = set()
+
+    def resolved_function_name(value: ast.AST | None) -> str | None:
+        if not isinstance(value, ast.Name):
+            return None
+        if value.id in active_functions:
+            return value.id
+        return function_aliases.get(value.id)
+
+    def may_resolve_function(value: ast.AST | None) -> bool:
+        return value is not None and any(
+            isinstance(child, ast.Name)
+            and child.id
+            in {
+                *active_functions,
+                *function_aliases,
+                *unresolved_function_aliases,
+            }
+            for child in ast.walk(value)
+        )
+
+    def update_function_alias(target: ast.AST, value: ast.AST | None) -> None:
+        if isinstance(target, ast.Name):
+            resolved = resolved_function_name(value)
+            if resolved is not None:
+                function_aliases[target.id] = resolved
+                unresolved_function_aliases.discard(target.id)
+            elif may_resolve_function(value):
+                function_aliases.pop(target.id, None)
+                unresolved_function_aliases.add(target.id)
+            else:
+                function_aliases.pop(target.id, None)
+                unresolved_function_aliases.discard(target.id)
+            return
+        if isinstance(target, (ast.List, ast.Tuple)):
+            if isinstance(value, (ast.List, ast.Tuple)) and len(target.elts) == len(
+                value.elts
+            ):
+                for target_item, value_item in zip(
+                    target.elts,
+                    value.elts,
+                    strict=True,
+                ):
+                    update_function_alias(target_item, value_item)
+                return
+            for name in _binding_target_names(target):
+                function_aliases.pop(name, None)
+                if may_resolve_function(value):
+                    unresolved_function_aliases.add(name)
+                else:
+                    unresolved_function_aliases.discard(name)
 
     def update_test_binding(target: ast.AST, value: ast.AST) -> None:
         if isinstance(target, ast.Attribute) and target.attr == "__test__":
             root = _root_name(target.value)
-            if root not in active:
+            if root in unresolved_function_aliases:
+                raise TestCorpusGuardError(
+                    "dynamic Python function __test__ mutation cannot be "
+                    "inventoried safely"
+                )
+            declaration = root if root in active else function_aliases.get(root or "")
+            if declaration is None:
                 return
             if isinstance(value, ast.Constant):
                 is_enabled = bool(value.value)
@@ -1528,9 +1587,9 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
                     "inventoried safely"
                 )
             if is_enabled:
-                disabled.discard(root)
+                disabled.discard(declaration)
             else:
-                disabled.add(root)
+                disabled.add(declaration)
             return
         if isinstance(target, (ast.List, ast.Tuple)):
             if not (
@@ -1540,7 +1599,12 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
                 if any(
                     isinstance(child, ast.Attribute)
                     and child.attr == "__test__"
-                    and _root_name(child.value) in active
+                    and _root_name(child.value)
+                    in {
+                        *active,
+                        *function_aliases,
+                        *unresolved_function_aliases,
+                    }
                     for child in ast.walk(target)
                 ):
                     raise TestCorpusGuardError(
@@ -1559,7 +1623,15 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
         if isinstance(
             node, (ast.FunctionDef, ast.AsyncFunctionDef)
         ) and node.name.startswith("test"):
+            function_aliases.pop(node.name, None)
+            unresolved_function_aliases.discard(node.name)
+            function_aliases = {
+                alias: declaration
+                for alias, declaration in function_aliases.items()
+                if declaration != node.name
+            }
             active.add(node.name)
+            active_functions.add(node.name)
             disabled.discard(node.name)
             continue
         if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
@@ -1579,20 +1651,40 @@ def _disabled_python_declarations(body: list[ast.stmt]) -> set[str]:
             for target in node.targets:
                 rebound.update(_binding_target_names(target))
         disabled.update(active & rebound)
+        for name in rebound:
+            if name in active_functions:
+                active_functions.discard(name)
+                function_aliases = {
+                    alias: declaration
+                    for alias, declaration in function_aliases.items()
+                    if declaration != name
+                }
 
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
             for target in targets:
                 update_test_binding(target, node.value)
+                update_function_alias(target, node.value)
         elif (
             isinstance(node, ast.AugAssign)
             and isinstance(node.target, ast.Attribute)
             and node.target.attr == "__test__"
-            and _root_name(node.target.value) in active
+            and _root_name(node.target.value)
+            in {
+                *active,
+                *function_aliases,
+                *unresolved_function_aliases,
+            }
         ):
             raise TestCorpusGuardError(
                 "dynamic Python function __test__ mutation cannot be inventoried safely"
             )
+        elif isinstance(node, (ast.AugAssign, ast.Delete)):
+            targets = node.targets if isinstance(node, ast.Delete) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    function_aliases.pop(name, None)
+                    unresolved_function_aliases.discard(name)
     return disabled
 
 
@@ -1779,15 +1871,56 @@ def _python_inventory_entries(
         if imported.name == "TestCase"
     }
     unittest_test_case_aliases = set(unittest_test_case_names)
+    unresolved_unittest_test_case_aliases: set[str] = set()
 
-    def resolved_unittest_aliases(target: ast.AST, value: ast.AST) -> set[str]:
+    def may_resolve_unittest_test_case(value: ast.AST | None) -> bool:
+        if value is None:
+            return False
+        if any(
+            (
+                isinstance(child, ast.Attribute)
+                and child.attr == "TestCase"
+                and _root_name(child) in unittest_roots
+            )
+            or (
+                isinstance(child, ast.Name)
+                and child.id
+                in {
+                    *unittest_test_case_aliases,
+                    *unresolved_unittest_test_case_aliases,
+                }
+            )
+            for child in ast.walk(value)
+        ):
+            return True
+        if not (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "getattr"
+            and value.args
+            and _root_name(value.args[0]) in unittest_roots
+        ):
+            return False
+        return not (
+            len(value.args) >= 2
+            and isinstance(value.args[1], ast.Constant)
+            and isinstance(value.args[1].value, str)
+            and value.args[1].value != "TestCase"
+        )
+
+    def resolved_unittest_aliases(
+        target: ast.AST,
+        value: ast.AST | None,
+    ) -> set[str]:
         if isinstance(target, ast.Name):
             if (
                 isinstance(value, ast.Attribute)
                 and value.attr == "TestCase"
                 and _root_name(value) in unittest_roots
             ) or (
-                isinstance(value, ast.Name) and value.id in unittest_test_case_aliases
+                isinstance(value, ast.Name)
+                and value.id in unittest_test_case_aliases
+                and value.id not in unresolved_unittest_test_case_aliases
             ):
                 return {target.id}
             return set()
@@ -1803,8 +1936,49 @@ def _python_inventory_entries(
             }
         return set()
 
+    def unresolved_unittest_aliases(
+        target: ast.AST,
+        value: ast.AST | None,
+    ) -> set[str]:
+        if isinstance(target, ast.Name):
+            if resolved_unittest_aliases(target, value):
+                return set()
+            return (
+                {target.id}
+                if target.id
+                in {
+                    *unittest_test_case_aliases,
+                    *unresolved_unittest_test_case_aliases,
+                }
+                or may_resolve_unittest_test_case(value)
+                else set()
+            )
+        if (
+            isinstance(target, (ast.List, ast.Tuple))
+            and isinstance(value, (ast.List, ast.Tuple))
+            and len(target.elts) == len(value.elts)
+        ):
+            return {
+                alias
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for alias in unresolved_unittest_aliases(target_item, value_item)
+            }
+        target_names = {
+            name
+            for name in _binding_target_names(target)
+            if name
+            in {
+                *unittest_test_case_aliases,
+                *unresolved_unittest_test_case_aliases,
+            }
+        }
+        if may_resolve_unittest_test_case(value):
+            target_names.update(_binding_target_names(target))
+        return target_names
+
     while True:
         added: set[str] = set()
+        unresolved_added: set[str] = set()
         for module_node in _module_execution_nodes(tree):
             if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
                 continue
@@ -1815,10 +1989,52 @@ def _python_inventory_entries(
             )
             for target in targets:
                 added.update(resolved_unittest_aliases(target, module_node.value))
+                unresolved_added.update(
+                    unresolved_unittest_aliases(target, module_node.value)
+                )
         added -= unittest_test_case_aliases
-        if not added:
+        unresolved_added -= unresolved_unittest_test_case_aliases
+        if not added and not unresolved_added:
             break
         unittest_test_case_aliases.update(added)
+        unresolved_unittest_test_case_aliases.update(unresolved_added)
+    for module_node in _module_execution_nodes(tree):
+        if isinstance(module_node, ast.AugAssign):
+            mutation_targets = (module_node.target,)
+        elif isinstance(module_node, ast.Delete):
+            mutation_targets = module_node.targets
+        else:
+            continue
+        unresolved_unittest_test_case_aliases.update(
+            name
+            for target in mutation_targets
+            for name in _binding_target_names(target)
+            if name in unittest_test_case_aliases
+        )
+    for class_node in classes.values():
+        if any(
+            not (
+                isinstance(base, ast.Attribute)
+                and base.attr == "TestCase"
+                and _root_name(base) in unittest_roots
+            )
+            and not (
+                isinstance(base, ast.Name)
+                and base.id in unittest_test_case_aliases
+                and base.id not in unresolved_unittest_test_case_aliases
+            )
+            and (
+                (
+                    isinstance(base, ast.Name)
+                    and base.id in unresolved_unittest_test_case_aliases
+                )
+                or may_resolve_unittest_test_case(base)
+            )
+            for base in class_node.bases
+        ):
+            raise TestCorpusGuardError(
+                "dynamic unittest.TestCase alias cannot be inventoried safely"
+            )
     unittest_classes: set[str] = set()
     changed = True
     while changed:
@@ -1834,7 +2050,14 @@ def _python_inventory_entries(
                 )
                 or (
                     isinstance(base, ast.Name)
-                    and base.id in {*unittest_test_case_aliases, *unittest_classes}
+                    and base.id
+                    in {
+                        *(
+                            unittest_test_case_aliases
+                            - unresolved_unittest_test_case_aliases
+                        ),
+                        *unittest_classes,
+                    }
                 )
                 for base in class_node.bases
             ):
