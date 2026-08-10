@@ -241,6 +241,39 @@ def _patterns(
     return direct, each, conditional
 
 
+def _has_global_api_mutation(
+    text: str,
+    scan_text: str,
+    *,
+    names: tuple[str, ...],
+) -> bool:
+    global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
+    name_pattern = "(?:" + "|".join(re.escape(name) for name in names) + ")"
+    operator_pattern = r"(?:=(?!=|>)|\+=|-=|\*=|/=|%=|&&=|\|\|=|\?\?=|\+\+|--)"
+    dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
+    if re.search(rf"\bdelete\s+{dot_property}", scan_text) or re.search(
+        rf"{dot_property}\s*{operator_pattern}",
+        scan_text,
+    ):
+        return True
+    quoted_names = (
+        "(?:"
+        + "|".join(quoted for name in names for quoted in (f'"{name}"', f"'{name}'"))
+        + ")"
+    )
+    computed_property = rf"{global_object}\s*\[\s*{quoted_names}\s*\]"
+    for pattern in (
+        rf"\bdelete\s+{computed_property}",
+        rf"{computed_property}\s*{operator_pattern}",
+    ):
+        if any(
+            scan_text[match.start()] == text[match.start()]
+            for match in re.finditer(pattern, text)
+        ):
+            return True
+    return False
+
+
 def _test_api_names(text: str, scan_text: str) -> set[str]:
     names = {"it", "test"}
     approved_import_bindings: set[str] = set()
@@ -306,13 +339,7 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         raise FrontendInventoryError(
             "frontend optional test API call cannot be inventoried safely"
         )
-    global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
-    global_runner_property = rf"{global_object}\s*\.\s*(?:it|test)\b"
-    if re.search(rf"\bdelete\s+{global_runner_property}", scan_text) or re.search(
-        rf"{global_runner_property}\s*"
-        rf"(?:=(?!=|>)|\+=|-=|\*=|/=|%=|&&=|\|\|=|\?\?=|\+\+|--)",
-        scan_text,
-    ):
+    if _has_global_api_mutation(text, scan_text, names=("it", "test")):
         raise FrontendInventoryError(
             "frontend global test API mutation cannot be inventoried safely"
         )
@@ -606,13 +633,7 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
         raise FrontendInventoryError(
             "frontend optional suite API call cannot be inventoried safely"
         )
-    global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
-    global_suite_property = rf"{global_object}\s*\.\s*(?:describe|suite)\b"
-    if re.search(rf"\bdelete\s+{global_suite_property}", scan_text) or re.search(
-        rf"{global_suite_property}\s*"
-        rf"(?:=(?!=|>)|\+=|-=|\*=|/=|%=|&&=|\|\|=|\?\?=|\+\+|--)",
-        scan_text,
-    ):
+    if _has_global_api_mutation(text, scan_text, names=("describe", "suite")):
         raise FrontendInventoryError(
             "frontend global suite API mutation cannot be inventoried safely"
         )

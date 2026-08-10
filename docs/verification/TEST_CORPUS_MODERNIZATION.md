@@ -128,7 +128,8 @@ including bounded nontrivial initializers that retain a recognized runner API
 reference rather than invoking it and results of unrecognized runner methods
 such as `bind`,
 and recognized runner APIs also fail closed when invoked through optional
-chaining, mutated through `globalThis`, or shadowed in a local
+chaining, mutated through dot or string-literal computed `globalThis` access, or
+shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to any supported
 `vite.config.{js,mjs,cjs,ts,mts,cts}` or

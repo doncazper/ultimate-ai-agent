@@ -1412,7 +1412,10 @@ def test_frontend_inventory_rejects_optional_runner_calls(source: str) -> None:
     "source",
     (
         '(globalThis as any).test = () => undefined;\ntest("case", () => {});\n',
+        'globalThis["test"] = () => undefined;\ntest("case", () => {});\n',
         "globalThis.describe = () => undefined;\n"
+        'describe("suite", () => { test("case", () => {}); });\n',
+        "(globalThis as any)['describe'] = () => undefined;\n"
         'describe("suite", () => { test("case", () => {}); });\n',
     ),
 )
@@ -2142,7 +2145,9 @@ def test_frontend_inventory_ignores_test_syntax_in_comments_and_strings() -> Non
         """
 // it("commented out", () => {});
 /* test.each(cases)("also commented out", () => {}); */
+// globalThis["test"] = replacement;
 const sample = 'it("string payload", () => {})';
+const mutationSample = 'globalThis["test"] = replacement';
 it("real declaration", () => {});
 """,
     )
