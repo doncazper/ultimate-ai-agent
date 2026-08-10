@@ -295,6 +295,58 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         rf"(?P<base>{api_names_pattern})\b"
         rf"(?P<closers>\s*\)*)"
     )
+    angle_alias_pattern = re.compile(
+        rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
+        rf"(?:\:\s*[^=;\r\n]+)?(?P<assignment>=)"
+    )
+
+    def angle_assertion_end(start: int) -> int | None:
+        if start >= len(scan_text) or scan_text[start] != "<":
+            return None
+        index = start + 1
+        angle_depth = 1
+        delimiter_stack: list[str] = []
+        delimiter_pairs = {"(": ")", "[": "]", "{": "}"}
+        while index < len(scan_text) and angle_depth:
+            character = scan_text[index]
+            if character in delimiter_pairs:
+                delimiter_stack.append(delimiter_pairs[character])
+            elif delimiter_stack and character == delimiter_stack[-1]:
+                delimiter_stack.pop()
+            elif not delimiter_stack:
+                if character == "<":
+                    angle_depth += 1
+                elif character == ">" and scan_text[index - 1] != "=":
+                    angle_depth -= 1
+            index += 1
+        return index if angle_depth == 0 else None
+
+    def angle_asserted_alias(match: re.Match[str]) -> bool:
+        initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        assertion_end = angle_assertion_end(initializer_start)
+        if assertion_end is None:
+            return False
+        index = _skip_static_trivia(text, assertion_end)
+        wrapper_count = 0
+        while index < len(scan_text) and scan_text[index] == "(":
+            wrapper_count += 1
+            index = _skip_static_trivia(text, index + 1)
+        base_match = re.match(api_names_pattern, scan_text[index:])
+        if base_match is None:
+            return False
+        base = base_match.group(0)
+        index += len(base)
+        for _ in range(wrapper_count):
+            index = _skip_static_trivia(text, index)
+            if index >= len(scan_text) or scan_text[index] != ")":
+                return False
+            index += 1
+        suffix_start = _skip_static_trivia(text, index)
+        return (
+            match.group("alias") != base
+            and match.start("alias") not in recognized_extensions
+            and not text.startswith(("=>", ".extend"), suffix_start)
+        )
 
     def is_ordinary_alias(match: re.Match[str]) -> bool:
         initializer_start = _skip_static_trivia(text, match.end("assignment"))
@@ -321,6 +373,8 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         and match.start("alias") not in recognized_extensions
         and is_ordinary_alias(match)
         for match in ordinary_alias_pattern.finditer(scan_text)
+    ) or any(
+        angle_asserted_alias(match) for match in angle_alias_pattern.finditer(scan_text)
     ):
         raise FrontendInventoryError(
             "frontend test API alias cannot be inventoried safely"
@@ -1688,20 +1742,25 @@ def _registration_contexts(
         )
 
     statement_start = -1
-    delimiter_stack: list[tuple[str, bool]] = []
+    delimiter_stack: list[list[object]] = []
     delimiter_pairs = {"(": ")", "[": "]", "{": "}"}
 
     def inside_expression() -> bool:
         nearest_block = max(
             (
                 index
-                for index, (opener, is_block) in enumerate(delimiter_stack)
+                for index, (opener, is_block, _previous, _closed_block) in enumerate(
+                    delimiter_stack
+                )
                 if opener == "{" and is_block
             ),
             default=-1,
         )
         return any(
-            opener in "([" for opener, _is_block in delimiter_stack[nearest_block + 1 :]
+            opener in "(["
+            for opener, _is_block, _previous, _closed_block in delimiter_stack[
+                nearest_block + 1 :
+            ]
         )
 
     for index, character in enumerate(scan_text[:offset]):
@@ -1710,15 +1769,26 @@ def _registration_contexts(
             is_block = character == "{" and (
                 prefix.endswith(("=>", ")")) or not inside_expression()
             )
+            previous_statement_start = statement_start
             if is_block:
                 statement_start = index
-            delimiter_stack.append((character, is_block))
+            delimiter_stack.append(
+                [character, is_block, previous_statement_start, False]
+            )
             continue
         if character in ")]}" and delimiter_stack:
-            opener, is_block = delimiter_stack[-1]
+            opener, is_block, previous_statement_start, contains_closed_block = (
+                delimiter_stack[-1]
+            )
             if delimiter_pairs[opener] == character:
                 delimiter_stack.pop()
                 if character == "}" and is_block:
+                    statement_start = int(previous_statement_start)
+                    if delimiter_stack:
+                        delimiter_stack[-1][3] = True
+                    if not inside_expression():
+                        statement_start = index
+                elif contains_closed_block and not inside_expression():
                     statement_start = index
             continue
         if character == ";" and not inside_expression():

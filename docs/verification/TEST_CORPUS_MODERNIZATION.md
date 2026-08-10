@@ -25,7 +25,8 @@ evidence-aware rather than globally one-task-at-a-time.
 ## Phase 01 Contract
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python test-file
-declarations repository-wide and Control Center `.test`/`.spec` declarations,
+declarations repository-wide and Control Center `.test`/`.spec` declarations
+across the complete default Vitest file scope,
 including inherited pytest class tests, Python parameterization bound to
 resolvable decorator syntax, ordered
 pre-declaration parameter-data bindings, and in-place mutations visible at
@@ -48,7 +49,8 @@ Enclosing static suite titles are part of each frontend identity, and
 comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data and imported parameter-ID helpers are bound to
 the exact referenced declaration and its recursively resolvable local
-dependencies. Changes to an imported initializer or ID helper, including one in
+dependencies. Dynamic parameter-module imports fail closed. Changes to an
+imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks fail closed. Collection hooks in changed repository plugins
@@ -71,7 +73,7 @@ are likewise rejected because their collected identities cannot be represented
 safely. Parameterized fixtures and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
-bindings, post-definition `__test__` writes to local classes,
+bindings, post-definition `__test__` writes to local classes or their aliases,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
@@ -81,8 +83,8 @@ parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejec
 and recognized runner APIs also fail closed when shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to the Control Center Vitest or
-Playwright collection configuration, or to its `package.json` `scripts.test`
-command, also fail closed.
+Playwright collection configuration, or to its `package.json` `pretest`, `test`,
+or `posttest` lifecycle command, also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

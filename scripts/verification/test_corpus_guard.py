@@ -138,18 +138,6 @@ FRONTEND_TEST_EXTENSIONS = (
 FRONTEND_SOURCE_GIT_PATHSPECS = tuple(
     f":(glob)**/*.{extension}" for extension in FRONTEND_TEST_EXTENSIONS
 )
-FRONTEND_TEST_FILE_PATTERNS = (
-    *(
-        f"apps/control-center/src/**/*.{kind}.{extension}"
-        for kind in ("test", "spec")
-        for extension in FRONTEND_TEST_EXTENSIONS
-    ),
-    *(
-        f"apps/control-center/tests/**/*.{kind}.{extension}"
-        for kind in ("test", "spec")
-        for extension in FRONTEND_TEST_EXTENSIONS
-    ),
-)
 PYTHON_TEST_GIT_PATHSPEC = ":(glob)**/*.py"
 PYTEST_IGNORED_DIRECTORY_NAMES = {
     "CVS",
@@ -808,6 +796,27 @@ def _reject_repository_reader_calls(
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
         )
     inspected_nodes = tuple(construction_nodes.values())
+    if any(
+        isinstance(child, ast.Call)
+        and (
+            (isinstance(child.func, ast.Name) and child.func.id == "__import__")
+            or (
+                isinstance(child.func, ast.Name)
+                and "importlib.import_module" in imported_modules.get(child.func.id, ())
+            )
+            or (
+                isinstance(child.func, ast.Attribute)
+                and child.func.attr == "import_module"
+                and (root := _root_name(child.func)) is not None
+                and "importlib" in imported_modules.get(root, ())
+            )
+        )
+        for node in (*inspected_nodes, *root_nodes)
+        for child in ast.walk(node)
+    ):
+        raise TestCorpusGuardError(
+            "dynamic Python parameter imports cannot be inventoried safely"
+        )
     reader_aliases = {"open"}
     reader_aliases.update(
         local_name
@@ -1626,6 +1635,27 @@ def _python_inventory_entries(
             "duplicate Python class bindings cannot be inventoried safely"
         )
     classes = {node.name: node for node in class_nodes}
+    class_aliases = set(classes)
+    while True:
+        added: set[str] = set()
+        for module_node in _module_execution_nodes(tree):
+            if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = module_node.value
+            if not isinstance(value, ast.Name) or value.id not in class_aliases:
+                continue
+            targets = (
+                module_node.targets
+                if isinstance(module_node, ast.Assign)
+                else (module_node.target,)
+            )
+            added.update(
+                name for target in targets for name in _binding_target_names(target)
+            )
+        added -= class_aliases
+        if not added:
+            break
+        class_aliases.update(added)
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.Assign):
             targets = module_node.targets
@@ -1639,7 +1669,7 @@ def _python_inventory_entries(
             isinstance(target, ast.Attribute)
             and target.attr == "__test__"
             and isinstance(target.value, ast.Name)
-            and target.value.id in classes
+            and target.value.id in class_aliases
             for target in targets
         ):
             raise TestCorpusGuardError(
@@ -2530,12 +2560,7 @@ def _parse_base_test_declarations(
 
 
 def discover_test_files(repo: Path) -> tuple[str, ...]:
-    discovered = {
-        path.relative_to(repo).as_posix()
-        for pattern in FRONTEND_TEST_FILE_PATTERNS
-        for path in repo.glob(pattern)
-        if path.is_file()
-    }
+    discovered: set[str] = set()
     for root, directory_names, file_names in os.walk(repo, followlinks=False):
         directory_names[:] = sorted(
             name
@@ -2545,7 +2570,7 @@ def discover_test_files(repo: Path) -> tuple[str, ...]:
         root_path = Path(root)
         for file_name in sorted(file_names):
             relative = (root_path / file_name).relative_to(repo).as_posix()
-            if _is_python_test_path(relative):
+            if _is_test_path(relative):
                 discovered.add(relative)
     return tuple(sorted(discovered))
 
@@ -2814,9 +2839,9 @@ def _collection_config_section(value: str, section: str) -> str:
     return match.group(0).strip() if match is not None else ""
 
 
-def _frontend_test_script(value: str) -> str:
+def _frontend_test_scripts(value: str) -> tuple[str, str, str]:
     if not value:
-        return ""
+        return ("", "", "")
     try:
         payload = json.loads(value)
     except (json.JSONDecodeError, TypeError) as exc:
@@ -2832,12 +2857,14 @@ def _frontend_test_script(value: str) -> str:
         raise TestCorpusGuardError(
             "frontend test script configuration cannot be inventoried safely"
         )
-    test_script = scripts.get("test", "")
-    if not isinstance(test_script, str):
+    lifecycle_scripts = tuple(
+        scripts.get(name, "") for name in ("pretest", "test", "posttest")
+    )
+    if not all(isinstance(script, str) for script in lifecycle_scripts):
         raise TestCorpusGuardError(
             "frontend test script configuration cannot be inventoried safely"
         )
-    return test_script
+    return lifecycle_scripts
 
 
 def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
@@ -2996,7 +3023,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     for path in FRONTEND_TEST_SCRIPT_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
-        if _frontend_test_script(current) != _frontend_test_script(prior):
+        if _frontend_test_scripts(current) != _frontend_test_scripts(prior):
             raise TestCorpusGuardError(
                 "changed frontend test script cannot be inventoried safely"
             )

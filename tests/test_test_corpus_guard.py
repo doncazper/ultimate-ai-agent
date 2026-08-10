@@ -420,6 +420,32 @@ def test_case(value):
         )
 
 
+@pytest.mark.parametrize(
+    "source",
+    (
+        'import importlib\nCASES = importlib.import_module("tests.cases").CASES\n',
+        "from importlib import import_module\n"
+        'CASES = import_module("tests.cases").CASES\n',
+    ),
+)
+def test_python_inventory_rejects_dynamic_parameter_imports(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python parameter imports",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            source
+            + """
+import pytest
+
+@pytest.mark.parametrize("value", CASES)
+def test_case(value):
+    assert value
+""",
+        )
+
+
 def test_python_inventory_rejects_unresolved_collected_class_base() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -817,6 +843,14 @@ if True:
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Base.__test__ = False\n"
+            "class TestGroup(Base): pass\n",
+            "post-definition Python class __test__ mutation",
+        ),
+        (
+            "class Base:\n"
+            "    def test_inherited(self): pass\n"
+            "Alias = Base\n"
+            "Alias.__test__ = False\n"
             "class TestGroup(Base): pass\n",
             "post-definition Python class __test__ mutation",
         ),
@@ -1414,6 +1448,22 @@ def test_discovery_covers_every_vitest_default_extension(tmp_path: Path) -> None
     assert set(guard.discover_test_files(tmp_path)) == expected
 
 
+def test_discovery_covers_vitest_defaults_outside_conventional_roots(
+    tmp_path: Path,
+) -> None:
+    feature_root = tmp_path / "apps/control-center/features"
+    feature_root.mkdir(parents=True)
+    test_path = feature_root / "example.test.ts"
+    test_path.write_text('test("covered", () => {});\n')
+    ignored_root = tmp_path / "apps/control-center/node_modules/package"
+    ignored_root.mkdir(parents=True)
+    (ignored_root / "ignored.test.ts").write_text('test("ignored", () => {});\n')
+
+    assert guard.discover_test_files(tmp_path) == (
+        "apps/control-center/features/example.test.ts",
+    )
+
+
 def test_frontend_inventory_tracks_import_aliases_and_extended_apis() -> None:
     declarations = guard.parse_frontend_declarations(
         "apps/control-center/src/example.spec.ts",
@@ -1467,6 +1517,11 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         ),
         (
             "const spec = <ReturnType<() => typeof test>>test;\n"
+            'spec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            "const spec = <typeof test & { marker?: string; }>test;\n"
             'spec("case", () => {});\n',
             "test API alias",
         ),
@@ -2716,6 +2771,38 @@ def test_changed_frontend_test_script_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_frontend_pretest_script_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = "apps/control-center/package.json"
+    current = '{"scripts":{"pretest":"node rewrite-config.js","test":"vitest"}}\n'
+    prior = '{"scripts":{"pretest":"","test":"vitest"}}\n'
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(current)
+    outputs = iter(
+        (
+            f"{config_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="frontend test script"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_frontend_test_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3392,6 +3479,10 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         ),
         (
             'const enabled = true; enabled && ({}, test("case", () => {}));',
+            "conditional test registration",
+        ),
+        (
+            'enabled && (() => {}, test("case", () => {}));',
             "conditional test registration",
         ),
     ),
