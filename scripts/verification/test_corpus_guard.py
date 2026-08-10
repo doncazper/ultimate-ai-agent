@@ -109,6 +109,10 @@ PYTEST_COLLECTION_HOOK_NAMES = frozenset(
         "pytest_sessionstart",
     }
 )
+PYTEST_COLLECTION_CLASS_NAMES = frozenset(
+    {"Class", "Collector", "File", "Function", "Item", "Module", "Package", "Session"}
+)
+PYTEST_EXECUTION_DISABLING_MARKS = frozenset({"skip", "skipif"})
 GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "__delitem__",
     "__ior__",
@@ -938,6 +942,63 @@ def _python_import_modules(
     return modules
 
 
+def _is_pytest_collection_class_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    root = _root_name(node)
+    if root is None:
+        return False
+    attributes: set[str] = set()
+    current = node
+    while isinstance(current, ast.Attribute):
+        attributes.add(current.attr)
+        current = current.value
+    candidates = imported_modules.get(root, ())
+    pytest_candidates = {
+        candidate
+        for candidate in candidates
+        if candidate == "pytest"
+        or candidate.startswith("pytest.")
+        or candidate == "_pytest"
+        or candidate.startswith("_pytest.")
+    }
+    return bool(pytest_candidates) and bool(
+        PYTEST_COLLECTION_CLASS_NAMES
+        & {
+            *attributes,
+            *(part for candidate in pytest_candidates for part in candidate.split(".")),
+        }
+    )
+
+
+def _has_pytest_collection_class_mutation(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    for node in _module_execution_nodes(tree):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = (node.target,)
+        elif isinstance(node, ast.Delete):
+            targets = node.targets
+        else:
+            targets = ()
+        if any(
+            isinstance(target, ast.Attribute)
+            and _is_pytest_collection_class_reference(target, imported_modules)
+            for target in targets
+        ):
+            return True
+        mutation = _mutated_attribute_call(node)
+        if mutation is not None and _is_pytest_collection_class_reference(
+            mutation[0], imported_modules
+        ):
+            return True
+    return False
+
+
 def _definition_time_nodes(
     node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
 ) -> tuple[ast.AST, ...]:
@@ -1628,6 +1689,10 @@ def _is_unrebound_pytest_mark(
     )
     rebound_before_collection = any(
         (binding.node.lineno, binding.node.col_offset) < cutoff
+        and not (
+            binding.applies_after_declaration
+            and binding.node.lineno == getattr(target, "lineno", -1)
+        )
         for binding in module_bindings.get(current.id, ())
     )
     return (
@@ -1660,7 +1725,10 @@ def _parameterized_ref(
             target,
             imported_modules,
             module_bindings,
-            cutoff=(collection_lineno or node.lineno, 0),
+            cutoff=(
+                getattr(target, "lineno", collection_lineno or node.lineno),
+                getattr(target, "col_offset", 0),
+            ),
             shadowed_import_names=shadowed_import_names,
         )
 
@@ -1731,11 +1799,20 @@ def _parameterized_ref(
     ]
     if unresolved:
         raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
-    if not decorators:
+    execution_disabling_decorators = tuple(
+        decorator
+        for decorator in candidate_decorators
+        if (target := decorator.func if isinstance(decorator, ast.Call) else decorator)
+        and isinstance(target, ast.Attribute)
+        and target.attr in PYTEST_EXECUTION_DISABLING_MARKS
+        and is_proven_pytest_mark(target)
+    )
+    identity_decorators = (*decorators, *execution_disabling_decorators)
+    if not identity_decorators:
         return raw_ref
     serialized_parts = [
         ast.dump(decorator, annotate_fields=True, include_attributes=False)
-        for decorator in decorators
+        for decorator in identity_decorators
     ]
     for decorator in decorators:
         value_nodes = list(decorator.args)
@@ -1788,7 +1865,7 @@ def _parameterized_ref(
                     )
     pending_names = {
         child.id
-        for decorator in decorators
+        for decorator in identity_decorators
         for child in ast.walk(decorator)
         if isinstance(child, ast.Name)
     }
@@ -1833,7 +1910,7 @@ def _parameterized_ref(
     _reject_repository_reader_calls(
         tuple(binding_nodes.values()),
         imported_modules,
-        root_nodes=decorators,
+        root_nodes=identity_decorators,
     )
     binding_parts = [
         "binding:" + ast.dump(binding, annotate_fields=True, include_attributes=False)
@@ -2102,6 +2179,10 @@ def _python_inventory_entries(
         ) from exc
 
     imported_modules = _python_import_modules(tree)
+    if _has_pytest_collection_class_mutation(tree, imported_modules):
+        raise TestCorpusGuardError(
+            "pytest collection class mutation cannot be inventoried safely"
+        )
     if any(
         isinstance(node, ast.ImportFrom)
         and any(imported.name == "*" for imported in node.names)
@@ -2912,6 +2993,7 @@ def _python_inventory_entries(
             raise TestCorpusGuardError(
                 "module-level Python __test__ binding cannot be inventoried safely"
             )
+    module_pytestmark_decorators: list[ast.expr] = []
     for module_node in tree.body:
         if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
             continue
@@ -2925,10 +3007,17 @@ def _python_inventory_entries(
         }:
             continue
         value = module_node.value
-        if value is not None and any(
+        if value is None:
+            continue
+        pytestmark_values = (
+            tuple(value.elts) if isinstance(value, (ast.List, ast.Tuple)) else (value,)
+        )
+        module_pytestmark_decorators.extend(pytestmark_values)
+        if any(
             isinstance(child, ast.Call)
             and _is_parametrize_callable(child.func, parametrize_aliases)
-            for child in ast.walk(value)
+            for item in pytestmark_values
+            for child in ast.walk(item)
         ):
             raise TestCorpusGuardError(
                 "module-level pytestmark parametrization cannot be inventoried safely"
@@ -3353,6 +3442,7 @@ def _python_inventory_entries(
                     parametrize_aliases,
                     imported_modules,
                     import_source_resolver,
+                    container_decorators=tuple(module_pytestmark_decorators),
                 )
                 entries.append(
                     (raw_ref, "python_test", _python_node_source(source_lines, node))
@@ -3365,6 +3455,7 @@ def _python_inventory_entries(
             or class_is_disabled(node)
         ):
             continue
+        class_pytestmark_decorators: list[ast.expr] = []
         for child in node.body:
             if not isinstance(child, (ast.Assign, ast.AnnAssign)):
                 continue
@@ -3375,13 +3466,22 @@ def _python_inventory_entries(
                 name for target in targets for name in _binding_target_names(target)
             }:
                 continue
-            if child.value is not None and any(
+            if child.value is None:
+                continue
+            pytestmark_values = (
+                tuple(child.value.elts)
+                if isinstance(child.value, (ast.List, ast.Tuple))
+                else (child.value,)
+            )
+            class_pytestmark_decorators.extend(pytestmark_values)
+            if any(
                 isinstance(descendant, ast.Call)
                 and _is_parametrize_callable(
                     descendant.func,
                     parametrize_aliases,
                 )
-                for descendant in ast.walk(child.value)
+                for item in pytestmark_values
+                for descendant in ast.walk(item)
             ):
                 raise TestCorpusGuardError(
                     "class-level pytestmark parametrization cannot be inventoried safely"
@@ -3397,7 +3497,11 @@ def _python_inventory_entries(
         validate_class_bases(node, set())
         if node.name not in unittest_classes and has_constructor(node, set()):
             continue
-        class_decorators = effective_class_decorators(node, set())
+        class_decorators = (
+            *module_pytestmark_decorators,
+            *effective_class_decorators(node, set()),
+            *class_pytestmark_decorators,
+        )
         class_binding_names = {
             name
             for child in node.body
@@ -4219,12 +4323,12 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
     return modules
 
 
-def _pytest_collection_hook_import_modules(source: str, path: str) -> set[str]:
+def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     try:
         tree = ast.parse(source, filename=path)
     except SyntaxError as exc:
         raise TestCorpusGuardError(
-            "pytest collection hook imports cannot be inventoried safely"
+            "pytest conftest imports cannot be inventoried safely"
         ) from exc
     package = _python_module_name_for_path(path).rpartition(".")[0]
     package_parts = package.split(".") if package else []
@@ -4234,18 +4338,13 @@ def _pytest_collection_hook_import_modules(source: str, path: str) -> set[str]:
             continue
         if any(imported.name == "*" for imported in node.names):
             raise TestCorpusGuardError(
-                "pytest collection hook imports cannot be inventoried safely"
+                "pytest conftest imports cannot be inventoried safely"
             )
-        if not any(
-            (imported.asname or imported.name) in PYTEST_COLLECTION_HOOK_NAMES
-            for imported in node.names
-        ):
-            continue
         if node.level:
             parent_count = node.level - 1
             if parent_count >= len(package_parts):
                 raise TestCorpusGuardError(
-                    "pytest collection hook imports cannot be inventoried safely"
+                    "pytest conftest imports cannot be inventoried safely"
                 )
             prefix = ".".join(package_parts[: len(package_parts) - parent_count])
             module = f"{prefix}.{node.module}" if node.module else prefix
@@ -4253,7 +4352,7 @@ def _pytest_collection_hook_import_modules(source: str, path: str) -> set[str]:
             module = node.module or ""
         if not module:
             raise TestCorpusGuardError(
-                "pytest collection hook imports cannot be inventoried safely"
+                "pytest conftest imports cannot be inventoried safely"
             )
         modules.add(module)
     return modules
@@ -4462,13 +4561,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                     _pytest_plugin_modules(current, conftest_path)
                 )
                 registered_plugins.update(
-                    _pytest_collection_hook_import_modules(current, conftest_path)
+                    _pytest_conftest_import_modules(current, conftest_path)
                 )
             if conftest_path in all_changed:
                 prior = _base_text(repo, base_sha, conftest_path) or ""
                 registered_plugins.update(_pytest_plugin_modules(prior, conftest_path))
                 registered_plugins.update(
-                    _pytest_collection_hook_import_modules(prior, conftest_path)
+                    _pytest_conftest_import_modules(prior, conftest_path)
                 )
         for module in registered_plugins & set(changed_modules):
             for plugin_path in changed_modules[module]:

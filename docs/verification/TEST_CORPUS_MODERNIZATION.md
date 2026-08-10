@@ -68,7 +68,8 @@ registered through a `conftest.py` `pytest_plugins` binding or imported directly
 under a recognized hook name, including one in a hidden directory beneath
 `tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
-as do parameterized fixtures declared by those registered plugins. The pytest
+as do parameterized fixtures declared by those registered plugins or imported
+into a `conftest.py` from a local module. The pytest
 plugins loaded directly by the canonical shard runner, plus their bounded local
 dependency closure, are part of the same fail-closed change boundary. Configuration-
 and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
@@ -123,7 +124,11 @@ global, fails closed,
 class-level parametrizing `pytestmark`, rebound or mutated imported pytest mark
 aliases, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
-aliases, and changed `pytest_generate_tests` hooks also fail closed.
+aliases, mutations of pytest collection classes, and changed
+`pytest_generate_tests` hooks also fail closed. Static `skip` and `skipif`
+decorators and module/class `pytestmark` forms are bound into declaration
+identity, so disabling an active test retires its prior ref instead of silently
+preserving it.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
@@ -139,7 +144,8 @@ including bounded nontrivial initializers that retain a recognized runner API
 reference rather than invoking it and results of unrecognized runner methods
 such as `bind`,
 and recognized runner APIs also fail closed when invoked through optional
-chaining, invoked indirectly through `call`, `apply`, `bind`, or `globalThis`,
+chaining, invoked indirectly through `call`, `apply`, `bind`, `globalThis`, or a
+sequence-expression callee, dynamically imported from a supported runner,
 mutated through dot or string-literal computed `globalThis` access, or
 shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses

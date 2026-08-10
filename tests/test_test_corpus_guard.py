@@ -4080,6 +4080,55 @@ def test_python_inventory_rejects_module_dynamic_code(source: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "source",
+    (
+        "import pytest\npytest.Module.collect = lambda self: []\n"
+        "def test_case(): pass\n",
+        "from _pytest.python import Module\n"
+        'setattr(Module, "collect", lambda self: [])\n'
+        "def test_case(): pass\n",
+    ),
+)
+def test_python_inventory_rejects_pytest_collection_class_mutation(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest collection class mutation",
+    ):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    (
+        (
+            "import pytest\ndef test_case(): pass\n",
+            "import pytest\n@pytest.mark.skip\ndef test_case(): pass\n",
+        ),
+        (
+            "import pytest\ndef test_case(): pass\n",
+            "import pytest\n@pytest.mark.skipif(True, reason='disabled')\n"
+            "def test_case(): pass\n",
+        ),
+        (
+            "import pytest\ndef test_case(): pass\n",
+            "import pytest\npytestmark = pytest.mark.skipif(True, reason='disabled')\n"
+            "def test_case(): pass\n",
+        ),
+    ),
+)
+def test_python_inventory_binds_execution_disabling_marks(
+    before: str,
+    after: str,
+) -> None:
+    before_ref = guard.parse_python_declarations("tests/test_sample.py", before)[0].ref
+    after_ref = guard.parse_python_declarations("tests/test_sample.py", after)[0].ref
+
+    assert before_ref != after_ref
+
+
+@pytest.mark.parametrize(
     "mutation",
     (
         "sys.modules[__name__].test_case = None",
@@ -4470,6 +4519,7 @@ def test_frontend_inventory_rejects_imported_registration_helper_call() -> None:
         'test.bind(null)("case", () => {});\n',
         'globalThis.test("case", () => {});\n',
         'globalThis["test"]("case", () => {});\n',
+        '(0, test)("case", () => {});\n',
     ),
 )
 def test_frontend_inventory_rejects_indirect_runner_invocations(source: str) -> None:
@@ -4481,6 +4531,29 @@ def test_frontend_inventory_rejects_indirect_runner_invocations(source: str) -> 
             "apps/control-center/src/example.test.ts",
             source,
         )
+
+
+def test_frontend_inventory_rejects_dynamic_runner_import_binding() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic frontend runner import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'const { test: spec } = await import("vitest");\nspec("case", () => {});\n',
+        )
+
+
+def test_frontend_inventory_allows_type_only_runner_import_expression() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        'function helper(page: import("@playwright/test").Page) { return page; }\n'
+        'test("case", () => {});\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.ts::case"
+    ]
 
 
 def test_frontend_inventory_binds_nested_spread_parameter_data() -> None:
@@ -4716,6 +4789,48 @@ def test_changed_imported_conftest_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed registered pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_conftest_imported_parameterized_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        "from tests.fixture_plugin import shared_value\n"
+    )
+    fixture_path = tests_root / "fixture_plugin.py"
+    fixture_path.write_text(
+        "import pytest\n"
+        '@pytest.fixture(params=["one"])\n'
+        "def shared_value(request): return request.param\n"
+    )
+    outputs = iter((b"tests/fixture_plugin.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "import pytest\n"
+            '@pytest.fixture(params=["one", "two"])\n'
+            "def shared_value(request): return request.param\n"
+            if path == "tests/fixture_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered parameterized pytest fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

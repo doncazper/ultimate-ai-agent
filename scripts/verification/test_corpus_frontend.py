@@ -262,6 +262,11 @@ def _has_indirect_runner_invocation(
         scan_text,
     ):
         return True
+    if re.search(
+        rf"\(\s*[^(),;\r\n]+\s*,\s*{name_pattern}{TEST_MODIFIERS}\s*\)\s*\(",
+        scan_text,
+    ):
+        return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
     if re.search(rf"{dot_property}\s*\(", scan_text):
@@ -276,6 +281,22 @@ def _has_indirect_runner_invocation(
         scan_text[match.start()] == text[match.start()]
         for match in re.finditer(rf"{computed_property}\s*\(", text)
     )
+
+
+def _has_dynamic_runner_import(text: str, scan_text: str) -> bool:
+    modules = "|".join(re.escape(module) for module in sorted(RUNNER_MODULES))
+    pattern = re.compile(
+        rf"\bimport\s*\(\s*(?P<quote>['\"])(?:{modules})(?P=quote)\s*\)"
+    )
+    for match in pattern.finditer(text):
+        if scan_text[match.start() : match.start() + len("import")] != "import":
+            continue
+        line_start = scan_text.rfind("\n", 0, match.start()) + 1
+        prefix = scan_text[line_start : match.start()].rstrip()
+        if prefix.endswith(":") or re.search(r"\btype\b[^=]*=\s*$", prefix):
+            continue
+        return True
+    return False
 
 
 def _has_global_api_mutation(
@@ -2395,6 +2416,10 @@ def _frontend_inventory_entries(
     ):
         raise FrontendInventoryError(
             "frontend side-effect import cannot be inventoried safely"
+        )
+    if _has_dynamic_runner_import(text, scan_text):
+        raise FrontendInventoryError(
+            "dynamic frontend runner import cannot be inventoried safely"
         )
     test_api_names = _test_api_names(text, scan_text)
     if _has_indirect_runner_invocation(
