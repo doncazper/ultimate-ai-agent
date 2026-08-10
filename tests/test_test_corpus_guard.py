@@ -700,6 +700,14 @@ if True:
             "indirect Python test-name rebinding",
         ),
         (
+            'def test_case(): pass\nnamespace = globals()\nnamespace.pop("test_case")\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
+            'def test_case(): pass\nnamespace = globals()\nnamespace["test_case"] = None\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
             "import pytest\n"
             "def test_case(value): pass\n"
             "alias = test_case\n"
@@ -726,6 +734,13 @@ if True:
             "class TestGroup(metaclass=RemoveTests):\n"
             "    def test_case(self): pass\n",
             "test class metaclass",
+        ),
+        (
+            "import pytest\n"
+            "class TestGroup:\n"
+            '    pytestmark = pytest.mark.parametrize("value", [1, 2])\n'
+            "    def test_case(self, value): pass\n",
+            "class-level pytestmark parametrization",
         ),
         (
             "class RemoveTests(type): pass\n"
@@ -2254,6 +2269,37 @@ def test_changed_pytest_collection_configuration_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+@pytest.mark.parametrize("config_path", ("pytest.toml", ".pytest.toml", ".pytest.ini"))
+def test_changed_additional_pytest_collection_configuration_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_path: str,
+) -> None:
+    current = "[pytest]\npython_functions = 'check_*'\n"
+    prior = "[pytest]\npython_functions = 'test_*'\n"
+    (tmp_path / config_path).write_text(current)
+    outputs = iter(
+        (
+            f"{config_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_setup_cfg_pytest_collection_configuration_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2565,6 +2611,24 @@ def test_collected(value):
 """,
         )
 
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+from pytest import fixture as f
+
+@f(params=["one", "two"])
+def value(request):
+    return request.param
+
+def test_collected(value):
+    assert value
+""",
+        )
+
 
 @pytest.mark.parametrize(
     ("source", "message"),
@@ -2595,6 +2659,14 @@ def test_collected(value):
         (
             "def test_case(): pass\nif enabled:\n    test_case.__test__ = False\n",
             "__test__ mutation inside module control flow",
+        ),
+        (
+            "__test__ = False\ndef test_case(): pass\n",
+            "module-level Python __test__ binding",
+        ),
+        (
+            "from helpers import test_shared\n",
+            "imported Python tests",
         ),
     ),
 )
@@ -2798,6 +2870,10 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            'class Helper { register<T>() { test("case", () => {}); } }\n',
+            "registration context",
+        ),
+        (
             'const register = () => test("case", () => {});\n',
             "registration context",
         ),
@@ -2861,14 +2937,20 @@ test.each([...CASES])("case %s", () => {});
     assert before[0].ref != after[0].ref
 
 
+@pytest.mark.parametrize(
+    "hook_source",
+    (
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n",
+        "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n",
+    ),
+)
 def test_changed_conftest_collection_hook_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    hook_source: str,
 ) -> None:
     (tmp_path / "tests").mkdir()
-    (tmp_path / "tests/conftest.py").write_text(
-        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
-    )
+    (tmp_path / "tests/conftest.py").write_text(hook_source)
     outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
     monkeypatch.setattr(
         guard,

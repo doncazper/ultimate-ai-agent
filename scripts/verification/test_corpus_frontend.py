@@ -1470,7 +1470,9 @@ def _unproven_registration_regions(
     for match in re.compile(r"=>").finditer(scan_text):
         record_arrow_body(_skip_static_trivia(text, match.end()))
 
-    method_pattern = re.compile(rf"\b(?P<name>{TEST_API_NAME})\s*(?P<parameters>\()")
+    method_pattern = re.compile(
+        rf"\b(?P<name>{TEST_API_NAME})\s*(?:<[^{{}}();=]*>\s*)?(?P<parameters>\()"
+    )
     for match in method_pattern.finditer(scan_text):
         if match.group("name") in {"catch", "for", "if", "switch", "while", "with"}:
             continue

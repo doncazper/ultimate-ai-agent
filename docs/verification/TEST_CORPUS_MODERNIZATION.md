@@ -52,14 +52,18 @@ another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks fail closed. Wildcard imports in tests, class-body parameter
 bindings, repository-file-backed parameter data (including aliased readers),
-and changes to pytest collection configuration in `pyproject.toml`, `pytest.ini`, `tox.ini`,
-or `setup.cfg` also fail closed. Python test-class aliases, collected-class
-metaclasses (including inherited local metaclasses), direct `globals()`
-namespace mutators, indirect module namespace rebinding, test methods assigned
+and changes to pytest collection configuration in `pyproject.toml`, `pytest.toml`,
+`.pytest.toml`, `pytest.ini`, `.pytest.ini`, `tox.ini`, or `setup.cfg` also fail
+closed. Python test-class aliases, collected-class
+metaclasses (including inherited local metaclasses), direct or aliased `globals()`
+namespace mutation, indirect module namespace rebinding, module-level `__test__`
+bindings, imported test functions, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
-safely. Frontend registrations inside unresolved function, method, or callback
+safely. Parameterized fixture aliases, class-level parametrizing `pytestmark`,
+and changed `pytest_generate_tests` hooks also fail closed. Frontend registrations
+inside unresolved function, generic method, or callback
 bodies fail closed; recognized runner aliases also fail closed when shadowed by
 a local declaration or non-runner import. Changes to the Control Center Vitest
 or Playwright collection configuration also fail closed.

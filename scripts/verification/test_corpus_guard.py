@@ -53,8 +53,11 @@ MAX_CHANGED_TEST_PATHS = 20_000
 MAX_PYTHON_DEPENDENCY_MODULES = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
 PYTEST_COLLECTION_CONFIG_PATHS = {
+    ".pytest.ini",
+    ".pytest.toml",
     "pyproject.toml",
     "pytest.ini",
+    "pytest.toml",
     "setup.cfg",
     "tox.ini",
 }
@@ -207,6 +210,20 @@ def _is_globals_namespace_mutator_call(node: ast.AST) -> bool:
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in GLOBALS_NAMESPACE_MUTATOR_METHODS
         and _is_globals_call(node.func.value)
+    )
+
+
+def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+        value = node.value
+    elif isinstance(node, ast.AnnAssign):
+        targets = (node.target,)
+        value = node.value
+    else:
+        return False
+    return _is_globals_call(value) and any(
+        _binding_target_names(target) for target in targets
     )
 
 
@@ -416,6 +433,51 @@ def _parametrize_aliases(tree: ast.Module) -> set[str]:
                         aliases.add(name)
                         changed = True
     return aliases
+
+
+def _fixture_aliases(tree: ast.Module) -> set[str]:
+    aliases: set[str] = set()
+    pytest_roots = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for imported in node.names
+        if imported.name == "pytest"
+    }
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module == "pytest":
+            for imported in node.names:
+                if imported.name == "fixture":
+                    aliases.add(imported.asname or imported.name)
+    changed = True
+    while changed:
+        changed = False
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            resolves = (
+                isinstance(value, ast.Attribute)
+                and value.attr == "fixture"
+                and _root_name(value) in pytest_roots
+            ) or (isinstance(value, ast.Name) and value.id in aliases)
+            if not resolves:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
+def _is_fixture_callable(node: ast.AST, aliases: set[str]) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr == "fixture") or (
+        isinstance(node, ast.Name) and node.id in aliases
+    )
 
 
 def _is_parametrize_callable(node: ast.AST, aliases: set[str]) -> bool:
@@ -1151,6 +1213,16 @@ def _python_inventory_entries(
         )
 
     if any(
+        isinstance(node, ast.ImportFrom)
+        and any(
+            (imported.asname or imported.name).startswith("test")
+            for imported in node.names
+        )
+        for node in tree.body
+    ):
+        raise TestCorpusGuardError("imported Python tests cannot be inventoried safely")
+
+    if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "pytest_generate_tests"
         for node in tree.body
@@ -1236,6 +1308,7 @@ def _python_inventory_entries(
                 changed = True
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
+    fixture_aliases = _fixture_aliases(tree)
     imported_modules = _python_import_modules(tree)
 
     def imported_class_has_builtin_exception_base(
@@ -1326,6 +1399,21 @@ def _python_inventory_entries(
             "duplicate Python test bindings cannot be inventoried safely"
         )
     for module_node in tree.body:
+        if isinstance(module_node, ast.Assign):
+            targets = module_node.targets
+        elif isinstance(module_node, (ast.AnnAssign, ast.AugAssign)):
+            targets = (module_node.target,)
+        elif isinstance(module_node, ast.Delete):
+            targets = module_node.targets
+        else:
+            continue
+        if "__test__" in {
+            name for target in targets for name in _binding_target_names(target)
+        }:
+            raise TestCorpusGuardError(
+                "module-level Python __test__ binding cannot be inventoried safely"
+            )
+    for module_node in tree.body:
         if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
             continue
         targets = (
@@ -1350,16 +1438,7 @@ def _python_inventory_entries(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and any(
             isinstance(decorator, ast.Call)
-            and (
-                (
-                    isinstance(decorator.func, ast.Attribute)
-                    and decorator.func.attr == "fixture"
-                )
-                or (
-                    isinstance(decorator.func, ast.Name)
-                    and decorator.func.id == "fixture"
-                )
-            )
+            and _is_fixture_callable(decorator.func, fixture_aliases)
             and any(keyword.arg == "params" for keyword in decorator.keywords)
             for decorator in node.decorator_list
         )
@@ -1387,6 +1466,10 @@ def _python_inventory_entries(
     }
 
     if any(_is_globals_namespace_mutator_call(node) for node in ast.walk(tree)):
+        raise TestCorpusGuardError(
+            "indirect Python test-name rebinding cannot be inventoried safely"
+        )
+    if any(_is_globals_namespace_alias_binding(node) for node in tree.body):
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
@@ -1643,19 +1726,9 @@ def _python_inventory_entries(
         return any(
             (
                 isinstance(decorator, ast.Call)
-                and (
-                    (
-                        isinstance(decorator.func, ast.Attribute)
-                        and decorator.func.attr == "fixture"
-                    )
-                    or (
-                        isinstance(decorator.func, ast.Name)
-                        and decorator.func.id == "fixture"
-                    )
-                )
+                and _is_fixture_callable(decorator.func, fixture_aliases)
             )
-            or (isinstance(decorator, ast.Attribute) and decorator.attr == "fixture")
-            or (isinstance(decorator, ast.Name) and decorator.id == "fixture")
+            or _is_fixture_callable(decorator, fixture_aliases)
             for decorator in node.decorator_list
         )
 
@@ -1716,6 +1789,27 @@ def _python_inventory_entries(
             or class_is_disabled(node)
         ):
             continue
+        for child in node.body:
+            if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                continue
+            targets = (
+                child.targets if isinstance(child, ast.Assign) else (child.target,)
+            )
+            if "pytestmark" not in {
+                name for target in targets for name in _binding_target_names(target)
+            }:
+                continue
+            if child.value is not None and any(
+                isinstance(descendant, ast.Call)
+                and _is_parametrize_callable(
+                    descendant.func,
+                    parametrize_aliases,
+                )
+                for descendant in ast.walk(child.value)
+            ):
+                raise TestCorpusGuardError(
+                    "class-level pytestmark parametrization cannot be inventoried safely"
+                )
         if node.keywords:
             raise TestCorpusGuardError(
                 "collected Python test class metaclass cannot be inventoried safely"
@@ -2380,6 +2474,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             )
     collection_hook_names = (
         "collect_ignore",
+        "pytest_generate_tests",
         "pytest_ignore_collect",
         "pytest_collect_file",
         "pytest_collection_modifyitems",
