@@ -3149,6 +3149,35 @@ def test_changed_pytest_collection_configuration_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_pytest11_entry_point_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = '[project.entry-points."pytest11"]\nlocal = "tests.plugin"\n'
+    prior = "[project]\nname = 'sample'\n"
+    (tmp_path / "pyproject.toml").write_text(current)
+    outputs = iter(
+        (
+            b"pyproject.toml\0",
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="entry-point configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 @pytest.mark.parametrize("config_path", sorted(guard.PYTEST_RUNNER_CONFIG_PATHS))
 def test_changed_pytest_runner_configuration_fails_closed(
     tmp_path: Path,
@@ -3338,6 +3367,68 @@ def test_changed_frontend_collection_configuration_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="frontend collection configuration",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_frontend_collection_configuration_dependency_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = "apps/control-center/vitest.config.ts"
+    intermediate_path = "apps/control-center/vitest.shared.ts"
+    dependency_path = "apps/control-center/vitest.discovery.ts"
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        'import { shared } from "./vitest.shared";\nexport default shared;\n'
+    )
+    (tmp_path / intermediate_path).write_text(
+        'export { shared } from "./vitest.discovery";\n'
+    )
+    (tmp_path / dependency_path).write_text("export const shared = {};\n")
+    outputs = iter((f"{dependency_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend collection configuration dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_configured_vitest_setup_file_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = "apps/control-center/vite.config.ts"
+    setup_path = "apps/control-center/src/test/setup.ts"
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        'export default { test: { setupFiles: "./src/test/setup.ts" } };\n'
+    )
+    setup = tmp_path / setup_path
+    setup.parent.mkdir(parents=True, exist_ok=True)
+    setup.write_text("export {};\n")
+    outputs = iter((f"{setup_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend collection configuration dependency",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
@@ -3859,6 +3950,62 @@ def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
+@pytest.mark.parametrize(
+    "source",
+    (
+        'exec("def test_case(): pass")\n',
+        'eval("lambda: None")\n',
+        'runner = exec\nrunner("def test_case(): pass")\n',
+        'import builtins as runtime\nruntime.exec("def test_case(): pass")\n',
+        'from builtins import exec as runner\nrunner("def test_case(): pass")\n',
+    ),
+)
+def test_python_inventory_rejects_module_dynamic_code(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level dynamic Python code",
+    ):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "sys.modules[__name__].test_case = None",
+        'sys.modules[__name__].__dict__["test_case"] = None',
+        'sys.modules[__name__].__dict__.pop("test_case")',
+        'vars(sys.modules[__name__]).update({"test_case": None})',
+        'setattr(sys.modules[__name__], "test_case", None)',
+    ),
+)
+def test_python_inventory_rejects_current_module_test_rebinding(
+    mutation: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="indirect Python test-name rebinding",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            f"import sys\ndef test_case(): pass\n{mutation}\n",
+        )
+
+
+def test_python_inventory_allows_noncallable_test_like_bindings() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "test_data = [1, 2]\n"
+        'TestSettings = {"mode": "safe"}\n'
+        "test_label = 'safe'\n"
+        "test_timeout_ms = 30 * 1000\n"
+        "def test_case(): pass\n",
+    )
+
+    assert [declaration.ref for declaration in declarations] == [
+        "tests/test_sample.py::test_case"
+    ]
+
+
 def test_frontend_inventory_preserves_unchanged_static_registration_loop_items() -> (
     None
 ):
@@ -4186,6 +4333,38 @@ def test_frontend_inventory_rejects_relative_side_effect_imports(source: str) ->
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="side-effect import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source,
+        )
+
+
+def test_frontend_inventory_rejects_imported_registration_helper_call() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported frontend registration helper",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'import { registerCases } from "./registerCases";\nregisterCases();\n',
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'test.call(null, "case", () => {});\n',
+        'test.apply(null, ["case", () => {}]);\n',
+        'test.bind(null)("case", () => {});\n',
+        'globalThis.test("case", () => {});\n',
+        'globalThis["test"]("case", () => {});\n',
+    ),
+)
+def test_frontend_inventory_rejects_indirect_runner_invocations(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="indirect frontend test registration",
     ):
         guard.parse_frontend_declarations(
             "apps/control-center/src/example.test.ts",

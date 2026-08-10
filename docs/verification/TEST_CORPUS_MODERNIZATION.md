@@ -53,7 +53,8 @@ comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data and imported parameter-ID helpers are bound to
 the exact referenced declaration and its recursively resolvable local
 dependencies. Dynamic parameter-module imports, including calls through assigned
-import-function aliases, fail closed. Changes to an
+import-function aliases, and module-executed dynamic Python code through `exec`,
+`eval`, `compile`, `__import__`, or bounded aliases fail closed. Changes to an
 imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Changes to an ancestor
 test-package `__init__.py` also recheck every test beneath that package because
@@ -74,7 +75,8 @@ repository-file/directory-backed local or imported parameter data (including
 aliased readers, directory enumeration, and constructed classes), and changes
 to pytest collection configuration
 in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
-`tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
+`tox.ini`, or `setup.cfg` also fail closed; pytest `pytest11` entry-point
+registration changes are included, and every `tox.ini` change is rejected.
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute.
 Python test-class aliases, assigned or imported `unittest.TestCase` aliases and
@@ -86,7 +88,7 @@ metaclasses (including inherited local metaclasses), direct or aliased `globals(
 namespace mutation (including assignment-expression aliases), direct module
 namespace writes or mutator calls through zero-argument `globals()`, `locals()`, or
 `vars()` (while function-local `locals()` and `vars()` remain ordinary local
-state), indirect module
+state), writes through the current `sys.modules[__name__]` module object, indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
 or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
@@ -115,12 +117,15 @@ function defaults, annotations, decorators, or class bodies that write a declare
 global, fails closed,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
-aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend
+aliases, and changed `pytest_generate_tests` hooks also fail closed.
+Statically non-callable module constants and literal containers may retain
+`test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
 bodies, ordinary or computed instance-field initializers (including fields after
 method bodies), relative side-effect imports even when comments separate the
-keyword and module or the runtime import uses an empty named clause, conditional
+keyword and module or the runtime import uses an empty named clause, invocations
+of imported local registration helpers at module or suite scope, conditional
 `if`/`switch` suite exits before later registrations, and expression-conditional
 registrations and runner aliases fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
@@ -128,14 +133,17 @@ including bounded nontrivial initializers that retain a recognized runner API
 reference rather than invoking it and results of unrecognized runner methods
 such as `bind`,
 and recognized runner APIs also fail closed when invoked through optional
-chaining, mutated through dot or string-literal computed `globalThis` access, or
+chaining, invoked indirectly through `call`, `apply`, `bind`, or `globalThis`,
+mutated through dot or string-literal computed `globalThis` access, or
 shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to any supported
 `vite.config.{js,mjs,cjs,ts,mts,cts}` or
 `vitest.config.{js,mjs,cjs,ts,mts,cts}` candidate in the Control Center, its
-Playwright collection configuration, or its `package.json` `pretest`, `test`, or
-`posttest` lifecycle command, also fail closed.
+Playwright collection configuration, any transitive local static dependency of
+those configuration files, configured Vitest setup files and their transitive
+local dependencies, or its `package.json` `pretest`, `test`, or `posttest` lifecycle
+command, also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

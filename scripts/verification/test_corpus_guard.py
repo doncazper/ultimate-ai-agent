@@ -13,6 +13,7 @@ import select
 import stat
 import subprocess
 import time
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -30,6 +31,7 @@ from scripts.verification.test_corpus_evidence import (
 )
 from scripts.verification.test_corpus_frontend import (
     FrontendInventoryError,
+    frontend_collection_setup_modules,
     frontend_export_binding_source,
     frontend_relative_import_modules,
     frontend_source_for_ref,
@@ -51,6 +53,7 @@ MAX_GIT_STDOUT_BYTES = 8_000_000
 MAX_CHANGED_PATH_BYTES = 4_000_000
 MAX_CHANGED_TEST_PATHS = 20_000
 MAX_PYTHON_DEPENDENCY_MODULES = 20_000
+MAX_FRONTEND_DEPENDENCY_MODULES = 20_000
 GIT_INSPECTION_TIMEOUT_SECONDS = 30.0
 PYTEST_COLLECTION_CONFIG_PATHS = {
     ".pytest.ini",
@@ -227,6 +230,80 @@ def _binding_target_names(node: ast.AST) -> set[str]:
     if isinstance(node, (ast.Tuple, ast.List)):
         return {name for child in node.elts for name in _binding_target_names(child)}
     return set()
+
+
+def _is_statically_noncallable_python_value(node: ast.AST | None) -> bool:
+    if node is None or isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, (ast.Dict, ast.List, ast.Set, ast.Tuple)):
+        return True
+    if isinstance(node, ast.UnaryOp):
+        return _is_statically_noncallable_python_value(node.operand)
+    if isinstance(node, (ast.BinOp, ast.BoolOp, ast.Compare, ast.JoinedStr)):
+        return True
+    if isinstance(node, ast.IfExp):
+        return _is_statically_noncallable_python_value(
+            node.body
+        ) and _is_statically_noncallable_python_value(node.orelse)
+    return isinstance(node, (ast.DictComp, ast.GeneratorExp, ast.ListComp, ast.SetComp))
+
+
+def _is_current_module_object(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    if not (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.slice, ast.Name)
+        and node.slice.id == "__name__"
+    ):
+        return False
+    registry = node.value
+    if isinstance(registry, ast.Name):
+        return "sys.modules" in imported_modules.get(registry.id, ())
+    if not isinstance(registry, ast.Attribute) or registry.attr != "modules":
+        return False
+    root = _root_name(registry)
+    return root == "sys" or (
+        root is not None and "sys" in imported_modules.get(root, ())
+    )
+
+
+def _is_current_module_namespace(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr == "__dict__"
+        and _is_current_module_object(node.value, imported_modules)
+    ) or (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "vars"
+        and len(node.args) == 1
+        and not node.keywords
+        and _is_current_module_object(node.args[0], imported_modules)
+    )
+
+
+def _current_module_write_targets(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> tuple[str | None, ...]:
+    if isinstance(node, ast.Attribute) and _is_current_module_object(
+        node.value,
+        imported_modules,
+    ):
+        return (node.attr,)
+    if not isinstance(node, ast.Subscript) or not _is_current_module_namespace(
+        node.value,
+        imported_modules,
+    ):
+        return ()
+    if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+        return (node.slice.value,)
+    return (None,)
 
 
 def _module_namespace_write_targets(
@@ -1998,6 +2075,66 @@ def _python_inventory_entries(
             "module-level pytest collection abort cannot be inventoried safely"
         )
 
+    dynamic_code_names = {"__import__", "compile", "eval", "exec"}
+    dynamic_code_aliases = {
+        *dynamic_code_names,
+        *(
+            local
+            for local, candidates in imported_modules.items()
+            if any(
+                candidate in {f"builtins.{name}" for name in dynamic_code_names}
+                for candidate in candidates
+            )
+        ),
+    }
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
+                continue
+            value_name = ""
+            if (
+                isinstance(node.value, ast.Name)
+                and node.value.id in dynamic_code_aliases
+            ):
+                value_name = node.value.id
+            elif isinstance(node.value, ast.Attribute):
+                root = _root_name(node.value)
+                if (
+                    node.value.attr in dynamic_code_names
+                    and root is not None
+                    and (
+                        root == "builtins"
+                        or "builtins" in imported_modules.get(root, ())
+                    )
+                ):
+                    value_name = node.value.attr
+            if not value_name:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in dynamic_code_aliases:
+                        dynamic_code_aliases.add(name)
+                        changed = True
+    if any(
+        isinstance(node, ast.Call)
+        and (
+            (isinstance(node.func, ast.Name) and node.func.id in dynamic_code_aliases)
+            or (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in dynamic_code_names
+                and (root := _root_name(node.func)) is not None
+                and (root == "builtins" or "builtins" in imported_modules.get(root, ()))
+            )
+        )
+        for node in _module_execution_nodes(tree)
+    ):
+        raise TestCorpusGuardError(
+            "module-level dynamic Python code cannot be inventoried safely"
+        )
+
     if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "pytest_generate_tests"
@@ -2772,6 +2909,12 @@ def _python_inventory_entries(
         mutation = _mutated_attribute_call(module_node)
         if mutation is None:
             continue
+        if _is_current_module_object(mutation[0], imported_modules):
+            if mutation[1] is None or mutation[1] in collected_binding_names:
+                raise TestCorpusGuardError(
+                    "indirect Python test-name rebinding cannot be inventoried safely"
+                )
+            continue
         aliases = _module_name_aliases(
             tree,
             before=(module_node.lineno, module_node.col_offset),
@@ -2813,16 +2956,32 @@ def _python_inventory_entries(
                 accessors=MODULE_NAMESPACE_ACCESSORS,
             )
         )
+        current_module_targets = tuple(
+            name
+            for target in targets
+            for name in _current_module_write_targets(target, imported_modules)
+        )
         if any(
             name is None
             or name in collected_binding_names
             or name.startswith("test")
             or name.startswith("Test")
-            for name in namespace_targets
+            for name in (*namespace_targets, *current_module_targets)
         ):
             raise TestCorpusGuardError(
                 "indirect Python test-name rebinding cannot be inventoried safely"
             )
+
+    if any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in GLOBALS_NAMESPACE_MUTATOR_METHODS
+        and _is_current_module_namespace(node.func.value, imported_modules)
+        for node in _module_execution_nodes(tree)
+    ):
+        raise TestCorpusGuardError(
+            "indirect Python test-name rebinding cannot be inventoried safely"
+        )
 
     for module_node in tree.body:
         if not isinstance(module_node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
@@ -2835,13 +2994,20 @@ def _python_inventory_entries(
         assigned_names = {
             name for target in targets for name in _binding_target_names(target)
         }
-        if any(name.startswith("Test") for name in assigned_names):
+        value = module_node.value
+        if any(name.startswith("Test") for name in assigned_names) and not (
+            isinstance(module_node, (ast.Assign, ast.AnnAssign))
+            and _is_statically_noncallable_python_value(value)
+        ):
             raise TestCorpusGuardError(
                 "callable Python test-class assignment cannot be inventoried safely"
             )
         if any(
             name.startswith("test") and name not in declared_test_names
             for name in assigned_names
+        ) and not (
+            isinstance(module_node, (ast.Assign, ast.AnnAssign))
+            and _is_statically_noncallable_python_value(value)
         ):
             raise TestCorpusGuardError(
                 "callable Python test-name assignment cannot be inventoried safely"
@@ -2889,7 +3055,7 @@ def _python_inventory_entries(
                     rebound.update(_binding_target_names(target))
                 if any(name.startswith("test") for name in rebound) and not (
                     isinstance(child, (ast.Assign, ast.AnnAssign))
-                    and isinstance(child.value, ast.Constant)
+                    and _is_statically_noncallable_python_value(child.value)
                 ):
                     raise TestCorpusGuardError(
                         "callable Python class test-name assignment cannot be inventoried safely"
@@ -3386,6 +3552,43 @@ def _frontend_import_resolver(
     return resolve
 
 
+def _frontend_dependency_paths(
+    roots: set[str],
+    read_text: Callable[[str], str | None],
+) -> set[str]:
+    pending = list(sorted(roots))
+    visited: set[str] = set()
+    dependencies: set[str] = set()
+    while pending:
+        path = pending.pop()
+        if path in visited:
+            continue
+        visited.add(path)
+        if len(visited) > MAX_FRONTEND_DEPENDENCY_MODULES:
+            raise TestCorpusGuardError(
+                "frontend collection dependency closure exceeds module budget"
+            )
+        source = read_text(path)
+        if source is None:
+            continue
+        try:
+            modules = (
+                *frontend_relative_import_modules(source),
+                *frontend_collection_setup_modules(source),
+            )
+        except FrontendInventoryError as exc:
+            raise TestCorpusGuardError(str(exc)) from None
+        for module in modules:
+            candidates = _relative_frontend_import_candidates(path, module)
+            dependencies.update(candidates)
+            pending.extend(
+                candidate
+                for candidate in candidates
+                if read_text(candidate) is not None
+            )
+    return dependencies
+
+
 def _parse_worktree_test_declarations(
     repo: Path,
     path: str,
@@ -3737,6 +3940,36 @@ def _collection_config_section(value: str, section: str) -> str:
     return match.group(0).strip() if match is not None else ""
 
 
+def _pytest11_entry_points(value: str) -> tuple[tuple[str, str], ...]:
+    if not value:
+        return ()
+    try:
+        payload = tomllib.loads(value)
+    except tomllib.TOMLDecodeError as exc:
+        raise TestCorpusGuardError(
+            "pytest entry-point configuration cannot be inventoried safely"
+        ) from exc
+    project = payload.get("project", {})
+    if not isinstance(project, dict):
+        raise TestCorpusGuardError(
+            "pytest entry-point configuration cannot be inventoried safely"
+        )
+    entry_points = project.get("entry-points", {})
+    if not isinstance(entry_points, dict):
+        raise TestCorpusGuardError(
+            "pytest entry-point configuration cannot be inventoried safely"
+        )
+    pytest11 = entry_points.get("pytest11", {})
+    if not isinstance(pytest11, dict) or not all(
+        isinstance(name, str) and isinstance(module, str)
+        for name, module in pytest11.items()
+    ):
+        raise TestCorpusGuardError(
+            "pytest entry-point configuration cannot be inventoried safely"
+        )
+    return tuple(sorted(pytest11.items()))
+
+
 def _frontend_test_scripts(value: str) -> tuple[str, str, str]:
     if not value:
         return ("", "", "")
@@ -3976,6 +4209,19 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    current_frontend_config_dependencies = _frontend_dependency_paths(
+        set(FRONTEND_COLLECTION_CONFIG_PATHS),
+        lambda candidate: (
+            _read_worktree_text(repo, candidate)
+            if (repo / candidate).is_file()
+            else None
+        ),
+    )
+    if all_changed & current_frontend_config_dependencies:
+        raise TestCorpusGuardError(
+            "changed frontend collection configuration dependency cannot be "
+            "inventoried safely"
+        )
     for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
@@ -4004,6 +4250,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         if path == "tox.ini" and current != prior:
             raise TestCorpusGuardError(
                 "changed pytest collection configuration cannot be inventoried safely"
+            )
+
+        if path == "pyproject.toml" and _pytest11_entry_points(
+            current
+        ) != _pytest11_entry_points(prior):
+            raise TestCorpusGuardError(
+                "changed pytest entry-point configuration cannot be inventoried safely"
             )
 
         section = {

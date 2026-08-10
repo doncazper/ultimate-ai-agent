@@ -28,6 +28,15 @@ EMPTY_NAMED_IMPORT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)",
     re.DOTALL,
 )
+DEFAULT_IMPORT_PATTERN = re.compile(
+    rf"\bimport\s+(?:type\s+)?(?P<name>{TEST_API_NAME})"
+    rf"(?:\s*,\s*(?:\{{[^}}]*\}}|\*\s+as\s+{TEST_API_NAME}))?\s+from\s*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+)
+EXPORT_FROM_PATTERN = re.compile(
+    r"\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s*"
+    r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
+)
 NAMESPACE_IMPORT_PATTERN = re.compile(
     r"\bimport\s+\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)\s+from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
@@ -239,6 +248,34 @@ def _patterns(
         rf"(?<![.\w$]){names}{TEST_MODIFIERS}\.(?:runIf|skipIf)\s*\("
     )
     return direct, each, conditional
+
+
+def _has_indirect_runner_invocation(
+    text: str,
+    scan_text: str,
+    *,
+    names: set[str],
+) -> bool:
+    name_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    if re.search(
+        rf"(?<![.\w$]){name_pattern}\s*\.\s*(?:apply|bind|call)\s*\(",
+        scan_text,
+    ):
+        return True
+    global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
+    dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
+    if re.search(rf"{dot_property}\s*\(", scan_text):
+        return True
+    quoted_names = (
+        "(?:"
+        + "|".join(quoted for name in names for quoted in (f'"{name}"', f"'{name}'"))
+        + ")"
+    )
+    computed_property = rf"{global_object}\s*\[\s*{quoted_names}\s*\]"
+    return any(
+        scan_text[match.start()] == text[match.start()]
+        for match in re.finditer(rf"{computed_property}\s*\(", text)
+    )
 
 
 def _has_global_api_mutation(
@@ -1195,18 +1232,130 @@ def frontend_export_binding_source(text: str, name: str) -> str | None:
 
 
 def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
-    """Return relative named-import module specifiers from executable code."""
+    """Return relative static module specifiers from executable code."""
 
     code_mask = _code_mask(text)
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
-    return tuple(
-        match.group("module")
-        for match in IMPORT_PATTERN.finditer(text)
+    matches = sorted(
+        (
+            match.start(),
+            match.group("module"),
+            "export" if match.re is EXPORT_FROM_PATTERN else "import",
+        )
+        for pattern in (
+            IMPORT_PATTERN,
+            NAMESPACE_IMPORT_PATTERN,
+            DEFAULT_IMPORT_PATTERN,
+            SIDE_EFFECT_IMPORT_PATTERN,
+            EMPTY_NAMED_IMPORT_PATTERN,
+            EXPORT_FROM_PATTERN,
+        )
+        for match in pattern.finditer(text)
         if match.group("module").startswith(".")
-        and scan_text[match.start() : match.start() + len("import")] == "import"
     )
+    modules: list[str] = []
+    for offset, module, keyword in matches:
+        if scan_text[offset : offset + len(keyword)] != keyword:
+            continue
+        if module not in modules:
+            modules.append(module)
+    return tuple(modules)
+
+
+def frontend_collection_setup_modules(text: str) -> tuple[str, ...]:
+    """Return statically configured Vitest setup-file module specifiers."""
+
+    code_mask = _code_mask(text)
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    modules: list[str] = []
+
+    def append_literal(start: int) -> int:
+        if text[start] not in "\"'":
+            raise FrontendInventoryError(
+                "frontend setup-file configuration cannot be inventoried safely"
+            )
+        end = _skip_string(text, start)
+        value = text[start + 1 : end - 1]
+        if not value or "\\" in value or "\0" in value or value.startswith("/"):
+            raise FrontendInventoryError(
+                "frontend setup-file configuration cannot be inventoried safely"
+            )
+        module = value if value.startswith(".") else f"./{value}"
+        if module not in modules:
+            modules.append(module)
+        return end
+
+    for match in re.finditer(r"\bsetupFiles?\s*:", scan_text):
+        start = _skip_static_trivia(text, match.end())
+        if start >= len(text):
+            raise FrontendInventoryError(
+                "frontend setup-file configuration cannot be inventoried safely"
+            )
+        if text[start] in "\"'":
+            append_literal(start)
+            continue
+        if text[start] != "[":
+            raise FrontendInventoryError(
+                "frontend setup-file configuration cannot be inventoried safely"
+            )
+        end = _skip_balanced(text, start)
+        index = _skip_static_trivia(text, start + 1)
+        while index < end - 1:
+            index = append_literal(index)
+            index = _skip_static_trivia(text, index)
+            if index >= end - 1:
+                break
+            if text[index] != ",":
+                raise FrontendInventoryError(
+                    "frontend setup-file configuration cannot be inventoried safely"
+                )
+            index = _skip_static_trivia(text, index + 1)
+    return tuple(modules)
+
+
+def _relative_imported_call_names(text: str, scan_text: str) -> set[str]:
+    names: set[str] = set()
+    for match in IMPORT_PATTERN.finditer(text):
+        if (
+            not match.group("module").startswith(".")
+            or scan_text[match.start() : match.start() + len("import")] != "import"
+        ):
+            continue
+        for member in match.group("members").split(","):
+            binding = re.fullmatch(
+                rf"\s*(?:type\s+)?(?P<imported>{TEST_API_NAME})"
+                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
+                member,
+            )
+            if binding is not None:
+                names.add(binding.group("local") or binding.group("imported"))
+    for match in DEFAULT_IMPORT_PATTERN.finditer(text):
+        if (
+            match.group("module").startswith(".")
+            and scan_text[match.start() : match.start() + len("import")] == "import"
+        ):
+            names.add(match.group("name"))
+    return names
+
+
+def _has_unproven_imported_registration_call(
+    text: str,
+    scan_text: str,
+    block_regions: tuple[tuple[int, int], ...],
+    expression_regions: tuple[tuple[int, int], ...],
+) -> bool:
+    for name in sorted(_relative_imported_call_names(text, scan_text)):
+        for match in re.finditer(rf"(?<![.\w$]){re.escape(name)}\s*\(", scan_text):
+            if any(start < match.start() < end for start, end in block_regions):
+                continue
+            if any(start <= match.start() < end for start, end in expression_regions):
+                continue
+            return True
+    return False
 
 
 def _conditional_declarations(
@@ -2247,9 +2396,16 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "frontend side-effect import cannot be inventoried safely"
         )
-    direct_pattern, each_pattern, conditional_pattern = _patterns(
-        _test_api_names(text, scan_text)
-    )
+    test_api_names = _test_api_names(text, scan_text)
+    if _has_indirect_runner_invocation(
+        text,
+        scan_text,
+        names=test_api_names,
+    ):
+        raise FrontendInventoryError(
+            "indirect frontend test registration cannot be inventoried safely"
+        )
+    direct_pattern, each_pattern, conditional_pattern = _patterns(test_api_names)
     suite_api_names = _suite_api_names(text, scan_text)
     suite_api_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"
@@ -2274,6 +2430,15 @@ def _frontend_inventory_entries(
         scan_text,
         suite_context_regions,
     )
+    if _has_unproven_imported_registration_call(
+        text,
+        scan_text,
+        unproven_block_regions,
+        unproven_expression_regions,
+    ):
+        raise FrontendInventoryError(
+            "imported frontend registration helper cannot be inventoried safely"
+        )
 
     for match in direct_pattern.finditer(scan_text):
         declaration_end = _skip_balanced(text, match.end() - 1)
