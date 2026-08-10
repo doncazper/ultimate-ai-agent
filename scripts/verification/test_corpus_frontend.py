@@ -412,16 +412,32 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
             if member_match is None:
                 return True
             member_source = member_match.group(0)
+            member_names = re.findall(TEST_API_NAME, member_source)
             index = _skip_static_trivia(text, index + member_match.end())
             if index >= initializer_end or scan_text[index] != "(":
                 return True
             call_end = _skip_balanced(text, index)
-            if re.search(r"\.\s*extend\b", member_source):
-                continue
-            if re.search(r"\.\s*each\b", member_source):
+            if member_names[-1] in {"each", "for", "runIf", "skipIf"}:
                 next_call = _skip_static_trivia(text, call_end)
                 if next_call >= initializer_end or scan_text[next_call] != "(":
                     return True
+                continue
+            if all(
+                member
+                in {
+                    "concurrent",
+                    "fail",
+                    "fails",
+                    "fixme",
+                    "only",
+                    "sequential",
+                    "skip",
+                    "todo",
+                }
+                for member in member_names
+            ):
+                continue
+            return True
         return False
 
     if any(

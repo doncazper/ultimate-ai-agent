@@ -1120,6 +1120,16 @@ if True:
             "function __test__ mutation",
         ),
         (
+            "def test_case(): pass\nsetattr((alias := test_case), '__test__', False)\n",
+            "function __test__ mutation",
+        ),
+        (
+            "def test_case(): pass\n"
+            "(alias,) = (test_case,)\n"
+            "setattr(alias, '__test__', False)\n",
+            "function __test__ mutation",
+        ),
+        (
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Base.__new__ = lambda cls: object.__new__(cls)\n"
@@ -1169,7 +1179,40 @@ if True:
             "unittest.TestCase attribute",
         ),
         (
+            "import unittest as u\n"
+            "alias = u\n"
+            "alias.TestCase = object\n"
+            "class WidgetCases(u.TestCase):\n"
+            "    def test_widget(self): pass\n",
+            "unittest.TestCase attribute",
+        ),
+        (
+            "import unittest as u\n"
+            "alias = u\n"
+            "setattr(alias, 'TestCase', object)\n"
+            "class WidgetCases(u.TestCase):\n"
+            "    def test_widget(self): pass\n",
+            "unittest.TestCase attribute",
+        ),
+        (
             "import pytest as p\np = helpers\n@p.fixture\ndef test_case(): pass\n",
+            "pytest fixture alias",
+        ),
+        (
+            "import pytest as p\n"
+            "original = p.fixture\n"
+            "p.fixture = lambda function: function\n"
+            "@p.fixture\n"
+            "def test_case(): pass\n"
+            "p.fixture = original\n",
+            "pytest fixture alias",
+        ),
+        (
+            "import pytest as p\n"
+            "alias = p\n"
+            "setattr(alias, 'fixture', lambda function: function)\n"
+            "@p.fixture\n"
+            "def test_case(): pass\n",
             "pytest fixture alias",
         ),
         (
@@ -1230,6 +1273,26 @@ def test_python_inventory_rejects_dynamic_collection_rebinding(
 ) -> None:
     with pytest.raises(guard.TestCorpusGuardError, match=message):
         guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+@pytest.mark.parametrize(
+    "function_body",
+    (
+        "namespace = locals()\n    namespace['value'] = 1",
+        "namespace = vars()\n    namespace['value'] = 1",
+        "locals().pop('value', None)",
+        "vars().update({'value': 1})",
+    ),
+)
+def test_python_inventory_allows_function_local_namespace_mutation(
+    function_body: str,
+) -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        f"def test_case():\n    {function_body}\n",
+    )
+
+    assert [item.ref for item in declarations] == ["tests/test_sample.py::test_case"]
 
 
 def test_python_source_ref_hashes_only_the_replacement_declaration() -> None:
@@ -1925,6 +1988,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         ),
         (
             'const spec = (helper, test.only);\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = test.bind(null);\nspec("case", () => {});\n',
             "test API alias",
         ),
         (
@@ -4148,7 +4215,13 @@ def test_changed_conftest_pytest_plugins_binding_fails_closed(
     "source",
     (
         'globals()["pytest_plugins"] = ["tests.collection_plugin"]\n',
+        'locals()["pytest_plugins"] = ["tests.collection_plugin"]\n',
+        'vars()["pytest_plugins"] = ["tests.collection_plugin"]\n',
         "namespace = globals()\n"
+        'namespace["pytest_plugins"] = ["tests.collection_plugin"]\n',
+        "namespace = locals()\n"
+        'namespace["pytest_plugins"] = ["tests.collection_plugin"]\n',
+        "namespace = vars()\n"
         'namespace["pytest_plugins"] = ["tests.collection_plugin"]\n',
     ),
 )
@@ -4214,6 +4287,44 @@ def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
         lambda _repo, _base, path: (
             "def pytest_generate_tests(metafunc):\n"
             "    metafunc.parametrize('value', [1, 2])\n"
+            if path == "tests/collection_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_imported_conftest_collection_hook_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        "from tests.collection_plugin import pytest_collection_modifyitems\n"
+    )
+    plugin_path = tests_root / "collection_plugin.py"
+    plugin_path.write_text(
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
+    )
+    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def pytest_collection_modifyitems(items):\n    items[:] = items\n"
             if path == "tests/collection_plugin.py"
             else None
         ),

@@ -73,6 +73,22 @@ FRONTEND_COLLECTION_CONFIG_PATHS = {
 FRONTEND_TEST_SCRIPT_CONFIG_PATHS = {
     "apps/control-center/package.json",
 }
+PYTEST_COLLECTION_HOOK_NAMES = frozenset(
+    {
+        "collect_ignore",
+        "pytest_collection",
+        "pytest_generate_tests",
+        "pytest_ignore_collect",
+        "pytest_collect_directory",
+        "pytest_collect_file",
+        "pytest_pycollect_makemodule",
+        "pytest_pycollect_makeitem",
+        "pytest_make_collect_report",
+        "pytest_itemcollected",
+        "pytest_collection_modifyitems",
+        "pytest_collection_finish",
+    }
+)
 GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "__delitem__",
     "__ior__",
@@ -84,6 +100,8 @@ GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "update",
 }
 MODULE_NAMESPACE_ACCESSORS = frozenset({"globals", "locals", "vars"})
+GLOBAL_NAMESPACE_ACCESSORS = frozenset({"globals"})
+LOCAL_NAMESPACE_ACCESSORS = frozenset({"locals", "vars"})
 READ_ONLY_COLLECTION_METHODS = {
     "copy",
     "count",
@@ -249,14 +267,18 @@ def _is_globals_call(node: ast.AST) -> bool:
     return _is_module_namespace_call(node)
 
 
-def _is_module_namespace_mutator_call(node: ast.AST) -> bool:
+def _is_module_namespace_mutator_call(
+    node: ast.AST,
+    *,
+    accessors: frozenset[str] = MODULE_NAMESPACE_ACCESSORS,
+) -> bool:
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in GLOBALS_NAMESPACE_MUTATOR_METHODS
         and _is_module_namespace_call(
             node.func.value,
-            accessors=MODULE_NAMESPACE_ACCESSORS,
+            accessors=accessors,
         )
     )
 
@@ -282,8 +304,71 @@ def _is_module_namespace_alias_binding(
     )
 
 
-def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
-    return _is_module_namespace_alias_binding(node)
+def _has_module_namespace_mutation(tree: ast.Module) -> bool:
+    return any(
+        _is_module_namespace_mutator_call(
+            node,
+            accessors=GLOBAL_NAMESPACE_ACCESSORS,
+        )
+        or _is_module_namespace_alias_binding(
+            node,
+            accessors=GLOBAL_NAMESPACE_ACCESSORS,
+        )
+        for node in ast.walk(tree)
+    ) or any(
+        _is_module_namespace_mutator_call(
+            node,
+            accessors=LOCAL_NAMESPACE_ACCESSORS,
+        )
+        or _is_module_namespace_alias_binding(
+            node,
+            accessors=LOCAL_NAMESPACE_ACCESSORS,
+        )
+        for node in _module_execution_nodes(tree)
+    )
+
+
+def _mutated_attribute_call(node: ast.AST) -> tuple[ast.AST, str | None] | None:
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"setattr", "delattr"}
+        and len(node.args) >= 2
+    ):
+        return None
+    attribute = node.args[1]
+    return (
+        node.args[0],
+        attribute.value
+        if isinstance(attribute, ast.Constant) and isinstance(attribute.value, str)
+        else None,
+    )
+
+
+def _resolved_expression_root(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    if isinstance(node, ast.NamedExpr):
+        return _resolved_expression_root(node.value, aliases)
+    root = _root_name(node)
+    return aliases.get(root, root) if root is not None else None
+
+
+def _paired_name_aliases(
+    target: ast.AST,
+    value: ast.AST,
+    aliases: dict[str, str],
+) -> dict[str, str]:
+    if isinstance(target, ast.Name) and isinstance(value, ast.Name):
+        return {target.id: aliases.get(value.id, value.id)}
+    if (
+        isinstance(target, (ast.Tuple, ast.List))
+        and isinstance(value, (ast.Tuple, ast.List))
+        and len(target.elts) == len(value.elts)
+    ):
+        resolved: dict[str, str] = {}
+        for child_target, child_value in zip(target.elts, value.elts, strict=True):
+            resolved.update(_paired_name_aliases(child_target, child_value, aliases))
+        return resolved
+    return {}
 
 
 def _module_name_aliases(
@@ -317,6 +402,15 @@ def _module_name_aliases(
             for name in target_names:
                 if name != resolved:
                     aliases[name] = resolved
+        elif value is not None:
+            paired_aliases: dict[str, str] = {}
+            for target in targets:
+                paired_aliases.update(_paired_name_aliases(target, value, aliases))
+            for name in target_names:
+                if name in paired_aliases and name != paired_aliases[name]:
+                    aliases[name] = paired_aliases[name]
+                else:
+                    aliases.pop(name, None)
         else:
             for name in target_names:
                 aliases.pop(name, None)
@@ -513,6 +607,10 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
                     imported_fixture_names.add(local_name)
     protected_names = pytest_roots | imported_fixture_names
     for node in _module_execution_nodes(tree):
+        aliases_before = _module_name_aliases(
+            tree,
+            before=(getattr(node, "lineno", 0), getattr(node, "col_offset", 0)),
+        )
         if isinstance(node, ast.Assign):
             targets = node.targets
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
@@ -529,6 +627,24 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
             )
         else:
             targets = ()
+        if any(
+            isinstance(target, ast.Attribute)
+            and target.attr == "fixture"
+            and _resolved_expression_root(target.value, aliases_before) in pytest_roots
+            for target in targets
+        ):
+            raise TestCorpusGuardError(
+                "dynamic pytest fixture alias cannot be inventoried safely"
+            )
+        mutation = _mutated_attribute_call(node)
+        if (
+            mutation is not None
+            and _resolved_expression_root(mutation[0], aliases_before) in pytest_roots
+            and mutation[1] in {None, "fixture"}
+        ):
+            raise TestCorpusGuardError(
+                "dynamic pytest fixture alias cannot be inventoried safely"
+            )
         rebound = {name for target in targets for name in _binding_target_names(target)}
         if isinstance(node, ast.ExceptHandler) and node.name is not None:
             rebound.add(node.name)
@@ -1975,26 +2091,8 @@ def _python_inventory_entries(
             )
         return False
 
-    def mutated_attribute_call(
-        node: ast.AST,
-    ) -> tuple[ast.AST, str | None] | None:
-        if not (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in {"setattr", "delattr"}
-            and len(node.args) >= 2
-        ):
-            return None
-        attribute = node.args[1]
-        return (
-            node.args[0],
-            attribute.value
-            if isinstance(attribute, ast.Constant) and isinstance(attribute.value, str)
-            else None,
-        )
-
     for module_node in _module_execution_nodes(tree):
-        mutation = mutated_attribute_call(module_node)
+        mutation = _mutated_attribute_call(module_node)
         if mutation is None or not may_resolve_local_class(mutation[0]):
             continue
         attribute = mutation[1]
@@ -2043,6 +2141,13 @@ def _python_inventory_entries(
         if imported.name == "unittest"
     }
     for module_node in _module_execution_nodes(tree):
+        aliases_before = _module_name_aliases(
+            tree,
+            before=(
+                getattr(module_node, "lineno", 0),
+                getattr(module_node, "col_offset", 0),
+            ),
+        )
         if isinstance(module_node, ast.Assign):
             targets = module_node.targets
         elif isinstance(module_node, (ast.AnnAssign, ast.AugAssign)):
@@ -2054,16 +2159,17 @@ def _python_inventory_entries(
         if any(
             isinstance(target, ast.Attribute)
             and target.attr == "TestCase"
-            and _root_name(target.value) in unittest_roots
+            and _resolved_expression_root(target.value, aliases_before)
+            in unittest_roots
             for target in targets
         ):
             raise TestCorpusGuardError(
                 "dynamic unittest.TestCase attribute cannot be inventoried safely"
             )
-        mutation = mutated_attribute_call(module_node)
+        mutation = _mutated_attribute_call(module_node)
         if (
             mutation is not None
-            and _root_name(mutation[0]) in unittest_roots
+            and _resolved_expression_root(mutation[0], aliases_before) in unittest_roots
             and mutation[1] in {None, "TestCase"}
         ):
             raise TestCorpusGuardError(
@@ -2626,16 +2732,14 @@ def _python_inventory_entries(
     }
 
     for module_node in _module_execution_nodes(tree):
-        mutation = mutated_attribute_call(module_node)
+        mutation = _mutated_attribute_call(module_node)
         if mutation is None:
             continue
-        target_root = _root_name(mutation[0])
-        if target_root is not None:
-            aliases = _module_name_aliases(
-                tree,
-                before=(module_node.lineno, module_node.col_offset),
-            )
-            target_root = aliases.get(target_root, target_root)
+        aliases = _module_name_aliases(
+            tree,
+            before=(module_node.lineno, module_node.col_offset),
+        )
+        target_root = _resolved_expression_root(mutation[0], aliases)
         if target_root not in collected_binding_names:
             continue
         if mutation[1] is None or mutation[1] == "__test__":
@@ -2643,17 +2747,7 @@ def _python_inventory_entries(
                 "dynamic Python function __test__ mutation cannot be inventoried safely"
             )
 
-    if any(_is_module_namespace_mutator_call(node) for node in ast.walk(tree)):
-        raise TestCorpusGuardError(
-            "indirect Python test-name rebinding cannot be inventoried safely"
-        )
-    if any(
-        _is_module_namespace_alias_binding(
-            node,
-            accessors=MODULE_NAMESPACE_ACCESSORS,
-        )
-        for node in ast.walk(tree)
-    ):
+    if _has_module_namespace_mutation(tree):
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
@@ -3663,11 +3757,7 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
             "pytest plugin registration cannot be inventoried safely"
         ) from exc
     modules: set[str] = set()
-    if any(
-        _is_module_namespace_mutator_call(node)
-        or _is_globals_namespace_alias_binding(node)
-        for node in ast.walk(tree)
-    ):
+    if _has_module_namespace_mutation(tree):
         raise TestCorpusGuardError(
             "pytest plugin registration cannot be inventoried safely"
         )
@@ -3683,7 +3773,10 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
         if any(
             target is None or target == "pytest_plugins"
             for indirect_target in indirect_targets
-            for target in _module_namespace_write_targets(indirect_target)
+            for target in _module_namespace_write_targets(
+                indirect_target,
+                accessors=MODULE_NAMESPACE_ACCESSORS,
+            )
         ):
             raise TestCorpusGuardError(
                 "pytest plugin registration cannot be inventoried safely"
@@ -3720,6 +3813,46 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
                     "pytest plugin registration cannot be inventoried safely"
                 )
             modules.add(item.value)
+    return modules
+
+
+def _pytest_collection_hook_import_modules(source: str, path: str) -> set[str]:
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "pytest collection hook imports cannot be inventoried safely"
+        ) from exc
+    package = _python_module_name_for_path(path).rpartition(".")[0]
+    package_parts = package.split(".") if package else []
+    modules: set[str] = set()
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if any(imported.name == "*" for imported in node.names):
+            raise TestCorpusGuardError(
+                "pytest collection hook imports cannot be inventoried safely"
+            )
+        if not any(
+            (imported.asname or imported.name) in PYTEST_COLLECTION_HOOK_NAMES
+            for imported in node.names
+        ):
+            continue
+        if node.level:
+            parent_count = node.level - 1
+            if parent_count >= len(package_parts):
+                raise TestCorpusGuardError(
+                    "pytest collection hook imports cannot be inventoried safely"
+                )
+            prefix = ".".join(package_parts[: len(package_parts) - parent_count])
+            module = f"{prefix}.{node.module}" if node.module else prefix
+        else:
+            module = node.module or ""
+        if not module:
+            raise TestCorpusGuardError(
+                "pytest collection hook imports cannot be inventoried safely"
+            )
+        modules.add(module)
     return modules
 
 
@@ -3842,20 +3975,6 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest collection configuration cannot be inventoried safely"
             )
-    collection_hook_names = (
-        "collect_ignore",
-        "pytest_collection",
-        "pytest_generate_tests",
-        "pytest_ignore_collect",
-        "pytest_collect_directory",
-        "pytest_collect_file",
-        "pytest_pycollect_makemodule",
-        "pytest_pycollect_makeitem",
-        "pytest_make_collect_report",
-        "pytest_itemcollected",
-        "pytest_collection_modifyitems",
-        "pytest_collection_finish",
-    )
     for path in all_changed:
         if Path(path).name != "conftest.py":
             continue
@@ -3865,7 +3984,9 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest plugin registration cannot be inventoried safely"
             )
-        if any(name in current or name in prior for name in collection_hook_names):
+        if any(
+            name in current or name in prior for name in PYTEST_COLLECTION_HOOK_NAMES
+        ):
             raise TestCorpusGuardError(
                 "changed pytest collection hooks cannot be inventoried safely"
             )
@@ -3893,9 +4014,15 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 registered_plugins.update(
                     _pytest_plugin_modules(current, conftest_path)
                 )
+                registered_plugins.update(
+                    _pytest_collection_hook_import_modules(current, conftest_path)
+                )
             if conftest_path in all_changed:
                 prior = _base_text(repo, base_sha, conftest_path) or ""
                 registered_plugins.update(_pytest_plugin_modules(prior, conftest_path))
+                registered_plugins.update(
+                    _pytest_collection_hook_import_modules(prior, conftest_path)
+                )
         for module in registered_plugins & set(changed_modules):
             for plugin_path in changed_modules[module]:
                 current = (
@@ -3905,7 +4032,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 )
                 prior = _base_text(repo, base_sha, plugin_path) or ""
                 if any(
-                    name in current or name in prior for name in collection_hook_names
+                    name in current or name in prior
+                    for name in PYTEST_COLLECTION_HOOK_NAMES
                 ):
                     raise TestCorpusGuardError(
                         "changed registered pytest collection hooks cannot be "

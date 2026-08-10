@@ -59,8 +59,9 @@ another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks, including custom Python item/module/directory collectors,
 fail closed. Collection hooks in changed repository plugins
-registered through a `conftest.py` `pytest_plugins` binding, including one in a
-hidden directory beneath `tests`, also fail closed, and changes to the plugin
+registered through a `conftest.py` `pytest_plugins` binding or imported directly
+under a recognized hook name, including one in a hidden directory beneath
+`tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins.
 Wildcard imports in tests, class-body parameter bindings,
@@ -78,14 +79,16 @@ collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
 namespace mutation (including assignment-expression aliases), direct module
 namespace writes or mutator calls through zero-argument `globals()`, `locals()`, or
-`vars()`, indirect module
+`vars()` (while function-local `locals()` and `vars()` remain ordinary local
+state), indirect module
 namespace rebinding, module-level `__test__` bindings, imported test functions
 or locally resolvable collected test classes, test methods assigned
 or declared inside class-body control flow, aliased module-level `pytestmark`
 parameterization, and post-definition parameterization calls through aliases
 are likewise rejected because their collected identities cannot be represented
 safely. Parameterized fixtures, execution-time rebinding of imported pytest
-fixture roots or directly imported fixture aliases, and local parameterized-fixture decorator
+fixture roots, their `fixture` attributes, or directly imported fixture aliases,
+and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), with
 unqualified attribute-based fixture decorators rejected rather than silently
 treated as pytest fixtures, dynamic
@@ -115,7 +118,8 @@ keyword and module or the runtime import uses an empty named clause, conditional
 registrations and runner aliases fail closed; ordinary, typed,
 parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejected,
 including bounded nontrivial initializers that retain a recognized runner API
-reference rather than invoking it,
+reference rather than invoking it and results of unrecognized runner methods
+such as `bind`,
 and recognized runner APIs also fail closed when shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to the Control Center Vitest or
