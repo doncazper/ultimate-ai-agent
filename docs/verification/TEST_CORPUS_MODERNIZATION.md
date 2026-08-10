@@ -26,7 +26,9 @@ evidence-aware rather than globally one-task-at-a-time.
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python test-file
 declarations repository-wide and Control Center `.test`/`.spec` declarations
-across the complete default Vitest file scope,
+across the complete default Vitest file scope; Control Center discovery applies
+Vitest's `node_modules` and `.git` directory exclusions instead of pytest's
+broader generated-environment exclusions,
 including inherited pytest class tests, Python parameterization bound to
 resolvable decorator syntax, ordered
 pre-declaration parameter-data bindings, and in-place mutations visible at
@@ -49,7 +51,8 @@ Enclosing static suite titles are part of each frontend identity, and
 comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data and imported parameter-ID helpers are bound to
 the exact referenced declaration and its recursively resolvable local
-dependencies. Dynamic parameter-module imports fail closed. Changes to an
+dependencies. Dynamic parameter-module imports, including calls through assigned
+import-function aliases, fail closed. Changes to an
 imported initializer or ID helper, including one in
 another test module, recheck the dependent test file. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
@@ -73,7 +76,8 @@ are likewise rejected because their collected identities cannot be represented
 safely. Parameterized fixtures and local parameterized-fixture decorator
 factories at module or class scope (including expanded option mappings), dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
-bindings, post-definition `__test__` writes to local classes or their aliases,
+bindings, post-definition `__test__` writes to local classes or their direct or
+bounded-unpacking aliases,
 class-level parametrizing `pytestmark`, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, and changed `pytest_generate_tests` hooks also fail closed. Frontend

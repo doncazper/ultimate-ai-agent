@@ -149,6 +149,7 @@ PYTEST_IGNORED_DIRECTORY_NAMES = {
     "venv",
     "{arch}",
 }
+FRONTEND_IGNORED_DIRECTORY_NAMES = {".git", "node_modules"}
 BUILTIN_EXCEPTION_CLASS_NAMES = frozenset(
     name
     for name, value in vars(builtins).items()
@@ -796,21 +797,67 @@ def _reject_repository_reader_calls(
             if isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
         )
     inspected_nodes = tuple(construction_nodes.values())
-    if any(
-        isinstance(child, ast.Call)
-        and (
-            (isinstance(child.func, ast.Name) and child.func.id == "__import__")
-            or (
-                isinstance(child.func, ast.Name)
-                and "importlib.import_module" in imported_modules.get(child.func.id, ())
+    alias_assignments: list[tuple[str, ast.expr]] = []
+
+    def assigned_pairs(
+        target: ast.AST, value: ast.expr
+    ) -> tuple[tuple[str, ast.expr], ...]:
+        if isinstance(target, ast.Name):
+            return ((target.id, value),)
+        if (
+            isinstance(target, (ast.List, ast.Tuple))
+            and isinstance(value, (ast.List, ast.Tuple))
+            and len(target.elts) == len(value.elts)
+        ):
+            return tuple(
+                pair
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for pair in assigned_pairs(target_item, value_item)
             )
-            or (
-                isinstance(child.func, ast.Attribute)
-                and child.func.attr == "import_module"
-                and (root := _root_name(child.func)) is not None
-                and "importlib" in imported_modules.get(root, ())
-            )
+        return ()
+
+    for node in inspected_nodes:
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                alias_assignments.extend(
+                    pair
+                    for target in child.targets
+                    for pair in assigned_pairs(target, child.value)
+                )
+            elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                alias_assignments.extend(assigned_pairs(child.target, child.value))
+            elif isinstance(child, ast.NamedExpr):
+                alias_assignments.extend(assigned_pairs(child.target, child.value))
+
+    dynamic_import_aliases = {"__import__"}
+    dynamic_import_aliases.update(
+        local_name
+        for local_name, candidates in imported_modules.items()
+        if "importlib.import_module" in candidates
+    )
+
+    def is_dynamic_import_callable(node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return node.id in dynamic_import_aliases
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr == "import_module"
+            and (root := _root_name(node)) is not None
+            and "importlib" in imported_modules.get(root, ())
         )
+
+    while True:
+        added = {
+            name
+            for name, value in alias_assignments
+            if is_dynamic_import_callable(value)
+        } - dynamic_import_aliases
+        if not added:
+            break
+        dynamic_import_aliases.update(added)
+
+    if any(
+        isinstance(child, ast.Call) and is_dynamic_import_callable(child.func)
         for node in (*inspected_nodes, *root_nodes)
         for child in ast.walk(node)
     ):
@@ -823,36 +870,15 @@ def _reject_repository_reader_calls(
         for local_name, candidates in imported_modules.items()
         if REPOSITORY_READER_IMPORTS.intersection(candidates)
     )
-    alias_assignments: list[tuple[tuple[str, ...], ast.expr]] = []
-
-    def assigned_names(target: ast.AST) -> tuple[str, ...]:
-        if isinstance(target, ast.Name):
-            return (target.id,)
-        if isinstance(target, (ast.List, ast.Tuple)):
-            return tuple(name for item in target.elts for name in assigned_names(item))
-        return ()
-
-    for node in inspected_nodes:
-        for child in ast.walk(node):
-            if isinstance(child, ast.Assign):
-                names = tuple(
-                    name for target in child.targets for name in assigned_names(target)
-                )
-                alias_assignments.append((names, child.value))
-            elif isinstance(child, ast.AnnAssign) and child.value is not None:
-                alias_assignments.append((assigned_names(child.target), child.value))
-            elif isinstance(child, ast.NamedExpr):
-                alias_assignments.append((assigned_names(child.target), child.value))
     while True:
         added = {
             name
-            for names, value in alias_assignments
+            for name, value in alias_assignments
             if (isinstance(value, ast.Name) and value.id in reader_aliases)
             or (
                 isinstance(value, ast.Attribute)
                 and value.attr in REPOSITORY_READER_ATTRIBUTES
             )
-            for name in names
         } - reader_aliases
         if not added:
             break
@@ -1636,22 +1662,35 @@ def _python_inventory_entries(
         )
     classes = {node.name: node for node in class_nodes}
     class_aliases = set(classes)
+
+    def resolved_class_aliases(target: ast.AST, value: ast.AST) -> set[str]:
+        if isinstance(target, ast.Name) and isinstance(value, ast.Name):
+            return {target.id} if value.id in class_aliases else set()
+        if (
+            isinstance(target, (ast.List, ast.Tuple))
+            and isinstance(value, (ast.List, ast.Tuple))
+            and len(target.elts) == len(value.elts)
+        ):
+            return {
+                alias
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for alias in resolved_class_aliases(target_item, value_item)
+            }
+        return set()
+
     while True:
         added: set[str] = set()
         for module_node in _module_execution_nodes(tree):
             if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = module_node.value
-            if not isinstance(value, ast.Name) or value.id not in class_aliases:
-                continue
             targets = (
                 module_node.targets
                 if isinstance(module_node, ast.Assign)
                 else (module_node.target,)
             )
-            added.update(
-                name for target in targets for name in _binding_target_names(target)
-            )
+            for target in targets:
+                added.update(resolved_class_aliases(target, value))
         added -= class_aliases
         if not added:
             break
@@ -2562,12 +2601,12 @@ def _parse_base_test_declarations(
 def discover_test_files(repo: Path) -> tuple[str, ...]:
     discovered: set[str] = set()
     for root, directory_names, file_names in os.walk(repo, followlinks=False):
+        root_path = Path(root)
         directory_names[:] = sorted(
             name
             for name in directory_names
-            if not _is_pytest_ignored_directory_name(name)
+            if not _is_discovery_ignored_directory(repo, root_path, name)
         )
-        root_path = Path(root)
         for file_name in sorted(file_names):
             relative = (root_path / file_name).relative_to(repo).as_posix()
             if _is_test_path(relative):
@@ -3180,6 +3219,13 @@ def _is_pytest_ignored_directory_name(name: str) -> bool:
         or name in PYTEST_IGNORED_DIRECTORY_NAMES
         or name.endswith(".egg")
     )
+
+
+def _is_discovery_ignored_directory(repo: Path, root: Path, name: str) -> bool:
+    relative = (root / name).relative_to(repo)
+    if relative.parts[:2] == ("apps", "control-center"):
+        return name in FRONTEND_IGNORED_DIRECTORY_NAMES
+    return _is_pytest_ignored_directory_name(name)
 
 
 def _is_python_test_path(path: str) -> bool:

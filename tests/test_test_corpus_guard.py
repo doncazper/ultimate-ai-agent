@@ -426,6 +426,10 @@ def test_case(value):
         'import importlib\nCASES = importlib.import_module("tests.cases").CASES\n',
         "from importlib import import_module\n"
         'CASES = import_module("tests.cases").CASES\n',
+        "import importlib\n"
+        "load_cases = importlib.import_module\n"
+        "load_cases_alias = load_cases\n"
+        'CASES = load_cases_alias("tests.cases").CASES\n',
     ),
 )
 def test_python_inventory_rejects_dynamic_parameter_imports(source: str) -> None:
@@ -850,6 +854,14 @@ if True:
             "class Base:\n"
             "    def test_inherited(self): pass\n"
             "Alias = Base\n"
+            "Alias.__test__ = False\n"
+            "class TestGroup(Base): pass\n",
+            "post-definition Python class __test__ mutation",
+        ),
+        (
+            "class Base:\n"
+            "    def test_inherited(self): pass\n"
+            "(Alias,) = (Base,)\n"
             "Alias.__test__ = False\n"
             "class TestGroup(Base): pass\n",
             "post-definition Python class __test__ mutation",
@@ -1458,9 +1470,19 @@ def test_discovery_covers_vitest_defaults_outside_conventional_roots(
     ignored_root = tmp_path / "apps/control-center/node_modules/package"
     ignored_root.mkdir(parents=True)
     (ignored_root / "ignored.test.ts").write_text('test("ignored", () => {});\n')
+    git_root = tmp_path / "apps/control-center/.git/internal"
+    git_root.mkdir(parents=True)
+    (git_root / "ignored.spec.ts").write_text('test("ignored", () => {});\n')
+    extra_expected: list[str] = []
+    for directory in ("build", "dist", "venv", ".cache"):
+        relative = f"apps/control-center/{directory}/included.test.ts"
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True)
+        target.write_text('test("included", () => {});\n')
+        extra_expected.append(relative)
 
-    assert guard.discover_test_files(tmp_path) == (
-        "apps/control-center/features/example.test.ts",
+    assert guard.discover_test_files(tmp_path) == tuple(
+        sorted(("apps/control-center/features/example.test.ts", *extra_expected))
     )
 
 
