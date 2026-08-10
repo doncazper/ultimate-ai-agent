@@ -290,6 +290,7 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
         rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
+        rf"(?P<assertion><\s*[^>;\r\n]+>\s*)?"
         rf"(?P<wrapper>\(*\s*)"
         rf"(?P<base>{api_names_pattern})\b"
         rf"(?P<closers>\s*\)*)"
@@ -297,6 +298,10 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
 
     def is_ordinary_alias(match: re.Match[str]) -> bool:
         initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        if match.group("assertion"):
+            if initializer_start != match.start("assertion"):
+                return False
+            initializer_start = _skip_static_trivia(text, match.end("assertion"))
         if match.group("wrapper"):
             if (
                 initializer_start >= match.start("base")
@@ -420,6 +425,7 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
         rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
         rf"(?:\:\s*[^=;\r\n]+)?"
         rf"(?P<assignment>=)\s*"
+        rf"(?P<assertion><\s*[^>;\r\n]+>\s*)?"
         rf"(?P<wrapper>\(*\s*)"
         rf"(?P<base>{names_pattern})\b"
         rf"(?P<closers>\s*\)*)"
@@ -427,6 +433,10 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
 
     def is_ordinary_alias(match: re.Match[str]) -> bool:
         initializer_start = _skip_static_trivia(text, match.end("assignment"))
+        if match.group("assertion"):
+            if initializer_start != match.start("assertion"):
+                return False
+            initializer_start = _skip_static_trivia(text, match.end("assertion"))
         if match.group("wrapper"):
             if (
                 initializer_start >= match.start("base")
@@ -1675,6 +1685,17 @@ def _registration_contexts(
     ):
         raise FrontendInventoryError(
             "frontend test registration context cannot be inventoried safely"
+        )
+
+    statement_start = max(
+        scan_text.rfind(delimiter, 0, offset) for delimiter in (";", "{", "}")
+    )
+    statement_prefix = scan_text[statement_start + 1 : offset]
+    if re.search(r"&&|\|\||\?\?", statement_prefix) or re.search(
+        r"\?(?![.?])", statement_prefix
+    ):
+        raise FrontendInventoryError(
+            "frontend conditional test registration cannot be inventoried safely"
         )
 
     def reject_enclosing_body(body_start: int) -> None:

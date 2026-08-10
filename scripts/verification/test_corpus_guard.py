@@ -89,21 +89,33 @@ READ_ONLY_COLLECTION_METHODS = {
     "values",
 }
 REPOSITORY_READER_ATTRIBUTES = {
+    "glob",
+    "iglob",
+    "iterdir",
+    "listdir",
     "open",
     "read",
     "read_bytes",
     "read_text",
     "readlines",
+    "rglob",
+    "scandir",
+    "walk",
 }
 REPOSITORY_READER_IMPORTS = {
     "builtins.open",
     "bz2.open",
     "codecs.open",
+    "glob.glob",
+    "glob.iglob",
     "gzip.open",
     "io.open",
     "lzma.open",
     "os.fdopen",
+    "os.listdir",
     "os.open",
+    "os.scandir",
+    "os.walk",
     "tokenize.open",
 }
 FRONTEND_TEST_EXTENSIONS = (
@@ -119,6 +131,9 @@ FRONTEND_TEST_EXTENSIONS = (
     "mjsx",
     "mts",
     "mtsx",
+)
+FRONTEND_SOURCE_GIT_PATHSPECS = tuple(
+    f":(glob)**/*.{extension}" for extension in FRONTEND_TEST_EXTENSIONS
 )
 FRONTEND_TEST_FILE_PATTERNS = (
     *(
@@ -521,7 +536,7 @@ def _parameterized_fixture_factory_aliases(
             resolves = (
                 isinstance(value, ast.Call)
                 and _is_fixture_callable(value.func, fixture_aliases)
-                and any(keyword.arg == "params" for keyword in value.keywords)
+                and any(keyword.arg in {None, "params"} for keyword in value.keywords)
             ) or (isinstance(value, ast.Name) and value.id in aliases)
             if not resolves:
                 continue
@@ -848,24 +863,51 @@ def _reject_repository_reader_calls(
 
 
 def _has_dynamic_pytestmark_mutation(nodes: tuple[ast.AST, ...]) -> bool:
+    aliases = {"pytestmark"}
+    assignments: list[tuple[tuple[str, ...], ast.AST]] = []
     for node in nodes:
-        if isinstance(node, ast.AugAssign) and _root_name(node.target) == "pytestmark":
+        if isinstance(node, ast.Assign):
+            assignments.append(
+                (
+                    tuple(
+                        name
+                        for target in node.targets
+                        for name in _binding_target_names(target)
+                    ),
+                    node.value,
+                )
+            )
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            assignments.append((_binding_target_names(node.target), node.value))
+    while True:
+        added = {
+            name
+            for names, value in assignments
+            if _root_name(value) in aliases
+            for name in names
+        } - aliases
+        if not added:
+            break
+        aliases.update(added)
+
+    for node in nodes:
+        if isinstance(node, ast.AugAssign) and _root_name(node.target) in aliases:
             return True
         if isinstance(node, ast.Delete) and any(
-            _root_name(target) == "pytestmark" for target in node.targets
+            _root_name(target) in aliases for target in node.targets
         ):
             return True
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
             if any(
-                _root_name(target) == "pytestmark" and not isinstance(target, ast.Name)
+                _root_name(target) in aliases and not isinstance(target, ast.Name)
                 for target in targets
             ):
                 return True
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
-            and _root_name(node.func) == "pytestmark"
+            and _root_name(node.func) in aliases
         ):
             return True
     return False
@@ -2031,7 +2073,14 @@ def _python_inventory_entries(
                 "collected Python test class base cannot be resolved safely"
             )
 
-    def class_is_disabled(class_node: ast.ClassDef) -> bool:
+    def class_test_binding(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> bool | None:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
         value: bool | None = None
         for child in class_node.body:
             if not isinstance(child, (ast.Assign, ast.AnnAssign)):
@@ -2050,7 +2099,19 @@ def _python_inventory_entries(
                     "Python class __test__ binding cannot be inventoried safely"
                 )
             value = child.value.value
-        return value is False
+        if value is not None:
+            return value
+        next_visiting = {*visiting, class_node.name}
+        for base in class_node.bases:
+            if not isinstance(base, ast.Name) or base.id not in classes:
+                continue
+            inherited = class_test_binding(classes[base.id], next_visiting)
+            if inherited is not None:
+                return inherited
+        return None
+
+    def class_is_disabled(class_node: ast.ClassDef) -> bool:
+        return class_test_binding(class_node, set()) is False
 
     def fixture_decorated(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
         return any(
@@ -2721,10 +2782,37 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
 
 def _collection_config_section(value: str, section: str) -> str:
     match = re.search(
-        rf"(?ms)^\[{re.escape(section)}\]\s*$.*?(?=^\[|\Z)",
+        rf"(?ms)^\[{re.escape(section)}\][ \t]*(?:[#;][^\r\n]*)?\r?$"
+        rf".*?(?=^\[|\Z)",
         value,
     )
     return match.group(0).strip() if match is not None else ""
+
+
+def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "changed pytest fixture declarations cannot be inventoried safely"
+        ) from exc
+    fixture_aliases = _fixture_aliases(tree)
+    factory_aliases = _parameterized_fixture_factory_aliases(tree, fixture_aliases)
+    if factory_aliases:
+        return True
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if (
+                isinstance(decorator, ast.Call)
+                and _is_fixture_callable(decorator.func, fixture_aliases)
+                and any(
+                    keyword.arg in {None, "params"} for keyword in decorator.keywords
+                )
+            ):
+                return True
+    return False
 
 
 def _pytest_plugin_modules(source: str, path: str) -> set[str]:
@@ -2792,6 +2880,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     change_roots = [
         "apps",
         PYTHON_TEST_GIT_PATHSPEC,
+        *FRONTEND_SOURCE_GIT_PATHSPECS,
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
     ]
@@ -2888,6 +2977,12 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest collection hooks cannot be inventoried safely"
             )
+        if _has_parameterized_fixture_declaration(
+            current, path
+        ) or _has_parameterized_fixture_declaration(prior, path):
+            raise TestCorpusGuardError(
+                "changed parameterized pytest fixtures cannot be inventoried safely"
+            )
     changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
         changed_modules: dict[str, set[str]] = {}
@@ -2928,8 +3023,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     changed_frontend_sources = {
         path
         for path in all_changed
-        if path.startswith("apps/control-center/")
-        and Path(path).suffix.removeprefix(".") in FRONTEND_TEST_EXTENSIONS
+        if Path(path).suffix.removeprefix(".") in FRONTEND_TEST_EXTENSIONS
     }
     if changed_frontend_sources:
         for test_path in discover_test_files(repo):

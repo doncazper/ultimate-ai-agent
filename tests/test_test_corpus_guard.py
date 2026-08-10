@@ -785,6 +785,14 @@ if True:
         ),
         (
             "import pytest\n"
+            "pytestmark = []\n"
+            "marks = pytestmark\n"
+            'marks.append(pytest.mark.parametrize("value", [1, 2]))\n'
+            "def test_case(value): pass\n",
+            "dynamic pytestmark mutation",
+        ),
+        (
+            "import pytest\n"
             "class TestGroup:\n"
             "    pytestmark = []\n"
             '    pytestmark += [pytest.mark.parametrize("value", [1, 2])]\n'
@@ -1440,6 +1448,10 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
             "test API alias",
         ),
         (
+            'const spec = <typeof test>test;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
             'const group = describe;\ngroup("suite", () => {});\n',
             "suite API alias",
         ),
@@ -1959,6 +1971,11 @@ def test_changed_test_paths_disable_rename_collapsing(
     ]
     assert all(args[-len(config_paths) :] == config_paths for args in captured_args)
     captured_without_configs = [args[: -len(config_paths)] for args in captured_args]
+    source_paths = [
+        "apps",
+        guard.PYTHON_TEST_GIT_PATHSPEC,
+        *guard.FRONTEND_SOURCE_GIT_PATHSPECS,
+    ]
     assert captured_without_configs == [
         [
             "diff",
@@ -1968,8 +1985,7 @@ def test_changed_test_paths_disable_rename_collapsing(
             "a" * 40,
             "HEAD",
             "--",
-            "apps",
-            guard.PYTHON_TEST_GIT_PATHSPEC,
+            *source_paths,
         ],
         [
             "diff",
@@ -1978,8 +1994,7 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--no-renames",
             "-z",
             "--",
-            "apps",
-            guard.PYTHON_TEST_GIT_PATHSPEC,
+            *source_paths,
         ],
         [
             "diff",
@@ -1987,8 +2002,7 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--no-renames",
             "-z",
             "--",
-            "apps",
-            guard.PYTHON_TEST_GIT_PATHSPEC,
+            *source_paths,
         ],
         [
             "ls-files",
@@ -1996,8 +2010,7 @@ def test_changed_test_paths_disable_rename_collapsing(
             "--exclude-standard",
             "-z",
             "--",
-            "apps",
-            guard.PYTHON_TEST_GIT_PATHSPEC,
+            *source_paths,
         ],
     ]
 
@@ -2028,6 +2041,33 @@ def test_changed_frontend_dataset_rechecks_importing_test(
             returncode=0,
             stdout=next(outputs),
             stderr=b"",
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == (
+        "apps/control-center/src/example.test.ts",
+    )
+
+
+def test_changed_repository_frontend_dataset_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    shared_root = tmp_path / "shared"
+    shared_root.mkdir(parents=True)
+    (shared_root / "cases.ts").write_text('export const CASES = [["one"]] as const;\n')
+    (source_root / "example.test.ts").write_text(
+        'import { CASES } from "../../../shared/cases";\n'
+        'test.each(CASES)("renders %s", () => {});\n'
+    )
+    outputs = iter((b"shared/cases.ts\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
         ),
     )
 
@@ -2215,6 +2255,11 @@ def test_python_inventory_rejects_repository_file_parameter_data(
         "def load_cases():\n"
         '    return Path("tests/cases.json").read_text()\n'
         '@pytest.mark.parametrize("value", load_cases())\n'
+        "def test_case(value): pass\n",
+        "from pathlib import Path\n"
+        "import pytest\n"
+        'CASES = list(Path("tests/cases").glob("*.json"))\n'
+        '@pytest.mark.parametrize("value", CASES)\n'
         "def test_case(value): pass\n",
     ),
 )
@@ -2439,6 +2484,35 @@ def test_changed_pytest_collection_configuration_fails_closed(
 ) -> None:
     current = '[tool.pytest.ini_options]\npython_functions = ["check_*"]\n'
     prior = '[tool.pytest.ini_options]\npython_functions = ["test_*"]\n'
+    (tmp_path / "pyproject.toml").write_text(current)
+    outputs = iter(
+        (
+            b"pyproject.toml\0",
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="collection configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_commented_pyproject_collection_header_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = '[tool.pytest.ini_options] # collection\npython_functions = ["check_*"]\n'
+    prior = '[tool.pytest.ini_options] # collection\npython_functions = ["test_*"]\n'
     (tmp_path / "pyproject.toml").write_text(current)
     outputs = iter(
         (
@@ -2726,6 +2800,14 @@ class TestDisabled:
     def test_hidden(self):
         pass
 
+class DisabledBase:
+    __test__ = False
+    def test_inherited_hidden(self):
+        pass
+
+class TestInheritedDisabled(DisabledBase):
+    pass
+
 class TestAssignedConstructor:
     __init__ = constructor
     def test_not_collected(self):
@@ -2903,6 +2985,27 @@ class TestGroup:
 from pytest import fixture as f
 
 @f(params=["one", "two"])
+def value(request):
+    return request.param
+
+def test_collected(value):
+    assert value
+""",
+        )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+
+OPTIONS = {"params": ["one", "two"]}
+parameterized_fixture = pytest.fixture(**OPTIONS)
+
+@parameterized_fixture
 def value(request):
     return request.param
 
@@ -3227,6 +3330,14 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             'for (let index = 0; index < 2; index += 1) { test("case", () => {}); }',
             "registration loop",
         ),
+        (
+            'enabled && test("case", () => {});',
+            "conditional test registration",
+        ),
+        (
+            'enabled ? test("case", () => {}) : undefined;',
+            "conditional test registration",
+        ),
     ),
 )
 def test_frontend_inventory_rejects_unproven_registration_constructs(
@@ -3306,6 +3417,33 @@ def test_changed_conftest_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_conftest_parameterized_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(
+        "import pytest\n"
+        '@pytest.fixture(params=["one"])\n'
+        "def shared_value(request): return request.param\n"
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed parameterized pytest fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
