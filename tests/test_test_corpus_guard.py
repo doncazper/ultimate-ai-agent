@@ -708,6 +708,10 @@ if True:
             "indirect Python test-name rebinding",
         ),
         (
+            'def test_case(): pass\n(namespace := globals()).pop("test_case")\n',
+            "indirect Python test-name rebinding",
+        ),
+        (
             "import pytest\n"
             "def test_case(value): pass\n"
             "alias = test_case\n"
@@ -734,6 +738,16 @@ if True:
             "class TestGroup(metaclass=RemoveTests):\n"
             "    def test_case(self): pass\n",
             "test class metaclass",
+        ),
+        (
+            "def disable(function): return None\n@disable\ndef test_case(): pass\n",
+            "test decorator",
+        ),
+        (
+            "pytest = build_fake_pytest()\n"
+            "@pytest.mark.disable\n"
+            "def test_case(): pass\n",
+            "test decorator",
         ),
         (
             "import pytest\n"
@@ -1368,6 +1382,34 @@ def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:
         guard.parse_frontend_declarations(
             "apps/control-center/src/example.spec.ts",
             "const fixtureTest = test.extend<Fixtures>({});",
+        )
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    (
+        (
+            'const spec = test;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const spec = test as typeof test;\nspec("case", () => {});\n',
+            "test API alias",
+        ),
+        (
+            'const group = describe;\ngroup("suite", () => {});\n',
+            "suite API alias",
+        ),
+    ),
+)
+def test_frontend_inventory_rejects_ordinary_runner_aliases(
+    source: str,
+    message: str,
+) -> None:
+    with pytest.raises(guard.TestCorpusGuardError, match=message):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.spec.ts",
+            source,
         )
 
 
@@ -2608,6 +2650,25 @@ def value(request):
 
 def test_collected(value):
     assert value
+            """,
+        )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="parameterized Python fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            """
+import pytest
+
+class TestGroup:
+    @pytest.fixture(params=["one", "two"])
+    def value(self, request):
+        return request.param
+
+    def test_collected(self, value):
+        assert value
 """,
         )
 
@@ -2668,6 +2729,10 @@ def test_collected(value):
             "from helpers import test_shared\n",
             "imported Python tests",
         ),
+        (
+            "from helpers import TestShared\n",
+            "imported Python tests",
+        ),
     ),
 )
 def test_python_inventory_rejects_ambiguous_collection_constructs(
@@ -2675,6 +2740,48 @@ def test_python_inventory_rejects_ambiguous_collection_constructs(
     message: str,
 ) -> None:
     with pytest.raises(guard.TestCorpusGuardError, match=message):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+def test_python_inventory_rejects_locally_imported_test_class(
+    tmp_path: Path,
+) -> None:
+    test_root = tmp_path / "tests"
+    test_root.mkdir()
+    (test_root / "helpers.py").write_text(
+        "class TestShared:\n    def test_case(self): pass\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported Python tests",
+    ):
+        guard._parse_worktree_test_declarations(
+            tmp_path,
+            "tests/test_consumer.py",
+            "from tests.helpers import TestShared\n",
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import pytest\n"
+        'pytest.skip("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "import pytest as p\n"
+        'p.importorskip("optional_dependency")\n'
+        "def test_case(): pass\n",
+        "from pytest import importorskip as require_module\n"
+        'require_module("optional_dependency")\n'
+        "def test_case(): pass\n",
+    ),
+)
+def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level pytest collection abort",
+    ):
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
@@ -2871,6 +2978,12 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         ),
         (
             'class Helper { register<T>() { test("case", () => {}); } }\n',
+            "registration context",
+        ),
+        (
+            "class Helper { "
+            'register<T extends { id: string }>() { test("case", () => {}); } '
+            "}\n",
             "registration context",
         ),
         (

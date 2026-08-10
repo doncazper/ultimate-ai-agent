@@ -283,6 +283,31 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
         if not added:
             break
 
+    recognized_name_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    )
+    ordinary_alias_pattern = re.compile(
+        rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
+        rf"(?P<assignment>=)\s*"
+        rf"(?P<base>{recognized_name_pattern})\b"
+    )
+
+    def is_ordinary_alias(match: re.Match[str]) -> bool:
+        if _skip_static_trivia(text, match.end("assignment")) != match.start("base"):
+            return False
+        suffix_start = _skip_static_trivia(text, match.end("base"))
+        return not text.startswith(".extend", suffix_start)
+
+    if any(
+        match.group("alias") != match.group("base")
+        and match.start("alias") not in recognized_extensions
+        and is_ordinary_alias(match)
+        for match in ordinary_alias_pattern.finditer(scan_text)
+    ):
+        raise FrontendInventoryError(
+            "frontend test API alias cannot be inventoried safely"
+        )
+
     api_names_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
     )
@@ -381,6 +406,19 @@ def _suite_api_names(text: str, scan_text: str) -> set[str]:
                     "frontend suite API name is shadowed by a non-runner import"
                 )
     names_pattern = "(?:" + "|".join(re.escape(name) for name in sorted(names)) + ")"
+    ordinary_alias_pattern = re.compile(
+        rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*"
+        rf"(?P<assignment>=)\s*"
+        rf"(?P<base>{names_pattern})\b"
+    )
+    if any(
+        match.group("alias") != match.group("base")
+        and _skip_static_trivia(text, match.end("assignment")) == match.start("base")
+        for match in ordinary_alias_pattern.finditer(scan_text)
+    ):
+        raise FrontendInventoryError(
+            "frontend suite API alias cannot be inventoried safely"
+        )
     if re.search(rf"\b(?:const|let|var|function|class)\s+{names_pattern}\b", scan_text):
         raise FrontendInventoryError(
             "frontend suite API name is shadowed by a local declaration"
@@ -1470,13 +1508,43 @@ def _unproven_registration_regions(
     for match in re.compile(r"=>").finditer(scan_text):
         record_arrow_body(_skip_static_trivia(text, match.end()))
 
-    method_pattern = re.compile(
-        rf"\b(?P<name>{TEST_API_NAME})\s*(?:<[^{{}}();=]*>\s*)?(?P<parameters>\()"
-    )
+    method_pattern = re.compile(rf"\b(?P<name>{TEST_API_NAME})\s*(?P<parameters>\()")
     for match in method_pattern.finditer(scan_text):
         if match.group("name") in {"catch", "for", "if", "switch", "while", "with"}:
             continue
         parameters_end = _skip_balanced(text, match.start("parameters"))
+        body_start = _skip_static_trivia(text, parameters_end)
+        if body_start < len(text) and text[body_start] == "{":
+            record_body(body_start)
+
+    generic_method_pattern = re.compile(
+        rf"\b(?P<name>{TEST_API_NAME})\s*(?P<type_parameters><)"
+    )
+    for match in generic_method_pattern.finditer(scan_text):
+        if match.group("name") in {"catch", "for", "if", "switch", "while", "with"}:
+            continue
+        index = match.start("type_parameters") + 1
+        angle_depth = 1
+        delimiter_stack: list[str] = []
+        delimiter_pairs = {"(": ")", "[": "]", "{": "}"}
+        while index < len(scan_text) and angle_depth:
+            character = scan_text[index]
+            if character in delimiter_pairs:
+                delimiter_stack.append(delimiter_pairs[character])
+            elif delimiter_stack and character == delimiter_stack[-1]:
+                delimiter_stack.pop()
+            elif not delimiter_stack:
+                if character == "<":
+                    angle_depth += 1
+                elif character == ">" and scan_text[index - 1] != "=":
+                    angle_depth -= 1
+            index += 1
+        if angle_depth:
+            continue
+        parameters_start = _skip_static_trivia(text, index)
+        if parameters_start >= len(text) or text[parameters_start] != "(":
+            continue
+        parameters_end = _skip_balanced(text, parameters_start)
         body_start = _skip_static_trivia(text, parameters_end)
         if body_start < len(text) and text[body_start] == "{":
             record_body(body_start)

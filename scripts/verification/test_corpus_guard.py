@@ -220,6 +220,9 @@ def _is_globals_namespace_alias_binding(node: ast.AST) -> bool:
     elif isinstance(node, ast.AnnAssign):
         targets = (node.target,)
         value = node.value
+    elif isinstance(node, ast.NamedExpr):
+        targets = (node.target,)
+        value = node.value
     else:
         return False
     return _is_globals_call(value) and any(
@@ -557,6 +560,53 @@ def _python_import_modules(
                         )
                     )
     return modules
+
+
+def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
+    pending: list[ast.AST] = list(reversed(tree.body))
+    nodes: list[ast.AST] = []
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        pending.extend(reversed(tuple(ast.iter_child_nodes(node))))
+    return tuple(nodes)
+
+
+def _is_pytest_collection_abort_call(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    if isinstance(node.func, ast.Attribute):
+        root = _root_name(node.func)
+        if root is None:
+            return False
+        candidates = imported_modules.get(root, ())
+        is_pytest = root == "pytest" or "pytest" in candidates
+        name = node.func.attr if is_pytest else ""
+    elif isinstance(node.func, ast.Name):
+        candidates = imported_modules.get(node.func.id, ())
+        name = next(
+            (
+                candidate.rsplit(".", 1)[-1]
+                for candidate in candidates
+                if candidate in {"pytest.importorskip", "pytest.skip"}
+            ),
+            "",
+        )
+    else:
+        return False
+    if name == "importorskip":
+        return True
+    return name == "skip" and any(
+        keyword.arg == "allow_module_level"
+        and isinstance(keyword.value, ast.Constant)
+        and keyword.value.value is True
+        for keyword in node.keywords
+    )
 
 
 def _python_star_import_modules(
@@ -974,6 +1024,47 @@ def _parameterized_ref(
     collection_lineno: int | None = None,
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
+
+    def is_proven_pytest_mark(target: ast.expr) -> bool:
+        if not isinstance(target, ast.Attribute):
+            return False
+        attributes: list[str] = []
+        current: ast.expr = target
+        while isinstance(current, ast.Attribute):
+            attributes.append(current.attr)
+            current = current.value
+        if not isinstance(current, ast.Name):
+            return False
+        candidates = imported_modules.get(current.id, ())
+        imported_from_pytest = any(
+            candidate == "pytest" or candidate.startswith("pytest.")
+            for candidate in candidates
+        )
+        return imported_from_pytest and (
+            "mark" in attributes or current.id == "mark" and "pytest.mark" in candidates
+        )
+
+    def is_supported_decorator(decorator: ast.expr) -> bool:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if (
+            isinstance(target, ast.Attribute)
+            and target.attr == "parametrize"
+            and is_proven_pytest_mark(target)
+        ) or (isinstance(target, ast.Name) and target.id in parametrize_aliases):
+            return True
+        if isinstance(target, ast.Name) and "parametrize" in target.id.lower():
+            return True
+        if is_proven_pytest_mark(target):
+            return True
+        if isinstance(target, ast.Name) and target.id in {"given", "settings"}:
+            return f"hypothesis.{target.id}" in imported_modules.get(target.id, ())
+        if isinstance(target, ast.Attribute) and target.attr in {"given", "settings"}:
+            root = _root_name(target)
+            return root is not None and "hypothesis" in imported_modules.get(root, ())
+        return False
+
+    if any(not is_supported_decorator(item) for item in candidate_decorators):
+        raise TestCorpusGuardError("Python test decorator cannot be inventoried safely")
     decorators = tuple(
         decorator
         for decorator in candidate_decorators
@@ -1203,6 +1294,8 @@ def _python_inventory_entries(
             f"cannot parse Python test inventory: {path}"
         ) from exc
 
+    imported_modules = _python_import_modules(tree)
+
     if any(
         isinstance(node, ast.ImportFrom)
         and any(imported.name == "*" for imported in node.names)
@@ -1212,15 +1305,32 @@ def _python_inventory_entries(
             "wildcard Python imports cannot be inventoried safely"
         )
 
+    imported_test_class_candidates: list[tuple[str, tuple[str, ...]]] = []
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for imported in node.names:
+            local = imported.asname or imported.name
+            if local.startswith("test"):
+                raise TestCorpusGuardError(
+                    "imported Python tests cannot be inventoried safely"
+                )
+            if not local.startswith("Test"):
+                continue
+            candidates = imported_modules.get(local, ())
+            if import_source_resolver is None:
+                raise TestCorpusGuardError(
+                    "imported Python tests cannot be inventoried safely"
+                )
+            imported_test_class_candidates.append((local, candidates))
+
     if any(
-        isinstance(node, ast.ImportFrom)
-        and any(
-            (imported.asname or imported.name).startswith("test")
-            for imported in node.names
-        )
-        for node in tree.body
+        _is_pytest_collection_abort_call(node, imported_modules)
+        for node in _module_execution_nodes(tree)
     ):
-        raise TestCorpusGuardError("imported Python tests cannot be inventoried safely")
+        raise TestCorpusGuardError(
+            "module-level pytest collection abort cannot be inventoried safely"
+        )
 
     if any(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -1309,7 +1419,6 @@ def _python_inventory_entries(
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
     fixture_aliases = _fixture_aliases(tree)
-    imported_modules = _python_import_modules(tree)
 
     def imported_class_has_builtin_exception_base(
         local_name: str,
@@ -1387,6 +1496,19 @@ def _python_inventory_entries(
 
         return class_has_exception_base(binding_name, frozenset())
 
+    for local_name, candidates in imported_test_class_candidates:
+        if (
+            import_source_resolver is not None
+            and any(
+                import_source_resolver(candidate) is not None
+                for candidate in candidates
+            )
+            and not imported_class_has_builtin_exception_base(local_name, candidates)
+        ):
+            raise TestCorpusGuardError(
+                "imported Python tests cannot be inventoried safely"
+            )
+
     disabled = _disabled_python_declarations(tree.body)
     module_test_names = [
         node.name
@@ -1442,7 +1564,7 @@ def _python_inventory_entries(
             and any(keyword.arg == "params" for keyword in decorator.keywords)
             for decorator in node.decorator_list
         )
-        for node in tree.body
+        for node in ast.walk(tree)
     ):
         raise TestCorpusGuardError(
             "parameterized Python fixtures cannot be inventoried safely"
@@ -1469,7 +1591,7 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
-    if any(_is_globals_namespace_alias_binding(node) for node in tree.body):
+    if any(_is_globals_namespace_alias_binding(node) for node in ast.walk(tree)):
         raise TestCorpusGuardError(
             "indirect Python test-name rebinding cannot be inventoried safely"
         )
