@@ -65,8 +65,13 @@ PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/run_pytest_shards.py",
 }
+VITEST_CONFIG_EXTENSIONS = ("js", "mjs", "cjs", "ts", "mts", "cts")
 FRONTEND_COLLECTION_CONFIG_PATHS = {
-    "apps/control-center/vite.config.ts",
+    *(
+        f"apps/control-center/{name}.{extension}"
+        for name in ("vite.config", "vitest.config")
+        for extension in VITEST_CONFIG_EXTENSIONS
+    ),
     "apps/control-center/playwright.smoke.config.ts",
     "apps/control-center/playwright.visual.config.ts",
 }
@@ -87,6 +92,12 @@ PYTEST_COLLECTION_HOOK_NAMES = frozenset(
         "pytest_itemcollected",
         "pytest_collection_modifyitems",
         "pytest_collection_finish",
+        "pytest_addoption",
+        "pytest_cmdline_parse",
+        "pytest_configure",
+        "pytest_load_initial_conftests",
+        "pytest_plugin_registered",
+        "pytest_sessionstart",
     }
 )
 GLOBALS_NAMESPACE_MUTATOR_METHODS = {
@@ -2106,6 +2117,11 @@ def _python_inventory_entries(
                 "post-definition Python class constructor mutation cannot be "
                 "inventoried safely"
             )
+        if attribute.startswith("test"):
+            raise TestCorpusGuardError(
+                "post-definition Python test method mutation cannot be "
+                "inventoried safely"
+            )
 
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.Assign):
@@ -2121,7 +2137,10 @@ def _python_inventory_entries(
             for target in targets
             if isinstance(target, ast.Attribute)
             and may_resolve_local_class(target.value)
-            and target.attr in {"__test__", "__init__", "__new__"}
+            and (
+                target.attr in {"__test__", "__init__", "__new__"}
+                or target.attr.startswith("test")
+            )
         }
         if "__test__" in mutated_attributes:
             raise TestCorpusGuardError(
@@ -2133,6 +2152,11 @@ def _python_inventory_entries(
                 "post-definition Python class constructor mutation cannot be "
                 "inventoried safely"
             )
+        if any(attribute.startswith("test") for attribute in mutated_attributes):
+            raise TestCorpusGuardError(
+                "post-definition Python test method mutation cannot be "
+                "inventoried safely"
+            )
     unittest_roots = {
         imported.asname or imported.name
         for node in tree.body
@@ -2140,6 +2164,20 @@ def _python_inventory_entries(
         for imported in node.names
         if imported.name == "unittest"
     }
+
+    def resolved_unittest_base_root(
+        class_node: ast.ClassDef,
+        base: ast.AST,
+    ) -> str | None:
+        if not (isinstance(base, ast.Attribute) and base.attr == "TestCase"):
+            return None
+        aliases = _module_name_aliases(
+            tree,
+            before=(class_node.lineno, class_node.col_offset),
+        )
+        root = _resolved_expression_root(base.value, aliases)
+        return root if root in unittest_roots else None
+
     for module_node in _module_execution_nodes(tree):
         aliases_before = _module_name_aliases(
             tree,
@@ -2179,9 +2217,16 @@ def _python_inventory_entries(
         root
         for class_node in class_nodes
         for base in class_node.bases
-        if isinstance(base, ast.Attribute)
-        and base.attr == "TestCase"
-        and (root := _root_name(base)) in unittest_roots
+        if (
+            root := (
+                _root_name(base)
+                if isinstance(base, ast.Attribute)
+                and base.attr == "TestCase"
+                and _root_name(base) in unittest_roots
+                else resolved_unittest_base_root(class_node, base)
+            )
+        )
+        is not None
     }
     for module_node in _module_execution_nodes(tree):
         rebound_roots: set[str] = set()
@@ -2500,11 +2545,7 @@ def _python_inventory_entries(
         )
     for class_node in classes.values():
         if any(
-            not (
-                isinstance(base, ast.Attribute)
-                and base.attr == "TestCase"
-                and _root_name(base) in unittest_roots
-            )
+            not (resolved_unittest_base_root(class_node, base) is not None)
             and not (
                 isinstance(base, ast.Name)
                 and base.id in unittest_test_case_aliases
@@ -2530,11 +2571,7 @@ def _python_inventory_entries(
             if class_node.name in unittest_classes:
                 continue
             if any(
-                (
-                    isinstance(base, ast.Attribute)
-                    and base.attr == "TestCase"
-                    and _root_name(base) in unittest_roots
-                )
+                (resolved_unittest_base_root(class_node, base) is not None)
                 or (
                     isinstance(base, ast.Name)
                     and base.id
@@ -2974,11 +3011,7 @@ def _python_inventory_entries(
                 continue
             if (
                 isinstance(base, ast.Name) and base.id in unittest_test_case_aliases
-            ) or (
-                isinstance(base, ast.Attribute)
-                and base.attr == "TestCase"
-                and _root_name(base) in unittest_roots
-            ):
+            ) or resolved_unittest_base_root(class_node, base) is not None:
                 continue
             raise TestCorpusGuardError(
                 "collected Python test class base cannot be resolved safely"
@@ -3191,6 +3224,15 @@ def _python_module_name_for_path(path: str) -> str:
     elif module_path.endswith(".py"):
         module_path = module_path[:-3]
     return module_path.replace("/", ".")
+
+
+def _python_package_initializer_paths(path: str) -> set[str]:
+    parent = Path(path).parent
+    initializers: set[str] = set()
+    while parent.parts and parent.parts[0] == "tests":
+        initializers.add((parent / "__init__.py").as_posix())
+        parent = parent.parent
+    return initializers
 
 
 def _python_dependency_paths(
@@ -4098,6 +4140,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 imported_modules,
                 python_dependency_cache,
             )
+            dependency_candidates.update(_python_package_initializer_paths(test_path))
             if dependency_candidates & changed_python_sources:
                 changed.add(test_path)
     changed_tuple = tuple(sorted(changed))

@@ -568,6 +568,20 @@ class WidgetCases(unit.TestCase):
     ]
 
 
+def test_python_inventory_collects_unittest_testcase_through_module_alias() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "import unittest as u\n"
+        "alias = u\n"
+        "class WidgetCases(alias.TestCase):\n"
+        "    def test_widget(self): pass\n",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::WidgetCases::test_widget"
+    ]
+
+
 @pytest.mark.parametrize(
     "alias_assignment",
     (
@@ -1110,6 +1124,15 @@ if True:
             "post-definition Python class constructor mutation",
         ),
         (
+            "class TestGroup: pass\nTestGroup.test_case = lambda self: None\n",
+            "post-definition Python test method mutation",
+        ),
+        (
+            "class TestGroup: pass\n"
+            "setattr(TestGroup, 'test_case', lambda self: None)\n",
+            "post-definition Python test method mutation",
+        ),
+        (
             "def test_case(): pass\nsetattr(test_case, '__test__', False)\n",
             "function __test__ mutation",
         ),
@@ -1364,6 +1387,43 @@ def test_frontend_inventory_rejects_shadowed_runner_names(
         guard.parse_frontend_declarations(
             "apps/control-center/src/example.test.ts",
             shadowing_source,
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'test?.("case", () => {});\n',
+        'describe?.("suite", () => { test("case", () => {}); });\n',
+    ),
+)
+def test_frontend_inventory_rejects_optional_runner_calls(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend optional .* API call",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source,
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        '(globalThis as any).test = () => undefined;\ntest("case", () => {});\n',
+        "globalThis.describe = () => undefined;\n"
+        'describe("suite", () => { test("case", () => {}); });\n',
+    ),
+)
+def test_frontend_inventory_rejects_global_runner_mutation(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend global .* API mutation",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source,
         )
 
 
@@ -2927,6 +2987,30 @@ def test_changed_python_dataset_rechecks_importing_test(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_sample.py",)
 
 
+def test_changed_python_package_initializer_rechecks_package_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = tmp_path / "tests/pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(
+        "import pytest\npytest.skip('disabled', allow_module_level=True)\n"
+    )
+    (package / "test_sample.py").write_text("def test_case(): pass\n")
+    outputs = iter((b"tests/pkg/__init__.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == (
+        "tests/pkg/test_sample.py",
+    )
+
+
 def test_changed_transitive_python_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4150,6 +4234,10 @@ test.each([...CASES])("case %s", () => {});
         "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n",
         "def pytest_pycollect_makeitem(collector, name, obj):\n    return []\n",
         "def pytest_collect_directory(path, parent):\n    return None\n",
+        "def pytest_configure(config):\n"
+        "    config.getini('python_functions').clear()\n",
+        "def pytest_sessionstart(session):\n"
+        "    session.config.getini('python_functions').clear()\n",
     ),
 )
 def test_changed_conftest_collection_hook_fails_closed(

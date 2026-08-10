@@ -55,7 +55,9 @@ the exact referenced declaration and its recursively resolvable local
 dependencies. Dynamic parameter-module imports, including calls through assigned
 import-function aliases, fail closed. Changes to an
 imported initializer or ID helper, including one in
-another test module, recheck the dependent test file. Dynamic, mutated,
+another test module, recheck the dependent test file. Changes to an ancestor
+test-package `__init__.py` also recheck every test beneath that package because
+package initialization is an implicit collection dependency. Dynamic, mutated,
 ambiguous, or unresolved parameter bindings and collection-changing
 `conftest.py` hooks, including custom Python item/module/directory collectors,
 fail closed. Collection hooks in changed repository plugins
@@ -63,7 +65,10 @@ registered through a `conftest.py` `pytest_plugins` binding or imported directly
 under a recognized hook name, including one in a hidden directory beneath
 `tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
-as do parameterized fixtures declared by those registered plugins.
+as do parameterized fixtures declared by those registered plugins. Configuration-
+and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
+`pytest_configure`, `pytest_load_initial_conftests`, `pytest_plugin_registered`,
+and `pytest_sessionstart` are included in that fail-closed hook boundary.
 Wildcard imports in tests, class-body parameter bindings,
 repository-file/directory-backed local or imported parameter data (including
 aliased readers, directory enumeration, and constructed classes), and changes
@@ -72,8 +77,9 @@ in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; every `tox.ini` change is rejected.
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute.
-Python test-class aliases, assigned or imported `unittest.TestCase` aliases
-(with dynamic construction, module-attribute writes, or incompatible rebinding
+Python test-class aliases, assigned or imported `unittest.TestCase` aliases and
+bounded aliases of an imported `unittest` module used in class bases (with
+dynamic construction, module-attribute writes, or incompatible rebinding
 rejected),
 collected-class
 metaclasses (including inherited local metaclasses), direct or aliased `globals()`
@@ -95,7 +101,8 @@ treated as pytest fixtures, dynamic
 module/class `pytestmark` mutations through direct, aliased, or chained-assignment
 bindings, post-definition `__test__` writes to local classes or their direct or
 bounded-unpacking aliases, post-definition `__init__` or `__new__` writes to
-local classes or their aliases, and direct, augmented, deleted, conditional, or
+local classes or their aliases, post-definition writes to `test*` class
+attributes, and direct, augmented, deleted, conditional, or
 indirect function-level `__test__` writes (including through bounded aliases) fail
 closed; bounded function aliases participate in static function-level `__test__`
 writes (including assignment-expression aliases), deletion of a resolved
@@ -120,11 +127,14 @@ parenthesized, or nested angle-bracket-asserted test/suite API aliases are rejec
 including bounded nontrivial initializers that retain a recognized runner API
 reference rather than invoking it and results of unrecognized runner methods
 such as `bind`,
-and recognized runner APIs also fail closed when shadowed in a local
+and recognized runner APIs also fail closed when invoked through optional
+chaining, mutated through `globalThis`, or shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
-the complete resolved runner-alias set. Changes to the Control Center Vitest or
-Playwright collection configuration, or to its `package.json` `pretest`, `test`,
-or `posttest` lifecycle command, also fail closed.
+the complete resolved runner-alias set. Changes to any supported
+`vite.config.{js,mjs,cjs,ts,mts,cts}` or
+`vitest.config.{js,mjs,cjs,ts,mts,cts}` candidate in the Control Center, its
+Playwright collection configuration, or its `package.json` `pretest`, `test`, or
+`posttest` lifecycle command, also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed
