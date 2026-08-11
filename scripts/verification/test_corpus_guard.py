@@ -1066,9 +1066,14 @@ def _dynamic_python_import_modules(
     dynamic_import_aliases = {"__import__": "builtin"}
     dynamic_import_aliases.update(
         {
-            local_name: "import_module"
+            local_name: (
+                "builtin"
+                if "builtins.__import__" in candidates
+                else "import_module"
+            )
             for local_name, candidates in imported_modules.items()
             if "importlib.import_module" in candidates
+            or "builtins.__import__" in candidates
         }
     )
 
@@ -1082,6 +1087,13 @@ def _dynamic_python_import_modules(
             and "importlib" in imported_modules.get(root, ())
         ):
             return "import_module"
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == "__import__"
+            and (root := _root_name(node)) is not None
+            and "builtins" in imported_modules.get(root, ())
+        ):
+            return "builtin"
         return None
 
     def keyword_value(call: ast.Call, name: str) -> ast.AST | None:
@@ -1206,6 +1218,22 @@ def _dynamic_python_import_modules(
             raise TestCorpusGuardError(
                 "dynamic Python module dependencies cannot be inventoried safely"
             )
+        for index, argument_name in ((1, "globals"), (2, "locals")):
+            keyword_node = keyword_value(node, argument_name)
+            if len(node.args) > index and keyword_node is not None:
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            argument_node = (
+                node.args[index] if len(node.args) > index else keyword_node
+            )
+            if argument_node is not None and not (
+                isinstance(argument_node, ast.Constant)
+                and argument_node.value is None
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
         fromlist_node = (
             node.args[3] if len(node.args) > 3 else keyword_value(node, "fromlist")
         )
@@ -1250,8 +1278,11 @@ def _dynamic_python_import_modules(
                 raise TestCorpusGuardError(
                     "dynamic Python module dependencies cannot be inventoried safely"
                 )
-            if name != "*":
-                resolved.append(f"{target}.{name}")
+            if name == "*":
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            resolved.append(f"{target}.{name}")
     return tuple(dict.fromkeys(resolved))
 
 
@@ -1921,14 +1952,29 @@ def _python_lazy_export_modules(
 
 def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
     modules: list[str] = []
+    initialized = False
     for node in tree.body:
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-            continue
-        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
-        if "_EXPORT_GROUPS" not in {
+        targets = (
+            node.targets
+            if isinstance(node, ast.Assign)
+            else (node.target,)
+            if isinstance(node, ast.AnnAssign)
+            else ()
+        )
+        binds_export_groups = "_EXPORT_GROUPS" in {
             name for target in targets for name in _binding_target_names(target)
-        }:
+        }
+        if not binds_export_groups:
+            if "_EXPORT_GROUPS" in _mutation_names(node):
+                raise TestCorpusGuardError(
+                    "lazy Python export modules cannot be inventoried safely"
+                )
             continue
+        if initialized:
+            raise TestCorpusGuardError(
+                "lazy Python export modules cannot be inventoried safely"
+            )
+        initialized = True
         if not isinstance(node.value, ast.Dict):
             raise TestCorpusGuardError(
                 "lazy Python export modules cannot be inventoried safely"
@@ -2846,15 +2892,19 @@ def _parameterized_ref(
                 )
             )
         for fixture_name in requested_fixture_names:
+            candidates = imported_modules.get(fixture_name)
             local_fixture = (
                 local_fixture_resolver(fixture_name)
                 if local_fixture_resolver is not None
                 else None
             )
+            if local_fixture is not None and candidates is not None:
+                raise TestCorpusGuardError(
+                    "imported Python fixture name is ambiguous"
+                )
             if local_fixture is not None:
                 serialized_parts.append("fixture-local=" + local_fixture)
                 continue
-            candidates = imported_modules.get(fixture_name)
             if candidates is None:
                 override_matches = (
                     fixture_override_resolver(fixture_name)
@@ -4780,6 +4830,7 @@ def _python_inventory_entries(
         }
         if any(fixture_decorated(function) for function in functions.values()):
             return True
+        function_aliases = set(functions)
         configured_factories: set[str] = set()
         changed = True
         while changed:
@@ -4790,7 +4841,20 @@ def _python_inventory_entries(
                 value = child.value
                 if value is None:
                     continue
-                if isinstance(value, ast.Call) and _is_fixture_callable(
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                target_names = {
+                    name for target in targets for name in _binding_target_names(target)
+                }
+                if isinstance(value, ast.Name) and value.id in function_aliases:
+                    added_aliases = target_names - function_aliases
+                    if added_aliases:
+                        function_aliases.update(added_aliases)
+                        changed = True
+                if _is_fixture_callable(value, fixture_aliases):
+                    is_factory = True
+                elif isinstance(value, ast.Call) and _is_fixture_callable(
                     value.func, fixture_aliases
                 ):
                     is_factory = not value.args
@@ -4800,14 +4864,10 @@ def _python_inventory_entries(
                     continue
                 if not is_factory:
                     continue
-                targets = (
-                    child.targets if isinstance(child, ast.Assign) else (child.target,)
-                )
-                for target in targets:
-                    for name in _binding_target_names(target):
-                        if name not in configured_factories:
-                            configured_factories.add(name)
-                            changed = True
+                added_factories = target_names - configured_factories
+                if added_factories:
+                    configured_factories.update(added_factories)
+                    changed = True
         for child in _scope_execution_nodes(class_node.body):
             if not isinstance(child, ast.Call) or not child.args:
                 continue
@@ -4825,7 +4885,8 @@ def _python_inventory_entries(
             else:
                 continue
             if any(
-                (root := _root_name(argument)) is not None and root in functions
+                (root := _root_name(argument)) is not None
+                and root in function_aliases
                 for argument in child.args
             ):
                 return True
