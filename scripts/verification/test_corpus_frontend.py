@@ -413,7 +413,11 @@ def _named_imports(
     return tuple(imports)
 
 
-def _execution_posture_parts(declaration_source: str) -> tuple[str, ...]:
+def _execution_posture_parts(
+    declaration_source: str,
+    *,
+    condition_binding_resolver: Callable[[str], str] | None = None,
+) -> tuple[str, ...]:
     """Return statically visible non-running Vitest posture components."""
 
     code_mask = _code_mask(declaration_source)
@@ -450,6 +454,29 @@ def _execution_posture_parts(declaration_source: str) -> tuple[str, ...]:
         normalized_condition = _normalized_javascript_expression(
             declaration_source[arguments_start:condition_end]
         )
+        condition_source = declaration_source[
+            arguments_start + 1 : condition_end - 1
+        ]
+        condition_mask = _code_mask(condition_source)
+        condition_scan = "".join(
+            character if condition_mask[index] else " "
+            for index, character in enumerate(condition_source)
+        )
+        condition_binding = re.fullmatch(
+            rf"\s*!?\s*(?P<name>{TEST_API_NAME})\s*",
+            condition_scan,
+        )
+        if condition_binding is not None:
+            if condition_binding_resolver is None:
+                raise FrontendInventoryError(
+                    "frontend conditional binding cannot be resolved safely"
+                )
+            binding_source = condition_binding_resolver(
+                condition_binding.group("name")
+            )
+            normalized_condition = (
+                f"{normalized_condition}\nbinding={binding_source}"
+            )
         digest = hashlib.sha256(normalized_condition.encode("utf-8")).hexdigest()
         parts.append(f"conditional:{conditional}:sha256:{digest}")
     return tuple(parts)
@@ -1146,9 +1173,19 @@ def _const_initializer_source(
     value_start = equals + 1
     while value_start < before_offset and text[value_start].isspace():
         value_start += 1
-    if value_start >= before_offset or text[value_start] not in "[{'\"`(":
+    primitive = re.match(
+        r"(?:false|true|null|undefined)\b",
+        scan_text[value_start:before_offset],
+    )
+    if (
+        value_start >= before_offset
+        or text[value_start] not in "[{'\"`("
+        and primitive is None
+    ):
         raise FrontendInventoryError("frontend parameterized test binding is dynamic")
-    if text[value_start] in "[({":
+    if primitive is not None:
+        value_end = value_start + primitive.end()
+    elif text[value_start] in "[({":
         value_end = _skip_balanced(text, value_start)
     else:
         value_end = _skip_string(text, value_start)
@@ -2338,6 +2375,7 @@ def _suite_context_regions(
     text: str,
     scan_text: str,
     suite_api_names: set[str],
+    import_binding_resolver: ImportBindingResolver | None,
 ) -> tuple[tuple[int, int, str, str, tuple[str, ...]], ...]:
     names = "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"
     pattern = re.compile(rf"(?<![.\w$]){names}{TEST_MODIFIERS}\s*(?P<arguments>\()")
@@ -2366,7 +2404,18 @@ def _suite_context_regions(
                 callback[1],
                 text[title_start:title_end],
                 text[match.start() : callback[0]],
-                _execution_posture_parts(text[match.start() : callback[0]]),
+                _execution_posture_parts(
+                    text[match.start() : callback[0]],
+                    condition_binding_resolver=lambda name, offset=match.start(): (
+                        _static_collection_source(
+                            text,
+                            scan_text,
+                            name,
+                            offset,
+                            import_binding_resolver,
+                        )
+                    ),
+                ),
             )
         )
     return tuple(sorted(contexts))
@@ -2846,6 +2895,7 @@ def _frontend_inventory_entries(
         text,
         scan_text,
         suite_api_names,
+        import_binding_resolver,
     )
     (
         unproven_block_regions,
@@ -2909,7 +2959,18 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *context.execution_postures,
-                            *_execution_posture_parts(declaration_source),
+                            *_execution_posture_parts(
+                                declaration_source,
+                                condition_binding_resolver=lambda name, offset=match.start(): (
+                                    _static_collection_source(
+                                        text,
+                                        scan_text,
+                                        name,
+                                        offset,
+                                        import_binding_resolver,
+                                    )
+                                ),
+                            ),
                         ),
                     ),
                     bound_source,
@@ -2965,7 +3026,18 @@ def _frontend_inventory_entries(
                         parameter_digest=digest,
                         execution_postures=(
                             *context.execution_postures,
-                            *_execution_posture_parts(declaration_source),
+                            *_execution_posture_parts(
+                                declaration_source,
+                                condition_binding_resolver=lambda name, declaration_offset=offset: (
+                                    _static_collection_source(
+                                        text,
+                                        scan_text,
+                                        name,
+                                        declaration_offset,
+                                        import_binding_resolver,
+                                    )
+                                ),
+                            ),
                         ),
                     ),
                     bound_source,
@@ -2999,7 +3071,18 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *context.execution_postures,
-                            *_execution_posture_parts(declaration_source),
+                            *_execution_posture_parts(
+                                declaration_source,
+                                condition_binding_resolver=lambda name, declaration_offset=offset: (
+                                    _static_collection_source(
+                                        text,
+                                        scan_text,
+                                        name,
+                                        declaration_offset,
+                                        import_binding_resolver,
+                                    )
+                                ),
+                            ),
                         ),
                     ),
                     bound_source,

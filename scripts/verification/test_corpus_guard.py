@@ -315,7 +315,7 @@ def _is_current_module_object(
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "get"
-        and len(node.args) == 1
+        and len(node.args) in {1, 2}
         and isinstance(node.args[0], ast.Name)
         and node.args[0].id == "__name__"
         and not node.keywords
@@ -1460,11 +1460,22 @@ def _pytest_collection_abort_callable_name(
     imported_modules: dict[str, tuple[str, ...]],
     aliases: dict[str, str],
 ) -> str:
+    def is_builtin_getattr(candidate: ast.AST) -> bool:
+        if isinstance(candidate, ast.Name):
+            return candidate.id == "getattr" or "builtins.getattr" in (
+                imported_modules.get(candidate.id, ())
+            )
+        if not isinstance(candidate, ast.Attribute) or candidate.attr != "getattr":
+            return False
+        root = _root_name(candidate)
+        return root == "builtins" or (
+            root is not None and "builtins" in imported_modules.get(root, ())
+        )
+
     if (
         isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "getattr"
-        and len(node.args) == 2
+        and is_builtin_getattr(node.func)
+        and len(node.args) in {2, 3}
         and not node.keywords
         and isinstance(node.args[1], ast.Constant)
         and node.args[1].value in {"importorskip", "skip"}
@@ -2053,12 +2064,10 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
 
     def grouped_export_namespace_reference(node: ast.AST) -> bool:
         while isinstance(node, ast.Subscript):
-            if (
-                _is_globals_call(node.value)
-                and isinstance(node.slice, ast.Constant)
-                and node.slice.value == "_EXPORT_GROUPS"
-            ):
-                return True
+            if _is_globals_call(node.value):
+                key = _static_string_expression(node.slice)
+                if key == "_EXPORT_GROUPS":
+                    return True
             node = node.value
         if (
             isinstance(node, ast.Call)
@@ -2066,11 +2075,10 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             and node.func.attr in {"get", "__getitem__"}
             and _is_globals_call(node.func.value)
             and node.args
-            and isinstance(node.args[0], ast.Constant)
-            and node.args[0].value == "_EXPORT_GROUPS"
             and not node.keywords
         ):
-            return True
+            key = _static_string_expression(node.args[0])
+            return key is None or key == "_EXPORT_GROUPS"
         return False
 
     aliases = {"_EXPORT_GROUPS"}
@@ -3756,6 +3764,14 @@ def _python_inventory_entries(
     entries: list[tuple[str, str, str]] = []
     source_lines = text.splitlines(keepends=True)
     class_nodes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+    if any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "__getattr__"
+        for node in tree.body
+    ):
+        raise TestCorpusGuardError(
+            "dynamic module attributes cannot be inventoried safely"
+        )
     if _has_dynamic_pytestmark_mutation(_module_execution_nodes(tree)) or any(
         _has_dynamic_pytestmark_mutation(_scope_execution_nodes(node.body))
         for node in class_nodes

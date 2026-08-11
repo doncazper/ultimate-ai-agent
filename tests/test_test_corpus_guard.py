@@ -1874,6 +1874,7 @@ def test_frontend_inventory_assigns_duplicates_in_source_order() -> None:
     declarations = guard.parse_frontend_declarations(
         path,
         """
+const enabled = true;
 test.runIf(enabled)("same", () => {});
 test("same", () => {});
 test("alpha", () => {});
@@ -1917,6 +1918,7 @@ def test_frontend_inventory_includes_supported_modifiers() -> None:
     declarations = guard.parse_frontend_declarations(
         "apps/control-center/src/example.test.tsx",
         """
+const featureEnabled = true;
 it.skipIf(process.platform === "win32")("skips on Windows", () => {});
 test.runIf(featureEnabled)("runs when enabled", () => {});
 it.sequential("runs in sequence", () => {});
@@ -1974,15 +1976,47 @@ def test_frontend_inventory_binds_conditional_execution_modifiers(
 ) -> None:
     first_ref = guard.parse_frontend_declarations(
         "apps/control-center/src/example.test.tsx",
-        f'test.{modifier}(featureEnabled)("case", () => {{}});',
+        f'const featureEnabled = true;\ntest.{modifier}(featureEnabled)("case", () => {{}});',
     )[0].ref
     second_ref = guard.parse_frontend_declarations(
         "apps/control-center/src/example.test.tsx",
-        f'test.{modifier}(!featureEnabled)("case", () => {{}});',
+        f'const featureEnabled = true;\ntest.{modifier}(!featureEnabled)("case", () => {{}});',
     )[0].ref
 
     assert first_ref != second_ref
     assert f"::execution-conditional:{modifier}:sha256:" in first_ref
+
+
+def test_frontend_inventory_binds_conditional_local_initializer() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    source = 'const disabled = false;\ntest.skipIf(disabled)("case", () => {});'
+
+    before = guard.parse_frontend_declarations(path, source)[0].ref
+    after = guard.parse_frontend_declarations(
+        path,
+        source.replace("false", "true"),
+    )[0].ref
+
+    assert before != after
+
+
+def test_frontend_inventory_binds_conditional_imported_initializer(
+    tmp_path: Path,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    source_path = tmp_path / "apps/control-center/src/flags.ts"
+    source_path.parent.mkdir(parents=True)
+    source_path.write_text("export const disabled = false;\n")
+    test_text = (
+        'import { disabled } from "./flags";\n'
+        'test.skipIf(disabled)("case", () => {});\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    source_path.write_text("export const disabled = true;\n")
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
 
 
 def test_frontend_inventory_preserves_conditional_literal_values() -> None:
@@ -4580,6 +4614,18 @@ def test_python_inventory_rejects_locally_imported_test_class(
         "import pytest as p\n"
         'getattr(p, "importorskip")("optional_dependency")\n'
         "def test_case(): pass\n",
+        "import pytest\n"
+        "from builtins import getattr as attr\n"
+        'attr(pytest, "skip")("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "import pytest\n"
+        'getattr(pytest, "skip", pytest.skip)('
+        '"unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "import pytest\n"
+        'getattr(pytest, "importorskip", pytest.importorskip)('
+        '"optional_dependency")\n'
+        "def test_case(): pass\n",
     ),
 )
 def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
@@ -4815,6 +4861,7 @@ def test_python_inventory_preserves_competing_xfail_order() -> None:
         'vars(sys.modules[__name__]).update({"test_case": None})',
         'setattr(sys.modules[__name__], "test_case", None)',
         'sys.modules.get(__name__).__dict__.pop("test_case")',
+        'sys.modules.get(__name__, None).__dict__.pop("test_case")',
     ),
 )
 def test_python_inventory_rejects_current_module_test_rebinding(
@@ -6292,7 +6339,12 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
         'globals()["_EXPORT_GROUPS"] = {"tests.extra": {"value"}}\n',
         'globals()["_EXPORT_GROUPS"]["tests.extra"] = {"value"}\n',
         'globals()["_EXPORT_GROUPS"].update({"tests.extra": {"value"}})\n',
+        'globals()["_EXPORT_" + "GROUPS"].update('
+        '{"tests.extra": {"value"}})\n',
         'globals().get("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
+        'globals().get("_EXPORT_" + "GROUPS").update('
+        '{"tests.extra": {"value"}})\n',
+        'globals().get(export_name).update({"tests.extra": {"value"}})\n',
         'globals().__getitem__("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
         'globals().update({"_EXPORT_GROUPS": {"tests.extra": {"value"}}})\n',
         'globals().setdefault("_EXPORT_GROUPS", {"tests.extra": {"value"}})\n',
@@ -6312,6 +6364,22 @@ def test_python_module_identity_rejects_grouped_lazy_export_mutation(
             '_EXPORT_GROUPS = {"tests.target": {"value"}}\n'
             + mutation,
             guard._python_import_resolver(lambda _path: None),
+        )
+
+
+def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic module attributes",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            "def __getattr__(name):\n"
+            "    if name == 'pytestmark':\n"
+            "        return pytest.mark.skip\n"
+            "    raise AttributeError(name)\n"
+            "def test_case(): pass\n",
         )
 
 
