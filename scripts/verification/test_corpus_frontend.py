@@ -519,7 +519,10 @@ def _has_indirect_runner_invocation(
         return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     dot_property = rf"{global_object}\s*(?:\?\.\s*|\.\s*){name_pattern}\b"
-    invocation_suffix = r"\s*(?:\?\.\s*)?\("
+    invocation_suffix = (
+        rf"{TEST_MODIFIERS}\s*(?:(?:\?\.\s*)?\("
+        r"|(?:\?\.\s*|\.\s*)(?:each|for|runIf|skipIf)\b)"
+    )
     if re.search(rf"{dot_property}{invocation_suffix}", scan_text):
         return True
     quoted_names = (
