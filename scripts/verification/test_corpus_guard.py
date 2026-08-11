@@ -435,12 +435,17 @@ def _has_module_namespace_mutation(tree: ast.Module) -> bool:
 
 
 def _mutated_attribute_call(node: ast.AST) -> tuple[ast.AST, str | None] | None:
-    if not (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in {"setattr", "delattr"}
-        and len(node.args) >= 2
-    ):
+    if not isinstance(node, ast.Call) or len(node.args) < 2:
+        return None
+    builtin_mutator = isinstance(node.func, ast.Name) and node.func.id in {
+        "setattr",
+        "delattr",
+    }
+    descriptor_mutator = isinstance(node.func, ast.Attribute) and node.func.attr in {
+        "__setattr__",
+        "__delattr__",
+    }
+    if not builtin_mutator and not descriptor_mutator:
         return None
     attribute = node.args[1]
     return (
@@ -984,6 +989,15 @@ def _has_pytest_collection_class_mutation(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
+    descriptor_mutator_aliases = {
+        name
+        for node in _module_execution_nodes(tree)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+        for name in _binding_target_names(target)
+        if isinstance(node.value, ast.Attribute)
+        and node.value.attr in {"__setattr__", "__delattr__"}
+    }
     for node in _module_execution_nodes(tree):
         if isinstance(node, ast.Assign):
             targets = node.targets
@@ -1000,6 +1014,21 @@ def _has_pytest_collection_class_mutation(
         ):
             return True
         mutation = _mutated_attribute_call(node)
+        if (
+            mutation is None
+            and isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in descriptor_mutator_aliases
+            and len(node.args) >= 2
+        ):
+            attribute = node.args[1]
+            mutation = (
+                node.args[0],
+                attribute.value
+                if isinstance(attribute, ast.Constant)
+                and isinstance(attribute.value, str)
+                else None,
+            )
         if mutation is not None and _is_pytest_collection_class_reference(
             mutation[0], imported_modules
         ):
@@ -2485,25 +2514,40 @@ def _python_inventory_entries(
             )
         return False
 
+    def may_resolve_local_test_member(value: ast.AST) -> bool:
+        return (
+            isinstance(value, ast.Attribute)
+            and value.attr.startswith("test")
+            and may_resolve_local_class(value.value)
+        )
+
     for module_node in _module_execution_nodes(tree):
         mutation = _mutated_attribute_call(module_node)
-        if mutation is None or not may_resolve_local_class(mutation[0]):
+        if mutation is None:
+            continue
+        mutates_class = may_resolve_local_class(mutation[0])
+        mutates_test_member = may_resolve_local_test_member(mutation[0])
+        if not mutates_class and not mutates_test_member:
             continue
         attribute = mutation[1]
-        if attribute is None or attribute == "__test__":
+        if mutates_class and (attribute is None or attribute == "__test__"):
             raise TestCorpusGuardError(
                 "post-definition Python class __test__ mutation cannot be "
                 "inventoried safely"
             )
-        if attribute in {"__init__", "__new__"}:
+        if mutates_class and attribute in {"__init__", "__new__"}:
             raise TestCorpusGuardError(
                 "post-definition Python class constructor mutation cannot be "
                 "inventoried safely"
             )
-        if attribute.startswith("test"):
+        if mutates_class and attribute.startswith("test"):
             raise TestCorpusGuardError(
                 "post-definition Python test method mutation cannot be "
                 "inventoried safely"
+            )
+        if attribute == "__unittest_skip__":
+            raise TestCorpusGuardError(
+                "post-definition unittest skip mutation cannot be inventoried safely"
             )
 
     for module_node in _module_execution_nodes(tree):
@@ -2525,6 +2569,15 @@ def _python_inventory_entries(
                 or target.attr.startswith("test")
             )
         }
+        unittest_skip_mutation = any(
+            isinstance(target, ast.Attribute)
+            and target.attr == "__unittest_skip__"
+            and (
+                may_resolve_local_class(target.value)
+                or may_resolve_local_test_member(target.value)
+            )
+            for target in targets
+        )
         if "__test__" in mutated_attributes:
             raise TestCorpusGuardError(
                 "post-definition Python class __test__ mutation cannot be "
@@ -2539,6 +2592,10 @@ def _python_inventory_entries(
             raise TestCorpusGuardError(
                 "post-definition Python test method mutation cannot be "
                 "inventoried safely"
+            )
+        if unittest_skip_mutation:
+            raise TestCorpusGuardError(
+                "post-definition unittest skip mutation cannot be inventoried safely"
             )
     unittest_roots = {
         imported.asname or imported.name
@@ -4442,6 +4499,9 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     package_parts = package.split(".") if package else []
     modules: set[str] = set()
     for node in tree.body:
+        if isinstance(node, ast.Import):
+            modules.update(imported.name for imported in node.names)
+            continue
         if not isinstance(node, ast.ImportFrom):
             continue
         if any(imported.name == "*" for imported in node.names):

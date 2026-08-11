@@ -504,6 +504,12 @@ def _has_indirect_runner_invocation(
         scan_text,
     ):
         return True
+    if re.search(
+        rf"\(\s*[^();\r\n]*?(?<![.\w$]){name_pattern}{TEST_MODIFIERS}"
+        rf"\s*[^();\r\n]*\)\s*\(",
+        scan_text,
+    ):
+        return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
     if re.search(rf"{dot_property}\s*\(", scan_text):
@@ -595,6 +601,21 @@ def _has_global_api_mutation(
             for match in re.finditer(pattern, text)
         ):
             return True
+    property_key = rf"(?:{name_pattern}|{quoted_names})"
+    property_mutators = (
+        rf"\bObject\s*\.\s*defineProperty\s*\(\s*{global_object}\s*,"
+        rf"\s*{quoted_names}\s*,",
+        rf"\bReflect\s*\.\s*set\s*\(\s*{global_object}\s*,"
+        rf"\s*{quoted_names}\s*,",
+        rf"\bObject\s*\.\s*assign\s*\(\s*{global_object}\s*,"
+        rf"\s*\{{[^{{}}\r\n]*{property_key}\s*:",
+    )
+    if any(
+        scan_text[match.start()] == text[match.start()]
+        for pattern in property_mutators
+        for match in re.finditer(pattern, text)
+    ):
+        return True
     return False
 
 

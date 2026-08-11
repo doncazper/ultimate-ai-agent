@@ -137,6 +137,10 @@ ref instead of silently preserving it. Python fixture argument consumption and
 user title; a trivia-free conditional token stream, literal values, and enclosing
 suite disable posture are part of every affected child declaration identity for
 the same reason.
+Parenthesized/conditional/logical runner callees and property-API writes to
+global runner bindings fail closed. Descriptor-level pytest collection-class
+mutations, ordinary local conftest imports, and post-definition unittest skip
+writes also fail closed.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
