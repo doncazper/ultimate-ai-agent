@@ -519,7 +519,8 @@ def _has_indirect_runner_invocation(
         return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
-    if re.search(rf"{dot_property}\s*\(", scan_text):
+    invocation_suffix = r"\s*(?:\?\.\s*)?\("
+    if re.search(rf"{dot_property}{invocation_suffix}", scan_text):
         return True
     quoted_names = (
         "(?:"
@@ -531,7 +532,7 @@ def _has_indirect_runner_invocation(
     )
     return any(
         scan_text[match.start()] == text[match.start()]
-        for match in re.finditer(rf"{computed_property}\s*\(", text)
+        for match in re.finditer(rf"{computed_property}{invocation_suffix}", text)
     )
 
 
