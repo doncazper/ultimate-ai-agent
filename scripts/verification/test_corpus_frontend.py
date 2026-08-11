@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
 TEST_MODIFIERS = r"(?:\s*\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
+EXECUTION_DISABLING_TEST_MODIFIERS = frozenset({"fixme", "skip", "todo"})
+CONDITIONAL_TEST_MODIFIERS = frozenset({"runIf", "skipIf"})
 RUNNER_MODULES = {"vitest", "@playwright/test"}
 IMPORT_PATTERN = re.compile(
     r"\bimport\s*\{(?P<members>[^}]*)\}\s*from\s*"
@@ -248,6 +250,50 @@ def _patterns(
         rf"(?<![.\w$]){names}{TEST_MODIFIERS}\.(?:runIf|skipIf)\s*\("
     )
     return direct, each, conditional
+
+
+def _execution_disabling_ref_suffix(declaration_source: str) -> str:
+    """Bind statically visible non-running Vitest posture into a test ref."""
+
+    code_mask = _code_mask(declaration_source)
+    scan_text = "".join(
+        character if code_mask[index] else " "
+        for index, character in enumerate(declaration_source)
+    )
+    arguments_start = scan_text.find("(")
+    if arguments_start < 0:
+        raise FrontendInventoryError(
+            "frontend test declaration arguments cannot be inventoried safely"
+        )
+    call_chain = scan_text[:arguments_start]
+    modifiers = tuple(
+        match.group(1)
+        for match in re.finditer(r"\.\s*([A-Za-z_$][\w$]*)\b", call_chain)
+    )
+    disabling = tuple(
+        modifier
+        for modifier in modifiers
+        if modifier in EXECUTION_DISABLING_TEST_MODIFIERS
+    )
+    conditional = next(
+        (
+            modifier
+            for modifier in reversed(modifiers)
+            if modifier in CONDITIONAL_TEST_MODIFIERS
+        ),
+        None,
+    )
+    parts = [f"disabled:{modifier}" for modifier in disabling]
+    if conditional is not None:
+        condition_end = _skip_balanced(declaration_source, arguments_start)
+        normalized_condition = re.sub(
+            r"\s+",
+            "",
+            scan_text[arguments_start:condition_end],
+        )
+        digest = hashlib.sha256(normalized_condition.encode("utf-8")).hexdigest()
+        parts.append(f"conditional:{conditional}:sha256:{digest}")
+    return "" if not parts else "::execution-" + "+".join(parts)
 
 
 def _has_indirect_runner_invocation(
@@ -2504,7 +2550,7 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     match.start(),
-                    f"{path}::{title}",
+                    f"{path}::{title}{_execution_disabling_ref_suffix(declaration_source)}",
                     bound_source,
                 )
             )
@@ -2552,7 +2598,8 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     offset,
-                    f"{path}::{title}::parameters-sha256:{digest}",
+                    f"{path}::{title}::parameters-sha256:{digest}"
+                    f"{_execution_disabling_ref_suffix(declaration_source)}",
                     bound_source,
                 )
             )
@@ -2579,7 +2626,7 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     offset,
-                    f"{path}::{title}",
+                    f"{path}::{title}{_execution_disabling_ref_suffix(declaration_source)}",
                     bound_source,
                 )
             )

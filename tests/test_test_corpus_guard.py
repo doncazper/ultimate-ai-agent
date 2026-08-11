@@ -1392,7 +1392,8 @@ test.skip(`blocks mutation`, () => {});
         "apps/control-center/src/example.test.tsx::renders   a panel",
         "apps/control-center/src/example.test.tsx::renders a panel",
         "apps/control-center/src/example.test.tsx::renders a panel#2",
-        "apps/control-center/src/example.test.tsx::blocks mutation",
+        "apps/control-center/src/example.test.tsx::blocks mutation"
+        "::execution-disabled:skip",
     ]
 
 
@@ -1787,9 +1788,10 @@ test("alpha", () => {});
 """,
     )
 
-    assert [item.ref for item in declarations] == [
+    refs = [item.ref for item in declarations]
+    assert refs[0].startswith(f"{path}::same::execution-conditional:runIf:sha256:")
+    assert refs[1:] == [
         f"{path}::same",
-        f"{path}::same#2",
         f"{path}::alpha",
         f"{path}::alpha#2",
     ]
@@ -1833,14 +1835,56 @@ test("declared test", async () => {
 """,
     )
 
-    assert [item.ref for item in declarations] == [
-        "apps/control-center/src/example.test.tsx::skips on Windows",
-        "apps/control-center/src/example.test.tsx::runs when enabled",
+    refs = [item.ref for item in declarations]
+    assert refs[0].startswith(
+        "apps/control-center/src/example.test.tsx::skips on Windows"
+        "::execution-conditional:skipIf:sha256:"
+    )
+    assert refs[1].startswith(
+        "apps/control-center/src/example.test.tsx::runs when enabled"
+        "::execution-conditional:runIf:sha256:"
+    )
+    assert refs[2:] == [
         "apps/control-center/src/example.test.tsx::runs in sequence",
         "apps/control-center/src/example.test.tsx::records an expected failure",
-        "apps/control-center/src/example.test.tsx::records an unavailable case",
+        "apps/control-center/src/example.test.tsx::records an unavailable case"
+        "::execution-disabled:fixme",
         "apps/control-center/src/example.test.tsx::declared test",
     ]
+
+
+@pytest.mark.parametrize("modifier", ("skip", "fixme", "todo"))
+def test_frontend_inventory_binds_execution_disabling_modifiers(
+    modifier: str,
+) -> None:
+    active_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        'test("case", () => {});',
+    )[0].ref
+    disabled_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        f'test.{modifier}("case", () => {{}});',
+    )[0].ref
+
+    assert active_ref != disabled_ref
+    assert disabled_ref.endswith(f"::execution-disabled:{modifier}")
+
+
+@pytest.mark.parametrize("modifier", ("runIf", "skipIf"))
+def test_frontend_inventory_binds_conditional_execution_modifiers(
+    modifier: str,
+) -> None:
+    first_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        f'test.{modifier}(featureEnabled)("case", () => {{}});',
+    )[0].ref
+    second_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        f'test.{modifier}(!featureEnabled)("case", () => {{}});',
+    )[0].ref
+
+    assert first_ref != second_ref
+    assert f"::execution-conditional:{modifier}:sha256:" in first_ref
 
 
 def test_frontend_inventory_masks_nested_template_interpolations() -> None:
@@ -2623,7 +2667,7 @@ def test_changed_test_paths_disable_rename_collapsing(
         "apps",
         guard.PYTHON_TEST_GIT_PATHSPEC,
         *guard.FRONTEND_SOURCE_GIT_PATHSPECS,
-        *sorted(guard._pytest_runner_plugin_dependency_paths(Path("."))),
+        *sorted(guard._pytest_runner_dependency_paths(Path("."))),
     ]
     assert captured_without_configs == [
         [
@@ -3258,8 +3302,8 @@ def test_changed_pytest_runner_configuration_fails_closed(
     monkeypatch: pytest.MonkeyPatch,
     config_path: str,
 ) -> None:
-    current = "current runner configuration\n"
-    prior = "prior runner configuration\n"
+    current = "RUNNER_CONFIGURATION = 'current'\n"
+    prior = "RUNNER_CONFIGURATION = 'prior'\n"
     target = tmp_path / config_path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(current)
@@ -3295,7 +3339,7 @@ def test_changed_pytest_runner_configuration_fails_closed(
         "scripts/verification/__init__.py",
     ),
 )
-def test_changed_runner_loaded_pytest_plugin_dependency_fails_closed(
+def test_changed_pytest_runner_dependency_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     changed_path: str,
@@ -3320,7 +3364,38 @@ def test_changed_runner_loaded_pytest_plugin_dependency_fails_closed(
 
     with pytest.raises(
         guard.TestCorpusGuardError,
-        match="runner-loaded pytest plugin",
+        match="pytest runner dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_pytest_shard_runner_helper_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verification = tmp_path / "scripts/verification"
+    verification.mkdir(parents=True)
+    (verification / "run_pytest_shards.py").write_text(
+        "from scripts.verification import pytest_shard_processes\n"
+    )
+    (verification / "pytest_shard_processes.py").write_text(
+        "def build_shard_env(): "
+        "return {'PYTEST_ADDOPTS': '--deselect=tests/test_target.py'}\n"
+    )
+    (verification / "__init__.py").write_text("")
+    changed_path = "scripts/verification/pytest_shard_processes.py"
+    outputs = iter((f"{changed_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest runner dependency",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
@@ -4116,6 +4191,16 @@ def test_python_inventory_rejects_pytest_collection_class_mutation(
             "import pytest\npytestmark = pytest.mark.skipif(True, reason='disabled')\n"
             "def test_case(): pass\n",
         ),
+        (
+            "import pytest\ndef test_case(): pass\n",
+            "import pytest\n@pytest.mark.xfail(run=False, reason='disabled')\n"
+            "def test_case(): pass\n",
+        ),
+        (
+            "import pytest\ndef test_case(): pass\n",
+            "import pytest\npytestmark = pytest.mark.xfail("
+            "run=False, reason='disabled')\ndef test_case(): pass\n",
+        ),
     ),
 )
 def test_python_inventory_binds_execution_disabling_marks(
@@ -4126,6 +4211,19 @@ def test_python_inventory_binds_execution_disabling_marks(
     after_ref = guard.parse_python_declarations("tests/test_sample.py", after)[0].ref
 
     assert before_ref != after_ref
+
+
+def test_python_inventory_rejects_dynamic_xfail_run_condition() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="xfail run condition",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            "@pytest.mark.xfail(run=feature_enabled, reason='conditional')\n"
+            "def test_case(): pass\n",
+        )
 
 
 @pytest.mark.parametrize(

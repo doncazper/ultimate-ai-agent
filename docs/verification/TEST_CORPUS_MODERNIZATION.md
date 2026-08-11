@@ -69,9 +69,9 @@ under a recognized hook name, including one in a hidden directory beneath
 `tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins or imported
-into a `conftest.py` from a local module. The pytest
-plugins loaded directly by the canonical shard runner, plus their bounded local
-dependency closure, are part of the same fail-closed change boundary. Configuration-
+into a `conftest.py` from a local module. The canonical shard runner, command
+manifest, directly loaded pytest plugins, and their bounded transitive local
+dependency closure are part of the same fail-closed change boundary. Configuration-
 and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
 `pytest_configure`, `pytest_load_initial_conftests`, `pytest_plugin_registered`,
 and `pytest_sessionstart` are included in that fail-closed hook boundary.
@@ -125,10 +125,12 @@ class-level parametrizing `pytestmark`, rebound or mutated imported pytest mark
 aliases, unresolved or bare parametrization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, mutations of pytest collection classes, and changed
-`pytest_generate_tests` hooks also fail closed. Static `skip` and `skipif`
-decorators and module/class `pytestmark` forms are bound into declaration
-identity, so disabling an active test retires its prior ref instead of silently
-preserving it.
+`pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
+`xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
+declaration identity, so disabling an active test retires its prior ref instead
+of silently preserving it. Frontend `skip`, `fixme`, `todo`, `skipIf`, and
+`runIf` execution posture is bound into the frontend declaration identity for
+the same reason.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript

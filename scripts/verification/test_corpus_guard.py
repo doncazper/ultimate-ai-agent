@@ -74,6 +74,12 @@ PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
         "scripts.verification.pytest_safe_failure_plugin",
     }
 )
+PYTEST_RUNNER_MODULES = frozenset(
+    {
+        "scripts.verification.run_pytest_shards",
+        *PYTEST_RUNNER_PLUGIN_MODULES,
+    }
+)
 VITEST_CONFIG_EXTENSIONS = ("js", "mjs", "cjs", "ts", "mts", "cts")
 FRONTEND_COLLECTION_CONFIG_PATHS = {
     *(
@@ -1799,14 +1805,32 @@ def _parameterized_ref(
     ]
     if unresolved:
         raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
-    execution_disabling_decorators = tuple(
-        decorator
-        for decorator in candidate_decorators
-        if (target := decorator.func if isinstance(decorator, ast.Call) else decorator)
-        and isinstance(target, ast.Attribute)
-        and target.attr in PYTEST_EXECUTION_DISABLING_MARKS
-        and is_proven_pytest_mark(target)
-    )
+    execution_disabling_decorators: list[ast.expr] = []
+    for decorator in candidate_decorators:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if not isinstance(target, ast.Attribute) or not is_proven_pytest_mark(target):
+            continue
+        if target.attr in PYTEST_EXECUTION_DISABLING_MARKS:
+            execution_disabling_decorators.append(decorator)
+            continue
+        if target.attr != "xfail" or not isinstance(decorator, ast.Call):
+            continue
+        run_keywords = [
+            keyword for keyword in decorator.keywords if keyword.arg == "run"
+        ]
+        has_keyword_expansion = any(
+            keyword.arg is None for keyword in decorator.keywords
+        )
+        if has_keyword_expansion or any(
+            not isinstance(keyword.value, ast.Constant)
+            or not isinstance(keyword.value.value, bool)
+            for keyword in run_keywords
+        ):
+            raise TestCorpusGuardError(
+                "Python xfail run condition cannot be inventoried safely"
+            )
+        if run_keywords and run_keywords[-1].value.value is False:
+            execution_disabling_decorators.append(decorator)
     identity_decorators = (*decorators, *execution_disabling_decorators)
     if not identity_decorators:
         return raw_ref
@@ -3675,10 +3699,10 @@ def _python_dependency_paths(
     return dependency_paths
 
 
-def _pytest_runner_plugin_dependency_paths(repo: Path) -> set[str]:
+def _pytest_runner_dependency_paths(repo: Path) -> set[str]:
     dependencies = _python_dependency_paths(
         repo,
-        set(PYTEST_RUNNER_PLUGIN_MODULES),
+        set(PYTEST_RUNNER_MODULES),
     )
     dependencies.update(
         initializer
@@ -4377,12 +4401,12 @@ def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
 
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
-    runner_plugin_dependencies = _pytest_runner_plugin_dependency_paths(repo)
+    runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
         "apps",
         PYTHON_TEST_GIT_PATHSPEC,
         *FRONTEND_SOURCE_GIT_PATHSPECS,
-        *sorted(runner_plugin_dependencies),
+        *sorted(runner_dependencies),
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
         *sorted(PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
@@ -4438,9 +4462,16 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
-    if all_changed & runner_plugin_dependencies:
+    for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if current != prior:
+            raise TestCorpusGuardError(
+                "changed pytest runner configuration cannot be inventoried safely"
+            )
+    if all_changed & runner_dependencies:
         raise TestCorpusGuardError(
-            "changed runner-loaded pytest plugin cannot be inventoried safely"
+            "changed pytest runner dependency cannot be inventoried safely"
         )
     for path in all_changed:
         if not path.startswith("tests/") or Path(path).name != "__init__.py":
@@ -4473,13 +4504,6 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             "changed frontend collection configuration dependency cannot be "
             "inventoried safely"
         )
-    for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
-        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
-        prior = _base_text(repo, base_sha, path) or ""
-        if current != prior:
-            raise TestCorpusGuardError(
-                "changed pytest runner configuration cannot be inventoried safely"
-            )
     for path in FRONTEND_COLLECTION_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
