@@ -2016,6 +2016,21 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             modules.append(target.value)
     if not initialized:
         return ()
+    if _has_module_namespace_mutation(tree):
+        raise TestCorpusGuardError(
+            "lazy Python export modules cannot be inventoried safely"
+        )
+
+    def grouped_export_namespace_reference(node: ast.AST) -> bool:
+        while isinstance(node, ast.Subscript):
+            if (
+                _is_globals_call(node.value)
+                and isinstance(node.slice, ast.Constant)
+                and node.slice.value == "_EXPORT_GROUPS"
+            ):
+                return True
+            node = node.value
+        return False
 
     aliases = {"_EXPORT_GROUPS"}
     changed = True
@@ -2046,6 +2061,15 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
                 "lazy Python export modules cannot be inventoried safely"
             )
         for child in ast.walk(node):
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr not in READ_ONLY_COLLECTION_METHODS
+                and grouped_export_namespace_reference(child.func.value)
+            ):
+                raise TestCorpusGuardError(
+                    "lazy Python export modules cannot be inventoried safely"
+                )
             if isinstance(child, ast.Assign):
                 targets = child.targets
             elif isinstance(child, (ast.AnnAssign, ast.AugAssign)):
@@ -2055,12 +2079,7 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             else:
                 continue
             if any(
-                isinstance(target, ast.Subscript)
-                and isinstance(target.value, ast.Call)
-                and isinstance(target.value.func, ast.Name)
-                and target.value.func.id == "globals"
-                and isinstance(target.slice, ast.Constant)
-                and target.slice.value == "_EXPORT_GROUPS"
+                grouped_export_namespace_reference(target)
                 for target in targets
             ):
                 raise TestCorpusGuardError(
@@ -2763,6 +2782,7 @@ def _is_unrebound_pytest_mark(
 def _parameterized_ref(
     raw_ref: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    tree: ast.Module,
     module_bindings: dict[str, tuple[_ModuleBinding, ...]],
     parametrize_aliases: set[str],
     imported_modules: dict[str, tuple[str, ...]],
@@ -2789,6 +2809,10 @@ def _parameterized_ref(
                 value = binding_node.value
             else:
                 continue
+            name_aliases = _module_name_aliases(
+                tree,
+                before=(binding_node.lineno, binding_node.col_offset),
+            )
             for target in targets:
                 for name, bound_value in _paired_binding_values(target, value):
                     if name != fixture_name:
@@ -2800,6 +2824,8 @@ def _parameterized_ref(
                         if isinstance(bound_value, ast.Attribute)
                         else None
                     )
+                    if imported_root is not None:
+                        imported_root = name_aliases.get(imported_root, imported_root)
                     if imported_root in imported_modules:
                         return True
         return False
@@ -5059,6 +5085,7 @@ def _python_inventory_entries(
                 raw_ref = _parameterized_ref(
                     f"{path}::{node.name}",
                     node,
+                    tree,
                     module_bindings,
                     parametrize_aliases,
                     imported_modules,
@@ -5176,6 +5203,7 @@ def _python_inventory_entries(
             raw_ref = _parameterized_ref(
                 f"{path}::{node.name}::{method_name}",
                 method,
+                tree,
                 module_bindings,
                 parametrize_aliases,
                 imported_modules,

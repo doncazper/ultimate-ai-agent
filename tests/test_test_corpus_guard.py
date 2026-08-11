@@ -5821,7 +5821,16 @@ def test_python_inventory_rejects_local_fixture_import_name_collision(
         )
 
 
-def test_python_inventory_rejects_local_fixture_reassigned_from_import() -> None:
+@pytest.mark.parametrize(
+    "reassignment",
+    (
+        "value = helper.value\n",
+        "alias = helper\nvalue = alias.value\n",
+    ),
+)
+def test_python_inventory_rejects_local_fixture_reassigned_from_import(
+    reassignment: str,
+) -> None:
     resolver = guard._python_import_resolver(
         lambda path: (
             "def value(): return 'imported'\n"
@@ -5840,8 +5849,8 @@ def test_python_inventory_rejects_local_fixture_reassigned_from_import() -> None
             "import tests.helper as helper\n"
             "@pytest.fixture\n"
             "def value(): return 'local'\n"
-            "value = helper.value\n"
-            "def test_case(value): pass\n",
+            + reassignment
+            + "def test_case(value): pass\n",
             resolver,
         )
 
@@ -6248,6 +6257,11 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
         '_EXPORT_GROUPS.update({"tests.extra": {"value"}})\n',
         '_groups = _EXPORT_GROUPS\n_groups["tests.extra"] = {"value"}\n',
         'globals()["_EXPORT_GROUPS"] = {"tests.extra": {"value"}}\n',
+        'globals()["_EXPORT_GROUPS"]["tests.extra"] = {"value"}\n',
+        'globals()["_EXPORT_GROUPS"].update({"tests.extra": {"value"}})\n',
+        'globals().update({"_EXPORT_GROUPS": {"tests.extra": {"value"}}})\n',
+        'globals().setdefault("_EXPORT_GROUPS", {"tests.extra": {"value"}})\n',
+        'globals().pop("_EXPORT_GROUPS")\n',
     ),
 )
 def test_python_module_identity_rejects_grouped_lazy_export_mutation(
