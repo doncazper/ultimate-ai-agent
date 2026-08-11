@@ -4599,6 +4599,7 @@ def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
         "def prepare(function): pass\n"
         "setup_function = prepare\n"
         "def test_case(): pass\n",
+        "from tests.helper import prepare as setup_function\ndef test_case(): pass\n",
         "class TestCases:\n"
         "    def prepare(self, method): pass\n"
         "    setup_method = prepare\n"
@@ -5787,6 +5788,34 @@ def test_python_inventory_binds_local_fixture_dependencies() -> None:
     assert refs_for(True) != refs_for(False)
 
 
+def test_python_inventory_prefers_local_fixture_over_same_name_import() -> None:
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "def value(): return 'imported'\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        source = (
+            "import pytest\n"
+            "from tests.helper import value\n"
+            "@pytest.fixture\n"
+            f"def value(): return {enabled!r}\n"
+            "def test_case(value): pass\n"
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
 def test_python_inventory_rejects_class_local_requested_fixture() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -5798,6 +5827,46 @@ def test_python_inventory_rejects_class_local_requested_fixture() -> None:
             "class TestCases:\n"
             "    @pytest.fixture\n"
             "    def value(self): return True\n"
+            "    def test_case(self, value): pass\n",
+        )
+
+
+@pytest.mark.parametrize(
+    "fixture_binding",
+    (
+        "    value = pytest.fixture(value)\n",
+        "    fixture_factory = pytest.fixture()\n    value = fixture_factory(value)\n",
+    ),
+)
+def test_python_inventory_rejects_assigned_class_local_fixture(
+    fixture_binding: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="class-local pytest fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            "import pytest\n"
+            "class TestCases:\n"
+            "    def value(self): return True\n"
+            + fixture_binding
+            + "    def test_case(self, value): pass\n",
+        )
+
+
+def test_python_inventory_rejects_inherited_class_local_fixture() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="class-local pytest fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            "import pytest\n"
+            "class FixtureBase:\n"
+            "    @pytest.fixture\n"
+            "    def value(self): return True\n"
+            "class TestCases(FixtureBase):\n"
             "    def test_case(self, value): pass\n",
         )
 
@@ -5974,6 +6043,64 @@ def test_python_inventory_rejects_unresolved_dynamic_autouse_module_dependency()
         )
 
 
+@pytest.mark.parametrize(
+    "helper_source",
+    (
+        'MODULE = __import__("tests.pkg", fromlist=(DYNAMIC,))\n',
+        "import importlib\n"
+        'MODULE = importlib.import_module(".state", package=DYNAMIC)\n',
+    ),
+)
+def test_python_inventory_rejects_nonstatic_dynamic_import_components(
+    helper_source: str,
+) -> None:
+    resolver = guard._python_import_resolver(
+        lambda path: (
+            "DYNAMIC = 'state'\n"
+            + helper_source
+            + "def setup_environment(): return MODULE.enabled\n"
+            if path == "tests/helper.py"
+            else None
+        )
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python module dependencies",
+    ):
+        guard._python_module_dependency_identity(
+            "tests.helper",
+            "path=tests/helper.py\nDYNAMIC = 'state'\n" + helper_source,
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    (
+        'MODULE = __import__("tests.pkg", fromlist=("state",))\n',
+        "import importlib\n"
+        'MODULE = importlib.import_module(".state", package="tests.pkg")\n',
+    ),
+)
+def test_python_module_identity_binds_dynamic_submodule_dependencies(
+    helper_source: str,
+) -> None:
+    def identity_for(enabled: bool) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"enabled = {enabled!r}\n" if path == "tests/pkg/state.py" else None
+            )
+        )
+        return guard._python_module_dependency_identity(
+            "tests.pkg.helper",
+            "path=tests/pkg/helper.py\n" + helper_source,
+            resolver,
+        )
+
+    assert identity_for(True) != identity_for(False)
+
+
 def test_python_module_identity_binds_grouped_lazy_export_target_source() -> None:
     package_source = (
         "path=tests/pkg/__init__.py\n"
@@ -5988,6 +6115,35 @@ def test_python_module_identity_binds_grouped_lazy_export_target_source() -> Non
         resolver = guard._python_import_resolver(
             lambda path: (
                 f"value = {enabled!r}\n" if path == "tests/target.py" else None
+            )
+        )
+        return guard._python_module_dependency_identity(
+            "tests.pkg",
+            package_source,
+            resolver,
+        )
+
+    assert identity_for(True) != identity_for(False)
+
+
+def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -> None:
+    package_source = (
+        "path=tests/pkg/__init__.py\n"
+        "from importlib import import_module\n"
+        "_EXPORT_GROUPS = {'tests.target': {'value'}}\n"
+        "def __getattr__(name):\n"
+        "    module_name = next(iter(_EXPORT_GROUPS))\n"
+        "    return getattr(import_module(module_name), name)\n"
+    )
+
+    def identity_for(enabled: bool) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "from tests.state import value\n"
+                if path == "tests/target.py"
+                else f"value = {enabled!r}\n"
+                if path == "tests/state.py"
+                else None
             )
         )
         return guard._python_module_dependency_identity(

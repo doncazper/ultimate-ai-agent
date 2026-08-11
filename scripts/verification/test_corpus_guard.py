@@ -1063,22 +1063,48 @@ def _dynamic_python_import_modules(
 ) -> tuple[str, ...]:
     """Resolve bounded dynamic imports or reject their dependency posture."""
 
-    dynamic_import_aliases = {"__import__"}
+    dynamic_import_aliases = {"__import__": "builtin"}
     dynamic_import_aliases.update(
-        local_name
-        for local_name, candidates in imported_modules.items()
-        if "importlib.import_module" in candidates
+        {
+            local_name: "import_module"
+            for local_name, candidates in imported_modules.items()
+            if "importlib.import_module" in candidates
+        }
     )
 
-    def is_dynamic_import_callable(node: ast.AST) -> bool:
+    def dynamic_import_kind(node: ast.AST) -> str | None:
         if isinstance(node, ast.Name):
-            return node.id in dynamic_import_aliases
-        return (
+            return dynamic_import_aliases.get(node.id)
+        if (
             isinstance(node, ast.Attribute)
             and node.attr == "import_module"
             and (root := _root_name(node)) is not None
             and "importlib" in imported_modules.get(root, ())
-        )
+        ):
+            return "import_module"
+        return None
+
+    def keyword_value(call: ast.Call, name: str) -> ast.AST | None:
+        matches = [keyword.value for keyword in call.keywords if keyword.arg == name]
+        if any(keyword.arg is None for keyword in call.keywords) or len(matches) > 1:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        return matches[0] if matches else None
+
+    def resolve_relative_name(target: str, package: str) -> str:
+        leading_dots = len(target) - len(target.lstrip("."))
+        if leading_dots == 0:
+            return target
+        package_parts = package.split(".") if package else []
+        parent_count = leading_dots - 1
+        if parent_count >= len(package_parts):
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        prefix = ".".join(package_parts[: len(package_parts) - parent_count])
+        suffix = target[leading_dots:]
+        return f"{prefix}.{suffix}" if suffix else prefix
 
     assignments: list[tuple[str, ast.AST]] = []
     for node in ast.walk(tree):
@@ -1100,10 +1126,11 @@ def _dynamic_python_import_modules(
         )
     while True:
         added = {
-            name
+            name: kind
             for name, value in assignments
-            if is_dynamic_import_callable(value)
-        } - dynamic_import_aliases
+            if (kind := dynamic_import_kind(value)) is not None
+            and name not in dynamic_import_aliases
+        }
         if not added:
             break
         dynamic_import_aliases.update(added)
@@ -1113,23 +1140,118 @@ def _dynamic_python_import_modules(
         if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
         and function.name == "__getattr__"
         for node in ast.walk(function)
-        if isinstance(node, ast.Call) and is_dynamic_import_callable(node.func)
+        if isinstance(node, ast.Call) and dynamic_import_kind(node.func) is not None
     }
     resolved: list[str] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not is_dynamic_import_callable(node.func):
+        if not isinstance(node, ast.Call):
             continue
-        target = _static_string_expression(node.args[0]) if node.args else None
-        if target is not None:
-            resolved.append(
-                f"{relative_package}{target}" if target.startswith(".") else target
-            )
+        kind = dynamic_import_kind(node.func)
+        if kind is None:
             continue
-        if id(node) in lazy_getattr_calls and lazy_export_modules:
-            continue
-        raise TestCorpusGuardError(
-            "dynamic Python module dependencies cannot be inventoried safely"
+        allowed_keywords = (
+            {"name", "package"}
+            if kind == "import_module"
+            else {"name", "globals", "locals", "fromlist", "level"}
         )
+        if any(keyword.arg not in allowed_keywords for keyword in node.keywords):
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        target_keyword = keyword_value(node, "name")
+        if node.args and target_keyword is not None:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        target_node = node.args[0] if node.args else target_keyword
+        target = (
+            _static_string_expression(target_node)
+            if target_node is not None
+            else None
+        )
+        if target is None:
+            if id(node) in lazy_getattr_calls and lazy_export_modules:
+                continue
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        if kind == "import_module":
+            package_node = (
+                node.args[1] if len(node.args) > 1 else keyword_value(node, "package")
+            )
+            if len(node.args) > 2 or (
+                len(node.args) > 1 and keyword_value(node, "package") is not None
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            package = (
+                _static_string_expression(package_node)
+                if package_node is not None
+                else None
+            )
+            if package_node is not None and package is None:
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            if target.startswith("."):
+                if package is None:
+                    raise TestCorpusGuardError(
+                        "dynamic Python module dependencies cannot be inventoried safely"
+                    )
+                target = resolve_relative_name(target, package)
+            resolved.append(target)
+            continue
+        if len(node.args) > 5:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        fromlist_node = (
+            node.args[3] if len(node.args) > 3 else keyword_value(node, "fromlist")
+        )
+        if len(node.args) > 3 and keyword_value(node, "fromlist") is not None:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        level_node = (
+            node.args[4] if len(node.args) > 4 else keyword_value(node, "level")
+        )
+        if len(node.args) > 4 and keyword_value(node, "level") is not None:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        level = 0
+        if level_node is not None:
+            if not isinstance(level_node, ast.Constant) or not isinstance(
+                level_node.value, int
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            level = level_node.value
+        if level < 0:
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        if level:
+            target = resolve_relative_name("." * level + target, relative_package)
+        resolved.append(target)
+        if fromlist_node is None or (
+            isinstance(fromlist_node, ast.Constant) and fromlist_node.value is None
+        ):
+            continue
+        if not isinstance(fromlist_node, (ast.List, ast.Set, ast.Tuple)):
+            raise TestCorpusGuardError(
+                "dynamic Python module dependencies cannot be inventoried safely"
+            )
+        for item in fromlist_node.elts:
+            name = _static_string_expression(item)
+            if name is None:
+                raise TestCorpusGuardError(
+                    "dynamic Python module dependencies cannot be inventoried safely"
+                )
+            if name != "*":
+                resolved.append(f"{target}.{name}")
     return tuple(dict.fromkeys(resolved))
 
 
@@ -1902,12 +2024,7 @@ def _python_module_dependency_identity(
             for grouped_module in grouped_lazy_export_modules:
                 grouped_source = import_source_resolver(grouped_module)
                 if grouped_source is not None:
-                    resolved_sources.setdefault(grouped_module, grouped_source)
-                    if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
-                        raise TestCorpusGuardError(
-                            "Python module identity dependency closure exceeds module "
-                            "budget"
-                        )
+                    pending.append((grouped_module, grouped_source))
         dependency_candidates = list(imported_modules.values())
         dependency_candidates.extend(
             (candidate,)
@@ -2729,6 +2846,14 @@ def _parameterized_ref(
                 )
             )
         for fixture_name in requested_fixture_names:
+            local_fixture = (
+                local_fixture_resolver(fixture_name)
+                if local_fixture_resolver is not None
+                else None
+            )
+            if local_fixture is not None:
+                serialized_parts.append("fixture-local=" + local_fixture)
+                continue
             candidates = imported_modules.get(fixture_name)
             if candidates is None:
                 override_matches = (
@@ -2752,13 +2877,6 @@ def _parameterized_ref(
                         )
                     )
                     continue
-                local_fixture = (
-                    local_fixture_resolver(fixture_name)
-                    if local_fixture_resolver is not None
-                    else None
-                )
-                if local_fixture is not None:
-                    serialized_parts.append("fixture-local=" + local_fixture)
                 continue
             resolved_import = next(
                 (
@@ -3341,10 +3459,19 @@ def _python_inventory_entries(
         for node in tree.body
     ):
         raise TestCorpusGuardError("pytest_generate_tests cannot be inventoried safely")
+
     def binds_xunit_hook(nodes: list[ast.stmt], names: set[str]) -> bool:
         for node in _scope_execution_nodes(nodes):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if node.name in names:
+                    return True
+                continue
+            if isinstance(node, ast.ImportFrom):
+                if any((alias.asname or alias.name) in names for alias in node.names):
+                    return True
+                continue
+            if isinstance(node, ast.Import):
+                if any(alias.asname in names for alias in node.names):
                     return True
                 continue
             if isinstance(node, ast.Assign):
@@ -4638,6 +4765,79 @@ def _python_inventory_entries(
             for decorator in node.decorator_list
         )
 
+    def class_has_local_fixture_binding(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> bool:
+        if class_node.name in visiting:
+            raise TestCorpusGuardError(
+                f"cannot resolve Python test class inheritance: {path}"
+            )
+        functions = {
+            child.name: child
+            for child in class_node.body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        if any(fixture_decorated(function) for function in functions.values()):
+            return True
+        configured_factories: set[str] = set()
+        changed = True
+        while changed:
+            changed = False
+            for child in _scope_execution_nodes(class_node.body):
+                if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    continue
+                value = child.value
+                if value is None:
+                    continue
+                if isinstance(value, ast.Call) and _is_fixture_callable(
+                    value.func, fixture_aliases
+                ):
+                    is_factory = not value.args
+                elif isinstance(value, ast.Name) and value.id in configured_factories:
+                    is_factory = True
+                else:
+                    continue
+                if not is_factory:
+                    continue
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                for target in targets:
+                    for name in _binding_target_names(target):
+                        if name not in configured_factories:
+                            configured_factories.add(name)
+                            changed = True
+        for child in _scope_execution_nodes(class_node.body):
+            if not isinstance(child, ast.Call) or not child.args:
+                continue
+            if _is_fixture_callable(child.func, fixture_aliases):
+                pass
+            elif isinstance(child.func, ast.Call) and _is_fixture_callable(
+                child.func.func, fixture_aliases
+            ):
+                pass
+            elif (
+                isinstance(child.func, ast.Name)
+                and child.func.id in configured_factories
+            ):
+                pass
+            else:
+                continue
+            if any(
+                (root := _root_name(argument)) is not None and root in functions
+                for argument in child.args
+            ):
+                return True
+        return any(
+            class_has_local_fixture_binding(
+                classes[base.id],
+                {*visiting, class_node.name},
+            )
+            for base in class_node.bases
+            if isinstance(base, ast.Name) and base.id in classes
+        )
+
     def effective_class_decorators(
         class_node: ast.ClassDef,
         visiting: set[str],
@@ -4708,11 +4908,7 @@ def _python_inventory_entries(
             raise TestCorpusGuardError(
                 "class-body unittest skip state cannot be inventoried safely"
             )
-        if any(
-            isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and fixture_decorated(child)
-            for child in node.body
-        ):
+        if class_has_local_fixture_binding(node, set()):
             raise TestCorpusGuardError(
                 "class-local pytest fixtures cannot be inventoried safely"
             )
