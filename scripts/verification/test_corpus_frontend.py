@@ -1547,6 +1547,15 @@ def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
             continue
         if module not in modules:
             modules.append(module)
+    require_pattern = re.compile(
+        r"\brequire\s*\(\s*(?P<quote>['\"])(?P<module>\.[^'\"]*)(?P=quote)\s*\)"
+    )
+    for match in require_pattern.finditer(text):
+        if scan_text[match.start() : match.start() + len("require")] != "require":
+            continue
+        module = match.group("module")
+        if module not in modules:
+            modules.append(module)
     return tuple(modules)
 
 
@@ -2718,9 +2727,13 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "dynamic frontend runner import cannot be inventoried safely"
         )
-    if re.search(r"\bimport\s*\.\s*meta\s*\.\s*glob\s*\(", scan_text):
+    if re.search(r"\bimport\s*\.\s*meta\s*\.\s*glob\b", scan_text):
         raise FrontendInventoryError(
             "frontend glob registration import cannot be inventoried safely"
+        )
+    if re.search(r"\b(?:eval|Function)\b", scan_text):
+        raise FrontendInventoryError(
+            "dynamic frontend test registration cannot be inventoried safely"
         )
     test_api_names = _test_api_names(text, scan_text)
     if _has_indirect_runner_invocation(
@@ -2732,6 +2745,16 @@ def _frontend_inventory_entries(
             "indirect frontend test registration cannot be inventoried safely"
         )
     direct_pattern, each_pattern, conditional_pattern = _patterns(test_api_names)
+    test_api_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(test_api_names)) + ")"
+    )
+    if re.search(
+        rf"(?<![.\w$]){test_api_pattern}{TEST_MODIFIERS}\s*<",
+        scan_text,
+    ):
+        raise FrontendInventoryError(
+            "generic frontend test registration cannot be inventoried safely"
+        )
     suite_api_names = _suite_api_names(text, scan_text)
     suite_api_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"

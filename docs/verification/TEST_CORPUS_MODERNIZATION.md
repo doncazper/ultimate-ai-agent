@@ -70,10 +70,10 @@ under a recognized hook name, including one in a hidden directory beneath
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins or imported
-into a `conftest.py` from a local module. The canonical CI lane wrapper, shard
-runner, command manifest, directly loaded pytest plugins, and their bounded
-transitive local dependency closure are part of the same fail-closed change
-boundary. Configuration-
+into a `conftest.py` from a local module. The canonical hosted CI workflow,
+local toolchain action, lane wrapper, shard runner, command manifest, directly
+loaded pytest plugins, and their bounded transitive local dependency closure are
+part of the same fail-closed change boundary. Configuration-
 and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
 `pytest_configure`, `pytest_load_initial_conftests`, `pytest_plugin_registered`,
 and `pytest_sessionstart` are included in that fail-closed hook boundary.
@@ -127,14 +127,16 @@ global, fails closed,
 class-level parameterization through `pytestmark`, rebound or mutated imported
 pytest mark aliases, unresolved or bare parameterization
 decorators, module-level collection-aborting pytest calls and their assignment
-aliases, module-level `unittest.SkipTest` raises and aliases, mutations of pytest
+aliases, module-level `unittest.SkipTest` raises and aliases (including imports
+from `unittest.case`), class-body unittest skip state, mutations of pytest
 collection classes, and changed
 `pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
 `xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
 declaration identity, including referenced condition bindings and the effective
 order of competing `xfail` marks, so disabling an active test retires its prior
-ref instead of silently preserving it. Python fixture argument consumption and
-imported fixture implementations are identity-bound, as are `usefixtures` marks.
+ref instead of silently preserving it. Python fixture argument consumption,
+default posture, imported fixture implementations, and imported fixture
+`name=` overrides are identity-bound, as are `usefixtures` marks.
 Frontend `skip`, `fixme`, `todo`,
 `skipIf`, and `runIf` execution posture is collision-bound separately from the
 user title; a trivia-free conditional token stream, literal values, and enclosing
@@ -142,11 +144,14 @@ suite disable posture are part of every affected child declaration identity for
 the same reason.
 Parenthesized/conditional/logical runner callees and property-API writes to
 global runner bindings fail closed, including `Reflect.defineProperty`. Eager or
-otherwise unresolved `import.meta.glob` registration imports fail closed. Type-only
+otherwise unresolved `import.meta.glob` registration imports, including generic
+calls, fail closed. Generic direct runner calls and executable `eval`/`Function`
+registration sources fail closed. Type-only
 runner imports remain allowed inside complete type-alias declarations, including
 generic constraints. Descriptor-level pytest collection-class mutations, ordinary
 local conftest imports, and post-definition unittest skip writes through direct
-attributes, `__dict__`, or `vars()` namespaces also fail closed.
+attributes, `__dict__`, or `vars()` namespaces and bounded aliases of those
+namespaces also fail closed.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
@@ -171,10 +176,10 @@ binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to any supported
 `vite.config.{js,mjs,cjs,ts,mts,cts}` or
 `vitest.config.{js,mjs,cjs,ts,mts,cts}` candidate in the Control Center, its
-Playwright collection configuration, any transitive local static dependency of
-those configuration files, configured Vitest setup files and their transitive
-local dependencies, or its `package.json` `pretest`, `test`, or `posttest` lifecycle
-command, also fail closed.
+Playwright collection configuration, any transitive local static ESM or CommonJS
+dependency of those configuration files, configured Vitest setup files and their
+transitive local dependencies, or its `package.json` `pretest`, `test`, or
+`posttest` lifecycle command, also fail closed.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

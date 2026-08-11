@@ -66,6 +66,8 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
 }
 PYTEST_DEPENDENCY_LOCK_PATHS = {"uv.lock"}
 PYTEST_RUNNER_CONFIG_PATHS = {
+    ".github/actions/setup-toolchain/action.yml",
+    ".github/workflows/ci.yml",
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
@@ -1178,9 +1180,13 @@ def _unittest_skiptest_reference(
     imported_modules: dict[str, tuple[str, ...]],
     aliases: set[str],
 ) -> bool:
+    def is_skiptest_candidate(candidate: str) -> bool:
+        return candidate in {"unittest.SkipTest", "unittest.case.SkipTest"}
+
     if isinstance(node, ast.Name):
-        return node.id in aliases or "unittest.SkipTest" in imported_modules.get(
-            node.id, ()
+        return node.id in aliases or any(
+            is_skiptest_candidate(candidate)
+            for candidate in imported_modules.get(node.id, ())
         )
     if not isinstance(node, ast.Attribute) or node.attr != "SkipTest":
         return False
@@ -1197,7 +1203,10 @@ def _has_module_level_unittest_collection_abort(
     aliases = {
         name
         for name, candidates in imported_modules.items()
-        if "unittest.SkipTest" in candidates
+        if any(
+            candidate in {"unittest.SkipTest", "unittest.case.SkipTest"}
+            for candidate in candidates
+        )
     }
     changed = True
     while changed:
@@ -1727,6 +1736,46 @@ def _python_imported_binding_source(
     return f"module={module}\nbinding={binding_name}\n" + "\n".join(serialized_parts)
 
 
+def _python_fixture_binding_exports(source: str) -> dict[str, str]:
+    source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
+    if "fixture" not in source_text or re.search(r"\bname\s*=", source_text) is None:
+        return {}
+    try:
+        tree = ast.parse(source_text)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "imported Python fixture binding cannot be inventoried safely"
+        ) from exc
+    exports: dict[str, str] = {}
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            target = decorator.func
+            if not (
+                (isinstance(target, ast.Name) and target.id == "fixture")
+                or (isinstance(target, ast.Attribute) and target.attr == "fixture")
+            ):
+                continue
+            name_keywords = [
+                keyword for keyword in decorator.keywords if keyword.arg == "name"
+            ]
+            if not name_keywords:
+                continue
+            name_value = name_keywords[-1].value
+            if not isinstance(name_value, ast.Constant) or not isinstance(
+                name_value.value, str
+            ):
+                raise TestCorpusGuardError(
+                    "imported Python fixture name cannot be inventoried safely"
+                )
+            exports[node.name] = name_value.value
+            break
+    return exports
+
+
 def _binding_name_for_resolved_import(
     candidates: tuple[str, ...],
     resolved_module: str,
@@ -1812,6 +1861,9 @@ def _parameterized_ref(
     parametrize_aliases: set[str],
     imported_modules: dict[str, tuple[str, ...]],
     import_source_resolver: Callable[[str], str | None] | None,
+    fixture_override_resolver: (
+        Callable[[str], tuple[tuple[str, str, str], ...]] | None
+    ) = None,
     *,
     container_decorators: tuple[ast.expr, ...] = (),
     collection_lineno: int | None = None,
@@ -1962,9 +2014,41 @@ def _parameterized_ref(
     ]
     if fixture_argument_names:
         serialized_parts.append("fixture-arguments=" + ",".join(fixture_argument_names))
+        defaults = (
+            *node.args.defaults,
+            *(default for default in node.args.kw_defaults if default is not None),
+        )
+        if defaults:
+            serialized_parts.append(
+                "fixture-defaults="
+                + ",".join(
+                    ast.dump(default, annotate_fields=True, include_attributes=False)
+                    for default in defaults
+                )
+            )
         for fixture_name in fixture_argument_names:
             candidates = imported_modules.get(fixture_name)
             if candidates is None:
+                override_matches = (
+                    fixture_override_resolver(fixture_name)
+                    if fixture_override_resolver is not None
+                    else ()
+                )
+                if len(override_matches) > 1:
+                    raise TestCorpusGuardError(
+                        "imported Python fixture name is ambiguous"
+                    )
+                if override_matches:
+                    module, source, binding_name = override_matches[0]
+                    serialized_parts.append(
+                        "fixture-import="
+                        + _python_imported_binding_source(
+                            module,
+                            source,
+                            binding_name,
+                            import_source_resolver,
+                        )
+                    )
                 continue
             resolved_import = next(
                 (
@@ -2403,6 +2487,38 @@ def _python_inventory_entries(
         ) from exc
 
     imported_modules = _python_import_modules(tree)
+    fixture_override_index: dict[str, list[tuple[str, str, str]]] | None = None
+
+    def fixture_override_matches(
+        fixture_name: str,
+    ) -> tuple[tuple[str, str, str], ...]:
+        nonlocal fixture_override_index
+        if fixture_override_index is None:
+            fixture_override_index = {}
+            export_cache: dict[str, dict[str, str]] = {}
+            if import_source_resolver is not None:
+                for imported_name, imported_candidates in imported_modules.items():
+                    for module in imported_candidates:
+                        source = import_source_resolver(module)
+                        if source is None:
+                            continue
+                        exports = export_cache.get(module)
+                        if exports is None:
+                            exports = _python_fixture_binding_exports(source)
+                            export_cache[module] = exports
+                        binding_name = _binding_name_for_resolved_import(
+                            imported_candidates,
+                            module,
+                            imported_name,
+                        )
+                        exported_name = exports.get(binding_name)
+                        if exported_name is not None:
+                            fixture_override_index.setdefault(exported_name, []).append(
+                                (module, source, binding_name)
+                            )
+                        break
+        return tuple(fixture_override_index.get(fixture_name, ()))
+
     if _has_pytest_collection_class_mutation(tree, imported_modules):
         raise TestCorpusGuardError(
             "pytest collection class mutation cannot be inventoried safely"
@@ -2620,7 +2736,11 @@ def _python_inventory_entries(
             and may_resolve_local_class(value.value)
         )
 
+    unittest_skip_namespace_aliases: dict[str, ast.AST] = {}
+
     def unittest_skip_namespace_owner(value: ast.AST) -> ast.AST | None:
+        if isinstance(value, ast.Name):
+            return unittest_skip_namespace_aliases.get(value.id)
         if isinstance(value, ast.Attribute) and value.attr == "__dict__":
             return value.value
         if (
@@ -2632,6 +2752,28 @@ def _python_inventory_entries(
         ):
             return value.args[0]
         return None
+
+    changed = True
+    while changed:
+        changed = False
+        for module_node in _module_execution_nodes(tree):
+            if not isinstance(module_node, (ast.Assign, ast.AnnAssign)):
+                continue
+            owner = unittest_skip_namespace_owner(module_node.value)
+            if owner is None or not (
+                may_resolve_local_class(owner) or may_resolve_local_test_member(owner)
+            ):
+                continue
+            targets = (
+                module_node.targets
+                if isinstance(module_node, ast.Assign)
+                else (module_node.target,)
+            )
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in unittest_skip_namespace_aliases:
+                        unittest_skip_namespace_aliases[name] = owner
+                        changed = True
 
     def is_unittest_skip_namespace_target(target: ast.AST) -> bool:
         if not isinstance(target, ast.Subscript):
@@ -3683,6 +3825,34 @@ def _python_inventory_entries(
     def class_is_disabled(class_node: ast.ClassDef) -> bool:
         return class_test_binding(class_node, set()) is False
 
+    def class_has_unittest_skip_binding(
+        class_node: ast.ClassDef,
+        visiting: set[str],
+    ) -> bool:
+        if class_node.name in visiting:
+            return False
+        if any(
+            "__unittest_skip__"
+            in {
+                name
+                for target in (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                for name in _binding_target_names(target)
+            }
+            for child in class_node.body
+            if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign))
+        ):
+            return True
+        return any(
+            class_has_unittest_skip_binding(
+                classes[base.id],
+                {*visiting, class_node.name},
+            )
+            for base in class_node.bases
+            if isinstance(base, ast.Name) and base.id in classes
+        )
+
     def fixture_decorated(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
         return any(
             (
@@ -3741,6 +3911,7 @@ def _python_inventory_entries(
                     parametrize_aliases,
                     imported_modules,
                     import_source_resolver,
+                    fixture_override_matches,
                     container_decorators=tuple(module_pytestmark_decorators),
                 )
                 entries.append(
@@ -3754,6 +3925,12 @@ def _python_inventory_entries(
             or class_is_disabled(node)
         ):
             continue
+        if node.name in unittest_classes and class_has_unittest_skip_binding(
+            node, set()
+        ):
+            raise TestCorpusGuardError(
+                "class-body unittest skip state cannot be inventoried safely"
+            )
         class_pytestmark_decorators: list[ast.expr] = []
         for child in node.body:
             if not isinstance(child, (ast.Assign, ast.AnnAssign)):
@@ -3845,6 +4022,7 @@ def _python_inventory_entries(
                 parametrize_aliases,
                 imported_modules,
                 import_source_resolver,
+                fixture_override_matches,
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
@@ -4717,6 +4895,38 @@ def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
     return tuple(sorted(discovered))
 
 
+def _yaml_indented_block(text: str, header: str, *, indent: int) -> str | None:
+    lines = text.splitlines(keepends=True)
+    prefix = " " * indent + header + ":"
+    for index, line in enumerate(lines):
+        if line.rstrip("\r\n") != prefix:
+            continue
+        end = index + 1
+        while end < len(lines):
+            candidate = lines[end]
+            stripped = candidate.strip()
+            if not stripped or stripped.startswith("#"):
+                end += 1
+                continue
+            leading = len(candidate) - len(candidate.lstrip(" "))
+            if leading <= indent:
+                break
+            end += 1
+        return "".join(lines[index:end])
+    return None
+
+
+def _pytest_workflow_collection_boundary(text: str) -> str:
+    blocks = (
+        _yaml_indented_block(text, "env", indent=0),
+        _yaml_indented_block(text, "defaults", indent=0),
+        _yaml_indented_block(text, "pytest-shards", indent=2),
+    )
+    if any(block is None for block in blocks):
+        return text
+    return "\n".join(block for block in blocks if block is not None)
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -4783,7 +4993,17 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
-        if current != prior:
+        current_boundary = (
+            _pytest_workflow_collection_boundary(current)
+            if path == ".github/workflows/ci.yml"
+            else current
+        )
+        prior_boundary = (
+            _pytest_workflow_collection_boundary(prior)
+            if path == ".github/workflows/ci.yml"
+            else prior
+        )
+        if current_boundary != prior_boundary:
             raise TestCorpusGuardError(
                 "changed pytest runner configuration cannot be inventoried safely"
             )

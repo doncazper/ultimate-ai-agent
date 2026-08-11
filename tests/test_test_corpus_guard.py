@@ -5570,3 +5570,171 @@ def test_control_center_tests_helpers_are_not_test_files(tmp_path: Path) -> None
     assert guard.discover_test_files(tmp_path) == (
         "apps/control-center/tests/example.spec.ts",
     )
+
+
+def test_frontend_inventory_rejects_generic_glob_registration_import() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend glob registration import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'const modules = import.meta.glob<Module>("./cases/*.ts", { eager: true });\n',
+        )
+
+
+def test_frontend_inventory_rejects_generic_direct_runner_call() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="generic frontend test registration",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'test<{}>("generic direct", () => {});\n',
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'eval(`test("dynamic eval", () => {})`);\n',
+        'const register = eval; register(`test("aliased eval", () => {})`);\n',
+        'new Function(`test("dynamic function", () => {})`)();\n',
+    ),
+)
+def test_frontend_inventory_rejects_dynamic_registration(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic frontend test registration",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source,
+        )
+
+
+def test_python_inventory_rejects_unittest_case_skiptest_import() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level unittest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "from unittest.case import SkipTest\n"
+            "raise SkipTest('disabled')\n"
+            "def test_case(): pass\n",
+        )
+
+
+def test_python_inventory_rejects_aliased_unittest_skip_namespace() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="post-definition unittest skip mutation",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "attrs = TestGroup.test_case.__dict__\n"
+            "attrs['__unittest_skip__'] = True\n",
+        )
+
+
+def test_python_inventory_rejects_class_body_unittest_skip_state() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="class-body unittest skip state",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            "class TestGroup(unittest.TestCase):\n"
+            "    __unittest_skip__ = True\n"
+            "    __unittest_skip_why__ = 'disabled'\n"
+            "    def test_case(self): pass\n",
+        )
+
+
+def test_python_inventory_binds_imported_fixture_name_override() -> None:
+    test_source = (
+        "from tests.helper import _value\ndef test_case(value): assert value\n"
+    )
+
+    def refs_for(params: str) -> tuple[str, ...]:
+        helper_source = (
+            "import pytest\n"
+            f"@pytest.fixture(name='value', params={params})\n"
+            "def _value(request): return request.param\n"
+        )
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_sample.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("[1, 2]") != refs_for("[1]")
+
+
+def test_python_inventory_binds_fixture_default_posture() -> None:
+    active = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(value): assert value\n",
+    )
+    defaulted = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(value=None): assert value\n",
+    )
+
+    assert [item.ref for item in active] != [item.ref for item in defaulted]
+
+
+def test_frontend_dependency_paths_follow_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            'module.exports = require("./vitest.shared.cjs");\n'
+        ),
+        "apps/control-center/vitest.shared.cjs": "module.exports = {};\n",
+    }
+
+    dependencies = guard._frontend_dependency_paths(
+        {"apps/control-center/vitest.config.cjs"},
+        sources.get,
+    )
+
+    assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_pytest_workflow_boundary_is_exact_to_collection_inputs() -> None:
+    base = """env:
+  PATH: /usr/bin
+defaults:
+  run:
+    shell: bash
+jobs:
+  pytest-shards:
+    steps:
+      - run: python scripts/verification/run_ci_lane.py --lane ci-pytest-shards
+  static-verification:
+    steps:
+      - uses: actions/checkout@pinned
+        with:
+          fetch-depth: 1
+"""
+    benign = base.replace("fetch-depth: 1", "fetch-depth: 0")
+    dangerous = base.replace(
+        "  pytest-shards:\n",
+        "  pytest-shards:\n    env:\n      PYTEST_ADDOPTS: --deselect=tests/test_target.py\n",
+    )
+
+    assert guard._pytest_workflow_collection_boundary(
+        base
+    ) == guard._pytest_workflow_collection_boundary(benign)
+    assert guard._pytest_workflow_collection_boundary(
+        base
+    ) != guard._pytest_workflow_collection_boundary(dangerous)
