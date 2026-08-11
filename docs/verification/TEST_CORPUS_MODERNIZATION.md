@@ -69,10 +69,12 @@ under a recognized hook name, including one in a hidden directory beneath
 `tests` and the bounded transitive local dependencies of those plugins, also
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
-as do parameterized fixtures declared by those registered plugins or imported
-into a `conftest.py` from a local module. Changed autouse fixtures in a
-`conftest.py` or registered plugin also fail closed, while module-local autouse
-fixture source and execution posture are bound into every affected test ref.
+as do fixtures declared by those registered plugins or imported into a
+`conftest.py` from a local module. Changes to ordinary, parameterized, or
+autouse fixtures in a `conftest.py` or registered plugin, and to their bounded
+local dependency closure, fail closed. Module-local autouse fixture source,
+transitive helper bindings, and execution posture are bound into every affected
+test ref.
 The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are
@@ -189,8 +191,8 @@ dependency (including no-substitution template-literal `require` calls) of those
 configuration files, configured Vitest setup files and their
 transitive local dependencies, or its `package.json` `pretest`, `test`, or
 `posttest` lifecycle command, also fail closed. Changes to the Control Center
-frontend dependency manifest or resolved `package-lock.json` are part of the
-same fail-closed collection boundary.
+frontend dependency manifest or resolved `package-lock.json` or
+`npm-shrinkwrap.json` are part of the same fail-closed collection boundary.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

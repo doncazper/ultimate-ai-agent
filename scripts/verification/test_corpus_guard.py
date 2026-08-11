@@ -101,6 +101,7 @@ FRONTEND_TEST_SCRIPT_CONFIG_PATHS = {
 FRONTEND_TEST_DEPENDENCY_PATHS = {
     "apps/control-center/package-lock.json",
     "apps/control-center/package.json",
+    "apps/control-center/npm-shrinkwrap.json",
 }
 PYTEST_COLLECTION_HOOK_NAMES = frozenset(
     {
@@ -875,6 +876,44 @@ def _parameterized_fixture_factory_aliases(
     return aliases
 
 
+def _fixture_factory_aliases(
+    tree: ast.Module,
+    fixture_aliases: set[str],
+) -> set[str]:
+    aliases: set[str] = set()
+    scope_nodes = (
+        *_module_execution_nodes(tree),
+        *(
+            scope_node
+            for class_node in ast.walk(tree)
+            if isinstance(class_node, ast.ClassDef)
+            for scope_node in _scope_execution_nodes(class_node.body)
+        ),
+    )
+    changed = True
+    while changed:
+        changed = False
+        for node in scope_nodes:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            resolves = (
+                isinstance(value, ast.Call)
+                and _is_fixture_callable(value.func, fixture_aliases)
+            ) or (isinstance(value, ast.Name) and value.id in aliases)
+            if not resolves:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
 def _is_fixture_callable(node: ast.AST, aliases: set[str]) -> bool:
     if isinstance(node, ast.Attribute) and node.attr == "fixture":
         root = _root_name(node)
@@ -1629,6 +1668,12 @@ def _python_imported_binding_source(
         tree,
         relative_package=relative_package,
     )
+    direct_module_aliases = {
+        imported.asname or imported.name.split(".", 1)[0]
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for imported in node.names
+    }
     star_import_modules = _python_star_import_modules(
         tree,
         relative_package=relative_package,
@@ -1786,6 +1831,16 @@ def _python_imported_binding_source(
             continue
         imported_module, imported_source = resolved_import
         for name in sorted(names):
+            if name == root and (
+                root in direct_module_aliases
+                or (len(candidates) > 1 and imported_module == candidates[0])
+            ):
+                serialized_parts.append(
+                    f"module={imported_module}\n"
+                    "module-source-sha256="
+                    f"{hashlib.sha256(imported_source.encode('utf-8')).hexdigest()}"
+                )
+                continue
             serialized_parts.append(
                 _python_imported_binding_source(
                     imported_module,
@@ -3402,7 +3457,11 @@ def _python_inventory_entries(
         tree,
         fixture_aliases,
     )
-    autouse_fixture_declarations = _autouse_fixture_declarations(text, path)
+    autouse_fixture_declarations = _autouse_fixture_declarations(
+        text,
+        path,
+        import_source_resolver,
+    )
     autouse_fixture_identity = (
         hashlib.sha256(
             json.dumps(
@@ -4875,7 +4934,51 @@ def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
     return False
 
 
-def _autouse_fixture_declarations(source: str, path: str) -> tuple[str, ...]:
+def _has_fixture_declaration(source: str, path: str) -> bool:
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "changed pytest fixture declarations cannot be inventoried safely"
+        ) from exc
+    fixture_aliases = _fixture_aliases(tree)
+    factory_aliases = _fixture_factory_aliases(tree, fixture_aliases)
+    functions = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+            _is_fixture_callable(decorator, fixture_aliases)
+            or (
+                isinstance(decorator, ast.Call)
+                and _is_fixture_callable(decorator.func, fixture_aliases)
+            )
+            or (isinstance(decorator, ast.Name) and decorator.id in factory_aliases)
+            for decorator in node.decorator_list
+        ):
+            return True
+        if not isinstance(node, ast.Call):
+            continue
+        factory = node.func
+        is_fixture_application = (
+            isinstance(factory, ast.Call)
+            and _is_fixture_callable(factory.func, fixture_aliases)
+        ) or (isinstance(factory, ast.Name) and factory.id in factory_aliases)
+        is_direct_fixture_application = _is_fixture_callable(factory, fixture_aliases)
+        if not (is_fixture_application or is_direct_fixture_application):
+            continue
+        if any(_root_name(argument) in functions for argument in node.args):
+            return True
+    return False
+
+
+def _autouse_fixture_declarations(
+    source: str,
+    path: str,
+    import_source_resolver: Callable[[str], str | None] | None = None,
+) -> tuple[str, ...]:
     try:
         tree = ast.parse(source, filename=path)
     except SyntaxError as exc:
@@ -4928,6 +5031,17 @@ def _autouse_fixture_declarations(source: str, path: str) -> tuple[str, ...]:
         for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
+    module = _python_module_name_for_path(path)
+    source_with_path = f"path={path}\n{source}"
+
+    def binding_source(name: str) -> str:
+        return _python_imported_binding_source(
+            module,
+            source_with_path,
+            name,
+            import_source_resolver,
+        )
+
     declarations: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -4939,7 +5053,7 @@ def _autouse_fixture_declarations(source: str, path: str) -> tuple[str, ...]:
                 ) or (
                     isinstance(decorator, ast.Name) and decorator.id in factory_aliases
                 ):
-                    declarations.add(ast.dump(node, include_attributes=False))
+                    declarations.add(binding_source(node.name))
         if not isinstance(node, ast.Call):
             continue
         factory = node.func
@@ -4953,9 +5067,7 @@ def _autouse_fixture_declarations(source: str, path: str) -> tuple[str, ...]:
             for argument in node.args:
                 root = _root_name(argument)
                 if root in functions:
-                    declarations.add(
-                        ast.dump(functions[root], include_attributes=False)
-                    )
+                    declarations.add(binding_source(root))
     return tuple(sorted(declarations))
 
 
@@ -5315,6 +5427,12 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed autouse pytest fixtures cannot be inventoried safely"
             )
+        if _has_fixture_declaration(current, path) or _has_fixture_declaration(
+            prior, path
+        ):
+            raise TestCorpusGuardError(
+                "changed pytest fixtures cannot be inventoried safely"
+            )
     changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
         current_registered_plugins: set[str] = set()
@@ -5352,9 +5470,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                     repo,
                     prior_registered_plugins,
                     read_text=lambda path: (
-                        _base_text(repo, base_sha, path)
-                        if path in base_paths
-                        else None
+                        _base_text(repo, base_sha, path) if path in base_paths else None
                     ),
                 )
             )
@@ -5386,6 +5502,16 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 raise TestCorpusGuardError(
                     "changed registered autouse pytest fixtures cannot be "
                     "inventoried safely"
+                )
+            if _has_fixture_declaration(
+                current, plugin_path
+            ) or _has_fixture_declaration(prior, plugin_path):
+                raise TestCorpusGuardError(
+                    "changed registered pytest fixtures cannot be inventoried safely"
+                )
+            if current != prior:
+                raise TestCorpusGuardError(
+                    "changed registered pytest dependency cannot be inventoried safely"
                 )
     changed = {path for path in all_changed if _is_test_path(path)}
     changed_frontend_sources = {
