@@ -2163,6 +2163,16 @@ def test_discovery_covers_every_vitest_default_extension(tmp_path: Path) -> None
     assert set(guard.discover_test_files(tmp_path)) == expected
 
 
+def test_discovery_covers_pytest_suffix_named_modules(tmp_path: Path) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    test_path = tests_root / "case_test.py"
+    test_path.write_text("def test_suffix_style(): pass\n")
+
+    assert guard._is_test_path("tests/case_test.py")
+    assert guard.discover_test_files(tmp_path) == ("tests/case_test.py",)
+
+
 def test_discovery_covers_vitest_defaults_outside_conventional_roots(
     tmp_path: Path,
 ) -> None:
@@ -2739,6 +2749,7 @@ def test_python_discovery_matches_shard_runner_including_hidden_paths(
 
     assert guard.discover_test_files(tmp_path) == (
         "tests/.hidden/test_hidden.py",
+        "tests/example_test.py",
         "tests/test_visible.py",
     )
 
@@ -4491,12 +4502,41 @@ def test_python_inventory_rejects_locally_imported_test_class(
         "skip_module = pytest.skip\n"
         'skip_module("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
+        "import pytest\n"
+        'raise pytest.skip.Exception("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "from pytest import skip\n"
+        "abort = skip\n"
+        'raise abort.Exception("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
     ),
 )
 def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="module-level pytest collection abort",
+    ):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "def setup_module(module): pass\ndef test_case(): pass\n",
+        "def setup_function(function): pass\ndef test_case(): pass\n",
+        "class TestCases:\n"
+        "    @classmethod\n"
+        "    def setup_class(cls): pass\n"
+        "    def test_case(self): pass\n",
+        "class TestCases:\n"
+        "    def setup_method(self, method): pass\n"
+        "    def test_case(self): pass\n",
+    ),
+)
+def test_python_inventory_rejects_xunit_setup_hooks(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="xunit-style pytest setup hooks",
     ):
         guard.parse_python_declarations("tests/test_sample.py", source)
 
@@ -5599,6 +5639,67 @@ def test_python_inventory_binds_autouse_fixture_module_dependency_closure() -> N
     assert refs_for(True) != refs_for(False)
 
 
+@pytest.mark.parametrize(
+    "fixture_declaration",
+    (
+        "@pytest.fixture\ndef value(): return fixture_value()\n",
+        "@pytest.fixture(name='value')\ndef _value(): return fixture_value()\n",
+        "def value(): return fixture_value()\nvalue = pytest.fixture(value)\n",
+    ),
+)
+def test_python_inventory_binds_module_local_requested_fixture(
+    fixture_declaration: str,
+) -> None:
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        source = (
+            "import pytest\n"
+            f"def fixture_value(): return {enabled!r}\n"
+            + fixture_declaration
+            + "def test_case(value): pass\n"
+        )
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_example.py",
+                source,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+def test_changed_module_local_fixture_import_dependency_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_case.py").write_text(
+        "import pytest\n"
+        "from tests.fixture_helper import fixture_value\n"
+        "@pytest.fixture\n"
+        "def value(): return fixture_value()\n"
+        "def test_case(value): pass\n"
+    )
+    (tests_root / "fixture_helper.py").write_text(
+        "def fixture_value(): return 'current'\n"
+    )
+    outputs = iter((b"tests/fixture_helper.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed module-local pytest fixture dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_python_inventory_binds_autouse_fixture_package_initializer() -> None:
     test_source = (
         "import pytest\n"
@@ -5617,6 +5718,41 @@ def test_python_inventory_binds_autouse_fixture_package_initializer() -> None:
                 if path == "tests/pkg/helper.py"
                 else f"ENABLED = {enabled!r}\n"
                 if path == "tests/pkg/__init__.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+def test_python_inventory_binds_package_initializer_dependency_closure() -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.pkg.helper as helper_module\n"
+        "def run_setup(module): module.setup_environment()\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): run_setup(helper_module)\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "import sys\n"
+                "def setup_environment(): return sys.modules[__package__].ENABLED\n"
+                if path == "tests/pkg/helper.py"
+                else "from tests.pkg.state import ENABLED\n"
+                if path == "tests/pkg/__init__.py"
+                else f"ENABLED = {enabled!r}\n"
+                if path == "tests/pkg/state.py"
                 else None
             )
         )
@@ -5973,6 +6109,57 @@ def test_changed_transitive_registered_pytest_plugin_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed registered pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_test_module_registered_plugin_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_case.py").write_text(
+        'pytest_plugins = ("tests.fixture_plugin",)\n'
+        "def test_case(): pass\n"
+    )
+    plugin_path = tests_root / "fixture_plugin.py"
+    plugin_path.write_text(
+        "import pytest\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): pytest.skip('disabled')\n"
+    )
+    outputs = iter(
+        (
+            b"tests/fixture_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/fixture_plugin.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "import pytest\n"
+            "@pytest.fixture(autouse=True)\n"
+            "def environment(): return None\n"
+            if path == "tests/fixture_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered autouse pytest fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

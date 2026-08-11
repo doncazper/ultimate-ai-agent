@@ -1344,10 +1344,24 @@ def _has_module_level_pytest_collection_abort(
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
     aliases = _pytest_collection_abort_aliases(tree, imported_modules)
-    return any(
-        _is_pytest_collection_abort_call(node, imported_modules, aliases)
-        for node in _module_execution_nodes(tree)
-    )
+    for node in _module_execution_nodes(tree):
+        if _is_pytest_collection_abort_call(node, imported_modules, aliases):
+            return True
+        if not isinstance(node, ast.Raise) or node.exc is None:
+            continue
+        raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+        if (
+            isinstance(raised, ast.Attribute)
+            and raised.attr == "Exception"
+            and _pytest_collection_abort_callable_name(
+                raised.value,
+                imported_modules,
+                aliases,
+            )
+            == "skip"
+        ):
+            return True
+    return False
 
 
 def _unittest_skiptest_reference(
@@ -1776,6 +1790,19 @@ def _python_module_dependency_identity(
 ) -> str:
     """Bind a module object to the bounded closure of its local dependencies."""
 
+    cache_key = (
+        module,
+        hashlib.sha256(source.encode("utf-8")).hexdigest(),
+    )
+    identity_cache: dict[tuple[str, str], str] | None = None
+    if import_source_resolver is not None:
+        identity_cache = getattr(
+            import_source_resolver,
+            "_uaa_module_identity_cache",
+            None,
+        )
+        if identity_cache is not None and cache_key in identity_cache:
+            return identity_cache[cache_key]
     pending = [(module, source)]
     resolved_sources: dict[str, str] = {}
     expanded_modules: set[str] = set()
@@ -1832,12 +1859,7 @@ def _python_module_dependency_identity(
                     package_source is not None
                     and package_source.split("\n", 1)[0].endswith("/__init__.py")
                 ):
-                    resolved_sources.setdefault(package_module, package_source)
-                    if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
-                        raise TestCorpusGuardError(
-                            "Python module identity dependency closure exceeds module "
-                            "budget"
-                        )
+                    pending.append((package_module, package_source))
             for grouped_module in grouped_lazy_export_modules:
                 grouped_source = import_source_resolver(grouped_module)
                 if grouped_source is not None:
@@ -1872,11 +1894,14 @@ def _python_module_dependency_identity(
             if resolved_import is not None:
                 resolved_dependencies.append(resolved_import)
         pending.extend(resolved_dependencies)
-    return "\n".join(
+    identity = "\n".join(
         f"module={resolved_module}\nmodule-source-sha256="
         f"{hashlib.sha256(resolved_source.encode('utf-8')).hexdigest()}"
         for resolved_module, resolved_source in sorted(resolved_sources.items())
     )
+    if identity_cache is not None:
+        identity_cache[cache_key] = identity
+    return identity
 
 
 def _python_imported_binding_source(
@@ -1892,6 +1917,20 @@ def _python_imported_binding_source(
         raise TestCorpusGuardError(
             "transitive imported Python parameter data is circular"
         )
+    cache_key = (
+        module,
+        binding_name,
+        hashlib.sha256(source.encode("utf-8")).hexdigest(),
+    )
+    binding_cache: dict[tuple[str, str, str], str] | None = None
+    if import_source_resolver is not None and not _seen_bindings:
+        binding_cache = getattr(
+            import_source_resolver,
+            "_uaa_binding_identity_cache",
+            None,
+        )
+        if binding_cache is not None and cache_key in binding_cache:
+            return binding_cache[cache_key]
     source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
     try:
         tree = ast.parse(source_text, filename=module)
@@ -2143,7 +2182,171 @@ def _python_imported_binding_source(
                     _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                 )
             )
-    return f"module={module}\nbinding={binding_name}\n" + "\n".join(serialized_parts)
+    identity = f"module={module}\nbinding={binding_name}\n" + "\n".join(
+        serialized_parts
+    )
+    if binding_cache is not None:
+        binding_cache[cache_key] = identity
+    return identity
+
+
+def _python_local_fixture_bindings(tree: ast.Module) -> dict[str, str]:
+    """Map statically declared module-local fixture names to function bindings."""
+
+    fixture_aliases = _fixture_aliases(tree)
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    configured_factories: dict[str, str | None] = {}
+
+    def fixture_name(call: ast.Call, default: str | None) -> str | None:
+        name_keywords = [
+            keyword for keyword in call.keywords if keyword.arg in {None, "name"}
+        ]
+        if any(keyword.arg is None for keyword in name_keywords):
+            return default
+        if not name_keywords:
+            return default
+        value = name_keywords[-1].value
+        if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+            raise TestCorpusGuardError(
+                "module-local Python fixture name cannot be inventoried safely"
+            )
+        return value.value
+
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            configured_name: str | None
+            if isinstance(value, ast.Call) and _is_fixture_callable(
+                value.func, fixture_aliases
+            ):
+                configured_name = fixture_name(value, None)
+            elif isinstance(value, ast.Name) and value.id in configured_factories:
+                configured_name = configured_factories[value.id]
+            else:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if (
+                        name not in configured_factories
+                        or configured_factories[name] != configured_name
+                    ):
+                        configured_factories[name] = configured_name
+                        changed = True
+
+    bindings: dict[str, str] = {}
+
+    def add(exposed_name: str, function_name: str) -> None:
+        existing = bindings.get(exposed_name)
+        if existing is not None and existing != function_name:
+            raise TestCorpusGuardError(
+                "module-local Python fixture name is ambiguous"
+            )
+        bindings[exposed_name] = function_name
+
+    for function_name, function in functions.items():
+        for decorator in function.decorator_list:
+            if _is_fixture_callable(decorator, fixture_aliases):
+                add(function_name, function_name)
+                break
+            if isinstance(decorator, ast.Call) and _is_fixture_callable(
+                decorator.func, fixture_aliases
+            ):
+                add(
+                    fixture_name(decorator, function_name) or function_name,
+                    function_name,
+                )
+                break
+            if isinstance(decorator, ast.Name) and decorator.id in configured_factories:
+                add(configured_factories[decorator.id] or function_name, function_name)
+                break
+
+    for node in _module_execution_nodes(tree):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        default_name: str | None = None
+        if _is_fixture_callable(node.func, fixture_aliases):
+            default_name = fixture_name(node, None)
+        elif isinstance(node.func, ast.Call) and _is_fixture_callable(
+            node.func.func, fixture_aliases
+        ):
+            default_name = fixture_name(node.func, None)
+        elif isinstance(node.func, ast.Name) and node.func.id in configured_factories:
+            default_name = configured_factories[node.func.id]
+        else:
+            continue
+        aliases = _module_name_aliases(
+            tree,
+            before=(node.lineno, node.col_offset),
+        )
+        for argument in node.args:
+            root = _root_name(argument)
+            if root is None:
+                continue
+            function_name = aliases.get(root, root)
+            if function_name in functions:
+                add(default_name or function_name, function_name)
+    return bindings
+
+
+def _python_local_binding_identity(
+    binding_name: str,
+    module_bindings: dict[str, tuple[_ModuleBinding, ...]],
+    imported_modules: dict[str, tuple[str, ...]],
+) -> str:
+    """Serialize a local binding and bounded local dependencies without cycles."""
+
+    pending = [binding_name]
+    resolved: set[str] = set()
+    binding_nodes: dict[tuple[int, int], ast.AST] = {}
+    imported_requirements: dict[str, set[str]] = {}
+    while pending:
+        name = pending.pop()
+        if name in resolved:
+            continue
+        resolved.add(name)
+        for binding in module_bindings.get(name, ()):
+            node = binding.node
+            binding_nodes[(node.lineno, node.col_offset)] = node
+            for root, names in _python_import_requirements(
+                node, imported_modules
+            ).items():
+                imported_requirements.setdefault(root, set()).update(names)
+            pending.extend(
+                child.id
+                for child in ast.walk(node)
+                if isinstance(child, ast.Name)
+                and child.id in module_bindings
+                and child.id not in resolved
+            )
+    if not binding_nodes:
+        raise TestCorpusGuardError(
+            "module-local Python fixture binding cannot be resolved safely"
+        )
+    _reject_repository_reader_calls(
+        tuple(binding_nodes.values()),
+        imported_modules,
+    )
+    serialized_parts = [
+        ast.dump(node, annotate_fields=True, include_attributes=False)
+        for _position, node in sorted(binding_nodes.items())
+    ]
+    for root, names in sorted(imported_requirements.items()):
+        serialized_parts.append(
+            f"fixture-import={','.join(imported_modules[root])};"
+            f"bindings={','.join(sorted(names))}"
+        )
+    return f"binding={binding_name}\n" + "\n".join(serialized_parts)
 
 
 def _python_fixture_binding_exports(source: str) -> dict[str, str]:
@@ -2272,6 +2475,7 @@ def _parameterized_ref(
     fixture_override_resolver: (
         Callable[[str], tuple[tuple[str, str, str], ...]] | None
     ) = None,
+    local_fixture_resolver: Callable[[str], str | None] | None = None,
     *,
     container_decorators: tuple[ast.expr, ...] = (),
     collection_lineno: int | None = None,
@@ -2477,6 +2681,14 @@ def _parameterized_ref(
                             import_source_resolver,
                         )
                     )
+                    continue
+                local_fixture = (
+                    local_fixture_resolver(fixture_name)
+                    if local_fixture_resolver is not None
+                    else None
+                )
+                if local_fixture is not None:
+                    serialized_parts.append("fixture-local=" + local_fixture)
                 continue
             resolved_import = next(
                 (
@@ -3059,6 +3271,24 @@ def _python_inventory_entries(
         for node in tree.body
     ):
         raise TestCorpusGuardError("pytest_generate_tests cannot be inventoried safely")
+    if any(
+        (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name in {"setup_module", "setup_function"}
+        )
+        or (
+            isinstance(node, ast.ClassDef)
+            and any(
+                isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and child.name in {"setup_class", "setup_method"}
+                for child in node.body
+            )
+        )
+        for node in tree.body
+    ):
+        raise TestCorpusGuardError(
+            "xunit-style pytest setup hooks cannot be inventoried safely"
+        )
 
     for module_node in tree.body:
         if not isinstance(
@@ -3742,6 +3972,23 @@ def _python_inventory_entries(
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
     fixture_aliases = _fixture_aliases(tree)
+    local_fixture_bindings = _python_local_fixture_bindings(tree)
+    local_fixture_identity_cache: dict[str, str] = {}
+
+    def local_fixture_identity(fixture_name: str) -> str | None:
+        binding_name = local_fixture_bindings.get(fixture_name)
+        if binding_name is None:
+            return None
+        identity = local_fixture_identity_cache.get(binding_name)
+        if identity is None:
+            identity = _python_local_binding_identity(
+                binding_name,
+                module_bindings,
+                imported_modules,
+            )
+            local_fixture_identity_cache[binding_name] = identity
+        return identity
+
     parameterized_fixture_factories = _parameterized_fixture_factory_aliases(
         tree,
         fixture_aliases,
@@ -4361,6 +4608,7 @@ def _python_inventory_entries(
                     imported_modules,
                     import_source_resolver,
                     fixture_override_matches,
+                    local_fixture_identity,
                     container_decorators=tuple(module_pytestmark_decorators),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
@@ -4473,6 +4721,7 @@ def _python_inventory_entries(
                 imported_modules,
                 import_source_resolver,
                 fixture_override_matches,
+                local_fixture_identity,
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
@@ -4628,7 +4877,11 @@ def _pytest_runner_dependency_paths(repo: Path) -> set[str]:
 def _python_import_resolver(
     read_text: Callable[[str], str | None],
 ) -> Callable[[str], str | None]:
+    source_cache: dict[str, str | None] = {}
+
     def resolve(module: str) -> str | None:
+        if module in source_cache:
+            return source_cache[module]
         resolved = [
             f"path={candidate}\n{source}"
             for candidate in _python_module_candidates(module)
@@ -4636,7 +4889,12 @@ def _python_import_resolver(
         ]
         if len(resolved) > 1:
             raise TestCorpusGuardError("imported Python parameter data is ambiguous")
-        return resolved[0] if resolved else None
+        result = resolved[0] if resolved else None
+        source_cache[module] = result
+        return result
+
+    setattr(resolve, "_uaa_module_identity_cache", {})
+    setattr(resolve, "_uaa_binding_identity_cache", {})
 
     return resolve
 
@@ -4747,6 +5005,7 @@ def _parse_worktree_test_declarations(
     repo: Path,
     path: str,
     text: str,
+    python_import_source_resolver: Callable[[str], str | None] | None = None,
 ) -> tuple[TestDeclaration, ...]:
     if path.endswith(".py"):
 
@@ -4761,7 +5020,8 @@ def _parse_worktree_test_declarations(
             for declaration, _source in _python_inventory_entries(
                 path,
                 text,
-                _python_import_resolver(read_python_import),
+                python_import_source_resolver
+                or _python_import_resolver(read_python_import),
             )
         )
 
@@ -4983,10 +5243,24 @@ def _read_worktree_text(
 
 
 def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
+    def read_python_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if not target.is_file():
+            return None
+        return _read_worktree_text(repo, candidate)
+
+    python_import_source_resolver = _python_import_resolver(read_python_import)
     declarations: list[TestDeclaration] = []
     for path in discover_test_files(repo):
         text = _read_worktree_text(repo, path)
-        declarations.extend(_parse_worktree_test_declarations(repo, path, text))
+        declarations.extend(
+            _parse_worktree_test_declarations(
+                repo,
+                path,
+                text,
+                python_import_source_resolver,
+            )
+        )
     refs = [item.ref for item in declarations]
     if len(refs) != len(set(refs)):
         raise TestCorpusGuardError("test inventory contains duplicate stable refs")
@@ -5654,6 +5928,20 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    for path in all_changed:
+        if not _is_python_test_path(path):
+            continue
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if "pytest_plugins" not in current and "pytest_plugins" not in prior:
+            continue
+        if _pytest_plugin_modules(current, path) != _pytest_plugin_modules(
+            prior, path
+        ):
+            raise TestCorpusGuardError(
+                "changed test-module pytest plugin registration cannot be "
+                "inventoried safely"
+            )
     for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
@@ -5823,6 +6111,23 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 prior_registered_plugins.update(
                     _pytest_conftest_import_modules(prior, conftest_path)
                 )
+        current_python_tests = {
+            path for path in discover_test_files(repo) if path.endswith(".py")
+        }
+        for test_path in sorted(current_python_tests):
+            current = _read_worktree_text(repo, test_path)
+            if "pytest_plugins" in current:
+                current_registered_plugins.update(
+                    _pytest_plugin_modules(current, test_path)
+                )
+        for test_path in sorted(all_changed):
+            if not _is_python_test_path(test_path):
+                continue
+            prior = _base_text(repo, base_sha, test_path) or ""
+            if "pytest_plugins" in prior:
+                prior_registered_plugins.update(
+                    _pytest_plugin_modules(prior, test_path)
+                )
         prior_registered_plugins.update(current_registered_plugins)
         plugin_dependency_paths = _python_dependency_paths(
             repo,
@@ -5932,6 +6237,11 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             )
             dependency_candidates.update(_python_package_initializer_paths(test_path))
             if dependency_candidates & changed_python_sources:
+                if _python_local_fixture_bindings(tree):
+                    raise TestCorpusGuardError(
+                        "changed module-local pytest fixture dependency cannot be "
+                        "inventoried safely"
+                    )
                 changed.add(test_path)
     changed_tuple = tuple(sorted(changed))
     if len(changed_tuple) > MAX_CHANGED_TEST_PATHS:
@@ -5962,7 +6272,10 @@ def _is_python_test_path(path: str) -> bool:
     candidate = Path(path)
     return (
         candidate.suffix == ".py"
-        and candidate.name.startswith("test_")
+        and (
+            candidate.name.startswith("test_")
+            or candidate.name.endswith("_test.py")
+        )
         and candidate.parts[:1] == ("tests",)
     )
 
