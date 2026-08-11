@@ -1311,6 +1311,7 @@ def test_inventory_fingerprint(repo: Path) -> str:
                 path.relative_to(repo).as_posix()
                 for pattern in (
                     "tests/**/test_*.py",
+                    "tests/**/*_test.py",
                     "apps/control-center/src/**/*.test.ts",
                     "apps/control-center/src/**/*.test.tsx",
                     "apps/control-center/tests/**/*.ts",

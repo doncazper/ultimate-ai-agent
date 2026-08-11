@@ -25,8 +25,8 @@ evidence-aware rather than globally one-task-at-a-time.
 ## Phase 01 Contract
 
 `scripts/verification/test_corpus_guard.py` inventories stable Python test-file
-declarations from the shard runner's exact recursive `tests/test_*.py` and
-`tests/*_test.py` scopes,
+declarations from the shard runner's exact recursive `tests/**/test_*.py` and
+`tests/**/*_test.py` scopes,
 including hidden subdirectories, and Control Center `.test`/`.spec` declarations
 across the complete default Vitest file scope; Control Center discovery applies
 Vitest's `node_modules` and `.git` directory exclusions instead of pytest's
@@ -67,9 +67,11 @@ ambiguous, or unresolved parameter bindings and collection-changing
 fail closed. Collection hooks in changed repository plugins registered through
 a `conftest.py` or test-module `pytest_plugins` binding, or imported directly
 under a recognized hook name, including one in a hidden directory beneath
-`tests` and the bounded transitive local dependencies of those plugins, also
+`tests`, the plugins' implicit package initializers, and the bounded transitive
+local dependencies of those plugins, also
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
+while conditional test-module or conftest plugin registration fails closed,
 as do fixtures declared by those registered plugins or imported into a
 `conftest.py` from a local module. Direct `from package import submodule`
 imports include both the package and resolvable submodule candidate in that
@@ -85,11 +87,14 @@ closure are resolved into that closure; unresolved dynamic targets fail closed,
 recognized grouped lazy-export targets bind each local target source without
 eagerly expanding optional export trees, and rebound import aliases are
 serialized as their active local bindings.
-Module-local requested fixture source and bounded local helper identity are bound
-into each consuming test ref; changes to the fixture module's bounded imported
-dependency closure fail closed. Pytest xunit-style
+Module-local requested fixture source, fixture-to-fixture request dependencies,
+and bounded local helper identity are bound into each consuming test ref,
+including requests declared through `usefixtures`; changes to the fixture
+module's bounded imported dependency closure fail closed. Class-local requested
+fixtures fail closed. Pytest xunit-style
 `setup_module`, `setup_function`, `setup_class`, and `setup_method` hooks fail
-closed rather than allowing setup-time skips outside the declaration identity.
+closed, including assigned aliases, rather than allowing setup-time skips outside
+the declaration identity.
 Class-local autouse fixtures, including class-scope factory aliases, fail closed
 rather than applying a file-wide identity. Post-definition fixture applications
 also resolve bounded module-execution aliases before classifying their target.
@@ -109,8 +114,11 @@ in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 registration changes, development-dependency changes, and `uv.lock` changes are
 included, and every `tox.ini` change is rejected.
 Changes to the canonical pytest shard runner or its command manifest also fail
-closed because those files define which Python tests execute.
-Module-level `pytest.skip.Exception` raises are treated as collection aborts in
+closed because those files define which Python tests execute. The one bounded
+exception is the paired, exact `*_test.py` discovery alignment: the runner and
+its command-manifest inventory must change together with no unrelated edits.
+Module-level `pytest.skip.Exception` raises and their bounded assignment aliases
+are treated as collection aborts in
 the same way as approved module-level `pytest.skip(..., allow_module_level=True)`
 calls.
 Python test-class aliases, assigned or imported `unittest.TestCase` aliases and

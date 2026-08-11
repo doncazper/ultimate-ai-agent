@@ -47,9 +47,11 @@ def test_test_discovery_is_recursive_and_sorted(tmp_path: Path) -> None:
     (tmp_path / "tests/nested").mkdir(parents=True)
     (tmp_path / "tests/test_z.py").write_text("", encoding="utf-8")
     (tmp_path / "tests/nested/test_a.py").write_text("", encoding="utf-8")
+    (tmp_path / "tests/nested/case_test.py").write_text("", encoding="utf-8")
     (tmp_path / "tests/nested/helper.py").write_text("", encoding="utf-8")
 
     assert runner.discover_test_files(tmp_path) == [
+        "tests/nested/case_test.py",
         "tests/nested/test_a.py",
         "tests/test_z.py",
     ]

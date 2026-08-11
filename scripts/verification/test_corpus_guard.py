@@ -1339,24 +1339,63 @@ def _is_pytest_collection_abort_call(
     )
 
 
+def _pytest_skip_exception_aliases(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+    callable_aliases: dict[str, str],
+) -> set[str]:
+    aliases: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            is_exception = (
+                isinstance(value, ast.Attribute)
+                and value.attr == "Exception"
+                and _pytest_collection_abort_callable_name(
+                    value.value,
+                    imported_modules,
+                    callable_aliases,
+                )
+                == "skip"
+            ) or (isinstance(value, ast.Name) and value.id in aliases)
+            if not is_exception:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
 def _has_module_level_pytest_collection_abort(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
     aliases = _pytest_collection_abort_aliases(tree, imported_modules)
+    exception_aliases = _pytest_skip_exception_aliases(
+        tree,
+        imported_modules,
+        aliases,
+    )
     for node in _module_execution_nodes(tree):
         if _is_pytest_collection_abort_call(node, imported_modules, aliases):
             return True
         if not isinstance(node, ast.Raise) or node.exc is None:
             continue
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-        if (
-            isinstance(raised, ast.Attribute)
-            and raised.attr == "Exception"
-            and _pytest_collection_abort_callable_name(
-                raised.value,
-                imported_modules,
-                aliases,
+        if isinstance(raised, ast.Name) and raised.id in exception_aliases:
+            return True
+        if isinstance(raised, ast.Attribute) and raised.attr == "Exception" and (
+            _pytest_collection_abort_callable_name(
+                raised.value, imported_modules, aliases
             )
             == "skip"
         ):
@@ -1923,7 +1962,7 @@ def _python_imported_binding_source(
         hashlib.sha256(source.encode("utf-8")).hexdigest(),
     )
     binding_cache: dict[tuple[str, str, str], str] | None = None
-    if import_source_resolver is not None and not _seen_bindings:
+    if import_source_resolver is not None:
         binding_cache = getattr(
             import_source_resolver,
             "_uaa_binding_identity_cache",
@@ -2303,6 +2342,7 @@ def _python_local_binding_identity(
     binding_name: str,
     module_bindings: dict[str, tuple[_ModuleBinding, ...]],
     imported_modules: dict[str, tuple[str, ...]],
+    fixture_bindings: dict[str, str],
 ) -> str:
     """Serialize a local binding and bounded local dependencies without cycles."""
 
@@ -2318,6 +2358,19 @@ def _python_local_binding_identity(
         for binding in module_bindings.get(name, ()):
             node = binding.node
             binding_nodes[(node.lineno, node.col_offset)] = node
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                requested_fixtures = (
+                    *node.args.posonlyargs,
+                    *node.args.args,
+                    *node.args.kwonlyargs,
+                )
+                pending.extend(
+                    fixture_bindings[argument.arg]
+                    for argument in requested_fixtures
+                    if argument.arg not in {"self", "cls"}
+                    and argument.arg in fixture_bindings
+                    and fixture_bindings[argument.arg] not in resolved
+                )
             for root, names in _python_import_requirements(
                 node, imported_modules
             ).items():
@@ -2603,6 +2656,17 @@ def _parameterized_ref(
         and decorator.func.attr == "usefixtures"
         and is_proven_pytest_mark(decorator.func)
     )
+    usefixtures_names: list[str] = []
+    for decorator in usefixtures_decorators:
+        if decorator.keywords or any(
+            not isinstance(argument, ast.Constant)
+            or not isinstance(argument.value, str)
+            for argument in decorator.args
+        ):
+            raise TestCorpusGuardError(
+                "Python usefixtures request cannot be inventoried safely"
+            )
+        usefixtures_names.extend(argument.value for argument in decorator.args)
     fixture_argument_names = tuple(
         argument.arg
         for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
@@ -2613,19 +2677,25 @@ def _parameterized_ref(
         for argument in (node.args.vararg, node.args.kwarg)
         if argument is not None
     )
+    requested_fixture_names = tuple(
+        dict.fromkeys((*fixture_argument_names, *usefixtures_names))
+    )
     identity_decorators = (
         *decorators,
         *execution_disabling_decorators,
         *usefixtures_decorators,
     )
-    if not identity_decorators and not fixture_argument_names:
+    if not identity_decorators and not requested_fixture_names:
         return raw_ref
     serialized_parts = [
         ast.dump(decorator, annotate_fields=True, include_attributes=False)
         for decorator in identity_decorators
     ]
-    if fixture_argument_names:
-        serialized_parts.append("fixture-arguments=" + ",".join(fixture_argument_names))
+    if requested_fixture_names:
+        if fixture_argument_names:
+            serialized_parts.append(
+                "fixture-arguments=" + ",".join(fixture_argument_names)
+            )
         positional_arguments = (*node.args.posonlyargs, *node.args.args)
         positional_default_start = len(positional_arguments) - len(node.args.defaults)
         named_defaults = [
@@ -2658,7 +2728,7 @@ def _parameterized_ref(
                     for name, default in named_defaults
                 )
             )
-        for fixture_name in fixture_argument_names:
+        for fixture_name in requested_fixture_names:
             candidates = imported_modules.get(fixture_name)
             if candidates is None:
                 override_matches = (
@@ -3271,19 +3341,27 @@ def _python_inventory_entries(
         for node in tree.body
     ):
         raise TestCorpusGuardError("pytest_generate_tests cannot be inventoried safely")
-    if any(
-        (
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name in {"setup_module", "setup_function"}
-        )
-        or (
-            isinstance(node, ast.ClassDef)
-            and any(
-                isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and child.name in {"setup_class", "setup_method"}
-                for child in node.body
-            )
-        )
+    def binds_xunit_hook(nodes: list[ast.stmt], names: set[str]) -> bool:
+        for node in _scope_execution_nodes(nodes):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name in names:
+                    return True
+                continue
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                targets = (node.target,)
+            else:
+                continue
+            if names & {
+                name for target in targets for name in _binding_target_names(target)
+            }:
+                return True
+        return False
+
+    if binds_xunit_hook(tree.body, {"setup_module", "setup_function"}) or any(
+        isinstance(node, ast.ClassDef)
+        and binds_xunit_hook(node.body, {"setup_class", "setup_method"})
         for node in tree.body
     ):
         raise TestCorpusGuardError(
@@ -3985,6 +4063,7 @@ def _python_inventory_entries(
                 binding_name,
                 module_bindings,
                 imported_modules,
+                local_fixture_bindings,
             )
             local_fixture_identity_cache[binding_name] = identity
         return identity
@@ -4629,6 +4708,14 @@ def _python_inventory_entries(
             raise TestCorpusGuardError(
                 "class-body unittest skip state cannot be inventoried safely"
             )
+        if any(
+            isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and fixture_decorated(child)
+            for child in node.body
+        ):
+            raise TestCorpusGuardError(
+                "class-local pytest fixtures cannot be inventoried safely"
+            )
         class_pytestmark_decorators: list[ast.expr] = []
         for child in node.body:
             if not isinstance(child, (ast.Assign, ast.AnnAssign)):
@@ -4753,6 +4840,14 @@ def _python_module_candidates(module: str) -> tuple[str, ...]:
     if module == "ultimate_ai_agent" or module.startswith("ultimate_ai_agent."):
         candidates = tuple(f"src/{candidate}" for candidate in candidates)
     return candidates
+
+
+def _python_modules_with_package_ancestors(modules: set[str]) -> set[str]:
+    expanded = set(modules)
+    for module in modules:
+        parts = module.split(".")
+        expanded.update(".".join(parts[:index]) for index in range(1, len(parts)))
+    return expanded
 
 
 def _python_module_name_for_path(path: str) -> str:
@@ -5700,6 +5795,11 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
             "pytest plugin registration cannot be inventoried safely"
         ) from exc
     modules: set[str] = set()
+    direct_registration_nodes = {
+        id(node)
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+    }
     if _has_module_namespace_mutation(tree):
         raise TestCorpusGuardError(
             "pytest plugin registration cannot be inventoried safely"
@@ -5741,6 +5841,10 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
             name for target in targets for name in _binding_target_names(target)
         }:
             continue
+        if id(node) not in direct_registration_nodes:
+            raise TestCorpusGuardError(
+                "conditional pytest plugin registration cannot be inventoried safely"
+            )
         value = node.value
         if isinstance(value, ast.Constant) and isinstance(value.value, str):
             values = (value,)
@@ -5865,6 +5969,65 @@ def _pytest_workflow_collection_boundary(text: str) -> str:
     return "\n".join(block for block in blocks if block is not None)
 
 
+def _safe_pytest_suffix_discovery_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    manifest_path = "scripts/verification/ci_command_manifest.py"
+    runner_path = "scripts/verification/run_pytest_shards.py"
+    if set(current_by_path) != {manifest_path, runner_path} or set(
+        prior_by_path
+    ) != {manifest_path, runner_path}:
+        return set()
+
+    manifest_needle = '                    "tests/**/test_*.py",\n'
+    manifest_replacement = (
+        manifest_needle + '                    "tests/**/*_test.py",\n'
+    )
+    prior_manifest = prior_by_path[manifest_path]
+    if prior_manifest.count(manifest_needle) != 1:
+        return set()
+    if current_by_path[manifest_path] != prior_manifest.replace(
+        manifest_needle,
+        manifest_replacement,
+        1,
+    ):
+        return set()
+
+    runner_needle = (
+        '        for path in (root / "tests").rglob("test_*.py")\n'
+        "        if path.is_file()\n"
+    )
+    runner_replacement = (
+        '        for path in (root / "tests").rglob("*.py")\n'
+        "        if path.is_file()\n"
+        '        and (path.name.startswith("test_") or path.name.endswith("_test.py"))\n'
+    )
+    prior_runner = prior_by_path[runner_path]
+    if prior_runner.count(runner_needle) != 1:
+        return set()
+    expected_runner = prior_runner.replace(
+        runner_needle,
+        runner_replacement,
+        1,
+    )
+    no_tests_needle = '        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)\n'
+    no_tests_replacement = (
+        '        print("FAIL: no canonical Python test files discovered", file=sys.stderr)\n'
+    )
+    if expected_runner.count(no_tests_needle) != 1:
+        return set()
+    expected_runner = expected_runner.replace(
+        no_tests_needle,
+        no_tests_replacement,
+        1,
+    )
+    if current_by_path[runner_path] != expected_runner:
+        return set()
+    return {manifest_path, runner_path}
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -5942,9 +6105,41 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 "changed test-module pytest plugin registration cannot be "
                 "inventoried safely"
             )
-    for path in PYTEST_RUNNER_CONFIG_PATHS & all_changed:
-        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
-        prior = _base_text(repo, base_sha, path) or ""
+    changed_runner_paths = PYTEST_RUNNER_CONFIG_PATHS & all_changed
+    current_runner_by_path = {
+        path: _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        for path in changed_runner_paths
+    }
+    prior_runner_by_path = {
+        path: _base_text(repo, base_sha, path) or "" for path in changed_runner_paths
+    }
+    effective_changed_runner_paths = {
+        path
+        for path in changed_runner_paths
+        if (
+            _pytest_workflow_collection_boundary(current_runner_by_path[path])
+            if path == ".github/workflows/ci.yml"
+            else current_runner_by_path[path]
+        )
+        != (
+            _pytest_workflow_collection_boundary(prior_runner_by_path[path])
+            if path == ".github/workflows/ci.yml"
+            else prior_runner_by_path[path]
+        )
+    }
+    safe_runner_paths = _safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            path: current_runner_by_path[path]
+            for path in effective_changed_runner_paths
+        },
+        prior_by_path={
+            path: prior_runner_by_path[path]
+            for path in effective_changed_runner_paths
+        },
+    )
+    for path in changed_runner_paths:
+        current = current_runner_by_path[path]
+        prior = prior_runner_by_path[path]
         current_boundary = (
             _pytest_workflow_collection_boundary(current)
             if path == ".github/workflows/ci.yml"
@@ -5955,11 +6150,11 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             if path == ".github/workflows/ci.yml"
             else prior
         )
-        if current_boundary != prior_boundary:
+        if current_boundary != prior_boundary and path not in safe_runner_paths:
             raise TestCorpusGuardError(
                 "changed pytest runner configuration cannot be inventoried safely"
             )
-    if all_changed & runner_dependencies:
+    if (all_changed & runner_dependencies) - safe_runner_paths:
         raise TestCorpusGuardError(
             "changed pytest runner dependency cannot be inventoried safely"
         )
@@ -6086,7 +6281,11 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest fixtures cannot be inventoried safely"
             )
-    changed_python_sources = {path for path in all_changed if path.endswith(".py")}
+    changed_python_sources = {
+        path
+        for path in all_changed
+        if path.endswith(".py") and path not in safe_runner_paths
+    }
     if changed_python_sources:
         current_registered_plugins: set[str] = set()
         prior_registered_plugins: set[str] = set()
@@ -6131,14 +6330,16 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior_registered_plugins.update(current_registered_plugins)
         plugin_dependency_paths = _python_dependency_paths(
             repo,
-            current_registered_plugins,
+            _python_modules_with_package_ancestors(current_registered_plugins),
         )
         if prior_registered_plugins:
             base_paths = _base_file_paths(repo, base_sha)
             plugin_dependency_paths.update(
                 _python_dependency_paths(
                     repo,
-                    prior_registered_plugins,
+                    _python_modules_with_package_ancestors(
+                        prior_registered_plugins
+                    ),
                     read_text=lambda path: (
                         _base_text(repo, base_sha, path) if path in base_paths else None
                     ),

@@ -20,6 +20,22 @@ SHA = subprocess.run(
 ).stdout.strip()
 
 
+def test_test_inventory_fingerprint_includes_pytest_suffix_modules(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text("")
+    suffix_test = tests_root / "case_test.py"
+    suffix_test.write_text("def test_case(): pass\n")
+
+    before = manifest.test_inventory_fingerprint(tmp_path)
+    suffix_test.write_text("def test_case(): assert True\n")
+
+    assert manifest.test_inventory_fingerprint(tmp_path) != before
+
+
 def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
     assert manifest.validate_definition() == []
     assert manifest.definition_fingerprint() == manifest.definition_fingerprint()

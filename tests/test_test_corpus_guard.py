@@ -3627,6 +3627,67 @@ def test_changed_pytest_runner_configuration_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
+    manifest_path = "scripts/verification/ci_command_manifest.py"
+    runner_path = "scripts/verification/run_pytest_shards.py"
+    prior_manifest = (
+        "patterns = (\n"
+        '                    "tests/**/test_*.py",\n'
+        ")\n"
+    )
+    current_manifest = prior_manifest.replace(
+        '                    "tests/**/test_*.py",\n',
+        '                    "tests/**/test_*.py",\n'
+        '                    "tests/**/*_test.py",\n',
+    )
+    prior_runner = (
+        "def discover_test_files(root):\n"
+        "    return sorted(\n"
+        '        for path in (root / "tests").rglob("test_*.py")\n'
+        "        if path.is_file()\n"
+        "    )\n"
+        "if not files:\n"
+        '        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)\n'
+    )
+    current_runner = prior_runner.replace(
+        '        for path in (root / "tests").rglob("test_*.py")\n'
+        "        if path.is_file()\n",
+        '        for path in (root / "tests").rglob("*.py")\n'
+        "        if path.is_file()\n"
+        '        and (path.name.startswith("test_") or path.name.endswith("_test.py"))\n',
+    ).replace(
+        '        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)\n',
+        '        print("FAIL: no canonical Python test files discovered", file=sys.stderr)\n',
+    )
+
+    aligned = guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest,
+            runner_path: current_runner,
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
+
+    assert aligned == {manifest_path, runner_path}
+    assert not guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest,
+            runner_path: current_runner + "# unrelated runner change\n",
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
+    assert not guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={manifest_path: current_manifest},
+        prior_by_path={manifest_path: prior_manifest},
+    )
+
+
 @pytest.mark.parametrize(
     "changed_path",
     (
@@ -4509,6 +4570,10 @@ def test_python_inventory_rejects_locally_imported_test_class(
         "abort = skip\n"
         'raise abort.Exception("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
+        "import pytest\n"
+        "Abort = pytest.skip.Exception\n"
+        'raise Abort("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
     ),
 )
 def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
@@ -4530,6 +4595,13 @@ def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
         "    def test_case(self): pass\n",
         "class TestCases:\n"
         "    def setup_method(self, method): pass\n"
+        "    def test_case(self): pass\n",
+        "def prepare(function): pass\n"
+        "setup_function = prepare\n"
+        "def test_case(): pass\n",
+        "class TestCases:\n"
+        "    def prepare(self, method): pass\n"
+        "    setup_method = prepare\n"
         "    def test_case(self): pass\n",
     ),
 )
@@ -5401,6 +5473,18 @@ def test_indirect_pytest_plugins_binding_fails_closed(source: str) -> None:
         guard._pytest_plugin_modules(source, "tests/conftest.py")
 
 
+def test_conditional_test_module_pytest_plugin_registration_fails_closed() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="conditional pytest plugin registration",
+    ):
+        guard._pytest_plugin_modules(
+            "if True:\n"
+            '    pytest_plugins = ("tests.fixture_plugin",)\n',
+            "tests/test_case.py",
+        )
+
+
 def test_changed_conftest_parameterized_fixture_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5666,6 +5750,56 @@ def test_python_inventory_binds_module_local_requested_fixture(
         )
 
     assert refs_for(True) != refs_for(False)
+
+
+def test_python_inventory_binds_usefixtures_local_fixture() -> None:
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_example.py",
+                "import pytest\n"
+                "@pytest.fixture\n"
+                f"def value(): return {enabled!r}\n"
+                '@pytest.mark.usefixtures("value")\n'
+                "def test_case(): pass\n",
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+def test_python_inventory_binds_local_fixture_dependencies() -> None:
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_example.py",
+                "import pytest\n"
+                "@pytest.fixture\n"
+                f"def base(): return {enabled!r}\n"
+                "@pytest.fixture\n"
+                "def value(base): return base\n"
+                "def test_case(value): pass\n",
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+def test_python_inventory_rejects_class_local_requested_fixture() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="class-local pytest fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            "import pytest\n"
+            "class TestCases:\n"
+            "    @pytest.fixture\n"
+            "    def value(self): return True\n"
+            "    def test_case(self, value): pass\n",
+        )
 
 
 def test_changed_module_local_fixture_import_dependency_fails_closed(
@@ -6160,6 +6294,57 @@ def test_changed_test_module_registered_plugin_fixture_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed registered autouse pytest fixtures",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_registered_plugin_package_initializer_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package_root = tmp_path / "tests/pkg"
+    package_root.mkdir(parents=True)
+    (tmp_path / "tests/test_case.py").write_text(
+        'pytest_plugins = ("tests.pkg.fixture_plugin",)\n'
+        "def test_case(): pass\n"
+    )
+    initializer_path = package_root / "__init__.py"
+    initializer_path.write_text("ENABLED = False\n")
+    (package_root / "fixture_plugin.py").write_text(
+        "import pytest\n"
+        "from tests.pkg import ENABLED\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment():\n"
+        "    if not ENABLED:\n"
+        "        pytest.skip('disabled')\n"
+    )
+    outputs = iter(
+        (
+            b"tests/pkg/__init__.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/pkg/__init__.py\0tests/pkg/fixture_plugin.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "ENABLED = True\n" if path == "tests/pkg/__init__.py" else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest dependency",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
@@ -6713,6 +6898,42 @@ def test_python_inventory_binds_assigned_pytest_fixture_namespace_alias() -> Non
         )
 
     assert refs_for("[1, 2]") != refs_for("[1]")
+
+
+def test_imported_binding_identity_caches_transitive_closures() -> None:
+    sources = {
+        "tests/first.py": "from tests.shared import VALUE\nFIRST = VALUE\n",
+        "tests/second.py": "from tests.shared import VALUE\nSECOND = VALUE\n",
+        "tests/shared.py": "VALUE = ('stable', 1)\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    first_source = resolver("tests.first")
+    second_source = resolver("tests.second")
+
+    assert first_source is not None
+    assert second_source is not None
+    guard._python_imported_binding_source(
+        "tests.first",
+        first_source,
+        "FIRST",
+        resolver,
+    )
+    binding_cache = getattr(resolver, "_uaa_binding_identity_cache")
+    assert any(
+        module == "tests.shared" and binding == "VALUE"
+        for module, binding, _source_digest in binding_cache
+    )
+    cache_size = len(binding_cache)
+
+    guard._python_imported_binding_source(
+        "tests.second",
+        second_source,
+        "SECOND",
+        resolver,
+    )
+
+    assert len(binding_cache) == cache_size + 1
 
 
 def test_python_inventory_binds_fixture_default_posture() -> None:
