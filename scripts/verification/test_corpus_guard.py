@@ -64,6 +64,7 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
     "setup.cfg",
     "tox.ini",
 }
+PYTEST_DEPENDENCY_LOCK_PATHS = {"uv.lock"}
 PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/run_ci_lane.py",
@@ -1172,6 +1173,67 @@ def _has_module_level_pytest_collection_abort(
     )
 
 
+def _unittest_skiptest_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: set[str],
+) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in aliases or "unittest.SkipTest" in imported_modules.get(
+            node.id, ()
+        )
+    if not isinstance(node, ast.Attribute) or node.attr != "SkipTest":
+        return False
+    root = _root_name(node)
+    return root == "unittest" or (
+        root is not None and "unittest" in imported_modules.get(root, ())
+    )
+
+
+def _has_module_level_unittest_collection_abort(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    aliases = {
+        name
+        for name, candidates in imported_modules.items()
+        if "unittest.SkipTest" in candidates
+    }
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None or not _unittest_skiptest_reference(
+                value, imported_modules, aliases
+            ):
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    for node in _module_execution_nodes(tree):
+        if not isinstance(node, ast.Raise) or node.exc is None:
+            continue
+        raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+        if _unittest_skiptest_reference(raised, imported_modules, aliases):
+            return True
+    return False
+
+
+def _has_module_level_collection_abort(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    return _has_module_level_pytest_collection_abort(
+        tree, imported_modules
+    ) or _has_module_level_unittest_collection_abort(tree, imported_modules)
+
+
 def _reject_repository_reader_calls(
     nodes: tuple[ast.AST, ...] | list[ast.AST],
     imported_modules: dict[str, tuple[str, ...]],
@@ -1900,6 +1962,39 @@ def _parameterized_ref(
     ]
     if fixture_argument_names:
         serialized_parts.append("fixture-arguments=" + ",".join(fixture_argument_names))
+        for fixture_name in fixture_argument_names:
+            candidates = imported_modules.get(fixture_name)
+            if candidates is None:
+                continue
+            resolved_import = next(
+                (
+                    (module, source)
+                    for module in candidates
+                    if import_source_resolver is not None
+                    and (source := import_source_resolver(module)) is not None
+                ),
+                None,
+            )
+            if resolved_import is None:
+                serialized_parts.append(
+                    f"fixture-external-import={','.join(candidates)};"
+                    f"binding={fixture_name}"
+                )
+                continue
+            module, source = resolved_import
+            serialized_parts.append(
+                "fixture-import="
+                + _python_imported_binding_source(
+                    module,
+                    source,
+                    _binding_name_for_resolved_import(
+                        candidates,
+                        module,
+                        fixture_name,
+                    ),
+                    import_source_resolver,
+                )
+            )
     for decorator in decorators:
         value_nodes = list(decorator.args)
         value_nodes.extend(
@@ -2344,6 +2439,10 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             "module-level pytest collection abort cannot be inventoried safely"
         )
+    if _has_module_level_unittest_collection_abort(tree, imported_modules):
+        raise TestCorpusGuardError(
+            "module-level unittest collection abort cannot be inventoried safely"
+        )
 
     dynamic_code_names = {"__import__", "compile", "eval", "exec"}
     dynamic_code_aliases = {
@@ -2521,6 +2620,46 @@ def _python_inventory_entries(
             and may_resolve_local_class(value.value)
         )
 
+    def unittest_skip_namespace_owner(value: ast.AST) -> ast.AST | None:
+        if isinstance(value, ast.Attribute) and value.attr == "__dict__":
+            return value.value
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "vars"
+            and len(value.args) == 1
+            and not value.keywords
+        ):
+            return value.args[0]
+        return None
+
+    def is_unittest_skip_namespace_target(target: ast.AST) -> bool:
+        if not isinstance(target, ast.Subscript):
+            return False
+        owner = unittest_skip_namespace_owner(target.value)
+        return (
+            owner is not None
+            and (may_resolve_local_class(owner) or may_resolve_local_test_member(owner))
+            and isinstance(target.slice, ast.Constant)
+            and target.slice.value == "__unittest_skip__"
+        )
+
+    for module_node in _module_execution_nodes(tree):
+        if not (
+            isinstance(module_node, ast.Call)
+            and isinstance(module_node.func, ast.Attribute)
+            and module_node.func.attr
+            in {"__delitem__", "__setitem__", "clear", "pop", "setdefault", "update"}
+        ):
+            continue
+        owner = unittest_skip_namespace_owner(module_node.func.value)
+        if owner is not None and (
+            may_resolve_local_class(owner) or may_resolve_local_test_member(owner)
+        ):
+            raise TestCorpusGuardError(
+                "post-definition unittest skip mutation cannot be inventoried safely"
+            )
+
     for module_node in _module_execution_nodes(tree):
         mutation = _mutated_attribute_call(module_node)
         if mutation is None:
@@ -2570,12 +2709,15 @@ def _python_inventory_entries(
             )
         }
         unittest_skip_mutation = any(
-            isinstance(target, ast.Attribute)
-            and target.attr == "__unittest_skip__"
-            and (
-                may_resolve_local_class(target.value)
-                or may_resolve_local_test_member(target.value)
+            (
+                isinstance(target, ast.Attribute)
+                and target.attr == "__unittest_skip__"
+                and (
+                    may_resolve_local_class(target.value)
+                    or may_resolve_local_test_member(target.value)
+                )
             )
+            or is_unittest_skip_namespace_target(target)
             for target in targets
         )
         if "__test__" in mutated_attributes:
@@ -4353,6 +4495,37 @@ def _pytest11_entry_points(value: str) -> tuple[tuple[str, str], ...]:
     return tuple(sorted(pytest11.items()))
 
 
+def _pytest_dev_dependencies(value: str) -> tuple[str, ...]:
+    if not value:
+        return ()
+    try:
+        payload = tomllib.loads(value)
+    except tomllib.TOMLDecodeError as exc:
+        raise TestCorpusGuardError(
+            "pytest dependency configuration cannot be inventoried safely"
+        ) from exc
+    project = payload.get("project", {})
+    if not isinstance(project, dict):
+        raise TestCorpusGuardError(
+            "pytest dependency configuration cannot be inventoried safely"
+        )
+    optional_dependencies = project.get("optional-dependencies", {})
+    if not isinstance(optional_dependencies, dict):
+        raise TestCorpusGuardError(
+            "pytest dependency configuration cannot be inventoried safely"
+        )
+    if "dev" not in optional_dependencies:
+        return ()
+    dev = optional_dependencies["dev"]
+    if not isinstance(dev, list) or not all(
+        isinstance(dependency, str) for dependency in dev
+    ):
+        raise TestCorpusGuardError(
+            "pytest dependency configuration cannot be inventoried safely"
+        )
+    return tuple(sorted(dev))
+
+
 def _frontend_test_scripts(value: str) -> tuple[str, str, str]:
     if not value:
         return ("", "", "")
@@ -4552,6 +4725,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         *FRONTEND_SOURCE_GIT_PATHSPECS,
         *sorted(runner_dependencies),
         *sorted(PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(PYTEST_DEPENDENCY_LOCK_PATHS),
         *sorted(PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(FRONTEND_COLLECTION_CONFIG_PATHS),
         *sorted(FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
@@ -4617,6 +4791,10 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         raise TestCorpusGuardError(
             "changed pytest runner dependency cannot be inventoried safely"
         )
+    if all_changed & PYTEST_DEPENDENCY_LOCK_PATHS:
+        raise TestCorpusGuardError(
+            "changed pytest dependency lock cannot be inventoried safely"
+        )
     for path in all_changed:
         if not path.startswith("tests/") or Path(path).name != "__init__.py":
             continue
@@ -4630,7 +4808,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                     "changed Python package initializer cannot be inventoried safely"
                 ) from exc
             imported_modules = _python_import_modules(tree)
-            if _has_module_level_pytest_collection_abort(tree, imported_modules):
+            if _has_module_level_collection_abort(tree, imported_modules):
                 raise TestCorpusGuardError(
                     "changed Python package initializer collection abort cannot be "
                     "inventoried safely"
@@ -4676,6 +4854,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         ) != _pytest11_entry_points(prior):
             raise TestCorpusGuardError(
                 "changed pytest entry-point configuration cannot be inventoried safely"
+            )
+
+        if path == "pyproject.toml" and _pytest_dev_dependencies(
+            current
+        ) != _pytest_dev_dependencies(prior):
+            raise TestCorpusGuardError(
+                "changed pytest dependency configuration cannot be inventoried safely"
             )
 
         section = {

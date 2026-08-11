@@ -545,8 +545,8 @@ def _has_dynamic_runner_import(text: str, scan_text: str) -> bool:
             type_prefix.rfind("}"),
         )
         statement = type_prefix[statement_start + 1 :]
-        if re.fullmatch(
-            rf"\s*(?:export\s+)?type\s+{TEST_API_NAME}(?:\s*<.*>)?\s*=\s*",
+        if re.match(
+            rf"\s*(?:export\s+)?type\s+{TEST_API_NAME}\b",
             statement,
         ):
             continue
@@ -603,7 +603,7 @@ def _has_global_api_mutation(
             return True
     property_key = rf"(?:{name_pattern}|{quoted_names})"
     property_mutators = (
-        rf"\bObject\s*\.\s*defineProperty\s*\(\s*{global_object}\s*,"
+        rf"\b(?:Object|Reflect)\s*\.\s*defineProperty\s*\(\s*{global_object}\s*,"
         rf"\s*{quoted_names}\s*,",
         rf"\bReflect\s*\.\s*set\s*\(\s*{global_object}\s*,"
         rf"\s*{quoted_names}\s*,",
@@ -2717,6 +2717,10 @@ def _frontend_inventory_entries(
     if _has_dynamic_runner_import(text, scan_text):
         raise FrontendInventoryError(
             "dynamic frontend runner import cannot be inventoried safely"
+        )
+    if re.search(r"\bimport\s*\.\s*meta\s*\.\s*glob\s*\(", scan_text):
+        raise FrontendInventoryError(
+            "frontend glob registration import cannot be inventoried safely"
         )
     test_api_names = _test_api_names(text, scan_text)
     if _has_indirect_runner_invocation(

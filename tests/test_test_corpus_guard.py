@@ -1209,6 +1209,24 @@ if True:
             "post-definition unittest skip mutation",
         ),
         (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "TestGroup.test_case.__dict__['__unittest_skip__'] = True\n",
+            "post-definition unittest skip mutation",
+        ),
+        (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "vars(TestGroup.test_case)['__unittest_skip__'] = True\n",
+            "post-definition unittest skip mutation",
+        ),
+        (
+            "class TestGroup:\n"
+            "    def test_case(self): pass\n"
+            "vars(TestGroup.test_case).update({'__unittest_skip__': True})\n",
+            "post-definition unittest skip mutation",
+        ),
+        (
             "def test_case(): pass\nsetattr(test_case, '__test__', False)\n",
             "function __test__ mutation",
         ),
@@ -1514,6 +1532,8 @@ def test_frontend_inventory_rejects_global_runner_mutation(source: str) -> None:
     "source",
     (
         'Object.defineProperty(globalThis, "test", { value: () => undefined });\n'
+        'test("case", () => {});\n',
+        'Reflect.defineProperty(globalThis, "test", { value: () => undefined });\n'
         'test("case", () => {});\n',
         'Reflect.set(globalThis, "describe", () => undefined);\n'
         'describe("suite", () => { test("case", () => {}); });\n',
@@ -2785,6 +2805,7 @@ def test_changed_test_paths_disable_rename_collapsing(
     )
     config_paths = [
         *sorted(guard.PYTEST_COLLECTION_CONFIG_PATHS),
+        *sorted(guard.PYTEST_DEPENDENCY_LOCK_PATHS),
         *sorted(guard.PYTEST_RUNNER_CONFIG_PATHS),
         *sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
         *sorted(guard.FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
@@ -2940,6 +2961,31 @@ def test_case(value):
         tmp_path, "tests/test_sample.py", test_text
     )
     source_path.write_text('CASES = ["one"]\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_imported_parameterized_fixture_source(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "fixtures.py"
+    source_path.write_text(
+        "import pytest\n"
+        "@pytest.fixture(params=[1, 2])\n"
+        "def value(request): return request.param\n"
+    )
+    test_text = "from fixtures import value\ndef test_case(value): assert value\n"
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text(
+        "import pytest\n"
+        "@pytest.fixture(params=[1])\n"
+        "def value(request): return request.param\n"
+    )
     after = guard._parse_worktree_test_declarations(
         tmp_path, "tests/test_sample.py", test_text
     )
@@ -3206,6 +3252,10 @@ def test_changed_python_dataset_rechecks_importing_test(
             "",
             "import pytest\npytest.skip('disabled', allow_module_level=True)\n",
         ),
+        (
+            "import unittest\nraise unittest.SkipTest('disabled')\n",
+            "",
+        ),
     ),
 )
 def test_changed_python_package_initializer_collection_abort_fails_closed(
@@ -3421,6 +3471,59 @@ def test_changed_pytest11_entry_point_fails_closed(
     )
 
     with pytest.raises(guard.TestCorpusGuardError, match="entry-point configuration"):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_pytest_dev_dependency_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current = '[project.optional-dependencies]\ndev = ["pytest", "sample-plugin"]\n'
+    prior = '[project.optional-dependencies]\ndev = ["pytest"]\n'
+    (tmp_path / "pyproject.toml").write_text(current)
+    outputs = iter(
+        (
+            b"pyproject.toml\0",
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest dependency configuration",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_pytest_dependency_lock_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "uv.lock").write_text("version = 1\n")
+    outputs = iter((b"uv.lock\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest dependency lock",
+    ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
@@ -4297,6 +4400,27 @@ def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
 @pytest.mark.parametrize(
     "source",
     (
+        "import unittest\nraise unittest.SkipTest('unavailable')\n",
+        "import unittest as unit\nraise unit.SkipTest('unavailable')\n",
+        "from unittest import SkipTest as unavailable\nraise unavailable('missing')\n",
+        "import unittest\nabort = unittest.SkipTest\nraise abort('missing')\n",
+    ),
+)
+def test_python_inventory_rejects_unittest_module_collection_aborts(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level unittest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py", source + "def test_case(): pass\n"
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
         'exec("def test_case(): pass")\n',
         'eval("lambda: None")\n',
         'runner = exec\nrunner("def test_case(): pass")\n',
@@ -4932,6 +5056,32 @@ def test_frontend_inventory_allows_type_query_runner_import_expression() -> None
     assert [item.ref for item in declarations] == [
         "apps/control-center/src/example.test.ts::case"
     ]
+
+
+def test_frontend_inventory_allows_generic_type_query_runner_import_expression() -> (
+    None
+):
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        'type Runner<T extends typeof import("vitest")> = T;\n'
+        'test("case", () => {});\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.ts::case"
+    ]
+
+
+def test_frontend_inventory_rejects_glob_registration_import() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend glob registration import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'const modules = import.meta.glob("./*.test.ts", { eager: true });\n'
+            'test("case", () => modules);\n',
+        )
 
 
 @pytest.mark.parametrize(

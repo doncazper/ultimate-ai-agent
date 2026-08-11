@@ -83,7 +83,8 @@ aliased readers, directory enumeration, and constructed classes), and changes
 to pytest collection configuration
 in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; pytest `pytest11` entry-point
-registration changes are included, and every `tox.ini` change is rejected.
+registration changes, development-dependency changes, and `uv.lock` changes are
+included, and every `tox.ini` change is rejected.
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute.
 Python test-class aliases, assigned or imported `unittest.TestCase` aliases and
@@ -126,21 +127,26 @@ global, fails closed,
 class-level parameterization through `pytestmark`, rebound or mutated imported
 pytest mark aliases, unresolved or bare parameterization
 decorators, module-level collection-aborting pytest calls and their assignment
-aliases, mutations of pytest collection classes, and changed
+aliases, module-level `unittest.SkipTest` raises and aliases, mutations of pytest
+collection classes, and changed
 `pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
 `xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
 declaration identity, including referenced condition bindings and the effective
 order of competing `xfail` marks, so disabling an active test retires its prior
 ref instead of silently preserving it. Python fixture argument consumption and
-`usefixtures` marks are identity-bound as well. Frontend `skip`, `fixme`, `todo`,
+imported fixture implementations are identity-bound, as are `usefixtures` marks.
+Frontend `skip`, `fixme`, `todo`,
 `skipIf`, and `runIf` execution posture is collision-bound separately from the
 user title; a trivia-free conditional token stream, literal values, and enclosing
 suite disable posture are part of every affected child declaration identity for
 the same reason.
 Parenthesized/conditional/logical runner callees and property-API writes to
-global runner bindings fail closed. Descriptor-level pytest collection-class
-mutations, ordinary local conftest imports, and post-definition unittest skip
-writes also fail closed.
+global runner bindings fail closed, including `Reflect.defineProperty`. Eager or
+otherwise unresolved `import.meta.glob` registration imports fail closed. Type-only
+runner imports remain allowed inside complete type-alias declarations, including
+generic constraints. Descriptor-level pytest collection-class mutations, ordinary
+local conftest imports, and post-definition unittest skip writes through direct
+attributes, `__dict__`, or `vars()` namespaces also fail closed.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
