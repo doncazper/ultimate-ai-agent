@@ -519,20 +519,38 @@ def _has_indirect_runner_invocation(
         return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     dot_property = rf"{global_object}\s*(?:\?\.\s*|\.\s*){name_pattern}\b"
-    invocation_suffix = (
-        rf"{TEST_MODIFIERS}\s*(?:(?:\?\.\s*)?\("
-        r"|(?:\?\.\s*|\.\s*)(?:each|for|runIf|skipIf)\b)"
+    modifier_names = r"(?:concurrent|fail|fails|fixme|only|sequential|skip|todo)"
+    quoted_modifier_names = (
+        r'(?:"(?:concurrent|fail|fails|fixme|only|sequential|skip|todo)"'
+        r"|'(?:concurrent|fail|fails|fixme|only|sequential|skip|todo)')"
     )
-    if re.search(rf"{dot_property}{invocation_suffix}", scan_text):
+    modifier_access = (
+        rf"(?:\s*(?:(?:\?\.\s*|\.\s*){modifier_names}\b"
+        rf"|(?:\?\.\s*)?\[\s*{quoted_modifier_names}\s*\]))*"
+    )
+    parameterizer_names = r"(?:each|for|runIf|skipIf)"
+    quoted_parameterizer_names = (
+        r'(?:"(?:each|for|runIf|skipIf)"|\'(?:each|for|runIf|skipIf)\')'
+    )
+    parameterizer_access = (
+        rf"(?:(?:\?\.\s*|\.\s*){parameterizer_names}\b"
+        rf"|(?:\?\.\s*)?\[\s*{quoted_parameterizer_names}\s*\])"
+    )
+    invocation_suffix = (
+        rf"{modifier_access}\s*(?:(?:\?\.\s*)?\(|{parameterizer_access})"
+    )
+    dot_invocation = rf"{dot_property}{invocation_suffix}"
+    if re.search(dot_invocation, scan_text) or any(
+        scan_text[match.start()] == text[match.start()]
+        for match in re.finditer(dot_invocation, text)
+    ):
         return True
     quoted_names = (
         "(?:"
         + "|".join(quoted for name in names for quoted in (f'"{name}"', f"'{name}'"))
         + ")"
     )
-    computed_property = (
-        rf"{global_object}\s*(?:\?\.\s*)?\[\s*{quoted_names}\s*\]"
-    )
+    computed_property = rf"{global_object}\s*(?:\?\.\s*)?\[\s*{quoted_names}\s*\]"
     return any(
         scan_text[match.start()] == text[match.start()]
         for match in re.finditer(rf"{computed_property}{invocation_suffix}", text)

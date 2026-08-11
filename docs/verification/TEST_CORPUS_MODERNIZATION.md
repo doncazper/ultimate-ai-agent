@@ -70,7 +70,10 @@ under a recognized hook name, including one in a hidden directory beneath
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins or imported
-into a `conftest.py` from a local module. The canonical hosted CI workflow,
+into a `conftest.py` from a local module. Changed autouse fixtures in a
+`conftest.py` or registered plugin also fail closed, while module-local autouse
+fixture source and execution posture are bound into every affected test ref.
+The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are
 part of the same fail-closed change boundary. Configuration-
@@ -174,7 +177,8 @@ such as `bind`,
 and recognized runner APIs also fail closed when invoked through optional
 chaining, invoked indirectly through `call`, `apply`, `bind`, `globalThis`, or a
 sequence-expression callee, dynamically imported from a supported runner,
-mutated through dot or string-literal computed `globalThis` access, or
+mutated through dot or string-literal computed `globalThis` access, including
+computed modifier and parameterizer chains, or
 shadowed in a local
 binding position or by a non-runner import. Parameterized-suite detection uses
 the complete resolved runner-alias set. Changes to any supported
@@ -184,7 +188,9 @@ Playwright collection configuration, any transitive local static ESM or CommonJS
 dependency (including no-substitution template-literal `require` calls) of those
 configuration files, configured Vitest setup files and their
 transitive local dependencies, or its `package.json` `pretest`, `test`, or
-`posttest` lifecycle command, also fail closed.
+`posttest` lifecycle command, also fail closed. Changes to the Control Center
+frontend dependency manifest or resolved `package-lock.json` are part of the
+same fail-closed collection boundary.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

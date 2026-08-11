@@ -98,6 +98,10 @@ FRONTEND_COLLECTION_CONFIG_PATHS = {
 FRONTEND_TEST_SCRIPT_CONFIG_PATHS = {
     "apps/control-center/package.json",
 }
+FRONTEND_TEST_DEPENDENCY_PATHS = {
+    "apps/control-center/package-lock.json",
+    "apps/control-center/package.json",
+}
 PYTEST_COLLECTION_HOOK_NAMES = frozenset(
     {
         "collect_ignore",
@@ -3398,6 +3402,23 @@ def _python_inventory_entries(
         tree,
         fixture_aliases,
     )
+    autouse_fixture_declarations = _autouse_fixture_declarations(text, path)
+    autouse_fixture_identity = (
+        hashlib.sha256(
+            json.dumps(
+                autouse_fixture_declarations,
+                ensure_ascii=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        if autouse_fixture_declarations
+        else None
+    )
+
+    def bind_autouse_fixture_identity(ref: str) -> str:
+        if autouse_fixture_identity is None:
+            return ref
+        return f"{ref}::autouse-sha256:{autouse_fixture_identity}"
 
     def imported_class_has_builtin_exception_base(
         local_name: str,
@@ -3994,6 +4015,7 @@ def _python_inventory_entries(
                     fixture_override_matches,
                     container_decorators=tuple(module_pytestmark_decorators),
                 )
+                raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
                     (raw_ref, "python_test", _python_node_source(source_lines, node))
                 )
@@ -4107,6 +4129,7 @@ def _python_inventory_entries(
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
             )
+            raw_ref = bind_autouse_fixture_identity(raw_ref)
             entries.append(
                 (raw_ref, "python_test", _python_node_source(source_lines, method))
             )
@@ -4852,6 +4875,90 @@ def _has_parameterized_fixture_declaration(source: str, path: str) -> bool:
     return False
 
 
+def _autouse_fixture_declarations(source: str, path: str) -> tuple[str, ...]:
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "changed autouse pytest fixtures cannot be inventoried safely"
+        ) from exc
+    fixture_aliases = _fixture_aliases(tree)
+
+    def autouse_enabled(call: ast.Call) -> bool:
+        for keyword in call.keywords:
+            if keyword.arg is None:
+                continue
+            if keyword.arg != "autouse":
+                continue
+            if not isinstance(keyword.value, ast.Constant) or not isinstance(
+                keyword.value.value, bool
+            ):
+                raise TestCorpusGuardError(
+                    "changed autouse pytest fixtures cannot be inventoried safely"
+                )
+            return keyword.value.value
+        return False
+
+    factory_aliases: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if value is None:
+                continue
+            resolves = (
+                isinstance(value, ast.Call)
+                and _is_fixture_callable(value.func, fixture_aliases)
+                and autouse_enabled(value)
+            ) or (isinstance(value, ast.Name) and value.id in factory_aliases)
+            if not resolves:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in factory_aliases:
+                        factory_aliases.add(name)
+                        changed = True
+
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    declarations: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                if (
+                    isinstance(decorator, ast.Call)
+                    and _is_fixture_callable(decorator.func, fixture_aliases)
+                    and autouse_enabled(decorator)
+                ) or (
+                    isinstance(decorator, ast.Name) and decorator.id in factory_aliases
+                ):
+                    declarations.add(ast.dump(node, include_attributes=False))
+        if not isinstance(node, ast.Call):
+            continue
+        factory = node.func
+        is_autouse_factory = (
+            isinstance(factory, ast.Call)
+            and _is_fixture_callable(factory.func, fixture_aliases)
+            and autouse_enabled(factory)
+        ) or (isinstance(factory, ast.Name) and factory.id in factory_aliases)
+        if is_autouse_factory:
+            declarations.add(ast.dump(node, include_attributes=False))
+            for argument in node.args:
+                root = _root_name(argument)
+                if root in functions:
+                    declarations.add(
+                        ast.dump(functions[root], include_attributes=False)
+                    )
+    return tuple(sorted(declarations))
+
+
 def _pytest_plugin_modules(source: str, path: str) -> set[str]:
     try:
         tree = ast.parse(source, filename=path)
@@ -5140,6 +5247,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed frontend test script cannot be inventoried safely"
             )
+    for path in FRONTEND_TEST_DEPENDENCY_PATHS & all_changed:
+        current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+        prior = _base_text(repo, base_sha, path) or ""
+        if current != prior:
+            raise TestCorpusGuardError(
+                "changed frontend test dependency boundary cannot be inventoried safely"
+            )
     for path in PYTEST_COLLECTION_CONFIG_PATHS & all_changed:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
@@ -5194,6 +5308,12 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         ) or _has_parameterized_fixture_declaration(prior, path):
             raise TestCorpusGuardError(
                 "changed parameterized pytest fixtures cannot be inventoried safely"
+            )
+        if _autouse_fixture_declarations(
+            current, path
+        ) != _autouse_fixture_declarations(prior, path):
+            raise TestCorpusGuardError(
+                "changed autouse pytest fixtures cannot be inventoried safely"
             )
     changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
@@ -5258,6 +5378,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             ) or _has_parameterized_fixture_declaration(prior, plugin_path):
                 raise TestCorpusGuardError(
                     "changed registered parameterized pytest fixtures cannot be "
+                    "inventoried safely"
+                )
+            if _autouse_fixture_declarations(
+                current, plugin_path
+            ) != _autouse_fixture_declarations(prior, plugin_path):
+                raise TestCorpusGuardError(
+                    "changed registered autouse pytest fixtures cannot be "
                     "inventoried safely"
                 )
     changed = {path for path in all_changed if _is_test_path(path)}

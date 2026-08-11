@@ -3997,6 +3997,52 @@ def test_changed_frontend_pretest_script_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+@pytest.mark.parametrize(
+    ("config_path", "current", "prior"),
+    (
+        (
+            "apps/control-center/package.json",
+            '{"scripts":{"test":"vitest"},"devDependencies":{"vitest":"4.1.8"}}\n',
+            '{"scripts":{"test":"vitest"},"devDependencies":{"vitest":"4.1.7"}}\n',
+        ),
+        (
+            "apps/control-center/package-lock.json",
+            '{"lockfileVersion":3,"packages":{"node_modules/vitest":{"version":"4.1.8"}}}\n',
+            '{"lockfileVersion":3,"packages":{"node_modules/vitest":{"version":"4.1.7"}}}\n',
+        ),
+    ),
+)
+def test_changed_frontend_test_dependency_boundary_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_path: str,
+    current: str,
+    prior: str,
+) -> None:
+    target = tmp_path / config_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(current)
+    outputs = iter((f"{config_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: prior if path == config_path else None,
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="frontend test dependency boundary",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_frontend_test_dataset_rechecks_importing_test(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5046,6 +5092,9 @@ def test_frontend_inventory_rejects_imported_registration_helper_call() -> None:
         'globalThis.test?.("case", () => {});\n',
         'globalThis?.test?.("case", () => {});\n',
         'globalThis?.test.each([[1], [2]])("case %s", () => {});\n',
+        'globalThis?.test["each"]([[1], [2]])("case %s", () => {});\n',
+        'globalThis?.test["skip"]["each"]([[1]])("case %s", () => {});\n',
+        'globalThis?.["test"]?.["skip"]?.["each"]([[1]])("case %s", () => {});\n',
         'globalThis["test"]("case", () => {});\n',
         'globalThis["test"]?.("case", () => {});\n',
         'globalThis?.["test"]("case", () => {});\n',
@@ -5332,6 +5381,83 @@ def test_changed_conftest_parameterized_fixture_fails_closed(
         match="changed parameterized pytest fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_conftest_autouse_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(
+        "import pytest\n"
+        "@pytest.fixture(autouse=True)\n"
+        'def disable_subtree(): pytest.skip("disabled")\n'
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed autouse pytest fixtures",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize(
+    "fixture_prefix",
+    (
+        "@pytest.fixture(autouse=True)\n",
+        "fixture_alias = pytest.fixture\n@fixture_alias(autouse=True)\n",
+        "autouse_fixture = pytest.fixture(autouse=True)\n@autouse_fixture\n",
+    ),
+)
+def test_python_inventory_binds_autouse_fixture_source(fixture_prefix: str) -> None:
+    active = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\n"
+        f"{fixture_prefix}"
+        "def environment(): yield\n"
+        "def test_case(): pass\n",
+    )
+    disabled = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\n"
+        f"{fixture_prefix}"
+        'def environment(): pytest.skip("disabled")\n'
+        "def test_case(): pass\n",
+    )
+
+    assert {declaration.ref for declaration in active} != {
+        declaration.ref for declaration in disabled
+    }
+
+
+def test_python_inventory_binds_post_definition_autouse_fixture_source() -> None:
+    active = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\n"
+        "def environment(): yield\n"
+        "pytest.fixture(autouse=True)(environment)\n"
+        "def test_case(): pass\n",
+    )
+    disabled = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\n"
+        'def environment(): pytest.skip("disabled")\n'
+        "pytest.fixture(autouse=True)(environment)\n"
+        "def test_case(): pass\n",
+    )
+
+    assert {declaration.ref for declaration in active} != {
+        declaration.ref for declaration in disabled
+    }
 
 
 def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
