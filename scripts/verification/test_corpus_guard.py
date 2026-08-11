@@ -305,13 +305,24 @@ def _is_current_module_object(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
-    if not (
+    if (
         isinstance(node, ast.Subscript)
         and isinstance(node.slice, ast.Name)
         and node.slice.id == "__name__"
     ):
+        registry = node.value
+    elif (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and len(node.args) == 1
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == "__name__"
+        and not node.keywords
+    ):
+        registry = node.func.value
+    else:
         return False
-    registry = node.value
     if isinstance(registry, ast.Name):
         return "sys.modules" in imported_modules.get(registry.id, ())
     if not isinstance(registry, ast.Attribute) or registry.attr != "modules":
@@ -492,10 +503,13 @@ def _mutated_attribute_call(node: ast.AST) -> tuple[ast.AST, str | None] | None:
 
 
 def _resolved_expression_root(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
     if isinstance(node, ast.NamedExpr):
         return _resolved_expression_root(node.value, aliases)
-    root = _root_name(node)
-    return aliases.get(root, root) if root is not None else None
+    if not isinstance(node, ast.Name):
+        return None
+    return aliases.get(node.id, node.id)
 
 
 def _paired_name_aliases(
@@ -1446,6 +1460,22 @@ def _pytest_collection_abort_callable_name(
     imported_modules: dict[str, tuple[str, ...]],
     aliases: dict[str, str],
 ) -> str:
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "getattr"
+        and len(node.args) == 2
+        and not node.keywords
+        and isinstance(node.args[1], ast.Constant)
+        and node.args[1].value in {"importorskip", "skip"}
+    ):
+        root = _root_name(node.args[0])
+        candidates = imported_modules.get(root, ()) if root is not None else ()
+        return (
+            str(node.args[1].value)
+            if root == "pytest" or "pytest" in candidates
+            else ""
+        )
     if isinstance(node, ast.Attribute):
         root = _root_name(node)
         if root is None:
@@ -2030,6 +2060,17 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             ):
                 return True
             node = node.value
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"get", "__getitem__"}
+            and _is_globals_call(node.func.value)
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == "_EXPORT_GROUPS"
+            and not node.keywords
+        ):
+            return True
         return False
 
     aliases = {"_EXPORT_GROUPS"}
@@ -2817,15 +2858,10 @@ def _parameterized_ref(
                 for name, bound_value in _paired_binding_values(target, value):
                     if name != fixture_name:
                         continue
-                    imported_root = (
-                        bound_value.id
-                        if isinstance(bound_value, ast.Name)
-                        else _root_name(bound_value)
-                        if isinstance(bound_value, ast.Attribute)
-                        else None
+                    imported_root = _resolved_expression_root(
+                        bound_value,
+                        name_aliases,
                     )
-                    if imported_root is not None:
-                        imported_root = name_aliases.get(imported_root, imported_root)
                     if imported_root in imported_modules:
                         return True
         return False

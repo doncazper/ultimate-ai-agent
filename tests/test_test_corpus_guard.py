@@ -4574,6 +4574,12 @@ def test_python_inventory_rejects_locally_imported_test_class(
         "Abort = pytest.skip.Exception\n"
         'raise Abort("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
+        "import pytest\n"
+        'getattr(pytest, "skip")("unavailable", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "import pytest as p\n"
+        'getattr(p, "importorskip")("optional_dependency")\n'
+        "def test_case(): pass\n",
     ),
 )
 def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
@@ -4808,6 +4814,7 @@ def test_python_inventory_preserves_competing_xfail_order() -> None:
         'sys.modules[__name__].__dict__.pop("test_case")',
         'vars(sys.modules[__name__]).update({"test_case": None})',
         'setattr(sys.modules[__name__], "test_case", None)',
+        'sys.modules.get(__name__).__dict__.pop("test_case")',
     ),
 )
 def test_python_inventory_rejects_current_module_test_rebinding(
@@ -5417,6 +5424,31 @@ def test_changed_conftest_collection_hook_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_conftest_computed_collection_global_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(
+        'globals()["collect_" + "ignore"] = ["test_target.py"]\n'
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest plugin registration cannot be inventoried safely",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_conftest_pytest_plugins_binding_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5826,6 +5858,7 @@ def test_python_inventory_rejects_local_fixture_import_name_collision(
     (
         "value = helper.value\n",
         "alias = helper\nvalue = alias.value\n",
+        "value = (alias := helper).value\n",
     ),
 )
 def test_python_inventory_rejects_local_fixture_reassigned_from_import(
@@ -6259,6 +6292,8 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
         'globals()["_EXPORT_GROUPS"] = {"tests.extra": {"value"}}\n',
         'globals()["_EXPORT_GROUPS"]["tests.extra"] = {"value"}\n',
         'globals()["_EXPORT_GROUPS"].update({"tests.extra": {"value"}})\n',
+        'globals().get("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
+        'globals().__getitem__("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
         'globals().update({"_EXPORT_GROUPS": {"tests.extra": {"value"}}})\n',
         'globals().setdefault("_EXPORT_GROUPS", {"tests.extra": {"value"}})\n',
         'globals().pop("_EXPORT_GROUPS")\n',
