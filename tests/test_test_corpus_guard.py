@@ -158,6 +158,34 @@ def test_case(value):
     assert before[0].ref != after[0].ref
 
 
+def test_python_inventory_binds_fixture_consumption_changes() -> None:
+    path = "tests/test_sample.py"
+    fixture_ref = guard.parse_python_declarations(
+        path,
+        "def test_case(shared_value): pass\n",
+    )[0].ref
+    plain_ref = guard.parse_python_declarations(
+        path,
+        "def test_case(): pass\n",
+    )[0].ref
+
+    assert fixture_ref != plain_ref
+
+
+def test_python_inventory_binds_usefixtures_changes() -> None:
+    path = "tests/test_sample.py"
+    first_ref = guard.parse_python_declarations(
+        path,
+        'import pytest\n@pytest.mark.usefixtures("first")\ndef test_case(): pass\n',
+    )[0].ref
+    second_ref = guard.parse_python_declarations(
+        path,
+        'import pytest\n@pytest.mark.usefixtures("second")\ndef test_case(): pass\n',
+    )[0].ref
+
+    assert first_ref != second_ref
+
+
 def test_python_inventory_binds_module_parameter_data_changes() -> None:
     path = "tests/test_sample.py"
     template = """
@@ -674,7 +702,7 @@ def test_python_inventory_rejects_rebound_unittest_testcase_alias() -> None:
 def test_python_inventory_rejects_loop_rebound_unittest_testcase_alias() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
-        match="dynamic unittest.TestCase alias",
+        match=r"dynamic unittest\.TestCase alias",
     ):
         guard.parse_python_declarations(
             "tests/test_sample.py",
@@ -698,7 +726,7 @@ def test_python_inventory_rejects_definition_time_unittest_alias_rebinding(
 ) -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
-        match="dynamic unittest.TestCase alias",
+        match=r"dynamic unittest\.TestCase alias",
     ):
         guard.parse_python_declarations(
             "tests/test_sample.py",
@@ -1914,6 +1942,20 @@ def test_frontend_inventory_preserves_conditional_literal_values() -> None:
     assert never_ref == trivia_ref
 
 
+def test_frontend_inventory_preserves_conditional_operator_boundaries() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    postfix_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skipIf(a++ + b)("case", () => {});',
+    )[0].ref
+    prefix_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skipIf(a + ++b)("case", () => {});',
+    )[0].ref
+
+    assert postfix_ref != prefix_ref
+
+
 def test_frontend_inventory_structurally_binds_titles_and_execution() -> None:
     path = "apps/control-center/src/example.test.tsx"
     active_ref = guard.parse_frontend_declarations(
@@ -2693,6 +2735,7 @@ def test_changed_test_paths_disable_rename_collapsing(
         )
 
     monkeypatch.setattr(guard, "_run_git", completed)
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
 
     assert guard._changed_test_paths(Path("."), "a" * 40) == (
         "tests/test_new.py",
@@ -4613,6 +4656,11 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            "class Registrar extends Generic<{ field: string }> { "
+            'registration = test("case", () => {}); }\n',
+            "registration context",
+        ),
+        (
             'class Registrar { ["registration"] = test("case", () => {}); }\n',
             "registration context",
         ),
@@ -4790,6 +4838,49 @@ def test_frontend_inventory_allows_type_only_runner_import_expression() -> None:
 
     assert [item.ref for item in declarations] == [
         "apps/control-center/src/example.test.ts::case"
+    ]
+
+
+def test_frontend_inventory_allows_type_query_runner_import_expression() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        'type Runner = typeof import("vitest");\ntest("case", () => {});\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.ts::case"
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'const runner = enabled ? fallback : import("vitest");\n',
+        'const runner = { load: import("vitest") };\n',
+        'const runner = typeof import("vitest");\n',
+    ),
+)
+def test_frontend_inventory_rejects_runtime_runner_import_contexts(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic frontend runner import",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            source + 'test("case", () => {});\n',
+        )
+
+
+def test_frontend_inventory_preserves_commented_runner_aliases() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.ts",
+        "import { test /* test alias */ as spec, describe /* suite alias */ as group } "
+        'from "vitest";\n'
+        'group("suite", () => { spec("case", () => {}); });\n',
+    )
+
+    assert [item.ref for item in declarations] == [
+        "apps/control-center/src/example.test.ts::suite[5]:suite::case"
     ]
 
 
@@ -4981,6 +5072,47 @@ def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
             "def pytest_generate_tests(metafunc):\n"
             "    metafunc.parametrize('value', [1, 2])\n"
             if path == "tests/collection_plugin.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_transitive_registered_pytest_plugin_hook_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        'pytest_plugins = ["tests.collection_plugin"]\n'
+    )
+    (tests_root / "collection_plugin.py").write_text(
+        "from tests.hook_helper import pytest_collection_modifyitems\n"
+    )
+    helper_path = tests_root / "hook_helper.py"
+    helper_path.write_text(
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
+    )
+    outputs = iter((b"tests/hook_helper.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def pytest_collection_modifyitems(items):\n    items[:] = items\n"
+            if path == "tests/hook_helper.py"
             else None
         ),
     )

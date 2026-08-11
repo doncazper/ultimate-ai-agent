@@ -254,33 +254,156 @@ def _patterns(
     return direct, each, conditional
 
 
-def _normalized_javascript_expression(source: str) -> str:
-    """Remove trivia while preserving every executable literal byte."""
+def _javascript_tokens(source: str) -> tuple[str, ...]:
+    """Return a bounded lexical token stream with comments and trivia removed."""
 
-    normalized: list[str] = []
+    tokens: list[str] = []
     regex_closures: set[int] = set()
+    identifier = re.compile(r"[A-Za-z_$][\w$]*")
+    number = re.compile(
+        r"(?:0[xX][0-9A-Fa-f](?:_?[0-9A-Fa-f])*n?"
+        r"|0[bB][01](?:_?[01])*n?"
+        r"|0[oO][0-7](?:_?[0-7])*n?"
+        r"|(?:\d(?:_?\d)*)?(?:\.\d(?:_?\d)*)"
+        r"(?:[eE][+-]?\d(?:_?\d)*)?"
+        r"|\d(?:_?\d)*(?:[eE][+-]?\d(?:_?\d)*)?n?)"
+    )
+    punctuators = (
+        ">>>=",
+        "**=",
+        "&&=",
+        "||=",
+        "??=",
+        "===",
+        "!==",
+        ">>>",
+        "...",
+        "=>",
+        "++",
+        "--",
+        "&&",
+        "||",
+        "??",
+        "==",
+        "!=",
+        "<=",
+        ">=",
+        "<<",
+        ">>",
+        "**",
+        "?.",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "&=",
+        "|=",
+        "^=",
+    )
     index = 0
     while index < len(source):
         character = source[index]
-        if character in "\"'`":
-            end = _skip_string(source, index)
-            normalized.append(source[index:end])
-            index = end
-            continue
-        if _is_regex_literal_at(source, index, regex_closures):
-            end, closing = _skip_regex(source, index)
-            regex_closures.add(closing)
-            normalized.append(source[index:end])
-            index = end
+        if character.isspace():
+            index += 1
             continue
         comment_end = _skip_comment(source, index)
         if comment_end != index:
             index = comment_end
             continue
-        if not character.isspace():
-            normalized.append(character)
+        if character in "\"'`":
+            end = _skip_string(source, index)
+            tokens.append(source[index:end])
+            index = end
+            continue
+        if _is_regex_literal_at(source, index, regex_closures):
+            end, closing = _skip_regex(source, index)
+            regex_closures.add(closing)
+            tokens.append(source[index:end])
+            index = end
+            continue
+        match = identifier.match(source, index) or number.match(source, index)
+        if match is not None:
+            tokens.append(match.group(0))
+            index = match.end()
+            continue
+        punctuator = next(
+            (
+                candidate
+                for candidate in punctuators
+                if source.startswith(candidate, index)
+            ),
+            None,
+        )
+        if punctuator is not None:
+            tokens.append(punctuator)
+            index += len(punctuator)
+            continue
+        tokens.append(character)
         index += 1
-    return "".join(normalized)
+    return tuple(tokens)
+
+
+def _normalized_javascript_expression(source: str) -> str:
+    """Canonicalize executable tokens without collapsing operator boundaries."""
+
+    return json.dumps(
+        _javascript_tokens(source),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _named_imports(
+    text: str,
+    scan_text: str,
+) -> tuple[tuple[tuple[tuple[str, str], ...], str], ...]:
+    """Parse runtime named imports while treating comments as static trivia."""
+
+    imports: list[tuple[tuple[tuple[str, str], ...], str]] = []
+    pattern = re.compile(r"\bimport\s*(?P<body>\{)")
+    for match in pattern.finditer(scan_text):
+        body_start = match.start("body")
+        body_end = _skip_balanced(text, body_start)
+        index = _skip_static_trivia(text, body_end)
+        if not text.startswith("from", index):
+            continue
+        index = _skip_static_trivia(text, index + len("from"))
+        if index >= len(text) or text[index] not in "\"'":
+            raise FrontendInventoryError(
+                "frontend named import cannot be inventoried safely"
+            )
+        module_end = _skip_string(text, index)
+        module = text[index + 1 : module_end - 1]
+        member_source = text[body_start + 1 : body_end - 1]
+        member_mask = _code_mask(member_source)
+        cleaned = "".join(
+            character if member_mask[offset] else " "
+            for offset, character in enumerate(member_source)
+        )
+        bindings: list[tuple[str, str]] = []
+        for member in cleaned.split(","):
+            if re.fullmatch(
+                rf"\s*type\s+{TEST_API_NAME}"
+                rf"(?:\s+as\s+{TEST_API_NAME})?\s*",
+                member,
+            ):
+                continue
+            binding = re.fullmatch(
+                rf"\s*(?P<imported>{TEST_API_NAME})"
+                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
+                member,
+            )
+            if binding is None:
+                if member.strip():
+                    raise FrontendInventoryError(
+                        "frontend named import cannot be inventoried safely"
+                    )
+                continue
+            imported = binding.group("imported")
+            bindings.append((imported, binding.group("local") or imported))
+        imports.append((tuple(bindings), module))
+    return tuple(imports)
 
 
 def _execution_posture_parts(declaration_source: str) -> tuple[str, ...]:
@@ -405,10 +528,39 @@ def _has_dynamic_runner_import(text: str, scan_text: str) -> bool:
     for match in pattern.finditer(text):
         if scan_text[match.start() : match.start() + len("import")] != "import":
             continue
-        line_start = scan_text.rfind("\n", 0, match.start()) + 1
-        prefix = scan_text[line_start : match.start()].rstrip()
-        if prefix.endswith(":") or re.search(r"\btype\b[^=]*=\s*$", prefix):
+        prefix = scan_text[: match.start()]
+        significant = prefix.rstrip()
+        type_query = re.search(r"\btypeof\s*$", significant)
+        type_start = type_query.start() if type_query is not None else match.start()
+        type_prefix = scan_text[:type_start].rstrip()
+        statement_start = max(
+            type_prefix.rfind(";"),
+            type_prefix.rfind("\n"),
+            type_prefix.rfind("}"),
+        )
+        statement = type_prefix[statement_start + 1 :]
+        if re.fullmatch(
+            rf"\s*(?:export\s+)?type\s+{TEST_API_NAME}(?:\s*<.*>)?\s*=\s*",
+            statement,
+        ):
             continue
+        delimiter_stack: list[tuple[str, int]] = []
+        pairs = {"(": ")", "[": "]", "{": "}"}
+        for index, character in enumerate(scan_text[:type_start]):
+            if character in pairs:
+                delimiter_stack.append((pairs[character], index))
+            elif delimiter_stack and character == delimiter_stack[-1][0]:
+                delimiter_stack.pop()
+        if delimiter_stack and delimiter_stack[-1][0] == ")":
+            parameters_start = delimiter_stack[-1][1]
+            parameter = scan_text[parameters_start + 1 : type_start]
+            comma = parameter.rfind(",")
+            parameter = parameter[comma + 1 :]
+            if re.fullmatch(
+                rf"\s*(?:\.\.\.)?{TEST_API_NAME}\s*\??\s*:\s*",
+                parameter,
+            ):
+                continue
         return True
     return False
 
@@ -449,20 +601,9 @@ def _has_global_api_mutation(
 def _test_api_names(text: str, scan_text: str) -> set[str]:
     names = {"it", "test"}
     approved_import_bindings: set[str] = set()
-    for match in IMPORT_PATTERN.finditer(text):
-        if scan_text[match.start() : match.start() + len("import")] != "import":
-            continue
-        for member in match.group("members").split(","):
-            binding = re.fullmatch(
-                rf"\s*(?P<imported>{TEST_API_NAME})"
-                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
-                member,
-            )
-            if binding is None:
-                continue
-            imported = binding.group("imported")
-            local = binding.group("local") or imported
-            if imported in {"it", "test"} and match.group("module") in RUNNER_MODULES:
+    for bindings, module in _named_imports(text, scan_text):
+        for imported, local in bindings:
+            if imported in {"it", "test"} and module in RUNNER_MODULES:
                 names.add(local)
                 approved_import_bindings.add(local)
             elif local in {"it", "test"}:
@@ -774,21 +915,10 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
 
 def _suite_api_names(text: str, scan_text: str) -> set[str]:
     names = {"describe", "suite"}
-    for match in IMPORT_PATTERN.finditer(text):
-        if scan_text[match.start() : match.start() + len("import")] != "import":
-            continue
-        for member in match.group("members").split(","):
-            binding = re.fullmatch(
-                rf"\s*(?P<imported>{TEST_API_NAME})"
-                rf"(?:\s+as\s+(?P<local>{TEST_API_NAME}))?\s*",
-                member,
-            )
-            if binding is None:
-                continue
-            imported = binding.group("imported")
-            local = binding.group("local") or imported
+    for bindings, module in _named_imports(text, scan_text):
+        for imported, local in bindings:
             if imported in {"describe", "suite"}:
-                if match.group("module") not in RUNNER_MODULES:
+                if module not in RUNNER_MODULES:
                     raise FrontendInventoryError(
                         "frontend suite API name is shadowed by a non-runner import"
                     )
@@ -2237,9 +2367,6 @@ def _unproven_registration_regions(
         if body_start is not None:
             record_body(body_start)
 
-    class_pattern = re.compile(
-        rf"\bclass(?:\s+{TEST_API_NAME})?[^{{}};\r\n]*?(?P<body>\{{)"
-    )
     field_pattern = re.compile(
         rf"(?:^|[;\r\n}}])\s*"
         rf"(?P<modifiers>(?:(?:public|private|protected|readonly|declare|"
@@ -2247,8 +2374,31 @@ def _unproven_registration_regions(
         rf"(?:#{TEST_API_NAME}|{TEST_API_NAME}|\[[^\]\r\n]+\])(?:[!?])?"
         rf"(?:\s*:\s*[^=;\r\n]+)?\s*=\s*"
     )
-    for class_match in class_pattern.finditer(scan_text):
-        body_start = class_match.start("body")
+    class_bodies: list[int] = []
+    for class_match in re.finditer(r"\bclass\b", scan_text):
+        index = class_match.end()
+        angle_depth = 0
+        delimiter_stack: list[str] = []
+        while index < len(scan_text):
+            character = scan_text[index]
+            if character == "<" and not delimiter_stack:
+                angle_depth += 1
+            elif character == ">" and angle_depth and not delimiter_stack:
+                angle_depth -= 1
+            elif character in "([":
+                delimiter_stack.append(")" if character == "(" else "]")
+            elif delimiter_stack and character == delimiter_stack[-1]:
+                delimiter_stack.pop()
+            elif character == "{" and (angle_depth or delimiter_stack):
+                index = _skip_balanced(text, index)
+                continue
+            elif character == "{" and angle_depth == 0 and not delimiter_stack:
+                class_bodies.append(index)
+                break
+            elif character == ";" and angle_depth == 0 and not delimiter_stack:
+                break
+            index += 1
+    for body_start in class_bodies:
         body_end = _skip_balanced(text, body_start)
         body_scan = scan_text[body_start + 1 : body_end - 1]
         for field_match in field_pattern.finditer(body_scan):

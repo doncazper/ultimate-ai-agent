@@ -1840,13 +1840,37 @@ def _parameterized_ref(
             xfail_can_disable_execution = True
     if xfail_can_disable_execution:
         execution_disabling_decorators.extend(xfail_decorators)
-    identity_decorators = (*decorators, *execution_disabling_decorators)
-    if not identity_decorators:
+    usefixtures_decorators = tuple(
+        decorator
+        for decorator in candidate_decorators
+        if isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Attribute)
+        and decorator.func.attr == "usefixtures"
+        and is_proven_pytest_mark(decorator.func)
+    )
+    fixture_argument_names = tuple(
+        argument.arg
+        for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+        if argument.arg not in {"self", "cls"}
+    )
+    fixture_argument_names += tuple(
+        argument.arg
+        for argument in (node.args.vararg, node.args.kwarg)
+        if argument is not None
+    )
+    identity_decorators = (
+        *decorators,
+        *execution_disabling_decorators,
+        *usefixtures_decorators,
+    )
+    if not identity_decorators and not fixture_argument_names:
         return raw_ref
     serialized_parts = [
         ast.dump(decorator, annotate_fields=True, include_attributes=False)
         for decorator in identity_decorators
     ]
+    if fixture_argument_names:
+        serialized_parts.append("fixture-arguments=" + ",".join(fixture_argument_names))
     for decorator in decorators:
         value_nodes = list(decorator.args)
         value_nodes.extend(
@@ -3685,6 +3709,8 @@ def _python_dependency_paths(
     repo: Path,
     modules: set[str],
     module_cache: dict[str, tuple[set[str], set[str]]] | None = None,
+    *,
+    read_text: Callable[[str], str | None] | None = None,
 ) -> set[str]:
     """Return a bounded, conservative closure of repository Python imports."""
 
@@ -3692,6 +3718,13 @@ def _python_dependency_paths(
     visited_modules: set[str] = set()
     dependency_paths: set[str] = set()
     cache = module_cache if module_cache is not None else {}
+    source_reader = read_text or (
+        lambda candidate: (
+            _read_worktree_text(repo, candidate)
+            if (repo / candidate).is_file()
+            else None
+        )
+    )
     while pending:
         module = pending.pop()
         if module in visited_modules:
@@ -3711,10 +3744,9 @@ def _python_dependency_paths(
         candidate_paths = set(candidate_list)
         imported_module_names: set[str] = set()
         for candidate in candidate_list:
-            candidate_path = repo / candidate
-            if not candidate_path.is_file():
+            source = source_reader(candidate)
+            if source is None:
                 continue
-            source = _read_worktree_text(repo, candidate)
             try:
                 tree = ast.parse(source, filename=candidate)
             except SyntaxError as exc:
@@ -4620,12 +4652,8 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             )
     changed_python_sources = {path for path in all_changed if path.endswith(".py")}
     if changed_python_sources:
-        changed_modules: dict[str, set[str]] = {}
-        for path in changed_python_sources:
-            changed_modules.setdefault(_python_module_name_for_path(path), set()).add(
-                path
-            )
-        registered_plugins: set[str] = set()
+        current_registered_plugins: set[str] = set()
+        prior_registered_plugins: set[str] = set()
         conftest_paths = set(_discover_conftest_files(repo))
         conftest_paths.update(
             path for path in all_changed if Path(path).name == "conftest.py"
@@ -4633,41 +4661,54 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         for conftest_path in sorted(conftest_paths):
             if (repo / conftest_path).is_file():
                 current = _read_worktree_text(repo, conftest_path)
-                registered_plugins.update(
+                current_registered_plugins.update(
                     _pytest_plugin_modules(current, conftest_path)
                 )
-                registered_plugins.update(
+                current_registered_plugins.update(
                     _pytest_conftest_import_modules(current, conftest_path)
                 )
             if conftest_path in all_changed:
                 prior = _base_text(repo, base_sha, conftest_path) or ""
-                registered_plugins.update(_pytest_plugin_modules(prior, conftest_path))
-                registered_plugins.update(
+                prior_registered_plugins.update(
+                    _pytest_plugin_modules(prior, conftest_path)
+                )
+                prior_registered_plugins.update(
                     _pytest_conftest_import_modules(prior, conftest_path)
                 )
-        for module in registered_plugins & set(changed_modules):
-            for plugin_path in changed_modules[module]:
-                current = (
-                    _read_worktree_text(repo, plugin_path)
-                    if (repo / plugin_path).is_file()
-                    else ""
+        prior_registered_plugins.update(current_registered_plugins)
+        plugin_dependency_paths = _python_dependency_paths(
+            repo,
+            current_registered_plugins,
+        )
+        plugin_dependency_paths.update(
+            _python_dependency_paths(
+                repo,
+                prior_registered_plugins,
+                read_text=lambda path: _base_text(repo, base_sha, path),
+            )
+        )
+        for plugin_path in sorted(changed_python_sources & plugin_dependency_paths):
+            current = (
+                _read_worktree_text(repo, plugin_path)
+                if (repo / plugin_path).is_file()
+                else ""
+            )
+            prior = _base_text(repo, base_sha, plugin_path) or ""
+            if any(
+                name in current or name in prior
+                for name in PYTEST_COLLECTION_HOOK_NAMES
+            ):
+                raise TestCorpusGuardError(
+                    "changed registered pytest collection hooks cannot be "
+                    "inventoried safely"
                 )
-                prior = _base_text(repo, base_sha, plugin_path) or ""
-                if any(
-                    name in current or name in prior
-                    for name in PYTEST_COLLECTION_HOOK_NAMES
-                ):
-                    raise TestCorpusGuardError(
-                        "changed registered pytest collection hooks cannot be "
-                        "inventoried safely"
-                    )
-                if _has_parameterized_fixture_declaration(
-                    current, plugin_path
-                ) or _has_parameterized_fixture_declaration(prior, plugin_path):
-                    raise TestCorpusGuardError(
-                        "changed registered parameterized pytest fixtures cannot be "
-                        "inventoried safely"
-                    )
+            if _has_parameterized_fixture_declaration(
+                current, plugin_path
+            ) or _has_parameterized_fixture_declaration(prior, plugin_path):
+                raise TestCorpusGuardError(
+                    "changed registered parameterized pytest fixtures cannot be "
+                    "inventoried safely"
+                )
     changed = {path for path in all_changed if _is_test_path(path)}
     changed_frontend_sources = {
         path

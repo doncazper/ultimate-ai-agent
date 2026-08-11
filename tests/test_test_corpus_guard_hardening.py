@@ -411,6 +411,7 @@ def test_changed_test_paths_union_index_worktree_and_untracked(
             stderr=b"",
         ),
     )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
 
     assert guard._changed_test_paths(Path("."), "a" * 40) == (
         "tests/test_head.py",

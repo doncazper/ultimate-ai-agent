@@ -66,7 +66,8 @@ ambiguous, or unresolved parameter bindings and collection-changing
 fail closed. Collection hooks in changed repository plugins
 registered through a `conftest.py` `pytest_plugins` binding or imported directly
 under a recognized hook name, including one in a hidden directory beneath
-`tests`, also fail closed, and changes to the plugin
+`tests` and the bounded transitive local dependencies of those plugins, also
+fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins or imported
 into a `conftest.py` from a local module. The canonical CI lane wrapper, shard
@@ -122,24 +123,27 @@ constructor targets, indirect `setattr`/`delattr` mutations, imported `unittest`
 module aliases, and class-body writes through `globals()`, including from executable
 function defaults, annotations, decorators, or class bodies that write a declared
 global, fails closed,
-class-level parametrizing `pytestmark`, rebound or mutated imported pytest mark
-aliases, unresolved or bare parametrization
+class-level parameterization through `pytestmark`, rebound or mutated imported
+pytest mark aliases, unresolved or bare parameterization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, mutations of pytest collection classes, and changed
 `pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
 `xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
 declaration identity, including referenced condition bindings and the effective
 order of competing `xfail` marks, so disabling an active test retires its prior
-ref instead of silently preserving it. Frontend `skip`, `fixme`, `todo`,
+ref instead of silently preserving it. Python fixture argument consumption and
+`usefixtures` marks are identity-bound as well. Frontend `skip`, `fixme`, `todo`,
 `skipIf`, and `runIf` execution posture is collision-bound separately from the
-user title; conditional literal values and enclosing suite disable posture are
-part of every affected child declaration identity for the same reason.
+user title; a trivia-free conditional token stream, literal values, and enclosing
+suite disable posture are part of every affected child declaration identity for
+the same reason.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript
 return annotation, type predicate, or object-type operator), constrained generic method, or callback
 bodies, ordinary or computed instance-field initializers (including fields after
-method bodies), relative side-effect imports even when comments separate the
+method bodies and classes with generic object-type heritage), relative
+side-effect imports even when comments separate the
 keyword and module or the runtime import uses an empty named clause, invocations
 of imported local registration helpers at module or suite scope, conditional
 `if`/`switch` suite exits before later registrations, and expression-conditional
