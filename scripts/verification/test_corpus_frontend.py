@@ -526,7 +526,9 @@ def _has_indirect_runner_invocation(
         + "|".join(quoted for name in names for quoted in (f'"{name}"', f"'{name}'"))
         + ")"
     )
-    computed_property = rf"{global_object}\s*\[\s*{quoted_names}\s*\]"
+    computed_property = (
+        rf"{global_object}\s*(?:\?\.\s*)?\[\s*{quoted_names}\s*\]"
+    )
     return any(
         scan_text[match.start()] == text[match.start()]
         for match in re.finditer(rf"{computed_property}\s*\(", text)
@@ -1525,11 +1527,19 @@ def frontend_export_binding_source(text: str, name: str) -> str | None:
 
 
 def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, ...]:
+    require_callee = r"(?:\brequire\b|\(\s*(?P<wrapped_require>require)\s*\))"
+    call_pattern = re.compile(rf"{require_callee}\s*(?:\?\.\s*)?\(")
     call_offsets = {
-        match.start() for match in re.finditer(r"\brequire\s*\(", scan_text)
+        match.start("wrapped_require")
+        if match.group("wrapped_require") is not None
+        else match.start()
+        for match in call_pattern.finditer(scan_text)
+    }
+    require_offsets = {
+        match.start() for match in re.finditer(r"\brequire\b", scan_text)
     }
     require_pattern = re.compile(
-        r"\brequire\s*\(\s*(?:"
+        rf"{require_callee}\s*(?:\?\.\s*)?\(\s*(?:"
         r"(?P<quote>['\"])(?P<quoted_module>[^'\"]+)(?P=quote)"
         r"|`(?P<template_module>[^`$]+)`"
         r")\s*\)"
@@ -1537,13 +1547,18 @@ def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, 
     literal_offsets: set[int] = set()
     modules: list[str] = []
     for match in require_pattern.finditer(text):
-        if scan_text[match.start() : match.start() + len("require")] != "require":
+        offset = (
+            match.start("wrapped_require")
+            if match.group("wrapped_require") is not None
+            else match.start()
+        )
+        if offset not in call_offsets:
             continue
-        literal_offsets.add(match.start())
+        literal_offsets.add(offset)
         module = match.group("quoted_module") or match.group("template_module")
         if module.startswith(".") and module not in modules:
             modules.append(module)
-    if call_offsets != literal_offsets:
+    if call_offsets != literal_offsets or require_offsets != literal_offsets:
         raise FrontendInventoryError(
             "dynamic CommonJS dependency cannot be inventoried safely"
         )
@@ -2760,7 +2775,8 @@ def _frontend_inventory_entries(
         )
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
     computed_dynamic_code = re.compile(
-        rf"{global_object}\s*\[\s*['\"](?:eval|Function)['\"]\s*\]"
+        rf"{global_object}\s*(?:\?\.\s*)?\[\s*"
+        r"['\"](?:eval|Function)['\"]\s*\]"
     )
     if re.search(r"\b(?:eval|Function)\b", scan_text) or any(
         scan_text[match.start()] == text[match.start()]

@@ -658,6 +658,32 @@ def _python_module_bindings(
     return {name: tuple(bindings) for name, bindings in mutable.items()}
 
 
+def _pytest_module_aliases(tree: ast.Module) -> set[str]:
+    aliases = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for imported in node.names
+        if imported.name == "pytest"
+    }
+    changed = True
+    while changed:
+        changed = False
+        for node in tree.body:
+            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Name) or value.id not in aliases:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return aliases
+
+
 def _parametrize_aliases(tree: ast.Module) -> set[str]:
     aliases: set[str] = set()
     pytest_roots = {
@@ -703,13 +729,14 @@ def _parametrize_aliases(tree: ast.Module) -> set[str]:
 
 
 def _fixture_aliases(tree: ast.Module) -> set[str]:
-    pytest_roots = {
+    imported_pytest_roots = {
         imported.asname or imported.name
         for node in tree.body
         if isinstance(node, ast.Import)
         for imported in node.names
         if imported.name == "pytest"
     }
+    pytest_roots = _pytest_module_aliases(tree)
     aliases = {f"{root}.fixture" for root in pytest_roots}
     imported_fixture_names: set[str] = set()
     for node in tree.body:
@@ -719,7 +746,7 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
                     local_name = imported.asname or imported.name
                     aliases.add(local_name)
                     imported_fixture_names.add(local_name)
-    protected_names = pytest_roots | imported_fixture_names
+    protected_names = imported_pytest_roots | imported_fixture_names
     for node in _module_execution_nodes(tree):
         aliases_before = _module_name_aliases(
             tree,
@@ -1179,6 +1206,7 @@ def _unittest_skiptest_reference(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
     aliases: set[str],
+    namespace_aliases: set[str],
 ) -> bool:
     def is_skiptest_candidate(candidate: str) -> bool:
         return candidate in {"unittest.SkipTest", "unittest.case.SkipTest"}
@@ -1191,7 +1219,7 @@ def _unittest_skiptest_reference(
     if not isinstance(node, ast.Attribute) or node.attr != "SkipTest":
         return False
     root = _root_name(node)
-    return root == "unittest" or (
+    return root in namespace_aliases or root == "unittest" or (
         root is not None
         and any(
             candidate in {"unittest", "unittest.case"}
@@ -1204,6 +1232,11 @@ def _has_module_level_unittest_collection_abort(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
+    namespace_aliases = {
+        name
+        for name, candidates in imported_modules.items()
+        if any(candidate in {"unittest", "unittest.case"} for candidate in candidates)
+    }
     aliases = {
         name
         for name, candidates in imported_modules.items()
@@ -1219,21 +1252,46 @@ def _has_module_level_unittest_collection_abort(
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
-            if value is None or not _unittest_skiptest_reference(
-                value, imported_modules, aliases
-            ):
+            if value is None:
                 continue
             targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
-            for target in targets:
-                for name in _binding_target_names(target):
-                    if name not in aliases:
-                        aliases.add(name)
+            target_names = {
+                name for target in targets for name in _binding_target_names(target)
+            }
+            root = _root_name(value)
+            is_namespace = (
+                isinstance(value, ast.Name) and value.id in namespace_aliases
+            ) or (
+                isinstance(value, ast.Attribute)
+                and value.attr == "case"
+                and root in namespace_aliases
+            )
+            if is_namespace:
+                for name in target_names:
+                    if name not in namespace_aliases:
+                        namespace_aliases.add(name)
                         changed = True
+            if not _unittest_skiptest_reference(
+                value,
+                imported_modules,
+                aliases,
+                namespace_aliases,
+            ):
+                continue
+            for name in target_names:
+                if name not in aliases:
+                    aliases.add(name)
+                    changed = True
     for node in _module_execution_nodes(tree):
         if not isinstance(node, ast.Raise) or node.exc is None:
             continue
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-        if _unittest_skiptest_reference(raised, imported_modules, aliases):
+        if _unittest_skiptest_reference(
+            raised,
+            imported_modules,
+            aliases,
+            namespace_aliases,
+        ):
             return True
     return False
 

@@ -5044,6 +5044,7 @@ def test_frontend_inventory_rejects_imported_registration_helper_call() -> None:
         'test.bind(null)("case", () => {});\n',
         'globalThis.test("case", () => {});\n',
         'globalThis["test"]("case", () => {});\n',
+        'globalThis?.["test"]("case", () => {});\n',
         '(0, test)("case", () => {});\n',
     ),
 )
@@ -5711,6 +5712,7 @@ def test_frontend_inventory_rejects_generic_direct_runner_call() -> None:
         'new Function(`test("dynamic function", () => {})`)();\n',
         'globalThis["eval"](`test("computed eval", () => {})`);\n',
         'globalThis["Function"](`test("computed function", () => {})`)();\n',
+        'globalThis?.["eval"](`test("optional computed eval", () => {})`);\n',
     ),
 )
 def test_frontend_inventory_rejects_dynamic_registration(source: str) -> None:
@@ -5754,6 +5756,20 @@ def test_python_inventory_rejects_aliased_unittest_case_module_skiptest(
         guard.parse_python_declarations(
             "tests/test_sample.py",
             f"import unittest.case as case\n{raise_statement}\ndef test_case(): pass\n",
+        )
+
+
+def test_python_inventory_rejects_assigned_unittest_case_namespace_alias() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level unittest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest.case\n"
+            "uc = unittest.case\n"
+            "raise uc.SkipTest('disabled')\n"
+            "def test_case(): pass\n",
         )
 
 
@@ -5838,6 +5854,33 @@ def test_python_inventory_binds_aliased_imported_fixture_name_override() -> None
     assert refs_for("[1, 2]") != refs_for("[1]")
 
 
+def test_python_inventory_binds_assigned_pytest_fixture_namespace_alias() -> None:
+    test_source = (
+        "from tests.helper import _value\ndef test_case(value): assert value\n"
+    )
+
+    def refs_for(params: str) -> tuple[str, ...]:
+        helper_source = (
+            "import pytest as p\n"
+            "q = p\n"
+            f"@q.fixture(name='value', params={params})\n"
+            "def _value(request): return request.param\n"
+        )
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_sample.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("[1, 2]") != refs_for("[1]")
+
+
 def test_python_inventory_binds_fixture_default_posture() -> None:
     active = guard.parse_python_declarations(
         "tests/test_sample.py",
@@ -5894,6 +5937,74 @@ def test_frontend_dependency_paths_follow_template_commonjs_require() -> None:
     )
 
     assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_frontend_dependency_paths_follow_optional_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            'module.exports = require?.("./vitest.shared.cjs");\n'
+        ),
+        "apps/control-center/vitest.shared.cjs": "module.exports = {};\n",
+    }
+
+    dependencies = guard._frontend_dependency_paths(
+        {"apps/control-center/vitest.config.cjs"},
+        sources.get,
+    )
+
+    assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_frontend_dependency_paths_follow_parenthesized_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            'module.exports = (require)("./vitest.shared.cjs");\n'
+        ),
+        "apps/control-center/vitest.shared.cjs": "module.exports = {};\n",
+    }
+
+    dependencies = guard._frontend_dependency_paths(
+        {"apps/control-center/vitest.config.cjs"},
+        sources.get,
+    )
+
+    assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_frontend_dependency_paths_reject_dynamic_optional_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            'const modulePath = "./vitest.shared.cjs";\n'
+            "module.exports = require?.(modulePath);\n"
+        ),
+    }
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic CommonJS dependency",
+    ):
+        guard._frontend_dependency_paths(
+            {"apps/control-center/vitest.config.cjs"},
+            sources.get,
+        )
+
+
+def test_frontend_dependency_paths_reject_aliased_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            "const load = require;\n"
+            'module.exports = load("./vitest.shared.cjs");\n'
+        ),
+    }
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic CommonJS dependency",
+    ):
+        guard._frontend_dependency_paths(
+            {"apps/control-center/vitest.config.cjs"},
+            sources.get,
+        )
 
 
 def test_frontend_inventory_rejects_commonjs_registration_dependency() -> None:
