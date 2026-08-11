@@ -70,11 +70,13 @@ under a recognized hook name, including one in a hidden directory beneath
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do fixtures declared by those registered plugins or imported into a
-`conftest.py` from a local module. Changes to ordinary, parameterized, or
+`conftest.py` from a local module, including imports in module-executed compound
+statements. Changes to ordinary, parameterized, or
 autouse fixtures in a `conftest.py` or registered plugin, and to their bounded
 local dependency closure, fail closed. Module-local autouse fixture source,
-transitive helper bindings, and execution posture are bound into every affected
-test ref.
+transitive helper bindings, imported module-object dependency closures, and
+execution posture are bound into every affected test ref. Post-definition fixture
+applications also resolve bounded module aliases before classifying their target.
 The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are

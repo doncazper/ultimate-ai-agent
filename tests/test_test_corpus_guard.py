@@ -5566,6 +5566,39 @@ def test_python_inventory_binds_autouse_fixture_imported_module_alias(
     assert refs_for(True) != refs_for(False)
 
 
+def test_python_inventory_binds_autouse_fixture_module_dependency_closure() -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.helper as helper_module\n"
+        "def run_setup(module): module.setup_environment()\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): run_setup(helper_module)\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "from tests.state import enabled\n"
+                "def setup_environment(): return enabled\n"
+                if path == "tests/helper.py"
+                else f"enabled = {enabled!r}\n"
+                if path == "tests/state.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
 def test_python_inventory_binds_post_definition_autouse_fixture_source() -> None:
     active = guard.parse_python_declarations(
         "tests/test_example.py",
@@ -5585,6 +5618,24 @@ def test_python_inventory_binds_post_definition_autouse_fixture_source() -> None
     assert {declaration.ref for declaration in active} != {
         declaration.ref for declaration in disabled
     }
+
+
+def test_has_fixture_declaration_resolves_post_definition_alias() -> None:
+    assert guard._has_fixture_declaration(
+        "import pytest\n"
+        "def shared_value(): return 'one'\n"
+        "target = shared_value\n"
+        "shared_value = pytest.fixture(target)\n",
+        "tests/conftest.py",
+    )
+
+
+def test_pytest_conftest_imports_traverse_executed_compound_statements() -> None:
+    assert guard._pytest_conftest_import_modules(
+        "if True:\n"
+        "    from tests.fixture_plugin import shared_value\n",
+        "tests/conftest.py",
+    ) == {"tests.fixture_plugin"}
 
 
 def test_changed_registered_pytest_plugin_collection_hook_fails_closed(

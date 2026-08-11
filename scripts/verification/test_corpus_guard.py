@@ -1639,6 +1639,76 @@ def _python_lazy_export_modules(
     return tuple(dict.fromkeys(modules))
 
 
+def _python_module_dependency_identity(
+    module: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+) -> str:
+    """Bind a module object to the bounded closure of its local dependencies."""
+
+    pending = [(module, source)]
+    resolved_sources: dict[str, str] = {}
+    while pending:
+        current_module, current_source = pending.pop()
+        if current_module in resolved_sources:
+            continue
+        resolved_sources[current_module] = current_source
+        if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
+            raise TestCorpusGuardError(
+                "Python module identity dependency closure exceeds module budget"
+            )
+        source_text = (
+            current_source.split("\n", 1)[1]
+            if current_source.startswith("path=")
+            else current_source
+        )
+        try:
+            tree = ast.parse(source_text, filename=current_module)
+        except SyntaxError as exc:
+            raise TestCorpusGuardError(
+                "imported Python module identity cannot be inventoried safely"
+            ) from exc
+        source_path = current_source.split("\n", 1)[0].removeprefix("path=")
+        relative_package = current_module
+        if not source_path.endswith("/__init__.py") and "." in current_module:
+            relative_package = current_module.rsplit(".", 1)[0]
+        imported_modules = _python_import_modules(
+            tree,
+            relative_package=relative_package,
+        )
+        dependency_candidates = list(imported_modules.values())
+        dependency_candidates.extend(
+            (candidate,)
+            for candidate in (
+                *_python_star_import_modules(
+                    tree,
+                    relative_package=relative_package,
+                ),
+                *_python_lazy_export_modules(
+                    tree,
+                    relative_package=relative_package,
+                ),
+            )
+        )
+        for candidates in dependency_candidates:
+            resolved_import = next(
+                (
+                    (candidate, imported_source)
+                    for candidate in candidates
+                    if import_source_resolver is not None
+                    and (imported_source := import_source_resolver(candidate)) is not None
+                ),
+                None,
+            )
+            if resolved_import is not None:
+                pending.append(resolved_import)
+    return "\n".join(
+        f"module={resolved_module}\nmodule-source-sha256="
+        f"{hashlib.sha256(resolved_source.encode('utf-8')).hexdigest()}"
+        for resolved_module, resolved_source in sorted(resolved_sources.items())
+    )
+
+
 def _python_imported_binding_source(
     module: str,
     source: str,
@@ -1836,9 +1906,11 @@ def _python_imported_binding_source(
                 or (len(candidates) > 1 and imported_module == candidates[0])
             ):
                 serialized_parts.append(
-                    f"module={imported_module}\n"
-                    "module-source-sha256="
-                    f"{hashlib.sha256(imported_source.encode('utf-8')).hexdigest()}"
+                    _python_module_dependency_identity(
+                        imported_module,
+                        imported_source,
+                        import_source_resolver,
+                    )
                 )
                 continue
             serialized_parts.append(
@@ -4969,7 +5041,15 @@ def _has_fixture_declaration(source: str, path: str) -> bool:
         is_direct_fixture_application = _is_fixture_callable(factory, fixture_aliases)
         if not (is_fixture_application or is_direct_fixture_application):
             continue
-        if any(_root_name(argument) in functions for argument in node.args):
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(node.lineno, node.col_offset),
+        )
+        if any(
+            root is not None and name_aliases.get(root, root) in functions
+            for argument in node.args
+            if (root := _root_name(argument)) is not None
+        ):
             return True
     return False
 
@@ -5148,7 +5228,7 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     package = _python_module_name_for_path(path).rpartition(".")[0]
     package_parts = package.split(".") if package else []
     modules: set[str] = set()
-    for node in tree.body:
+    for node in _module_execution_nodes(tree):
         if isinstance(node, ast.Import):
             modules.update(imported.name for imported in node.names)
             continue
