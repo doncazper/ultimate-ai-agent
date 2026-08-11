@@ -70,13 +70,22 @@ under a recognized hook name, including one in a hidden directory beneath
 fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do fixtures declared by those registered plugins or imported into a
-`conftest.py` from a local module, including imports in module-executed compound
-statements. Changes to ordinary, parameterized, or
+`conftest.py` from a local module. Direct `from package import submodule`
+imports include both the package and resolvable submodule candidate in that
+closure; conditional conftest imports fail closed because their execution
+posture is not a stable static dependency. Changes to ordinary, parameterized, or
 autouse fixtures in a `conftest.py` or registered plugin, and to their bounded
 local dependency closure, fail closed. Module-local autouse fixture source,
-transitive helper bindings, imported module-object dependency closures, and
-execution posture are bound into every affected test ref. Post-definition fixture
-applications also resolve bounded module aliases before classifying their target.
+transitive helper bindings, imported module-object dependency closures (including
+implicit package initializers), and execution posture are bound into every
+affected test ref. Literal dynamic imports inside a module-object dependency
+closure are resolved into that closure; unresolved dynamic targets fail closed,
+recognized grouped lazy-export targets bind each local target source without
+eagerly expanding optional export trees, and rebound import aliases are
+serialized as their active local bindings.
+Class-local autouse fixtures, including class-scope factory aliases, fail closed
+rather than applying a file-wide identity. Post-definition fixture applications
+also resolve bounded module-execution aliases before classifying their target.
 The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are

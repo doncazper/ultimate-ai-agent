@@ -5599,6 +5599,202 @@ def test_python_inventory_binds_autouse_fixture_module_dependency_closure() -> N
     assert refs_for(True) != refs_for(False)
 
 
+def test_python_inventory_binds_autouse_fixture_package_initializer() -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.pkg.helper as helper_module\n"
+        "def run_setup(module): module.setup_environment()\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): run_setup(helper_module)\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "import sys\n"
+                "def setup_environment(): return sys.modules[__package__].ENABLED\n"
+                if path == "tests/pkg/helper.py"
+                else f"ENABLED = {enabled!r}\n"
+                if path == "tests/pkg/__init__.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+@pytest.mark.parametrize(
+    "dynamic_import",
+    (
+        'import importlib\nMODULE = importlib.import_module("tests.state")\n',
+        'MODULE = __import__("tests.state", fromlist=("enabled",))\n',
+    ),
+)
+def test_python_inventory_binds_literal_dynamic_autouse_module_dependencies(
+    dynamic_import: str,
+) -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.helper as helper_module\n"
+        "def run_setup(module): module.setup_environment()\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): run_setup(helper_module)\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                dynamic_import + "def setup_environment(): return MODULE.enabled\n"
+                if path == "tests/helper.py"
+                else f"enabled = {enabled!r}\n"
+                if path == "tests/state.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
+def test_python_inventory_rejects_unresolved_dynamic_autouse_module_dependency() -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.helper as helper_module\n"
+        "def run_setup(module): module.setup_environment()\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): run_setup(helper_module)\n"
+        "def test_case(): pass\n"
+    )
+    resolver = guard._python_import_resolver(
+        lambda path: (
+            "import importlib\n"
+            'TARGET = "tests.state"\n'
+            "MODULE = importlib.import_module(TARGET)\n"
+            "def setup_environment(): return MODULE.enabled\n"
+            if path == "tests/helper.py"
+            else None
+        )
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python module dependencies",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )
+
+
+def test_python_module_identity_binds_grouped_lazy_export_target_source() -> None:
+    package_source = (
+        "path=tests/pkg/__init__.py\n"
+        "from importlib import import_module\n"
+        "_EXPORT_GROUPS = {'tests.target': {'value'}}\n"
+        "def __getattr__(name):\n"
+        "    module_name = next(iter(_EXPORT_GROUPS))\n"
+        "    return getattr(import_module(module_name), name)\n"
+    )
+
+    def identity_for(enabled: bool) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"value = {enabled!r}\n" if path == "tests/target.py" else None
+            )
+        )
+        return guard._python_module_dependency_identity(
+            "tests.pkg",
+            package_source,
+            resolver,
+        )
+
+    assert identity_for(True) != identity_for(False)
+
+
+def test_python_inventory_binds_rebound_import_alias_as_local_data() -> None:
+    test_source = (
+        "import pytest\n"
+        "from tests.helper import setup_environment\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): setup_environment()\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(value: str) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "import tests.state as data\n"
+                f"data = [{value!r}]\n"
+                "def setup_environment(): return data\n"
+                if path == "tests/helper.py"
+                else "enabled = True\n"
+                if path == "tests/state.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("one") != refs_for("two")
+
+
+def test_python_inventory_keeps_later_import_as_active_binding() -> None:
+    test_source = (
+        "import pytest\n"
+        "from tests.helper import setup_environment\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment(): setup_environment()\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "data = ['local']\n"
+                "import tests.state as data\n"
+                "def setup_environment(): return data.enabled\n"
+                if path == "tests/helper.py"
+                else f"enabled = {enabled!r}\n"
+                if path == "tests/state.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(True) != refs_for(False)
+
+
 def test_python_inventory_binds_post_definition_autouse_fixture_source() -> None:
     active = guard.parse_python_declarations(
         "tests/test_example.py",
@@ -5630,12 +5826,59 @@ def test_has_fixture_declaration_resolves_post_definition_alias() -> None:
     )
 
 
-def test_pytest_conftest_imports_traverse_executed_compound_statements() -> None:
-    assert guard._pytest_conftest_import_modules(
+def test_has_fixture_declaration_resolves_executed_compound_alias() -> None:
+    assert guard._has_fixture_declaration(
+        "import pytest\n"
+        "def shared_value(): return 'one'\n"
         "if True:\n"
-        "    from tests.fixture_plugin import shared_value\n",
+        "    target = shared_value\n"
+        "shared_value = pytest.fixture(target)\n",
         "tests/conftest.py",
-    ) == {"tests.fixture_plugin"}
+    )
+
+
+@pytest.mark.parametrize("condition", ("True", "False"))
+def test_pytest_conftest_imports_reject_conditional_posture(condition: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="conditional pytest conftest imports",
+    ):
+        guard._pytest_conftest_import_modules(
+            f"if {condition}:\n"
+            "    from tests.fixture_plugin import shared_value\n",
+            "tests/conftest.py",
+        )
+
+
+def test_pytest_conftest_imports_include_imported_submodule_candidate() -> None:
+    assert guard._pytest_conftest_import_modules(
+        "from tests import fixture_plugin\n",
+        "tests/conftest.py",
+    ) == {"tests", "tests.fixture_plugin"}
+
+
+@pytest.mark.parametrize(
+    "fixture_declaration",
+    (
+        "@pytest.fixture(autouse=True)\n",
+        "auto = pytest.fixture(autouse=True)\n@auto\n",
+    ),
+)
+def test_python_inventory_rejects_class_local_autouse_fixture(
+    fixture_declaration: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="class-local autouse pytest fixtures",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            "import pytest\n"
+            "class TestCases:\n"
+            + "".join(f"    {line}\n" for line in fixture_declaration.splitlines())
+            + "    def environment(self): yield\n"
+            "    def test_case(self): pass\n",
+        )
 
 
 def test_changed_registered_pytest_plugin_collection_hook_fails_closed(

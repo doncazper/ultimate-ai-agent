@@ -495,11 +495,25 @@ def _module_name_aliases(
     *,
     before: tuple[int, int],
 ) -> dict[str, str]:
+    cached_aliases = getattr(tree, "_uaa_module_name_aliases", None)
+    if cached_aliases is None:
+        cached_aliases = {}
+        setattr(tree, "_uaa_module_name_aliases", cached_aliases)
+    if before in cached_aliases:
+        return dict(cached_aliases[before])
+    alias_nodes = getattr(tree, "_uaa_module_alias_nodes", None)
+    if alias_nodes is None:
+        alias_nodes = tuple(
+            node
+            for node in _module_execution_nodes(tree)
+            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Delete))
+        )
+        setattr(tree, "_uaa_module_alias_nodes", alias_nodes)
     aliases: dict[str, str] = {}
-    for node in tree.body:
+    for node in alias_nodes:
         position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
         if position >= before:
-            break
+            continue
         if isinstance(node, ast.Assign):
             targets = node.targets
             value = node.value
@@ -533,6 +547,7 @@ def _module_name_aliases(
         else:
             for name in target_names:
                 aliases.pop(name, None)
+    cached_aliases[before] = dict(aliases)
     return aliases
 
 
@@ -1026,6 +1041,96 @@ def _python_import_modules(
                         )
                     )
     return modules
+
+
+def _static_string_expression(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_string_expression(node.left)
+        right = _static_string_expression(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _dynamic_python_import_modules(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+    *,
+    relative_package: str,
+    lazy_export_modules: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Resolve bounded dynamic imports or reject their dependency posture."""
+
+    dynamic_import_aliases = {"__import__"}
+    dynamic_import_aliases.update(
+        local_name
+        for local_name, candidates in imported_modules.items()
+        if "importlib.import_module" in candidates
+    )
+
+    def is_dynamic_import_callable(node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return node.id in dynamic_import_aliases
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr == "import_module"
+            and (root := _root_name(node)) is not None
+            and "importlib" in imported_modules.get(root, ())
+        )
+
+    assignments: list[tuple[str, ast.AST]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+            value = node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets = (node.target,)
+            value = node.value
+        elif isinstance(node, ast.NamedExpr):
+            targets = (node.target,)
+            value = node.value
+        else:
+            continue
+        assignments.extend(
+            (name, value)
+            for target in targets
+            for name in _binding_target_names(target)
+        )
+    while True:
+        added = {
+            name
+            for name, value in assignments
+            if is_dynamic_import_callable(value)
+        } - dynamic_import_aliases
+        if not added:
+            break
+        dynamic_import_aliases.update(added)
+    lazy_getattr_calls = {
+        id(node)
+        for function in tree.body
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and function.name == "__getattr__"
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call) and is_dynamic_import_callable(node.func)
+    }
+    resolved: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not is_dynamic_import_callable(node.func):
+            continue
+        target = _static_string_expression(node.args[0]) if node.args else None
+        if target is not None:
+            resolved.append(
+                f"{relative_package}{target}" if target.startswith(".") else target
+            )
+            continue
+        if id(node) in lazy_getattr_calls and lazy_export_modules:
+            continue
+        raise TestCorpusGuardError(
+            "dynamic Python module dependencies cannot be inventoried safely"
+        )
+    return tuple(dict.fromkeys(resolved))
 
 
 def _is_pytest_collection_class_reference(
@@ -1639,6 +1744,31 @@ def _python_lazy_export_modules(
     return tuple(dict.fromkeys(modules))
 
 
+def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
+    modules: list[str] = []
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        if "_EXPORT_GROUPS" not in {
+            name for target in targets for name in _binding_target_names(target)
+        }:
+            continue
+        if not isinstance(node.value, ast.Dict):
+            raise TestCorpusGuardError(
+                "lazy Python export modules cannot be inventoried safely"
+            )
+        for target in node.value.keys:
+            if not isinstance(target, ast.Constant) or not isinstance(
+                target.value, str
+            ):
+                raise TestCorpusGuardError(
+                    "lazy Python export modules cannot be inventoried safely"
+                )
+            modules.append(target.value)
+    return tuple(dict.fromkeys(modules))
+
+
 def _python_module_dependency_identity(
     module: str,
     source: str,
@@ -1648,10 +1778,12 @@ def _python_module_dependency_identity(
 
     pending = [(module, source)]
     resolved_sources: dict[str, str] = {}
+    expanded_modules: set[str] = set()
     while pending:
         current_module, current_source = pending.pop()
-        if current_module in resolved_sources:
+        if current_module in expanded_modules:
             continue
+        expanded_modules.add(current_module)
         resolved_sources[current_module] = current_source
         if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
             raise TestCorpusGuardError(
@@ -1676,6 +1808,45 @@ def _python_module_dependency_identity(
             tree,
             relative_package=relative_package,
         )
+        lazy_export_modules = _python_lazy_export_modules(
+            tree,
+            relative_package=relative_package,
+        )
+        grouped_lazy_export_modules = _python_grouped_lazy_export_modules(tree)
+        dynamic_import_modules = _dynamic_python_import_modules(
+            tree,
+            imported_modules,
+            relative_package=relative_package,
+            lazy_export_modules=(
+                *lazy_export_modules,
+                *grouped_lazy_export_modules,
+            ),
+        )
+        resolved_dependencies: list[tuple[str, str]] = []
+        if import_source_resolver is not None:
+            module_parts = current_module.split(".")
+            for index in range(1, len(module_parts)):
+                package_module = ".".join(module_parts[:index])
+                package_source = import_source_resolver(package_module)
+                if (
+                    package_source is not None
+                    and package_source.split("\n", 1)[0].endswith("/__init__.py")
+                ):
+                    resolved_sources.setdefault(package_module, package_source)
+                    if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
+                        raise TestCorpusGuardError(
+                            "Python module identity dependency closure exceeds module "
+                            "budget"
+                        )
+            for grouped_module in grouped_lazy_export_modules:
+                grouped_source = import_source_resolver(grouped_module)
+                if grouped_source is not None:
+                    resolved_sources.setdefault(grouped_module, grouped_source)
+                    if len(resolved_sources) > MAX_PYTHON_DEPENDENCY_MODULES:
+                        raise TestCorpusGuardError(
+                            "Python module identity dependency closure exceeds module "
+                            "budget"
+                        )
         dependency_candidates = list(imported_modules.values())
         dependency_candidates.extend(
             (candidate,)
@@ -1684,10 +1855,8 @@ def _python_module_dependency_identity(
                     tree,
                     relative_package=relative_package,
                 ),
-                *_python_lazy_export_modules(
-                    tree,
-                    relative_package=relative_package,
-                ),
+                *lazy_export_modules,
+                *dynamic_import_modules,
             )
         )
         for candidates in dependency_candidates:
@@ -1701,7 +1870,8 @@ def _python_module_dependency_identity(
                 None,
             )
             if resolved_import is not None:
-                pending.append(resolved_import)
+                resolved_dependencies.append(resolved_import)
+        pending.extend(resolved_dependencies)
     return "\n".join(
         f"module={resolved_module}\nmodule-source-sha256="
         f"{hashlib.sha256(resolved_source.encode('utf-8')).hexdigest()}"
@@ -1738,12 +1908,59 @@ def _python_imported_binding_source(
         tree,
         relative_package=relative_package,
     )
-    direct_module_aliases = {
-        imported.asname or imported.name.split(".", 1)[0]
-        for node in tree.body
-        if isinstance(node, ast.Import)
-        for imported in node.names
+    import_positions: dict[str, tuple[int, int]] = {}
+    binding_positions: dict[str, tuple[int, int]] = {}
+    direct_module_aliases: set[str] = set()
+    for node in _module_execution_nodes(tree):
+        position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+        if isinstance(node, ast.Import):
+            for imported in node.names:
+                local_name = imported.asname or imported.name.split(".", 1)[0]
+                direct_module_aliases.add(local_name)
+                import_positions[local_name] = max(
+                    import_positions.get(local_name, (0, 0)),
+                    position,
+                )
+            continue
+        if isinstance(node, ast.ImportFrom):
+            for imported in node.names:
+                if imported.name != "*":
+                    import_positions[imported.asname or imported.name] = max(
+                        import_positions.get(imported.asname or imported.name, (0, 0)),
+                        position,
+                    )
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound_names = (node.name,)
+        elif isinstance(node, ast.Assign):
+            bound_names = tuple(
+                name
+                for target in node.targets
+                for name in _binding_target_names(target)
+            )
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            bound_names = tuple(_binding_target_names(node.target))
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            bound_names = tuple(_binding_target_names(node.target))
+        else:
+            continue
+        for name in bound_names:
+            binding_positions[name] = max(
+                binding_positions.get(name, (0, 0)),
+                position,
+            )
+    rebound_import_names = {
+        name
+        for name in imported_modules
+        if binding_positions.get(name, (0, 0)) > import_positions.get(name, (0, 0))
     }
+    if rebound_import_names:
+        imported_modules = {
+            name: candidates
+            for name, candidates in imported_modules.items()
+            if name not in rebound_import_names
+        }
+        direct_module_aliases.difference_update(rebound_import_names)
     star_import_modules = _python_star_import_modules(
         tree,
         relative_package=relative_package,
@@ -5082,33 +5299,83 @@ def _autouse_fixture_declarations(
             return keyword.value.value
         return False
 
-    factory_aliases: set[str] = set()
-    changed = True
-    while changed:
-        changed = False
-        for node in tree.body:
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+    def factory_aliases_for(
+        nodes: tuple[ast.AST, ...],
+        inherited: set[str] | None = None,
+    ) -> set[str]:
+        factory_aliases = set(inherited or ())
+        changed = True
+        while changed:
+            changed = False
+            for node in nodes:
+                if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    continue
+                value = node.value
+                if value is None:
+                    continue
+                resolves = (
+                    isinstance(value, ast.Call)
+                    and _is_fixture_callable(value.func, fixture_aliases)
+                    and autouse_enabled(value)
+                ) or (isinstance(value, ast.Name) and value.id in factory_aliases)
+                if not resolves:
+                    continue
+                targets = (
+                    node.targets if isinstance(node, ast.Assign) else (node.target,)
+                )
+                for target in targets:
+                    for name in _binding_target_names(target):
+                        if name not in factory_aliases:
+                            factory_aliases.add(name)
+                            changed = True
+        return factory_aliases
+
+    module_nodes = _module_execution_nodes(tree)
+    factory_aliases = factory_aliases_for(module_nodes)
+
+    def has_autouse_declaration(
+        nodes: tuple[ast.AST, ...],
+        functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+        aliases: set[str],
+    ) -> bool:
+        for function in functions.values():
+            for decorator in function.decorator_list:
+                if (
+                    isinstance(decorator, ast.Call)
+                    and _is_fixture_callable(decorator.func, fixture_aliases)
+                    and autouse_enabled(decorator)
+                ) or (isinstance(decorator, ast.Name) and decorator.id in aliases):
+                    return True
+        for node in nodes:
+            if not isinstance(node, ast.Call):
                 continue
-            value = node.value
-            if value is None:
-                continue
-            resolves = (
-                isinstance(value, ast.Call)
-                and _is_fixture_callable(value.func, fixture_aliases)
-                and autouse_enabled(value)
-            ) or (isinstance(value, ast.Name) and value.id in factory_aliases)
-            if not resolves:
-                continue
-            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
-            for target in targets:
-                for name in _binding_target_names(target):
-                    if name not in factory_aliases:
-                        factory_aliases.add(name)
-                        changed = True
+            factory = node.func
+            if (
+                isinstance(factory, ast.Call)
+                and _is_fixture_callable(factory.func, fixture_aliases)
+                and autouse_enabled(factory)
+            ) or (isinstance(factory, ast.Name) and factory.id in aliases):
+                return True
+        return False
+
+    for class_node in (
+        node for node in tree.body if isinstance(node, ast.ClassDef)
+    ):
+        class_nodes = _scope_execution_nodes(class_node.body)
+        class_aliases = factory_aliases_for(class_nodes, factory_aliases)
+        class_functions = {
+            node.name: node
+            for node in class_nodes
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        if has_autouse_declaration(class_nodes, class_functions, class_aliases):
+            raise TestCorpusGuardError(
+                "class-local autouse pytest fixtures cannot be inventoried safely"
+            )
 
     functions = {
         node.name: node
-        for node in ast.walk(tree)
+        for node in module_nodes
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
     module = _python_module_name_for_path(path)
@@ -5123,7 +5390,7 @@ def _autouse_fixture_declarations(
         )
 
     declarations: set[str] = set()
-    for node in ast.walk(tree):
+    for node in module_nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for decorator in node.decorator_list:
                 if (
@@ -5228,12 +5495,25 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     package = _python_module_name_for_path(path).rpartition(".")[0]
     package_parts = package.split(".") if package else []
     modules: set[str] = set()
+    direct_import_nodes = {
+        id(node)
+        for node in tree.body
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    }
     for node in _module_execution_nodes(tree):
         if isinstance(node, ast.Import):
+            if id(node) not in direct_import_nodes:
+                raise TestCorpusGuardError(
+                    "conditional pytest conftest imports cannot be inventoried safely"
+                )
             modules.update(imported.name for imported in node.names)
             continue
         if not isinstance(node, ast.ImportFrom):
             continue
+        if id(node) not in direct_import_nodes:
+            raise TestCorpusGuardError(
+                "conditional pytest conftest imports cannot be inventoried safely"
+            )
         if any(imported.name == "*" for imported in node.names):
             raise TestCorpusGuardError(
                 "pytest conftest imports cannot be inventoried safely"
@@ -5253,6 +5533,11 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
                 "pytest conftest imports cannot be inventoried safely"
             )
         modules.add(module)
+        modules.update(
+            f"{module}.{imported.name}"
+            for imported in node.names
+            if imported.name != "*"
+        )
     return modules
 
 
