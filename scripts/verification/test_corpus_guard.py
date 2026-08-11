@@ -1192,7 +1192,11 @@ def _unittest_skiptest_reference(
         return False
     root = _root_name(node)
     return root == "unittest" or (
-        root is not None and "unittest" in imported_modules.get(root, ())
+        root is not None
+        and any(
+            candidate in {"unittest", "unittest.case"}
+            for candidate in imported_modules.get(root, ())
+        )
     )
 
 
@@ -1746,6 +1750,7 @@ def _python_fixture_binding_exports(source: str) -> dict[str, str]:
         raise TestCorpusGuardError(
             "imported Python fixture binding cannot be inventoried safely"
         ) from exc
+    fixture_aliases = _fixture_aliases(tree)
     exports: dict[str, str] = {}
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1754,10 +1759,7 @@ def _python_fixture_binding_exports(source: str) -> dict[str, str]:
             if not isinstance(decorator, ast.Call):
                 continue
             target = decorator.func
-            if not (
-                (isinstance(target, ast.Name) and target.id == "fixture")
-                or (isinstance(target, ast.Attribute) and target.attr == "fixture")
-            ):
+            if not _is_fixture_callable(target, fixture_aliases):
                 continue
             name_keywords = [
                 keyword for keyword in decorator.keywords if keyword.arg == "name"
@@ -2014,16 +2016,36 @@ def _parameterized_ref(
     ]
     if fixture_argument_names:
         serialized_parts.append("fixture-arguments=" + ",".join(fixture_argument_names))
-        defaults = (
-            *node.args.defaults,
-            *(default for default in node.args.kw_defaults if default is not None),
+        positional_arguments = (*node.args.posonlyargs, *node.args.args)
+        positional_default_start = len(positional_arguments) - len(node.args.defaults)
+        named_defaults = [
+            (argument.arg, default)
+            for argument, default in zip(
+                positional_arguments[positional_default_start:],
+                node.args.defaults,
+                strict=True,
+            )
+        ]
+        named_defaults.extend(
+            (argument.arg, default)
+            for argument, default in zip(
+                node.args.kwonlyargs,
+                node.args.kw_defaults,
+                strict=True,
+            )
+            if default is not None
         )
-        if defaults:
+        if named_defaults:
             serialized_parts.append(
                 "fixture-defaults="
                 + ",".join(
-                    ast.dump(default, annotate_fields=True, include_attributes=False)
-                    for default in defaults
+                    f"{name}="
+                    + ast.dump(
+                        default,
+                        annotate_fields=True,
+                        include_attributes=False,
+                    )
+                    for name, default in named_defaults
                 )
             )
         for fixture_name in fixture_argument_names:
@@ -5145,13 +5167,19 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             repo,
             current_registered_plugins,
         )
-        plugin_dependency_paths.update(
-            _python_dependency_paths(
-                repo,
-                prior_registered_plugins,
-                read_text=lambda path: _base_text(repo, base_sha, path),
+        if prior_registered_plugins:
+            base_paths = _base_file_paths(repo, base_sha)
+            plugin_dependency_paths.update(
+                _python_dependency_paths(
+                    repo,
+                    prior_registered_plugins,
+                    read_text=lambda path: (
+                        _base_text(repo, base_sha, path)
+                        if path in base_paths
+                        else None
+                    ),
+                )
             )
-        )
         for plugin_path in sorted(changed_python_sources & plugin_dependency_paths):
             current = (
                 _read_worktree_text(repo, plugin_path)
@@ -5323,6 +5351,29 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
         return result.stdout.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError(f"base test file is not UTF-8: {path}") from exc
+
+
+def _base_file_paths(repo: Path, base_sha: str) -> frozenset[str]:
+    result = _run_git(
+        repo,
+        ["ls-tree", "-r", "--name-only", "-z", base_sha],
+    )
+    if result.returncode != 0:
+        raise TestCorpusGuardError("cannot inspect base repository paths")
+    try:
+        decoded = result.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise TestCorpusGuardError("base repository paths are malformed") from exc
+    paths = frozenset(path for path in decoded.split("\0") if path)
+    if any(
+        path.startswith("/")
+        or "\\" in path
+        or any(part in {"", ".", ".."} for part in Path(path).parts)
+        or any(ord(character) < 32 for character in path)
+        for path in paths
+    ):
+        raise TestCorpusGuardError("base repository paths are malformed")
+    return paths
 
 
 def build_test_source_ref(test_ref: str, declaration_source: str) -> str:

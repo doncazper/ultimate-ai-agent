@@ -399,6 +399,7 @@ def test_changed_test_paths_union_index_worktree_and_untracked(
             b"tests/test_index.py\0",
             b"tests/test_worktree.py\0",
             b"tests/test_untracked.py\0",
+            b"",
         )
     )
     monkeypatch.setattr(

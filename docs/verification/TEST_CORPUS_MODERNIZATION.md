@@ -128,15 +128,17 @@ class-level parameterization through `pytestmark`, rebound or mutated imported
 pytest mark aliases, unresolved or bare parameterization
 decorators, module-level collection-aborting pytest calls and their assignment
 aliases, module-level `unittest.SkipTest` raises and aliases (including imports
-from `unittest.case`), class-body unittest skip state, mutations of pytest
+from `unittest.case` and imported aliases of that module), class-body unittest
+skip state, mutations of pytest
 collection classes, and changed
 `pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
 `xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
 declaration identity, including referenced condition bindings and the effective
 order of competing `xfail` marks, so disabling an active test retires its prior
 ref instead of silently preserving it. Python fixture argument consumption,
-default posture, imported fixture implementations, and imported fixture
-`name=` overrides are identity-bound, as are `usefixtures` marks.
+name-bound default posture, imported fixture implementations, and imported
+fixture `name=` overrides through direct or aliased pytest decorators are
+identity-bound, as are `usefixtures` marks.
 Frontend `skip`, `fixme`, `todo`,
 `skipIf`, and `runIf` execution posture is collision-bound separately from the
 user title; a trivia-free conditional token stream, literal values, and enclosing
@@ -146,7 +148,8 @@ Parenthesized/conditional/logical runner callees and property-API writes to
 global runner bindings fail closed, including `Reflect.defineProperty`. Eager or
 otherwise unresolved `import.meta.glob` registration imports, including generic
 calls, fail closed. Generic direct runner calls and executable `eval`/`Function`
-registration sources fail closed. Type-only
+registration sources, including string-literal computed `globalThis` access,
+fail closed. Type-only
 runner imports remain allowed inside complete type-alias declarations, including
 generic constraints. Descriptor-level pytest collection-class mutations, ordinary
 local conftest imports, and post-definition unittest skip writes through direct
@@ -159,7 +162,8 @@ return annotation, type predicate, or object-type operator), constrained generic
 bodies, ordinary or computed instance-field initializers (including fields after
 method bodies and classes with generic object-type heritage), relative
 side-effect imports even when comments separate the
-keyword and module or the runtime import uses an empty named clause, invocations
+keyword and module or the runtime import uses an empty named clause, CommonJS
+registration dependencies, invocations
 of imported local registration helpers at module or suite scope, conditional
 `if`/`switch` suite exits before later registrations, and expression-conditional
 registrations and runner aliases fail closed; ordinary, typed,
@@ -177,7 +181,8 @@ the complete resolved runner-alias set. Changes to any supported
 `vite.config.{js,mjs,cjs,ts,mts,cts}` or
 `vitest.config.{js,mjs,cjs,ts,mts,cts}` candidate in the Control Center, its
 Playwright collection configuration, any transitive local static ESM or CommonJS
-dependency of those configuration files, configured Vitest setup files and their
+dependency (including no-substitution template-literal `require` calls) of those
+configuration files, configured Vitest setup files and their
 transitive local dependencies, or its `package.json` `pretest`, `test`, or
 `posttest` lifecycle command, also fail closed.
 `scripts/verify_test_corpus_guard.py`

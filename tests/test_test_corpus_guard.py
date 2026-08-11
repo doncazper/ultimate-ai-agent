@@ -2779,6 +2779,54 @@ def test_changed_test_paths_reject_non_utf8_git_output(
         guard._changed_test_paths(Path("."), "a" * 40)
 
 
+def test_base_file_paths_reject_non_utf8_git_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=b"tests/helper_" + bytes([0xFF]) + b".py\0",
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="base repository paths are malformed",
+    ):
+        guard._base_file_paths(Path("."), "a" * 40)
+
+
+def test_base_file_paths_parse_bounded_git_tree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[list[str]] = []
+
+    def completed(
+        _repo: Path,
+        args: list[str],
+    ) -> subprocess.CompletedProcess[bytes]:
+        captured.append(args)
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=b"src/package.py\0tests/helper.py\0",
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(guard, "_run_git", completed)
+
+    assert guard._base_file_paths(Path("."), "a" * 40) == frozenset(
+        {"src/package.py", "tests/helper.py"}
+    )
+    assert captured == [
+        ["ls-tree", "-r", "--name-only", "-z", "a" * 40]
+    ]
+
+
 def test_changed_test_paths_disable_rename_collapsing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2810,8 +2858,13 @@ def test_changed_test_paths_disable_rename_collapsing(
         *sorted(guard.FRONTEND_COLLECTION_CONFIG_PATHS),
         *sorted(guard.FRONTEND_TEST_SCRIPT_CONFIG_PATHS),
     ]
-    assert all(args[-len(config_paths) :] == config_paths for args in captured_args)
-    captured_without_configs = [args[: -len(config_paths)] for args in captured_args]
+    captured_change_args = [args for args in captured_args if args[0] != "ls-tree"]
+    assert all(
+        args[-len(config_paths) :] == config_paths for args in captured_change_args
+    )
+    captured_without_configs = [
+        args[: -len(config_paths)] for args in captured_change_args
+    ]
     source_paths = [
         "apps",
         guard.PYTHON_TEST_GIT_PATHSPEC,
@@ -5289,7 +5342,15 @@ def test_changed_registered_pytest_plugin_collection_hook_fails_closed(
     plugin_path.write_text(
         "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n"
     )
-    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/collection_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/collection_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5331,7 +5392,15 @@ def test_changed_transitive_registered_pytest_plugin_hook_fails_closed(
     helper_path.write_text(
         "def pytest_collection_modifyitems(items):\n    items.clear()\n"
     )
-    outputs = iter((b"tests/hook_helper.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/hook_helper.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/collection_plugin.py\0tests/hook_helper.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5369,7 +5438,15 @@ def test_changed_imported_conftest_collection_hook_fails_closed(
     plugin_path.write_text(
         "def pytest_collection_modifyitems(items):\n    items.clear()\n"
     )
-    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/collection_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/collection_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5409,7 +5486,15 @@ def test_changed_conftest_imported_parameterized_fixture_fails_closed(
         '@pytest.fixture(params=["one"])\n'
         "def shared_value(request): return request.param\n"
     )
-    outputs = iter((b"tests/fixture_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/fixture_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/fixture_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5452,7 +5537,15 @@ def test_changed_conftest_module_imported_parameterized_fixture_fails_closed(
         '@pytest.fixture(params=["one"])\n'
         "def shared_value(request): return request.param\n"
     )
-    outputs = iter((b"tests/fixture_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/fixture_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/fixture_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5493,7 +5586,15 @@ def test_hidden_conftest_registered_plugin_collection_hook_fails_closed(
     plugin_path.write_text(
         "def pytest_generate_tests(metafunc):\n    metafunc.parametrize('value', [1])\n"
     )
-    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/collection_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/collection_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5534,7 +5635,15 @@ def test_changed_registered_pytest_plugin_parameterized_fixture_fails_closed(
         '@pytest.fixture(params=["one"])\n'
         "def shared_value(request): return request.param\n"
     )
-    outputs = iter((b"tests/collection_plugin.py\0", b"", b"", b""))
+    outputs = iter(
+        (
+            b"tests/collection_plugin.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/collection_plugin.py\0",
+        )
+    )
     monkeypatch.setattr(
         guard,
         "_run_git",
@@ -5600,6 +5709,8 @@ def test_frontend_inventory_rejects_generic_direct_runner_call() -> None:
         'eval(`test("dynamic eval", () => {})`);\n',
         'const register = eval; register(`test("aliased eval", () => {})`);\n',
         'new Function(`test("dynamic function", () => {})`)();\n',
+        'globalThis["eval"](`test("computed eval", () => {})`);\n',
+        'globalThis["Function"](`test("computed function", () => {})`)();\n',
     ),
 )
 def test_frontend_inventory_rejects_dynamic_registration(source: str) -> None:
@@ -5623,6 +5734,26 @@ def test_python_inventory_rejects_unittest_case_skiptest_import() -> None:
             "from unittest.case import SkipTest\n"
             "raise SkipTest('disabled')\n"
             "def test_case(): pass\n",
+        )
+
+
+@pytest.mark.parametrize(
+    "raise_statement",
+    (
+        "raise case.SkipTest('disabled')",
+        "abort = case.SkipTest\nraise abort('disabled')",
+    ),
+)
+def test_python_inventory_rejects_aliased_unittest_case_module_skiptest(
+    raise_statement: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level unittest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            f"import unittest.case as case\n{raise_statement}\ndef test_case(): pass\n",
         )
 
 
@@ -5681,6 +5812,32 @@ def test_python_inventory_binds_imported_fixture_name_override() -> None:
     assert refs_for("[1, 2]") != refs_for("[1]")
 
 
+def test_python_inventory_binds_aliased_imported_fixture_name_override() -> None:
+    test_source = (
+        "from tests.helper import _value\ndef test_case(value): assert value\n"
+    )
+
+    def refs_for(params: str) -> tuple[str, ...]:
+        helper_source = (
+            "from pytest import fixture as fx\n"
+            f"@fx(name='value', params={params})\n"
+            "def _value(request): return request.param\n"
+        )
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_sample.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("[1, 2]") != refs_for("[1]")
+
+
 def test_python_inventory_binds_fixture_default_posture() -> None:
     active = guard.parse_python_declarations(
         "tests/test_sample.py",
@@ -5692,6 +5849,19 @@ def test_python_inventory_binds_fixture_default_posture() -> None:
     )
 
     assert [item.ref for item in active] != [item.ref for item in defaulted]
+
+
+def test_python_inventory_associates_fixture_defaults_with_argument_names() -> None:
+    first = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(*, a, b=None): pass\n",
+    )
+    second = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "def test_case(*, a=None, b): pass\n",
+    )
+
+    assert [item.ref for item in first] != [item.ref for item in second]
 
 
 def test_frontend_dependency_paths_follow_commonjs_require() -> None:
@@ -5708,6 +5878,33 @@ def test_frontend_dependency_paths_follow_commonjs_require() -> None:
     )
 
     assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_frontend_dependency_paths_follow_template_commonjs_require() -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            "module.exports = require(`./vitest.shared.cjs`);\n"
+        ),
+        "apps/control-center/vitest.shared.cjs": "module.exports = {};\n",
+    }
+
+    dependencies = guard._frontend_dependency_paths(
+        {"apps/control-center/vitest.config.cjs"},
+        sources.get,
+    )
+
+    assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+def test_frontend_inventory_rejects_commonjs_registration_dependency() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="CommonJS registration dependency",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.cjs",
+            'require("./helper.cjs");\n',
+        )
 
 
 def test_pytest_workflow_boundary_is_exact_to_collection_inputs() -> None:

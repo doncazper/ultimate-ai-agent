@@ -120,12 +120,19 @@ def _is_regex_start(
         return index not in regex_closures
     if text[max(0, index - 1) : index + 1] == "=>":
         return True
-    prefix = text[: index + 1]
-    match = re.search(r"([A-Za-z_$][\w$]*)$", prefix)
-    return bool(
-        match
-        and match.group(1) in {"case", "delete", "return", "throw", "typeof", "void"}
-    )
+    token_start = index
+    while token_start >= 0 and (
+        text[token_start].isalnum() or text[token_start] in "_$"
+    ):
+        token_start -= 1
+    return text[token_start + 1 : index + 1] in {
+        "case",
+        "delete",
+        "return",
+        "throw",
+        "typeof",
+        "void",
+    }
 
 
 def _skip_regex(text: str, start: int) -> tuple[int, int]:
@@ -1517,6 +1524,32 @@ def frontend_export_binding_source(text: str, name: str) -> str | None:
     return _const_initializer_source(text, scan_text, name, len(text))
 
 
+def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, ...]:
+    call_offsets = {
+        match.start() for match in re.finditer(r"\brequire\s*\(", scan_text)
+    }
+    require_pattern = re.compile(
+        r"\brequire\s*\(\s*(?:"
+        r"(?P<quote>['\"])(?P<quoted_module>[^'\"]+)(?P=quote)"
+        r"|`(?P<template_module>[^`$]+)`"
+        r")\s*\)"
+    )
+    literal_offsets: set[int] = set()
+    modules: list[str] = []
+    for match in require_pattern.finditer(text):
+        if scan_text[match.start() : match.start() + len("require")] != "require":
+            continue
+        literal_offsets.add(match.start())
+        module = match.group("quoted_module") or match.group("template_module")
+        if module.startswith(".") and module not in modules:
+            modules.append(module)
+    if call_offsets != literal_offsets:
+        raise FrontendInventoryError(
+            "dynamic CommonJS dependency cannot be inventoried safely"
+        )
+    return tuple(modules)
+
+
 def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
     """Return relative static module specifiers from executable code."""
 
@@ -1547,13 +1580,7 @@ def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
             continue
         if module not in modules:
             modules.append(module)
-    require_pattern = re.compile(
-        r"\brequire\s*\(\s*(?P<quote>['\"])(?P<module>\.[^'\"]*)(?P=quote)\s*\)"
-    )
-    for match in require_pattern.finditer(text):
-        if scan_text[match.start() : match.start() + len("require")] != "require":
-            continue
-        module = match.group("module")
+    for module in _relative_commonjs_require_modules(text, scan_text):
         if module not in modules:
             modules.append(module)
     return tuple(modules)
@@ -2731,9 +2758,20 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "frontend glob registration import cannot be inventoried safely"
         )
-    if re.search(r"\b(?:eval|Function)\b", scan_text):
+    global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
+    computed_dynamic_code = re.compile(
+        rf"{global_object}\s*\[\s*['\"](?:eval|Function)['\"]\s*\]"
+    )
+    if re.search(r"\b(?:eval|Function)\b", scan_text) or any(
+        scan_text[match.start()] == text[match.start()]
+        for match in computed_dynamic_code.finditer(text)
+    ):
         raise FrontendInventoryError(
             "dynamic frontend test registration cannot be inventoried safely"
+        )
+    if re.search(r"\brequire\b", scan_text):
+        raise FrontendInventoryError(
+            "frontend CommonJS registration dependency cannot be inventoried safely"
         )
     test_api_names = _test_api_names(text, scan_text)
     if _has_indirect_runner_invocation(
