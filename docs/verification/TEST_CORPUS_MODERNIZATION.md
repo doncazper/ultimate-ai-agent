@@ -69,9 +69,10 @@ under a recognized hook name, including one in a hidden directory beneath
 `tests`, also fail closed, and changes to the plugin
 registration set itself are collection-configuration changes,
 as do parameterized fixtures declared by those registered plugins or imported
-into a `conftest.py` from a local module. The canonical shard runner, command
-manifest, directly loaded pytest plugins, and their bounded transitive local
-dependency closure are part of the same fail-closed change boundary. Configuration-
+into a `conftest.py` from a local module. The canonical CI lane wrapper, shard
+runner, command manifest, directly loaded pytest plugins, and their bounded
+transitive local dependency closure are part of the same fail-closed change
+boundary. Configuration-
 and session-time hooks such as `pytest_addoption`, `pytest_cmdline_parse`,
 `pytest_configure`, `pytest_load_initial_conftests`, `pytest_plugin_registered`,
 and `pytest_sessionstart` are included in that fail-closed hook boundary.
@@ -127,10 +128,12 @@ decorators, module-level collection-aborting pytest calls and their assignment
 aliases, mutations of pytest collection classes, and changed
 `pytest_generate_tests` hooks also fail closed. Static `skip`, `skipif`, and
 `xfail(run=False)` decorators and module/class `pytestmark` forms are bound into
-declaration identity, so disabling an active test retires its prior ref instead
-of silently preserving it. Frontend `skip`, `fixme`, `todo`, `skipIf`, and
-`runIf` execution posture is bound into the frontend declaration identity for
-the same reason.
+declaration identity, including referenced condition bindings and the effective
+order of competing `xfail` marks, so disabling an active test retires its prior
+ref instead of silently preserving it. Frontend `skip`, `fixme`, `todo`,
+`skipIf`, and `runIf` execution posture is collision-bound separately from the
+user title; conditional literal values and enclosing suite disable posture are
+part of every affected child declaration identity for the same reason.
 Statically non-callable module constants and literal containers may retain
 `test*` or `Test*` names because pytest does not collect those values. Frontend
 registrations inside unresolved function (including one with a bounded TypeScript

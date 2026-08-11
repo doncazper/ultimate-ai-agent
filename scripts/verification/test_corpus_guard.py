@@ -66,6 +66,7 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
 }
 PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
 }
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
@@ -76,6 +77,7 @@ PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
 )
 PYTEST_RUNNER_MODULES = frozenset(
     {
+        "scripts.verification.run_ci_lane",
         "scripts.verification.run_pytest_shards",
         *PYTEST_RUNNER_PLUGIN_MODULES,
     }
@@ -1806,6 +1808,8 @@ def _parameterized_ref(
     if unresolved:
         raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
     execution_disabling_decorators: list[ast.expr] = []
+    xfail_decorators: list[ast.expr] = []
+    xfail_can_disable_execution = False
     for decorator in candidate_decorators:
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
         if not isinstance(target, ast.Attribute) or not is_proven_pytest_mark(target):
@@ -1813,7 +1817,10 @@ def _parameterized_ref(
         if target.attr in PYTEST_EXECUTION_DISABLING_MARKS:
             execution_disabling_decorators.append(decorator)
             continue
-        if target.attr != "xfail" or not isinstance(decorator, ast.Call):
+        if target.attr != "xfail":
+            continue
+        xfail_decorators.append(decorator)
+        if not isinstance(decorator, ast.Call):
             continue
         run_keywords = [
             keyword for keyword in decorator.keywords if keyword.arg == "run"
@@ -1830,7 +1837,9 @@ def _parameterized_ref(
                 "Python xfail run condition cannot be inventoried safely"
             )
         if run_keywords and run_keywords[-1].value.value is False:
-            execution_disabling_decorators.append(decorator)
+            xfail_can_disable_execution = True
+    if xfail_can_disable_execution:
+        execution_disabling_decorators.extend(xfail_decorators)
     identity_decorators = (*decorators, *execution_disabling_decorators)
     if not identity_decorators:
         return raw_ref
@@ -1870,6 +1879,49 @@ def _parameterized_ref(
                         )
                     serialized_parts.append(
                         f"external-import={','.join(candidates)};"
+                        f"bindings={','.join(sorted(binding_names))}"
+                    )
+                    continue
+                module, source = resolved_import
+                for binding_name in sorted(binding_names):
+                    serialized_parts.append(
+                        _python_imported_binding_source(
+                            module,
+                            source,
+                            _binding_name_for_resolved_import(
+                                candidates,
+                                module,
+                                binding_name,
+                            ),
+                            import_source_resolver,
+                        )
+                    )
+    for decorator in xfail_decorators if xfail_can_disable_execution else ():
+        if not isinstance(decorator, ast.Call):
+            continue
+        condition_nodes = [*decorator.args]
+        condition_nodes.extend(
+            keyword.value
+            for keyword in decorator.keywords
+            if keyword.arg == "condition"
+        )
+        for condition in condition_nodes:
+            for root, binding_names in _python_import_requirements(
+                condition, imported_modules
+            ).items():
+                candidates = imported_modules[root]
+                resolved_import = next(
+                    (
+                        (module, source)
+                        for module in candidates
+                        if import_source_resolver is not None
+                        and (source := import_source_resolver(module)) is not None
+                    ),
+                    None,
+                )
+                if resolved_import is None:
+                    serialized_parts.append(
+                        f"xfail-external-import={','.join(candidates)};"
                         f"bindings={','.join(sorted(binding_names))}"
                     )
                     continue

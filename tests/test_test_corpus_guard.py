@@ -1388,13 +1388,16 @@ test.skip(`blocks mutation`, () => {});
 """,
     )
 
-    assert [item.ref for item in declarations] == [
+    refs = [item.ref for item in declarations]
+    assert refs[:3] == [
         "apps/control-center/src/example.test.tsx::renders   a panel",
         "apps/control-center/src/example.test.tsx::renders a panel",
         "apps/control-center/src/example.test.tsx::renders a panel#2",
-        "apps/control-center/src/example.test.tsx::blocks mutation"
-        "::execution-disabled:skip",
     ]
+    assert refs[3].startswith(
+        "apps/control-center/src/example.test.tsx::blocks mutation"
+        "::execution-disabled:skip::identity-sha256:"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1790,6 +1793,7 @@ test("alpha", () => {});
 
     refs = [item.ref for item in declarations]
     assert refs[0].startswith(f"{path}::same::execution-conditional:runIf:sha256:")
+    assert "::identity-sha256:" in refs[0]
     assert refs[1:] == [
         f"{path}::same",
         f"{path}::alpha",
@@ -1840,17 +1844,21 @@ test("declared test", async () => {
         "apps/control-center/src/example.test.tsx::skips on Windows"
         "::execution-conditional:skipIf:sha256:"
     )
+    assert "::identity-sha256:" in refs[0]
     assert refs[1].startswith(
         "apps/control-center/src/example.test.tsx::runs when enabled"
         "::execution-conditional:runIf:sha256:"
     )
-    assert refs[2:] == [
+    assert "::identity-sha256:" in refs[1]
+    assert refs[2:4] == [
         "apps/control-center/src/example.test.tsx::runs in sequence",
         "apps/control-center/src/example.test.tsx::records an expected failure",
-        "apps/control-center/src/example.test.tsx::records an unavailable case"
-        "::execution-disabled:fixme",
-        "apps/control-center/src/example.test.tsx::declared test",
     ]
+    assert refs[4].startswith(
+        "apps/control-center/src/example.test.tsx::records an unavailable case"
+        "::execution-disabled:fixme::identity-sha256:"
+    )
+    assert refs[5] == "apps/control-center/src/example.test.tsx::declared test"
 
 
 @pytest.mark.parametrize("modifier", ("skip", "fixme", "todo"))
@@ -1867,7 +1875,7 @@ def test_frontend_inventory_binds_execution_disabling_modifiers(
     )[0].ref
 
     assert active_ref != disabled_ref
-    assert disabled_ref.endswith(f"::execution-disabled:{modifier}")
+    assert f"::execution-disabled:{modifier}::identity-sha256:" in disabled_ref
 
 
 @pytest.mark.parametrize("modifier", ("runIf", "skipIf"))
@@ -1885,6 +1893,41 @@ def test_frontend_inventory_binds_conditional_execution_modifiers(
 
     assert first_ref != second_ref
     assert f"::execution-conditional:{modifier}:sha256:" in first_ref
+
+
+def test_frontend_inventory_preserves_conditional_literal_values() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    never_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skipIf(process.env.MODE === "never")("case", () => {});',
+    )[0].ref
+    ci_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skipIf(process.env.MODE === "ci")("case", () => {});',
+    )[0].ref
+    trivia_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skipIf( process.env.MODE /* mode */ === "never" )("case", () => {});',
+    )[0].ref
+
+    assert never_ref != ci_ref
+    assert never_ref == trivia_ref
+
+
+def test_frontend_inventory_structurally_binds_titles_and_execution() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    active_ref = guard.parse_frontend_declarations(
+        path,
+        'test("case::execution-disabled:skip", () => {});',
+    )[0].ref
+    disabled_ref = guard.parse_frontend_declarations(
+        path,
+        'test.skip("case", () => {});',
+    )[0].ref
+
+    assert active_ref != disabled_ref
+    assert "::identity-sha256:" in active_ref
+    assert "::identity-sha256:" in disabled_ref
 
 
 def test_frontend_inventory_masks_nested_template_interpolations() -> None:
@@ -3400,6 +3443,36 @@ def test_changed_pytest_shard_runner_helper_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_canonical_lane_wrapper_helper_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verification = tmp_path / "scripts/verification"
+    verification.mkdir(parents=True)
+    (verification / "run_ci_lane.py").write_text(
+        "from scripts.verification import ci_lane_helper\n"
+    )
+    (verification / "ci_lane_helper.py").write_text(
+        "def execute_lane(): return 'command:pytest.sharded-suite'\n"
+    )
+    (verification / "__init__.py").write_text("")
+    changed_path = "scripts/verification/ci_lane_helper.py"
+    outputs = iter((f"{changed_path}\0".encode(), b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="pytest runner dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_commented_pyproject_collection_header_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4226,6 +4299,60 @@ def test_python_inventory_rejects_dynamic_xfail_run_condition() -> None:
         )
 
 
+def test_python_inventory_binds_referenced_xfail_condition() -> None:
+    before = (
+        "import pytest\nDISABLED = False\n"
+        "@pytest.mark.xfail(DISABLED, run=False)\n"
+        "def test_case(): pass\n"
+    )
+    after = before.replace("DISABLED = False", "DISABLED = True")
+
+    before_ref = guard.parse_python_declarations("tests/test_sample.py", before)[0].ref
+    after_ref = guard.parse_python_declarations("tests/test_sample.py", after)[0].ref
+
+    assert before_ref != after_ref
+
+
+def test_python_inventory_binds_imported_xfail_condition(tmp_path: Path) -> None:
+    test_path = "tests/test_sample.py"
+    flags_path = tmp_path / "tests/xfail_flags.py"
+    flags_path.parent.mkdir(parents=True)
+    flags_path.write_text("DISABLED = False\n")
+    test_text = (
+        "import pytest\nfrom tests.xfail_flags import DISABLED\n"
+        "@pytest.mark.xfail(DISABLED, run=False)\n"
+        "def test_case(): pass\n"
+    )
+
+    before_ref = guard._parse_worktree_test_declarations(
+        tmp_path, test_path, test_text
+    )[0].ref
+    flags_path.write_text("DISABLED = True\n")
+    after_ref = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)[
+        0
+    ].ref
+
+    assert before_ref != after_ref
+
+
+def test_python_inventory_preserves_competing_xfail_order() -> None:
+    first = (
+        "import pytest\n"
+        "@pytest.mark.xfail(True, run=False)\n"
+        "@pytest.mark.xfail(True, run=True)\n"
+        "def test_case(): pass\n"
+    )
+    second = first.replace(
+        "@pytest.mark.xfail(True, run=False)\n@pytest.mark.xfail(True, run=True)",
+        "@pytest.mark.xfail(True, run=True)\n@pytest.mark.xfail(True, run=False)",
+    )
+
+    first_ref = guard.parse_python_declarations("tests/test_sample.py", first)[0].ref
+    second_ref = guard.parse_python_declarations("tests/test_sample.py", second)[0].ref
+
+    assert first_ref != second_ref
+
+
 @pytest.mark.parametrize(
     "mutation",
     (
@@ -4322,6 +4449,18 @@ def test_frontend_inventory_binds_enclosing_suite_titles() -> None:
 
     assert before_ref == f"{path}::suite[3]:one::case"
     assert after_ref == f"{path}::suite[3]:two::case"
+
+
+def test_frontend_inventory_binds_enclosing_suite_execution_posture() -> None:
+    path = "apps/control-center/src/example.test.ts"
+    active = 'describe("suite", () => { test("case", () => {}); });\n'
+    disabled = active.replace("describe(", "describe.skip(")
+
+    active_ref = guard.parse_frontend_declarations(path, active)[0].ref
+    disabled_ref = guard.parse_frontend_declarations(path, disabled)[0].ref
+
+    assert active_ref != disabled_ref
+    assert "::execution-disabled:skip::identity-sha256:" in disabled_ref
 
 
 def test_frontend_registration_loop_combines_unicode_surrogate_pairs() -> None:

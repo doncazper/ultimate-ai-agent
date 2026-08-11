@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -71,6 +72,7 @@ StaticValue = (
 class _RegistrationContext:
     title: str
     evidence_source: str
+    execution_postures: tuple[str, ...] = ()
 
 
 def _skip_string(text: str, start: int) -> int:
@@ -252,8 +254,37 @@ def _patterns(
     return direct, each, conditional
 
 
-def _execution_disabling_ref_suffix(declaration_source: str) -> str:
-    """Bind statically visible non-running Vitest posture into a test ref."""
+def _normalized_javascript_expression(source: str) -> str:
+    """Remove trivia while preserving every executable literal byte."""
+
+    normalized: list[str] = []
+    regex_closures: set[int] = set()
+    index = 0
+    while index < len(source):
+        character = source[index]
+        if character in "\"'`":
+            end = _skip_string(source, index)
+            normalized.append(source[index:end])
+            index = end
+            continue
+        if _is_regex_literal_at(source, index, regex_closures):
+            end, closing = _skip_regex(source, index)
+            regex_closures.add(closing)
+            normalized.append(source[index:end])
+            index = end
+            continue
+        comment_end = _skip_comment(source, index)
+        if comment_end != index:
+            index = comment_end
+            continue
+        if not character.isspace():
+            normalized.append(character)
+        index += 1
+    return "".join(normalized)
+
+
+def _execution_posture_parts(declaration_source: str) -> tuple[str, ...]:
+    """Return statically visible non-running Vitest posture components."""
 
     code_mask = _code_mask(declaration_source)
     scan_text = "".join(
@@ -286,14 +317,51 @@ def _execution_disabling_ref_suffix(declaration_source: str) -> str:
     parts = [f"disabled:{modifier}" for modifier in disabling]
     if conditional is not None:
         condition_end = _skip_balanced(declaration_source, arguments_start)
-        normalized_condition = re.sub(
-            r"\s+",
-            "",
-            scan_text[arguments_start:condition_end],
+        normalized_condition = _normalized_javascript_expression(
+            declaration_source[arguments_start:condition_end]
         )
         digest = hashlib.sha256(normalized_condition.encode("utf-8")).hexdigest()
         parts.append(f"conditional:{conditional}:sha256:{digest}")
-    return "" if not parts else "::execution-" + "+".join(parts)
+    return tuple(parts)
+
+
+def _frontend_ref(
+    path: str,
+    title: str,
+    *,
+    parameter_digest: str | None = None,
+    execution_postures: tuple[str, ...] = (),
+) -> str:
+    """Encode user titles and execution metadata as one collision-bound identity."""
+
+    ref = f"{path}::{title}"
+    if parameter_digest is not None:
+        ref += f"::parameters-sha256:{parameter_digest}"
+    posture = "+".join(execution_postures)
+    if posture:
+        ref += f"::execution-{posture}"
+    reserved_title = any(
+        marker in title
+        for marker in (
+            "::execution-",
+            "::parameters-sha256:",
+            "::identity-sha256:",
+        )
+    )
+    if parameter_digest is not None or posture or reserved_title:
+        structured = json.dumps(
+            {
+                "execution_postures": list(execution_postures),
+                "parameter_digest": parameter_digest,
+                "title": title,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        digest = hashlib.sha256(structured.encode("utf-8")).hexdigest()
+        ref += f"::identity-sha256:{digest}"
+    return ref
 
 
 def _has_indirect_runner_invocation(
@@ -2046,10 +2114,10 @@ def _suite_context_regions(
     text: str,
     scan_text: str,
     suite_api_names: set[str],
-) -> tuple[tuple[int, int, str, str], ...]:
+) -> tuple[tuple[int, int, str, str, tuple[str, ...]], ...]:
     names = "(?:" + "|".join(re.escape(name) for name in sorted(suite_api_names)) + ")"
     pattern = re.compile(rf"(?<![.\w$]){names}{TEST_MODIFIERS}\s*(?P<arguments>\()")
-    contexts: list[tuple[int, int, str, str]] = []
+    contexts: list[tuple[int, int, str, str, tuple[str, ...]]] = []
     for match in pattern.finditer(scan_text):
         call_end = _skip_balanced(text, match.start("arguments"))
         title_start = _skip_static_trivia(text, match.start("arguments") + 1)
@@ -2074,6 +2142,7 @@ def _suite_context_regions(
                 callback[1],
                 text[title_start:title_end],
                 text[match.start() : callback[0]],
+                _execution_posture_parts(text[match.start() : callback[0]]),
             )
         )
     return tuple(sorted(contexts))
@@ -2082,10 +2151,10 @@ def _suite_context_regions(
 def _unproven_registration_regions(
     text: str,
     scan_text: str,
-    suite_context_regions: tuple[tuple[int, int, str, str], ...],
+    suite_context_regions: tuple[tuple[int, int, str, str, tuple[str, ...]], ...],
 ) -> tuple[tuple[tuple[int, int], ...], tuple[tuple[int, int], ...]]:
     suite_bodies = {
-        (start, end) for start, end, _title, _source in suite_context_regions
+        (start, end) for start, end, _title, _source, _posture in suite_context_regions
     }
     block_regions: set[tuple[int, int]] = set()
     expression_regions: set[tuple[int, int]] = set()
@@ -2246,7 +2315,7 @@ def _registration_contexts(
     offset: int,
     title_literal: str,
     import_binding_resolver: ImportBindingResolver | None,
-    suite_context_regions: tuple[tuple[int, int, str, str], ...],
+    suite_context_regions: tuple[tuple[int, int, str, str, tuple[str, ...]], ...],
     unproven_block_regions: tuple[tuple[int, int], ...],
     unproven_expression_regions: tuple[tuple[int, int], ...],
 ) -> tuple[_RegistrationContext, ...]:
@@ -2410,15 +2479,21 @@ def _registration_contexts(
                 )
         context_bindings = next_bindings
     suite_contexts = tuple(
-        (suite_title, suite_source)
-        for body_start, body_end, suite_title, suite_source in suite_context_regions
+        (suite_title, suite_source, suite_posture)
+        for (
+            body_start,
+            body_end,
+            suite_title,
+            suite_source,
+            suite_posture,
+        ) in suite_context_regions
         if body_start < offset < body_end
     )
     registrations: list[_RegistrationContext] = []
     for bindings, evidence_source in context_bindings:
         suite_titles = tuple(
             _resolved_loop_title(suite_title, bindings)
-            for suite_title, _suite_source in suite_contexts
+            for suite_title, _suite_source, _suite_posture in suite_contexts
         )
         title = _resolved_loop_title(title_literal, bindings)
         if suite_titles:
@@ -2429,12 +2504,17 @@ def _registration_contexts(
                 )
                 + title
             )
-        suite_source = "\n".join(source for _title, source in suite_contexts)
+        suite_source = "\n".join(source for _title, source, _posture in suite_contexts)
         registrations.append(
             _RegistrationContext(
                 title=title,
                 evidence_source="\n".join(
                     part for part in (evidence_source, suite_source) if part
+                ),
+                execution_postures=tuple(
+                    posture_part
+                    for _title, _source, posture in suite_contexts
+                    for posture_part in posture
                 ),
             )
         )
@@ -2550,7 +2630,14 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     match.start(),
-                    f"{path}::{title}{_execution_disabling_ref_suffix(declaration_source)}",
+                    _frontend_ref(
+                        path,
+                        title,
+                        execution_postures=(
+                            *context.execution_postures,
+                            *_execution_posture_parts(declaration_source),
+                        ),
+                    ),
                     bound_source,
                 )
             )
@@ -2598,8 +2685,15 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     offset,
-                    f"{path}::{title}::parameters-sha256:{digest}"
-                    f"{_execution_disabling_ref_suffix(declaration_source)}",
+                    _frontend_ref(
+                        path,
+                        title,
+                        parameter_digest=digest,
+                        execution_postures=(
+                            *context.execution_postures,
+                            *_execution_posture_parts(declaration_source),
+                        ),
+                    ),
                     bound_source,
                 )
             )
@@ -2626,7 +2720,14 @@ def _frontend_inventory_entries(
             raw_entries.append(
                 (
                     offset,
-                    f"{path}::{title}{_execution_disabling_ref_suffix(declaration_source)}",
+                    _frontend_ref(
+                        path,
+                        title,
+                        execution_postures=(
+                            *context.execution_postures,
+                            *_execution_posture_parts(declaration_source),
+                        ),
+                    ),
                     bound_source,
                 )
             )
