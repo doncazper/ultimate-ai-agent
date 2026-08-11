@@ -258,6 +258,33 @@ def _binding_target_names(node: ast.AST) -> set[str]:
     return set()
 
 
+def _paired_binding_values(
+    target: ast.AST,
+    value: ast.AST,
+) -> tuple[tuple[str, ast.AST], ...]:
+    """Pair statically aligned assignment targets with their bound values."""
+
+    if isinstance(target, ast.Name):
+        return ((target.id, value),)
+    if not isinstance(target, (ast.Tuple, ast.List)) or not isinstance(
+        value, (ast.Tuple, ast.List)
+    ):
+        return ()
+    if len(target.elts) != len(value.elts) or any(
+        isinstance(child, ast.Starred) for child in target.elts
+    ):
+        return ()
+    return tuple(
+        pair
+        for child_target, child_value in zip(
+            target.elts,
+            value.elts,
+            strict=True,
+        )
+        for pair in _paired_binding_values(child_target, child_value)
+    )
+
+
 def _is_statically_noncallable_python_value(node: ast.AST | None) -> bool:
     if node is None or isinstance(node, ast.Constant):
         return True
@@ -1132,9 +1159,9 @@ def _dynamic_python_import_modules(
         else:
             continue
         assignments.extend(
-            (name, value)
+            pair
             for target in targets
-            for name in _binding_target_names(target)
+            for pair in _paired_binding_values(target, value)
         )
     while True:
         added = {
@@ -1987,6 +2014,58 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
                     "lazy Python export modules cannot be inventoried safely"
                 )
             modules.append(target.value)
+    if not initialized:
+        return ()
+
+    aliases = {"_EXPORT_GROUPS"}
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+                value = node.value
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                targets = (node.target,)
+                value = node.value
+            else:
+                continue
+            for target in targets:
+                for name, bound_value in _paired_binding_values(target, value):
+                    if (
+                        isinstance(bound_value, ast.Name)
+                        and bound_value.id in aliases
+                        and name not in aliases
+                    ):
+                        aliases.add(name)
+                        changed = True
+
+    for node in _module_execution_nodes(tree):
+        if _mutation_names(node) & aliases:
+            raise TestCorpusGuardError(
+                "lazy Python export modules cannot be inventoried safely"
+            )
+        for child in ast.walk(node):
+            if isinstance(child, ast.Assign):
+                targets = child.targets
+            elif isinstance(child, (ast.AnnAssign, ast.AugAssign)):
+                targets = (child.target,)
+            elif isinstance(child, ast.Delete):
+                targets = child.targets
+            else:
+                continue
+            if any(
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Call)
+                and isinstance(target.value.func, ast.Name)
+                and target.value.func.id == "globals"
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == "_EXPORT_GROUPS"
+                for target in targets
+            ):
+                raise TestCorpusGuardError(
+                    "lazy Python export modules cannot be inventoried safely"
+                )
     return tuple(dict.fromkeys(modules))
 
 
@@ -2699,6 +2778,32 @@ def _parameterized_ref(
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
 
+    def has_imported_fixture_reassignment(fixture_name: str) -> bool:
+        for binding in module_bindings.get(fixture_name, ()):
+            binding_node = binding.node
+            if isinstance(binding_node, ast.Assign):
+                targets = binding_node.targets
+                value = binding_node.value
+            elif isinstance(binding_node, ast.AnnAssign) and binding_node.value is not None:
+                targets = (binding_node.target,)
+                value = binding_node.value
+            else:
+                continue
+            for target in targets:
+                for name, bound_value in _paired_binding_values(target, value):
+                    if name != fixture_name:
+                        continue
+                    imported_root = (
+                        bound_value.id
+                        if isinstance(bound_value, ast.Name)
+                        else _root_name(bound_value)
+                        if isinstance(bound_value, ast.Attribute)
+                        else None
+                    )
+                    if imported_root in imported_modules:
+                        return True
+        return False
+
     def is_proven_pytest_mark(target: ast.expr) -> bool:
         return _is_unrebound_pytest_mark(
             target,
@@ -2898,6 +3003,12 @@ def _parameterized_ref(
                 if local_fixture_resolver is not None
                 else None
             )
+            if local_fixture is not None and has_imported_fixture_reassignment(
+                fixture_name
+            ):
+                raise TestCorpusGuardError(
+                    "imported Python fixture name is ambiguous"
+                )
             if local_fixture is not None and candidates is not None:
                 raise TestCorpusGuardError(
                     "imported Python fixture name is ambiguous"
@@ -4844,30 +4955,35 @@ def _python_inventory_entries(
                 targets = (
                     child.targets if isinstance(child, ast.Assign) else (child.target,)
                 )
-                target_names = {
-                    name for target in targets for name in _binding_target_names(target)
-                }
-                if isinstance(value, ast.Name) and value.id in function_aliases:
-                    added_aliases = target_names - function_aliases
-                    if added_aliases:
-                        function_aliases.update(added_aliases)
-                        changed = True
-                if _is_fixture_callable(value, fixture_aliases):
-                    is_factory = True
-                elif isinstance(value, ast.Call) and _is_fixture_callable(
-                    value.func, fixture_aliases
-                ):
-                    is_factory = not value.args
-                elif isinstance(value, ast.Name) and value.id in configured_factories:
-                    is_factory = True
-                else:
-                    continue
-                if not is_factory:
-                    continue
-                added_factories = target_names - configured_factories
-                if added_factories:
-                    configured_factories.update(added_factories)
-                    changed = True
+                for target in targets:
+                    for target_name, bound_value in _paired_binding_values(
+                        target, value
+                    ):
+                        if (
+                            isinstance(bound_value, ast.Name)
+                            and bound_value.id in function_aliases
+                            and target_name not in function_aliases
+                        ):
+                            function_aliases.add(target_name)
+                            changed = True
+                        if _is_fixture_callable(bound_value, fixture_aliases):
+                            is_factory = True
+                        elif isinstance(
+                            bound_value, ast.Call
+                        ) and _is_fixture_callable(
+                            bound_value.func, fixture_aliases
+                        ):
+                            is_factory = not bound_value.args
+                        elif (
+                            isinstance(bound_value, ast.Name)
+                            and bound_value.id in configured_factories
+                        ):
+                            is_factory = True
+                        else:
+                            continue
+                        if is_factory and target_name not in configured_factories:
+                            configured_factories.add(target_name)
+                            changed = True
         for child in _scope_execution_nodes(class_node.body):
             if not isinstance(child, ast.Call) or not child.args:
                 continue
@@ -5140,6 +5256,7 @@ def _python_dependency_paths(
     module_cache: dict[str, tuple[set[str], set[str]]] | None = None,
     *,
     read_text: Callable[[str], str | None] | None = None,
+    include_dynamic: bool = False,
 ) -> set[str]:
     """Return a bounded, conservative closure of repository Python imports."""
 
@@ -5200,12 +5317,24 @@ def _python_dependency_paths(
                     relative_package=relative_package,
                 )
             )
-            imported_module_names.update(
-                _python_lazy_export_modules(
-                    tree,
-                    relative_package=relative_package,
-                )
+            lazy_export_modules = _python_lazy_export_modules(
+                tree,
+                relative_package=relative_package,
             )
+            grouped_export_modules = _python_grouped_lazy_export_modules(tree)
+            imported_module_names.update(lazy_export_modules)
+            imported_module_names.update(grouped_export_modules)
+            if include_dynamic:
+                imported_module_names.update(
+                    _dynamic_python_import_modules(
+                        tree,
+                        imported_modules,
+                        relative_package=relative_package,
+                        lazy_export_modules=tuple(
+                            (*lazy_export_modules, *grouped_export_modules)
+                        ),
+                    )
+                )
         cache[module] = (candidate_paths, imported_module_names)
         dependency_paths.update(candidate_paths)
         pending.extend(imported_module_names)
@@ -6588,6 +6717,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         plugin_dependency_paths = _python_dependency_paths(
             repo,
             _python_modules_with_package_ancestors(current_registered_plugins),
+            include_dynamic=True,
         )
         if prior_registered_plugins:
             base_paths = _base_file_paths(repo, base_sha)
@@ -6600,6 +6730,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                     read_text=lambda path: (
                         _base_text(repo, base_sha, path) if path in base_paths else None
                     ),
+                    include_dynamic=True,
                 )
             )
         for plugin_path in sorted(changed_python_sources & plugin_dependency_paths):

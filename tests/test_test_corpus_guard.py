@@ -5821,6 +5821,31 @@ def test_python_inventory_rejects_local_fixture_import_name_collision(
         )
 
 
+def test_python_inventory_rejects_local_fixture_reassigned_from_import() -> None:
+    resolver = guard._python_import_resolver(
+        lambda path: (
+            "def value(): return 'imported'\n"
+            if path == "tests/helper.py"
+            else None
+        )
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported Python fixture name is ambiguous",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "import pytest\n"
+            "import tests.helper as helper\n"
+            "@pytest.fixture\n"
+            "def value(): return 'local'\n"
+            "value = helper.value\n"
+            "def test_case(value): pass\n",
+            resolver,
+        )
+
+
 def test_python_inventory_rejects_class_local_requested_fixture() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -5842,6 +5867,8 @@ def test_python_inventory_rejects_class_local_requested_fixture() -> None:
         "    value = pytest.fixture(value)\n",
         "    fixture_factory = pytest.fixture()\n    value = fixture_factory(value)\n",
         "    target = value\n    value = pytest.fixture(target)\n",
+        "    target, other = value, None\n"
+        "    value = pytest.fixture(target)\n",
         "    fixture_factory = pytest.fixture\n"
         "    value = fixture_factory(value)\n",
     ),
@@ -6088,6 +6115,8 @@ def test_python_inventory_rejects_nonstatic_dynamic_import_components(
     (
         "from builtins import __import__ as load\n"
         'MODULE = load("tests.state", fromlist=("enabled",))\n',
+        "load, unused = __import__, None\n"
+        'MODULE = load("tests.state", fromlist=("enabled",))\n',
         "import builtins\n"
         'MODULE = builtins.__import__("tests.state", fromlist=("enabled",))\n',
     ),
@@ -6217,6 +6246,8 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
     (
         '_EXPORT_GROUPS["tests.extra"] = {"value"}\n',
         '_EXPORT_GROUPS.update({"tests.extra": {"value"}})\n',
+        '_groups = _EXPORT_GROUPS\n_groups["tests.extra"] = {"value"}\n',
+        'globals()["_EXPORT_GROUPS"] = {"tests.extra": {"value"}}\n',
     ),
 )
 def test_python_module_identity_rejects_grouped_lazy_export_mutation(
@@ -6575,6 +6606,56 @@ def test_changed_registered_plugin_package_initializer_fails_closed(
         "_base_text",
         lambda _repo, _base, path: (
             "ENABLED = True\n" if path == "tests/pkg/__init__.py" else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_registered_plugin_dynamic_import_dependency_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        'pytest_plugins = ("tests.fixture_plugin",)\n'
+    )
+    (tests_root / "fixture_plugin.py").write_text(
+        "import importlib\n"
+        "import pytest\n"
+        'state = importlib.import_module("tests.state")\n'
+        "@pytest.fixture(autouse=True)\n"
+        "def environment():\n"
+        "    if not state.enabled:\n"
+        "        pytest.skip('disabled')\n"
+    )
+    (tests_root / "state.py").write_text("enabled = False\n")
+    outputs = iter(
+        (
+            b"tests/state.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/state.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "enabled = True\n" if path == "tests/state.py" else None
         ),
     )
 
