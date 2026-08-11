@@ -518,7 +518,7 @@ def _has_indirect_runner_invocation(
     ):
         return True
     global_object = r"(?:globalThis|\(\s*globalThis(?:\s+as\s+[^()]*)?\s*\))"
-    dot_property = rf"{global_object}\s*\.\s*{name_pattern}\b"
+    dot_property = rf"{global_object}\s*(?:\?\.\s*|\.\s*){name_pattern}\b"
     invocation_suffix = r"\s*(?:\?\.\s*)?\("
     if re.search(rf"{dot_property}{invocation_suffix}", scan_text):
         return True

@@ -5044,6 +5044,7 @@ def test_frontend_inventory_rejects_imported_registration_helper_call() -> None:
         'test.bind(null)("case", () => {});\n',
         'globalThis.test("case", () => {});\n',
         'globalThis.test?.("case", () => {});\n',
+        'globalThis?.test?.("case", () => {});\n',
         'globalThis["test"]("case", () => {});\n',
         'globalThis["test"]?.("case", () => {});\n',
         'globalThis?.["test"]("case", () => {});\n',
