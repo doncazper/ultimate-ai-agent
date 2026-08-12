@@ -4227,8 +4227,8 @@
     },
     {
       "path": "tests/test_test_corpus_guard.py",
-      "seconds": 3.78,
-      "source": "pytest-duration-summary"
+      "seconds": 971.14,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_test_corpus_guard_hardening.py",
