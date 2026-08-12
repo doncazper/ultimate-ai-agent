@@ -1,4 +1,5 @@
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -3041,6 +3042,74 @@ def test_frontend_inventory_binds_reflectively_called_class_method_initializer(
     assert frontend.frontend_runtime_identity_source(active) != (
         frontend.frontend_runtime_identity_source(changed)
     )
+
+
+@pytest.mark.parametrize(
+    "mask_builder",
+    (
+        frontend._runtime_import_code_mask,
+        frontend._module_initializer_code_mask,
+    ),
+)
+def test_frontend_lexical_mask_cache_returns_isolated_mutable_views(
+    mask_builder: Callable[[str], bytearray],
+) -> None:
+    source = "function dormant() { return import('./child'); }\n"
+
+    first = mask_builder(source)
+    second = mask_builder(source)
+    expected = bytearray(second)
+
+    assert first == second
+    assert first is not second
+    first[:] = b"\x00" * len(first)
+    assert mask_builder(source) == expected
+
+
+def test_frontend_initializer_mask_cache_is_keyed_by_exact_source() -> None:
+    cached_builder = frontend._module_initializer_code_mask_bytes
+    cached_builder.cache_clear()
+    first_source = "function dormant() { return 1; }\n"
+    second_source = "function dormant() { return 2; }\n"
+
+    try:
+        cached_builder(first_source)
+        after_first = cached_builder.cache_info()
+        cached_builder(first_source)
+        after_repeat = cached_builder.cache_info()
+        cached_builder(second_source)
+        after_change = cached_builder.cache_info()
+
+        assert after_first.misses == 1
+        assert after_repeat.hits == 1
+        assert after_repeat.misses == 1
+        assert after_change.hits == 1
+        assert after_change.misses == 2
+    finally:
+        cached_builder.cache_clear()
+
+
+def test_frontend_balanced_range_cache_is_keyed_by_exact_source() -> None:
+    cached_skip = frontend._skip_balanced
+    cached_skip.cache_clear()
+    first_source = "(call())"
+    second_source = "(call(()))"
+
+    try:
+        assert cached_skip(first_source, 0) == len(first_source)
+        after_first = cached_skip.cache_info()
+        assert cached_skip(first_source, 0) == len(first_source)
+        after_repeat = cached_skip.cache_info()
+        assert cached_skip(second_source, 0) == len(second_source)
+        after_change = cached_skip.cache_info()
+
+        assert after_first.misses == 1
+        assert after_repeat.hits == 1
+        assert after_repeat.misses == 1
+        assert after_change.hits == 1
+        assert after_change.misses == 2
+    finally:
+        cached_skip.cache_clear()
 
 
 def test_frontend_inventory_preserves_conditional_literal_values() -> None:

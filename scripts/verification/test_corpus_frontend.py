@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
@@ -95,6 +96,8 @@ def _skip_string(text: str, start: int) -> int:
 
 
 def _skip_comment(text: str, start: int) -> int:
+    if start >= len(text) or text[start] != "/":
+        return start
     if text.startswith("//", start):
         newline = text.find("\n", start + 2)
         return len(text) if newline < 0 else newline + 1
@@ -209,7 +212,7 @@ def _code_mask(text: str) -> bytearray:
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
-        comment_end = _skip_comment(text, index)
+        comment_end = _skip_comment(text, index) if text[index] == "/" else index
         if comment_end != index:
             mask[index:comment_end] = b"\x00" * (comment_end - index)
             index = comment_end
@@ -218,6 +221,7 @@ def _code_mask(text: str) -> bytearray:
     return mask
 
 
+@lru_cache(maxsize=16384)
 def _skip_balanced(text: str, start: int) -> int:
     pairs = {"(": ")", "[": "]", "{": "}"}
     opening = text[start]
@@ -235,7 +239,7 @@ def _skip_balanced(text: str, start: int) -> int:
             index, closing = _skip_regex(text, index)
             regex_closures.add(closing)
             continue
-        comment_end = _skip_comment(text, index)
+        comment_end = _skip_comment(text, index) if character == "/" else index
         if comment_end != index:
             index = comment_end
             continue
@@ -316,7 +320,7 @@ def _javascript_tokens(source: str) -> tuple[str, ...]:
         if character.isspace():
             index += 1
             continue
-        comment_end = _skip_comment(source, index)
+        comment_end = _skip_comment(source, index) if character == "/" else index
         if comment_end != index:
             index = comment_end
             continue
@@ -392,7 +396,7 @@ def _call_argument_ranges(
         if character in "\"'`":
             index = _skip_string(text, index)
             continue
-        comment_end = _skip_comment(text, index)
+        comment_end = _skip_comment(text, index) if character == "/" else index
         if comment_end != index:
             index = comment_end
             continue
@@ -2419,7 +2423,8 @@ def frontend_runtime_test_posture(text: str) -> bool:
     )
 
 
-def _runtime_import_code_mask(text: str) -> bytearray:
+@lru_cache(maxsize=256)
+def _runtime_import_code_mask_bytes(text: str) -> bytes:
     """Mask import-irrelevant syntax without rejecting ordinary JSX text."""
 
     mask = bytearray(b"\x01" * len(text))
@@ -2439,7 +2444,7 @@ def _runtime_import_code_mask(text: str) -> bytearray:
                         interpolation_end = _skip_balanced(text, template_index + 1)
                         body_start = template_index + 2
                         body_end = interpolation_end - 1
-                        mask[body_start:body_end] = _runtime_import_code_mask(
+                        mask[body_start:body_end] = _runtime_import_code_mask_bytes(
                             text[body_start:body_end]
                         )
                         template_index = interpolation_end
@@ -2460,23 +2465,30 @@ def _runtime_import_code_mask(text: str) -> bytearray:
             mask[index:end] = b"\x00" * (end - index)
             index = end
             continue
-        comment_end = _skip_comment(text, index)
+        comment_end = _skip_comment(text, index) if text[index] == "/" else index
         if comment_end != index:
             mask[index:comment_end] = b"\x00" * (comment_end - index)
             index = comment_end
             continue
         index += 1
-    return mask
+    return bytes(mask)
 
 
-def _module_initializer_code_mask(
+def _runtime_import_code_mask(text: str) -> bytearray:
+    """Return an isolated mutable view of the exact-source lexical mask."""
+
+    return bytearray(_runtime_import_code_mask_bytes(text))
+
+
+@lru_cache(maxsize=256)
+def _module_initializer_code_mask_bytes(
     text: str,
     *,
     preserve_literals: bool = False,
-) -> bytearray:
+) -> bytes:
     """Mask function bodies that cannot execute during module initialization."""
 
-    scan_mask = _runtime_import_code_mask(text)
+    scan_mask = bytearray(_runtime_import_code_mask_bytes(text))
     mask = (
         bytearray(b"\x01" * len(text))
         if preserve_literals
@@ -2486,6 +2498,14 @@ def _module_initializer_code_mask(
         character if scan_mask[index] else " "
         for index, character in enumerate(text)
     )
+    identifier_positions: dict[str, list[int]] = {}
+    for identifier in re.finditer(
+        rf"(?<![\w$])(?P<name>{TEST_API_NAME})\b",
+        scan_text,
+    ):
+        identifier_positions.setdefault(identifier.group("name"), []).append(
+            identifier.start()
+        )
     function_pattern = re.compile(
         rf"\b(?:async\s+)?function\s*\*?\s*(?P<name>{TEST_API_NAME})\s*"
         r"(?P<parameters>\()"
@@ -2503,10 +2523,9 @@ def _module_initializer_code_mask(
             body_end = _skip_balanced(text, body_start)
         except FrontendInventoryError:
             continue
-        name_pattern = re.compile(rf"(?<![\w$]){re.escape(match.group('name'))}\b")
         referenced_outside_declaration = any(
-            candidate.start() < match.start() or candidate.start() >= body_end
-            for candidate in name_pattern.finditer(scan_text)
+            position < match.start() or position >= body_end
+            for position in identifier_positions.get(match.group("name"), ())
         )
         if referenced_outside_declaration:
             continue
@@ -2529,10 +2548,9 @@ def _module_initializer_code_mask(
                 body_end = min(endings) if endings else len(text)
         except FrontendInventoryError:
             continue
-        name_pattern = re.compile(rf"(?<![\w$]){re.escape(match.group('name'))}\b")
         if any(
-            candidate.start() < match.start() or candidate.start() >= body_end
-            for candidate in name_pattern.finditer(scan_text)
+            position < match.start() or position >= body_end
+            for position in identifier_positions.get(match.group("name"), ())
         ):
             continue
         mask[body_start:body_end] = b"\x00" * (body_end - body_start)
@@ -2732,7 +2750,22 @@ def _module_initializer_code_mask(
             ):
                 continue
             mask[body_start:body_end] = b"\x00" * (body_end - body_start)
-    return mask
+    return bytes(mask)
+
+
+def _module_initializer_code_mask(
+    text: str,
+    *,
+    preserve_literals: bool = False,
+) -> bytearray:
+    """Return an isolated mutable view of cached exact-source initializer analysis."""
+
+    return bytearray(
+        _module_initializer_code_mask_bytes(
+            text,
+            preserve_literals=preserve_literals,
+        )
+    )
 
 
 def frontend_collection_setup_modules(text: str) -> tuple[str, ...]:
@@ -3030,7 +3063,11 @@ def _skip_static_trivia(source: str, start: int) -> int:
     while True:
         while index < len(source) and source[index].isspace():
             index += 1
-        comment_end = _skip_comment(source, index)
+        comment_end = (
+            _skip_comment(source, index)
+            if index < len(source) and source[index] == "/"
+            else index
+        )
         if comment_end == index:
             return index
         index = comment_end
@@ -3362,7 +3399,7 @@ def _unbraced_statement_contains_offset(
         if text[index] in "\"'`":
             index = _skip_string(text, index)
             continue
-        comment_end = _skip_comment(text, index)
+        comment_end = _skip_comment(text, index) if text[index] == "/" else index
         if comment_end != index:
             index = comment_end
             continue
@@ -3753,9 +3790,15 @@ def _registration_contexts(
 
     for index, character in enumerate(scan_text[:offset]):
         if character in delimiter_pairs:
-            prefix = scan_text[:index].rstrip()
+            prefix_end = index
+            while prefix_end > 0 and scan_text[prefix_end - 1].isspace():
+                prefix_end -= 1
+            follows_callback_or_call = (
+                scan_text[max(0, prefix_end - 2) : prefix_end] == "=>"
+                or (prefix_end > 0 and scan_text[prefix_end - 1] == ")")
+            )
             is_block = character == "{" and (
-                prefix.endswith(("=>", ")")) or not inside_expression()
+                follows_callback_or_call or not inside_expression()
             )
             previous_statement_start = statement_start
             if is_block:
