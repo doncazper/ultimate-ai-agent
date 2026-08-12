@@ -2867,9 +2867,7 @@ def test_base_file_paths_parse_bounded_git_tree(
     assert guard._base_file_paths(Path("."), "a" * 40) == frozenset(
         {"src/package.py", "tests/helper.py"}
     )
-    assert captured == [
-        ["ls-tree", "-r", "--name-only", "-z", "a" * 40]
-    ]
+    assert captured == [["ls-tree", "-r", "--name-only", "-z", "a" * 40]]
 
 
 def test_changed_test_paths_disable_rename_collapsing(
@@ -3664,11 +3662,7 @@ def test_changed_pytest_runner_configuration_fails_closed(
 def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     manifest_path = "scripts/verification/ci_command_manifest.py"
     runner_path = "scripts/verification/run_pytest_shards.py"
-    prior_manifest = (
-        "patterns = (\n"
-        '                    "tests/**/test_*.py",\n'
-        ")\n"
-    )
+    prior_manifest = 'patterns = (\n                    "tests/**/test_*.py",\n)\n'
     current_manifest = prior_manifest.replace(
         '                    "tests/**/test_*.py",\n',
         '                    "tests/**/test_*.py",\n'
@@ -4270,6 +4264,21 @@ def test_case(value):
 
     assert before[0].ref == unrelated[0].ref
     assert before[0].ref != changed[0].ref
+
+
+def test_worktree_import_resolution_requires_exact_path_case(tmp_path: Path) -> None:
+    package = tmp_path / "tests"
+    package.mkdir()
+    (package / "coordinator.py").write_text("VALUE = True\n")
+
+    assert guard._worktree_path_has_exact_case(
+        tmp_path,
+        "tests/coordinator.py",
+    )
+    assert not guard._worktree_path_has_exact_case(
+        tmp_path,
+        "tests/Coordinator.py",
+    )
 
 
 def test_python_inventory_matches_class_collection_edge_cases() -> None:
@@ -5559,8 +5568,7 @@ def test_conditional_test_module_pytest_plugin_registration_fails_closed() -> No
         match="conditional pytest plugin registration",
     ):
         guard._pytest_plugin_modules(
-            "if True:\n"
-            '    pytest_plugins = ("tests.fixture_plugin",)\n',
+            'if True:\n    pytest_plugins = ("tests.fixture_plugin",)\n',
             "tests/test_case.py",
         )
 
@@ -5883,9 +5891,7 @@ def test_python_inventory_rejects_local_fixture_import_name_collision(
 ) -> None:
     resolver = guard._python_import_resolver(
         lambda path: (
-            "def value(): return 'imported'\n"
-            if path == "tests/helper.py"
-            else None
+            "def value(): return 'imported'\n" if path == "tests/helper.py" else None
         )
     )
 
@@ -5913,9 +5919,7 @@ def test_python_inventory_rejects_local_fixture_reassigned_from_import(
 ) -> None:
     resolver = guard._python_import_resolver(
         lambda path: (
-            "def value(): return 'imported'\n"
-            if path == "tests/helper.py"
-            else None
+            "def value(): return 'imported'\n" if path == "tests/helper.py" else None
         )
     )
 
@@ -5956,10 +5960,8 @@ def test_python_inventory_rejects_class_local_requested_fixture() -> None:
         "    value = pytest.fixture(value)\n",
         "    fixture_factory = pytest.fixture()\n    value = fixture_factory(value)\n",
         "    target = value\n    value = pytest.fixture(target)\n",
-        "    target, other = value, None\n"
-        "    value = pytest.fixture(target)\n",
-        "    fixture_factory = pytest.fixture\n"
-        "    value = fixture_factory(value)\n",
+        "    target, other = value, None\n    value = pytest.fixture(target)\n",
+        "    fixture_factory = pytest.fixture\n    value = fixture_factory(value)\n",
     ),
 )
 def test_python_inventory_rejects_assigned_class_local_fixture(
@@ -6136,7 +6138,9 @@ def test_python_inventory_binds_literal_dynamic_autouse_module_dependencies(
     assert refs_for(True) != refs_for(False)
 
 
-def test_python_inventory_rejects_unresolved_dynamic_autouse_module_dependency() -> None:
+def test_python_inventory_rejects_unresolved_dynamic_autouse_module_dependency() -> (
+    None
+):
     test_source = (
         "import pytest\n"
         "import tests.helper as helper_module\n"
@@ -6288,9 +6292,7 @@ def test_python_module_identity_binds_grouped_lazy_export_target_source() -> Non
 
     def identity_for(enabled: bool) -> str:
         resolver = guard._python_import_resolver(
-            lambda path: (
-                f"value = {enabled!r}\n" if path == "tests/target.py" else None
-            )
+            lambda path: f"value = {enabled!r}\n" if path == "tests/target.py" else None
         )
         return guard._python_module_dependency_identity(
             "tests.pkg",
@@ -6339,17 +6341,14 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
         'globals()["_EXPORT_GROUPS"] = {"tests.extra": {"value"}}\n',
         'globals()["_EXPORT_GROUPS"]["tests.extra"] = {"value"}\n',
         'globals()["_EXPORT_GROUPS"].update({"tests.extra": {"value"}})\n',
-        'globals()["_EXPORT_" + "GROUPS"].update('
-        '{"tests.extra": {"value"}})\n',
+        'globals()["_EXPORT_" + "GROUPS"].update({"tests.extra": {"value"}})\n',
         'export_name = "_EXPORT_GROUPS"\n'
         'globals()[export_name].update({"tests.extra": {"value"}})\n',
         'export_name = "_EXPORT_GROUPS"\n'
         'globals()[export_name] = {"tests.extra": {"value"}}\n',
-        'export_name = "_EXPORT_GROUPS"\n'
-        'del globals()[export_name]\n',
+        'export_name = "_EXPORT_GROUPS"\ndel globals()[export_name]\n',
         'globals().get("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
-        'globals().get("_EXPORT_" + "GROUPS").update('
-        '{"tests.extra": {"value"}})\n',
+        'globals().get("_EXPORT_" + "GROUPS").update({"tests.extra": {"value"}})\n',
         'globals().get(export_name).update({"tests.extra": {"value"}})\n',
         'globals().__getitem__("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
         'globals().update({"_EXPORT_GROUPS": {"tests.extra": {"value"}}})\n',
@@ -6367,8 +6366,7 @@ def test_python_module_identity_rejects_grouped_lazy_export_mutation(
         guard._python_module_dependency_identity(
             "tests.pkg",
             "path=tests/pkg/__init__.py\n"
-            '_EXPORT_GROUPS = {"tests.target": {"value"}}\n'
-            + mutation,
+            '_EXPORT_GROUPS = {"tests.target": {"value"}}\n' + mutation,
             guard._python_import_resolver(lambda _path: None),
         )
 
@@ -6442,10 +6440,8 @@ def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
         '    value = {"tests.extra": {"value"}}\n'
         "    globals()[name] = value\n"
         "    return value\n",
-        'key = "_EXPORT_GROUPS"\n'
-        'vars()[key]["tests.extra"] = {"value"}\n',
-        'key = "_EXPORT_GROUPS"\n'
-        'locals()[key]["tests.extra"] = {"value"}\n',
+        'key = "_EXPORT_GROUPS"\nvars()[key]["tests.extra"] = {"value"}\n',
+        'key = "_EXPORT_GROUPS"\nlocals()[key]["tests.extra"] = {"value"}\n',
     ),
 )
 def test_python_module_identity_rejects_lazy_export_cache_mutation(
@@ -6483,6 +6479,21 @@ def test_python_inventory_rejects_unresolved_fixture_factory_callable() -> None:
         guard.parse_python_declarations("tests/test_case.py", source)
 
 
+def test_python_inventory_rejects_named_unresolved_fixture_factory_callable() -> None:
+    source = (
+        "import pytest\n"
+        "implementation = lambda: None\n"
+        'value = pytest.fixture(name="value")(implementation)\n'
+        "def test_case(value): pass\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="fixture callable cannot be inventoried safely",
+    ):
+        guard.parse_python_declarations("tests/test_case.py", source)
+
+
 def test_python_inventory_binds_static_getfixturevalue_request() -> None:
     def refs_for(body: str) -> tuple[str, ...]:
         source = (
@@ -6491,6 +6502,27 @@ def test_python_inventory_binds_static_getfixturevalue_request() -> None:
             f"def environment(): {body}\n"
             "def test_case(request):\n"
             '    request.getfixturevalue("environment")\n'
+        )
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_case.py",
+                source,
+            )
+        )
+
+    assert refs_for("return True") != refs_for('pytest.skip("disabled")')
+
+
+def test_python_inventory_binds_aliased_getfixturevalue_request() -> None:
+    def refs_for(body: str) -> tuple[str, ...]:
+        source = (
+            "import pytest\n"
+            "@pytest.fixture\n"
+            f"def environment(): {body}\n"
+            "def test_case(request):\n"
+            "    lookup = request.getfixturevalue\n"
+            '    lookup("environment")\n'
         )
         return tuple(
             declaration.ref
@@ -6527,10 +6559,33 @@ def test_python_inventory_binds_imported_skipif_condition() -> None:
     def refs_for(disabled: bool) -> tuple[str, ...]:
         resolver = guard._python_import_resolver(
             lambda path: (
-                f"DISABLED = {disabled!r}\n"
-                if path == "tests/flags.py"
-                else None
+                f"DISABLED = {disabled!r}\n" if path == "tests/flags.py" else None
             )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_case.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(False) != refs_for(True)
+
+
+def test_python_inventory_binds_imported_skipif_condition_through_local_alias() -> None:
+    test_source = (
+        "import pytest\n"
+        "from tests.flags import FLAG\n"
+        "DISABLED = FLAG\n"
+        '@pytest.mark.skipif(DISABLED, reason="disabled")\n'
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(disabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: f"FLAG = {disabled!r}\n" if path == "tests/flags.py" else None
         )
         return tuple(
             declaration.ref
@@ -6563,6 +6618,90 @@ def test_python_inventory_binds_local_side_effect_imports() -> None:
     assert refs_for("ENABLED = True\n") != refs_for(
         'import pytest\npytest.skip("disabled", allow_module_level=True)\n'
     )
+
+
+@pytest.mark.parametrize(
+    "test_source",
+    (
+        "from tests.helper import UNUSED\ndef test_case(): pass\n",
+        "from tests import helper\ndef test_case(): pass\n",
+    ),
+)
+def test_python_inventory_binds_from_import_side_effects(test_source: str) -> None:
+    def refs_for(helper_source: str) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_case.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("UNUSED = True\n") != refs_for(
+        'import pytest\npytest.skip("disabled", allow_module_level=True)\n'
+    )
+
+
+def test_python_inventory_binds_transitive_side_effect_imports() -> None:
+    test_source = "import tests.helper\ndef test_case(): pass\n"
+
+    def refs_for(state_source: str) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "import tests.state\n"
+                if path == "tests/helper.py"
+                else state_source
+                if path == "tests/state.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_case.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("ENABLED = True\n") != refs_for(
+        'import pytest\npytest.skip("disabled", allow_module_level=True)\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "alias_source",
+    (
+        "from builtins import vars as namespace\n",
+        "namespace = vars\n",
+    ),
+)
+def test_python_module_identity_rejects_aliased_namespace_export_mutation(
+    alias_source: str,
+) -> None:
+    source = (
+        "path=tests/pkg/__init__.py\n"
+        '_EXPORT_GROUPS = {"tests.target": {"value"}}\n'
+        + alias_source
+        + 'key = "_EXPORT_GROUPS"\n'
+        + 'namespace()[key]["tests.extra"] = {"value"}\n'
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="lazy Python export modules",
+    ):
+        guard._python_module_dependency_identity(
+            "tests.pkg",
+            source,
+            guard._python_import_resolver(
+                lambda path: "value = True\n" if path == "tests/target.py" else None
+            ),
+        )
 
 
 def test_python_inventory_binds_rebound_import_alias_as_local_data() -> None:
@@ -6680,8 +6819,7 @@ def test_pytest_conftest_imports_reject_conditional_posture(condition: str) -> N
         match="conditional pytest conftest imports",
     ):
         guard._pytest_conftest_import_modules(
-            f"if {condition}:\n"
-            "    from tests.fixture_plugin import shared_value\n",
+            f"if {condition}:\n    from tests.fixture_plugin import shared_value\n",
             "tests/conftest.py",
         )
 
@@ -6820,8 +6958,7 @@ def test_changed_test_module_registered_plugin_fixture_fails_closed(
     tests_root = tmp_path / "tests"
     tests_root.mkdir()
     (tests_root / "test_case.py").write_text(
-        'pytest_plugins = ("tests.fixture_plugin",)\n'
-        "def test_case(): pass\n"
+        'pytest_plugins = ("tests.fixture_plugin",)\ndef test_case(): pass\n'
     )
     plugin_path = tests_root / "fixture_plugin.py"
     plugin_path.write_text(
@@ -6871,8 +7008,7 @@ def test_changed_registered_plugin_package_initializer_fails_closed(
     package_root = tmp_path / "tests/pkg"
     package_root.mkdir(parents=True)
     (tmp_path / "tests/test_case.py").write_text(
-        'pytest_plugins = ("tests.pkg.fixture_plugin",)\n'
-        "def test_case(): pass\n"
+        'pytest_plugins = ("tests.pkg.fixture_plugin",)\ndef test_case(): pass\n'
     )
     initializer_path = package_root / "__init__.py"
     initializer_path.write_text("ENABLED = False\n")
@@ -7663,8 +7799,7 @@ def test_frontend_dependency_paths_reject_dynamic_optional_commonjs_require() ->
 def test_frontend_dependency_paths_reject_aliased_commonjs_require() -> None:
     sources = {
         "apps/control-center/vitest.config.cjs": (
-            "const load = require;\n"
-            'module.exports = load("./vitest.shared.cjs");\n'
+            'const load = require;\nmodule.exports = load("./vitest.shared.cjs");\n'
         ),
     }
 

@@ -422,6 +422,52 @@ def _is_globals_call(node: ast.AST) -> bool:
     )
 
 
+def _module_namespace_accessor_aliases(
+    tree: ast.Module,
+    *,
+    accessors: frozenset[str] = MODULE_NAMESPACE_ACCESSORS,
+) -> frozenset[str]:
+    """Resolve bounded module-scope aliases of namespace accessor builtins."""
+
+    aliases = set(accessors)
+    imported_modules = _python_import_modules(tree)
+    aliases.update(
+        local_name
+        for local_name, candidates in imported_modules.items()
+        if any(
+            candidate in {f"builtins.{accessor}" for accessor in accessors}
+            for candidate in candidates
+        )
+    )
+
+    changed = True
+    while changed:
+        changed = False
+        for node in _module_execution_nodes(tree):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+                value = node.value
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                targets = (node.target,)
+                value = node.value
+            else:
+                continue
+            resolves_accessor = isinstance(value, ast.Name) and value.id in aliases
+            if isinstance(value, ast.Attribute) and value.attr in accessors:
+                root = _root_name(value)
+                resolves_accessor = root is not None and "builtins" in (
+                    imported_modules.get(root, ())
+                )
+            if not resolves_accessor:
+                continue
+            for target in targets:
+                for name in _binding_target_names(target):
+                    if name not in aliases:
+                        aliases.add(name)
+                        changed = True
+    return frozenset(aliases)
+
+
 def _is_module_namespace_mutator_call(
     node: ast.AST,
     *,
@@ -460,14 +506,18 @@ def _is_module_namespace_alias_binding(
 
 
 def _has_module_namespace_mutation(tree: ast.Module) -> bool:
+    accessors = _module_namespace_accessor_aliases(
+        tree,
+        accessors=GLOBAL_NAMESPACE_ACCESSORS,
+    )
     return any(
         _is_module_namespace_mutator_call(
             node,
-            accessors=GLOBAL_NAMESPACE_ACCESSORS,
+            accessors=accessors,
         )
         or _is_module_namespace_alias_binding(
             node,
-            accessors=GLOBAL_NAMESPACE_ACCESSORS,
+            accessors=accessors,
         )
         for node in ast.walk(tree)
     ) or any(
@@ -1111,9 +1161,7 @@ def _dynamic_python_import_modules(
     dynamic_import_aliases.update(
         {
             local_name: (
-                "builtin"
-                if "builtins.__import__" in candidates
-                else "import_module"
+                "builtin" if "builtins.__import__" in candidates else "import_module"
             )
             for local_name, candidates in imported_modules.items()
             if "importlib.import_module" in candidates
@@ -1176,9 +1224,7 @@ def _dynamic_python_import_modules(
         else:
             continue
         assignments.extend(
-            pair
-            for target in targets
-            for pair in _paired_binding_values(target, value)
+            pair for target in targets for pair in _paired_binding_values(target, value)
         )
     while True:
         added = {
@@ -1221,9 +1267,7 @@ def _dynamic_python_import_modules(
             )
         target_node = node.args[0] if node.args else target_keyword
         target = (
-            _static_string_expression(target_node)
-            if target_node is not None
-            else None
+            _static_string_expression(target_node) if target_node is not None else None
         )
         if target is None:
             if id(node) in lazy_getattr_calls and lazy_export_modules:
@@ -1268,12 +1312,9 @@ def _dynamic_python_import_modules(
                 raise TestCorpusGuardError(
                     "dynamic Python module dependencies cannot be inventoried safely"
                 )
-            argument_node = (
-                node.args[index] if len(node.args) > index else keyword_node
-            )
+            argument_node = node.args[index] if len(node.args) > index else keyword_node
             if argument_node is not None and not (
-                isinstance(argument_node, ast.Constant)
-                and argument_node.value is None
+                isinstance(argument_node, ast.Constant) and argument_node.value is None
             ):
                 raise TestCorpusGuardError(
                     "dynamic Python module dependencies cannot be inventoried safely"
@@ -1617,11 +1658,15 @@ def _has_module_level_pytest_collection_abort(
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
         if isinstance(raised, ast.Name) and raised.id in exception_aliases:
             return True
-        if isinstance(raised, ast.Attribute) and raised.attr == "Exception" and (
-            _pytest_collection_abort_callable_name(
-                raised.value, imported_modules, aliases
+        if (
+            isinstance(raised, ast.Attribute)
+            and raised.attr == "Exception"
+            and (
+                _pytest_collection_abort_callable_name(
+                    raised.value, imported_modules, aliases
+                )
+                == "skip"
             )
-            == "skip"
         ):
             return True
     return False
@@ -1644,11 +1689,15 @@ def _unittest_skiptest_reference(
     if not isinstance(node, ast.Attribute) or node.attr != "SkipTest":
         return False
     root = _root_name(node)
-    return root in namespace_aliases or root == "unittest" or (
-        root is not None
-        and any(
-            candidate in {"unittest", "unittest.case"}
-            for candidate in imported_modules.get(root, ())
+    return (
+        root in namespace_aliases
+        or root == "unittest"
+        or (
+            root is not None
+            and any(
+                candidate in {"unittest", "unittest.case"}
+                for candidate in imported_modules.get(root, ())
+            )
         )
     )
 
@@ -2065,9 +2114,17 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             "lazy Python export modules cannot be inventoried safely"
         )
 
+    namespace_accessors = _module_namespace_accessor_aliases(tree)
+
+    def is_namespace_call(node: ast.AST) -> bool:
+        return _is_module_namespace_call(
+            node,
+            accessors=namespace_accessors,
+        )
+
     def grouped_export_namespace_reference(node: ast.AST) -> bool:
         while isinstance(node, ast.Subscript):
-            if _is_globals_call(node.value):
+            if is_namespace_call(node.value):
                 key = _static_string_expression(node.slice)
                 if key == "_EXPORT_GROUPS":
                     return True
@@ -2076,7 +2133,7 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
             and node.func.attr in {"get", "__getitem__"}
-            and _is_globals_call(node.func.value)
+            and is_namespace_call(node.func.value)
             and node.args
             and not node.keywords
         ):
@@ -2086,7 +2143,7 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
 
     def dynamic_grouped_export_namespace_reference(node: ast.AST) -> bool:
         while isinstance(node, ast.Subscript):
-            if _is_globals_call(node.value):
+            if is_namespace_call(node.value):
                 return _static_string_expression(node.slice) is None
             node = node.value
         return False
@@ -2223,10 +2280,9 @@ def _python_module_dependency_identity(
             for index in range(1, len(module_parts)):
                 package_module = ".".join(module_parts[:index])
                 package_source = import_source_resolver(package_module)
-                if (
-                    package_source is not None
-                    and package_source.split("\n", 1)[0].endswith("/__init__.py")
-                ):
+                if package_source is not None and package_source.split("\n", 1)[
+                    0
+                ].endswith("/__init__.py"):
                     pending.append((package_module, package_source))
             for grouped_module in grouped_lazy_export_modules:
                 grouped_source = import_source_resolver(grouped_module)
@@ -2250,7 +2306,8 @@ def _python_module_dependency_identity(
                     (candidate, imported_source)
                     for candidate in candidates
                     if import_source_resolver is not None
-                    and (imported_source := import_source_resolver(candidate)) is not None
+                    and (imported_source := import_source_resolver(candidate))
+                    is not None
                 ),
                 None,
             )
@@ -2264,6 +2321,171 @@ def _python_module_dependency_identity(
     )
     if identity_cache is not None:
         identity_cache[cache_key] = identity
+    return identity
+
+
+def _python_execution_import_modules(
+    tree: ast.Module,
+    *,
+    relative_package: str,
+    import_source_resolver: Callable[[str], str | None],
+) -> tuple[str, ...]:
+    """Resolve repository modules imported by module-scope execution."""
+
+    modules: set[str] = set()
+    for node in _module_execution_nodes(tree):
+        if isinstance(node, ast.Import):
+            modules.update(imported.name for imported in node.names)
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        import_tree = ast.Module(body=[node], type_ignores=[])
+        candidates_by_name = _python_import_modules(
+            import_tree,
+            relative_package=relative_package,
+        )
+        for imported in node.names:
+            if imported.name == "*":
+                modules.update(
+                    _python_star_import_modules(
+                        import_tree,
+                        relative_package=relative_package,
+                    )
+                )
+                continue
+            local_name = imported.asname or imported.name
+            resolved_module = next(
+                (
+                    candidate
+                    for candidate in candidates_by_name.get(local_name, ())
+                    if import_source_resolver(candidate) is not None
+                ),
+                None,
+            )
+            if resolved_module is not None:
+                modules.add(resolved_module)
+    return tuple(sorted(modules))
+
+
+def _python_module_collection_abort_identity(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+    source: str,
+) -> str:
+    """Bind only the import-time posture that can suppress test collection."""
+
+    if not _has_module_level_collection_abort(tree, imported_modules):
+        return "collection-abort=false"
+    return (
+        "collection-abort=true;source-sha256="
+        + hashlib.sha256(source.encode("utf-8")).hexdigest()
+    )
+
+
+def _python_side_effect_import_identity(
+    module: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None],
+    *,
+    include_transitive: bool,
+) -> str:
+    """Hash the bounded module-execution import closure for a local import."""
+
+    root_key = (
+        module,
+        hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        include_transitive,
+    )
+    identity_cache: dict[tuple[str, str, bool], str] = getattr(
+        import_source_resolver,
+        "_uaa_side_effect_identity_cache",
+        {},
+    )
+    cached_identity = identity_cache.get(root_key)
+    if cached_identity is not None:
+        return cached_identity
+    dependency_cache: dict[tuple[str, str], tuple[str, ...]] = getattr(
+        import_source_resolver,
+        "_uaa_side_effect_dependency_cache",
+        {},
+    )
+    effect_cache: dict[tuple[str, str], str] = getattr(
+        import_source_resolver,
+        "_uaa_side_effect_effect_cache",
+        {},
+    )
+
+    pending = [(module, source)]
+    resolved_effects: dict[str, str] = {}
+    while pending:
+        current_module, current_source = pending.pop()
+        if current_module in resolved_effects:
+            continue
+        if len(resolved_effects) >= MAX_PYTHON_DEPENDENCY_MODULES:
+            raise TestCorpusGuardError(
+                "Python side-effect import closure exceeds module budget"
+            )
+        source_text = (
+            current_source.split("\n", 1)[1]
+            if current_source.startswith("path=")
+            else current_source
+        )
+        source_digest = hashlib.sha256(current_source.encode("utf-8")).hexdigest()
+        dependency_key = (current_module, source_digest)
+        dependencies = dependency_cache.get(dependency_key)
+        module_effect = effect_cache.get(dependency_key)
+        if dependencies is None or module_effect is None:
+            try:
+                dependency_tree = ast.parse(source_text, filename=current_module)
+            except SyntaxError as exc:
+                raise TestCorpusGuardError(
+                    "side-effect Python import cannot be inventoried safely"
+                ) from exc
+            source_path = current_source.split("\n", 1)[0].removeprefix("path=")
+            relative_package = current_module
+            if not source_path.endswith("/__init__.py") and "." in current_module:
+                relative_package = current_module.rsplit(".", 1)[0]
+            if dependencies is None:
+                dependencies = _python_execution_import_modules(
+                    dependency_tree,
+                    relative_package=relative_package,
+                    import_source_resolver=import_source_resolver,
+                )
+                dependency_cache[dependency_key] = dependencies
+            if module_effect is None:
+                module_effect = _python_module_collection_abort_identity(
+                    dependency_tree,
+                    _python_import_modules(
+                        dependency_tree,
+                        relative_package=relative_package,
+                    ),
+                    current_source,
+                )
+                effect_cache[dependency_key] = module_effect
+        resolved_effects[current_module] = module_effect
+        module_parts = current_module.split(".")
+        package_dependencies = tuple(
+            ".".join(module_parts[:index]) for index in range(1, len(module_parts))
+        )
+        dependencies = tuple(
+            dict.fromkeys(
+                (
+                    *package_dependencies,
+                    *(dependencies if include_transitive else ()),
+                )
+            )
+        )
+        for dependency in dependencies:
+            dependency_source = import_source_resolver(dependency)
+            if dependency_source is not None:
+                pending.append((dependency, dependency_source))
+
+    identity = "\n".join(
+        f"module={resolved_module};effects-sha256="
+        f"{hashlib.sha256(resolved_effect.encode('utf-8')).hexdigest()}"
+        for resolved_module, resolved_effect in sorted(resolved_effects.items())
+    )
+    identity_cache[root_key] = identity
     return identity
 
 
@@ -2612,9 +2834,7 @@ def _python_local_fixture_bindings(tree: ast.Module) -> dict[str, str]:
     def add(exposed_name: str, function_name: str) -> None:
         existing = bindings.get(exposed_name)
         if existing is not None and existing != function_name:
-            raise TestCorpusGuardError(
-                "module-local Python fixture name is ambiguous"
-            )
+            raise TestCorpusGuardError("module-local Python fixture name is ambiguous")
         bindings[exposed_name] = function_name
 
     for function_name, function in functions.items():
@@ -2659,8 +2879,11 @@ def _python_local_fixture_bindings(tree: ast.Module) -> dict[str, str]:
                     "module-local Python fixture callable cannot be inventoried safely"
                 )
             function_name = aliases.get(root, root)
-            if function_name in functions:
-                add(default_name or function_name, function_name)
+            if function_name not in functions:
+                raise TestCorpusGuardError(
+                    "module-local Python fixture callable cannot be inventoried safely"
+                )
+            add(default_name or function_name, function_name)
     return bindings
 
 
@@ -2870,7 +3093,10 @@ def _parameterized_ref(
             if isinstance(binding_node, ast.Assign):
                 targets = binding_node.targets
                 value = binding_node.value
-            elif isinstance(binding_node, ast.AnnAssign) and binding_node.value is not None:
+            elif (
+                isinstance(binding_node, ast.AnnAssign)
+                and binding_node.value is not None
+            ):
                 targets = (binding_node.target,)
                 value = binding_node.value
             else:
@@ -3022,13 +3248,51 @@ def _parameterized_ref(
                 "Python usefixtures request cannot be inventoried safely"
             )
         usefixtures_names.extend(argument.value for argument in decorator.args)
+    getfixturevalue_aliases: set[str] = set()
+    function_execution_nodes = _scope_execution_nodes(node.body)
+    changed = True
+    while changed:
+        changed = False
+        for execution_node in function_execution_nodes:
+            if isinstance(execution_node, ast.Assign):
+                targets = execution_node.targets
+                value = execution_node.value
+            elif isinstance(execution_node, ast.AnnAssign) and execution_node.value:
+                targets = (execution_node.target,)
+                value = execution_node.value
+            elif isinstance(execution_node, ast.NamedExpr):
+                targets = (execution_node.target,)
+                value = execution_node.value
+            else:
+                continue
+            for target in targets:
+                for name, bound_value in _paired_binding_values(target, value):
+                    is_getfixturevalue = (
+                        isinstance(bound_value, ast.Attribute)
+                        and bound_value.attr == "getfixturevalue"
+                    ) or (
+                        isinstance(bound_value, ast.Name)
+                        and bound_value.id in getfixturevalue_aliases
+                    )
+                    if is_getfixturevalue and name not in getfixturevalue_aliases:
+                        getfixturevalue_aliases.add(name)
+                        changed = True
+
     getfixturevalue_names: list[str] = []
     for call in (
         child
-        for child in ast.walk(node)
+        for child in function_execution_nodes
         if isinstance(child, ast.Call)
-        and isinstance(child.func, ast.Attribute)
-        and child.func.attr == "getfixturevalue"
+        and (
+            (
+                isinstance(child.func, ast.Attribute)
+                and child.func.attr == "getfixturevalue"
+            )
+            or (
+                isinstance(child.func, ast.Name)
+                and child.func.id in getfixturevalue_aliases
+            )
+        )
     ):
         if (
             len(call.args) != 1
@@ -3118,13 +3382,9 @@ def _parameterized_ref(
             if local_fixture is not None and has_imported_fixture_reassignment(
                 fixture_name
             ):
-                raise TestCorpusGuardError(
-                    "imported Python fixture name is ambiguous"
-                )
+                raise TestCorpusGuardError("imported Python fixture name is ambiguous")
             if local_fixture is not None and candidates is not None:
-                raise TestCorpusGuardError(
-                    "imported Python fixture name is ambiguous"
-                )
+                raise TestCorpusGuardError("imported Python fixture name is ambiguous")
             if local_fixture is not None:
                 serialized_parts.append("fixture-local=" + local_fixture)
                 continue
@@ -3334,6 +3594,45 @@ def _parameterized_ref(
         "binding:" + ast.dump(binding, annotate_fields=True, include_attributes=False)
         for _position, binding in sorted(binding_nodes.items())
     ]
+    binding_import_requirements: dict[str, set[str]] = {}
+    for binding in binding_nodes.values():
+        for root, names in _python_import_requirements(
+            binding,
+            imported_modules,
+        ).items():
+            binding_import_requirements.setdefault(root, set()).update(names)
+    for root, binding_names in sorted(binding_import_requirements.items()):
+        candidates = imported_modules[root]
+        resolved_import = next(
+            (
+                (module, source)
+                for module in candidates
+                if import_source_resolver is not None
+                and (source := import_source_resolver(module)) is not None
+            ),
+            None,
+        )
+        if resolved_import is None:
+            binding_parts.append(
+                f"binding-external-import={','.join(candidates)};"
+                f"bindings={','.join(sorted(binding_names))}"
+            )
+            continue
+        module, source = resolved_import
+        for binding_name in sorted(binding_names):
+            binding_parts.append(
+                "binding-import="
+                + _python_imported_binding_source(
+                    module,
+                    source,
+                    _binding_name_for_resolved_import(
+                        candidates,
+                        module,
+                        binding_name,
+                    ),
+                    import_source_resolver,
+                )
+            )
     serialized = "\n".join([*serialized_parts, *binding_parts])
     digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     return f"{raw_ref}::parametrize-sha256:{digest}"
@@ -3599,19 +3898,40 @@ def _python_inventory_entries(
     imported_modules = _python_import_modules(tree)
     module_side_effect_identities: list[str] = []
     if import_source_resolver is not None:
-        side_effect_modules = {
-            imported.name
-            for node in _module_execution_nodes(tree)
-            if isinstance(node, ast.Import)
-            for imported in node.names
+        current_module = _python_module_name_for_path(path)
+        relative_package = current_module
+        if not path.endswith("/__init__.py") and "." in current_module:
+            relative_package = current_module.rsplit(".", 1)[0]
+        execution_import_bindings = _python_import_modules(
+            tree,
+            relative_package=relative_package,
+        )
+        referenced_names = {
+            child.id
+            for child in ast.walk(tree)
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
         }
-        for module in sorted(side_effect_modules):
+        side_effect_modules = _python_execution_import_modules(
+            tree,
+            relative_package=relative_package,
+            import_source_resolver=import_source_resolver,
+        )
+        for module in side_effect_modules:
             source = import_source_resolver(module)
             if source is None:
                 continue
+            import_is_referenced = any(
+                local_name in referenced_names and module in candidates
+                for local_name, candidates in execution_import_bindings.items()
+            )
             module_side_effect_identities.append(
-                f"side-effect-import={module};source-sha256="
-                f"{hashlib.sha256(source.encode('utf-8')).hexdigest()}"
+                "side-effect-import="
+                + _python_side_effect_import_identity(
+                    module,
+                    source,
+                    import_source_resolver,
+                    include_transitive=not import_is_referenced,
+                )
             )
     fixture_override_index: dict[str, list[tuple[str, str, str]]] | None = None
 
@@ -5113,9 +5433,7 @@ def _python_inventory_entries(
                             changed = True
                         if _is_fixture_callable(bound_value, fixture_aliases):
                             is_factory = True
-                        elif isinstance(
-                            bound_value, ast.Call
-                        ) and _is_fixture_callable(
+                        elif isinstance(bound_value, ast.Call) and _is_fixture_callable(
                             bound_value.func, fixture_aliases
                         ):
                             is_factory = not bound_value.args
@@ -5146,8 +5464,7 @@ def _python_inventory_entries(
             else:
                 continue
             if any(
-                (root := _root_name(argument)) is not None
-                and root in function_aliases
+                (root := _root_name(argument)) is not None and root in function_aliases
                 for argument in child.args
             ):
                 return True
@@ -5212,9 +5529,7 @@ def _python_inventory_entries(
                     fixture_override_matches,
                     local_fixture_identity,
                     container_decorators=tuple(module_pytestmark_decorators),
-                    module_side_effect_identities=tuple(
-                        module_side_effect_identities
-                    ),
+                    module_side_effect_identities=tuple(module_side_effect_identities),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
@@ -5335,9 +5650,7 @@ def _python_inventory_entries(
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
-                module_side_effect_identities=tuple(
-                    module_side_effect_identities
-                ),
+                module_side_effect_identities=tuple(module_side_effect_identities),
             )
             raw_ref = bind_autouse_fixture_identity(raw_ref)
             entries.append(
@@ -5529,6 +5842,9 @@ def _python_import_resolver(
 
     setattr(resolve, "_uaa_module_identity_cache", {})
     setattr(resolve, "_uaa_binding_identity_cache", {})
+    setattr(resolve, "_uaa_side_effect_identity_cache", {})
+    setattr(resolve, "_uaa_side_effect_dependency_cache", {})
+    setattr(resolve, "_uaa_side_effect_effect_cache", {})
 
     return resolve
 
@@ -5645,7 +5961,9 @@ def _parse_worktree_test_declarations(
 
         def read_python_import(candidate: str) -> str | None:
             target = repo / candidate
-            if not target.is_file():
+            if not target.is_file() or not _worktree_path_has_exact_case(
+                repo, candidate
+            ):
                 return None
             return _read_worktree_text(repo, candidate)
 
@@ -5661,7 +5979,7 @@ def _parse_worktree_test_declarations(
 
     def read_import(candidate: str) -> str | None:
         target = repo / candidate
-        if not target.is_file():
+        if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
             return None
         return _read_worktree_text(repo, candidate)
 
@@ -5681,6 +5999,7 @@ def _parse_base_test_declarations(
     base_sha: str,
     path: str,
     text: str,
+    python_import_source_resolver: Callable[[str], str | None] | None = None,
 ) -> tuple[TestDeclaration, ...]:
     if path.endswith(".py"):
         return tuple(
@@ -5688,7 +6007,8 @@ def _parse_base_test_declarations(
             for declaration, _source in _python_inventory_entries(
                 path,
                 text,
-                _python_import_resolver(
+                python_import_source_resolver
+                or _python_import_resolver(
                     lambda candidate: _base_text(repo, base_sha, candidate)
                 ),
             )
@@ -5876,10 +6196,24 @@ def _read_worktree_text(
     )
 
 
+def _worktree_path_has_exact_case(repo: Path, path: str) -> bool:
+    """Reject case-folded path aliases on case-insensitive filesystems."""
+
+    current = repo
+    for part in Path(path).parts:
+        try:
+            if part not in os.listdir(current):
+                return False
+        except OSError:
+            return False
+        current /= part
+    return True
+
+
 def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
     def read_python_import(candidate: str) -> str | None:
         target = repo / candidate
-        if not target.is_file():
+        if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
             return None
         return _read_worktree_text(repo, candidate)
 
@@ -6266,9 +6600,7 @@ def _autouse_fixture_declarations(
                 return True
         return False
 
-    for class_node in (
-        node for node in tree.body if isinstance(node, ast.ClassDef)
-    ):
+    for class_node in (node for node in tree.body if isinstance(node, ast.ClassDef)):
         class_nodes = _scope_execution_nodes(class_node.body)
         class_aliases = factory_aliases_for(class_nodes, factory_aliases)
         class_functions = {
@@ -6335,9 +6667,7 @@ def _pytest_plugin_modules(source: str, path: str) -> set[str]:
         ) from exc
     modules: set[str] = set()
     direct_registration_nodes = {
-        id(node)
-        for node in tree.body
-        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        id(node) for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))
     }
     if _has_module_namespace_mutation(tree):
         raise TestCorpusGuardError(
@@ -6413,9 +6743,7 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     package_parts = package.split(".") if package else []
     modules: set[str] = set()
     direct_import_nodes = {
-        id(node)
-        for node in tree.body
-        if isinstance(node, (ast.Import, ast.ImportFrom))
+        id(node) for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
     }
     for node in _module_execution_nodes(tree):
         if isinstance(node, ast.Import):
@@ -6515,9 +6843,10 @@ def _safe_pytest_suffix_discovery_alignment_paths(
 ) -> set[str]:
     manifest_path = "scripts/verification/ci_command_manifest.py"
     runner_path = "scripts/verification/run_pytest_shards.py"
-    if set(current_by_path) != {manifest_path, runner_path} or set(
-        prior_by_path
-    ) != {manifest_path, runner_path}:
+    if set(current_by_path) != {manifest_path, runner_path} or set(prior_by_path) != {
+        manifest_path,
+        runner_path,
+    }:
         return set()
 
     manifest_needle = '                    "tests/**/test_*.py",\n'
@@ -6551,10 +6880,10 @@ def _safe_pytest_suffix_discovery_alignment_paths(
         runner_replacement,
         1,
     )
-    no_tests_needle = '        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)\n'
-    no_tests_replacement = (
-        '        print("FAIL: no canonical Python test files discovered", file=sys.stderr)\n'
+    no_tests_needle = (
+        '        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)\n'
     )
+    no_tests_replacement = '        print("FAIL: no canonical Python test files discovered", file=sys.stderr)\n'
     if expected_runner.count(no_tests_needle) != 1:
         return set()
     expected_runner = expected_runner.replace(
@@ -6637,9 +6966,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior = _base_text(repo, base_sha, path) or ""
         if "pytest_plugins" not in current and "pytest_plugins" not in prior:
             continue
-        if _pytest_plugin_modules(current, path) != _pytest_plugin_modules(
-            prior, path
-        ):
+        if _pytest_plugin_modules(current, path) != _pytest_plugin_modules(prior, path):
             raise TestCorpusGuardError(
                 "changed test-module pytest plugin registration cannot be "
                 "inventoried safely"
@@ -6672,8 +6999,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             for path in effective_changed_runner_paths
         },
         prior_by_path={
-            path: prior_runner_by_path[path]
-            for path in effective_changed_runner_paths
+            path: prior_runner_by_path[path] for path in effective_changed_runner_paths
         },
     )
     for path in changed_runner_paths:
@@ -6877,9 +7203,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             plugin_dependency_paths.update(
                 _python_dependency_paths(
                     repo,
-                    _python_modules_with_package_ancestors(
-                        prior_registered_plugins
-                    ),
+                    _python_modules_with_package_ancestors(prior_registered_plugins),
                     read_text=lambda path: (
                         _base_text(repo, base_sha, path) if path in base_paths else None
                     ),
@@ -7014,10 +7338,7 @@ def _is_python_test_path(path: str) -> bool:
     candidate = Path(path)
     return (
         candidate.suffix == ".py"
-        and (
-            candidate.name.startswith("test_")
-            or candidate.name.endswith("_test.py")
-        )
+        and (candidate.name.startswith("test_") or candidate.name.endswith("_test.py"))
         and candidate.parts[:1] == ("tests",)
     )
 
@@ -7162,7 +7483,7 @@ def _worktree_source_ref(repo: Path, test_ref: str) -> str:
 
     def read_import(candidate: str) -> str | None:
         target = repo / candidate
-        if not target.is_file():
+        if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
             return None
         return _read_worktree_text(repo, candidate)
 
@@ -7239,19 +7560,41 @@ def _historical_source_refs(ledger: dict[str, Any]) -> dict[str, str]:
 def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
+    base_import_source_resolver = _python_import_resolver(
+        lambda candidate: _base_text(repo, base_sha, candidate)
+    )
+
+    def read_worktree_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
+            return None
+        return _read_worktree_text(repo, candidate)
+
+    worktree_import_source_resolver = _python_import_resolver(read_worktree_import)
     for path in _changed_test_paths(repo, base_sha):
         prior = _base_text(repo, base_sha, path)
         if prior is None:
             continue
         prior_refs = {
             item.ref
-            for item in _parse_base_test_declarations(repo, base_sha, path, prior)
+            for item in _parse_base_test_declarations(
+                repo,
+                base_sha,
+                path,
+                prior,
+                base_import_source_resolver,
+            )
         }
         if path in current_paths:
             current_text = _read_worktree_text(repo, path)
             current_refs = {
                 item.ref
-                for item in _parse_worktree_test_declarations(repo, path, current_text)
+                for item in _parse_worktree_test_declarations(
+                    repo,
+                    path,
+                    current_text,
+                    worktree_import_source_resolver,
+                )
             }
         else:
             current_refs = set()
