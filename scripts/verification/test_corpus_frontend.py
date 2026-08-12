@@ -37,7 +37,7 @@ DEFAULT_IMPORT_PATTERN = re.compile(
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
 )
 EXPORT_FROM_PATTERN = re.compile(
-    r"\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s*"
+    rf"\bexport\s+(?:type\s+)?(?:\*\s*(?:as\s+{TEST_API_NAME}\s*)?|\{{[^}}]*\}})\s+from\s*"
     r"(?P<quote>['\"])(?P<module>[^'\"]+)(?P=quote)"
 )
 NAMESPACE_IMPORT_PATTERN = re.compile(
@@ -55,6 +55,8 @@ class FrontendInventoryError(RuntimeError):
 
 
 ImportBindingResolver = Callable[[str, str], str | None]
+MODULE_INITIALIZER_BINDING = "__uaa_module_initializer__"
+MODULE_INITIALIZER_INERT = "__uaa_module_initializer_inert__"
 
 
 StaticValue = (
@@ -361,6 +363,20 @@ def _normalized_javascript_expression(source: str) -> str:
     )
 
 
+def frontend_runtime_identity_source(source: str) -> str:
+    """Canonicalize initializer tokens while preserving executable literals."""
+
+    try:
+        mask = _module_initializer_code_mask(source, preserve_literals=True)
+        initializer_source = "".join(
+            character if mask[index] else " "
+            for index, character in enumerate(source)
+        )
+        return _normalized_javascript_expression(initializer_source)
+    except FrontendInventoryError:
+        return source
+
+
 def _call_argument_ranges(
     text: str,
     arguments_start: int,
@@ -575,43 +591,156 @@ def _has_runtime_callback_skip(
         character if callback_mask[index] else " "
         for index, character in enumerate(callback)
     )
+    callback_scan_characters = list(callback_scan)
+    for computed_skip in re.finditer(
+        r"\[\s*(?P<quote>['\"])skip(?P=quote)\s*\]",
+        callback,
+    ):
+        if not (
+            callback_mask[computed_skip.start()]
+            and callback_mask[computed_skip.end() - 1]
+        ):
+            continue
+        replacement = ".skip".ljust(computed_skip.end() - computed_skip.start())
+        callback_scan_characters[computed_skip.start() : computed_skip.end()] = (
+            replacement
+        )
+    callback_scan = "".join(callback_scan_characters)
     parameter_match = re.match(
         rf"\s*(?:async\s+)?(?:function(?:\s+{TEST_API_NAME})?\s*)?"
         rf"(?:\(\s*(?P<parenthesized>{TEST_API_NAME})\b[^)]*\)"
         rf"|(?P<bare>{TEST_API_NAME})\b\s*=>)",
         callback_scan,
     )
+    parameter = None
+    skip_aliases: set[str] = set()
     if parameter_match is not None:
         parameter = parameter_match.group("parenthesized") or parameter_match.group(
             "bare"
         )
         parameter_pattern = re.escape(parameter)
+        if re.search(rf"\b{parameter_pattern}\s*(?:\?\.)?\[", callback_scan):
+            return True
         if re.search(
-            rf"\b{parameter_pattern}\s*(?:\?\.|\.)\s*skip\s*(?:\?\.)?\s*\(",
-            callback_scan,
-        ) or re.search(
-            rf"\b{parameter_pattern}\s*(?:\?\.)?\[\s*['\"]skip['\"]\s*\]"
-            r"\s*(?:\?\.)?\s*\(",
+            rf"\b{parameter_pattern}\s*(?:\?\.|\.)\s*skip\b",
             callback_scan,
         ):
             return True
     destructured = re.match(
-        r"\s*(?:async\s+)?\(\s*\{(?P<body>[^}]*)\}\s*\)\s*=>",
+        rf"\s*(?:async\s+)?(?:function(?:\s+{TEST_API_NAME})?\s*)?"
+        r"\(\s*\{(?P<body>[^}]*)\}\s*\)\s*(?:=>)?",
         callback_scan,
     )
-    if destructured is None:
-        return False
-    for item in destructured.group("body").split(","):
-        binding = re.fullmatch(
-            rf"\s*skip(?:\s*:\s*(?P<alias>{TEST_API_NAME}))?\s*",
-            item,
-        )
-        if binding is None:
-            continue
-        alias = binding.group("alias") or "skip"
-        if re.search(rf"\b{re.escape(alias)}\s*\(", callback_scan):
+    if destructured is not None:
+        if "[" in destructured.group("body"):
             return True
-    return False
+        if re.search(
+            r"(?:^|,)\s*(?:\.\.\.|(?:\.\s*)?skip\b)", destructured.group("body")
+        ):
+            return True
+        for item in destructured.group("body").split(","):
+            binding = re.fullmatch(
+                rf"\s*skip(?:\s*:\s*(?P<alias>{TEST_API_NAME}))?\s*",
+                item,
+            )
+            if binding is not None:
+                skip_aliases.add(binding.group("alias") or "skip")
+    if parameter is not None:
+        parameter_pattern = re.escape(parameter)
+        if re.search(
+            rf"\b(?:const|let|var)\s*\{{[^}}]*(?:\.\.\.|(?:\.\s*)?skip\b)"
+            rf"[^}}]*\}}\s*=\s*{parameter_pattern}\b",
+            callback_scan,
+        ):
+            return True
+        for match in re.finditer(
+            rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
+            rf"{parameter_pattern}\s*(?:(?:\?\.|\.)\s*skip|"
+            r"(?:\?\.)?\[\s*['\"]skip['\"]\s*\])",
+            callback_scan,
+        ):
+            skip_aliases.add(match.group("alias"))
+        for match in re.finditer(
+            rf"\b(?:const|let|var)\s*\{{\s*skip"
+            rf"(?:\s*:\s*(?P<alias>{TEST_API_NAME}))?\s*\}}\s*=\s*"
+            rf"{parameter_pattern}\b",
+            callback_scan,
+        ):
+            skip_aliases.add(match.group("alias") or "skip")
+        context_aliases = {parameter}
+        changed = True
+        while changed:
+            changed = False
+            for match in re.finditer(
+                rf"(?:\b(?:const|let|var)\s+|(?<![.\w$]))"
+                rf"(?P<alias>{TEST_API_NAME})\s*=\s*\(*\s*"
+                rf"(?P<source>{TEST_API_NAME})\s*\)*",
+                callback_scan,
+            ):
+                if (
+                    match.group("source") in context_aliases
+                    and match.group("alias") not in context_aliases
+                ):
+                    context_aliases.add(match.group("alias"))
+                    changed = True
+        for context_alias in context_aliases:
+            context_pattern = re.escape(context_alias)
+            if re.search(
+                rf"\b{context_pattern}\s*(?:\?\.)?\[",
+                callback_scan,
+            ) or re.search(
+                rf"\b{context_pattern}\s*(?:\?\.|\.)\s*skip\b",
+                callback_scan,
+            ):
+                return True
+            reflective_patterns = (
+                re.compile(
+                    rf"\bReflect\s*\.\s*get\s*\(\s*{context_pattern}\s*,\s*"
+                    r"['\"]skip['\"]"
+                ),
+                re.compile(
+                    rf"\bObject\s*\.\s*getOwnPropertyDescriptor\s*\(\s*"
+                    rf"{context_pattern}\s*,\s*['\"]skip['\"]"
+                ),
+            )
+            if any(
+                callback_mask[match.start()]
+                for pattern in reflective_patterns
+                for match in pattern.finditer(callback)
+            ):
+                return True
+            if re.search(
+                rf"\{{[^}}]*\.\.\.\s*{context_pattern}\b[^}}]*\}}",
+                callback_scan,
+            ) or re.search(
+                rf"\bObject\s*\.\s*assign\s*\([^)]*\b{context_pattern}\b",
+                callback_scan,
+            ):
+                return True
+            if re.search(
+                rf"\(?\s*\{{[^}}]*(?:\.\.\.|(?:\.\s*)?skip\b)[^}}]*\}}\s*"
+                rf"=\s*\(*\s*{context_pattern}\s*\)*",
+                callback_scan,
+            ):
+                return True
+    changed = True
+    while changed:
+        changed = False
+        for match in re.finditer(
+            rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
+            rf"(?P<source>{TEST_API_NAME})\b",
+            callback_scan,
+        ):
+            if (
+                match.group("source") in skip_aliases
+                and match.group("alias") not in skip_aliases
+            ):
+                skip_aliases.add(match.group("alias"))
+                changed = True
+    return any(
+        re.search(rf"\b{re.escape(alias)}\s*(?:\?\.)?\s*\(", callback_scan) is not None
+        for alias in skip_aliases
+    )
 
 
 def _execution_posture_parts(
@@ -706,6 +835,67 @@ def _execution_posture_parts(
                 )
             digest = hashlib.sha256(normalized_option.encode("utf-8")).hexdigest()
             parts.append(f"options:sha256:{digest}")
+    if len(arguments) >= 2:
+        callback_index = (
+            2
+            if len(arguments) >= 3
+            and _looks_like_frontend_callback(
+                declaration_source[arguments[2][0] : arguments[2][1]]
+            )
+            else 1
+        )
+        callback_source = declaration_source[
+            arguments[callback_index][0] : arguments[callback_index][1]
+        ].strip()
+        if re.fullmatch(TEST_API_NAME, callback_source):
+            if condition_binding_resolver is None:
+                raise FrontendInventoryError(
+                    "frontend runtime callback cannot be resolved safely"
+                )
+            resolved_callback = condition_binding_resolver(callback_source)
+            if resolved_callback is None:
+                raise FrontendInventoryError(
+                    "frontend runtime callback cannot be resolved safely"
+                )
+            callback_mask = _code_mask(resolved_callback)
+            callback_scan = "".join(
+                character if callback_mask[index] else " "
+                for index, character in enumerate(resolved_callback)
+            )
+            if re.search(
+                r"\b[A-Za-z_$][\w$]*\s*(?:\?\.|\.)\s*skip\b",
+                callback_scan,
+            ):
+                raise FrontendInventoryError(
+                    "frontend runtime callback skip cannot be inventoried safely"
+                )
+            digest = hashlib.sha256(resolved_callback.encode("utf-8")).hexdigest()
+            parts.append(f"callback:sha256:{digest}")
+        elif not _looks_like_frontend_callback(callback_source):
+            raise FrontendInventoryError(
+                "frontend runtime callback cannot be resolved safely"
+            )
+        elif (
+            (
+                "=>" in callback_source
+                and re.search(r"\bskip\b", callback_source.split("=>", 1)[0])
+            )
+            or (
+                re.match(
+                    r"\s*(?:async\s+)?(?:function\s*)?\(\s*\.\.\.", callback_source
+                )
+                and re.search(r"\[\s*0\s*\]\s*\.\s*skip\b", callback_source)
+            )
+            or (
+                re.match(r"\s*function\s*\(\s*\)", callback_source)
+                and re.search(
+                    r"\barguments\s*\[\s*0\s*\]\s*\.\s*skip\b", callback_source
+                )
+            )
+        ):
+            raise FrontendInventoryError(
+                "frontend runtime callback skip cannot be inventoried safely"
+            )
     if _has_runtime_callback_skip(declaration_source, arguments):
         raise FrontendInventoryError(
             "frontend runtime callback skip cannot be inventoried safely"
@@ -1817,6 +2007,22 @@ def frontend_export_binding_source(text: str, name: str) -> str | None:
 
 
 def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, ...]:
+    return tuple(
+        module
+        for module in _commonjs_require_modules(text, scan_text)
+        if module.startswith(".")
+    )
+
+
+def _commonjs_require_modules(text: str, scan_text: str) -> tuple[str, ...]:
+    if re.search(
+        rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*require\b"
+        r"(?!\s*(?:\?\.\s*)?\()",
+        scan_text,
+    ):
+        raise FrontendInventoryError(
+            "dynamic CommonJS dependency cannot be inventoried safely"
+        )
     require_callee = r"(?:\brequire\b|\(\s*(?P<wrapped_require>require)\s*\))"
     call_pattern = re.compile(rf"{require_callee}\s*(?:\?\.\s*)?\(")
     call_offsets = {
@@ -1824,9 +2030,6 @@ def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, 
         if match.group("wrapped_require") is not None
         else match.start()
         for match in call_pattern.finditer(scan_text)
-    }
-    require_offsets = {
-        match.start() for match in re.finditer(r"\brequire\b", scan_text)
     }
     require_pattern = re.compile(
         rf"{require_callee}\s*(?:\?\.\s*)?\(\s*(?:"
@@ -1846,13 +2049,81 @@ def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, 
             continue
         literal_offsets.add(offset)
         module = match.group("quoted_module") or match.group("template_module")
-        if module.startswith(".") and module not in modules:
+        if module not in modules:
             modules.append(module)
-    if call_offsets != literal_offsets or require_offsets != literal_offsets:
+    if call_offsets != literal_offsets:
         raise FrontendInventoryError(
             "dynamic CommonJS dependency cannot be inventoried safely"
         )
     return tuple(modules)
+
+
+def _typescript_type_import(text: str, offset: int) -> bool:
+    line_start = max(text.rfind("\n", 0, offset), text.rfind(";", 0, offset)) + 1
+    prefix = text[line_start:offset]
+    stripped = prefix.lstrip()
+    if re.match(r"(?:export\s+)?(?:type|interface)\b", stripped):
+        return True
+    if re.search(r"\b(?:if|while|for|switch)\s*\([^)]*\btype\b[^)]*\)", prefix):
+        return False
+    colon = prefix.rfind(":")
+    if colon >= 0 and not prefix[colon + 1 :].strip():
+        context = prefix[:colon]
+        last_assignment = context.rfind("=")
+        last_brace = context.rfind("{")
+        if last_assignment >= 0 and last_brace > last_assignment:
+            return False
+        if "?" in context[max(0, last_assignment) :]:
+            return False
+        return "=>" not in context
+    if colon >= 0 and "=>" in prefix[colon + 1 :]:
+        return False
+    return re.search(r":\s*[A-Za-z_$][\w$]*(?:\s*<[^{};]*)?\s*$", prefix) is not None
+
+
+def _dynamic_import_modules(text: str, scan_text: str) -> tuple[str, ...]:
+    call_offsets = {
+        match.start()
+        for match in re.finditer(r"\bimport\s*\(", scan_text)
+        if not _typescript_type_import(text, match.start())
+    }
+    pattern = re.compile(
+        r"\bimport\s*\(\s*(?:"
+        r"(?P<quote>['\"])(?P<quoted_module>[^'\"]+)(?P=quote)"
+        r"|`(?P<template_module>[^`$]+)`"
+        r")\s*\)"
+    )
+    literal_offsets: set[int] = set()
+    modules: list[str] = []
+    for match in pattern.finditer(text):
+        if match.start() not in call_offsets:
+            continue
+        literal_offsets.add(match.start())
+        module = match.group("quoted_module") or match.group("template_module")
+        if module not in modules:
+            modules.append(module)
+    if call_offsets != literal_offsets:
+        raise FrontendInventoryError(
+            "dynamic frontend dependency cannot be inventoried safely"
+        )
+    return tuple(modules)
+
+
+def _runtime_named_members(members: str) -> tuple[str, ...]:
+    member_mask = _code_mask(members)
+    visible = "".join(
+        character if member_mask[index] else " "
+        for index, character in enumerate(members)
+    )
+    return tuple(
+        member
+        for member in visible.split(",")
+        if member.strip()
+        and not (
+            re.match(r"\s*type\s+[A-Za-z_$]", member) is not None
+            and re.match(r"\s*type\s+as\b", member) is None
+        )
+    )
 
 
 def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
@@ -1889,6 +2160,497 @@ def frontend_relative_import_modules(text: str) -> tuple[str, ...]:
         if module not in modules:
             modules.append(module)
     return tuple(modules)
+
+
+def frontend_runtime_import_modules(text: str) -> tuple[str, ...]:
+    """Return relative imports whose module initializers execute at runtime."""
+
+    code_mask = _module_initializer_code_mask(text)
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    matches: list[tuple[int, str]] = []
+    for match in IMPORT_PATTERN.finditer(text):
+        if (
+            not match.group("module").startswith(".")
+            or scan_text[match.start() : match.start() + len("import")] != "import"
+        ):
+            continue
+        runtime_members = _runtime_named_members(match.group("members"))
+        if runtime_members:
+            matches.append((match.start(), match.group("module")))
+    for pattern in (DEFAULT_IMPORT_PATTERN, NAMESPACE_IMPORT_PATTERN):
+        for match in pattern.finditer(text):
+            statement = scan_text[match.start() : match.end()]
+            if (
+                match.group("module").startswith(".")
+                and statement.startswith("import")
+                and re.match(r"import\s+type\b", statement) is None
+            ):
+                matches.append((match.start(), match.group("module")))
+    for pattern in (
+        SIDE_EFFECT_IMPORT_PATTERN,
+        EMPTY_NAMED_IMPORT_PATTERN,
+        EXPORT_FROM_PATTERN,
+    ):
+        for match in pattern.finditer(text):
+            keyword = "export" if pattern is EXPORT_FROM_PATTERN else "import"
+            statement = scan_text[match.start() : match.end()]
+            type_only_named_export = (
+                pattern is EXPORT_FROM_PATTERN
+                and statement.startswith("export")
+                and "{" in statement
+                and not _runtime_named_members(
+                    text[match.start() : match.end()].split("{", 1)[1].rsplit("}", 1)[0]
+                )
+            )
+            if (
+                match.group("module").startswith(".")
+                and statement.startswith(keyword)
+                and re.match(rf"{keyword}\s+type\b", statement) is None
+                and not type_only_named_export
+            ):
+                matches.append((match.start(), match.group("module")))
+    for module in (
+        *_commonjs_require_modules(text, scan_text),
+        *_dynamic_import_modules(text, scan_text),
+    ):
+        if module.startswith("."):
+            matches.append((len(text), module))
+    modules: list[str] = []
+    for _offset, module in sorted(matches):
+        if module not in modules:
+            modules.append(module)
+    return tuple(modules)
+
+
+def frontend_runtime_test_posture(text: str) -> bool:
+    """Return whether module initialization can affect test execution posture."""
+
+    code_mask = _module_initializer_code_mask(text)
+    scan_text = "".join(
+        character if code_mask[index] else " " for index, character in enumerate(text)
+    )
+    for match in IMPORT_PATTERN.finditer(text):
+        if (
+            match.group("module") not in RUNNER_MODULES
+            or scan_text[match.start() : match.start() + len("import")] != "import"
+        ):
+            continue
+        if _runtime_named_members(match.group("members")):
+            return True
+    for pattern in (
+        DEFAULT_IMPORT_PATTERN,
+        NAMESPACE_IMPORT_PATTERN,
+        SIDE_EFFECT_IMPORT_PATTERN,
+        EMPTY_NAMED_IMPORT_PATTERN,
+        EXPORT_FROM_PATTERN,
+    ):
+        for match in pattern.finditer(text):
+            keyword = "export" if pattern is EXPORT_FROM_PATTERN else "import"
+            statement = scan_text[match.start() : match.end()]
+            type_only_named_export = (
+                pattern is EXPORT_FROM_PATTERN
+                and statement.startswith("export")
+                and "{" in statement
+                and not _runtime_named_members(
+                    text[match.start() : match.end()].split("{", 1)[1].rsplit("}", 1)[0]
+                )
+            )
+            if (
+                match.group("module") in RUNNER_MODULES
+                and statement.startswith(keyword)
+                and re.match(rf"{keyword}\s+type\b", statement) is None
+                and not type_only_named_export
+            ):
+                return True
+    if RUNNER_MODULES.intersection(
+        (
+            *_commonjs_require_modules(text, scan_text),
+            *_dynamic_import_modules(text, scan_text),
+        )
+    ):
+        return True
+    posture_apis = (
+        "afterAll",
+        "afterEach",
+        "beforeAll",
+        "beforeEach",
+        "describe",
+        "it",
+        "suite",
+        "test",
+    )
+    posture_pattern = "(?:" + "|".join(posture_apis) + ")"
+    if re.search(
+        r"(?<![.\w$])(?:afterAll|afterEach|beforeAll|beforeEach)\b", scan_text
+    ):
+        return True
+    direct_call_pattern = re.compile(rf"(?<![.\w$]){posture_pattern}\s*\(")
+    for match in direct_call_pattern.finditer(scan_text):
+        prefix = scan_text[max(0, match.start() - 32) : match.start()]
+        if re.search(r"\bfunction\s*$", prefix) is None:
+            return True
+    if re.search(
+        rf"(?<![.\w$]){posture_pattern}\s*(?:\?\.|\.)",
+        scan_text,
+    ):
+        return True
+    if re.search(
+        rf"\(\s*{posture_pattern}\s*\)\s*(?:\?\.)?\s*\(",
+        scan_text,
+    ):
+        return True
+    if (
+        re.search(
+            rf"\b(?:const|let|var)\s+{TEST_API_NAME}\s*=\s*\(*\s*{posture_pattern}\b",
+            scan_text,
+        )
+        is not None
+    ):
+        return True
+    if (
+        re.search(
+            rf"\b{TEST_API_NAME}\s*=\s*\(*\s*{posture_pattern}\b",
+            scan_text,
+        )
+        is not None
+    ):
+        return True
+    global_object = r"(?:globalThis|window|self)"
+    if re.search(rf"\b{global_object}\s*(?:\?\.)?\[", scan_text):
+        return True
+    if re.search(rf"\b{global_object}\s*(?:\?\.|\.)\s*{posture_pattern}\b", scan_text):
+        return True
+    if re.search(
+        rf"\b(?:const|let|var)\s*\{{[^}}]*\b{posture_pattern}\b[^}}]*\}}\s*=\s*{global_object}\b",
+        scan_text,
+    ):
+        return True
+    return any(
+        scan_text[match.start()] == text[match.start()]
+        for match in re.finditer(
+            rf"\b{global_object}\s*(?:\?\.)?\[\s*['\"]{posture_pattern}['\"]\s*\]",
+            text,
+        )
+    )
+
+
+def _runtime_import_code_mask(text: str) -> bytearray:
+    """Mask import-irrelevant syntax without rejecting ordinary JSX text."""
+
+    mask = bytearray(b"\x01" * len(text))
+    regex_closures: set[int] = set()
+    index = 0
+    while index < len(text):
+        if text[index] in "\"'`":
+            end = _skip_string(text, index)
+            mask[index:end] = b"\x00" * (end - index)
+            if text[index] == "`":
+                template_index = index + 1
+                while template_index < end - 1:
+                    if text[template_index] == "\\":
+                        template_index += 2
+                        continue
+                    if text.startswith("${", template_index):
+                        interpolation_end = _skip_balanced(text, template_index + 1)
+                        body_start = template_index + 2
+                        body_end = interpolation_end - 1
+                        mask[body_start:body_end] = _runtime_import_code_mask(
+                            text[body_start:body_end]
+                        )
+                        template_index = interpolation_end
+                        continue
+                    template_index += 1
+            index = end
+            continue
+        if _is_regex_literal_at(text, index, regex_closures):
+            try:
+                end, closing = _skip_regex(text, index)
+            except FrontendInventoryError:
+                # Production JSX may contain unquoted text such as
+                # ``delete/export``. It cannot contain a static import
+                # declaration, so keep the slash visible and continue.
+                index += 1
+                continue
+            regex_closures.add(closing)
+            mask[index:end] = b"\x00" * (end - index)
+            index = end
+            continue
+        comment_end = _skip_comment(text, index)
+        if comment_end != index:
+            mask[index:comment_end] = b"\x00" * (comment_end - index)
+            index = comment_end
+            continue
+        index += 1
+    return mask
+
+
+def _module_initializer_code_mask(
+    text: str,
+    *,
+    preserve_literals: bool = False,
+) -> bytearray:
+    """Mask function bodies that cannot execute during module initialization."""
+
+    scan_mask = _runtime_import_code_mask(text)
+    mask = (
+        bytearray(b"\x01" * len(text))
+        if preserve_literals
+        else bytearray(scan_mask)
+    )
+    scan_text = "".join(
+        character if scan_mask[index] else " "
+        for index, character in enumerate(text)
+    )
+    function_pattern = re.compile(
+        rf"\b(?:async\s+)?function\s*\*?\s*(?P<name>{TEST_API_NAME})\s*"
+        r"(?P<parameters>\()"
+    )
+    for match in function_pattern.finditer(scan_text):
+        try:
+            parameters_end = _skip_balanced(text, match.start("parameters"))
+            body_start = _function_body_after_parameters(
+                text,
+                scan_text,
+                parameters_end,
+            )
+            if body_start is None:
+                continue
+            body_end = _skip_balanced(text, body_start)
+        except FrontendInventoryError:
+            continue
+        name_pattern = re.compile(rf"(?<![\w$]){re.escape(match.group('name'))}\b")
+        referenced_outside_declaration = any(
+            candidate.start() < match.start() or candidate.start() >= body_end
+            for candidate in name_pattern.finditer(scan_text)
+        )
+        if referenced_outside_declaration:
+            continue
+        mask[body_start:body_end] = b"\x00" * (body_end - body_start)
+    arrow_pattern = re.compile(
+        rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\s*=\s*"
+        r"(?:async\s*)?(?:<[^;{}\n]+>\s*)?"
+        r"(?:\([^;\n]*?\)|[A-Za-z_$][\w$]*)"
+        r"(?:\s*:\s*[^=;\n]+)?\s*=>"
+    )
+    for match in arrow_pattern.finditer(scan_text):
+        body_start = _skip_static_trivia(text, match.end())
+        try:
+            if body_start < len(text) and text[body_start] == "{":
+                body_end = _skip_balanced(text, body_start)
+            else:
+                semicolon = scan_text.find(";", body_start)
+                newline = scan_text.find("\n", body_start)
+                endings = [end for end in (semicolon, newline) if end >= 0]
+                body_end = min(endings) if endings else len(text)
+        except FrontendInventoryError:
+            continue
+        name_pattern = re.compile(rf"(?<![\w$]){re.escape(match.group('name'))}\b")
+        if any(
+            candidate.start() < match.start() or candidate.start() >= body_end
+            for candidate in name_pattern.finditer(scan_text)
+        ):
+            continue
+        mask[body_start:body_end] = b"\x00" * (body_end - body_start)
+    class_pattern = re.compile(
+        rf"\bclass\s+(?P<name>{TEST_API_NAME})[^{{]*\{{"
+    )
+    method_pattern = re.compile(
+        rf"\s*(?!static\s*\{{)(?P<static>static\s+)?(?:async\s+)?"
+        rf"(?P<kind>get\s+|set\s+)?(?P<name>{TEST_API_NAME})"
+        r"\s*\([^)]*\)\s*\{"
+    )
+    field_arrow_pattern = re.compile(
+        rf"\s*(?P<static>static\s+)?(?:readonly\s+)?"
+        rf"(?P<name>{TEST_API_NAME})(?:\s*[?!])?"
+        r"(?:\s*:\s*[^=;\n]+)?\s*=\s*(?:async\s+)?"
+        r"(?:<[^;{}\n]+>\s*)?"
+        rf"(?:\([^;\n]*?\)|{TEST_API_NAME})"
+        r"(?:\s*:\s*[^=;\n]+)?\s*=>"
+    )
+
+    def direct_class_member(class_start: int, offset: int) -> bool:
+        depth = 1
+        for character in scan_text[class_start + 1 : offset]:
+            if character == "{":
+                depth += 1
+            elif character == "}":
+                depth -= 1
+        return depth == 1
+
+    def member_used(
+        source: str,
+        receivers: tuple[str, ...],
+        member: str,
+        *,
+        require_call: bool,
+        raw_source: str | None = None,
+    ) -> bool:
+        receiver_pattern = "(?:" + "|".join(receivers) + ")"
+        member_pattern = re.escape(member)
+        dot_access = (
+            rf"(?:{receiver_pattern})\s*(?:\?\.|\.)\s*{member_pattern}\b"
+        )
+        suffix = r"\s*(?:\?\.)?\s*\(" if require_call else ""
+        if re.search(rf"(?:{dot_access}){suffix}", source) is not None:
+            return True
+        if raw_source is None:
+            return False
+        computed_access = re.compile(
+            rf"(?:{receiver_pattern})\s*(?:\?\.)?\[\s*(['\"])"
+            rf"{member_pattern}\1\s*\]"
+        )
+        for match in computed_access.finditer(raw_source):
+            if not source[match.start()] or source[match.start()].isspace():
+                continue
+            if not require_call or re.match(suffix, source[match.end() :]):
+                return True
+        return False
+
+    for class_match in class_pattern.finditer(scan_text):
+        class_start = scan_text.find("{", class_match.start(), class_match.end())
+        try:
+            class_end = _skip_balanced(text, class_start)
+        except FrontendInventoryError:
+            continue
+        class_name = class_match.group("name")
+        external_source = (
+            scan_text[: class_match.start()]
+            + " " * (class_end - class_match.start())
+            + scan_text[class_end:]
+        )
+        external_text = (
+            text[: class_match.start()]
+            + " " * (class_end - class_match.start())
+            + text[class_end:]
+        )
+        class_pattern_text = re.escape(class_name)
+        instantiated = (
+            re.search(rf"\bnew\s+{class_pattern_text}\b", external_source)
+            is not None
+        )
+        instance_receivers = tuple(
+            re.escape(match.group("name"))
+            for match in re.finditer(
+                rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\s*=\s*"
+                rf"new\s+{class_pattern_text}\b",
+                external_source,
+            )
+        )
+        direct_instance_receiver = rf"new\s+{class_pattern_text}\s*\([^)]*\)"
+        instance_call_receivers = (*instance_receivers, direct_instance_receiver)
+        class_source = scan_text[class_start + 1 : class_end - 1]
+        for method in method_pattern.finditer(
+            scan_text,
+            class_start + 1,
+            class_end - 1,
+        ):
+            if not direct_class_member(class_start, method.start()):
+                continue
+            body_start = scan_text.find("{", method.start(), method.end())
+            try:
+                body_end = _skip_balanced(text, body_start)
+            except FrontendInventoryError:
+                continue
+            method_name = method.group("name")
+            method_kind = (method.group("kind") or "").strip()
+            class_execution_source = (
+                scan_text[class_start + 1 : body_start]
+                + " " * (body_end - body_start)
+                + scan_text[body_end : class_end - 1]
+            )
+            class_execution_text = (
+                text[class_start + 1 : body_start]
+                + " " * (body_end - body_start)
+                + text[body_end : class_end - 1]
+            )
+            if method_name == "constructor" and instantiated:
+                continue
+            if method.group("static"):
+                if member_used(
+                    external_source,
+                    (class_pattern_text,),
+                    method_name,
+                    require_call=not method_kind,
+                    raw_source=external_text,
+                ) or member_used(
+                    class_execution_source,
+                    (r"this", class_pattern_text),
+                    method_name,
+                    require_call=not method_kind,
+                    raw_source=class_execution_text,
+                ):
+                    continue
+            elif instance_call_receivers and member_used(
+                external_source,
+                instance_call_receivers,
+                method_name,
+                require_call=not method_kind,
+                raw_source=external_text,
+            ):
+                continue
+            elif instantiated and member_used(
+                class_execution_source,
+                (r"this",),
+                method_name,
+                require_call=not method_kind,
+                raw_source=class_execution_text,
+            ):
+                continue
+            mask[body_start:body_end] = b"\x00" * (body_end - body_start)
+        for field in field_arrow_pattern.finditer(
+            scan_text,
+            class_start + 1,
+            class_end - 1,
+        ):
+            if not direct_class_member(class_start, field.start()):
+                continue
+            body_start = _skip_static_trivia(text, field.end())
+            try:
+                if body_start < len(text) and text[body_start] == "{":
+                    body_end = _skip_balanced(text, body_start)
+                else:
+                    semicolon = scan_text.find(";", body_start, class_end)
+                    newline = scan_text.find("\n", body_start, class_end)
+                    endings = [end for end in (semicolon, newline) if end >= 0]
+                    body_end = min(endings) if endings else class_end - 1
+            except FrontendInventoryError:
+                continue
+            field_name = field.group("name")
+            if field.group("static"):
+                if member_used(
+                    external_source,
+                    (class_pattern_text,),
+                    field_name,
+                    require_call=True,
+                    raw_source=external_text,
+                ) or member_used(
+                    class_source,
+                    (r"this", class_pattern_text),
+                    field_name,
+                    require_call=True,
+                    raw_source=text[class_start + 1 : class_end - 1],
+                ):
+                    continue
+            elif instance_call_receivers and member_used(
+                external_source,
+                instance_call_receivers,
+                field_name,
+                require_call=True,
+                raw_source=external_text,
+            ):
+                continue
+            elif instantiated and member_used(
+                class_source,
+                (r"this",),
+                field_name,
+                require_call=True,
+                raw_source=text[class_start + 1 : class_end - 1],
+            ):
+                continue
+            mask[body_start:body_end] = b"\x00" * (body_end - body_start)
+    return mask
 
 
 def frontend_collection_setup_modules(text: str) -> tuple[str, ...]:
@@ -2054,7 +2816,11 @@ def _static_collection_source(
             rf"\s*=\s*(?P<name>{TEST_API_NAME})(?:\s+as\s+const)?\s*",
             scan_text[match.end() : statement_end],
         )
-        if alias is None:
+        initializer = scan_text[match.end() : statement_end]
+        dynamic_callback = alias is None and _looks_like_frontend_callback(
+            initializer.partition("=")[2].strip()
+        )
+        if alias is None and not dynamic_callback:
             raise FrontendInventoryError(
                 "frontend registration loop binding is dynamic"
             )
@@ -2072,6 +2838,8 @@ def _static_collection_source(
             raise FrontendInventoryError(
                 "frontend registration loop alias has an unproven use before collection"
             )
+        if dynamic_callback:
+            return text[match.start() : statement_end + 1]
         dependency_source = _static_collection_source(
             text,
             scan_text,
@@ -3150,6 +3918,26 @@ def _frontend_inventory_entries(
         raise FrontendInventoryError(
             "imported frontend registration helper cannot be inventoried safely"
         )
+    runtime_imports = frontend_runtime_import_modules(text)
+    if runtime_imports and import_binding_resolver is None:
+        raise FrontendInventoryError(
+            "frontend runtime import initialization cannot be inventoried safely"
+        )
+    module_initialization_postures: list[str] = []
+    for module in runtime_imports:
+        assert import_binding_resolver is not None
+        initialization_source = import_binding_resolver(
+            module,
+            MODULE_INITIALIZER_BINDING,
+        )
+        if initialization_source is None:
+            raise FrontendInventoryError(
+                "frontend runtime import initialization cannot be inventoried safely"
+            )
+        if initialization_source == MODULE_INITIALIZER_INERT:
+            continue
+        digest = hashlib.sha256(initialization_source.encode("utf-8")).hexdigest()
+        module_initialization_postures.append(f"module-initializer:sha256:{digest}")
 
     for match in direct_pattern.finditer(scan_text):
         declaration_end = _skip_balanced(text, match.end() - 1)
@@ -3194,6 +3982,7 @@ def _frontend_inventory_entries(
                         path,
                         title,
                         execution_postures=(
+                            *module_initialization_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -3261,6 +4050,7 @@ def _frontend_inventory_entries(
                         title,
                         parameter_digest=digest,
                         execution_postures=(
+                            *module_initialization_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -3306,6 +4096,7 @@ def _frontend_inventory_entries(
                         path,
                         title,
                         execution_postures=(
+                            *module_initialization_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from scripts.verification import test_corpus_guard as guard
+from scripts.verification import test_corpus_frontend as frontend
 
 
 VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
@@ -913,6 +914,300 @@ def test_python_inventory_binds_runtime_pytest_skip_body() -> None:
         "    stop('disabled')\n",
     )[0].ref
     assert active != aliased
+
+
+@pytest.mark.parametrize(
+    "runtime_xfail",
+    (
+        "import pytest\ndef test_case():\n    pytest.xfail('disabled')\n",
+        "from pytest import xfail as stop\ndef test_case():\n    stop('disabled')\n",
+        "import pytest\ndef test_case():\n"
+        "    q = pytest\n    stop = q.xfail\n    stop('disabled')\n",
+        "import pytest\ndef test_case():\n"
+        "    stop = getattr(pytest, 'xfail')\n    stop('disabled')\n",
+    ),
+)
+def test_python_inventory_binds_runtime_pytest_xfail_body(
+    runtime_xfail: str,
+) -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(
+        path,
+        "def test_case():\n    pass\n",
+    )[0].ref
+    xfailed = guard.parse_python_declarations(path, runtime_xfail)[0].ref
+
+    assert active != xfailed
+
+
+def test_python_inventory_binds_runtime_pytest_xfail_exception() -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(path, "def test_case():\n    pass\n")[
+        0
+    ].ref
+    xfailed = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef test_case():\n"
+        "    raise pytest.xfail.Exception('disabled')\n",
+    )[0].ref
+
+    assert active != xfailed
+
+
+@pytest.mark.parametrize(
+    "runtime_xfail",
+    (
+        "import pytest\ndef test_case():\n    raise pytest.xfail.Exception\n",
+        "import pytest\ndef test_case():\n"
+        "    X = pytest.xfail.Exception\n    raise X\n",
+    ),
+)
+def test_python_inventory_binds_bare_runtime_pytest_xfail_exception(
+    runtime_xfail: str,
+) -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(path, "def test_case():\n    pass\n")[
+        0
+    ].ref
+    xfailed = guard.parse_python_declarations(path, runtime_xfail)[0].ref
+
+    assert active != xfailed
+
+
+@pytest.mark.parametrize(
+    "runtime_xfail",
+    (
+        "import pytest\ndef test_case():\n"
+        "    raise getattr(pytest.xfail, 'Exception')\n",
+        "import pytest\ndef test_case():\n"
+        "    X = getattr(pytest.xfail, 'Exception')\n    raise X\n",
+        "import pytest\nfrom builtins import getattr as lookup\n"
+        "def test_case():\n    X = lookup(pytest.xfail, 'Exception')\n    raise X\n",
+    ),
+)
+def test_python_inventory_binds_dynamic_runtime_pytest_xfail_exception(
+    runtime_xfail: str,
+) -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(path, "def test_case():\n    pass\n")[
+        0
+    ].ref
+    xfailed = guard.parse_python_declarations(path, runtime_xfail)[0].ref
+
+    assert active != xfailed
+
+
+@pytest.mark.parametrize(
+    "test_source",
+    (
+        "def stop():\n    return None\ndef test_case():\n    stop()\n",
+        "def test_case():\n    def stop():\n        return None\n    stop()\n",
+    ),
+)
+def test_python_inventory_binds_local_runtime_xfail_helper(
+    test_source: str,
+) -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(path, test_source)[0].ref
+    xfailed_source = test_source.replace("return None", "pytest.xfail('disabled')")
+    xfailed = guard.parse_python_declarations(
+        path,
+        "import pytest\n" + xfailed_source,
+    )[0].ref
+
+    assert active != xfailed
+
+
+def test_python_inventory_binds_imported_runtime_xfail_helper() -> None:
+    test_source = "from tests.helper import stop\ndef test_case():\n    stop()\n"
+
+    def ref_for(helper_source: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("def stop():\n    return None\n") != ref_for(
+        "import pytest\ndef stop():\n    pytest.xfail('disabled')\n"
+    )
+
+
+def test_python_inventory_binds_ordinary_imported_runtime_helper() -> None:
+    test_source = "from tests.helper import prepare\ndef test_case():\n    prepare()\n"
+
+    def ref_for(value: int) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"def prepare():\n    return {value}\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for(1) != ref_for(2)
+
+
+def test_python_inventory_binds_module_qualified_runtime_helper() -> None:
+    test_source = "import tests.helper as helper\ndef test_case():\n    helper.prepare()\n"
+
+    def ref_for(value: int) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"def prepare():\n    return {value}\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for(1) != ref_for(2)
+
+
+def test_python_inventory_binds_member_before_imported_instance_method() -> None:
+    test_source = (
+        "import tests.helper as helper\n"
+        "def test_case():\n"
+        "    helper.VALUE.as_posix()\n"
+    )
+
+    def ref_for(value: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "from pathlib import Path\n"
+                f"VALUE = Path({value!r})\n"
+                "import pytest\n"
+                "def as_posix():\n"
+                "    pytest.xfail('unrelated')\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("one") != ref_for("two")
+
+
+@pytest.mark.parametrize(
+    "import_source",
+    (
+        "import tests\n",
+        "import tests.helper\n",
+    ),
+)
+def test_python_inventory_binds_package_qualified_runtime_helper(
+    import_source: str,
+) -> None:
+    test_source = import_source + "def test_case():\n    tests.helper.stop()\n"
+
+    def ref_for(body: str) -> str:
+        sources = {
+            "tests/__init__.py": "from . import helper\n",
+            "tests/helper.py": f"def stop():\n    {body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
+
+
+def test_python_inventory_prefers_static_package_member_over_dormant_module() -> None:
+    test_source = "import tests\ndef test_case():\n    tests.helper.stop()\n"
+
+    def ref_for(body: str, dormant_body: str) -> str:
+        sources = {
+            "tests/__init__.py": (
+                "class Runner:\n"
+                f"    def stop(self):\n        {body}\n"
+                "helper = Runner()\n"
+            ),
+            "tests/helper.py": f"def stop():\n    {dormant_body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    active = ref_for("return None", "return None")
+    assert active != ref_for(
+        "import pytest; pytest.xfail('disabled')",
+        "return None",
+    )
+    assert active == ref_for(
+        "return None",
+        "import pytest; pytest.xfail('dormant')",
+    )
+
+
+def test_python_inventory_binds_package_initializer_explicit_submodule() -> None:
+    test_source = "import tests\ndef test_case():\n    tests.helper.stop()\n"
+
+    def ref_for(body: str) -> str:
+        sources = {
+            "tests/__init__.py": "import tests.helper\n",
+            "tests/helper.py": f"def stop():\n    {body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
+
+
+def test_python_inventory_binds_aliased_direct_import_original_member() -> None:
+    test_source = "from tests.helper import stop as s\ndef test_case():\n    s()\n"
+
+    def ref_for(abort_body: str) -> str:
+        sources = {
+            "tests/helper.py": (
+                "from tests.abort import stop as abort\n"
+                "def stop():\n    abort()\n"
+            ),
+            "tests/abort.py": f"def stop():\n    {abort_body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
+
+
+@pytest.mark.parametrize(
+    "test_source",
+    (
+        "def prepare():\n    return 1\ndef test_case():\n"
+        "    alias = prepare\n    alias()\n",
+        "class TestExample:\n    def prepare(self):\n        return 1\n"
+        "    def test_case(self):\n        self.prepare()\n",
+    ),
+)
+def test_python_inventory_binds_aliased_local_runtime_helper(
+    test_source: str,
+) -> None:
+    before = guard.parse_python_declarations("tests/test_example.py", test_source)[0].ref
+    after = guard.parse_python_declarations(
+        "tests/test_example.py", test_source.replace("return 1", "return 2")
+    )[0].ref
+
+    assert before != after
 
 
 def test_python_inventory_binds_conditional_pytest_namespace_alias() -> None:
@@ -2157,6 +2452,82 @@ def test_frontend_inventory_binds_runtime_callback_skip_posture() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "callback",
+    (
+        "context => { const skip = context.skip; skip(); }",
+        "context => { const { skip } = context; skip(); }",
+        "context => { const { skip: stop } = context; stop(); }",
+        "context => { const stop = context['skip']; const later = stop; later(); }",
+        "function ({ skip: stop }) { stop(); }",
+        "context => { const stop = context.skip; stop.call(context); }",
+        "context => { const stop = context.skip; Reflect.apply(stop, context, []); }",
+        "context => { let stop; stop = context.skip; stop(); }",
+        "context => { const { ...rest } = context; rest.skip(); }",
+        "context => { const stop = context[`skip`]; stop(); }",
+        r'context => { const stop = context["sk\x69p"]; stop(); }',
+        'context => { const stop = context["sk" + "ip"]; stop(); }',
+        "({[`skip`]: stop}) => stop()",
+        r'({["sk\x69p"]: stop}) => stop()',
+        '({["sk" + "ip"]: stop}) => stop()',
+        "context => { const copy = context; copy.skip(); }",
+        "context => { const copy = context; const stop = copy.skip; stop(); }",
+        "context => { let copy; copy = context; copy.skip(); }",
+        "context => { ({skip: stop} = context); stop(); }",
+        "context => { const {skip: stop} = (context); stop(); }",
+        'context => Reflect.get(context, "skip")()',
+        'context => { const stop = Object.getOwnPropertyDescriptor(context, "skip").value; stop(); }',
+        "context => { const copy = {...context}; copy.skip(); }",
+        "context => { const copy = Object.assign({}, context); copy.skip(); }",
+    ),
+)
+def test_frontend_inventory_rejects_aliased_runtime_callback_skip(
+    callback: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime callback skip",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            f'test("case", {callback});',
+        )
+
+
+def test_frontend_inventory_allows_callback_context_alias_without_skip() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        'test("case", context => { const copy = context; void copy.task; });',
+    )
+
+    assert len(declarations) == 1
+
+
+@pytest.mark.parametrize(
+    "callback",
+    (
+        "handler",
+        "(...args) => args[0].skip()",
+        "function () { arguments[0].skip(); }",
+        "({ skip = () => {} }) => skip()",
+    ),
+)
+def test_frontend_inventory_rejects_opaque_runtime_callback_skip(
+    callback: str,
+) -> None:
+    source = (
+        "const handler = context => context.skip();\n" if callback == "handler" else ""
+    )
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime callback skip",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            source + f'test("case", {callback});',
+        )
+
+
 def test_frontend_inventory_binds_conditional_imported_initializer(
     tmp_path: Path,
 ) -> None:
@@ -2174,6 +2545,365 @@ def test_frontend_inventory_binds_conditional_imported_initializer(
     after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
 
     assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_binds_named_import_initialization_closure(
+    tmp_path: Path,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    state_path = tmp_path / "apps/control-center/src/state.ts"
+    helper_path.parent.mkdir(parents=True)
+    state_path.write_text("export const state = 'one';\n")
+    helper_path.write_text(
+        'import { state } from "./state";\nexport const UNUSED = state;\n'
+    )
+    test_text = 'import { UNUSED } from "./helper";\ntest("case", () => {});\n'
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(
+        'import { beforeEach } from "vitest";\n'
+        'import "./state";\n'
+        "beforeEach(context => context.skip());\n"
+        "export const UNUSED = 'bound';\n"
+    )
+    collection_changed = guard._parse_worktree_test_declarations(
+        tmp_path,
+        test_path,
+        test_text,
+    )
+    state_path.write_text("export const state = 'two';\n")
+    transitive_changed = guard._parse_worktree_test_declarations(
+        tmp_path,
+        test_path,
+        test_text,
+    )
+
+    assert before[0].ref != collection_changed[0].ref
+    assert collection_changed[0].ref != transitive_changed[0].ref
+
+
+def test_frontend_inventory_ignores_inert_named_import_changes(tmp_path: Path) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(
+        "export const UNUSED = 'one';\n"
+        "export function test(value: string) { return value; }\n"
+        "export const Copy = () => <p>it works</p>;\n"
+    )
+    test_text = 'import { UNUSED } from "./helper";\ntest("case", () => {});\n'
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(
+        "export const UNUSED = 'two';\n"
+        "export function test(value: string) { return value; }\n"
+        "export const Copy = () => <p>it still works</p>;\n"
+    )
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before == after
+
+
+@pytest.mark.parametrize(
+    "posture_source",
+    (
+        "const hook = beforeEach; hook(context => context.skip());",
+        "let hook; hook = beforeEach; hook(context => context.skip());",
+        "const hook = (beforeEach); hook(context => context.skip());",
+        "const {beforeEach: hook} = globalThis; hook(context => context.skip());",
+        "globalThis.beforeEach(context => context.skip());",
+        "globalThis['beforeEach'](context => context.skip());",
+        "globalThis[`beforeEach`](context => context.skip());",
+        r'globalThis["before\x45ach"](context => context.skip());',
+        'globalThis["before" + "Each"](context => context.skip());',
+    ),
+)
+def test_frontend_inventory_binds_indirect_imported_runtime_posture(
+    tmp_path: Path,
+    posture_source: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text("export const UNUSED = 'one';\n")
+    test_text = 'import { UNUSED } from "./helper";\ntest("case", () => {});\n'
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(f"{posture_source}\nexport const UNUSED = 'one';\n")
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+@pytest.mark.parametrize(
+    "registration",
+    (
+        'test.skip("case", () => {})',
+        'test.only("case", () => {})',
+        'test.each([[1]])("case", () => {})',
+        'describe.skip("suite", () => {})',
+        'suite.only("suite", () => {})',
+        'it.todo("case")',
+        'test?.("case", () => {})',
+        '(test)("case", () => {})',
+    ),
+)
+def test_frontend_inventory_binds_imported_global_registration_initializer(
+    tmp_path: Path,
+    registration: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(f"export const marker = true;\n{registration};\n")
+    test_text = (
+        'import { marker } from "./helper";\ntest("outer", () => { void marker; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(
+        f"export const marker = true;\nconst changed = true;\n{registration};\n"
+    )
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+@pytest.mark.parametrize(
+    "inert_source",
+    (
+        "export const copy = 'import(\"vitest\")';\n",
+        '// import("vitest")\nexport const copy = true;\n',
+        '/* require("@playwright/test") */\nexport const copy = true;\n',
+        "export const copy = `test.skip('not code')`;\n",
+    ),
+)
+def test_frontend_inventory_ignores_inert_runner_syntax_in_imported_initializer(
+    tmp_path: Path,
+    inert_source: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(inert_source)
+    test_text = (
+        'import { copy } from "./helper";\ntest("outer", () => { void copy; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(inert_source + "export const changed = true;\n")
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref == after[0].ref
+
+
+@pytest.mark.parametrize(
+    "interpolation",
+    (
+        "beforeEach(() => {})",
+        "test.skip('case', () => {})",
+    ),
+)
+def test_frontend_inventory_binds_runner_syntax_in_template_interpolation(
+    tmp_path: Path,
+    interpolation: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(f"export const value = `${{{interpolation}}}`;\n")
+    test_text = (
+        'import { value } from "./helper";\ntest("outer", () => { void value; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(
+        f"const changed = true;\nexport const value = `${{{interpolation}}}`;\n"
+    )
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+@pytest.mark.parametrize(
+    "loader",
+    (
+        'const child = require("./child"); void child;',
+        'void import("./child");',
+        'export * as child from "./child";',
+    ),
+)
+def test_frontend_inventory_binds_runtime_loader_dependency(
+    tmp_path: Path,
+    loader: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    child_path = tmp_path / "apps/control-center/src/child.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(f"{loader}\nexport const marker = true;\n")
+    child_path.write_text("beforeEach(() => {});\n")
+    test_text = (
+        'import { marker } from "./helper";\ntest("outer", () => { void marker; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    child_path.write_text("const changed = true;\nbeforeEach(() => {});\n")
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+@pytest.mark.parametrize(
+    "loader",
+    (
+        'const v = require?.("vitest"); v.beforeEach(() => {});',
+        'const v = (require)("vitest"); v.beforeEach(() => {});',
+        "const v = require(`vitest`); v.beforeEach(() => {});",
+        "void import(`vitest`);",
+        'const {test: check} = require?.("vitest"); check("case", () => {});',
+    ),
+)
+def test_frontend_inventory_binds_supported_runner_loader_initializer(
+    tmp_path: Path,
+    loader: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(f"export const marker = true;\n{loader}\n")
+    test_text = (
+        'import { marker } from "./helper";\ntest("outer", () => { void marker; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    helper_path.write_text(
+        f"export const marker = true;\nconst changed = true;\n{loader}\n"
+    )
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+@pytest.mark.parametrize(
+    "type_edge",
+    (
+        'export { type Foo } from "./child";',
+        'import { /* comment */ type Foo } from "./child";',
+        'import { type Foo, /* comment */ type Bar } from "./child";',
+        'export type Page = import("@playwright/test").Page;',
+        'export function page(): import("./child").Page { throw new Error(); }',
+    ),
+)
+def test_frontend_inventory_ignores_type_only_initializer_edges(
+    tmp_path: Path,
+    type_edge: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    child_path = tmp_path / "apps/control-center/src/child.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(f"{type_edge}\nexport const marker = true;\n")
+    child_path.write_text("beforeEach(() => {});\n")
+    test_text = (
+        'import { marker } from "./helper";\ntest("outer", () => { void marker; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    child_path.write_text("const changed = true;\nbeforeEach(() => {});\n")
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before == after
+
+
+@pytest.mark.parametrize(
+    "runtime_edge",
+    (
+        'const value = { child: import("./child") };',
+        'const value = enabled ? import("./child") : Promise.resolve();',
+        'import { type } from "./child"; void type;',
+        'export { type as runtimeType } from "./child";',
+    ),
+)
+def test_frontend_inventory_binds_runtime_edges_named_or_shaped_like_types(
+    tmp_path: Path,
+    runtime_edge: str,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    child_path = tmp_path / "apps/control-center/src/child.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(
+        f"const enabled = true;\n{runtime_edge}\nexport const marker = true;\n"
+    )
+    child_path.write_text("beforeEach(() => {});\nexport const type = true;\n")
+    test_text = (
+        'import { marker } from "./helper";\n'
+        'test("outer", () => { void marker; });\n'
+    )
+
+    before = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+    child_path.write_text(
+        "const changed = true;\nbeforeEach(() => {});\nexport const type = true;\n"
+    )
+    after = guard._parse_worktree_test_declarations(tmp_path, test_path, test_text)
+
+    assert before[0].ref != after[0].ref
+
+
+def test_frontend_inventory_ignores_uncalled_function_body_initializer() -> None:
+    inert = (
+        "export function dormant() { beforeEach(() => {}); return 1; }\n"
+        "export const marker = true;\n"
+    )
+    changed = inert.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(inert) is False
+    assert frontend.frontend_runtime_identity_source(inert) == (
+        frontend.frontend_runtime_identity_source(changed)
+    )
+
+
+def test_frontend_inventory_binds_called_function_body_initializer() -> None:
+    active = (
+        "function activate() { beforeEach(() => {}); return 1; }\n"
+        "activate();\nexport const marker = true;\n"
+    )
+    changed = active.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(active) is True
+    assert frontend.frontend_runtime_identity_source(active) != (
+        frontend.frontend_runtime_identity_source(changed)
+    )
+
+
+@pytest.mark.parametrize(
+    "inert",
+    (
+        "export const dormant = () => { beforeEach(() => {}); return 1; };",
+        "export class Dormant { method() { beforeEach(() => {}); return 1; } }",
+    ),
+)
+def test_frontend_inventory_ignores_uncalled_arrow_and_class_bodies(
+    inert: str,
+) -> None:
+    changed = inert.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(inert) is False
+    assert frontend.frontend_runtime_identity_source(inert) == (
+        frontend.frontend_runtime_identity_source(changed)
+    )
+
+
+def test_frontend_inventory_binds_called_arrow_body_initializer() -> None:
+    active = (
+        "const activate = async (): Promise<void> => { beforeEach(() => {}); "
+        "await import('./child'); };\nactivate();"
+    )
+
+    assert frontend.frontend_runtime_test_posture(active) is True
+    assert frontend.frontend_runtime_import_modules(active) == ("./child",)
 
 
 def test_frontend_inventory_preserves_conditional_literal_values() -> None:
@@ -3144,6 +3874,70 @@ def test_changed_frontend_dataset_rechecks_importing_test(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == (
         "apps/control-center/src/example.test.ts",
     )
+
+
+@pytest.mark.parametrize(
+    "runtime_edge",
+    (
+        'import "./state";',
+        'const state = require("./state"); void state;',
+        'void import("./state");',
+        'export * as state from "./state";',
+    ),
+)
+def test_changed_transitive_frontend_initializer_rechecks_importing_test(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_edge: str,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    (source_root / "state.ts").write_text("export const state = 'one';\n")
+    (source_root / "helper.ts").write_text(
+        f"{runtime_edge}\n"
+        'import { beforeEach } from "vitest";\n'
+        "beforeEach(context => context.skip());\n"
+        "export const UNUSED = 'bound';\n"
+    )
+    (source_root / "example.test.ts").write_text(
+        'import { UNUSED } from "./helper";\ntest("case", () => {});\n'
+    )
+    outputs = iter((b"apps/control-center/src/state.ts\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == (
+        "apps/control-center/src/example.test.ts",
+    )
+
+
+def test_frontend_runtime_dependency_cache_preserves_cycle_closure() -> None:
+    sources = {
+        "a.ts": 'import "./b";\n',
+        "b.ts": 'import "./c";\nimport "./d";\n',
+        "c.ts": 'import "./b";\n',
+        "d.ts": "export const value = true;\n",
+    }
+    cache: dict[str, frozenset[str]] = {}
+
+    first = guard._frontend_runtime_dependency_paths(
+        {"a.ts"},
+        sources.get,
+        cache,
+    )
+    second = guard._frontend_runtime_dependency_paths(
+        {"c.ts"},
+        sources.get,
+        cache,
+    )
+
+    assert {"b.ts", "c.ts", "d.ts"} <= first
+    assert {"b.ts", "c.ts", "d.ts"} <= second
 
 
 def test_changed_repository_frontend_dataset_rechecks_importing_test(
@@ -5809,7 +6603,7 @@ def test_changed_conftest_autouse_fixture_fails_closed(
 
     with pytest.raises(
         guard.TestCorpusGuardError,
-        match="changed autouse pytest fixtures",
+        match="Python fixtures",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
@@ -6924,6 +7718,360 @@ def test_python_inventory_binds_rebound_import_alias_as_local_data() -> None:
     assert refs_for("one") != refs_for("two")
 
 
+def test_python_inventory_binds_imported_autouse_fixture_posture() -> None:
+    test_source = (
+        "from tests.helper import environment as setup_environment\n"
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(helper_source: str) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    ordinary = refs_for("def environment():\n    return None\n")
+    autouse = refs_for(
+        "import pytest\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment():\n"
+        "    pytest.skip('disabled')\n"
+    )
+    changed_body = refs_for(
+        "import pytest\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def environment():\n"
+        "    return None\n"
+    )
+
+    assert ordinary != autouse
+    assert autouse != changed_body
+
+
+def test_python_inventory_rejects_conditional_imported_autouse_fixture() -> None:
+    helper_source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    pytest.skip('disabled')\n"
+    )
+    resolver = guard._python_import_resolver(
+        lambda path: helper_source if path == "tests/helper.py" else None
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="conditional imported autouse",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "if True:\n    from tests.helper import environment\n"
+            "def test_case(): pass\n",
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "environment = environment",
+        "environment = None",
+        "original = environment\nenvironment = None\nenvironment = original",
+    ),
+)
+def test_python_inventory_rejects_mutated_imported_autouse_fixture(
+    mutation: str,
+) -> None:
+    helper_source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    pytest.skip('disabled')\n"
+    )
+    resolver = guard._python_import_resolver(
+        lambda path: helper_source if path == "tests/helper.py" else None
+    )
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="mutated imported autouse",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\n"
+            f"{mutation}\n"
+            "def test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_python_inventory_rejects_mutated_reexported_autouse_fixture() -> None:
+    sources = {
+        "tests/helper.py": "from tests.factory import environment\n",
+        "tests/factory.py": (
+            "import pytest\n@pytest.fixture(autouse=True)\n"
+            "def environment():\n    return None\n"
+        ),
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="mutated imported autouse",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\n"
+            "environment = None\n"
+            "def test_case(): pass\n",
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "from tests.other import environment",
+        "def environment():\n    return None",
+        "with manager() as environment:\n    pass",
+        "try:\n    pass\nexcept Exception as environment:\n    pass",
+    ),
+)
+def test_python_inventory_rejects_complete_imported_autouse_rebinding(
+    mutation: str,
+) -> None:
+    helper_source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    return None\n"
+    )
+    sources = {
+        "tests/helper.py": helper_source,
+        "tests/other.py": "def environment():\n    return None\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="mutated imported autouse",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\n"
+            f"{mutation}\n"
+            "def test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_python_inventory_binds_module_qualified_imported_autouse_fixture() -> None:
+    test_source = (
+        "import tests.helper as h\nenvironment = h.environment\ndef test_case(): pass\n"
+    )
+
+    def ref_for(helper_source: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("def environment():\n    return None\n") != ref_for(
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    pytest.xfail('disabled')\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    (
+        "import tests.factory as f\nauto = f.auto\n"
+        "@auto\ndef environment():\n    return None\n",
+        "from tests.factory import auto\nmarker = auto\n"
+        "@marker\ndef environment():\n    return None\n",
+    ),
+)
+def test_python_inventory_rejects_copied_imported_autouse_factory_alias(
+    helper_source: str,
+) -> None:
+    sources = {
+        "tests/helper.py": helper_source,
+        "tests/factory.py": "import pytest\nauto = pytest.fixture(autouse=True)\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported autouse pytest fixture marker",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "fixture_source",
+    (
+        "import pytest\nOPTIONS={'autouse': True}\n"
+        "@pytest.fixture(**OPTIONS)\ndef environment():\n    return None\n",
+        "import pytest\nOPTIONS={'autouse': True}\n"
+        "environment = pytest.fixture(**OPTIONS)(environment)\n",
+    ),
+)
+def test_python_inventory_rejects_dynamic_autouse_fixture_options(
+    fixture_source: str,
+) -> None:
+    resolver = guard._python_import_resolver(
+        lambda path: fixture_source if path == "tests/helper.py" else None
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="Python fixtures",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_python_inventory_binds_direct_functional_autouse_fixture() -> None:
+    test_source = "from tests.helper import environment\ndef test_case(): pass\n"
+
+    def ref_for(body: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                "import pytest\ndef environment():\n"
+                f"    {body}\n"
+                "environment = pytest.fixture(environment, autouse=True)\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for("pytest.xfail('disabled')")
+
+
+def test_python_inventory_rejects_lazy_imported_autouse_fixture() -> None:
+    sources = {
+        "tests/helper.py": (
+            "import tests.real as real\n"
+            "def __getattr__(name):\n"
+            "    if name == 'environment':\n        return real.environment\n"
+        ),
+        "tests/real.py": "def environment():\n    return None\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic imported autouse",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_python_inventory_rejects_imported_autouse_factory_alias() -> None:
+    sources = {
+        "tests/helper.py": (
+            "from tests.factory import auto\n"
+            "@auto\ndef environment():\n    return None\n"
+        ),
+        "tests/factory.py": "import pytest\nauto = pytest.fixture(autouse=True)\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported autouse pytest fixture marker",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_worktree_inventory_rejects_imported_autouse_factory_alias(
+    tmp_path: Path,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_example.py").write_text(
+        "from tests.helper import environment\ndef test_case(): pass\n"
+    )
+    (tests_root / "helper.py").write_text(
+        "from tests.factory import auto\n@auto\ndef environment():\n    return None\n"
+    )
+    (tests_root / "factory.py").write_text(
+        "import pytest\nauto = pytest.fixture(autouse=True)\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported autouse pytest fixture marker",
+    ):
+        guard.inventory_worktree(tmp_path)
+
+
+def test_python_inventory_rejects_ambiguous_imported_autouse_fixture() -> None:
+    helper_source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    return None\n"
+    )
+    resolver = guard._python_import_resolver(
+        lambda path: (
+            helper_source
+            if path in {"tests/helper.py", "tests/helper/__init__.py"}
+            else None
+        )
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported Python parameter data is ambiguous",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_worktree_inventory_rejects_ambiguous_imported_autouse_fixture(
+    tmp_path: Path,
+) -> None:
+    tests_root = tmp_path / "tests"
+    package_root = tests_root / "helper"
+    package_root.mkdir(parents=True)
+    fixture_source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def environment():\n    return None\n"
+    )
+    (tests_root / "test_example.py").write_text(
+        "from tests.helper import environment\ndef test_case(): pass\n"
+    )
+    (tests_root / "helper.py").write_text(fixture_source)
+    (package_root / "__init__.py").write_text(fixture_source)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="imported Python parameter data is ambiguous",
+    ):
+        guard.inventory_worktree(tmp_path)
+
+
 def test_python_inventory_keeps_later_import_as_active_binding() -> None:
     test_source = (
         "import pytest\n"
@@ -6957,19 +8105,19 @@ def test_python_inventory_keeps_later_import_as_active_binding() -> None:
     assert refs_for(True) != refs_for(False)
 
 
-def test_python_inventory_binds_post_definition_autouse_fixture_source() -> None:
+def test_python_inventory_binds_assigned_post_definition_autouse_fixture_source() -> None:
     active = guard.parse_python_declarations(
         "tests/test_example.py",
         "import pytest\n"
         "def environment(): yield\n"
-        "pytest.fixture(autouse=True)(environment)\n"
+        "environment = pytest.fixture(autouse=True)(environment)\n"
         "def test_case(): pass\n",
     )
     disabled = guard.parse_python_declarations(
         "tests/test_example.py",
         "import pytest\n"
         'def environment(): pytest.skip("disabled")\n'
-        "pytest.fixture(autouse=True)(environment)\n"
+        "environment = pytest.fixture(autouse=True)(environment)\n"
         "def test_case(): pass\n",
     )
 
@@ -8161,3 +9309,624 @@ def test_frontend_inventory_binds_inherited_suite_options() -> None:
         )[0].ref
 
     assert ref_for(False) != ref_for(True)
+
+
+def test_python_inventory_rejects_match_capture_of_imported_autouse_fixture() -> None:
+    sources = {
+        "tests/helper.py": (
+            "import pytest\n@pytest.fixture(autouse=True)\n"
+            "def environment():\n    return None\n"
+        )
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="autouse|fixture"):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\nvalue = None\n"
+            "match value:\n    case environment:\n        pass\n"
+            "def test_case(): pass\n",
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    (
+        "environment = None\n",
+        "FLAG = False\nif FLAG:\n    environment = helper.environment\n",
+    ),
+)
+def test_python_inventory_rejects_ambiguous_qualified_autouse_assignment(
+    suffix: str,
+) -> None:
+    resolver = guard._python_import_resolver(
+        lambda path: (
+            "import pytest\n@pytest.fixture(autouse=True)\n"
+            "def environment():\n    return None\n"
+            if path == "tests/helper.py"
+            else None
+        )
+    )
+    source = (
+        "import tests.helper as helper\n"
+        "environment = helper.environment\n"
+        f"{suffix}def test_case(): pass\n"
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="autouse|fixture|binding"):
+        guard._python_inventory_entries("tests/test_example.py", source, resolver)
+
+
+@pytest.mark.parametrize(
+    "helper_source",
+    (
+        "import tests.real as real\n"
+        "__getattr__ = lambda name: real.environment\n",
+        "_LAZY_EXPORT_MODULES = {'environment': 'tests.real'}\n"
+        "def __getattr__(name):\n    return None\n",
+    ),
+)
+def test_python_inventory_rejects_or_binds_all_lazy_autouse_forms(
+    helper_source: str,
+) -> None:
+    sources = {
+        "tests/helper.py": helper_source,
+        "tests/real.py": (
+            "import pytest\n@pytest.fixture(autouse=True)\n"
+            "def environment():\n    pytest.xfail('disabled')\n"
+        ),
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="autouse|fixture|dynamic"):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests.helper import environment\ndef test_case(): pass\n",
+            resolver,
+        )
+
+
+def test_python_inventory_binds_local_functional_autouse_factory_alias() -> None:
+    def ref_for(body: str) -> str:
+        return guard.parse_python_declarations(
+            "tests/test_example.py",
+            "import pytest\nauto = pytest.fixture(autouse=True)\n"
+            f"def setup():\n    {body}\n"
+            "environment = auto(setup)\ndef test_case(): pass\n",
+        )[0].ref
+
+    assert ref_for("return None") != ref_for("pytest.xfail('disabled')")
+
+
+@pytest.mark.parametrize(
+    "test_source",
+    (
+        "from tests.helper import stop\ndef test_case():\n"
+        "    alias = stop\n    alias()\n",
+        "import tests.helper as helper\ndef test_case():\n"
+        "    alias = helper.stop\n    alias()\n",
+    ),
+)
+def test_python_inventory_binds_imported_runtime_helper_alias(
+    test_source: str,
+) -> None:
+    def ref_for(body: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"def stop():\n    {body}\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py", test_source, resolver
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for("import pytest; pytest.xfail('disabled')")
+
+
+@pytest.mark.parametrize(
+    "local_binding",
+    (
+        "path = tmp_path\n    path.as_posix()",
+        "for path in (tmp_path,):\n        path.as_posix()",
+        "with nullcontext(tmp_path) as path:\n        path.as_posix()",
+        "try:\n        raise RuntimeError\n"
+        "    except RuntimeError as path:\n        path.add_note('handled')",
+        "import pathlib as path\n    path.Path('.')",
+        "match {'path': tmp_path}:\n"
+        "        case {'path': path}:\n            path.as_posix()",
+        "def path():\n        return None\n    path()",
+        "class path:\n        pass\n    path()",
+    ),
+)
+def test_python_inventory_ignores_import_shadowed_by_local_binding(
+    local_binding: str,
+) -> None:
+    def ref_for(body: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"def as_posix():\n    {body}\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            "from tests import helper as path\n"
+            "from contextlib import nullcontext\n"
+            "def test_case(tmp_path):\n"
+            f"    {local_binding}\n",
+            resolver,
+        )[0][0].ref
+
+    assert ref_for("return None") == ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
+
+
+@pytest.mark.parametrize(
+    ("test_source", "depends_on_import"),
+    (
+        (
+            "import tests.helper as path\n"
+            "def prepare(tmp_path):\n"
+            "    path = tmp_path\n"
+            "    path.as_posix()\n"
+            "def test_case(tmp_path):\n"
+            "    prepare(tmp_path)\n",
+            False,
+        ),
+        (
+            "import tests.helper as path\n"
+            "def test_case(tmp_path):\n"
+            "    path = tmp_path\n"
+            "    def invoke():\n"
+            "        nonlocal path\n"
+            "        path.as_posix()\n"
+            "    invoke()\n",
+            False,
+        ),
+        (
+            "from tests import helper\n"
+            "def test_case():\n"
+            "    path = helper\n"
+            "    def invoke():\n"
+            "        nonlocal path\n"
+            "        path.as_posix()\n"
+            "    invoke()\n",
+            True,
+        ),
+        (
+            "import tests.helper as path\n"
+            "def prepare():\n"
+            "    global path\n"
+            "    path.as_posix()\n"
+            "def test_case():\n"
+            "    prepare()\n",
+            True,
+        ),
+        (
+            "def test_case():\n"
+            "    from tests.helper import stop\n"
+            "    stop()\n",
+            True,
+        ),
+        (
+            "def test_case():\n"
+            "    import tests.helper as helper\n"
+            "    helper.stop()\n",
+            True,
+        ),
+        (
+            "def test_case():\n"
+            "    import tests.helper as helper\n"
+            "    def invoke():\n"
+            "        nonlocal helper\n"
+            "        helper.stop()\n"
+            "    invoke()\n",
+            True,
+        ),
+        (
+            "def test_case():\n"
+            "    import tests.helper as helper\n"
+            "    def invoke():\n"
+            "        helper.stop()\n"
+            "    invoke()\n",
+            True,
+        ),
+        (
+            "def prepare():\n"
+            "    global helper\n"
+            "    import tests.helper as helper\n"
+            "    helper.stop()\n"
+            "def test_case():\n"
+            "    prepare()\n",
+            True,
+        ),
+        (
+            "def prepare():\n"
+            "    import tests.helper as helper\n"
+            "def test_case():\n"
+            "    helper.stop()\n",
+            False,
+        ),
+        (
+            "def prepare():\n"
+            "    global helper\n"
+            "    import tests.helper as helper\n"
+            "def test_case():\n"
+            "    prepare()\n"
+            "    helper.stop()\n",
+            True,
+        ),
+        (
+            "def prepare():\n"
+            "    global stop\n"
+            "    from tests.helper import stop\n"
+            "def test_case():\n"
+            "    prepare()\n"
+            "    stop()\n",
+            True,
+        ),
+        (
+            "def install():\n"
+            "    global helper\n"
+            "    import tests.helper as helper\n"
+            "def wrapper():\n"
+            "    install()\n"
+            "def test_case():\n"
+            "    wrapper()\n"
+            "    helper.stop()\n",
+            True,
+        ),
+    ),
+)
+def test_python_runtime_helper_imports_follow_lexical_scope(
+    test_source: str,
+    depends_on_import: bool,
+) -> None:
+    def ref_for(body: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"def as_posix():\n    {body}\n"
+                f"def stop():\n    {body}\n"
+                if path == "tests/helper.py"
+                else None
+            )
+        )
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )[0][0].ref
+
+    changed = ref_for("return None") != ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
+    assert changed is depends_on_import
+
+
+def test_python_runtime_helper_relative_imports_stay_in_their_scope() -> None:
+    test_source = (
+        "def active():\n"
+        "    from .helper import stop\n"
+        "    stop()\n"
+        "def dormant():\n"
+        "    from .other import stop\n"
+        "    stop()\n"
+        "def test_case():\n"
+        "    active()\n"
+    )
+
+    def ref_for(active_body: str, dormant_body: str) -> str:
+        sources = {
+            "tests/helper.py": f"def stop():\n    {active_body}\n",
+            "tests/other.py": f"def stop():\n    {dormant_body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )[0][0].ref
+
+    baseline = ref_for("return None", "return None")
+    assert baseline != ref_for(
+        "import pytest; pytest.xfail('disabled')",
+        "return None",
+    )
+    assert baseline == ref_for(
+        "return None",
+        "import pytest; pytest.xfail('disabled')",
+    )
+
+
+def test_python_runtime_global_import_install_replaces_module_binding() -> None:
+    test_source = (
+        "import tests.one as helper\n"
+        "def install():\n"
+        "    global helper\n"
+        "    import tests.two as helper\n"
+        "def test_case():\n"
+        "    install()\n"
+        "    helper.stop()\n"
+    )
+
+    def ref_for(one_body: str, two_body: str) -> str:
+        sources = {
+            "tests/one.py": f"def stop():\n    {one_body}\n",
+            "tests/two.py": f"def stop():\n    {two_body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )[0][0].ref
+
+    baseline = ref_for("return None", "return None")
+    assert baseline == ref_for(
+        "import pytest; pytest.xfail('disabled')",
+        "return None",
+    )
+    assert baseline != ref_for(
+        "return None",
+        "import pytest; pytest.xfail('disabled')",
+    )
+
+
+def test_python_runtime_global_import_install_preserves_each_used_version() -> None:
+    test_source = (
+        "def install_one():\n"
+        "    global helper\n"
+        "    import tests.one as helper\n"
+        "def install_two():\n"
+        "    global helper\n"
+        "    import tests.two as helper\n"
+        "def test_case():\n"
+        "    install_one()\n"
+        "    helper.stop()\n"
+        "    install_two()\n"
+        "    helper.stop()\n"
+    )
+
+    def ref_for(one_body: str, two_body: str) -> str:
+        sources = {
+            "tests/one.py": f"def stop():\n    {one_body}\n",
+            "tests/two.py": f"def stop():\n    {two_body}\n",
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )[0][0].ref
+
+    baseline = ref_for("return None", "return None")
+    assert baseline != ref_for(
+        "import pytest; pytest.xfail('disabled')",
+        "return None",
+    )
+    assert baseline != ref_for(
+        "return None",
+        "import pytest; pytest.xfail('disabled')",
+    )
+
+
+def test_python_runtime_global_import_installers_fail_closed_in_branches() -> None:
+    test_source = (
+        "import pytest\n"
+        "def install_one():\n"
+        "    global helper\n"
+        "    import tests.one as helper\n"
+        "def install_two():\n"
+        "    global helper\n"
+        "    import tests.two as helper\n"
+        "@pytest.mark.parametrize('flag', [True, False])\n"
+        "def test_case(flag):\n"
+        "    if flag:\n"
+        "        install_one()\n"
+        "    else:\n"
+        "        install_two()\n"
+        "    helper.stop()\n"
+    )
+    sources = {
+        "tests/one.py": "def stop():\n    return None\n",
+        "tests/two.py": "def stop():\n    return None\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="conditional global runtime import installer",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )
+
+
+@pytest.mark.parametrize(
+    "conditional_call",
+    (
+        "[install_two() for _ in range(int(flag))]",
+        "flag < 0 < install_two()",
+    ),
+)
+def test_python_runtime_global_import_installers_fail_closed_in_expressions(
+    conditional_call: str,
+) -> None:
+    test_source = (
+        "import pytest\n"
+        "import tests.one as helper\n"
+        "def install_two():\n"
+        "    global helper\n"
+        "    import tests.two as helper\n"
+        "    return 1\n"
+        "@pytest.mark.parametrize('flag', [True, False])\n"
+        "def test_case(flag):\n"
+        f"    {conditional_call}\n"
+        "    helper.stop()\n"
+    )
+    sources = {
+        "tests/one.py": "def stop():\n    return None\n",
+        "tests/two.py": "def stop():\n    return None\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="conditional global runtime import installer",
+    ):
+        guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )
+
+
+def test_python_inventory_canonicalizes_transitive_import_cycles() -> None:
+    test_source = (
+        "from tests.first import stop\n"
+        "from tests.second import continue_stop\n"
+        "def test_a():\n"
+        "    stop()\n"
+        "def test_b():\n"
+        "    continue_stop()\n"
+    )
+
+    def refs_for(first_value: int, second_value: int, unrelated: int) -> tuple[str, ...]:
+        sources = {
+            "tests/first.py": (
+                "from tests.second import continue_stop\n"
+                f"VALUE = {first_value}\n"
+                "def stop():\n"
+                "    continue_stop()\n"
+                "    return VALUE\n"
+            ),
+            "tests/second.py": (
+                "from tests.first import stop\n"
+                f"VALUE = {second_value}\n"
+                f"UNRELATED = {unrelated}\n"
+                "def continue_stop():\n"
+                "    stop()\n"
+                "    return VALUE\n"
+            ),
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    baseline = refs_for(1, 2, 3)
+    assert all(
+        current != changed
+        for current, changed in zip(
+            baseline,
+            refs_for(4, 2, 3),
+            strict=True,
+        )
+    )
+    assert all(
+        current != changed
+        for current, changed in zip(
+            baseline,
+            refs_for(1, 5, 3),
+            strict=True,
+        )
+    )
+    assert baseline == refs_for(1, 2, 6)
+
+
+def test_python_inventory_canonicalizes_star_import_dependency_cycles() -> None:
+    test_source = (
+        "from tests.first import stop\n"
+        "from tests.second import continue_stop\n"
+        "def test_a():\n"
+        "    stop()\n"
+        "def test_b():\n"
+        "    continue_stop()\n"
+    )
+
+    def refs_for(first_value: int, second_value: int, unrelated: int) -> tuple[str, ...]:
+        sources = {
+            "tests/first.py": (
+                f"FIRST_VALUE = {first_value}\n"
+                "def stop():\n"
+                "    continue_stop()\n"
+                "    return FIRST_VALUE\n"
+                "from tests.second import *\n"
+            ),
+            "tests/second.py": (
+                f"SECOND_VALUE = {second_value}\n"
+                f"UNRELATED = {unrelated}\n"
+                "def continue_stop():\n"
+                "    stop()\n"
+                "    return SECOND_VALUE\n"
+                "from tests.first import *\n"
+            ),
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_example.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    baseline = refs_for(1, 2, 3)
+    assert all(
+        current != changed
+        for current, changed in zip(baseline, refs_for(4, 2, 3), strict=True)
+    )
+    assert all(
+        current != changed
+        for current, changed in zip(baseline, refs_for(1, 5, 3), strict=True)
+    )
+    assert baseline == refs_for(1, 2, 6)
+
+
+def test_python_inventory_binds_local_helper_global_dependency() -> None:
+    def ref_for(value: int) -> str:
+        return guard.parse_python_declarations(
+            "tests/test_example.py",
+            f"VALUE = {value}\ndef prepare():\n    return VALUE\n"
+            "def test_case():\n    prepare()\n",
+        )[0].ref
+
+    assert ref_for(1) != ref_for(2)
+
+
+def test_python_inventory_rejects_control_flow_runtime_abort_alias() -> None:
+    source = (
+        "import pytest\nFLAG = False\nif FLAG:\n    stop = pytest.xfail\n"
+        "else:\n    stop = lambda reason: None\n"
+        "def test_case():\n    stop('disabled')\n"
+    )
+
+    with pytest.raises(guard.TestCorpusGuardError, match="runtime|abort|dynamic"):
+        guard.parse_python_declarations("tests/test_example.py", source)
+
+
+def test_python_inventory_ignores_discarded_functional_fixture_wrapper() -> None:
+    active = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\ndef environment(): return None\n"
+        "pytest.fixture(autouse=True)(environment)\ndef test_case(): pass\n",
+    )[0].ref
+    plain = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "import pytest\ndef environment(): return None\ndef test_case(): pass\n",
+    )[0].ref
+
+    assert active == plain
