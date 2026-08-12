@@ -361,6 +361,68 @@ def _normalized_javascript_expression(source: str) -> str:
     )
 
 
+def _call_argument_ranges(
+    text: str,
+    arguments_start: int,
+) -> tuple[tuple[int, int], ...]:
+    """Return the top-level argument spans for one balanced call."""
+
+    arguments_end = _skip_balanced(text, arguments_start)
+    ranges: list[tuple[int, int]] = []
+    argument_start = arguments_start + 1
+    index = argument_start
+    while index < arguments_end - 1:
+        character = text[index]
+        if character in "\"'`":
+            index = _skip_string(text, index)
+            continue
+        comment_end = _skip_comment(text, index)
+        if comment_end != index:
+            index = comment_end
+            continue
+        if character in "([{":
+            index = _skip_balanced(text, index)
+            continue
+        if character == ",":
+            ranges.append((argument_start, index))
+            argument_start = index + 1
+        index += 1
+    if text[argument_start : arguments_end - 1].strip() or ranges:
+        ranges.append((argument_start, arguments_end - 1))
+    return tuple(ranges)
+
+
+def _registration_argument_ranges(text: str) -> tuple[tuple[int, int], ...]:
+    """Return arguments from the final top-level call in a registration."""
+
+    code_mask = _code_mask(text)
+    calls: list[int] = []
+    index = 0
+    while index < len(text):
+        if code_mask[index] and text[index] == "(":
+            calls.append(index)
+            index = _skip_balanced(text, index)
+            continue
+        index += 1
+    if not calls:
+        raise FrontendInventoryError(
+            "frontend test declaration arguments cannot be inventoried safely"
+        )
+    return _call_argument_ranges(text, calls[-1])
+
+
+def _looks_like_frontend_callback(source: str) -> bool:
+    scan = "".join(
+        character if enabled else " "
+        for character, enabled in zip(source, _code_mask(source), strict=True)
+    ).strip()
+    return bool(
+        re.fullmatch(TEST_API_NAME, scan)
+        or re.match(r"(?:async\s+)?function\b", scan)
+        or re.search(r"=>", scan)
+    )
+
+
 def _named_imports(
     text: str,
     scan_text: str,
@@ -454,9 +516,7 @@ def _execution_posture_parts(
         normalized_condition = _normalized_javascript_expression(
             declaration_source[arguments_start:condition_end]
         )
-        condition_source = declaration_source[
-            arguments_start + 1 : condition_end - 1
-        ]
+        condition_source = declaration_source[arguments_start + 1 : condition_end - 1]
         condition_mask = _code_mask(condition_source)
         condition_scan = "".join(
             character if condition_mask[index] else " "
@@ -471,14 +531,40 @@ def _execution_posture_parts(
                 raise FrontendInventoryError(
                     "frontend conditional binding cannot be resolved safely"
                 )
-            binding_source = condition_binding_resolver(
-                condition_binding.group("name")
-            )
-            normalized_condition = (
-                f"{normalized_condition}\nbinding={binding_source}"
-            )
+            binding_source = condition_binding_resolver(condition_binding.group("name"))
+            normalized_condition = f"{normalized_condition}\nbinding={binding_source}"
         digest = hashlib.sha256(normalized_condition.encode("utf-8")).hexdigest()
         parts.append(f"conditional:{conditional}:sha256:{digest}")
+    arguments = _registration_argument_ranges(declaration_source)
+    if len(arguments) >= 3:
+        option_source = declaration_source[arguments[1][0] : arguments[1][1]].strip()
+        callback_source = declaration_source[arguments[2][0] : arguments[2][1]]
+        has_option_slot = option_source.startswith("{") or (
+            _looks_like_frontend_callback(callback_source)
+        )
+        if has_option_slot:
+            if option_source.startswith("{"):
+                if _skip_balanced(option_source, 0) != len(option_source):
+                    raise FrontendInventoryError(
+                        "frontend test option object cannot be inventoried safely"
+                    )
+                normalized_option = _normalized_javascript_expression(option_source)
+            elif re.fullmatch(TEST_API_NAME, option_source):
+                if condition_binding_resolver is None:
+                    raise FrontendInventoryError(
+                        "frontend test option binding cannot be resolved safely"
+                    )
+                normalized_option = (
+                    _normalized_javascript_expression(option_source)
+                    + "\nbinding="
+                    + condition_binding_resolver(option_source)
+                )
+            else:
+                raise FrontendInventoryError(
+                    "frontend test option object cannot be inventoried safely"
+                )
+            digest = hashlib.sha256(normalized_option.encode("utf-8")).hexdigest()
+            parts.append(f"options:sha256:{digest}")
     return tuple(parts)
 
 
@@ -2382,18 +2468,23 @@ def _suite_context_regions(
     contexts: list[tuple[int, int, str, str, tuple[str, ...]]] = []
     for match in pattern.finditer(scan_text):
         call_end = _skip_balanced(text, match.start("arguments"))
-        title_start = _skip_static_trivia(text, match.start("arguments") + 1)
+        arguments = _call_argument_ranges(text, match.start("arguments"))
+        if len(arguments) not in {2, 3}:
+            raise FrontendInventoryError(
+                "frontend suite callback cannot be inventoried safely"
+            )
+        title_start = _skip_static_trivia(text, arguments[0][0])
         if title_start >= call_end or text[title_start] not in "\"'`":
             raise FrontendInventoryError(
                 "frontend suite title cannot be inventoried safely"
             )
         title_end = _skip_string(text, title_start)
-        separator = _skip_static_trivia(text, title_end)
-        if separator >= call_end or text[separator] != ",":
+        if _skip_static_trivia(text, title_end) != arguments[0][1]:
             raise FrontendInventoryError(
                 "frontend suite callback cannot be inventoried safely"
             )
-        callback = _suite_callback_body(text, separator + 1, call_end)
+        callback_index = 2 if len(arguments) == 3 else 1
+        callback = _suite_callback_body(text, arguments[callback_index][0], call_end)
         if callback is None:
             raise FrontendInventoryError(
                 "frontend suite callback cannot be inventoried safely"
@@ -2405,7 +2496,7 @@ def _suite_context_regions(
                 text[title_start:title_end],
                 text[match.start() : callback[0]],
                 _execution_posture_parts(
-                    text[match.start() : callback[0]],
+                    text[match.start() : call_end],
                     condition_binding_resolver=lambda name, offset=match.start(): (
                         _static_collection_source(
                             text,

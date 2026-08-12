@@ -1499,6 +1499,48 @@ def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
     return _scope_execution_nodes(tree.body)
 
 
+def _module_collection_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
+    """Return nodes that can execute while pytest imports a test module."""
+
+    local_functions: dict[
+        str,
+        list[ast.FunctionDef | ast.AsyncFunctionDef],
+    ] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            local_functions.setdefault(node.name, []).append(node)
+    pending: list[ast.AST] = list(reversed(tree.body))
+    nodes: list[ast.AST] = []
+    expanded_functions: set[str] = set()
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            pending.extend(reversed(_definition_time_nodes(node)))
+            continue
+        if isinstance(node, ast.ClassDef):
+            pending.extend(reversed((*_definition_time_nodes(node), *node.body)))
+            continue
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in local_functions
+            and node.func.id not in expanded_functions
+        ):
+            expanded_functions.add(node.func.id)
+            pending.extend(
+                reversed(
+                    tuple(
+                        statement
+                        for function in local_functions[node.func.id]
+                        for statement in function.body
+                    )
+                )
+            )
+        pending.extend(reversed(tuple(ast.iter_child_nodes(node))))
+    return tuple(nodes)
+
+
 def _pytest_collection_abort_callable_name(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
@@ -1560,7 +1602,7 @@ def _pytest_collection_abort_aliases(
     changed = True
     while changed:
         changed = False
-        for node in _module_execution_nodes(tree):
+        for node in _module_collection_execution_nodes(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
@@ -1596,11 +1638,14 @@ def _is_pytest_collection_abort_call(
     )
     if name == "importorskip":
         return True
-    return name == "skip" and any(
-        keyword.arg == "allow_module_level"
-        and isinstance(keyword.value, ast.Constant)
-        and keyword.value.value is True
-        for keyword in node.keywords
+    return name == "skip" and (
+        any(keyword.arg is None for keyword in node.keywords)
+        or any(
+            keyword.arg == "allow_module_level"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value is True
+            for keyword in node.keywords
+        )
     )
 
 
@@ -1613,7 +1658,7 @@ def _pytest_skip_exception_aliases(
     changed = True
     while changed:
         changed = False
-        for node in _module_execution_nodes(tree):
+        for node in _module_collection_execution_nodes(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
@@ -1650,7 +1695,7 @@ def _has_module_level_pytest_collection_abort(
         imported_modules,
         aliases,
     )
-    for node in _module_execution_nodes(tree):
+    for node in _module_collection_execution_nodes(tree):
         if _is_pytest_collection_abort_call(node, imported_modules, aliases):
             return True
         if not isinstance(node, ast.Raise) or node.exc is None:
@@ -1722,7 +1767,7 @@ def _has_module_level_unittest_collection_abort(
     changed = True
     while changed:
         changed = False
-        for node in _module_execution_nodes(tree):
+        for node in _module_collection_execution_nodes(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
                 continue
             value = node.value
@@ -1756,7 +1801,7 @@ def _has_module_level_unittest_collection_abort(
                 if name not in aliases:
                     aliases.add(name)
                     changed = True
-    for node in _module_execution_nodes(tree):
+    for node in _module_collection_execution_nodes(tree):
         if not isinstance(node, ast.Raise) or node.exc is None:
             continue
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
@@ -3496,6 +3541,22 @@ def _parameterized_ref(
         and isinstance(decorator.func, ast.Attribute)
         and decorator.func.attr == "skipif"
     ]
+    for decorator in conditional_execution_decorators:
+        if not isinstance(decorator, ast.Call):
+            continue
+        condition_nodes = [*decorator.args[:1]]
+        condition_nodes.extend(
+            keyword.value
+            for keyword in decorator.keywords
+            if keyword.arg == "condition"
+        )
+        if any(
+            isinstance(condition, ast.Constant) and isinstance(condition.value, str)
+            for condition in condition_nodes
+        ):
+            raise TestCorpusGuardError(
+                "Python string skip condition cannot be inventoried safely"
+            )
     if xfail_can_disable_execution:
         conditional_execution_decorators.extend(xfail_decorators)
     for decorator in conditional_execution_decorators:
@@ -4800,6 +4861,24 @@ def _python_inventory_entries(
             ):
                 unittest_classes.add(class_node.name)
                 changed = True
+    if any(
+        class_node.name in unittest_classes
+        and binds_xunit_hook(
+            class_node.body,
+            {
+                "asyncSetUp",
+                "asyncTearDown",
+                "setUp",
+                "setUpClass",
+                "tearDown",
+                "tearDownClass",
+            },
+        )
+        for class_node in classes.values()
+    ):
+        raise TestCorpusGuardError(
+            "unittest lifecycle hooks cannot be inventoried safely"
+        )
     module_bindings = _python_module_bindings(tree)
     parametrize_aliases = _parametrize_aliases(tree)
     fixture_aliases = _fixture_aliases(tree)

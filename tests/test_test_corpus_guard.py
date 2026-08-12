@@ -7852,3 +7852,106 @@ jobs:
     assert guard._pytest_workflow_collection_boundary(
         base
     ) != guard._pytest_workflow_collection_boundary(dangerous)
+
+
+def test_python_inventory_rejects_string_skipif_condition() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="string skip condition",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            'FLAG = "False"\n'
+            '@pytest.mark.skipif("FLAG", reason="disabled")\n'
+            "def test_case(): pass\n",
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import pytest\n"
+        "class Helper:\n"
+        '    pytest.skip("disabled", allow_module_level=True)\n'
+        "def test_case(): pass\n",
+        "import pytest\n"
+        "def stop():\n"
+        '    pytest.skip("disabled", allow_module_level=True)\n'
+        "stop()\n"
+        "def test_case(): pass\n",
+        "import pytest\n"
+        'OPTIONS = {"allow_module_level": True}\n'
+        'pytest.skip("disabled", **OPTIONS)\n'
+        "def test_case(): pass\n",
+    ),
+)
+def test_python_inventory_rejects_transitive_collection_aborts(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level pytest collection abort",
+    ):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+@pytest.mark.parametrize("hook_name", ("setUp", "setUpClass"))
+def test_python_inventory_rejects_unittest_lifecycle_hooks(
+    hook_name: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="unittest lifecycle hooks",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\n"
+            "class TestCase(unittest.TestCase):\n"
+            f"    def {hook_name}(self): pass\n"
+            "    def test_case(self): pass\n",
+        )
+
+
+def test_frontend_inventory_binds_static_test_options() -> None:
+    def ref_for(skip: bool) -> str:
+        return guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            f'test("case", {{ skip: {str(skip).lower()} }}, () => {{}});\n',
+        )[0].ref
+
+    assert ref_for(False) != ref_for(True)
+
+
+def test_frontend_inventory_binds_named_static_test_options() -> None:
+    def ref_for(skip: bool) -> str:
+        return guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            f"const OPTIONS = {{ skip: {str(skip).lower()} }};\n"
+            'test("case", OPTIONS, () => {});\n',
+        )[0].ref
+
+    assert ref_for(False) != ref_for(True)
+
+
+def test_frontend_inventory_rejects_dynamic_test_options() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test option object",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'test("case", buildOptions(), () => {});\n',
+        )
+
+
+def test_frontend_inventory_binds_inherited_suite_options() -> None:
+    def ref_for(skip: bool) -> str:
+        return guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.ts",
+            'describe("suite", '
+            f"{{ skip: {str(skip).lower()} }}, "
+            '() => { test("case", () => {}); });\n',
+        )[0].ref
+
+    assert ref_for(False) != ref_for(True)
