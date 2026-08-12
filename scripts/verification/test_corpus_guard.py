@@ -2088,88 +2088,6 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             node = node.value
         return False
 
-    def is_guarded_lazy_export_cache_assignment(
-        statement: ast.AST,
-        target: ast.AST,
-        scope: ast.AST,
-    ) -> bool:
-        if (
-            not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef))
-            or scope.name != "__getattr__"
-            or not isinstance(statement, (ast.Assign, ast.AnnAssign))
-            or not isinstance(target, ast.Subscript)
-            or not _is_globals_call(target.value)
-            or not isinstance(target.slice, ast.Name)
-            or not isinstance(statement.value, ast.Name)
-            or statement not in scope.body
-        ):
-            return False
-        positional = (*scope.args.posonlyargs, *scope.args.args)
-        if not positional or target.slice.id != positional[0].arg:
-            return False
-        key_name = positional[0].arg
-        statement_index = scope.body.index(statement)
-        prior = scope.body[:statement_index]
-        module_bindings = {
-            assignment.targets[0].id
-            for assignment in prior
-            if isinstance(assignment, ast.Assign)
-            and len(assignment.targets) == 1
-            and isinstance(assignment.targets[0], ast.Name)
-            and isinstance(assignment.value, ast.Call)
-            and isinstance(assignment.value.func, ast.Attribute)
-            and assignment.value.func.attr == "get"
-            and isinstance(assignment.value.func.value, ast.Name)
-            and assignment.value.func.value.id == "_LAZY_EXPORTS"
-            and len(assignment.value.args) == 1
-            and isinstance(assignment.value.args[0], ast.Name)
-            and assignment.value.args[0].id == key_name
-            and not assignment.value.keywords
-        }
-        if not module_bindings:
-            return False
-        guarded_bindings = {
-            candidate.test.left.id
-            for candidate in prior
-            if isinstance(candidate, ast.If)
-            and isinstance(candidate.test, ast.Compare)
-            and len(candidate.test.ops) == 1
-            and isinstance(candidate.test.ops[0], (ast.Is, ast.Eq))
-            and len(candidate.test.comparators) == 1
-            and isinstance(candidate.test.comparators[0], ast.Constant)
-            and candidate.test.comparators[0].value is None
-            and isinstance(candidate.test.left, ast.Name)
-            and any(
-                isinstance(child, ast.Raise)
-                and isinstance(child.exc, ast.Call)
-                and isinstance(child.exc.func, ast.Name)
-                and child.exc.func.id == "AttributeError"
-                and len(child.exc.args) == 1
-                and isinstance(child.exc.args[0], ast.Name)
-                and child.exc.args[0].id == key_name
-                for child in candidate.body
-            )
-        }
-        if not module_bindings.intersection(guarded_bindings):
-            return False
-        return any(
-            isinstance(assignment, ast.Assign)
-            and len(assignment.targets) == 1
-            and isinstance(assignment.targets[0], ast.Name)
-            and assignment.targets[0].id == statement.value.id
-            and isinstance(assignment.value, ast.Call)
-            and isinstance(assignment.value.func, ast.Name)
-            and assignment.value.func.id == "getattr"
-            and assignment.value.args
-            and isinstance(assignment.value.args[0], ast.Call)
-            and isinstance(assignment.value.args[0].func, ast.Name)
-            and assignment.value.args[0].func.id == "import_module"
-            and assignment.value.args[0].args
-            and isinstance(assignment.value.args[0].args[0], ast.Name)
-            and assignment.value.args[0].args[0].id in module_bindings
-            for assignment in prior
-        )
-
     aliases = {"_EXPORT_GROUPS"}
     changed = True
     while changed:
@@ -2221,14 +2139,7 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
                 continue
             if any(
                 grouped_export_namespace_reference(target)
-                or (
-                    dynamic_grouped_export_namespace_reference(target)
-                    and not is_guarded_lazy_export_cache_assignment(
-                        child,
-                        target,
-                        node,
-                    )
-                )
+                or dynamic_grouped_export_namespace_reference(target)
                 for target in targets
             ):
                 raise TestCorpusGuardError(

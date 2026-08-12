@@ -262,9 +262,7 @@ def __getattr__(name: str) -> Any:
     if module_name is None:
         raise AttributeError(name)
     attribute_name = "RiskLevel" if name == "CoordinationRiskLevel" else name
-    value = getattr(import_module(module_name), attribute_name)
-    globals()[name] = value
-    return value
+    return getattr(import_module(module_name), attribute_name)
 
 
 def __dir__() -> list[str]:
