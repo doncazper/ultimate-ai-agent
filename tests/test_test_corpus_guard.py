@@ -6442,6 +6442,10 @@ def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
         '    value = {"tests.extra": {"value"}}\n'
         "    globals()[name] = value\n"
         "    return value\n",
+        'key = "_EXPORT_GROUPS"\n'
+        'vars()[key]["tests.extra"] = {"value"}\n',
+        'key = "_EXPORT_GROUPS"\n'
+        'locals()[key]["tests.extra"] = {"value"}\n',
     ),
 )
 def test_python_module_identity_rejects_lazy_export_cache_mutation(
@@ -6463,6 +6467,102 @@ def test_python_module_identity_rejects_lazy_export_cache_mutation(
                 lambda path: "value = True\n" if path == "tests/target.py" else None
             ),
         )
+
+
+def test_python_inventory_rejects_unresolved_fixture_factory_callable() -> None:
+    source = (
+        "import pytest\n"
+        'value = pytest.fixture(name="value")(lambda: None)\n'
+        "def test_case(value): pass\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="fixture callable cannot be inventoried safely",
+    ):
+        guard.parse_python_declarations("tests/test_case.py", source)
+
+
+def test_python_inventory_binds_static_getfixturevalue_request() -> None:
+    def refs_for(body: str) -> tuple[str, ...]:
+        source = (
+            "import pytest\n"
+            "@pytest.fixture\n"
+            f"def environment(): {body}\n"
+            "def test_case(request):\n"
+            '    request.getfixturevalue("environment")\n'
+        )
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_case.py",
+                source,
+            )
+        )
+
+    assert refs_for("return True") != refs_for('pytest.skip("disabled")')
+
+
+def test_python_inventory_rejects_dynamic_getfixturevalue_request() -> None:
+    source = (
+        "def test_case(request, fixture_name):\n"
+        "    request.getfixturevalue(fixture_name)\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic Python fixture request",
+    ):
+        guard.parse_python_declarations("tests/test_case.py", source)
+
+
+def test_python_inventory_binds_imported_skipif_condition() -> None:
+    test_source = (
+        "import pytest\n"
+        "from tests.flags import DISABLED\n"
+        '@pytest.mark.skipif(DISABLED, reason="disabled")\n'
+        "def test_case(): pass\n"
+    )
+
+    def refs_for(disabled: bool) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: (
+                f"DISABLED = {disabled!r}\n"
+                if path == "tests/flags.py"
+                else None
+            )
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_case.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for(False) != refs_for(True)
+
+
+def test_python_inventory_binds_local_side_effect_imports() -> None:
+    test_source = "import tests.helper\ndef test_case(): pass\n"
+
+    def refs_for(helper_source: str) -> tuple[str, ...]:
+        resolver = guard._python_import_resolver(
+            lambda path: helper_source if path == "tests/helper.py" else None
+        )
+        return tuple(
+            declaration.ref
+            for declaration, _source in guard._python_inventory_entries(
+                "tests/test_case.py",
+                test_source,
+                resolver,
+            )
+        )
+
+    assert refs_for("ENABLED = True\n") != refs_for(
+        'import pytest\npytest.skip("disabled", allow_module_level=True)\n'
+    )
 
 
 def test_python_inventory_binds_rebound_import_alias_as_local_data() -> None:

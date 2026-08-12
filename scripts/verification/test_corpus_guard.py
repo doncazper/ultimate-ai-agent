@@ -416,7 +416,10 @@ def _is_module_namespace_call(
 
 
 def _is_globals_call(node: ast.AST) -> bool:
-    return _is_module_namespace_call(node)
+    return _is_module_namespace_call(
+        node,
+        accessors=MODULE_NAMESPACE_ACCESSORS,
+    )
 
 
 def _is_module_namespace_mutator_call(
@@ -2652,7 +2655,9 @@ def _python_local_fixture_bindings(tree: ast.Module) -> dict[str, str]:
         for argument in node.args:
             root = _root_name(argument)
             if root is None:
-                continue
+                raise TestCorpusGuardError(
+                    "module-local Python fixture callable cannot be inventoried safely"
+                )
             function_name = aliases.get(root, root)
             if function_name in functions:
                 add(default_name or function_name, function_name)
@@ -2855,6 +2860,7 @@ def _parameterized_ref(
     container_decorators: tuple[ast.expr, ...] = (),
     collection_lineno: int | None = None,
     shadowed_import_names: frozenset[str] = frozenset(),
+    module_side_effect_identities: tuple[str, ...] = (),
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
 
@@ -3016,6 +3022,24 @@ def _parameterized_ref(
                 "Python usefixtures request cannot be inventoried safely"
             )
         usefixtures_names.extend(argument.value for argument in decorator.args)
+    getfixturevalue_names: list[str] = []
+    for call in (
+        child
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call)
+        and isinstance(child.func, ast.Attribute)
+        and child.func.attr == "getfixturevalue"
+    ):
+        if (
+            len(call.args) != 1
+            or call.keywords
+            or not isinstance(call.args[0], ast.Constant)
+            or not isinstance(call.args[0].value, str)
+        ):
+            raise TestCorpusGuardError(
+                "dynamic Python fixture request cannot be inventoried safely"
+            )
+        getfixturevalue_names.append(call.args[0].value)
     fixture_argument_names = tuple(
         argument.arg
         for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
@@ -3027,19 +3051,26 @@ def _parameterized_ref(
         if argument is not None
     )
     requested_fixture_names = tuple(
-        dict.fromkeys((*fixture_argument_names, *usefixtures_names))
+        dict.fromkeys(
+            (*fixture_argument_names, *usefixtures_names, *getfixturevalue_names)
+        )
     )
     identity_decorators = (
         *decorators,
         *execution_disabling_decorators,
         *usefixtures_decorators,
     )
-    if not identity_decorators and not requested_fixture_names:
+    if (
+        not identity_decorators
+        and not requested_fixture_names
+        and not module_side_effect_identities
+    ):
         return raw_ref
     serialized_parts = [
         ast.dump(decorator, annotate_fields=True, include_attributes=False)
         for decorator in identity_decorators
     ]
+    serialized_parts.extend(module_side_effect_identities)
     if requested_fixture_names:
         if fixture_argument_names:
             serialized_parts.append(
@@ -3198,7 +3229,16 @@ def _parameterized_ref(
                             import_source_resolver,
                         )
                     )
-    for decorator in xfail_decorators if xfail_can_disable_execution else ():
+    conditional_execution_decorators = [
+        decorator
+        for decorator in execution_disabling_decorators
+        if isinstance(decorator, ast.Call)
+        and isinstance(decorator.func, ast.Attribute)
+        and decorator.func.attr == "skipif"
+    ]
+    if xfail_can_disable_execution:
+        conditional_execution_decorators.extend(xfail_decorators)
+    for decorator in conditional_execution_decorators:
         if not isinstance(decorator, ast.Call):
             continue
         condition_nodes = [*decorator.args]
@@ -3223,7 +3263,7 @@ def _parameterized_ref(
                 )
                 if resolved_import is None:
                     serialized_parts.append(
-                        f"xfail-external-import={','.join(candidates)};"
+                        f"conditional-mark-external-import={','.join(candidates)};"
                         f"bindings={','.join(sorted(binding_names))}"
                     )
                     continue
@@ -3557,6 +3597,22 @@ def _python_inventory_entries(
         ) from exc
 
     imported_modules = _python_import_modules(tree)
+    module_side_effect_identities: list[str] = []
+    if import_source_resolver is not None:
+        side_effect_modules = {
+            imported.name
+            for node in _module_execution_nodes(tree)
+            if isinstance(node, ast.Import)
+            for imported in node.names
+        }
+        for module in sorted(side_effect_modules):
+            source = import_source_resolver(module)
+            if source is None:
+                continue
+            module_side_effect_identities.append(
+                f"side-effect-import={module};source-sha256="
+                f"{hashlib.sha256(source.encode('utf-8')).hexdigest()}"
+            )
     fixture_override_index: dict[str, list[tuple[str, str, str]]] | None = None
 
     def fixture_override_matches(
@@ -5156,6 +5212,9 @@ def _python_inventory_entries(
                     fixture_override_matches,
                     local_fixture_identity,
                     container_decorators=tuple(module_pytestmark_decorators),
+                    module_side_effect_identities=tuple(
+                        module_side_effect_identities
+                    ),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
@@ -5276,6 +5335,9 @@ def _python_inventory_entries(
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
+                module_side_effect_identities=tuple(
+                    module_side_effect_identities
+                ),
             )
             raw_ref = bind_autouse_fixture_identity(raw_ref)
             entries.append(
