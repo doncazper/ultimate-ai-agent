@@ -475,10 +475,149 @@ def _named_imports(
     return tuple(imports)
 
 
+_JAVASCRIPT_NON_BINDING_NAMES = frozenset(
+    {
+        "as",
+        "await",
+        "false",
+        "globalThis",
+        "import",
+        "instanceof",
+        "new",
+        "null",
+        "process",
+        "this",
+        "true",
+        "typeof",
+        "undefined",
+        "void",
+    }
+)
+
+
+def _javascript_binding_names(
+    source: str,
+    *,
+    ignore_object_keys: bool = False,
+) -> tuple[str, ...]:
+    """Return value-bearing identifiers from a bounded JavaScript expression."""
+
+    mask = _code_mask(source)
+    scan_text = "".join(
+        character if mask[index] else " " for index, character in enumerate(source)
+    )
+    names: list[str] = []
+    for match in re.finditer(TEST_API_NAME, scan_text):
+        name = match.group(0)
+        if name in _JAVASCRIPT_NON_BINDING_NAMES:
+            continue
+        before = match.start() - 1
+        while before >= 0 and scan_text[before].isspace():
+            before -= 1
+        if before >= 0 and scan_text[before] == ".":
+            continue
+        after = match.end()
+        while after < len(scan_text) and scan_text[after].isspace():
+            after += 1
+        if ignore_object_keys and after < len(scan_text) and scan_text[after] == ":":
+            continue
+        if name not in names:
+            names.append(name)
+    return tuple(names)
+
+
+def _resolved_javascript_bindings(
+    source: str,
+    resolver: Callable[[str], str | None] | None,
+    *,
+    ignore_object_keys: bool = False,
+) -> tuple[str, ...]:
+    names = _javascript_binding_names(
+        source,
+        ignore_object_keys=ignore_object_keys,
+    )
+    if not names:
+        return ()
+    if resolver is None:
+        raise FrontendInventoryError(
+            "frontend conditional binding cannot be resolved safely"
+        )
+    bindings: list[str] = []
+    for name in names:
+        binding_source = resolver(name)
+        if binding_source is None:
+            raise FrontendInventoryError(
+                "frontend conditional binding cannot be resolved safely"
+            )
+        bindings.append(f"binding:{name}={binding_source}")
+    return tuple(bindings)
+
+
+def _has_runtime_callback_skip(
+    declaration_source: str,
+    arguments: tuple[tuple[int, int], ...],
+) -> bool:
+    if len(arguments) < 2:
+        return False
+    callback_index = (
+        2
+        if len(arguments) >= 3
+        and _looks_like_frontend_callback(
+            declaration_source[arguments[2][0] : arguments[2][1]]
+        )
+        else 1
+    )
+    callback = declaration_source[
+        arguments[callback_index][0] : arguments[callback_index][1]
+    ]
+    callback_mask = _code_mask(callback)
+    callback_scan = "".join(
+        character if callback_mask[index] else " "
+        for index, character in enumerate(callback)
+    )
+    parameter_match = re.match(
+        rf"\s*(?:async\s+)?(?:function(?:\s+{TEST_API_NAME})?\s*)?"
+        rf"(?:\(\s*(?P<parenthesized>{TEST_API_NAME})\b[^)]*\)"
+        rf"|(?P<bare>{TEST_API_NAME})\b\s*=>)",
+        callback_scan,
+    )
+    if parameter_match is not None:
+        parameter = parameter_match.group("parenthesized") or parameter_match.group(
+            "bare"
+        )
+        parameter_pattern = re.escape(parameter)
+        if re.search(
+            rf"\b{parameter_pattern}\s*(?:\?\.|\.)\s*skip\s*(?:\?\.)?\s*\(",
+            callback_scan,
+        ) or re.search(
+            rf"\b{parameter_pattern}\s*(?:\?\.)?\[\s*['\"]skip['\"]\s*\]"
+            r"\s*(?:\?\.)?\s*\(",
+            callback_scan,
+        ):
+            return True
+    destructured = re.match(
+        r"\s*(?:async\s+)?\(\s*\{(?P<body>[^}]*)\}\s*\)\s*=>",
+        callback_scan,
+    )
+    if destructured is None:
+        return False
+    for item in destructured.group("body").split(","):
+        binding = re.fullmatch(
+            rf"\s*skip(?:\s*:\s*(?P<alias>{TEST_API_NAME}))?\s*",
+            item,
+        )
+        if binding is None:
+            continue
+        alias = binding.group("alias") or "skip"
+        if re.search(rf"\b{re.escape(alias)}\s*\(", callback_scan):
+            return True
+    return False
+
+
 def _execution_posture_parts(
     declaration_source: str,
     *,
-    condition_binding_resolver: Callable[[str], str] | None = None,
+    condition_binding_resolver: Callable[[str], str | None] | None = None,
 ) -> tuple[str, ...]:
     """Return statically visible non-running Vitest posture components."""
 
@@ -522,17 +661,12 @@ def _execution_posture_parts(
             character if condition_mask[index] else " "
             for index, character in enumerate(condition_source)
         )
-        condition_binding = re.fullmatch(
-            rf"\s*!?\s*(?P<name>{TEST_API_NAME})\s*",
+        binding_parts = _resolved_javascript_bindings(
             condition_scan,
+            condition_binding_resolver,
         )
-        if condition_binding is not None:
-            if condition_binding_resolver is None:
-                raise FrontendInventoryError(
-                    "frontend conditional binding cannot be resolved safely"
-                )
-            binding_source = condition_binding_resolver(condition_binding.group("name"))
-            normalized_condition = f"{normalized_condition}\nbinding={binding_source}"
+        if binding_parts:
+            normalized_condition = "\n".join((normalized_condition, *binding_parts))
         digest = hashlib.sha256(normalized_condition.encode("utf-8")).hexdigest()
         parts.append(f"conditional:{conditional}:sha256:{digest}")
     arguments = _registration_argument_ranges(declaration_source)
@@ -549,6 +683,13 @@ def _execution_posture_parts(
                         "frontend test option object cannot be inventoried safely"
                     )
                 normalized_option = _normalized_javascript_expression(option_source)
+                option_bindings = _resolved_javascript_bindings(
+                    option_source,
+                    condition_binding_resolver,
+                    ignore_object_keys=True,
+                )
+                if option_bindings:
+                    normalized_option = "\n".join((normalized_option, *option_bindings))
             elif re.fullmatch(TEST_API_NAME, option_source):
                 if condition_binding_resolver is None:
                     raise FrontendInventoryError(
@@ -565,6 +706,10 @@ def _execution_posture_parts(
                 )
             digest = hashlib.sha256(normalized_option.encode("utf-8")).hexdigest()
             parts.append(f"options:sha256:{digest}")
+    if _has_runtime_callback_skip(declaration_source, arguments):
+        raise FrontendInventoryError(
+            "frontend runtime callback skip cannot be inventoried safely"
+        )
     return tuple(parts)
 
 

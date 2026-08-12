@@ -892,6 +892,100 @@ def test_python_inventory_tracks_walrus_function_alias_mutation() -> None:
     assert declarations == ()
 
 
+def test_python_inventory_binds_runtime_pytest_skip_body() -> None:
+    path = "tests/test_sample.py"
+    active = guard.parse_python_declarations(
+        path,
+        "def test_case():\n    pass\n",
+    )[0].ref
+    skipped = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef test_case():\n    pytest.skip('disabled')\n",
+    )[0].ref
+
+    assert active != skipped
+
+    aliased = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef test_case():\n"
+        "    q = pytest\n"
+        "    stop = q.skip\n"
+        "    stop('disabled')\n",
+    )[0].ref
+    assert active != aliased
+
+
+def test_python_inventory_binds_conditional_pytest_namespace_alias() -> None:
+    def refs_for(enabled: bool) -> tuple[str, ...]:
+        return tuple(
+            declaration.ref
+            for declaration in guard.parse_python_declarations(
+                "tests/test_sample.py",
+                "import pytest\n"
+                f"ENABLED = {enabled!r}\n"
+                "if ENABLED:\n"
+                "    q = pytest\n"
+                "@q.fixture(autouse=True)\n"
+                "def environment():\n"
+                "    return None\n"
+                "def test_case(): pass\n",
+            )
+        )
+
+    assert refs_for(False) != refs_for(True)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import pytest\nattr = getattr\n"
+        "attr(pytest, 'skip')('disabled', allow_module_level=True)\n",
+        "import builtins\nimport pytest\nattr = builtins.getattr\n"
+        "attr(pytest, 'skip')('disabled', allow_module_level=True)\n",
+        "import pytest\n(attr,) = (getattr,)\n"
+        "attr(pytest, 'skip')('disabled', allow_module_level=True)\n",
+        "import pytest\nif True:\n    q = pytest\n"
+        "q.skip('disabled', allow_module_level=True)\n",
+    ),
+)
+def test_python_inventory_rejects_indirect_module_pytest_skip(source: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level pytest collection abort",
+    ):
+        guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+def test_python_inventory_rejects_walrus_unittest_case_abort() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level unittest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import unittest\nraise (uc := unittest.case).SkipTest('disabled')\n",
+        )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    (
+        "def provide(name): return None\n__getattr__ = provide\n",
+        "from helpers import provide as __getattr__\n",
+        "import helpers as __getattr__\n",
+    ),
+)
+def test_python_inventory_rejects_assigned_module_getattr(binding: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic module attributes",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            binding + "def test_case(): pass\n",
+        )
+
+
 def test_python_inventory_reenables_deleted_function_test_attribute() -> None:
     declarations = guard.parse_python_declarations(
         "tests/test_sample.py",
@@ -2000,6 +2094,69 @@ def test_frontend_inventory_binds_conditional_local_initializer() -> None:
     assert before != after
 
 
+def test_frontend_inventory_binds_all_conditional_expression_identifiers() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    source = (
+        'const disabled = false;\ntest.skipIf(disabled === true)("case", () => {});'
+    )
+
+    before = guard.parse_frontend_declarations(path, source)[0].ref
+    after = guard.parse_frontend_declarations(
+        path,
+        source.replace("false", "true"),
+    )[0].ref
+
+    assert before != after
+
+
+@pytest.mark.parametrize("literal", ("true", "false", "null", "undefined"))
+def test_frontend_inventory_accepts_conditional_primitive_literals(
+    literal: str,
+) -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        f'test.skipIf({literal})("case", () => {{}});',
+    )
+
+    assert len(declarations) == 1
+
+
+def test_frontend_inventory_binds_direct_and_suite_option_identifiers() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+
+    def refs_for(disabled: bool, declaration: str) -> tuple[str, ...]:
+        source = f"const disabled = {str(disabled).lower()};\n{declaration}"
+        return tuple(
+            item.ref for item in guard.parse_frontend_declarations(path, source)
+        )
+
+    direct = 'test("direct", { skip: disabled }, () => {});\n'
+    suite = (
+        'describe("suite", { skip: disabled }, () => {\n'
+        '  test("nested", () => {});\n'
+        "});\n"
+    )
+    assert refs_for(False, direct) != refs_for(True, direct)
+    assert refs_for(False, suite) != refs_for(True, suite)
+
+
+def test_frontend_inventory_binds_runtime_callback_skip_posture() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime callback skip",
+    ):
+        guard.parse_frontend_declarations(
+            path,
+            'test("case", context => { if (true) context.skip(); });',
+        )
+
+    assert guard.parse_frontend_declarations(
+        path,
+        'test("case", () => { test.skip(true, "runtime annotation"); });',
+    )
+
+
 def test_frontend_inventory_binds_conditional_imported_initializer(
     tmp_path: Path,
 ) -> None:
@@ -2042,11 +2199,13 @@ def test_frontend_inventory_preserves_conditional_operator_boundaries() -> None:
     path = "apps/control-center/src/example.test.tsx"
     postfix_ref = guard.parse_frontend_declarations(
         path,
-        'test.skipIf(a++ + b)("case", () => {});',
+        "const state = {a: 1, b: 2};\n"
+        'test.skipIf(state.a++ + state.b)("case", () => {});',
     )[0].ref
     prefix_ref = guard.parse_frontend_declarations(
         path,
-        'test.skipIf(a + ++b)("case", () => {});',
+        "const state = {a: 1, b: 2};\n"
+        'test.skipIf(state.a + ++state.b)("case", () => {});',
     )[0].ref
 
     assert postfix_ref != prefix_ref
@@ -5480,6 +5639,34 @@ def test_changed_conftest_collection_hook_fails_closed(
         guard._changed_test_paths(tmp_path, "a" * 40)
 
 
+def test_changed_conftest_computed_hookimpl_spec_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(
+        "import pytest\n"
+        '@pytest.hookimpl(specname="pytest_" + "collection_modifyitems")\n'
+        "def customize(items):\n"
+        "    items.clear()\n"
+    )
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_changed_conftest_computed_collection_global_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -7776,6 +7963,25 @@ def test_frontend_dependency_paths_follow_parenthesized_commonjs_require() -> No
     )
 
     assert "apps/control-center/vitest.shared.cjs" in dependencies
+
+
+@pytest.mark.parametrize("extension", ("json", "node", "css"))
+def test_frontend_dependency_paths_preserve_explicit_commonjs_extension(
+    extension: str,
+) -> None:
+    sources = {
+        "apps/control-center/vitest.config.cjs": (
+            f'module.exports = require("./vitest.shared.{extension}");\n'
+        ),
+        f"apps/control-center/vitest.shared.{extension}": "{}\n",
+    }
+
+    dependencies = guard._frontend_dependency_paths(
+        {"apps/control-center/vitest.config.cjs"},
+        sources.get,
+    )
+
+    assert dependencies == {f"apps/control-center/vitest.shared.{extension}"}
 
 
 def test_frontend_dependency_paths_reject_dynamic_optional_commonjs_require() -> None:

@@ -198,6 +198,7 @@ FRONTEND_TEST_EXTENSIONS = (
     "mts",
     "mtsx",
 )
+FRONTEND_EXACT_DEPENDENCY_EXTENSIONS = frozenset({"css", "json", "node"})
 FRONTEND_SOURCE_GIT_PATHSPECS = tuple(
     f":(glob)**/*.{extension}" for extension in FRONTEND_TEST_EXTENSIONS
 )
@@ -783,8 +784,8 @@ def _pytest_module_aliases(tree: ast.Module) -> set[str]:
     changed = True
     while changed:
         changed = False
-        for node in tree.body:
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+        for node in _module_execution_nodes(tree):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
                 continue
             value = node.value
             if not isinstance(value, ast.Name) or value.id not in aliases:
@@ -1146,6 +1147,87 @@ def _static_string_expression(node: ast.AST) -> str | None:
         if left is not None and right is not None:
             return left + right
     return None
+
+
+def _has_pytest_collection_hook_spec(source: str, path: str) -> bool:
+    """Detect hookimpl aliases that can register collection-affecting hooks."""
+
+    if not source:
+        return False
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "changed pytest collection hooks cannot be inventoried safely"
+        ) from exc
+    imported_modules = _python_import_modules(tree)
+    pytest_namespaces = _pytest_module_aliases(tree)
+    hookimpl_aliases = {
+        name
+        for name, candidates in imported_modules.items()
+        if "pytest.hookimpl" in candidates
+    }
+    changed = True
+    while changed:
+        changed = False
+        for binding_node in _module_execution_nodes(tree):
+            if not isinstance(
+                binding_node,
+                (ast.Assign, ast.AnnAssign, ast.NamedExpr),
+            ):
+                continue
+            value = binding_node.value
+            if value is None:
+                continue
+            targets = (
+                binding_node.targets
+                if isinstance(binding_node, ast.Assign)
+                else (binding_node.target,)
+            )
+            for target in targets:
+                for name, bound_value in _paired_binding_values(target, value):
+                    is_alias = (
+                        isinstance(bound_value, ast.Name)
+                        and bound_value.id in hookimpl_aliases
+                    ) or (
+                        isinstance(bound_value, ast.Attribute)
+                        and bound_value.attr == "hookimpl"
+                        and _root_name(bound_value) in pytest_namespaces
+                    )
+                    if is_alias and name not in hookimpl_aliases:
+                        hookimpl_aliases.add(name)
+                        changed = True
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            target = decorator.func
+            if isinstance(target, ast.Attribute) and target.attr == "hookimpl":
+                root = _root_name(target)
+                is_hookimpl = root in pytest_namespaces
+            elif isinstance(target, ast.Name):
+                is_hookimpl = target.id in hookimpl_aliases
+            else:
+                is_hookimpl = False
+            if not is_hookimpl:
+                continue
+            if any(keyword.arg is None for keyword in decorator.keywords):
+                return True
+            specifications = [
+                keyword.value
+                for keyword in decorator.keywords
+                if keyword.arg == "specname"
+            ]
+            if not specifications:
+                continue
+            if len(specifications) != 1:
+                return True
+            specification = _static_string_expression(specifications[0])
+            if specification is None or specification in PYTEST_COLLECTION_HOOK_NAMES:
+                return True
+    return False
 
 
 def _dynamic_python_import_modules(
@@ -1541,26 +1623,34 @@ def _module_collection_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
     return tuple(nodes)
 
 
+def _is_builtin_getattr_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    if isinstance(node, ast.Name):
+        return (
+            node.id == "getattr"
+            or aliases.get(node.id) == "getattr"
+            or "builtins.getattr" in imported_modules.get(node.id, ())
+        )
+    if not isinstance(node, ast.Attribute) or node.attr != "getattr":
+        return False
+    root = _root_name(node)
+    return root == "builtins" or (
+        root is not None and "builtins" in imported_modules.get(root, ())
+    )
+
+
 def _pytest_collection_abort_callable_name(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
     aliases: dict[str, str],
 ) -> str:
-    def is_builtin_getattr(candidate: ast.AST) -> bool:
-        if isinstance(candidate, ast.Name):
-            return candidate.id == "getattr" or "builtins.getattr" in (
-                imported_modules.get(candidate.id, ())
-            )
-        if not isinstance(candidate, ast.Attribute) or candidate.attr != "getattr":
-            return False
-        root = _root_name(candidate)
-        return root == "builtins" or (
-            root is not None and "builtins" in imported_modules.get(root, ())
-        )
 
     if (
         isinstance(node, ast.Call)
-        and is_builtin_getattr(node.func)
+        and _is_builtin_getattr_reference(node.func, imported_modules, aliases)
         and len(node.args) in {2, 3}
         and not node.keywords
         and isinstance(node.args[1], ast.Constant)
@@ -1603,21 +1693,29 @@ def _pytest_collection_abort_aliases(
     while changed:
         changed = False
         for node in _module_collection_execution_nodes(tree):
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
                 continue
             value = node.value
             if value is None:
                 continue
-            name = _pytest_collection_abort_callable_name(
-                value,
-                imported_modules,
-                aliases,
-            )
-            if name not in {"importorskip", "skip"}:
-                continue
             targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
             for target in targets:
-                for alias in _binding_target_names(target):
+                for alias, bound_value in _paired_binding_values(target, value):
+                    name = (
+                        "getattr"
+                        if _is_builtin_getattr_reference(
+                            bound_value,
+                            imported_modules,
+                            aliases,
+                        )
+                        else _pytest_collection_abort_callable_name(
+                            bound_value,
+                            imported_modules,
+                            aliases,
+                        )
+                    )
+                    if name not in {"getattr", "importorskip", "skip"}:
+                        continue
                     if aliases.get(alias) != name:
                         aliases[alias] = name
                         changed = True
@@ -1689,14 +1787,19 @@ def _has_module_level_pytest_collection_abort(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
-    aliases = _pytest_collection_abort_aliases(tree, imported_modules)
+    resolved_modules = dict(imported_modules)
+    for alias in _pytest_module_aliases(tree):
+        resolved_modules[alias] = tuple(
+            dict.fromkeys((*resolved_modules.get(alias, ()), "pytest"))
+        )
+    aliases = _pytest_collection_abort_aliases(tree, resolved_modules)
     exception_aliases = _pytest_skip_exception_aliases(
         tree,
-        imported_modules,
+        resolved_modules,
         aliases,
     )
     for node in _module_collection_execution_nodes(tree):
-        if _is_pytest_collection_abort_call(node, imported_modules, aliases):
+        if _is_pytest_collection_abort_call(node, resolved_modules, aliases):
             return True
         if not isinstance(node, ast.Raise) or node.exc is None:
             continue
@@ -1708,7 +1811,7 @@ def _has_module_level_pytest_collection_abort(
             and raised.attr == "Exception"
             and (
                 _pytest_collection_abort_callable_name(
-                    raised.value, imported_modules, aliases
+                    raised.value, resolved_modules, aliases
                 )
                 == "skip"
             )
@@ -1733,7 +1836,10 @@ def _unittest_skiptest_reference(
         )
     if not isinstance(node, ast.Attribute) or node.attr != "SkipTest":
         return False
-    root = _root_name(node)
+    namespace = (
+        node.value.value if isinstance(node.value, ast.NamedExpr) else node.value
+    )
+    root = _root_name(namespace)
     return (
         root in namespace_aliases
         or root == "unittest"
@@ -1768,7 +1874,7 @@ def _has_module_level_unittest_collection_abort(
     while changed:
         changed = False
         for node in _module_collection_execution_nodes(tree):
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
                 continue
             value = node.value
             if value is None:
@@ -3369,10 +3475,74 @@ def _parameterized_ref(
         *execution_disabling_decorators,
         *usefixtures_decorators,
     )
+    runtime_imports = dict(imported_modules)
+    for alias in _pytest_module_aliases(tree):
+        runtime_imports[alias] = tuple(
+            dict.fromkeys((*runtime_imports.get(alias, ()), "pytest"))
+        )
+    runtime_abort_aliases = _pytest_collection_abort_aliases(tree, runtime_imports)
+    changed = True
+    while changed:
+        changed = False
+        for execution_node in function_execution_nodes:
+            if not isinstance(
+                execution_node,
+                (ast.Assign, ast.AnnAssign, ast.NamedExpr),
+            ):
+                continue
+            value = execution_node.value
+            if value is None:
+                continue
+            targets = (
+                execution_node.targets
+                if isinstance(execution_node, ast.Assign)
+                else (execution_node.target,)
+            )
+            for target in targets:
+                for alias, bound_value in _paired_binding_values(target, value):
+                    bound_root = _root_name(bound_value)
+                    if bound_root is not None and "pytest" in runtime_imports.get(
+                        bound_root, ()
+                    ):
+                        candidates = tuple(
+                            dict.fromkeys((*runtime_imports.get(alias, ()), "pytest"))
+                        )
+                        if runtime_imports.get(alias) != candidates:
+                            runtime_imports[alias] = candidates
+                            changed = True
+                    abort_name = (
+                        "getattr"
+                        if _is_builtin_getattr_reference(
+                            bound_value,
+                            runtime_imports,
+                            runtime_abort_aliases,
+                        )
+                        else _pytest_collection_abort_callable_name(
+                            bound_value,
+                            runtime_imports,
+                            runtime_abort_aliases,
+                        )
+                    )
+                    if abort_name in {"getattr", "importorskip", "skip"} and (
+                        runtime_abort_aliases.get(alias) != abort_name
+                    ):
+                        runtime_abort_aliases[alias] = abort_name
+                        changed = True
+    has_runtime_abort = any(
+        isinstance(execution_node, ast.Call)
+        and _pytest_collection_abort_callable_name(
+            execution_node.func,
+            runtime_imports,
+            runtime_abort_aliases,
+        )
+        in {"importorskip", "skip"}
+        for execution_node in function_execution_nodes
+    )
     if (
         not identity_decorators
         and not requested_fixture_names
         and not module_side_effect_identities
+        and not has_runtime_abort
     ):
         return raw_ref
     serialized_parts = [
@@ -3380,6 +3550,11 @@ def _parameterized_ref(
         for decorator in identity_decorators
     ]
     serialized_parts.extend(module_side_effect_identities)
+    if has_runtime_abort:
+        serialized_parts.append(
+            "runtime-abort="
+            + ast.dump(node, annotate_fields=True, include_attributes=False)
+        )
     if requested_fixture_names:
         if fixture_argument_names:
             serialized_parts.append(
@@ -4212,11 +4387,33 @@ def _python_inventory_entries(
     entries: list[tuple[str, str, str]] = []
     source_lines = text.splitlines(keepends=True)
     class_nodes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
-    if any(
-        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name == "__getattr__"
-        for node in tree.body
-    ):
+
+    def binds_module_getattr(candidate: ast.AST) -> bool:
+        if isinstance(candidate, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return candidate.name == "__getattr__"
+        if isinstance(candidate, ast.ClassDef):
+            return candidate.name == "__getattr__"
+        if isinstance(candidate, ast.Import):
+            return any(
+                (imported.asname or imported.name.split(".", 1)[0]) == "__getattr__"
+                for imported in candidate.names
+            )
+        if isinstance(candidate, ast.ImportFrom):
+            return any(
+                (imported.asname or imported.name) == "__getattr__"
+                for imported in candidate.names
+            )
+        if isinstance(candidate, ast.Assign):
+            targets = candidate.targets
+        elif isinstance(candidate, ast.AnnAssign) and candidate.value is not None:
+            targets = (candidate.target,)
+        elif isinstance(candidate, ast.NamedExpr):
+            targets = (candidate.target,)
+        else:
+            return False
+        return any("__getattr__" in _binding_target_names(target) for target in targets)
+
+    if any(binds_module_getattr(node) for node in _module_execution_nodes(tree)):
         raise TestCorpusGuardError(
             "dynamic module attributes cannot be inventoried safely"
         )
@@ -5954,7 +6151,10 @@ def _relative_frontend_import_candidates(
     if normalized.startswith("../") or normalized.startswith("/"):
         return ()
     suffix = Path(normalized).suffix.removeprefix(".")
-    if suffix in FRONTEND_TEST_EXTENSIONS:
+    if (
+        suffix in FRONTEND_TEST_EXTENSIONS
+        or suffix in FRONTEND_EXACT_DEPENDENCY_EXTENSIONS
+    ):
         candidates = (normalized,)
     else:
         candidates = tuple(
@@ -7201,8 +7401,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed pytest plugin registration cannot be inventoried safely"
             )
-        if any(
-            name in current or name in prior for name in PYTEST_COLLECTION_HOOK_NAMES
+        if (
+            any(
+                name in current or name in prior
+                for name in PYTEST_COLLECTION_HOOK_NAMES
+            )
+            or _has_pytest_collection_hook_spec(current, path)
+            or _has_pytest_collection_hook_spec(prior, path)
         ):
             raise TestCorpusGuardError(
                 "changed pytest collection hooks cannot be inventoried safely"
@@ -7296,9 +7501,13 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 else ""
             )
             prior = _base_text(repo, base_sha, plugin_path) or ""
-            if any(
-                name in current or name in prior
-                for name in PYTEST_COLLECTION_HOOK_NAMES
+            if (
+                any(
+                    name in current or name in prior
+                    for name in PYTEST_COLLECTION_HOOK_NAMES
+                )
+                or _has_pytest_collection_hook_spec(current, plugin_path)
+                or _has_pytest_collection_hook_spec(prior, plugin_path)
             ):
                 raise TestCorpusGuardError(
                     "changed registered pytest collection hooks cannot be "
