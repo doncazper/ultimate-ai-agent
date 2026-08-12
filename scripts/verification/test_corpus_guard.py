@@ -2420,20 +2420,23 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             if len(imported_value_bindings) != 1:
                 continue
             cached_value = imported_value_bindings[0]
-            if sum(
-                isinstance(child, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
-                and cached_value
-                in {
-                    name
-                    for target in (
-                        child.targets
-                        if isinstance(child, ast.Assign)
-                        else (child.target,)
-                    )
-                    for name in _binding_target_names(target)
-                }
-                for child in ast.walk(function)
-            ) != 1:
+            if (
+                sum(
+                    isinstance(child, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
+                    and cached_value
+                    in {
+                        name
+                        for target in (
+                            child.targets
+                            if isinstance(child, ast.Assign)
+                            else (child.target,)
+                        )
+                        for name in _binding_target_names(target)
+                    }
+                    for child in ast.walk(function)
+                )
+                != 1
+            ):
                 continue
             if not any(
                 isinstance(child, ast.Return)
@@ -2448,7 +2451,10 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
                 targets = (
                     child.targets if isinstance(child, ast.Assign) else (child.target,)
                 )
-                if not isinstance(child.value, ast.Name) or child.value.id != cached_value:
+                if (
+                    not isinstance(child.value, ast.Name)
+                    or child.value.id != cached_value
+                ):
                     continue
                 for target in targets:
                     if (
@@ -2960,10 +2966,7 @@ def _python_imported_binding_source(
 ) -> str:
     binding_key = (module, binding_name)
     if binding_key in _seen_bindings:
-        return (
-            "transitive-import-cycle="
-            f"{module};binding={binding_name}"
-        )
+        return f"transitive-import-cycle={module};binding={binding_name}"
     cache_key = (
         module,
         binding_name,
@@ -2989,14 +2992,12 @@ def _python_imported_binding_source(
                 return root_binding_cache[cache_key]
 
     def cache_forwarded_identity(identity: str) -> str:
-        if (
-            binding_cache is not None
-            and "transitive-import-cycle" not in identity
-        ):
+        if binding_cache is not None and "transitive-import-cycle" not in identity:
             binding_cache[cache_key] = identity
         if root_binding_cache is not None:
             root_binding_cache[cache_key] = identity
         return identity
+
     source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
     try:
         tree = _python_parsed_module(
@@ -3270,11 +3271,9 @@ def _python_imported_binding_source(
         if len(star_matches) == 1:
             serialized_parts.append(star_matches[0])
         elif len(star_matches) > 1:
-            raise TestCorpusGuardError(
-                "imported Python parameter binding is ambiguous"
-            )
-    identity_material = (
-        f"module={module}\nbinding={binding_name}\n" + "\n".join(serialized_parts)
+            raise TestCorpusGuardError("imported Python parameter binding is ambiguous")
+    identity_material = f"module={module}\nbinding={binding_name}\n" + "\n".join(
+        serialized_parts
     )
     contains_cycle = "transitive-import-cycle=" in identity_material
     runtime_abort_posture = any(
@@ -3288,8 +3287,7 @@ def _python_imported_binding_source(
         for child in ast.walk(binding_node)
         if isinstance(child, ast.Call)
     ) or any(
-        "runtime-abort-posture=true" in part.splitlines()
-        for part in serialized_parts
+        "runtime-abort-posture=true" in part.splitlines() for part in serialized_parts
     )
     identity = (
         f"module={module}\nbinding={binding_name}\n"
@@ -3302,10 +3300,7 @@ def _python_imported_binding_source(
             else "\nruntime-abort-posture=false"
         )
     )
-    if (
-        binding_cache is not None
-        and not contains_cycle
-    ):
+    if binding_cache is not None and not contains_cycle:
         binding_cache[cache_key] = identity
     if root_binding_cache is not None:
         root_binding_cache[cache_key] = identity
@@ -3580,7 +3575,9 @@ def _python_star_import_dependency_names(value: ast.AST) -> set[str]:
         function: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda,
         enclosing_locals: frozenset[str],
     ) -> None:
-        body = function.body if not isinstance(function, ast.Lambda) else [function.body]
+        body = (
+            function.body if not isinstance(function, ast.Lambda) else [function.body]
+        )
         execution_nodes = _scope_execution_nodes(body)
         globals_ = {
             name
@@ -3606,9 +3603,7 @@ def _python_star_import_dependency_names(value: ast.AST) -> set[str]:
             )
         }
         local_names.update(
-            name
-            for node in execution_nodes
-            for name in _execution_binding_names(node)
+            name for node in execution_nodes for name in _execution_binding_names(node)
         )
         local_names.difference_update((*globals_, *nonlocals))
         for node in execution_nodes:
@@ -3663,9 +3658,7 @@ def _python_star_import_dependency_names(value: ast.AST) -> set[str]:
         class_dependencies(value, frozenset())
     else:
         bound_names = {
-            name
-            for node in ast.walk(value)
-            for name in _execution_binding_names(node)
+            name for node in ast.walk(value) for name in _execution_binding_names(node)
         }
         dependencies.update(
             node.id
@@ -3922,11 +3915,15 @@ def _parameterized_ref(
         ),
         None,
     )
-    class_helper_definitions = {
-        helper.name: helper
-        for helper in owner_class.body
-        if isinstance(helper, helper_type) and helper is not node
-    } if owner_class is not None else {}
+    class_helper_definitions = (
+        {
+            helper.name: helper
+            for helper in owner_class.body
+            if isinstance(helper, helper_type) and helper is not node
+        }
+        if owner_class is not None
+        else {}
+    )
 
     def direct_nested_helpers(
         function: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -3961,8 +3958,14 @@ def _parameterized_ref(
         containers: dict[str, dict[object, ast.expr]],
     ) -> dict[object, ast.expr] | None:
         if isinstance(expression, ast.Name):
-            existing = containers.get(expression.id)
-            return dict(existing) if existing is not None else None
+            return containers.get(expression.id)
+        if isinstance(expression, (ast.Subscript, ast.Call)):
+            target = static_callable_container_target(expression, containers)
+            return (
+                static_callable_container(target, containers)
+                if target is not None
+                else None
+            )
         if isinstance(expression, (ast.List, ast.Tuple)):
             return (
                 {index: item for index, item in enumerate(expression.elts)}
@@ -3986,41 +3989,76 @@ def _parameterized_ref(
         expression: ast.AST,
         containers: dict[str, dict[object, ast.expr]],
     ) -> ast.expr | None:
-        if (
-            not isinstance(expression, ast.Subscript)
-            or not isinstance(expression.value, ast.Name)
-            or not isinstance(expression.slice, ast.Constant)
-            or not isinstance(expression.slice.value, (int, str))
+        if isinstance(expression, ast.Subscript):
+            container_expression = expression.value
+            key_expression = expression.slice
+        elif (
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Attribute)
+            and expression.func.attr == "get"
+            and len(expression.args) == 1
+            and not expression.keywords
+        ):
+            container_expression = expression.func.value
+            key_expression = expression.args[0]
+        else:
+            return None
+        if not isinstance(key_expression, ast.Constant) or not isinstance(
+            key_expression.value,
+            (int, str),
         ):
             return None
-        return containers.get(expression.value.id, {}).get(expression.slice.value)
+        container = static_callable_container(container_expression, containers)
+        return container.get(key_expression.value) if container is not None else None
+
+    def callable_container_root(expression: ast.AST) -> str | None:
+        if (
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Attribute)
+            and expression.func.attr == "get"
+        ):
+            expression = expression.func.value
+        return _root_name(expression)
 
     execution_nodes = list(_scope_execution_nodes(node.body))
-    execution_node_scopes: dict[
-        int, ast.FunctionDef | ast.AsyncFunctionDef
-    ] = {id(execution_node): node for execution_node in execution_nodes}
-    expanded_helpers: dict[
-        tuple[int, int], ast.FunctionDef | ast.AsyncFunctionDef
-    ] = {}
-    lexical_parent_scopes: dict[
-        int, ast.FunctionDef | ast.AsyncFunctionDef | None
-    ] = {id(node): None}
-    called_helpers_by_call_id: dict[
-        int, ast.FunctionDef | ast.AsyncFunctionDef
-    ] = {}
+    execution_node_scopes: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {
+        id(execution_node): node for execution_node in execution_nodes
+    }
+    expanded_helpers: dict[tuple[int, int], ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    lexical_parent_scopes: dict[int, ast.FunctionDef | ast.AsyncFunctionDef | None] = {
+        id(node): None
+    }
+    called_helpers_by_call_id: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     callable_container_targets_by_call_id: dict[int, ast.expr] = {}
+    callable_containers_by_scope: dict[int, dict[str, dict[object, ast.expr]]] = {}
     pending_helper_scopes: list[ast.FunctionDef | ast.AsyncFunctionDef] = [node]
     while pending_helper_scopes:
         helper_scope = pending_helper_scopes.pop()
         helper_nodes = list(_scope_execution_nodes(helper_scope.body))
         execution_node_scopes.update(
-            (id(execution_node), helper_scope)
-            for execution_node in helper_nodes
+            (id(execution_node), helper_scope) for execution_node in helper_nodes
         )
         helper_aliases: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
-        callable_containers: dict[str, dict[object, ast.expr]] = {}
+        lexical_parent = lexical_parent_scopes.get(id(helper_scope))
+        callable_containers = dict(
+            callable_containers_by_scope.get(id(lexical_parent), {})
+            if lexical_parent is not None
+            else {}
+        )
         direct_scope_node_ids = {id(item) for item in helper_scope.body}
         for execution_node in helper_nodes:
+            mutation_targets: tuple[ast.AST, ...] = ()
+            if isinstance(execution_node, ast.AugAssign):
+                mutation_targets = (execution_node.target,)
+            elif isinstance(execution_node, ast.Delete):
+                mutation_targets = tuple(execution_node.targets)
+            if any(
+                callable_container_root(target) in callable_containers
+                for target in mutation_targets
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             if isinstance(
                 execution_node,
                 (ast.Assign, ast.AnnAssign, ast.NamedExpr),
@@ -4031,16 +4069,29 @@ def _parameterized_ref(
                     if isinstance(execution_node, ast.Assign)
                     else (execution_node.target,)
                 )
-                target_names = {
-                    name
+                if any(
+                    isinstance(target, (ast.Subscript, ast.Attribute))
+                    and callable_container_root(target) in callable_containers
                     for target in targets
-                    for name in _binding_target_names(target)
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
+                target_names = {
+                    name for target in targets for name in _binding_target_names(target)
                 }
                 for target_name in target_names:
                     helper_aliases.pop(target_name, None)
                     callable_containers.pop(target_name, None)
                 container = static_callable_container(value, callable_containers)
-                if container is not None and id(execution_node) in direct_scope_node_ids:
+                if (
+                    container is not None
+                    and id(execution_node) not in direct_scope_node_ids
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
+                if container is not None:
                     for target in targets:
                         if isinstance(target, ast.Name):
                             callable_containers[target.id] = container
@@ -4059,6 +4110,27 @@ def _parameterized_ref(
             if not isinstance(execution_node, ast.Call):
                 continue
             call_target = execution_node.func
+            if (
+                isinstance(call_target, ast.Attribute)
+                and callable_container_root(call_target.value) in callable_containers
+                and call_target.attr
+                in {
+                    "append",
+                    "clear",
+                    "extend",
+                    "insert",
+                    "pop",
+                    "popitem",
+                    "remove",
+                    "reverse",
+                    "setdefault",
+                    "sort",
+                    "update",
+                }
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             container_target = static_callable_container_target(
                 call_target,
                 callable_containers,
@@ -4069,13 +4141,32 @@ def _parameterized_ref(
                 )
                 call_target = container_target
             elif (
-                isinstance(call_target, ast.Subscript)
-                and isinstance(call_target.value, ast.Name)
-                and call_target.value.id in callable_containers
+                isinstance(call_target, (ast.Subscript, ast.Call))
+                and callable_container_root(call_target) in callable_containers
             ):
                 raise TestCorpusGuardError(
                     "dynamic runtime helper container cannot be inventoried safely"
                 )
+            elif isinstance(call_target, (ast.Subscript, ast.Call)):
+                root = callable_container_root(call_target)
+                if root in imported_modules or (
+                    root is not None
+                    and any(
+                        isinstance(
+                            binding.node,
+                            (ast.Assign, ast.AnnAssign, ast.NamedExpr),
+                        )
+                        and static_callable_container(
+                            binding.node.value,
+                            callable_containers,
+                        )
+                        is not None
+                        for binding in module_bindings.get(root, ())
+                    )
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
             resolved_helper = helper_for_expression(
                 call_target,
                 helper_scope,
@@ -4094,6 +4185,7 @@ def _parameterized_ref(
                 else None
             )
             pending_helper_scopes.append(resolved_helper)
+        callable_containers_by_scope[id(helper_scope)] = callable_containers
         if helper_scope is not node:
             execution_nodes.extend(helper_nodes)
     function_execution_nodes = tuple(execution_nodes)
@@ -4108,9 +4200,7 @@ def _parameterized_ref(
             if not candidates:
                 candidates = imported_modules.get(name, ())
             module_runtime_imports[name] = tuple(
-                dict.fromkeys(
-                    (*module_runtime_imports.get(name, ()), *candidates)
-                )
+                dict.fromkeys((*module_runtime_imports.get(name, ()), *candidates))
             )
     function_scopes = (node, *expanded_helpers.values())
     scope_execution_nodes_by_scope = {
@@ -4195,20 +4285,22 @@ def _parameterized_ref(
                     *function_scope.args.posonlyargs,
                     *function_scope.args.args,
                     *function_scope.args.kwonlyargs,
-                    *((function_scope.args.vararg,)
-                      if function_scope.args.vararg is not None
-                      else ()),
-                    *((function_scope.args.kwarg,)
-                      if function_scope.args.kwarg is not None
-                      else ()),
+                    *(
+                        (function_scope.args.vararg,)
+                        if function_scope.args.vararg is not None
+                        else ()
+                    ),
+                    *(
+                        (function_scope.args.kwarg,)
+                        if function_scope.args.kwarg is not None
+                        else ()
+                    ),
                 )
             }
             | set(binding_nodes)
             | scope_nonlocals_by_scope[scope_id]
         ) - scope_globals_by_scope[scope_id]
-    helper_global_runtime_import_cache: dict[
-        int, dict[str, tuple[str, ...]]
-    ] = {}
+    helper_global_runtime_import_cache: dict[int, dict[str, tuple[str, ...]]] = {}
 
     def helper_global_runtime_imports(
         function_scope: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -4230,9 +4322,10 @@ def _parameterized_ref(
                 for name, candidates in node_imports.items():
                     if name not in scope_globals_by_scope[scope_id]:
                         continue
-                    if id(scope_node) in conditional_execution_node_ids_by_scope[
-                        scope_id
-                    ]:
+                    if (
+                        id(scope_node)
+                        in conditional_execution_node_ids_by_scope[scope_id]
+                    ):
                         raise TestCorpusGuardError(
                             "conditional global runtime import cannot be inventoried safely"
                         )
@@ -4356,9 +4449,10 @@ def _parameterized_ref(
                 imported_member = imported_member.value
             requirements.setdefault(candidates, set()).add(imported_member.attr)
         for scope_node in scope_execution_nodes_by_scope[scope_id]:
-            if not isinstance(scope_node, ast.Name) or id(
-                scope_node
-            ) in attribute_root_node_ids:
+            if (
+                not isinstance(scope_node, ast.Name)
+                or id(scope_node) in attribute_root_node_ids
+            ):
                 continue
             _is_owned, candidates = runtime_scope_import_candidates(
                 function_scope,
@@ -4628,7 +4722,9 @@ def _parameterized_ref(
                     resolved_targets.add((current_module, remaining[0]))
             if not resolved_targets:
                 return None
-            greatest_depth = max(module.count(".") for module, _name in resolved_targets)
+            greatest_depth = max(
+                module.count(".") for module, _name in resolved_targets
+            )
             most_specific = {
                 target
                 for target in resolved_targets
@@ -4930,6 +5026,7 @@ def _parameterized_ref(
             "runtime-abort="
             + ast.dump(node, annotate_fields=True, include_attributes=False)
         )
+
     def runtime_helper_identity(
         helper: ast.FunctionDef | ast.AsyncFunctionDef,
     ) -> str:
@@ -4949,9 +5046,7 @@ def _parameterized_ref(
         closure_binding_nodes: list[ast.AST] = []
         for referenced_name in sorted(referenced_names):
             is_global = referenced_name in scope_globals_by_scope[helper_scope_id]
-            is_nonlocal = (
-                referenced_name in scope_nonlocals_by_scope[helper_scope_id]
-            )
+            is_nonlocal = referenced_name in scope_nonlocals_by_scope[helper_scope_id]
             is_local = (
                 referenced_name in local_runtime_bindings_by_scope[helper_scope_id]
             )
@@ -5009,9 +5104,7 @@ def _parameterized_ref(
                             candidates,
                             set(),
                         ).update(names)
-            for candidates, names in sorted(
-                helper_import_requirements.items()
-            ):
+            for candidates, names in sorted(helper_import_requirements.items()):
                 resolved = [
                     (candidate, imported_source)
                     for candidate in candidates
@@ -5029,18 +5122,14 @@ def _parameterized_ref(
                     and candidates
                     and module_counts.get(candidates[0], 0)
                 ):
-                    resolved = [
-                        item for item in resolved if item[0] == candidates[0]
-                    ]
+                    resolved = [item for item in resolved if item[0] == candidates[0]]
                 elif (
                     len(resolved) > 1
                     and module_counts is not None
                     and candidates
                     and module_counts.get(candidates[-1], 0)
                 ):
-                    resolved = [
-                        item for item in resolved if item[0] == candidates[-1]
-                    ]
+                    resolved = [item for item in resolved if item[0] == candidates[-1]]
                 if len(resolved) > 1:
                     raise TestCorpusGuardError(
                         "imported runtime helper dependency is ambiguous"
@@ -8791,9 +8880,7 @@ def _autouse_fixture_declarations(
                         else (candidate_node.target,)
                     )
                     for candidate_target in candidate_targets:
-                        for configured_name in _binding_target_names(
-                            candidate_target
-                        ):
+                        for configured_name in _binding_target_names(candidate_target):
                             if configured_name not in configured_factories:
                                 configured_factories.add(configured_name)
                                 changed = True
@@ -8840,9 +8927,7 @@ def _autouse_fixture_declarations(
             "_uaa_local_python_module_counts",
             None,
         )
-        assignment_aliases: dict[
-            str, tuple[tuple[str, ...], str, ast.AST]
-        ] = {}
+        assignment_aliases: dict[str, tuple[tuple[str, ...], str, ast.AST]] = {}
         superseded_assignment_aliases: list[
             tuple[str, tuple[str, ...], str, ast.AST]
         ] = []
@@ -8851,9 +8936,7 @@ def _autouse_fixture_declarations(
             for rebound_name in rebound_names:
                 prior_alias = assignment_aliases.pop(rebound_name, None)
                 if prior_alias is not None:
-                    superseded_assignment_aliases.append(
-                        (rebound_name, *prior_alias)
-                    )
+                    superseded_assignment_aliases.append((rebound_name, *prior_alias))
                 if isinstance(execution_node, ast.Assign):
                     targets = execution_node.targets
                     value = execution_node.value
@@ -8919,9 +9002,7 @@ def _autouse_fixture_declarations(
                     and not module_counts.get(candidates[0], 0)
                     and module_counts.get(candidates[-1], 0)
                 ):
-                    resolved = [
-                        item for item in resolved if item[0] == candidates[-1]
-                    ]
+                    resolved = [item for item in resolved if item[0] == candidates[-1]]
                 if len(resolved) > 1:
                     raise TestCorpusGuardError(
                         "imported autouse pytest fixture is ambiguous"
@@ -9056,9 +9137,7 @@ def _autouse_fixture_declarations(
                     and not module_counts.get(candidates[0], 0)
                     and module_counts.get(candidates[-1], 0)
                 ):
-                    resolved = [
-                        item for item in resolved if item[0] == candidates[-1]
-                    ]
+                    resolved = [item for item in resolved if item[0] == candidates[-1]]
                 if len(resolved) > 1:
                     raise TestCorpusGuardError(
                         "imported autouse pytest fixture is ambiguous"
@@ -9102,7 +9181,9 @@ def _autouse_fixture_declarations(
                     )
                     binds_dynamic_attributes = any(
                         (
-                            isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            isinstance(
+                                statement, (ast.FunctionDef, ast.AsyncFunctionDef)
+                            )
                             and statement.name == "__getattr__"
                         )
                         or (
@@ -9127,7 +9208,10 @@ def _autouse_fixture_declarations(
                             else ""
                         )
                         lazy_package = resolved_module
-                        if not resolved_path.endswith("/__init__.py") and "." in resolved_module:
+                        if (
+                            not resolved_path.endswith("/__init__.py")
+                            and "." in resolved_module
+                        ):
                             lazy_package = resolved_module.rsplit(".", 1)[0]
                         lazy_modules = _python_lazy_export_binding_modules(
                             resolved_tree,
@@ -9150,7 +9234,11 @@ def _autouse_fixture_declarations(
                             import_source_resolver,
                             binding_names=frozenset({resolved_name}),
                             _seen_imports=frozenset(
-                                (*_seen_imports, import_key, (lazy_module, resolved_name))
+                                (
+                                    *_seen_imports,
+                                    import_key,
+                                    (lazy_module, resolved_name),
+                                )
                             ),
                         )
                         if lazy_declarations:
@@ -9166,12 +9254,16 @@ def _autouse_fixture_declarations(
                     ):
                         cache[cache_key] = ()
                         continue
-                    if not resolved_name_is_static and re.search(
-                        r"(?m)^\s*(?:(?:async\s+)?def\s+__getattr__\b|__getattr__\s*=)",
-                        source_body,
-                    ) and not any(
-                        marker in source_body
-                        for marker in ("_EXPORT_GROUPS", "_LAZY_EXPORT_MODULES")
+                    if (
+                        not resolved_name_is_static
+                        and re.search(
+                            r"(?m)^\s*(?:(?:async\s+)?def\s+__getattr__\b|__getattr__\s*=)",
+                            source_body,
+                        )
+                        and not any(
+                            marker in source_body
+                            for marker in ("_EXPORT_GROUPS", "_LAZY_EXPORT_MODULES")
+                        )
                     ):
                         raise TestCorpusGuardError(
                             "dynamic imported autouse pytest fixture binding cannot "
@@ -9203,9 +9295,12 @@ def _autouse_fixture_declarations(
                     for declaration in imported_declarations
                 )
 
-        for local_name, candidates, imported_name, _origin_node in (
-            superseded_assignment_aliases
-        ):
+        for (
+            local_name,
+            candidates,
+            imported_name,
+            _origin_node,
+        ) in superseded_assignment_aliases:
             resolved = [
                 (candidate, resolved_source)
                 for candidate in candidates
@@ -10185,9 +10280,7 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
             continue
         base_python_paths_seen += 1
         if base_python_paths_seen > MAX_PYTHON_DEPENDENCY_MODULES:
-            raise TestCorpusGuardError(
-                "base Python module index exceeds module budget"
-            )
+            raise TestCorpusGuardError("base Python module index exceeds module budget")
         module = _python_module_name_for_path(path)
         base_module_counts[module] = base_module_counts.get(module, 0) + 1
     setattr(

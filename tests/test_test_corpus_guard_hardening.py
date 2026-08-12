@@ -504,6 +504,7 @@ def test_case_only_rename_retires_the_exact_old_path(
         "_changed_test_paths",
         lambda _repo, _base: (old_path, new_path),
     )
+    monkeypatch.setattr(guard, "_base_file_paths", lambda _repo, _base: frozenset())
     monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (new_path,))
     monkeypatch.setattr(
         guard,
