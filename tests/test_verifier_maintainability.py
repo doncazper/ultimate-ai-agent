@@ -56,7 +56,20 @@ def test_advisory_line_threshold_warns_without_failing(
                     "globs": ["scripts/verification/**/*.py"],
                 }
             },
-            "test_corpus_guard": _test_corpus_policy(),
+            "test_corpus_guard": {
+                "schema_version": "uaa.test_corpus_retirements.v1",
+                "retirement_ledger": "docs/verification/test_corpus_retirements.json",
+                "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+                "enforcement": "fail_closed_when_exact_base_is_available",
+                "required_evidence": [
+                    "replacement_refs",
+                    "assertion_equivalence_artifact",
+                    "assertion_equivalence_ref",
+                    "evidence_artifact",
+                    "evidence_ref",
+                    "reason",
+                ],
+            },
         },
     )
     monkeypatch.setattr(

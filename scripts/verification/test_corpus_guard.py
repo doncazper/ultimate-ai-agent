@@ -2346,6 +2346,118 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             modules.append(target.value)
     if not initialized:
         return ()
+
+    lazy_exports_are_grouped = any(
+        isinstance(node, (ast.Assign, ast.AnnAssign))
+        and "_LAZY_EXPORTS"
+        in {
+            name
+            for target in (
+                node.targets if isinstance(node, ast.Assign) else (node.target,)
+            )
+            for name in _binding_target_names(target)
+        }
+        and isinstance(node.value, ast.DictComp)
+        and any(
+            isinstance(child, ast.Attribute)
+            and child.attr == "items"
+            and isinstance(child.value, ast.Name)
+            and child.value.id == "_EXPORT_GROUPS"
+            for child in ast.walk(node.value)
+        )
+        for node in tree.body
+    )
+    import_bindings = _python_import_modules(tree)
+    bounded_cache_target_ids: set[int] = set()
+    if lazy_exports_are_grouped:
+        for function in tree.body:
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) or (
+                function.name != "__getattr__"
+            ):
+                continue
+            positional = (*function.args.posonlyargs, *function.args.args)
+            if len(positional) != 1 or function.args.vararg or function.args.kwarg:
+                continue
+            requested_name = positional[0].arg
+            has_bounded_lookup = any(
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr == "get"
+                and isinstance(child.func.value, ast.Name)
+                and child.func.value.id == "_LAZY_EXPORTS"
+                and len(child.args) == 1
+                and isinstance(child.args[0], ast.Name)
+                and child.args[0].id == requested_name
+                and not child.keywords
+                for child in ast.walk(function)
+            )
+            if not has_bounded_lookup:
+                continue
+            imported_value_bindings: list[str] = []
+            for child in ast.walk(function):
+                if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                target_names = {
+                    name for target in targets for name in _binding_target_names(target)
+                }
+                value = child.value
+                if (
+                    len(target_names) != 1
+                    or not isinstance(value, ast.Call)
+                    or not isinstance(value.func, ast.Name)
+                    or value.func.id != "getattr"
+                    or not value.args
+                    or not isinstance(value.args[0], ast.Call)
+                    or not isinstance(value.args[0].func, ast.Name)
+                    or "importlib.import_module"
+                    not in import_bindings.get(value.args[0].func.id, ())
+                ):
+                    continue
+                imported_value_bindings.extend(target_names)
+            if len(imported_value_bindings) != 1:
+                continue
+            cached_value = imported_value_bindings[0]
+            if sum(
+                isinstance(child, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
+                and cached_value
+                in {
+                    name
+                    for target in (
+                        child.targets
+                        if isinstance(child, ast.Assign)
+                        else (child.target,)
+                    )
+                    for name in _binding_target_names(target)
+                }
+                for child in ast.walk(function)
+            ) != 1:
+                continue
+            if not any(
+                isinstance(child, ast.Return)
+                and isinstance(child.value, ast.Name)
+                and child.value.id == cached_value
+                for child in ast.walk(function)
+            ):
+                continue
+            for child in ast.walk(function):
+                if not isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                if not isinstance(child.value, ast.Name) or child.value.id != cached_value:
+                    continue
+                for target in targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and _is_module_namespace_call(target.value)
+                        and isinstance(target.slice, ast.Name)
+                        and target.slice.id == requested_name
+                    ):
+                        bounded_cache_target_ids.add(id(target))
     if _has_module_namespace_mutation(tree):
         raise TestCorpusGuardError(
             "lazy Python export modules cannot be inventoried safely"
@@ -2435,8 +2547,11 @@ def _python_grouped_lazy_export_modules(tree: ast.Module) -> tuple[str, ...]:
             else:
                 continue
             if any(
-                grouped_export_namespace_reference(target)
-                or dynamic_grouped_export_namespace_reference(target)
+                id(target) not in bounded_cache_target_ids
+                and (
+                    grouped_export_namespace_reference(target)
+                    or dynamic_grouped_export_namespace_reference(target)
+                )
                 for target in targets
             ):
                 raise TestCorpusGuardError(
@@ -2509,6 +2624,27 @@ def _python_lazy_export_binding_modules(
     return tuple(dict.fromkeys(modules))
 
 
+def _python_parsed_module(
+    module: str,
+    source_text: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+) -> ast.Module:
+    cache: dict[tuple[str, str], ast.Module] | None = None
+    cache_key = (module, hashlib.sha256(source_text.encode("utf-8")).hexdigest())
+    if import_source_resolver is not None:
+        cache = getattr(
+            import_source_resolver,
+            "_uaa_parsed_module_cache",
+            None,
+        )
+        if cache is not None and cache_key in cache:
+            return cache[cache_key]
+    tree = ast.parse(source_text, filename=module)
+    if cache is not None:
+        cache[cache_key] = tree
+    return tree
+
+
 def _python_module_dependency_identity(
     module: str,
     source: str,
@@ -2532,6 +2668,7 @@ def _python_module_dependency_identity(
     pending = [(module, source)]
     resolved_sources: dict[str, str] = {}
     expanded_modules: set[str] = set()
+    runtime_abort_posture = False
     while pending:
         current_module, current_source = pending.pop()
         if current_module in expanded_modules:
@@ -2548,7 +2685,11 @@ def _python_module_dependency_identity(
             else current_source
         )
         try:
-            tree = ast.parse(source_text, filename=current_module)
+            tree = _python_parsed_module(
+                current_module,
+                source_text,
+                import_source_resolver,
+            )
         except SyntaxError as exc:
             raise TestCorpusGuardError(
                 "imported Python module identity cannot be inventoried safely"
@@ -2560,6 +2701,16 @@ def _python_module_dependency_identity(
         imported_modules = _python_import_modules(
             tree,
             relative_package=relative_package,
+        )
+        runtime_abort_posture = runtime_abort_posture or any(
+            _pytest_collection_abort_callable_name(
+                child.func,
+                imported_modules,
+                {},
+            )
+            in {"importorskip", "skip", "xfail", "xfail-exception"}
+            for child in ast.walk(tree)
+            if isinstance(child, ast.Call)
         )
         lazy_export_modules = _python_lazy_export_modules(
             tree,
@@ -2619,6 +2770,11 @@ def _python_module_dependency_identity(
         f"module={resolved_module}\nmodule-source-sha256="
         f"{hashlib.sha256(resolved_source.encode('utf-8')).hexdigest()}"
         for resolved_module, resolved_source in sorted(resolved_sources.items())
+    )
+    identity += (
+        "\nruntime-abort-posture=true"
+        if runtime_abort_posture
+        else "\nruntime-abort-posture=false"
     )
     if identity_cache is not None:
         identity_cache[cache_key] = identity
@@ -2737,7 +2893,11 @@ def _python_side_effect_import_identity(
         module_effect = effect_cache.get(dependency_key)
         if dependencies is None or module_effect is None:
             try:
-                dependency_tree = ast.parse(source_text, filename=current_module)
+                dependency_tree = _python_parsed_module(
+                    current_module,
+                    source_text,
+                    import_source_resolver,
+                )
             except SyntaxError as exc:
                 raise TestCorpusGuardError(
                     "side-effect Python import cannot be inventoried safely"
@@ -2810,6 +2970,7 @@ def _python_imported_binding_source(
         hashlib.sha256(source.encode("utf-8")).hexdigest(),
     )
     binding_cache: dict[tuple[str, str, str], str] | None = None
+    root_binding_cache: dict[tuple[str, str, str], str] | None = None
     if import_source_resolver is not None:
         binding_cache = getattr(
             import_source_resolver,
@@ -2818,9 +2979,31 @@ def _python_imported_binding_source(
         )
         if binding_cache is not None and cache_key in binding_cache:
             return binding_cache[cache_key]
+        if not _seen_bindings:
+            root_binding_cache = getattr(
+                import_source_resolver,
+                "_uaa_root_binding_identity_cache",
+                None,
+            )
+            if root_binding_cache is not None and cache_key in root_binding_cache:
+                return root_binding_cache[cache_key]
+
+    def cache_forwarded_identity(identity: str) -> str:
+        if (
+            binding_cache is not None
+            and "transitive-import-cycle" not in identity
+        ):
+            binding_cache[cache_key] = identity
+        if root_binding_cache is not None:
+            root_binding_cache[cache_key] = identity
+        return identity
     source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
     try:
-        tree = ast.parse(source_text, filename=module)
+        tree = _python_parsed_module(
+            module,
+            source_text,
+            import_source_resolver,
+        )
     except SyntaxError as exc:
         raise TestCorpusGuardError(
             "imported Python parameter data cannot be inventoried safely"
@@ -2921,16 +3104,18 @@ def _python_imported_binding_source(
                         f"external-import={','.join(candidates)};bindings={name}"
                     )
                 imported_module, imported_source = resolved_import
-                return _python_imported_binding_source(
-                    imported_module,
-                    imported_source,
-                    _binding_name_for_resolved_import(
-                        candidates,
+                return cache_forwarded_identity(
+                    _python_imported_binding_source(
                         imported_module,
-                        name,
-                    ),
-                    import_source_resolver,
-                    _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                        imported_source,
+                        _binding_name_for_resolved_import(
+                            candidates,
+                            imported_module,
+                            name,
+                        ),
+                        import_source_resolver,
+                        _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                    )
                 )
             lazy_modules = _python_lazy_export_binding_modules(
                 tree,
@@ -2954,7 +3139,7 @@ def _python_imported_binding_source(
                     )
                 )
             if len(lazy_matches) == 1:
-                return lazy_matches[0]
+                return cache_forwarded_identity(lazy_matches[0])
             if len(lazy_matches) > 1:
                 raise TestCorpusGuardError(
                     "imported Python parameter binding is ambiguous"
@@ -2980,7 +3165,7 @@ def _python_imported_binding_source(
                     if "binding cannot be resolved" not in str(exc):
                         raise
             if len(star_matches) == 1:
-                return star_matches[0]
+                return cache_forwarded_identity(star_matches[0])
             if len(star_matches) > 1:
                 raise TestCorpusGuardError(
                     "imported Python parameter binding is ambiguous"
@@ -3092,17 +3277,38 @@ def _python_imported_binding_source(
         f"module={module}\nbinding={binding_name}\n" + "\n".join(serialized_parts)
     )
     contains_cycle = "transitive-import-cycle=" in identity_material
+    runtime_abort_posture = any(
+        _pytest_collection_abort_callable_name(
+            child.func,
+            imported_modules,
+            {},
+        )
+        in {"importorskip", "skip", "xfail", "xfail-exception"}
+        for binding_node in binding_nodes.values()
+        for child in ast.walk(binding_node)
+        if isinstance(child, ast.Call)
+    ) or any(
+        "runtime-abort-posture=true" in part.splitlines()
+        for part in serialized_parts
+    )
     identity = (
         f"module={module}\nbinding={binding_name}\n"
         "binding-closure-sha256="
         f"{hashlib.sha256(identity_material.encode('utf-8')).hexdigest()}"
         + ("\ntransitive-import-cycle=present" if contains_cycle else "")
+        + (
+            "\nruntime-abort-posture=true"
+            if runtime_abort_posture
+            else "\nruntime-abort-posture=false"
+        )
     )
     if (
         binding_cache is not None
         and not contains_cycle
     ):
         binding_cache[cache_key] = identity
+    if root_binding_cache is not None:
+        root_binding_cache[cache_key] = identity
     return identity
 
 
@@ -3532,6 +3738,12 @@ def _parameterized_ref(
     relative_package: str | None = None,
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
+    relative_import_bindings = {
+        alias.asname or alias.name
+        for import_node in tree.body
+        if isinstance(import_node, ast.ImportFrom) and import_node.level > 0
+        for alias in import_node.names
+    }
 
     def has_imported_fixture_reassignment(fixture_name: str) -> bool:
         for binding in module_bindings.get(fixture_name, ()):
@@ -3744,6 +3956,45 @@ def _parameterized_ref(
             return class_helper_definitions.get(expression.attr)
         return None
 
+    def static_callable_container(
+        expression: ast.AST,
+        containers: dict[str, dict[object, ast.expr]],
+    ) -> dict[object, ast.expr] | None:
+        if isinstance(expression, ast.Name):
+            existing = containers.get(expression.id)
+            return dict(existing) if existing is not None else None
+        if isinstance(expression, (ast.List, ast.Tuple)):
+            return (
+                {index: item for index, item in enumerate(expression.elts)}
+                if expression.elts
+                else None
+            )
+        if isinstance(expression, ast.Dict):
+            items: dict[object, ast.expr] = {}
+            for key, value in zip(expression.keys, expression.values, strict=True):
+                if (
+                    key is None
+                    or not isinstance(key, ast.Constant)
+                    or not isinstance(key.value, (int, str))
+                ):
+                    return None
+                items[key.value] = value
+            return items or None
+        return None
+
+    def static_callable_container_target(
+        expression: ast.AST,
+        containers: dict[str, dict[object, ast.expr]],
+    ) -> ast.expr | None:
+        if (
+            not isinstance(expression, ast.Subscript)
+            or not isinstance(expression.value, ast.Name)
+            or not isinstance(expression.slice, ast.Constant)
+            or not isinstance(expression.slice.value, (int, str))
+        ):
+            return None
+        return containers.get(expression.value.id, {}).get(expression.slice.value)
+
     execution_nodes = list(_scope_execution_nodes(node.body))
     execution_node_scopes: dict[
         int, ast.FunctionDef | ast.AsyncFunctionDef
@@ -3757,6 +4008,7 @@ def _parameterized_ref(
     called_helpers_by_call_id: dict[
         int, ast.FunctionDef | ast.AsyncFunctionDef
     ] = {}
+    callable_container_targets_by_call_id: dict[int, ast.expr] = {}
     pending_helper_scopes: list[ast.FunctionDef | ast.AsyncFunctionDef] = [node]
     while pending_helper_scopes:
         helper_scope = pending_helper_scopes.pop()
@@ -3766,6 +4018,7 @@ def _parameterized_ref(
             for execution_node in helper_nodes
         )
         helper_aliases: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        callable_containers: dict[str, dict[object, ast.expr]] = {}
         direct_scope_node_ids = {id(item) for item in helper_scope.body}
         for execution_node in helper_nodes:
             if isinstance(
@@ -3785,6 +4038,12 @@ def _parameterized_ref(
                 }
                 for target_name in target_names:
                     helper_aliases.pop(target_name, None)
+                    callable_containers.pop(target_name, None)
+                container = static_callable_container(value, callable_containers)
+                if container is not None and id(execution_node) in direct_scope_node_ids:
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            callable_containers[target.id] = container
                 resolved_helper = helper_for_expression(
                     value,
                     helper_scope,
@@ -3799,8 +4058,26 @@ def _parameterized_ref(
                         helper_aliases[target_name] = resolved_helper
             if not isinstance(execution_node, ast.Call):
                 continue
+            call_target = execution_node.func
+            container_target = static_callable_container_target(
+                call_target,
+                callable_containers,
+            )
+            if container_target is not None:
+                callable_container_targets_by_call_id[id(execution_node)] = (
+                    container_target
+                )
+                call_target = container_target
+            elif (
+                isinstance(call_target, ast.Subscript)
+                and isinstance(call_target.value, ast.Name)
+                and call_target.value.id in callable_containers
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             resolved_helper = helper_for_expression(
-                execution_node.func,
+                call_target,
                 helper_scope,
                 helper_aliases,
             )
@@ -4241,7 +4518,11 @@ def _parameterized_ref(
                 dict[str, tuple[str, ...]],
                 str,
             ],
-        ] = {}
+        ] = getattr(
+            import_source_resolver,
+            "_uaa_runtime_module_shape_cache",
+            {},
+        )
 
         def runtime_module_shape(
             module: str,
@@ -4260,7 +4541,11 @@ def _parameterized_ref(
                 source.split("\n", 1)[1] if source.startswith("path=") else source
             )
             try:
-                tree = ast.parse(source_text, filename=module)
+                tree = _python_parsed_module(
+                    module,
+                    source_text,
+                    import_source_resolver,
+                )
             except SyntaxError as exc:
                 raise TestCorpusGuardError(
                     "imported runtime helper dependency cannot be inventoried safely"
@@ -4418,26 +4703,30 @@ def _parameterized_ref(
             if not isinstance(execution_node, ast.Call):
                 continue
             owner_scope = execution_node_scopes.get(id(execution_node), node)
-            if isinstance(execution_node.func, ast.Name):
-                imported_alias = runtime_import_aliases.get(execution_node.func.id)
+            call_target = callable_container_targets_by_call_id.get(
+                id(execution_node),
+                execution_node.func,
+            )
+            if isinstance(call_target, ast.Name):
+                imported_alias = runtime_import_aliases.get(call_target.id)
                 if imported_alias is not None:
                     imported_calls.add(imported_alias)
                 else:
                     _is_owned, candidates = runtime_scope_import_candidates(
                         owner_scope,
-                        execution_node.func.id,
+                        call_target.id,
                         module_imports=active_module_runtime_imports,
                     )
                     if candidates:
                         imported_target = runtime_import_target(
-                            execution_node.func.id,
+                            call_target.id,
                             candidates,
-                            (execution_node.func.id,),
+                            (call_target.id,),
                         )
                         if imported_target is not None:
                             imported_calls.add(imported_target)
-            elif isinstance(execution_node.func, ast.Attribute):
-                root, attributes = imported_attribute_parts(execution_node.func)
+            elif isinstance(call_target, ast.Attribute):
+                root, attributes = imported_attribute_parts(call_target)
                 if root:
                     _is_owned, candidates = runtime_scope_import_candidates(
                         owner_scope,
@@ -4491,7 +4780,8 @@ def _parameterized_ref(
                 ):
                     continue
                 raise
-            imported_runtime_abort_identities.append(imported_identity)
+            if "runtime-abort-posture=true" in imported_identity.splitlines():
+                imported_runtime_abort_identities.append(imported_identity)
     direct_runtime_node_ids = {id(item) for item in node.body}
     for helper in expanded_helpers.values():
         direct_runtime_node_ids.update(id(item) for item in helper.body)
@@ -4583,8 +4873,12 @@ def _parameterized_ref(
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:
         if isinstance(execution_node, ast.Call):
-            return _pytest_collection_abort_callable_name(
+            call_target = callable_container_targets_by_call_id.get(
+                id(execution_node),
                 execution_node.func,
+            )
+            return _pytest_collection_abort_callable_name(
+                call_target,
                 runtime_imports,
                 runtime_abort_aliases,
             ) in {"importorskip", "skip", "xfail", "xfail-exception"}
@@ -4640,6 +4934,10 @@ def _parameterized_ref(
         helper: ast.FunctionDef | ast.AsyncFunctionDef,
     ) -> str:
         helper_scope_id = id(helper)
+        helper_has_runtime_abort = any(
+            is_runtime_abort(scope_node)
+            for scope_node in scope_execution_nodes_by_scope[helper_scope_id]
+        )
         helper_parts = [
             ast.dump(helper, annotate_fields=True, include_attributes=False)
         ]
@@ -4754,6 +5052,24 @@ def _parameterized_ref(
                     )
                     continue
                 imported_module, imported_source = resolved[0]
+                module_object_names = {
+                    name
+                    for name in names
+                    if name == imported_module.rsplit(".", 1)[-1]
+                    and candidates
+                    and imported_module == candidates[0]
+                }
+                if module_object_names:
+                    imported_module_identity = _python_module_dependency_identity(
+                        imported_module,
+                        imported_source,
+                        import_source_resolver,
+                    )
+                    if (
+                        "runtime-abort-posture=true"
+                        in imported_module_identity.splitlines()
+                    ):
+                        helper_parts.append(imported_module_identity)
                 for imported_name in sorted(names):
                     resolved_name = _binding_name_for_resolved_import(
                         candidates,
@@ -4761,14 +5077,17 @@ def _parameterized_ref(
                         imported_name,
                     )
                     try:
-                        helper_parts.append(
-                            _python_imported_binding_source(
-                                imported_module,
-                                imported_source,
-                                resolved_name,
-                                import_source_resolver,
-                            )
+                        imported_identity = _python_imported_binding_source(
+                            imported_module,
+                            imported_source,
+                            resolved_name,
+                            import_source_resolver,
                         )
+                        if helper_has_runtime_abort or (
+                            "runtime-abort-posture=true"
+                            in imported_identity.splitlines()
+                        ):
+                            helper_parts.append(imported_identity)
                     except TestCorpusGuardError as exc:
                         if not any(
                             marker in str(exc)
@@ -4778,11 +5097,12 @@ def _parameterized_ref(
                             )
                         ):
                             raise
-                        helper_parts.append(
-                            f"runtime-import-fallback={imported_module};"
-                            f"binding={resolved_name};source-sha256="
-                            f"{hashlib.sha256(imported_source.encode('utf-8')).hexdigest()}"
-                        )
+                        if helper_has_runtime_abort:
+                            helper_parts.append(
+                                f"runtime-import-fallback={imported_module};"
+                                f"binding={resolved_name};source-sha256="
+                                f"{hashlib.sha256(imported_source.encode('utf-8')).hexdigest()}"
+                            )
         return "\n".join(dict.fromkeys(helper_parts))
 
     serialized_parts.extend(
@@ -4909,6 +5229,10 @@ def _parameterized_ref(
             for root, binding_names in _python_import_requirements(
                 value, imported_modules
             ).items():
+                if root in relative_import_bindings:
+                    raise TestCorpusGuardError(
+                        "relative imported Python parameter data cannot be inventoried safely"
+                    )
                 candidates = imported_modules[root]
                 if not candidates:
                     raise TestCorpusGuardError(
@@ -6390,7 +6714,11 @@ def _python_inventory_entries(
         source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
         source_path = source.split("\n", 1)[0].removeprefix("path=")
         try:
-            imported_tree = ast.parse(source_text, filename=module)
+            imported_tree = _python_parsed_module(
+                module,
+                source_text,
+                import_source_resolver,
+            )
         except SyntaxError:
             return False
         relative_package = module
@@ -7360,7 +7688,10 @@ def _python_import_resolver(
         return result
 
     setattr(resolve, "_uaa_module_identity_cache", {})
+    setattr(resolve, "_uaa_parsed_module_cache", {})
     setattr(resolve, "_uaa_binding_identity_cache", {})
+    setattr(resolve, "_uaa_root_binding_identity_cache", {})
+    setattr(resolve, "_uaa_runtime_module_shape_cache", {})
     setattr(resolve, "_uaa_side_effect_identity_cache", {})
     setattr(resolve, "_uaa_side_effect_dependency_cache", {})
     setattr(resolve, "_uaa_side_effect_effect_cache", {})
@@ -8422,7 +8753,11 @@ def _autouse_fixture_declarations(
                 if resolved_source.startswith("path=")
                 else resolved_source
             )
-            resolved_tree = ast.parse(source_body, filename=resolved_module)
+            resolved_tree = _python_parsed_module(
+                resolved_module,
+                source_body,
+                import_source_resolver,
+            )
             resolved_fixture_aliases = _fixture_aliases(resolved_tree)
             configured_factories: set[str] = set()
             changed = True
@@ -8756,7 +9091,11 @@ def _autouse_fixture_declarations(
                         if resolved_source.startswith("path=")
                         else resolved_source
                     )
-                    resolved_tree = ast.parse(source_body, filename=resolved_module)
+                    resolved_tree = _python_parsed_module(
+                        resolved_module,
+                        source_body,
+                        import_source_resolver,
+                    )
                     resolved_name_is_static = any(
                         resolved_name in _execution_binding_names(statement)
                         for statement in resolved_tree.body
@@ -9839,6 +10178,23 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
     base_import_source_resolver = _python_import_resolver(
         lambda candidate: _base_text(repo, base_sha, candidate)
     )
+    base_module_counts: dict[str, int] = {}
+    base_python_paths_seen = 0
+    for path in _base_file_paths(repo, base_sha):
+        if not path.endswith(".py"):
+            continue
+        base_python_paths_seen += 1
+        if base_python_paths_seen > MAX_PYTHON_DEPENDENCY_MODULES:
+            raise TestCorpusGuardError(
+                "base Python module index exceeds module budget"
+            )
+        module = _python_module_name_for_path(path)
+        base_module_counts[module] = base_module_counts.get(module, 0) + 1
+    setattr(
+        base_import_source_resolver,
+        "_uaa_local_python_module_counts",
+        base_module_counts,
+    )
 
     def read_worktree_import(candidate: str) -> str | None:
         target = repo / candidate
@@ -9847,6 +10203,11 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
         return _read_worktree_text(repo, candidate)
 
     worktree_import_source_resolver = _python_import_resolver(read_worktree_import)
+    setattr(
+        worktree_import_source_resolver,
+        "_uaa_local_python_module_counts",
+        _local_python_module_counts(repo),
+    )
     base_frontend_source_cache: dict[str, str | None] = {}
     base_frontend_initializer_cache: dict[str, str] = {}
     base_frontend_runtime_dependency_cache: dict[str, frozenset[str]] = {}

@@ -1034,13 +1034,67 @@ def test_python_inventory_binds_imported_runtime_xfail_helper() -> None:
     )
 
 
-def test_python_inventory_binds_ordinary_imported_runtime_helper() -> None:
+def test_python_inventory_binds_static_callable_container_targets() -> None:
+    path = "tests/test_example.py"
+    direct_active = guard.parse_python_declarations(
+        path,
+        "def test_case():\n    callbacks = (lambda: None,)\n    callbacks[0]()\n",
+    )[0].ref
+    direct_xfail = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef test_case():\n    callbacks = (pytest.xfail,)\n"
+        "    callbacks[0]('disabled')\n",
+    )[0].ref
+    local_active = guard.parse_python_declarations(
+        path,
+        "def stop():\n    return None\ndef test_case():\n"
+        "    callbacks = [stop]\n    callbacks[0]()\n",
+    )[0].ref
+    local_xfail = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef stop():\n    pytest.xfail('disabled')\n"
+        "def test_case():\n    callbacks = [stop]\n    callbacks[0]()\n",
+    )[0].ref
+
+    test_source = (
+        "from tests.helper import stop\ndef test_case():\n"
+        "    callbacks = {'stop': stop}\n    callbacks['stop']()\n"
+    )
+
+    def imported_ref(helper_source: str) -> str:
+        resolver = guard._python_import_resolver(
+            lambda candidate: (
+                helper_source if candidate == "tests/helper.py" else None
+            )
+        )
+        return guard._python_inventory_entries(path, test_source, resolver)[0][0].ref
+
+    assert direct_active != direct_xfail
+    assert local_active != local_xfail
+    assert imported_ref("def stop():\n    return None\n") != imported_ref(
+        "import pytest\ndef stop():\n    pytest.xfail('disabled')\n"
+    )
+
+
+def test_python_inventory_rejects_dynamic_callable_container_target() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic runtime helper container",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            "def stop():\n    return None\ndef test_case(index):\n"
+            "    callbacks = [stop]\n    callbacks[index]()\n",
+        )
+
+
+def test_python_inventory_ignores_non_disabling_imported_runtime_helper_change() -> None:
     test_source = "from tests.helper import prepare\ndef test_case():\n    prepare()\n"
 
-    def ref_for(value: int) -> str:
+    def ref_for(value: object) -> str:
         resolver = guard._python_import_resolver(
             lambda path: (
-                f"def prepare():\n    return {value}\n"
+                f"def prepare():\n    return {value!r}\n"
                 if path == "tests/helper.py"
                 else None
             )
@@ -1049,16 +1103,19 @@ def test_python_inventory_binds_ordinary_imported_runtime_helper() -> None:
             "tests/test_example.py", test_source, resolver
         )[0][0].ref
 
-    assert ref_for(1) != ref_for(2)
+    assert ref_for(1) == ref_for(2)
+    assert ref_for("runtime-abort-posture=true") == ref_for(
+        "runtime-abort-posture=false"
+    )
 
 
-def test_python_inventory_binds_module_qualified_runtime_helper() -> None:
+def test_python_inventory_binds_module_qualified_runtime_abort_helper() -> None:
     test_source = "import tests.helper as helper\ndef test_case():\n    helper.prepare()\n"
 
-    def ref_for(value: int) -> str:
+    def ref_for(helper_source: str) -> str:
         resolver = guard._python_import_resolver(
             lambda path: (
-                f"def prepare():\n    return {value}\n"
+                helper_source
                 if path == "tests/helper.py"
                 else None
             )
@@ -1067,7 +1124,9 @@ def test_python_inventory_binds_module_qualified_runtime_helper() -> None:
             "tests/test_example.py", test_source, resolver
         )[0][0].ref
 
-    assert ref_for(1) != ref_for(2)
+    assert ref_for("def prepare():\n    return None\n") != ref_for(
+        "import pytest\ndef prepare():\n    pytest.xfail('disabled')\n"
+    )
 
 
 def test_python_inventory_binds_member_before_imported_instance_method() -> None:
@@ -1093,7 +1152,8 @@ def test_python_inventory_binds_member_before_imported_instance_method() -> None
             "tests/test_example.py", test_source, resolver
         )[0][0].ref
 
-    assert ref_for("one") != ref_for("two")
+    # The receiver value changes execution data, not execution-disabling posture.
+    assert ref_for("one") == ref_for("two")
 
 
 @pytest.mark.parametrize(
@@ -2504,6 +2564,63 @@ def test_frontend_inventory_allows_callback_context_alias_without_skip() -> None
 
 
 @pytest.mark.parametrize(
+    "helper_source",
+    (
+        "function stop(context) { return context; }",
+        "const stop = context => context;",
+    ),
+)
+def test_frontend_inventory_binds_context_forwarding_helpers(
+    helper_source: str,
+) -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    test_source = '\ntest("case", context => stop(context));'
+    active = guard.parse_frontend_declarations(
+        path,
+        helper_source + test_source,
+    )[0].ref
+    skipped = guard.parse_frontend_declarations(
+        path,
+        helper_source.replace("return context", "context.skip(); return context")
+        .replace("context => context", "context => { context.skip(); return context; }")
+        + test_source,
+    )[0].ref
+
+    assert active != skipped
+
+
+def test_frontend_inventory_binds_imported_context_forwarding_helper(
+    tmp_path: Path,
+) -> None:
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(
+        "export function stop(context: { skip(): void }) { return context; }\n"
+    )
+    test_path = "apps/control-center/src/example.test.tsx"
+    test_source = (
+        'import { stop } from "./helper";\n'
+        'test("case", context => stop(context));'
+    )
+    active = guard._parse_worktree_test_declarations(
+        tmp_path,
+        test_path,
+        test_source,
+    )[0].ref
+    helper_path.write_text(
+        "export function stop(context: { skip(): void }) { "
+        "context.skip(); return context; }\n"
+    )
+    skipped = guard._parse_worktree_test_declarations(
+        tmp_path,
+        test_path,
+        test_source,
+    )[0].ref
+
+    assert active != skipped
+
+
+@pytest.mark.parametrize(
     "callback",
     (
         "handler",
@@ -2904,6 +3021,26 @@ def test_frontend_inventory_binds_called_arrow_body_initializer() -> None:
 
     assert frontend.frontend_runtime_test_posture(active) is True
     assert frontend.frontend_runtime_import_modules(active) == ("./child",)
+
+
+@pytest.mark.parametrize(
+    "active",
+    (
+        "class Setup { static apply() { beforeEach(() => {}); return 1; } }\n"
+        "const install = Setup.apply; install();",
+        "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
+        "const setup = new Setup(); const install = setup.apply; install();",
+    ),
+)
+def test_frontend_inventory_binds_reflectively_called_class_method_initializer(
+    active: str,
+) -> None:
+    changed = active.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(active) is True
+    assert frontend.frontend_runtime_identity_source(active) != (
+        frontend.frontend_runtime_identity_source(changed)
+    )
 
 
 def test_frontend_inventory_preserves_conditional_literal_values() -> None:
@@ -3588,6 +3725,67 @@ def test_repository_inventory_is_nonempty_and_deterministic() -> None:
     assert first == second
     assert len(first) > 1000
     assert {item.kind for item in first} == {"python_test", "frontend_test"}
+
+
+def test_removed_declarations_indexes_base_and_worktree_submodules(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "scripts/verification/__init__.py"
+    module_path = "scripts/verification/ci_command_manifest.py"
+    source = (
+        "from scripts.verification import ci_command_manifest as manifest\n"
+        "def test_case():\n"
+        "    assert manifest.VALUE\n"
+    )
+    sources = {
+        test_path: source,
+        package_path: "",
+        module_path: "VALUE = True\n",
+    }
+    for path, text in sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_bounds_base_module_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(guard, "MAX_PYTHON_DEPENDENCY_MODULES", 1)
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: ())
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({"first.py", "second.py"}),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="base Python module index exceeds module budget",
+    ):
+        guard.removed_declarations(tmp_path, "a" * 40)
 
 
 def test_malformed_requested_base_fails_closed() -> None:
@@ -7368,10 +7566,11 @@ def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "cache_source",
-    (
+def test_python_module_identity_allows_bounded_lazy_export_cache_write() -> None:
+    source = (
+        "path=tests/pkg/__init__.py\n"
         "from importlib import import_module\n"
+        "_EXPORT_GROUPS = {'tests.target': {'value'}}\n"
         "_LAZY_EXPORTS = {\n"
         "    name: module_name\n"
         "    for module_name, names in _EXPORT_GROUPS.items()\n"
@@ -7383,7 +7582,23 @@ def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
         "        raise AttributeError(name)\n"
         "    value = getattr(import_module(module_name), name)\n"
         "    globals()[name] = value\n"
-        "    return value\n",
+        "    return value\n"
+    )
+
+    identity = guard._python_module_dependency_identity(
+        "tests.pkg",
+        source,
+        guard._python_import_resolver(
+            lambda path: "value = True\n" if path == "tests/target.py" else None
+        ),
+    )
+
+    assert "module=tests.target" in identity
+
+
+@pytest.mark.parametrize(
+    "cache_source",
+    (
         'from importlib import import_module\n_LAZY_EXPORTS = {"extra": '
         '"tests.extra"}\n'
         "def __getattr__(name):\n"
@@ -9011,6 +9226,10 @@ def test_imported_binding_identity_caches_transitive_closures() -> None:
         module == "tests.shared" and binding == "VALUE"
         for module, binding, _source_digest in binding_cache
     )
+    assert any(
+        module == "tests.first" and binding == "FIRST"
+        for module, binding, _source_digest in binding_cache
+    )
     cache_size = len(binding_cache)
 
     guard._python_imported_binding_source(
@@ -9021,6 +9240,86 @@ def test_imported_binding_identity_caches_transitive_closures() -> None:
     )
 
     assert len(binding_cache) == cache_size + 1
+
+
+def test_python_import_resolver_reuses_only_exact_source_trees() -> None:
+    resolver = guard._python_import_resolver(lambda _path: None)
+
+    first = guard._python_parsed_module("tests.helper", "VALUE = 1\n", resolver)
+    repeated = guard._python_parsed_module("tests.helper", "VALUE = 1\n", resolver)
+    changed = guard._python_parsed_module("tests.helper", "VALUE = 2\n", resolver)
+
+    assert repeated is first
+    assert changed is not first
+    assert len(getattr(resolver, "_uaa_parsed_module_cache")) == 2
+
+
+def test_imported_binding_identity_caches_top_level_cycle_closures() -> None:
+    sources = {
+        "tests/first.py": "from tests.second import VALUE\nFIRST = VALUE\n",
+        "tests/second.py": "from tests.first import FIRST\nVALUE = FIRST\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+    source = resolver("tests.first")
+
+    assert source is not None
+    first = guard._python_imported_binding_source(
+        "tests.first",
+        source,
+        "FIRST",
+        resolver,
+    )
+    cache = getattr(resolver, "_uaa_root_binding_identity_cache")
+    assert any(
+        module == "tests.first" and binding == "FIRST"
+        for module, binding, _source_digest in cache
+    )
+
+    sources["tests/second.py"] = "from tests.first import FIRST\nVALUE = ('changed', FIRST)\n"
+    second_resolver = guard._python_import_resolver(sources.get)
+    second_source = second_resolver("tests.first")
+
+    assert second_source is not None
+    second = guard._python_imported_binding_source(
+        "tests.first",
+        second_source,
+        "FIRST",
+        second_resolver,
+    )
+    assert first != second
+
+
+def test_imported_binding_identity_caches_forwarded_top_level_cycle() -> None:
+    sources = {
+        "tests/first.py": "from tests.second import FIRST\n",
+        "tests/second.py": "from tests.first import FIRST\n",
+    }
+    resolver = guard._python_import_resolver(sources.get)
+    source = resolver("tests.first")
+
+    assert source is not None
+    identity = guard._python_imported_binding_source(
+        "tests.first",
+        source,
+        "FIRST",
+        resolver,
+    )
+    cache = getattr(resolver, "_uaa_root_binding_identity_cache")
+
+    assert "transitive-import-cycle" in identity
+    assert any(
+        module == "tests.first" and binding == "FIRST"
+        for module, binding, _source_digest in cache
+    )
+    assert (
+        guard._python_imported_binding_source(
+            "tests.first",
+            source,
+            "FIRST",
+            resolver,
+        )
+        == identity
+    )
 
 
 def test_python_inventory_binds_fixture_default_posture() -> None:
@@ -9827,23 +10126,36 @@ def test_python_inventory_canonicalizes_transitive_import_cycles() -> None:
         )
 
     baseline = refs_for(1, 2, 3)
-    assert all(
-        current != changed
-        for current, changed in zip(
-            baseline,
-            refs_for(4, 2, 3),
-            strict=True,
-        )
-    )
-    assert all(
-        current != changed
-        for current, changed in zip(
-            baseline,
-            refs_for(1, 5, 3),
-            strict=True,
-        )
-    )
+    # Ordinary helper data stays outside the posture-only test identity.
+    assert baseline == refs_for(4, 2, 3)
+    assert baseline == refs_for(1, 5, 3)
     assert baseline == refs_for(1, 2, 6)
+
+
+def test_python_inventory_binds_transitive_cycle_runtime_abort_posture() -> None:
+    test_source = "from tests.first import stop\ndef test_case():\n    stop()\n"
+
+    def ref_for(body: str) -> str:
+        sources = {
+            "tests/first.py": (
+                "from tests.second import continue_stop\n"
+                "def stop():\n    continue_stop()\n"
+            ),
+            "tests/second.py": (
+                "from tests.first import stop\n"
+                f"def continue_stop():\n    {body}\n"
+            ),
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        return guard._python_inventory_entries(
+            "tests/test_example.py",
+            test_source,
+            resolver,
+        )[0][0].ref
+
+    assert ref_for("return None") != ref_for(
+        "import pytest; pytest.xfail('disabled')"
+    )
 
 
 def test_python_inventory_canonicalizes_star_import_dependency_cycles() -> None:
@@ -9885,14 +10197,9 @@ def test_python_inventory_canonicalizes_star_import_dependency_cycles() -> None:
         )
 
     baseline = refs_for(1, 2, 3)
-    assert all(
-        current != changed
-        for current, changed in zip(baseline, refs_for(4, 2, 3), strict=True)
-    )
-    assert all(
-        current != changed
-        for current, changed in zip(baseline, refs_for(1, 5, 3), strict=True)
-    )
+    # Star-import cycles retain the same posture-only identity contract.
+    assert baseline == refs_for(4, 2, 3)
+    assert baseline == refs_for(1, 5, 3)
     assert baseline == refs_for(1, 2, 6)
 
 

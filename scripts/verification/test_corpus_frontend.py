@@ -743,6 +743,65 @@ def _has_runtime_callback_skip(
     )
 
 
+def _runtime_callback_context_helpers(
+    declaration_source: str,
+    arguments: tuple[tuple[int, int], ...],
+) -> tuple[str, ...]:
+    if len(arguments) < 2:
+        return ()
+    callback_index = (
+        2
+        if len(arguments) >= 3
+        and _looks_like_frontend_callback(
+            declaration_source[arguments[2][0] : arguments[2][1]]
+        )
+        else 1
+    )
+    callback = declaration_source[
+        arguments[callback_index][0] : arguments[callback_index][1]
+    ]
+    callback_mask = _code_mask(callback)
+    callback_scan = "".join(
+        character if callback_mask[index] else " "
+        for index, character in enumerate(callback)
+    )
+    parameter_match = re.match(
+        rf"\s*(?:async\s+)?(?:function(?:\s+{TEST_API_NAME})?\s*)?"
+        rf"(?:\(\s*(?P<parenthesized>{TEST_API_NAME})\b[^)]*\)"
+        rf"|(?P<bare>{TEST_API_NAME})\b\s*=>)",
+        callback_scan,
+    )
+    if parameter_match is None:
+        return ()
+    parameter = parameter_match.group("parenthesized") or parameter_match.group("bare")
+    parameter_pattern = re.escape(parameter)
+    helpers: set[str] = set()
+    helper_call_pattern = re.compile(
+        rf"(?<![.\w$])(?P<callee>{TEST_API_NAME})\s*(?P<arguments>\()"
+    )
+    for helper_call in helper_call_pattern.finditer(callback_scan):
+        if helper_call.group("callee") in {
+            "catch",
+            "for",
+            "function",
+            "if",
+            "switch",
+            "while",
+            "with",
+        }:
+            continue
+        arguments_end = _skip_balanced(
+            callback,
+            helper_call.start("arguments"),
+        )
+        arguments_source = callback_scan[
+            helper_call.start("arguments") + 1 : arguments_end - 1
+        ]
+        if re.search(rf"\b{parameter_pattern}\b", arguments_source):
+            helpers.add(helper_call.group("callee"))
+    return tuple(sorted(helpers))
+
+
 def _execution_posture_parts(
     declaration_source: str,
     *,
@@ -847,6 +906,19 @@ def _execution_posture_parts(
         callback_source = declaration_source[
             arguments[callback_index][0] : arguments[callback_index][1]
         ].strip()
+        if condition_binding_resolver is not None:
+            for helper_name in _runtime_callback_context_helpers(
+                declaration_source,
+                arguments,
+            ):
+                try:
+                    helper_source = condition_binding_resolver(helper_name)
+                except FrontendInventoryError:
+                    helper_source = None
+                if helper_source is None:
+                    continue
+                digest = hashlib.sha256(helper_source.encode("utf-8")).hexdigest()
+                parts.append(f"callback-helper:{helper_name}:sha256:{digest}")
         if re.fullmatch(TEST_API_NAME, callback_source):
             if condition_binding_resolver is None:
                 raise FrontendInventoryError(
@@ -2001,9 +2073,20 @@ def frontend_export_binding_source(text: str, name: str) -> str | None:
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
     export_pattern = re.compile(rf"\bexport\s+const\s+{re.escape(name)}\b")
-    if export_pattern.search(scan_text) is None:
+    if export_pattern.search(scan_text) is not None:
+        return _const_initializer_source(text, scan_text, name, len(text))
+    function_pattern = re.compile(
+        rf"\bexport\s+(?:async\s+)?function\s*\*?\s*{re.escape(name)}\s*"
+        r"(?P<parameters>\()"
+    )
+    function = function_pattern.search(scan_text)
+    if function is None:
         return None
-    return _const_initializer_source(text, scan_text, name, len(text))
+    parameters_end = _skip_balanced(text, function.start("parameters"))
+    body_start = _function_body_after_parameters(text, scan_text, parameters_end)
+    if body_start is None:
+        return None
+    return text[function.start() : _skip_balanced(text, body_start)]
 
 
 def _relative_commonjs_require_modules(text: str, scan_text: str) -> tuple[str, ...]:
@@ -2554,7 +2637,6 @@ def _module_initializer_code_mask(
             except FrontendInventoryError:
                 continue
             method_name = method.group("name")
-            method_kind = (method.group("kind") or "").strip()
             class_execution_source = (
                 scan_text[class_start + 1 : body_start]
                 + " " * (body_end - body_start)
@@ -2572,13 +2654,13 @@ def _module_initializer_code_mask(
                     external_source,
                     (class_pattern_text,),
                     method_name,
-                    require_call=not method_kind,
+                    require_call=False,
                     raw_source=external_text,
                 ) or member_used(
                     class_execution_source,
                     (r"this", class_pattern_text),
                     method_name,
-                    require_call=not method_kind,
+                    require_call=False,
                     raw_source=class_execution_text,
                 ):
                     continue
@@ -2586,7 +2668,7 @@ def _module_initializer_code_mask(
                 external_source,
                 instance_call_receivers,
                 method_name,
-                require_call=not method_kind,
+                require_call=False,
                 raw_source=external_text,
             ):
                 continue
@@ -2594,7 +2676,7 @@ def _module_initializer_code_mask(
                 class_execution_source,
                 (r"this",),
                 method_name,
-                require_call=not method_kind,
+                require_call=False,
                 raw_source=class_execution_text,
             ):
                 continue
@@ -2800,6 +2882,30 @@ def _static_collection_source(
         local_source = None
     if local_source is not None:
         return local_source
+
+    function_pattern = re.compile(
+        rf"\b(?:async\s+)?function\s*\*?\s*{re.escape(name)}\s*"
+        r"(?P<parameters>\()"
+    )
+    functions = list(function_pattern.finditer(scan_text, 0, before_offset))
+    if len(functions) == 1:
+        function = functions[0]
+        parameters_end = _skip_balanced(text, function.start("parameters"))
+        body_start = _function_body_after_parameters(text, scan_text, parameters_end)
+        if body_start is None:
+            raise FrontendInventoryError(
+                "frontend registration loop binding is invalid"
+            )
+        body_end = _skip_balanced(text, body_start)
+        intervening = scan_text[body_end:before_offset]
+        if re.search(
+            rf"(?<![.\w$]){re.escape(name)}\s*=(?!=|>)",
+            intervening,
+        ):
+            raise FrontendInventoryError(
+                "frontend registration loop binding is mutated before collection"
+            )
+        return text[function.start() : body_end]
 
     pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
     matches = list(pattern.finditer(scan_text, 0, before_offset))
