@@ -6341,6 +6341,12 @@ def test_python_module_identity_binds_grouped_lazy_export_dependency_closure() -
         'globals()["_EXPORT_GROUPS"].update({"tests.extra": {"value"}})\n',
         'globals()["_EXPORT_" + "GROUPS"].update('
         '{"tests.extra": {"value"}})\n',
+        'export_name = "_EXPORT_GROUPS"\n'
+        'globals()[export_name].update({"tests.extra": {"value"}})\n',
+        'export_name = "_EXPORT_GROUPS"\n'
+        'globals()[export_name] = {"tests.extra": {"value"}}\n',
+        'export_name = "_EXPORT_GROUPS"\n'
+        'del globals()[export_name]\n',
         'globals().get("_EXPORT_GROUPS").update({"tests.extra": {"value"}})\n',
         'globals().get("_EXPORT_" + "GROUPS").update('
         '{"tests.extra": {"value"}})\n',
@@ -6381,6 +6387,36 @@ def test_python_inventory_rejects_dynamic_module_pytestmark_attribute() -> None:
             "    raise AttributeError(name)\n"
             "def test_case(): pass\n",
         )
+
+
+def test_python_module_identity_allows_guarded_lazy_export_cache() -> None:
+    source = (
+        "path=tests/pkg/__init__.py\n"
+        "from importlib import import_module\n"
+        '_EXPORT_GROUPS = {"tests.target": {"value"}}\n'
+        "_LAZY_EXPORTS = {\n"
+        "    name: module_name\n"
+        "    for module_name, names in _EXPORT_GROUPS.items()\n"
+        "    for name in names\n"
+        "}\n"
+        "def __getattr__(name):\n"
+        "    module_name = _LAZY_EXPORTS.get(name)\n"
+        "    if module_name is None:\n"
+        "        raise AttributeError(name)\n"
+        "    value = getattr(import_module(module_name), name)\n"
+        "    globals()[name] = value\n"
+        "    return value\n"
+    )
+
+    identity = guard._python_module_dependency_identity(
+        "tests.pkg",
+        source,
+        guard._python_import_resolver(
+            lambda path: "value = True\n" if path == "tests/target.py" else None
+        ),
+    )
+
+    assert "module=tests.target" in identity
 
 
 def test_python_inventory_binds_rebound_import_alias_as_local_data() -> None:
