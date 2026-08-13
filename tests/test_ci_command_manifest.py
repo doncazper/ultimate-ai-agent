@@ -332,8 +332,8 @@ def test_pytest_lock_setup_and_command_bounds_fit_the_job_timeout() -> None:
     assert bounded_total <= job.timeout_minutes * 60
     assert job.timeout_minutes == 60
     hard_timeout_index = command.argv.index("--hard-timeout-seconds") + 1
-    assert command.argv[hard_timeout_index] == "2050"
-    assert command.timeout_seconds == 2080
+    assert command.argv[hard_timeout_index] == "1800"
+    assert command.timeout_seconds == 1830
 
 
 def test_static_verification_timeout_covers_full_corpus_inventory() -> None:

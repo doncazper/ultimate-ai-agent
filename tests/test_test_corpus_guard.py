@@ -6245,7 +6245,7 @@ def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     )
 
     assert aligned_with_static_timeout == {manifest_path, runner_path}
-    aligned_with_bounded_timeouts = guard._safe_pytest_suffix_discovery_alignment_paths(
+    aligned_with_pytest_timeout_change = guard._safe_pytest_suffix_discovery_alignment_paths(
         current_by_path={
             manifest_path: current_manifest.replace(
                 '                    "1800",\n',
@@ -6265,7 +6265,7 @@ def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
         },
     )
 
-    assert aligned_with_bounded_timeouts == {manifest_path, runner_path}
+    assert not aligned_with_pytest_timeout_change
     assert not guard._safe_pytest_suffix_discovery_alignment_paths(
         current_by_path={
             manifest_path: current_manifest.replace(
@@ -8078,6 +8078,44 @@ def test_changed_conftest_collection_hook_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed pytest collection hooks",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+@pytest.mark.parametrize(
+    "mutation_source",
+    (
+        "import tests.test_target as target\n"
+        "target.test_case.__test__ = False\n",
+        "from tests.test_target import test_case\n"
+        "setattr(test_case, '__test__', False)\n",
+        "from tests import test_target as target\n"
+        "alias = target.test_case\n"
+        "del alias.__test__\n",
+        "import tests.test_target as target\n"
+        "object.__setattr__(target.test_case, '__test__', False)\n",
+    ),
+)
+def test_changed_conftest_imported_test_mutation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation_source: str,
+) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/conftest.py").write_text(mutation_source)
+    outputs = iter((b"tests/conftest.py\0", b"", b"", b""))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, _path: None)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed conftest test declaration mutation",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 

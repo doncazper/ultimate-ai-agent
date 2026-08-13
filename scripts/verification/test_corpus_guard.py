@@ -10504,6 +10504,67 @@ def _pytest_conftest_import_modules(source: str, path: str) -> set[str]:
     return modules
 
 
+def _has_conftest_test_declaration_mutation(source: str, path: str) -> bool:
+    """Return whether conftest can mutate a declaration's ``__test__`` flag."""
+
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "pytest conftest imports cannot be inventoried safely"
+        ) from exc
+
+    def target_mutates_test_flag(target: ast.AST) -> bool:
+        return any(
+            (isinstance(child, ast.Attribute) and child.attr == "__test__")
+            or (
+                isinstance(child, ast.Subscript)
+                and isinstance(child.slice, ast.Constant)
+                and child.slice.value == "__test__"
+            )
+            for child in ast.walk(target)
+        )
+
+    def call_mutates_test_flag(node: ast.Call) -> bool:
+        attribute: ast.AST | None = None
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id in {"setattr", "delattr"}
+            and len(node.args) >= 2
+        ):
+            attribute = node.args[1]
+        elif (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"__setattr__", "__delattr__"}
+        ):
+            if (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "object"
+                and len(node.args) >= 2
+            ):
+                attribute = node.args[1]
+            elif node.args:
+                attribute = node.args[0]
+        if attribute is None:
+            return False
+        return not isinstance(attribute, ast.Constant) or attribute.value == "__test__"
+
+    for node in _module_execution_nodes(tree):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = (node.target,)
+        elif isinstance(node, ast.Delete):
+            targets = node.targets
+        else:
+            targets = ()
+        if any(target_mutates_test_flag(target) for target in targets):
+            return True
+        if isinstance(node, ast.Call) and call_mutates_test_flag(node):
+            return True
+    return False
+
+
 def _discover_conftest_files(repo: Path) -> tuple[str, ...]:
     discovered: list[str] = []
     for root, directory_names, file_names in os.walk(repo, followlinks=False):
@@ -10593,47 +10654,13 @@ def _safe_pytest_suffix_discovery_alignment_paths(
         "                900,\n",
         "                1_800,\n",
     )
-    pytest_timeout_needle = (
-        '                    "--hard-timeout-seconds",\n'
-        '                    "1800",\n'
-        '                    "--quiet",\n'
-        '                    "--safe-summary",\n'
-        "                ),\n"
-        '                (),\n'
-        '                "test",\n'
-        "                1830,\n"
-        "            ),\n"
-    )
-    pytest_timeout_replacement = pytest_timeout_needle.replace(
-        '                    "1800",\n',
-        '                    "2050",\n',
-    ).replace(
-        "                1830,\n",
-        "                2080,\n",
-    )
     if expected_manifest.count(static_timeout_needle) != 1:
-        return set()
-    if expected_manifest.count(pytest_timeout_needle) != 1:
         return set()
     allowed_manifests = {
         expected_manifest,
         expected_manifest.replace(
             static_timeout_needle,
             static_timeout_replacement,
-            1,
-        ),
-        expected_manifest.replace(
-            pytest_timeout_needle,
-            pytest_timeout_replacement,
-            1,
-        ),
-        expected_manifest.replace(
-            static_timeout_needle,
-            static_timeout_replacement,
-            1,
-        ).replace(
-            pytest_timeout_needle,
-            pytest_timeout_replacement,
             1,
         ),
     }
@@ -10983,6 +11010,12 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             continue
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
+        if _has_conftest_test_declaration_mutation(
+            current, path
+        ) or _has_conftest_test_declaration_mutation(prior, path):
+            raise TestCorpusGuardError(
+                "changed conftest test declaration mutation cannot be inventoried safely"
+            )
         if _pytest_plugin_modules(current, path) != _pytest_plugin_modules(prior, path):
             raise TestCorpusGuardError(
                 "changed pytest plugin registration cannot be inventoried safely"
