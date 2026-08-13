@@ -916,6 +916,13 @@ def test_python_inventory_binds_runtime_pytest_skip_body() -> None:
     )[0].ref
     assert active != aliased
 
+    invoked = guard.parse_python_declarations(
+        path,
+        "import pytest\ndef test_case():\n"
+        "    pytest.skip.__call__('disabled')\n",
+    )[0].ref
+    assert active != invoked
+
 
 @pytest.mark.parametrize(
     "runtime_xfail",
@@ -4058,6 +4065,25 @@ def test_frontend_inventory_binds_called_function_body_initializer() -> None:
     assert frontend.frontend_runtime_identity_source(active) != (
         frontend.frontend_runtime_identity_source(changed)
     )
+
+
+def test_frontend_inventory_binds_called_function_setup_skip_posture() -> None:
+    active = (
+        "function setup() { beforeEach(ctx => {}) }\n"
+        'setup();\ntest("case", () => {});\n'
+    )
+    skipped = active.replace("ctx => {}", "ctx => ctx.skip()")
+
+    active_ref = frontend.parse_frontend_refs(
+        "apps/control-center/src/example.test.ts",
+        active,
+    )[0]
+    skipped_ref = frontend.parse_frontend_refs(
+        "apps/control-center/src/example.test.ts",
+        skipped,
+    )[0]
+
+    assert active_ref != skipped_ref
 
 
 @pytest.mark.parametrize(
@@ -7380,6 +7406,11 @@ def test_python_inventory_rejects_descriptor_pytest_collection_class_mutation(
         ),
         (
             "import pytest\ndef test_case(): pass\n",
+            "import pytest\n@pytest.mark.xfail(reason='expected')\n"
+            "def test_case(): assert False\n",
+        ),
+        (
+            "import pytest\ndef test_case(): pass\n",
             "import pytest\npytestmark = pytest.mark.xfail("
             "run=False, reason='disabled')\ndef test_case(): pass\n",
         ),
@@ -8094,6 +8125,10 @@ def test_changed_conftest_collection_hook_fails_closed(
         "del alias.__test__\n",
         "import tests.test_target as target\n"
         "object.__setattr__(target.test_case, '__test__', False)\n",
+        "import tests.test_target as target\n"
+        "def disable():\n"
+        "    target.test_case.__test__ = False\n"
+        "disable()\n",
     ),
 )
 def test_changed_conftest_imported_test_mutation_fails_closed(

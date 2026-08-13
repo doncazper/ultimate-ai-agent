@@ -1818,6 +1818,13 @@ def _pytest_collection_abort_callable_name(
             aliases,
         )
         return f"{abort_name}-exception" if abort_name in {"skip", "xfail"} else ""
+    if isinstance(node, ast.Attribute) and node.attr == "__call__":
+        abort_name = _pytest_collection_abort_callable_name(
+            node.value,
+            imported_modules,
+            aliases,
+        )
+        return abort_name if abort_name in {"skip", "xfail"} else ""
     if (
         isinstance(node, ast.Call)
         and _is_builtin_getattr_reference(node.func, imported_modules, aliases)
@@ -4009,7 +4016,6 @@ def _parameterized_ref(
         raise TestCorpusGuardError("Python parametrize decorator cannot be resolved")
     execution_disabling_decorators: list[ast.expr] = []
     xfail_decorators: list[ast.expr] = []
-    xfail_can_disable_execution = False
     for decorator in candidate_decorators:
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
         if not isinstance(target, ast.Attribute) or not is_proven_pytest_mark(target):
@@ -4036,10 +4042,7 @@ def _parameterized_ref(
             raise TestCorpusGuardError(
                 "Python xfail run condition cannot be inventoried safely"
             )
-        if run_keywords and run_keywords[-1].value.value is False:
-            xfail_can_disable_execution = True
-    if xfail_can_disable_execution:
-        execution_disabling_decorators.extend(xfail_decorators)
+    execution_disabling_decorators.extend(xfail_decorators)
     usefixtures_decorators = tuple(
         decorator
         for decorator in candidate_decorators
@@ -6386,8 +6389,7 @@ def _parameterized_ref(
             raise TestCorpusGuardError(
                 "Python string skip condition cannot be inventoried safely"
             )
-    if xfail_can_disable_execution:
-        conditional_execution_decorators.extend(xfail_decorators)
+    conditional_execution_decorators.extend(xfail_decorators)
     for decorator in conditional_execution_decorators:
         if not isinstance(decorator, ast.Call):
             continue
@@ -10549,7 +10551,7 @@ def _has_conftest_test_declaration_mutation(source: str, path: str) -> bool:
             return False
         return not isinstance(attribute, ast.Constant) or attribute.value == "__test__"
 
-    for node in _module_execution_nodes(tree):
+    for node in _module_collection_execution_nodes(tree):
         if isinstance(node, ast.Assign):
             targets = node.targets
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):

@@ -4979,6 +4979,7 @@ def _local_setup_hook_postures(
     hook_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
     )
+    initializer_mask = _module_initializer_code_mask(text)
     posture_regions: list[tuple[int, int, str]] = []
     for match in re.finditer(
         rf"(?<![.\w$]){hook_pattern}\s*(?P<arguments>\()",
@@ -4987,11 +4988,15 @@ def _local_setup_hook_postures(
         prefix = scan_text[max(0, match.start() - 32) : match.start()]
         if re.search(r"\bfunction\s*$", prefix) is not None:
             continue
-        if any(
-            start < match.start() < end for start, end in unproven_block_regions
-        ) or any(
-            start <= match.start() < end
-            for start, end in unproven_expression_regions
+        if not initializer_mask[match.start()] and (
+            any(
+                start < match.start() < end
+                for start, end in unproven_block_regions
+            )
+            or any(
+                start <= match.start() < end
+                for start, end in unproven_expression_regions
+            )
         ):
             continue
         call_end = _skip_balanced(text, match.start("arguments"))
