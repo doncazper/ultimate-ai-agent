@@ -3929,6 +3929,57 @@ def _parameterized_ref(
         for candidate in tree.body
         if isinstance(candidate, ast.ClassDef)
     }
+    local_callable_instances: dict[str, ast.Call | None] = {}
+    for candidate in tree.body:
+        if isinstance(candidate, ast.Assign):
+            targets = candidate.targets
+            value = candidate.value
+        elif isinstance(candidate, ast.AnnAssign) and candidate.value is not None:
+            targets = (candidate.target,)
+            value = candidate.value
+        else:
+            continue
+        if not (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in local_class_definitions
+            and any(
+                isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and member.name == "__call__"
+                for member in local_class_definitions[value.func.id].body
+            )
+        ):
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                local_callable_instances[target.id] = (
+                    value if target.id not in local_callable_instances else None
+                )
+    changed = True
+    while changed:
+        changed = False
+        for candidate in tree.body:
+            if not isinstance(candidate, (ast.Assign, ast.AnnAssign)):
+                continue
+            value = candidate.value
+            targets = (
+                candidate.targets
+                if isinstance(candidate, ast.Assign)
+                else (candidate.target,)
+            )
+            if not (
+                isinstance(value, ast.Name) and value.id in local_callable_instances
+            ):
+                continue
+            for target in targets:
+                if not isinstance(target, ast.Name):
+                    continue
+                resolved = local_callable_instances[value.id]
+                if target.id not in local_callable_instances:
+                    local_callable_instances[target.id] = resolved
+                    changed = True
+                elif local_callable_instances[target.id] is not resolved:
+                    local_callable_instances[target.id] = None
     container_abort_aliases = _pytest_collection_abort_aliases(
         tree,
         imported_modules,
@@ -4020,6 +4071,11 @@ def _parameterized_ref(
         return None
 
     def maybe_callable(expression: ast.AST) -> bool:
+        if (
+            isinstance(expression, ast.Name)
+            and expression.id in local_callable_instances
+        ):
+            return True
         if helper_for_expression(expression, node, {}) is not None:
             return True
         if _pytest_collection_abort_callable_name(
@@ -4064,8 +4120,31 @@ def _parameterized_ref(
     def is_non_aborting_local_callable(
         expression: ast.AST,
         seen: frozenset[str] = frozenset(),
+        owner_helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] | None = None,
     ) -> bool:
-        helper = helper_for_expression(expression, node, {})
+        if (
+            isinstance(expression, ast.Name)
+            and expression.id in local_callable_instances
+        ):
+            instance = local_callable_instances[expression.id]
+            if instance is None or not isinstance(instance.func, ast.Name):
+                return False
+            class_definition = local_class_definitions.get(instance.func.id)
+            if class_definition is None:
+                return False
+            owner_helpers = {
+                member.name: member
+                for member in class_definition.body
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+            helper = owner_helpers.get("__call__")
+        else:
+            helper = None
+        helper = (
+            helper
+            or (expression if isinstance(expression, helper_type) else None)
+            or helper_for_expression(expression, node, {})
+        )
         if (
             helper is None
             and isinstance(expression, ast.Call)
@@ -4107,9 +4186,18 @@ def _parameterized_ref(
                 ):
                     return False
                 nested_helper = helper_for_expression(child.func, helper, {})
+                if (
+                    nested_helper is None
+                    and owner_helpers is not None
+                    and isinstance(child.func, ast.Attribute)
+                    and isinstance(child.func.value, ast.Name)
+                    and child.func.value.id in {"self", "cls"}
+                ):
+                    nested_helper = owner_helpers.get(child.func.attr)
                 if nested_helper is not None and not is_non_aborting_local_callable(
-                    child.func,
+                    nested_helper,
                     frozenset((*seen, helper.name)),
+                    owner_helpers,
                 ):
                     return False
             if (
@@ -4283,6 +4371,10 @@ def _parameterized_ref(
                     for target in targets:
                         if isinstance(target, ast.Name):
                             callable_containers[target.id] = container
+                        elif isinstance(target, (ast.Tuple, ast.List)):
+                            raise TestCorpusGuardError(
+                                "dynamic runtime helper container cannot be inventoried safely"
+                            )
                         elif all(
                             not maybe_callable(item)
                             or is_non_aborting_local_callable(item)
@@ -4294,8 +4386,7 @@ def _parameterized_ref(
                                 "dynamic runtime helper container cannot be inventoried safely"
                             )
                 elif any(
-                    isinstance(target, ast.Subscript)
-                    for target in targets
+                    isinstance(target, ast.Subscript) for target in targets
                 ) and callable_requires_fail_closed(value):
                     raise TestCorpusGuardError(
                         "dynamic runtime helper container cannot be inventoried safely"

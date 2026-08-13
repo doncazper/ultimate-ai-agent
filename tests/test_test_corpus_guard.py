@@ -1195,6 +1195,9 @@ def test_python_inventory_rejects_aborting_local_callback_registry() -> None:
         "    callbacks = [pytest.xfail]\n    nested = {'group': callbacks}\n"
         "    nested['group'][0]('blocked')\n",
         "import pytest\ndef test_case():\n"
+        "    callbacks = [pytest.xfail]\n    alias, = (callbacks,)\n"
+        "    alias[0]('blocked')\n",
+        "import pytest\ndef test_case():\n"
         "    callbacks = [pytest.xfail]\n    derived = list(item for item in callbacks)\n"
         "    derived[0]('blocked')\n",
     ),
@@ -1220,6 +1223,60 @@ def test_python_inventory_allows_direct_imported_data_in_command() -> None:
     )
 
     assert len(declarations) == 1
+
+
+@pytest.mark.parametrize(
+    "instance_source",
+    (
+        "STOP = Stop()\n",
+        "STOP = Stop()\nALIAS = STOP\n",
+    ),
+)
+def test_python_inventory_closes_module_callable_instance_alias(
+    instance_source: str,
+) -> None:
+    path = "tests/test_example.py"
+    callback_name = "ALIAS" if "ALIAS" in instance_source else "STOP"
+    active = (
+        "class Stop:\n"
+        "    def __call__(self, reason):\n        return None\n"
+        f"{instance_source}"
+        f"def test_case():\n    callbacks = [{callback_name}]\n"
+        "    callbacks[0]('blocked')\n"
+    )
+    xfailed = active.replace(
+        "        return None",
+        "        import pytest\n        pytest.xfail(reason)",
+    )
+
+    try:
+        active_ref = guard.parse_python_declarations(path, active)[0].ref
+        xfailed_ref = guard.parse_python_declarations(path, xfailed)[0].ref
+    except guard.TestCorpusGuardError:
+        return
+    assert active_ref != xfailed_ref
+
+
+def test_python_inventory_closes_transitive_callable_instance_abort() -> None:
+    path = "tests/test_example.py"
+    active = (
+        "class Stop:\n"
+        "    def stop(self, reason):\n        return None\n"
+        "    def __call__(self, reason):\n        self.stop(reason)\n"
+        "STOP = Stop()\n"
+        "def test_case():\n    callbacks = [STOP]\n    callbacks[0]('blocked')\n"
+    )
+    xfailed = active.replace(
+        "        return None",
+        "        import pytest\n        pytest.xfail(reason)",
+    )
+
+    assert len(guard.parse_python_declarations(path, active)) == 1
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic runtime helper container",
+    ):
+        guard.parse_python_declarations(path, xfailed)
 
 
 @pytest.mark.parametrize(
@@ -2954,6 +3011,19 @@ def test_frontend_inventory_binds_context_member_dispatch() -> None:
     assert active != skipped
 
 
+def test_frontend_inventory_rejects_name_only_opaque_context_helper() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="binding cannot be resolved safely",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            "let helpers = {inner: context => context};\n"
+            "function stop(context) { return helpers.inner(context); }\n"
+            'test("case", context => stop(context));',
+        )
+
+
 @pytest.mark.parametrize(
     "source, changed",
     (
@@ -2979,6 +3049,40 @@ def test_frontend_inventory_binds_context_member_dispatch() -> None:
             "function stop(context) { const run = inner; return run(context); }\n"
             'test("case", context => stop(context));',
         ),
+        (
+            "const saved = []; function inner() { return saved[0]; }\n"
+            "function stop(context) { saved.push(context); return inner(); }\n"
+            'test("case", context => stop(context));',
+            "const saved = []; function inner() { saved[0].skip(); return saved[0]; }\n"
+            "function stop(context) { saved.push(context); return inner(); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "let saved; function sink(value) { saved = value; }\n"
+            "function inner() { return saved; }\n"
+            "function stop(context) { sink(context); return inner(); }\n"
+            'test("case", context => stop(context));',
+            "let saved; function sink(value) { saved = value; }\n"
+            "function inner() { saved.skip(); return saved; }\n"
+            "function stop(context) { sink(context); return inner(); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "function inner(value) { return value; }\n"
+            "function stop(context) { return [context].map(inner); }\n"
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            "function stop(context) { return [context].map(inner); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "function inner(value) { return value; }\n"
+            "function stop(context) { return Promise.resolve(context).then(inner); }\n"
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            "function stop(context) { return Promise.resolve(context).then(inner); }\n"
+            'test("case", context => stop(context));',
+        ),
     ),
 )
 def test_frontend_inventory_closes_escaped_context_flow(
@@ -2993,6 +3097,61 @@ def test_frontend_inventory_closes_escaped_context_flow(
     except guard.TestCorpusGuardError:
         return
     assert active != skipped
+
+
+def test_frontend_inventory_binds_test_for_context_helper() -> None:
+    path = "apps/control-center/src/example.test.tsx"
+    source = (
+        "function stop(context) { return context; }\n"
+        'test.for([[1]])("case", (_row, context) => stop(context));'
+    )
+    changed = source.replace(
+        "return context",
+        "context.skip(); return context",
+    )
+
+    assert guard.parse_frontend_declarations(path, source)[0].ref != (
+        guard.parse_frontend_declarations(path, changed)[0].ref
+    )
+
+    typed_source = source.replace(
+        "(_row, context)",
+        "(_row: number[], context: TestContext)",
+    )
+    typed_changed = typed_source.replace(
+        "return context",
+        "context.skip(); return context",
+    )
+    assert guard.parse_frontend_declarations(path, typed_source)[0].ref != (
+        guard.parse_frontend_declarations(path, typed_changed)[0].ref
+    )
+
+
+@pytest.mark.parametrize(
+    "callback",
+    (
+        "(_row, context) => context.skip()",
+        "(_row, {skip}) => skip()",
+    ),
+)
+def test_frontend_inventory_rejects_test_for_runtime_skip(callback: str) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime callback skip",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            f'test.for([[1]])("case", {callback});',
+        )
+
+
+def test_frontend_inventory_does_not_treat_each_row_as_context() -> None:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        'test.each([[{skip: "value"}]])("case", ({skip}) => expect(skip).toBe("value"));',
+    )
+
+    assert len(declarations) == 1
 
 
 def test_frontend_inventory_ignores_shadowed_dormant_context_helper() -> None:
@@ -3479,6 +3638,12 @@ def test_frontend_inventory_binds_called_arrow_body_initializer() -> None:
         'const setup = new Setup(); const key = "apply"; Reflect.get(setup, key)();',
         "class Setup { static apply() { beforeEach(() => {}); return 1; } }\n"
         'const Factory = Setup; Reflect.get(Factory, "apply")();',
+        "class Setup { static apply() { beforeEach(() => {}); return 1; } }\n"
+        "const Factory = (Setup); Factory.apply();",
+        "class Setup { static apply() { beforeEach(() => {}); return 1; } }\n"
+        "const items = [Setup]; items[0].apply();",
+        "class Setup { static apply() { beforeEach(() => {}); return 1; } }\n"
+        "registry.add(Setup); registry.run();",
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
         'const setup = new Setup(); const key = "apply"; setup[key]();',
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
