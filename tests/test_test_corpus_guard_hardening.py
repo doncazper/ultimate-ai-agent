@@ -571,6 +571,34 @@ def test_successful_pytest_exit_expanded_returncode_binds_runtime_posture() -> N
     assert aborting != running
 
 
+def test_successful_pytest_exit_starred_arguments_bind_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    pytest.exit(*('complete', 0))\n"
+    )
+    running = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    return None\n"
+    )
+
+    assert aborting != running
+
+
+def test_successful_pytest_exit_starred_arguments_bind_collection_posture() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level pytest collection abort",
+    ):
+        _python_test_ref(
+            "import pytest\n"
+            "pytest.exit(*('complete', 0))\n"
+            "def test_sample():\n"
+            "    return None\n"
+        )
+
+
 @pytest.mark.parametrize(
     "body",
     (
@@ -623,6 +651,45 @@ def test_unittest_bound_skip_method_binds_runtime_posture() -> None:
     )
 
     assert aborting != running
+
+
+def test_unittest_bound_skip_method_rebinding_clears_runtime_posture() -> None:
+    rebound = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        skip = self.skipTest\n"
+        "        skip = lambda message: None\n"
+        "        skip('active')\n"
+    )
+    running = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        return None\n"
+    )
+
+    assert rebound == running
+
+
+def test_conditional_skip_method_rebinding_remains_fail_closed() -> None:
+    possibly_aborting = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self, replace):\n"
+        "        skip = self.skipTest\n"
+        "        if replace:\n"
+        "            skip = lambda message: None\n"
+        "        skip('maybe disabled')\n"
+    )
+    running = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self, replace):\n"
+        "        return None\n"
+    )
+
+    assert possibly_aborting != running
 
 
 def test_module_lambda_skip_helper_binds_runtime_posture() -> None:
@@ -687,3 +754,22 @@ def test_aliased_local_vitest_setup_hook_binds_test_posture() -> None:
     )
 
     assert skipping != running
+
+
+def test_shadowed_local_vitest_setup_hook_alias_fails_closed() -> None:
+    source = (
+        'import { beforeEach, test } from "vitest";\n'
+        "const hook = beforeEach;\n"
+        "function helper() { const hook = value => value; hook('active'); }\n"
+        "helper();\n"
+        'test("sample", () => {});\n'
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="setup hook alias shadowing",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/sample.test.ts",
+            source,
+        )

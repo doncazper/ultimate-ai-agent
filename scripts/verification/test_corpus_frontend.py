@@ -4680,6 +4680,24 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
             if alias not in hook_names:
                 hook_names.add(alias)
                 changed = True
+    source_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
+    )
+    for binding_match in re.finditer(
+        rf"(?<![.\w$])(?P<alias>{TEST_API_NAME})"
+        rf"(?:\s*:\s*[^=;\r\n]+)?\s*=\s*(?!=)"
+        rf"(?P<value>[^;\r\n]+)\s*;",
+        scan_text,
+    ):
+        if binding_match.group("alias") not in hook_names:
+            continue
+        if re.fullmatch(
+            rf"\s*\(*\s*{source_pattern}\s*\)*\s*",
+            binding_match.group("value"),
+        ) is None:
+            raise FrontendInventoryError(
+                "frontend setup hook alias shadowing cannot be inventoried safely"
+            )
     hook_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
     )

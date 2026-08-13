@@ -1837,6 +1837,12 @@ def _is_pytest_collection_abort_call(
     if name == "importorskip":
         return True
     if name == "exit":
+        if any(isinstance(argument, ast.Starred) for argument in node.args):
+            # A bounded starred tuple/list may provide a successful return code,
+            # and an unresolved expansion may do the same. Bind either form to
+            # the abort posture instead of allowing collection to terminate
+            # successfully without changing declaration identity.
+            return True
         literal_zero = any(
             keyword.arg == "returncode"
             and isinstance(keyword.value, ast.Constant)
@@ -5640,7 +5646,6 @@ def _parameterized_ref(
             for candidate in candidates
         )
     }
-    runtime_unittest_method_skip_aliases: set[str] = set()
     for _alias_pass in range(2):
         for execution_node in function_execution_nodes:
             if not isinstance(
@@ -5675,14 +5680,49 @@ def _parameterized_ref(
                         runtime_unittest_namespace_aliases.add(alias)
                     if skip_value:
                         runtime_unittest_skip_aliases.add(alias)
-                    if (
-                        isinstance(bound_value, ast.Attribute)
-                        and bound_value.attr == "skipTest"
-                    ) or (
-                        isinstance(bound_value, ast.Name)
-                        and bound_value.id in runtime_unittest_method_skip_aliases
+    runtime_unittest_method_skip_call_ids: set[int] = set()
+    for function_scope in function_scopes:
+        method_skip_aliases: set[str] = set()
+        conditional_node_ids = conditional_execution_node_ids_by_scope[
+            id(function_scope)
+        ]
+        for execution_node in scope_execution_nodes_by_scope[id(function_scope)]:
+            if isinstance(
+                execution_node,
+                (ast.Assign, ast.AnnAssign, ast.NamedExpr),
+            ):
+                targets = (
+                    execution_node.targets
+                    if isinstance(execution_node, ast.Assign)
+                    else (execution_node.target,)
+                )
+                for target in targets:
+                    for alias, bound_value in _paired_binding_values(
+                        target,
+                        execution_node.value,
                     ):
-                        runtime_unittest_method_skip_aliases.add(alias)
+                        if (
+                            isinstance(bound_value, ast.Attribute)
+                            and bound_value.attr == "skipTest"
+                        ) or (
+                            isinstance(bound_value, ast.Name)
+                            and bound_value.id in method_skip_aliases
+                        ):
+                            method_skip_aliases.add(alias)
+                        elif id(execution_node) not in conditional_node_ids:
+                            method_skip_aliases.discard(alias)
+                continue
+            if not isinstance(execution_node, ast.Call):
+                continue
+            call_target = callable_container_targets_by_call_id.get(
+                id(execution_node),
+                execution_node.func,
+            )
+            if (
+                isinstance(call_target, ast.Name)
+                and call_target.id in method_skip_aliases
+            ):
+                runtime_unittest_method_skip_call_ids.add(id(execution_node))
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:
         if isinstance(execution_node, ast.Call):
@@ -5717,10 +5757,7 @@ def _parameterized_ref(
                 and call_target.attr == "skipTest"
             ):
                 return True
-            if (
-                isinstance(call_target, ast.Name)
-                and call_target.id in runtime_unittest_method_skip_aliases
-            ):
+            if id(execution_node) in runtime_unittest_method_skip_call_ids:
                 return True
             if isinstance(call_target, ast.Name):
                 captured = module_callable_values.get(call_target.id)
