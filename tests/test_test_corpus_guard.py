@@ -4548,10 +4548,13 @@ fixtureTest("extended test", () => {});
 """,
     )
 
-    assert [item.ref for item in declarations] == [
-        "apps/control-center/src/example.spec.ts::aliased test",
-        "apps/control-center/src/example.spec.ts::extended test",
-    ]
+    assert declarations[0].ref == (
+        "apps/control-center/src/example.spec.ts::aliased test"
+    )
+    assert declarations[1].ref.startswith(
+        "apps/control-center/src/example.spec.ts::extended test::"
+        "execution-test-extension:sha256:"
+    )
 
 
 def test_frontend_inventory_fails_closed_for_untracked_extended_api() -> None:

@@ -1717,25 +1717,24 @@ def _pytest_collection_abort_callable_name(
         and _pytest_collection_abort_callable_name(
             node.args[0], imported_modules, aliases
         )
-        == "xfail"
+        in {"skip", "xfail"}
     ):
+        abort_name = _pytest_collection_abort_callable_name(
+            node.args[0], imported_modules, aliases
+        )
         if isinstance(node.args[1], ast.Constant) and node.args[1].value == "Exception":
-            return "xfail-exception"
+            return f"{abort_name}-exception"
         raise TestCorpusGuardError(
-            "dynamic pytest xfail exception reference cannot be inventoried safely"
+            "dynamic pytest abort exception reference cannot be inventoried safely"
         )
 
     if isinstance(node, ast.Attribute) and node.attr == "Exception":
-        return (
-            "xfail"
-            if _pytest_collection_abort_callable_name(
-                node.value,
-                imported_modules,
-                aliases,
-            )
-            == "xfail"
-            else ""
+        abort_name = _pytest_collection_abort_callable_name(
+            node.value,
+            imported_modules,
+            aliases,
         )
+        return f"{abort_name}-exception" if abort_name in {"skip", "xfail"} else ""
     if (
         isinstance(node, ast.Call)
         and _is_builtin_getattr_reference(node.func, imported_modules, aliases)
@@ -2780,7 +2779,13 @@ def _python_module_dependency_identity(
                 imported_modules,
                 {},
             )
-            in {"importorskip", "skip", "xfail", "xfail-exception"}
+            in {
+                "importorskip",
+                "skip",
+                "skip-exception",
+                "xfail",
+                "xfail-exception",
+            }
             for child in ast.walk(tree)
             if isinstance(child, ast.Call)
         )
@@ -3348,7 +3353,13 @@ def _python_imported_binding_source(
             imported_modules,
             {},
         )
-        in {"importorskip", "skip", "xfail", "xfail-exception"}
+        in {
+            "importorskip",
+            "skip",
+            "skip-exception",
+            "xfail",
+            "xfail-exception",
+        }
         for binding_node in binding_nodes.values()
         for child in ast.walk(binding_node)
         if isinstance(child, ast.Call)
@@ -5202,7 +5213,13 @@ def _parameterized_ref(
                         runtime_imports,
                         runtime_abort_aliases,
                     )
-                    in {"importorskip", "skip", "xfail", "xfail-exception"}
+                    in {
+                        "importorskip",
+                        "skip",
+                        "skip-exception",
+                        "xfail",
+                        "xfail-exception",
+                    }
                     for child in ast.walk(module_node)
                 )
                 if possible_abort:
@@ -5231,6 +5248,7 @@ def _parameterized_ref(
                     "importorskip",
                     "skip",
                     "xfail",
+                    "skip-exception",
                     "xfail-exception",
                 }:
                     runtime_abort_aliases[alias] = abort_name
@@ -5532,7 +5550,14 @@ def _parameterized_ref(
             value,
             runtime_imports,
             runtime_abort_aliases,
-        ) in {"exit", "importorskip", "skip", "xfail", "xfail-exception"}
+        ) in {
+            "exit",
+            "importorskip",
+            "skip",
+            "skip-exception",
+            "xfail",
+            "xfail-exception",
+        }
         if called_runtime_names & target_names and possible_abort:
             raise TestCorpusGuardError(
                 "dynamic runtime abort alias cannot be inventoried safely"
@@ -5572,15 +5597,17 @@ def _parameterized_ref(
                             runtime_abort_aliases,
                         )
                         else (
-                            "xfail-exception"
+                            f"{abort_name}-exception"
                             if isinstance(bound_value, ast.Attribute)
                             and bound_value.attr == "Exception"
-                            and _pytest_collection_abort_callable_name(
-                                bound_value.value,
-                                runtime_imports,
-                                runtime_abort_aliases,
+                            and (
+                                abort_name := _pytest_collection_abort_callable_name(
+                                    bound_value.value,
+                                    runtime_imports,
+                                    runtime_abort_aliases,
+                                )
                             )
-                            == "xfail"
+                            in {"skip", "xfail"}
                             else _pytest_collection_abort_callable_name(
                                 bound_value,
                                 runtime_imports,
@@ -5594,6 +5621,7 @@ def _parameterized_ref(
                         "importorskip",
                         "skip",
                         "xfail",
+                        "skip-exception",
                         "xfail-exception",
                     } and (runtime_abort_aliases.get(alias) != abort_name):
                         runtime_abort_aliases[alias] = abort_name
@@ -5614,6 +5642,7 @@ def _parameterized_ref(
             "importorskip",
             "skip",
             "xfail",
+            "skip-exception",
             "xfail-exception",
         }:
             runtime_abort_aliases.setdefault(alias, abort_name)
@@ -5630,6 +5659,7 @@ def _parameterized_ref(
             "importorskip",
             "skip",
             "xfail",
+            "skip-exception",
             "xfail-exception",
         }:
             runtime_abort_aliases[alias] = abort_name
@@ -5766,6 +5796,7 @@ def _parameterized_ref(
                 "importorskip",
                 "skip",
                 "xfail",
+                "skip-exception",
                 "xfail-exception",
             }:
                 return True
@@ -5787,7 +5818,13 @@ def _parameterized_ref(
                                 runtime_imports,
                                 runtime_abort_aliases,
                             )
-                            in {"importorskip", "skip", "xfail", "xfail-exception"}
+                            in {
+                                "importorskip",
+                                "skip",
+                                "skip-exception",
+                                "xfail",
+                                "xfail-exception",
+                            }
                             or _is_pytest_collection_abort_call(
                                 child,
                                 runtime_imports,
@@ -5809,14 +5846,11 @@ def _parameterized_ref(
         ):
             return True
         if isinstance(raised, ast.Attribute) and raised.attr == "Exception":
-            return (
-                _pytest_collection_abort_callable_name(
-                    raised.value,
-                    runtime_imports,
-                    runtime_abort_aliases,
-                )
-                == "xfail"
-            )
+            return _pytest_collection_abort_callable_name(
+                raised.value,
+                runtime_imports,
+                runtime_abort_aliases,
+            ) in {"skip", "xfail"}
         if isinstance(raised, ast.Call):
             return (
                 _pytest_collection_abort_callable_name(
@@ -5824,11 +5858,12 @@ def _parameterized_ref(
                     runtime_imports,
                     runtime_abort_aliases,
                 )
-                == "xfail-exception"
+                in {"skip-exception", "xfail-exception"}
             )
         return (
             isinstance(raised, ast.Name)
-            and runtime_abort_aliases.get(raised.id) == "xfail-exception"
+            and runtime_abort_aliases.get(raised.id)
+            in {"skip-exception", "xfail-exception"}
         )
 
     has_runtime_abort = any(

@@ -763,6 +763,25 @@ def test_runtime_abort_binds_referenced_module_global() -> None:
     assert disabled != enabled
 
 
+@pytest.mark.parametrize(
+    "runtime_skip",
+    (
+        "import pytest\ndef test_sample():\n"
+        "    raise pytest.skip.Exception('disabled')\n",
+        "import pytest\ndef test_sample():\n"
+        "    Abort = pytest.skip.Exception\n    raise Abort('disabled')\n",
+        "import pytest\ndef test_sample():\n"
+        "    Abort = getattr(pytest.skip, 'Exception')\n"
+        "    raise Abort('disabled')\n",
+    ),
+)
+def test_runtime_abort_binds_pytest_skip_exception(runtime_skip: str) -> None:
+    running = _python_test_ref("def test_sample():\n    return None\n")
+    skipped = _python_test_ref(runtime_skip)
+
+    assert skipped != running
+
+
 def test_collect_ignore_glob_binds_collection_posture() -> None:
     first = _python_test_ref(
         "collect_ignore_glob = ['legacy_*.py']\n"
@@ -791,6 +810,62 @@ def test_local_vitest_setup_hook_binds_test_posture() -> None:
     )
 
     assert skipping != running
+
+
+def test_vitest_around_each_hook_binds_test_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { aroundEach, test } from "vitest";\n'
+        "aroundEach(async (_runTest, context) => { context.skip(); });\n"
+        'test("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { aroundEach, test } from "vitest";\n'
+        "aroundEach(async (runTest) => { await runTest(); });\n"
+        'test("sample", () => {});\n'
+    )
+
+    assert skipping != running
+
+
+def test_vitest_extended_api_binds_auto_fixture_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { test } from "vitest";\n'
+        "const extended = test.extend({\n"
+        "  fixture: [async ({ skip }, use) => { skip(); await use('x'); }, "
+        "{ auto: true }],\n"
+        "});\n"
+        'extended("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { test } from "vitest";\n'
+        "const extended = test.extend({\n"
+        "  fixture: [async ({}, use) => { await use('x'); }, { auto: true }],\n"
+        "});\n"
+        'extended("sample", () => {});\n'
+    )
+
+    assert skipping != running
+
+    disabled = _frontend_test_ref(
+        'import { test } from "vitest";\n'
+        "const disabled = true;\n"
+        "const extended = test.extend({\n"
+        "  fixture: [async ({ skip }, use) => { if (disabled) skip(); "
+        "await use('x'); }, { auto: true }],\n"
+        "});\n"
+        'extended("sample", () => {});\n'
+    )
+    enabled = _frontend_test_ref(
+        'import { test } from "vitest";\n'
+        "const disabled = false;\n"
+        "const extended = test.extend({\n"
+        "  fixture: [async ({ skip }, use) => { if (disabled) skip(); "
+        "await use('x'); }, { auto: true }],\n"
+        "});\n"
+        'extended("sample", () => {});\n'
+    )
+
+    assert disabled != enabled
 
 
 def test_aliased_local_vitest_setup_hook_binds_test_posture() -> None:

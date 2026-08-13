@@ -2080,6 +2080,141 @@ def _test_api_names(text: str, scan_text: str) -> set[str]:
     return names
 
 
+def _extended_test_api_postures(
+    text: str,
+    scan_text: str,
+    api_names: set[str],
+    import_binding_resolver: ImportBindingResolver | None,
+) -> dict[str, tuple[str, ...]]:
+    """Bind each extended runner API to its complete extension initializer."""
+
+    javascript_keywords = {
+        "async",
+        "await",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "default",
+        "delete",
+        "do",
+        "else",
+        "export",
+        "extends",
+        "finally",
+        "for",
+        "function",
+        "if",
+        "in",
+        "let",
+        "of",
+        "return",
+        "static",
+        "super",
+        "switch",
+        "throw",
+        "try",
+        "var",
+        "while",
+        "yield",
+    }
+    host_globals = {
+        "Array",
+        "Boolean",
+        "Date",
+        "Error",
+        "JSON",
+        "Map",
+        "Math",
+        "Number",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "URL",
+        "console",
+        "queueMicrotask",
+        "setInterval",
+        "setTimeout",
+    }
+    postures: dict[str, tuple[str, ...]] = {}
+    for match in EXTENSION_PATTERN.finditer(scan_text):
+        alias = match.group("alias")
+        base = match.group("base")
+        if alias not in api_names or base not in api_names:
+            continue
+        call_start = match.end() - 1
+        call_end = _skip_balanced(text, call_start)
+        initializer = text[call_start + 1 : call_end - 1]
+        source = _normalized_javascript_expression(
+            text[match.start("base") : call_end]
+        )
+        initializer_mask = _code_mask(initializer)
+        initializer_scan = "".join(
+            character if initializer_mask[index] else " "
+            for index, character in enumerate(initializer)
+        )
+        callback_bindings: set[str] = set()
+        for callback in re.finditer(
+            rf"(?:async\s+)?(?:\((?P<parameters>[^()]*)\)|"
+            rf"(?P<bare>{TEST_API_NAME}))\s*=>",
+            initializer_scan,
+        ):
+            parameters = callback.group("parameters") or callback.group("bare")
+            if "=" in parameters:
+                raise FrontendInventoryError(
+                    "frontend extended test API callback defaults cannot be "
+                    "inventoried safely"
+                )
+            callback_bindings.update(re.findall(TEST_API_NAME, parameters))
+        local_bindings = set(
+            re.findall(
+                rf"\b(?:const|let|var|function|class)\s+(?P<name>{TEST_API_NAME})",
+                initializer_scan,
+            )
+        )
+        binding_parts: list[str] = []
+        for name in _javascript_binding_names(
+            initializer,
+            ignore_object_keys=True,
+        ):
+            if (
+                name == base
+                or name in callback_bindings
+                or name in local_bindings
+                or name in javascript_keywords
+                or name in host_globals
+            ):
+                continue
+            binding_source = _static_collection_source(
+                text,
+                scan_text,
+                name,
+                match.start(),
+                import_binding_resolver,
+            )
+            binding_parts.append(f"binding:{name}={binding_source}")
+        parent_postures = postures.get(base, ())
+        identity_source = "\n".join(
+            (*parent_postures, source, *binding_parts)
+        )
+        digest = hashlib.sha256(identity_source.encode("utf-8")).hexdigest()
+        postures[alias] = (f"test-extension:sha256:{digest}",)
+    return postures
+
+
+def _applicable_extended_test_api_postures(
+    postures: dict[str, tuple[str, ...]],
+    scan_text: str,
+    offset: int,
+) -> tuple[str, ...]:
+    match = re.match(TEST_API_NAME, scan_text[offset:])
+    return postures.get(match.group(0), ()) if match is not None else ()
+
+
 def _suite_api_names(text: str, scan_text: str) -> set[str]:
     names = {"describe", "suite"}
     for bindings, module in _named_imports(text, scan_text):
@@ -4770,7 +4905,13 @@ def _local_setup_hook_postures(
             "frontend setup hook binding cannot be resolved safely"
         )
 
-    hook_names = {"afterAll", "afterEach", "beforeAll", "beforeEach"}
+    hook_names = {
+        "afterAll",
+        "afterEach",
+        "aroundEach",
+        "beforeAll",
+        "beforeEach",
+    }
     for bindings, module in _named_imports(text, scan_text):
         for imported, local in bindings:
             if imported in hook_names:
@@ -5226,6 +5367,12 @@ def _frontend_inventory_entries(
             "frontend CommonJS registration dependency cannot be inventoried safely"
         )
     test_api_names = _test_api_names(text, scan_text)
+    extended_test_api_postures = _extended_test_api_postures(
+        text,
+        scan_text,
+        test_api_names,
+        import_binding_resolver,
+    )
     if _has_indirect_runner_invocation(
         text,
         scan_text,
@@ -5352,6 +5499,11 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
+                            *_applicable_extended_test_api_postures(
+                                extended_test_api_postures,
+                                scan_text,
+                                match.start(),
+                            ),
                             *_applicable_setup_hook_postures(
                                 local_setup_postures,
                                 match.start(),
@@ -5424,6 +5576,11 @@ def _frontend_inventory_entries(
                         parameter_digest=digest,
                         execution_postures=(
                             *module_initialization_postures,
+                            *_applicable_extended_test_api_postures(
+                                extended_test_api_postures,
+                                scan_text,
+                                offset,
+                            ),
                             *_applicable_setup_hook_postures(
                                 local_setup_postures,
                                 offset,
@@ -5474,6 +5631,11 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
+                            *_applicable_extended_test_api_postures(
+                                extended_test_api_postures,
+                                scan_text,
+                                offset,
+                            ),
                             *_applicable_setup_hook_postures(
                                 local_setup_postures,
                                 offset,
