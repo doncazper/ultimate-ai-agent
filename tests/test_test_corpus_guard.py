@@ -3568,8 +3568,11 @@ def test_frontend_inventory_rejects_opaque_runtime_callback_skip(
         'test.for([[1]])("case", (...args) => args[1].skip());',
         'test.for([[1]])("case", function () { arguments[1].skip(); });',
         'test("case", (...args) => { const context = args[0]; context.skip(); });',
+        'test("case", (...args) => { const [context] = args; context.skip(); });',
         'test.for([[1]])("case", function () { '
         "const context = arguments[1]; context.skip(); });",
+        'test.for([[1]])("case", function () { '
+        "const [, context] = arguments; context.skip(); });",
         'test.for([[1]])("case", (...args) => Reflect.get(args[1], "skip")());',
         "const handler: TestCallback = (...args) => args[0].skip();\n"
         'test("case", handler);',
@@ -3603,6 +3606,8 @@ def test_frontend_inventory_rejects_indirect_runtime_callback_skip(
     (
         "(...args) => args[0].skip()",
         "function () { arguments[0].skip(); }",
+        "(...args) => { const [row] = args; row.skip(); }",
+        "function () { const [row] = arguments; row.skip(); }",
     ),
 )
 def test_frontend_inventory_keeps_each_row_callback_active(callback: str) -> None:

@@ -666,6 +666,34 @@ def _has_runtime_callback_skip(
                     rf"\[\s*{context_parameter_index}\s*\]"
                 )
         indexed_context_aliases: set[str] = set()
+        rest_array_names = {
+            rest.group("name")
+            for candidate in parameters
+            if (
+                rest := re.match(
+                    rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\b",
+                    candidate,
+                )
+            )
+            is not None
+        }
+        indexed_array_roots = {"arguments", *rest_array_names}
+        for match in re.finditer(
+            rf"\b(?:const|let|var)\s*\[(?P<items>[^\]]*)\]\s*=\s*"
+            rf"(?P<source>{TEST_API_NAME})\b",
+            callback_scan,
+        ):
+            if match.group("source") not in indexed_array_roots:
+                continue
+            items = [item.strip() for item in match.group("items").split(",")]
+            if context_parameter_index >= len(items):
+                continue
+            context_item = re.match(
+                rf"(?:\.\.\.\s*)?(?P<name>{TEST_API_NAME})\b",
+                items[context_parameter_index],
+            )
+            if context_item is not None:
+                indexed_context_aliases.add(context_item.group("name"))
         for context_source in indexed_context_sources:
             if re.search(
                 rf"\b{context_source}\s*(?:(?:\?\.|\.)\s*skip\b|"
