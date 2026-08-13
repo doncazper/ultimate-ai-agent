@@ -340,10 +340,25 @@ def test_static_verification_timeout_covers_full_corpus_inventory() -> None:
     job = next(
         job for job in manifest.CI_JOB_GRAPH if job.job_ref == "static-verification"
     )
-    command = manifest.command_registry()["command:static.verify-all"]
+    registry = manifest.command_registry()
+    corpus_guard = registry["command:static.test-corpus-guard"]
+    verify_all = registry["command:static.verify-all"]
+    lane = manifest.lane_registry()["ci-static"]
 
-    assert command.timeout_seconds == 1_800
-    assert command.timeout_seconds <= job.timeout_minutes * 60
+    assert lane.command_refs == (
+        "command:static.test-corpus-guard",
+        "command:static.verify-all",
+    )
+    assert corpus_guard.argv == (
+        ".venv/bin/python",
+        "scripts/verify_test_corpus_guard.py",
+    )
+    assert corpus_guard.timeout_seconds == 1_200
+    assert verify_all.timeout_seconds == 1_200
+    assert (
+        corpus_guard.timeout_seconds + verify_all.timeout_seconds
+        <= job.timeout_minutes * 60
+    )
 
 
 def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:

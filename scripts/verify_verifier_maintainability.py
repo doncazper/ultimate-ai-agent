@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification.repo import load_json, read_text, repo_path  # noqa: E402
@@ -14,8 +15,6 @@ from scripts.verification.test_corpus_guard import (  # noqa: E402
     BASE_SHA_ENV,
     RETIREMENT_LEDGER,
     RETIREMENT_SCHEMA,
-    TestCorpusGuardError,
-    verify_test_corpus_guard,
 )
 
 
@@ -149,11 +148,6 @@ def _append_test_corpus_guard_failures(
     }
     if policy.get("test_corpus_guard") != expected:
         failures.append("test corpus guard policy section is missing or invalid")
-        return
-    try:
-        verify_test_corpus_guard(ROOT)
-    except TestCorpusGuardError as exc:
-        failures.append(f"test corpus guard failed: {exc}")
 
 
 def main() -> int:

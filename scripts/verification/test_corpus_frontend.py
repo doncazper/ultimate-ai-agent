@@ -4639,6 +4639,42 @@ def _unproven_registration_regions(
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
 
 
+def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
+    """Bind local Vitest setup hooks that can change test execution posture."""
+
+    hook_names = {"afterAll", "afterEach", "beforeAll", "beforeEach"}
+    for bindings, module in _named_imports(text, scan_text):
+        for imported, local in bindings:
+            if imported in hook_names:
+                if module not in RUNNER_MODULES:
+                    raise FrontendInventoryError(
+                        "frontend setup hook is shadowed by a non-runner import"
+                    )
+                hook_names.add(local)
+            elif local in hook_names:
+                raise FrontendInventoryError(
+                    "frontend setup hook is shadowed by a non-runner import"
+                )
+    hook_pattern = "(?:" + "|".join(
+        re.escape(name) for name in sorted(hook_names)
+    ) + ")"
+    postures: list[str] = []
+    for match in re.finditer(
+        rf"(?<![.\w$]){hook_pattern}\s*(?P<arguments>\()",
+        scan_text,
+    ):
+        prefix = scan_text[max(0, match.start() - 32) : match.start()]
+        if re.search(r"\bfunction\s*$", prefix) is not None:
+            continue
+        call_end = _skip_balanced(text, match.start("arguments"))
+        source = _normalized_javascript_expression(text[match.start() : call_end])
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        posture = f"local-hook:sha256:{digest}"
+        if posture not in postures:
+            postures.append(posture)
+    return tuple(postures)
+
+
 def _registration_contexts(
     text: str,
     scan_text: str,
@@ -4866,6 +4902,7 @@ def _frontend_inventory_entries(
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
+    local_setup_postures = _local_setup_hook_postures(text, scan_text)
     if any(
         match.group("module").startswith(".")
         and scan_text[match.start() : match.start() + len("import")] == "import"
@@ -5021,6 +5058,7 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
+                            *local_setup_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -5089,6 +5127,7 @@ def _frontend_inventory_entries(
                         parameter_digest=digest,
                         execution_postures=(
                             *module_initialization_postures,
+                            *local_setup_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -5135,6 +5174,7 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
+                            *local_setup_postures,
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,

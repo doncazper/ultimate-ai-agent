@@ -524,3 +524,116 @@ def test_case_only_rename_retires_the_exact_old_path(
     assert guard.removed_declarations(Path("."), "a" * 40) == (
         f"{old_path}::case-bound declaration",
     )
+
+
+def _python_test_ref(source: str) -> str:
+    declarations = guard.parse_python_declarations("tests/test_sample.py", source)
+    assert len(declarations) == 1
+    return declarations[0].ref
+
+
+def _frontend_test_ref(source: str) -> str:
+    declarations = guard.parse_frontend_declarations(
+        "apps/control-center/src/sample.test.ts",
+        source,
+    )
+    assert len(declarations) == 1
+    return declarations[0].ref
+
+
+def test_successful_pytest_exit_binds_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    pytest.exit('complete', returncode=0)\n"
+    )
+    running = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    return None\n"
+    )
+
+    assert aborting != running
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "raise unittest.SkipTest('disabled')",
+        "self.skipTest('disabled')",
+    ),
+)
+def test_unittest_body_skip_binds_runtime_posture(body: str) -> None:
+    if body.startswith("self"):
+        aborting_source = (
+            "import unittest\n"
+            "class TestSample(unittest.TestCase):\n"
+            "    def test_sample(self):\n"
+            f"        {body}\n"
+        )
+        running_source = (
+            "import unittest\n"
+            "class TestSample(unittest.TestCase):\n"
+            "    def test_sample(self):\n"
+            "        return None\n"
+        )
+    else:
+        aborting_source = (
+            "import unittest\n"
+            "def test_sample():\n"
+            f"    {body}\n"
+        )
+        running_source = (
+            "import unittest\n"
+            "def test_sample():\n"
+            "    return None\n"
+        )
+
+    assert _python_test_ref(aborting_source) != _python_test_ref(running_source)
+
+
+def test_module_lambda_skip_helper_binds_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import pytest\n"
+        "abort = lambda: pytest.skip('disabled')\n"
+        "def test_sample():\n"
+        "    abort()\n"
+    )
+    running = _python_test_ref(
+        "import pytest\n"
+        "abort = lambda: None\n"
+        "def test_sample():\n"
+        "    abort()\n"
+    )
+
+    assert aborting != running
+
+
+def test_collect_ignore_glob_binds_collection_posture() -> None:
+    first = _python_test_ref(
+        "collect_ignore_glob = ['legacy_*.py']\n"
+        "def test_sample():\n"
+        "    return None\n"
+    )
+    second = _python_test_ref(
+        "collect_ignore_glob = ['retired_*.py']\n"
+        "def test_sample():\n"
+        "    return None\n"
+    )
+
+    assert first != second
+
+
+def test_local_vitest_setup_hook_binds_test_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "beforeEach(context => context.skip());\n"
+        'test("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "beforeEach(() => {});\n"
+        'test("sample", () => {});\n'
+    )
+
+    assert skipping != running

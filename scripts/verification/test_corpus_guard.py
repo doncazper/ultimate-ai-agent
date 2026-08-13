@@ -76,6 +76,7 @@ PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/ci_command_manifest.py",
     "scripts/verification/run_ci_lane.py",
     "scripts/verification/run_pytest_shards.py",
+    "scripts/verify_test_corpus_guard.py",
 }
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
@@ -111,6 +112,7 @@ FRONTEND_TEST_DEPENDENCY_PATHS = {
 PYTEST_COLLECTION_HOOK_NAMES = frozenset(
     {
         "collect_ignore",
+        "collect_ignore_glob",
         "pytest_collection",
         "pytest_generate_tests",
         "pytest_ignore_collect",
@@ -1740,7 +1742,7 @@ def _pytest_collection_abort_callable_name(
         and len(node.args) in {2, 3}
         and not node.keywords
         and isinstance(node.args[1], ast.Constant)
-        and node.args[1].value in {"importorskip", "skip", "xfail"}
+        and node.args[1].value in {"exit", "importorskip", "skip", "xfail"}
     ):
         root = _root_name(node.args[0])
         candidates = imported_modules.get(root, ()) if root is not None else ()
@@ -1763,7 +1765,13 @@ def _pytest_collection_abort_callable_name(
             (
                 candidate.rsplit(".", 1)[-1]
                 for candidate in candidates
-                if candidate in {"pytest.importorskip", "pytest.skip", "pytest.xfail"}
+                if candidate
+                in {
+                    "pytest.exit",
+                    "pytest.importorskip",
+                    "pytest.skip",
+                    "pytest.xfail",
+                }
             ),
             "",
         )
@@ -1800,7 +1808,13 @@ def _pytest_collection_abort_aliases(
                             aliases,
                         )
                     )
-                    if name not in {"getattr", "importorskip", "skip", "xfail"}:
+                    if name not in {
+                        "exit",
+                        "getattr",
+                        "importorskip",
+                        "skip",
+                        "xfail",
+                    }:
                         continue
                     if aliases.get(alias) != name:
                         aliases[alias] = name
@@ -1822,6 +1836,17 @@ def _is_pytest_collection_abort_call(
     )
     if name == "importorskip":
         return True
+    if name == "exit":
+        return any(
+            keyword.arg == "returncode"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value == 0
+            for keyword in node.keywords
+        ) or (
+            len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value == 0
+        )
     return name == "skip" and (
         any(keyword.arg is None for keyword in node.keywords)
         or any(
@@ -5466,7 +5491,7 @@ def _parameterized_ref(
             value,
             runtime_imports,
             runtime_abort_aliases,
-        ) in {"importorskip", "skip", "xfail", "xfail-exception"}
+        ) in {"exit", "importorskip", "skip", "xfail", "xfail-exception"}
         if called_runtime_names & target_names and possible_abort:
             raise TestCorpusGuardError(
                 "dynamic runtime abort alias cannot be inventoried safely"
@@ -5523,6 +5548,7 @@ def _parameterized_ref(
                         )
                     )
                     if abort_name in {
+                        "exit",
                         "getattr",
                         "importorskip",
                         "skip",
@@ -5542,7 +5568,13 @@ def _parameterized_ref(
     for alias, abort_name in container_abort_aliases.items():
         if alias in tracked_callable_instance_aliases:
             continue
-        if abort_name in {"importorskip", "skip", "xfail", "xfail-exception"}:
+        if abort_name in {
+            "exit",
+            "importorskip",
+            "skip",
+            "xfail",
+            "xfail-exception",
+        }:
             runtime_abort_aliases.setdefault(alias, abort_name)
     for alias, captured_value in module_callable_values.items():
         if alias in tracked_callable_instance_aliases:
@@ -5552,10 +5584,64 @@ def _parameterized_ref(
             runtime_imports,
             runtime_abort_aliases,
         )
-        if abort_name in {"importorskip", "skip", "xfail", "xfail-exception"}:
+        if abort_name in {
+            "exit",
+            "importorskip",
+            "skip",
+            "xfail",
+            "xfail-exception",
+        }:
             runtime_abort_aliases[alias] = abort_name
         else:
             runtime_abort_aliases.pop(alias, None)
+
+    runtime_unittest_namespace_aliases = {
+        name
+        for name, candidates in runtime_imports.items()
+        if any(candidate in {"unittest", "unittest.case"} for candidate in candidates)
+    }
+    runtime_unittest_skip_aliases = {
+        name
+        for name, candidates in runtime_imports.items()
+        if any(
+            candidate in {"unittest.SkipTest", "unittest.case.SkipTest"}
+            for candidate in candidates
+        )
+    }
+    for _alias_pass in range(2):
+        for execution_node in function_execution_nodes:
+            if not isinstance(
+                execution_node,
+                (ast.Assign, ast.AnnAssign, ast.NamedExpr),
+            ):
+                continue
+            targets = (
+                execution_node.targets
+                if isinstance(execution_node, ast.Assign)
+                else (execution_node.target,)
+            )
+            value = execution_node.value
+            root = _root_name(value)
+            namespace_value = (
+                isinstance(value, ast.Name)
+                and value.id in runtime_unittest_namespace_aliases
+            ) or (
+                isinstance(value, ast.Attribute)
+                and value.attr == "case"
+                and root in runtime_unittest_namespace_aliases
+            )
+            skip_value = _unittest_skiptest_reference(
+                value,
+                runtime_imports,
+                runtime_unittest_skip_aliases,
+                runtime_unittest_namespace_aliases,
+            )
+            for target in targets:
+                for alias in _binding_target_names(target):
+                    if namespace_value:
+                        runtime_unittest_namespace_aliases.add(alias)
+                    if skip_value:
+                        runtime_unittest_skip_aliases.add(alias)
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:
         if isinstance(execution_node, ast.Call):
@@ -5563,14 +5649,62 @@ def _parameterized_ref(
                 id(execution_node),
                 execution_node.func,
             )
-            return _pytest_collection_abort_callable_name(
+            abort_name = _pytest_collection_abort_callable_name(
                 call_target,
                 runtime_imports,
                 runtime_abort_aliases,
-            ) in {"importorskip", "skip", "xfail", "xfail-exception"}
+            )
+            if abort_name == "exit":
+                return _is_pytest_collection_abort_call(
+                    ast.Call(
+                        func=call_target,
+                        args=execution_node.args,
+                        keywords=execution_node.keywords,
+                    ),
+                    runtime_imports,
+                    runtime_abort_aliases,
+                )
+            if abort_name in {
+                "importorskip",
+                "skip",
+                "xfail",
+                "xfail-exception",
+            }:
+                return True
+            if isinstance(call_target, ast.Attribute) and call_target.attr == "skipTest":
+                return True
+            if isinstance(call_target, ast.Name):
+                captured = module_callable_values.get(call_target.id)
+                if isinstance(captured, ast.Lambda):
+                    return any(
+                        isinstance(child, ast.Call)
+                        and (
+                            _pytest_collection_abort_callable_name(
+                                child.func,
+                                runtime_imports,
+                                runtime_abort_aliases,
+                            )
+                            in {"importorskip", "skip", "xfail", "xfail-exception"}
+                            or _is_pytest_collection_abort_call(
+                                child,
+                                runtime_imports,
+                                runtime_abort_aliases,
+                            )
+                        )
+                        for child in ast.walk(captured.body)
+                    )
+            return False
         if not isinstance(execution_node, ast.Raise) or execution_node.exc is None:
             return False
         raised = execution_node.exc
+        raised_reference = raised.func if isinstance(raised, ast.Call) else raised
+        if _unittest_skiptest_reference(
+            raised_reference,
+            runtime_imports,
+            runtime_unittest_skip_aliases,
+            runtime_unittest_namespace_aliases,
+        ):
+            return True
         if isinstance(raised, ast.Attribute) and raised.attr == "Exception":
             return (
                 _pytest_collection_abort_callable_name(
@@ -6381,6 +6515,28 @@ def _python_inventory_entries(
         relative_package=relative_package,
     )
     module_side_effect_identities: list[str] = []
+    collection_binding_nodes = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Delete))
+        and {
+            name
+            for target in (
+                node.targets if isinstance(node, (ast.Assign, ast.Delete)) else (node.target,)
+            )
+            for name in _binding_target_names(target)
+        }
+        & {"collect_ignore", "collect_ignore_glob"}
+    ]
+    if collection_binding_nodes:
+        collection_identity = "\n".join(
+            ast.dump(node, annotate_fields=True, include_attributes=False)
+            for node in collection_binding_nodes
+        )
+        module_side_effect_identities.append(
+            "collection-binding-sha256:"
+            + hashlib.sha256(collection_identity.encode("utf-8")).hexdigest()
+        )
     if import_source_resolver is not None:
         execution_import_bindings = _python_import_modules(
             tree,
@@ -10110,10 +10266,12 @@ def _safe_pytest_suffix_discovery_alignment_paths(
 ) -> set[str]:
     manifest_path = "scripts/verification/ci_command_manifest.py"
     runner_path = "scripts/verification/run_pytest_shards.py"
-    if set(current_by_path) != {manifest_path, runner_path} or set(prior_by_path) != {
-        manifest_path,
-        runner_path,
-    }:
+    corpus_guard_path = "scripts/verify_test_corpus_guard.py"
+    expected_paths = {manifest_path, runner_path}
+    extracts_corpus_guard = corpus_guard_path in current_by_path
+    if extracts_corpus_guard:
+        expected_paths.add(corpus_guard_path)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
         return set()
 
     manifest_needle = '                    "tests/**/test_*.py",\n'
@@ -10184,6 +10342,59 @@ def _safe_pytest_suffix_discovery_alignment_paths(
             1,
         ),
     }
+    if extracts_corpus_guard:
+        static_command_needle = (
+            '                    "{temp_root}/uaa_static_verification_timings.json",\n'
+            "                ),\n"
+            '                (),\n'
+            '                "verification",\n'
+            "                1_800,\n"
+            "            ),\n"
+        )
+        corpus_command = (
+            static_command_needle.replace("                1_800,\n", "                1_200,\n")
+            + '            "command:static.test-corpus-guard": CommandSpec(\n'
+            + '                "command:static.test-corpus-guard",\n'
+            + "                (\n"
+            + '                    ".venv/bin/python",\n'
+            + '                    "scripts/verify_test_corpus_guard.py",\n'
+            + "                ),\n"
+            + "                (),\n"
+            + '                "verification",\n'
+            + "                1_200,\n"
+            + "            ),\n"
+        )
+        static_lane_needle = (
+            '            "ci-static": LaneSpec(\n'
+            '                "ci-static",\n'
+            '                "Static Verification",\n'
+            '                ("command:static.verify-all",),\n'
+            "            ),\n"
+        )
+        static_lane_replacement = (
+            '            "ci-static": LaneSpec(\n'
+            '                "ci-static",\n'
+            '                "Static Verification",\n'
+            "                (\n"
+            '                    "command:static.test-corpus-guard",\n'
+            '                    "command:static.verify-all",\n'
+            "                ),\n"
+            "            ),\n"
+        )
+        extracted_manifests: set[str] = set()
+        for candidate in allowed_manifests:
+            if (
+                candidate.count(static_command_needle) == 1
+                and candidate.count(static_lane_needle) == 1
+            ):
+                extracted_manifests.add(
+                    candidate.replace(static_command_needle, corpus_command, 1).replace(
+                        static_lane_needle,
+                        static_lane_replacement,
+                        1,
+                    )
+                )
+        allowed_manifests = extracted_manifests
     if current_by_path[manifest_path] not in allowed_manifests:
         return set()
 
@@ -10217,7 +10428,42 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     )
     if current_by_path[runner_path] != expected_runner:
         return set()
-    return {manifest_path, runner_path}
+    if extracts_corpus_guard:
+        if prior_by_path[corpus_guard_path] or current_by_path[corpus_guard_path] != (
+            '#!/usr/bin/env python3\n'
+            '"""Run the deterministic test-corpus inventory and retirement guard."""\n'
+            "\n"
+            "from __future__ import annotations\n"
+            "\n"
+            "import json\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            "\n"
+            "\n"
+            "ROOT = Path(__file__).resolve().parents[1]\n"
+            "sys.path.insert(0, str(ROOT))\n"
+            "\n"
+            "from scripts.verification.test_corpus_guard import (  # noqa: E402\n"
+            "    TestCorpusGuardError,\n"
+            "    verify_test_corpus_guard,\n"
+            ")\n"
+            "\n"
+            "\n"
+            "def main() -> int:\n"
+            "    try:\n"
+            "        result = verify_test_corpus_guard(ROOT)\n"
+            "    except TestCorpusGuardError as exc:\n"
+            '        print(f"test corpus guard failed: {exc}", file=sys.stderr)\n'
+            "        return 1\n"
+            "    print(json.dumps(result, indent=2, sort_keys=True))\n"
+            "    return 0\n"
+            "\n"
+            "\n"
+            'if __name__ == "__main__":\n'
+            "    raise SystemExit(main())\n"
+        ):
+            return set()
+    return expected_paths
 
 
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
