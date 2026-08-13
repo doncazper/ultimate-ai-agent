@@ -3924,6 +3924,15 @@ def _parameterized_ref(
         if owner_class is not None
         else {}
     )
+    local_class_definitions = {
+        candidate.name: candidate
+        for candidate in tree.body
+        if isinstance(candidate, ast.ClassDef)
+    }
+    container_abort_aliases = _pytest_collection_abort_aliases(
+        tree,
+        imported_modules,
+    )
 
     def direct_nested_helpers(
         function: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -3967,10 +3976,25 @@ def _parameterized_ref(
                 else None
             )
         if isinstance(expression, (ast.List, ast.Tuple)):
-            items = {index: item for index, item in enumerate(expression.elts)}
+            items: dict[object, ast.expr] = {}
+            for item in expression.elts:
+                if isinstance(item, ast.Starred):
+                    nested = static_callable_container(item.value, containers)
+                    if nested is None:
+                        return None
+                    items.update(
+                        (len(items), nested_item) for nested_item in nested.values()
+                    )
+                else:
+                    items[len(items)] = item
             return (
                 items
-                if items and any(maybe_callable(item) for item in items.values())
+                if items
+                and any(
+                    maybe_callable(item)
+                    or static_callable_container(item, containers) is not None
+                    for item in items.values()
+                )
                 else None
             )
         if isinstance(expression, ast.Dict):
@@ -3985,7 +4009,12 @@ def _parameterized_ref(
                 items[key.value] = value
             return (
                 items
-                if items and any(maybe_callable(item) for item in items.values())
+                if items
+                and any(
+                    maybe_callable(item)
+                    or static_callable_container(item, containers) is not None
+                    for item in items.values()
+                )
                 else None
             )
         return None
@@ -3996,33 +4025,112 @@ def _parameterized_ref(
         if _pytest_collection_abort_callable_name(
             expression,
             imported_modules,
-            {},
+            container_abort_aliases,
         ):
             return True
         if isinstance(expression, ast.Lambda):
             return True
+        if isinstance(expression, ast.Name) and expression.id in imported_modules:
+            return any(
+                candidate.startswith("tests.")
+                for candidate in imported_modules[expression.id]
+            )
+        if isinstance(expression, ast.Attribute):
+            root = _root_name(expression)
+            return root is not None and any(
+                candidate == "tests" or candidate.startswith("tests.")
+                for candidate in imported_modules.get(root, ())
+            )
         if (
-            isinstance(expression, ast.Name)
-            and expression.id in imported_modules
-            and (expression.id[0].islower() or expression.id[0] == "_")
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Name)
+            and expression.func.id in {"partial"}
+            and expression.args
         ):
-            return True
+            return maybe_callable(expression.args[0])
+        if (
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Name)
+            and expression.func.id in local_class_definitions
+        ):
+            return any(
+                isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and member.name == "__call__"
+                for member in local_class_definitions[expression.func.id].body
+            )
         nested = static_callable_container(expression, {})
         return nested is not None
 
-    def is_non_aborting_local_callable(expression: ast.AST) -> bool:
+    def is_non_aborting_local_callable(
+        expression: ast.AST,
+        seen: frozenset[str] = frozenset(),
+    ) -> bool:
         helper = helper_for_expression(expression, node, {})
-        if helper is None:
-            return False
-        return not any(
-            isinstance(child, ast.Call)
-            and _pytest_collection_abort_callable_name(
-                child.func,
-                imported_modules,
-                {},
+        if (
+            helper is None
+            and isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Name)
+        ):
+            class_definition = local_class_definitions.get(expression.func.id)
+            helper = next(
+                (
+                    member
+                    for member in (class_definition.body if class_definition else ())
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and member.name == "__call__"
+                ),
+                None,
             )
-            for child in ast.walk(helper)
-        )
+        if helper is None or helper.name in seen:
+            return False
+        aliases = dict(container_abort_aliases)
+        for child in _scope_execution_nodes(helper.body):
+            if isinstance(child, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                value = child.value
+                targets = (
+                    child.targets if isinstance(child, ast.Assign) else (child.target,)
+                )
+                abort_name = _pytest_collection_abort_callable_name(
+                    value,
+                    imported_modules,
+                    aliases,
+                )
+                for target in targets:
+                    for alias in _binding_target_names(target):
+                        if abort_name:
+                            aliases[alias] = abort_name
+            if isinstance(child, ast.Call):
+                if _pytest_collection_abort_callable_name(
+                    child.func,
+                    imported_modules,
+                    aliases,
+                ):
+                    return False
+                nested_helper = helper_for_expression(child.func, helper, {})
+                if nested_helper is not None and not is_non_aborting_local_callable(
+                    child.func,
+                    frozenset((*seen, helper.name)),
+                ):
+                    return False
+            if (
+                isinstance(child, ast.Raise)
+                and child.exc is not None
+                and any(
+                    _pytest_collection_abort_callable_name(
+                        candidate,
+                        imported_modules,
+                        aliases,
+                    )
+                    for candidate in ast.walk(child.exc)
+                )
+            ):
+                return False
+        return True
+
+    def callable_requires_fail_closed(expression: ast.AST) -> bool:
+        if not maybe_callable(expression):
+            return False
+        return not is_non_aborting_local_callable(expression)
 
     def static_callable_container_target(
         expression: ast.AST,
@@ -4062,6 +4170,11 @@ def _parameterized_ref(
             and expression.args
         ):
             expression = expression.args[0]
+        if isinstance(expression, (ast.GeneratorExp, ast.ListComp, ast.SetComp)):
+            for generator in expression.generators:
+                root = callable_container_root(generator.iter)
+                if root is not None:
+                    return root
         return _root_name(expression)
 
     execution_nodes = list(_scope_execution_nodes(node.body))
@@ -4126,7 +4239,7 @@ def _parameterized_ref(
                     if (
                         isinstance(target, ast.Subscript)
                         and callable_container_root(target) in empty_container_names
-                        and maybe_callable(value)
+                        and callable_requires_fail_closed(value)
                     ):
                         raise TestCorpusGuardError(
                             "dynamic runtime helper container cannot be inventoried safely"
@@ -4144,8 +4257,17 @@ def _parameterized_ref(
                 }
                 for target_name in target_names:
                     helper_aliases.pop(target_name, None)
+                    container_abort_aliases.pop(target_name, None)
                     callable_containers.pop(target_name, None)
                     empty_container_names.discard(target_name)
+                abort_name = _pytest_collection_abort_callable_name(
+                    value,
+                    imported_modules,
+                    container_abort_aliases,
+                )
+                if abort_name:
+                    for target_name in target_names:
+                        container_abort_aliases[target_name] = abort_name
                 if isinstance(value, (ast.List, ast.Dict)) and not (
                     value.elts if isinstance(value, ast.List) else value.keys
                 ):
@@ -4171,6 +4293,13 @@ def _parameterized_ref(
                             raise TestCorpusGuardError(
                                 "dynamic runtime helper container cannot be inventoried safely"
                             )
+                elif any(
+                    isinstance(target, ast.Subscript)
+                    for target in targets
+                ) and callable_requires_fail_closed(value):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
                 resolved_helper = helper_for_expression(
                     value,
                     helper_scope,
@@ -4222,7 +4351,10 @@ def _parameterized_ref(
                 and callable_container_root(call_target.value) in empty_container_names
                 and call_target.attr
                 in {"append", "extend", "insert", "setdefault", "update"}
-                and any(maybe_callable(argument) for argument in execution_node.args)
+                and any(
+                    callable_requires_fail_closed(argument)
+                    for argument in execution_node.args
+                )
             ):
                 raise TestCorpusGuardError(
                     "dynamic runtime helper container cannot be inventoried safely"
@@ -4232,6 +4364,23 @@ def _parameterized_ref(
                 callable_containers,
             )
             if container_target is not None:
+                if (
+                    callable_requires_fail_closed(container_target)
+                    and not _pytest_collection_abort_callable_name(
+                        container_target,
+                        imported_modules,
+                        container_abort_aliases,
+                    )
+                    and not isinstance(container_target, ast.Lambda)
+                    and helper_for_expression(container_target, node, {}) is None
+                    and not (
+                        isinstance(container_target, ast.Name)
+                        and container_target.id in imported_modules
+                    )
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
                 callable_container_targets_by_call_id[id(execution_node)] = (
                     container_target
                 )

@@ -1183,6 +1183,46 @@ def test_python_inventory_rejects_aborting_local_callback_registry() -> None:
 
 
 @pytest.mark.parametrize(
+    "source",
+    (
+        "import pytest\ndef test_case():\n"
+        "    stop = pytest.xfail\n    callbacks = [stop]\n"
+        "    callbacks[0]('blocked')\n",
+        "import pytest\ndef test_case():\n"
+        "    callbacks = [pytest.xfail]\n    derived = [*callbacks]\n"
+        "    derived[0]('blocked')\n",
+        "import pytest\ndef test_case():\n"
+        "    callbacks = [pytest.xfail]\n    nested = {'group': callbacks}\n"
+        "    nested['group'][0]('blocked')\n",
+        "import pytest\ndef test_case():\n"
+        "    callbacks = [pytest.xfail]\n    derived = list(item for item in callbacks)\n"
+        "    derived[0]('blocked')\n",
+    ),
+)
+def test_python_inventory_closes_aborting_container_derivations(source: str) -> None:
+    try:
+        declaration = guard.parse_python_declarations(
+            "tests/test_example.py",
+            source,
+        )[0]
+    except guard.TestCorpusGuardError:
+        return
+    assert declaration.ref != "tests/test_example.py::test_case"
+
+
+def test_python_inventory_allows_direct_imported_data_in_command() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "from sys import executable\n"
+        "def test_case(run):\n"
+        "    command = [executable, 'script.py']\n"
+        "    run(command)\n",
+    )
+
+    assert len(declarations) == 1
+
+
+@pytest.mark.parametrize(
     "derived",
     (
         "callbacks.copy()",
@@ -2906,9 +2946,53 @@ def test_frontend_inventory_binds_context_member_dispatch() -> None:
         "inner: context => { context.skip(); return context; }",
     )
 
-    assert guard.parse_frontend_declarations(path, source)[0].ref != (
-        guard.parse_frontend_declarations(path, changed)[0].ref
-    )
+    active = guard.parse_frontend_declarations(path, source)[0].ref
+    try:
+        skipped = guard.parse_frontend_declarations(path, changed)[0].ref
+    except guard.TestCorpusGuardError:
+        return
+    assert active != skipped
+
+
+@pytest.mark.parametrize(
+    "source, changed",
+    (
+        (
+            "function stop(context) { return opaque(context); }\n"
+            'test("case", context => stop(context));',
+            "function stop(context) { context.skip(); return opaque(context); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "const saved = []; function inner() { return saved[0]; }\n"
+            "function stop(context) { saved[0] = context; return inner(); }\n"
+            'test("case", context => stop(context));',
+            "const saved = []; function inner() { saved[0].skip(); return saved[0]; }\n"
+            "function stop(context) { saved[0] = context; return inner(); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "function inner(context) { return context; }\n"
+            "function stop(context) { const run = inner; return run(context); }\n"
+            'test("case", context => stop(context));',
+            "function inner(context) { context.skip(); return context; }\n"
+            "function stop(context) { const run = inner; return run(context); }\n"
+            'test("case", context => stop(context));',
+        ),
+    ),
+)
+def test_frontend_inventory_closes_escaped_context_flow(
+    source: str,
+    changed: str,
+) -> None:
+    path = "apps/control-center/src/example.test.tsx"
+
+    try:
+        active = guard.parse_frontend_declarations(path, source)[0].ref
+        skipped = guard.parse_frontend_declarations(path, changed)[0].ref
+    except guard.TestCorpusGuardError:
+        return
+    assert active != skipped
 
 
 def test_frontend_inventory_ignores_shadowed_dormant_context_helper() -> None:
@@ -3466,6 +3550,26 @@ def test_frontend_inventory_ignores_reflection_in_dormant_function() -> None:
 
     assert frontend.frontend_runtime_test_posture(inert) is False
     assert frontend.frontend_runtime_identity_source(inert) == (
+        frontend.frontend_runtime_identity_source(changed)
+    )
+
+
+@pytest.mark.parametrize(
+    "active",
+    (
+        "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
+        "function build() { return new Setup(); } build().apply();",
+        "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
+        "const setup = new Setup(); const items = [setup]; items[0].apply();",
+        "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
+        "const setup = new Setup(); registry.invoke(setup);",
+    ),
+)
+def test_frontend_inventory_binds_derived_class_receivers(active: str) -> None:
+    changed = active.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(active) is True
+    assert frontend.frontend_runtime_identity_source(active) != (
         frontend.frontend_runtime_identity_source(changed)
     )
 
