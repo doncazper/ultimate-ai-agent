@@ -9404,6 +9404,19 @@ def _run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
         process.stdout.close()
 
 
+def _comparison_merge_base(repo: Path, candidate: str, *, label: str) -> str:
+    merge_base = _run_git(repo, ["merge-base", "HEAD", candidate])
+    if merge_base.returncode != 0:
+        raise TestCorpusGuardError(f"{label} comparison merge base is missing")
+    try:
+        value = merge_base.stdout.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise TestCorpusGuardError(f"{label} comparison merge base is malformed") from exc
+    if SHA_PATTERN.fullmatch(value) is None:
+        raise TestCorpusGuardError(f"{label} comparison merge base is malformed")
+    return value
+
+
 def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
     if requested is not None:
         if SHA_PATTERN.fullmatch(requested) is None:
@@ -9411,7 +9424,7 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
         probe = _run_git(repo, ["cat-file", "-e", f"{requested}^{{commit}}"])
         if probe.returncode != 0:
             raise TestCorpusGuardError("test-corpus comparison base commit is missing")
-        return requested
+        return _comparison_merge_base(repo, requested, label="test-corpus")
 
     ci_ref = _run_git(repo, ["rev-parse", "--verify", "refs/uaa-ci/base-main"])
     if ci_ref.returncode == 0:
@@ -9426,7 +9439,7 @@ def _resolve_base_sha(repo: Path, requested: str | None) -> str | None:
         probe = _run_git(repo, ["cat-file", "-e", f"{value}^{{commit}}"])
         if probe.returncode != 0:
             raise TestCorpusGuardError("canonical CI comparison base commit is missing")
-        return value
+        return _comparison_merge_base(repo, value, label="canonical CI")
 
     if os.environ.get("CI", "").lower() == "true":
         raise TestCorpusGuardError("canonical CI comparison base is missing")

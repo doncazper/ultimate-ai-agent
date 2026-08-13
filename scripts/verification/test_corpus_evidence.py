@@ -32,7 +32,7 @@ UNSAFE_DURABLE_PROSE_PATTERNS = (
     re.compile(r"(?i)\b(?:username|hostname|serial)\b"),
     re.compile(r"(?i)\benv(?:ironment)?[\s_-]?dump\b"),
     re.compile(
-        r"(?<![A-Za-z0-9])/(?:Users|home|private|tmp|var|opt|usr|etc|Volumes)/"
+        r"(?<![A-Za-z0-9:/])/(?!/)(?:[^\s/]+/)*[^\s/]+(?=$|\s)"
         r"|[A-Za-z]:[\\/]|\\\\[^\\]+\\"
     ),
 )

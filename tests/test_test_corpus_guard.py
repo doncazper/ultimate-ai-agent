@@ -4866,6 +4866,8 @@ def test_retirement_metadata_must_be_bounded_and_content_bound(
         "Retirement evidence contains "
         + "/Us"
         + "ers/example/private/source material.",
+        "Retirement evidence contains /workspace/ultimate-ai-agent/private.py.",
+        "Retirement evidence contains /root/ultimate-ai-agent/private.py.",
         "Retirement evidence includes username from a local operator record.",
         "Retirement evidence includes api_"
         + "key="
@@ -4887,6 +4889,24 @@ def test_retirement_reason_rejects_sensitive_durable_content(
             {retired},
             {"retirements": [record]},
         )
+
+
+def test_retirement_reason_allows_safe_non_path_prose() -> None:
+    retired = "tests/test_sample.py::test_removed"
+    replacement = "tests/test_sample.py::test_replacement"
+    record = _record(retired, replacement)
+    record["reason"] = (
+        "The replacement preserves the documented contract and exact defect class."
+    )
+
+    assert (
+        _validate_retirements(
+            {replacement},
+            {retired},
+            {"retirements": [record]},
+        )
+        == 1
+    )
 
 
 def test_retirement_records_reject_unknown_durable_fields() -> None:
@@ -5094,6 +5114,46 @@ def test_malformed_requested_base_fails_closed() -> None:
     root = Path(__file__).resolve().parents[1]
     with pytest.raises(guard.TestCorpusGuardError, match="base SHA is malformed"):
         guard.verify_test_corpus_guard(root, base_sha="not-a-sha")
+
+
+def test_requested_base_resolves_to_merge_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested = "a" * 40
+    merge_base = "b" * 40
+    commands: list[list[str]] = []
+
+    def run_git(_repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
+        commands.append(args)
+        stdout = f"{merge_base}\n".encode() if args[0] == "merge-base" else b""
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(guard, "_run_git", run_git)
+
+    assert guard._resolve_base_sha(Path("."), requested) == merge_base
+    assert commands == [
+        ["cat-file", "-e", f"{requested}^{{commit}}"],
+        ["merge-base", "HEAD", requested],
+    ]
+
+
+def test_requested_base_without_merge_base_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested = "a" * 40
+
+    def run_git(_repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=1 if args[0] == "merge-base" else 0,
+            stdout=b"",
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(guard, "_run_git", run_git)
+
+    with pytest.raises(guard.TestCorpusGuardError, match="merge base is missing"):
+        guard._resolve_base_sha(Path("."), requested)
 
 
 def test_ci_without_canonical_base_fails_closed(
