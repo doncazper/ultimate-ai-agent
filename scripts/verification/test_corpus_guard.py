@@ -5475,6 +5475,8 @@ def _parameterized_ref(
         elif alias in callable_instance_lineage:
             runtime_abort_aliases.pop(alias, None)
     for alias, abort_name in container_abort_aliases.items():
+        if alias in tracked_callable_instance_aliases:
+            continue
         if abort_name in {"importorskip", "skip", "xfail", "xfail-exception"}:
             runtime_abort_aliases.setdefault(alias, abort_name)
     for alias, captured_value in module_callable_values.items():

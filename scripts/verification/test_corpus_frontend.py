@@ -654,23 +654,79 @@ def _has_runtime_callback_skip(
     skip_aliases: set[str] = set()
     parameters = _frontend_callback_parameters(callback)
     if context_parameter_index is not None:
+        indexed_context_sources = [rf"arguments\s*\[\s*{context_parameter_index}\s*\]"]
         for candidate in parameters:
             rest_parameter = re.match(
                 rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\b",
                 candidate,
             )
-            if rest_parameter is not None and re.search(
-                rf"\b{re.escape(rest_parameter.group('name'))}\s*"
-                rf"\[\s*{context_parameter_index}\s*\]\s*(?:\?\.|\.)\s*skip\b",
+            if rest_parameter is not None:
+                indexed_context_sources.append(
+                    rf"{re.escape(rest_parameter.group('name'))}\s*"
+                    rf"\[\s*{context_parameter_index}\s*\]"
+                )
+        indexed_context_aliases: set[str] = set()
+        for context_source in indexed_context_sources:
+            if re.search(
+                rf"\b{context_source}\s*(?:(?:\?\.|\.)\s*skip\b|"
+                r"(?:\?\.)?\[)",
                 callback_scan,
             ):
                 return True
-        if re.search(
-            rf"\barguments\s*\[\s*{context_parameter_index}\s*\]\s*"
-            r"(?:\?\.|\.)\s*skip\b",
-            callback_scan,
-        ):
-            return True
+            if re.search(
+                rf"\b(?:Reflect\s*\.\s*get|"
+                rf"Object\s*\.\s*getOwnPropertyDescriptor)\s*\(\s*"
+                rf"{context_source}\s*,\s*['\"]skip['\"]",
+                callback,
+            ):
+                return True
+            if re.search(
+                rf"\b(?:const|let|var)\s*\{{[^}}]*"
+                rf"(?:\.\.\.|(?:\.\s*)?skip\b)[^}}]*\}}\s*=\s*"
+                rf"{context_source}",
+                callback_scan,
+            ):
+                return True
+            for match in re.finditer(
+                rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
+                rf"{context_source}",
+                callback_scan,
+            ):
+                indexed_context_aliases.add(match.group("alias"))
+        changed = True
+        while changed:
+            changed = False
+            for match in re.finditer(
+                rf"\b(?:const|let|var)\s+(?P<alias>{TEST_API_NAME})\s*=\s*"
+                rf"(?P<source>{TEST_API_NAME})\b",
+                callback_scan,
+            ):
+                if (
+                    match.group("source") in indexed_context_aliases
+                    and match.group("alias") not in indexed_context_aliases
+                ):
+                    indexed_context_aliases.add(match.group("alias"))
+                    changed = True
+        for context_alias in indexed_context_aliases:
+            context_pattern = re.escape(context_alias)
+            if re.search(
+                rf"\b{context_pattern}\s*(?:(?:\?\.|\.)\s*skip\b|"
+                r"(?:\?\.)?\[)",
+                callback_scan,
+            ) or re.search(
+                rf"\b(?:Reflect\s*\.\s*get|"
+                rf"Object\s*\.\s*getOwnPropertyDescriptor)\s*\(\s*"
+                rf"{context_pattern}\s*,\s*['\"]skip['\"]",
+                callback,
+            ):
+                return True
+            if re.search(
+                rf"\b(?:const|let|var)\s*\{{[^}}]*"
+                rf"(?:\.\.\.|(?:\.\s*)?skip\b)[^}}]*\}}\s*=\s*"
+                rf"{context_pattern}\b",
+                callback_scan,
+            ):
+                return True
     if context_parameter_index is not None and context_parameter_index < len(
         parameters
     ):
@@ -1128,7 +1184,8 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
             member_helper_roots.add(root)
     if re.search(
         rf"[\[{{][^;]*\b(?:{parameter_pattern})\b[^;]*[\]}}]\s*"
-        rf"(?:\?\.|\.)\s*{TEST_API_NAME}\s*\(",
+        rf"(?:(?:\?\.|\.)\s*{TEST_API_NAME}|"
+        r"(?:\?\.)?\[[^\]]+\])\s*\(",
         scan_text,
     ):
         raise FrontendInventoryError(
@@ -1247,14 +1304,33 @@ def _resolved_callback_source(binding_source: str, name: str) -> str:
         character if mask[index] else " "
         for index, character in enumerate(binding_source)
     )
-    assignment = re.match(
+    declaration = re.match(
         rf"\s*(?:export\s+)?(?:const|let|var)\s+{re.escape(name)}"
-        rf"(?:\s*[?!])?(?:\s*:\s*[^=;\n]+)?\s*=",
+        rf"(?:\s*[?!])?",
         scan_text,
     )
-    if assignment is None:
+    if declaration is None:
         return binding_source
-    start = _skip_static_trivia(binding_source, assignment.end())
+    assignment_end: int | None = None
+    cursor = declaration.end()
+    while cursor < len(binding_source):
+        if binding_source[cursor] in "\"'`":
+            cursor = _skip_string(binding_source, cursor)
+            continue
+        if binding_source[cursor] in "([{":
+            cursor = _skip_balanced(binding_source, cursor)
+            continue
+        if binding_source[cursor] in ";\n":
+            break
+        if binding_source[cursor] == "=" and (
+            cursor + 1 >= len(binding_source) or binding_source[cursor + 1] != ">"
+        ):
+            assignment_end = cursor + 1
+            break
+        cursor += 1
+    if assignment_end is None:
+        return binding_source
+    start = _skip_static_trivia(binding_source, assignment_end)
     cursor = start
     while cursor < len(binding_source):
         if binding_source[cursor] in "\"'`":
@@ -3218,9 +3294,6 @@ def _module_initializer_code_mask_bytes(
             + text[class_end:]
         )
         class_pattern_text = re.escape(class_name)
-        instantiated = (
-            re.search(rf"\bnew\s+{class_pattern_text}\b", external_source) is not None
-        )
         instance_receiver_names = {
             match.group("name")
             for match in re.finditer(
@@ -3230,21 +3303,34 @@ def _module_initializer_code_mask_bytes(
             )
         }
         class_receiver_names = {class_name}
-        class_expression_binding = re.search(
-            rf"(?:(?:\b(?:const|let|var)\s+)?"
-            rf"(?P<target>{TEST_API_NAME}(?:\s*\.\s*{TEST_API_NAME})*)"
-            rf"(?:\s*[?!])?(?:\s*:\s*[^=;\n]+)?\s*=\s*\(*\s*)$",
-            scan_text[: class_match.start()],
-        )
         class_expression_target: str | None = None
-        if class_expression_binding is not None:
-            class_expression_target = re.sub(
-                r"\s+",
-                "",
-                class_expression_binding.group("target"),
+        class_expression_binding_range: tuple[int, int] | None = None
+        binding_prefix = scan_text[: class_match.start()]
+        statement_start = binding_prefix.rfind(";") + 1
+        statement_prefix = binding_prefix[statement_start:]
+        outer_bindings = tuple(
+            re.finditer(
+                rf"\b(?:const|let|var)\s+(?P<root>{TEST_API_NAME})"
+                rf"(?:\s*[?!])?(?:\s*:\s*[^=;\n]+)?\s*=",
+                statement_prefix,
             )
-            if "." not in class_expression_target:
-                class_receiver_names.add(class_expression_target)
+        )
+        direct_binding = re.search(
+            rf"(?P<root>{TEST_API_NAME})"
+            rf"(?:\s*(?:\.\s*{TEST_API_NAME}|\[[^\]]+\]))*\s*=\s*"
+            rf"[^;]*$",
+            statement_prefix,
+        )
+        class_expression_binding = (
+            outer_bindings[-1] if outer_bindings else direct_binding
+        )
+        if class_expression_binding is not None:
+            class_expression_target = class_expression_binding.group("root")
+            class_receiver_names.add(class_expression_target)
+            class_expression_binding_range = (
+                statement_start + class_expression_binding.start("root"),
+                statement_start + class_expression_binding.end("root"),
+            )
         changed = True
         while changed:
             changed = False
@@ -3277,10 +3363,17 @@ def _module_initializer_code_mask_bytes(
             )
             class_receivers.append(class_expression_receiver)
         class_receivers_tuple = tuple(class_receivers)
+        immediate_class_construction = bool(
+            re.search(r"\bnew\s*(?:\(\s*)?$", binding_prefix)
+            and re.match(r"\s*\)?\s*\(", external_source[class_end:])
+        )
+        instantiated = immediate_class_construction or any(
+            re.search(rf"\bnew\s+{receiver}\b", external_source) is not None
+            for receiver in class_receivers_tuple
+        )
         class_reference_source = external_source
-        if class_expression_binding is not None:
-            binding_start = class_expression_binding.start("target")
-            binding_end = class_expression_binding.end("target")
+        if class_expression_binding_range is not None:
+            binding_start, binding_end = class_expression_binding_range
             class_reference_source = (
                 external_source[:binding_start]
                 + " " * (binding_end - binding_start)
@@ -3288,7 +3381,8 @@ def _module_initializer_code_mask_bytes(
             )
         immediate_class_member_access = (
             re.match(
-                rf"\s*\)*\s*(?:\?\.|\.)\s*{TEST_API_NAME}\b",
+                rf"\s*\)*\s*(?:(?:\?\.|\.)\s*{TEST_API_NAME}\b|"
+                r"(?:\?\.)?\[)",
                 external_source[class_end:],
             )
             is not None
@@ -3300,11 +3394,13 @@ def _module_initializer_code_mask_bytes(
         prototype_receivers = tuple(
             rf"{receiver}\s*\.\s*prototype" for receiver in class_receivers_tuple
         )
-        direct_instance_receiver = rf"new\s+{class_pattern_text}\s*\([^)]*\)"
+        direct_instance_receivers = tuple(
+            rf"new\s+{receiver}\s*\([^)]*\)" for receiver in class_receivers_tuple
+        )
         instance_call_receivers = (
             *instance_receivers,
             *prototype_receivers,
-            direct_instance_receiver,
+            *direct_instance_receivers,
         )
         class_source = scan_text[class_start + 1 : class_end - 1]
         for method in method_pattern.finditer(

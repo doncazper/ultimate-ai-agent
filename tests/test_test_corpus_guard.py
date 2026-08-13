@@ -1423,6 +1423,35 @@ def test_python_inventory_captures_callable_alias_at_assignment_time(
     )
 
 
+def test_python_inventory_keeps_captured_callable_instance_alias_authoritative() -> (
+    None
+):
+    safe = (
+        "import pytest\n"
+        "class Stop:\n"
+        "    def __call__(self):\n        return None\n"
+        "STOP = Stop()\n"
+        "ALIAS = STOP\n"
+        "STOP = pytest.xfail\n"
+        "def test_case():\n    ALIAS()\n"
+    )
+    aborting = safe.replace(
+        "        return None",
+        "        pytest.xfail('blocked')",
+    )
+
+    assert (
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            safe,
+        )[0].ref
+        != guard.parse_python_declarations(
+            "tests/test_example.py",
+            aborting,
+        )[0].ref
+    )
+
+
 @pytest.mark.parametrize(
     "derived",
     (
@@ -3285,6 +3314,14 @@ def test_frontend_inventory_rejects_name_only_opaque_context_helper() -> None:
             "function stop(context) { return Array.from([context], get()); }\n"
             'test("case", context => stop(context));',
         ),
+        (
+            "function inner(value) { return value; }\n"
+            'function stop(context) { return [context]["map"](inner); }\n'
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            'function stop(context) { return [context]["map"](inner); }\n'
+            'test("case", context => stop(context));',
+        ),
     ),
 )
 def test_frontend_inventory_closes_escaped_context_flow(
@@ -3447,6 +3484,15 @@ def test_frontend_inventory_binds_imported_transitive_context_helper(
             "export function stop(context: { skip(): void }) { "
             "return Array.from([context], get()); }\n",
         ),
+        (
+            "function inner(context: { skip(): void }) { return context; }\n"
+            "export function stop(context: { skip(): void }) { "
+            'return [context]["map"](inner); }\n',
+            "function inner(context: { skip(): void }) { "
+            "context.skip(); return context; }\n"
+            "export function stop(context: { skip(): void }) { "
+            'return [context]["map"](inner); }\n',
+        ),
     ),
 )
 def test_frontend_inventory_closes_imported_derived_context_flow(
@@ -3521,7 +3567,14 @@ def test_frontend_inventory_rejects_opaque_runtime_callback_skip(
     (
         'test.for([[1]])("case", (...args) => args[1].skip());',
         'test.for([[1]])("case", function () { arguments[1].skip(); });',
+        'test("case", (...args) => { const context = args[0]; context.skip(); });',
+        'test.for([[1]])("case", function () { '
+        "const context = arguments[1]; context.skip(); });",
+        'test.for([[1]])("case", (...args) => Reflect.get(args[1], "skip")());',
         "const handler: TestCallback = (...args) => args[0].skip();\n"
+        'test("case", handler);',
+        "const handler: (context: TestContext) => void = "
+        "context => context.skip();\n"
         'test("case", handler);',
         "const handler = ((...args) => args[0].skip()) as TestCallback;\n"
         'test("case", handler);',
@@ -3982,6 +4035,27 @@ def test_frontend_inventory_binds_called_arrow_body_initializer() -> None:
         "static apply() { beforeEach(() => {}); return 1; } }).apply();",
         "(Factory = class Setup {\n"
         "static apply() { beforeEach(() => {}); return 1; } }).apply();",
+        'registry["Factory"] = class Setup {\n'
+        "static apply() { beforeEach(() => {}); return 1; } }; "
+        'registry["Factory"].apply();',
+        "const registry = { Factory: class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } } }; "
+        "registry.Factory.apply();",
+        "const factories = [class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }]; "
+        "factories[0].apply();",
+        "const factories = new Map([['factory', class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }]]); "
+        "factories.get('factory').apply();",
+        "const Factory = enabled ? class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } : fallback; "
+        "Factory.apply();",
+        "const Factory = class Setup {\n"
+        "constructor() { beforeEach(() => {}); return 1; } }; new Factory();",
+        "const Factory = class Setup {\n"
+        "apply() { beforeEach(() => {}); return 1; } }; new Factory().apply();",
+        "(class Setup {\n"
+        'static apply() { beforeEach(() => {}); return 1; } })["apply"]();',
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
         'const setup = new Setup(); const key = "apply"; setup[key]();',
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
@@ -4011,6 +4085,25 @@ def test_frontend_inventory_binds_reflectively_called_class_method_initializer(
 
 def test_frontend_inventory_ignores_unused_named_class_expression() -> None:
     dormant = "const Factory = class Setup { static apply() { return 1; } };"
+    changed = dormant.replace("return 1", "return 2")
+
+    assert frontend.frontend_runtime_test_posture(dormant) is False
+    assert frontend.frontend_runtime_identity_source(dormant) == (
+        frontend.frontend_runtime_identity_source(changed)
+    )
+
+
+@pytest.mark.parametrize(
+    "dormant",
+    (
+        'registry["Factory"] = class Setup { static apply() { return 1; } };',
+        "const registry = { Factory: class Setup { static apply() { return 1; } } };",
+        "const factories = [class Setup { static apply() { return 1; } }];",
+    ),
+)
+def test_frontend_inventory_ignores_dormant_contained_class_expression(
+    dormant: str,
+) -> None:
     changed = dormant.replace("return 1", "return 2")
 
     assert frontend.frontend_runtime_test_posture(dormant) is False
