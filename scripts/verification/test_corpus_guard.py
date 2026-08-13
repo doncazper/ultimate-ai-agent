@@ -3929,57 +3929,102 @@ def _parameterized_ref(
         for candidate in tree.body
         if isinstance(candidate, ast.ClassDef)
     }
-    local_callable_instances: dict[str, ast.Call | None] = {}
+    module_callable_values: dict[str, ast.expr] = {}
+    module_ambiguous_bindings: set[str] = set()
+    callable_instance_lineage: set[str] = set()
+    simple_module_assignments: list[tuple[tuple[ast.AST, ...], ast.expr]] = []
     for candidate in tree.body:
         if isinstance(candidate, ast.Assign):
-            targets = candidate.targets
+            targets = tuple(candidate.targets)
             value = candidate.value
         elif isinstance(candidate, ast.AnnAssign) and candidate.value is not None:
             targets = (candidate.target,)
             value = candidate.value
         else:
+            if isinstance(
+                candidate,
+                (
+                    ast.FunctionDef,
+                    ast.AsyncFunctionDef,
+                    ast.ClassDef,
+                    ast.Import,
+                    ast.ImportFrom,
+                ),
+            ):
+                continue
+            module_ambiguous_bindings.update(_statement_binding_names(candidate))
             continue
-        if not (
-            isinstance(value, ast.Call)
-            and isinstance(value.func, ast.Name)
-            and value.func.id in local_class_definitions
-            and any(
-                isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and member.name == "__call__"
-                for member in local_class_definitions[value.func.id].body
-            )
-        ):
-            continue
+        simple_module_assignments.append((targets, value))
         for target in targets:
-            if isinstance(target, ast.Name):
-                local_callable_instances[target.id] = (
-                    value if target.id not in local_callable_instances else None
-                )
+            for name, bound_value in _paired_binding_values(target, value):
+                module_callable_values[name] = bound_value
     changed = True
     while changed:
         changed = False
-        for candidate in tree.body:
-            if not isinstance(candidate, (ast.Assign, ast.AnnAssign)):
-                continue
-            value = candidate.value
-            targets = (
-                candidate.targets
-                if isinstance(candidate, ast.Assign)
-                else (candidate.target,)
+        for targets, value in simple_module_assignments:
+            direct_instance = (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id in local_class_definitions
+                and any(
+                    isinstance(member, helper_type) and member.name == "__call__"
+                    for member in local_class_definitions[value.func.id].body
+                )
             )
-            if not (
-                isinstance(value, ast.Name) and value.id in local_callable_instances
-            ):
+            alias_instance = (
+                isinstance(value, ast.Name) and value.id in callable_instance_lineage
+            )
+            if not (direct_instance or alias_instance):
                 continue
             for target in targets:
-                if not isinstance(target, ast.Name):
-                    continue
-                resolved = local_callable_instances[value.id]
-                if target.id not in local_callable_instances:
-                    local_callable_instances[target.id] = resolved
-                    changed = True
-                elif local_callable_instances[target.id] is not resolved:
-                    local_callable_instances[target.id] = None
+                for name in _binding_target_names(target):
+                    if name not in callable_instance_lineage:
+                        callable_instance_lineage.add(name)
+                        changed = True
+
+    local_callable_values: dict[str, ast.expr] = {}
+    local_ambiguous_bindings: set[str] = set()
+    for candidate in node.body:
+        if isinstance(candidate, ast.Assign):
+            targets = tuple(candidate.targets)
+            value = candidate.value
+        elif isinstance(candidate, ast.AnnAssign) and candidate.value is not None:
+            targets = (candidate.target,)
+            value = candidate.value
+        else:
+            if isinstance(
+                candidate,
+                (
+                    ast.FunctionDef,
+                    ast.AsyncFunctionDef,
+                    ast.ClassDef,
+                    ast.Import,
+                    ast.ImportFrom,
+                ),
+            ):
+                continue
+            local_ambiguous_bindings.update(_statement_binding_names(candidate))
+            continue
+        for target in targets:
+            for name, bound_value in _paired_binding_values(target, value):
+                local_callable_values[name] = bound_value
+    tracked_callable_instance_aliases = set(callable_instance_lineage)
+    changed = True
+    while changed:
+        changed = False
+        for name, value in local_callable_values.items():
+            if name in tracked_callable_instance_aliases:
+                continue
+            if (
+                isinstance(value, ast.Name)
+                and value.id in tracked_callable_instance_aliases
+            ) or (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id in local_class_definitions
+            ):
+                tracked_callable_instance_aliases.add(name)
+                changed = True
     container_abort_aliases = _pytest_collection_abort_aliases(
         tree,
         imported_modules,
@@ -4012,6 +4057,31 @@ def _parameterized_ref(
         ):
             return class_helper_definitions.get(expression.attr)
         return None
+
+    def resolved_callable_alias(
+        expression: ast.AST,
+        seen: frozenset[str] = frozenset(),
+    ) -> tuple[ast.AST, bool]:
+        if not isinstance(expression, ast.Name):
+            return expression, False
+        name = expression.id
+        if name in seen:
+            return expression, True
+        if name in local_ambiguous_bindings:
+            return expression, True
+        if name in local_callable_values:
+            return resolved_callable_alias(
+                local_callable_values[name],
+                frozenset((*seen, name)),
+            )
+        if name in module_ambiguous_bindings and name in callable_instance_lineage:
+            return expression, True
+        if name in module_callable_values and name in callable_instance_lineage:
+            return resolved_callable_alias(
+                module_callable_values[name],
+                frozenset((*seen, name)),
+            )
+        return expression, False
 
     def static_callable_container(
         expression: ast.AST,
@@ -4071,11 +4141,11 @@ def _parameterized_ref(
         return None
 
     def maybe_callable(expression: ast.AST) -> bool:
-        if (
-            isinstance(expression, ast.Name)
-            and expression.id in local_callable_instances
-        ):
+        resolved_expression, ambiguous = resolved_callable_alias(expression)
+        if ambiguous:
             return True
+        if resolved_expression is not expression:
+            return maybe_callable(resolved_expression)
         if helper_for_expression(expression, node, {}) is not None:
             return True
         if _pytest_collection_abort_callable_name(
@@ -4122,13 +4192,28 @@ def _parameterized_ref(
         seen: frozenset[str] = frozenset(),
         owner_helpers: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] | None = None,
     ) -> bool:
+        resolved_expression, ambiguous = resolved_callable_alias(expression)
+        if ambiguous:
+            return False
+        expression = resolved_expression
+        if isinstance(expression, ast.Lambda):
+            return not any(
+                isinstance(child, ast.Call)
+                and bool(
+                    _pytest_collection_abort_callable_name(
+                        child.func,
+                        imported_modules,
+                        container_abort_aliases,
+                    )
+                )
+                for child in ast.walk(expression.body)
+            )
         if (
-            isinstance(expression, ast.Name)
-            and expression.id in local_callable_instances
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Name)
+            and expression.func.id in local_class_definitions
         ):
-            instance = local_callable_instances[expression.id]
-            if instance is None or not isinstance(instance.func, ast.Name):
-                return False
+            instance = expression
             class_definition = local_class_definitions.get(instance.func.id)
             if class_definition is None:
                 return False
@@ -4265,6 +4350,38 @@ def _parameterized_ref(
                     return root
         return _root_name(expression)
 
+    def static_assignment_pairs(
+        target: ast.AST,
+        value: ast.expr,
+        containers: dict[str, dict[object, ast.expr]],
+    ) -> tuple[tuple[str, ast.expr], ...] | None:
+        if isinstance(target, ast.Name):
+            return ((target.id, value),)
+        if not isinstance(target, (ast.Tuple, ast.List)) or any(
+            isinstance(item, ast.Starred) for item in target.elts
+        ):
+            return None
+        if isinstance(value, (ast.Tuple, ast.List)):
+            values = tuple(value.elts)
+        else:
+            container = static_callable_container(value, containers)
+            if container is None or set(container) != set(range(len(target.elts))):
+                return None
+            values = tuple(container[index] for index in range(len(target.elts)))
+        if len(target.elts) != len(values):
+            return None
+        pairs: list[tuple[str, ast.expr]] = []
+        for child_target, child_value in zip(target.elts, values, strict=True):
+            child_pairs = static_assignment_pairs(
+                child_target,
+                child_value,
+                containers,
+            )
+            if child_pairs is None:
+                return None
+            pairs.extend(child_pairs)
+        return tuple(pairs)
+
     execution_nodes = list(_scope_execution_nodes(node.body))
     execution_node_scopes: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {
         id(execution_node): node for execution_node in execution_nodes
@@ -4315,6 +4432,24 @@ def _parameterized_ref(
                     if isinstance(execution_node, ast.Assign)
                     else (execution_node.target,)
                 )
+                destructured_pairs: list[tuple[str, ast.expr]] = []
+                has_destructured_target = any(
+                    isinstance(target, (ast.Tuple, ast.List)) for target in targets
+                )
+                if has_destructured_target:
+                    for target in targets:
+                        pairs = static_assignment_pairs(
+                            target,
+                            value,
+                            callable_containers,
+                        )
+                        if pairs is None:
+                            if static_callable_container(value, callable_containers):
+                                raise TestCorpusGuardError(
+                                    "dynamic runtime helper container cannot be inventoried safely"
+                                )
+                            continue
+                        destructured_pairs.extend(pairs)
                 if any(
                     isinstance(target, (ast.Subscript, ast.Attribute))
                     and callable_container_root(target) in callable_containers
@@ -4348,6 +4483,43 @@ def _parameterized_ref(
                     container_abort_aliases.pop(target_name, None)
                     callable_containers.pop(target_name, None)
                     empty_container_names.discard(target_name)
+                if has_destructured_target:
+                    if (
+                        destructured_pairs
+                        and id(execution_node) not in direct_scope_node_ids
+                    ):
+                        raise TestCorpusGuardError(
+                            "dynamic runtime helper container cannot be inventoried safely"
+                        )
+                    for target_name, bound_value in destructured_pairs:
+                        nested_container = static_callable_container(
+                            bound_value,
+                            callable_containers,
+                        )
+                        if nested_container is not None:
+                            callable_containers[target_name] = nested_container
+                            continue
+                        abort_name = _pytest_collection_abort_callable_name(
+                            bound_value,
+                            imported_modules,
+                            container_abort_aliases,
+                        )
+                        if abort_name:
+                            container_abort_aliases[target_name] = abort_name
+                            continue
+                        resolved_helper = helper_for_expression(
+                            bound_value,
+                            helper_scope,
+                            helper_aliases,
+                        )
+                        if resolved_helper is not None:
+                            helper_aliases[target_name] = resolved_helper
+                            continue
+                        if callable_requires_fail_closed(bound_value):
+                            raise TestCorpusGuardError(
+                                "dynamic runtime helper container cannot be inventoried safely"
+                            )
+                    continue
                 abort_name = _pytest_collection_abort_callable_name(
                     value,
                     imported_modules,
@@ -5306,6 +5478,13 @@ def _parameterized_ref(
                         runtime_abort_aliases[alias] = abort_name
                     elif abort_name == "":
                         runtime_abort_aliases.pop(alias, None)
+
+    for alias in sorted(tracked_callable_instance_aliases):
+        reference = ast.Name(id=alias, ctx=ast.Load())
+        if maybe_callable(reference) and not is_non_aborting_local_callable(reference):
+            runtime_abort_aliases[alias] = "xfail"
+        elif alias in callable_instance_lineage:
+            runtime_abort_aliases.pop(alias, None)
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:
         if isinstance(execution_node, ast.Call):

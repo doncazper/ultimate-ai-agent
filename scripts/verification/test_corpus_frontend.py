@@ -1052,6 +1052,7 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
                 changed = True
     parameter_pattern = "(?:" + "|".join(map(re.escape, context_aliases)) + ")"
     member_helper_roots: set[str] = set()
+    callable_argument_helpers: set[str] = set()
     escaped_context = False
     for member_call in re.finditer(
         rf"\b(?P<root>{TEST_API_NAME})\s*(?:\.\s*{TEST_API_NAME}|\[[^\]]+\])"
@@ -1065,10 +1066,24 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         if not re.search(rf"\b{parameter_pattern}\b", arguments_source):
             continue
         escaped_context = True
-        if re.search(r"\)\s*(?:\?\.)?\s*\.", scan_text[arguments_end - 1 :]):
+        if re.search(r"\)\s*(?:\?\.|\.)", scan_text[arguments_end - 1 :]):
             raise FrontendInventoryError(
                 "frontend callback context escape cannot be inventoried safely"
             )
+        if "=>" in arguments_source:
+            raise FrontendInventoryError(
+                "frontend callback context escape cannot be inventoried safely"
+            )
+        for candidate in re.finditer(TEST_API_NAME, arguments_source):
+            candidate_name = candidate.group(0)
+            if candidate_name in context_aliases or candidate_name in {
+                "false",
+                "null",
+                "true",
+                "undefined",
+            }:
+                continue
+            callable_argument_helpers.add(candidate_name)
         root = member_call.group("root")
         if root not in context_aliases and root not in {
             "Array",
@@ -1090,8 +1105,8 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         }:
             member_helper_roots.add(root)
     if re.search(
-        rf"[\[{{][^;\n]*\b(?:{parameter_pattern})\b[^;\n]*[\]}}]\s*"
-        rf"(?:\?\.)?\s*\.\s*{TEST_API_NAME}\s*\(",
+        rf"[\[{{][^;]*\b(?:{parameter_pattern})\b[^;]*[\]}}]\s*"
+        rf"(?:\?\.|\.)\s*{TEST_API_NAME}\s*\(",
         scan_text,
     ):
         raise FrontendInventoryError(
@@ -1112,7 +1127,7 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         ) and not re.search(r"(?:const|let|var)\s*$", prefix):
             escaped_context = True
             break
-    helpers: set[str] = set(member_helper_roots)
+    helpers: set[str] = {*member_helper_roots, *callable_argument_helpers}
     for helper_call in re.finditer(
         rf"(?<![.\w$])(?P<callee>{TEST_API_NAME})\s*(?P<arguments>\()",
         scan_text,
@@ -1153,6 +1168,35 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         if receives_context:
             escaped_context = True
     return tuple(sorted(helpers))
+
+
+def _resolved_callback_source(binding_source: str, name: str) -> str:
+    """Extract one bounded callback expression from a resolved local binding."""
+
+    mask = _code_mask(binding_source)
+    scan_text = "".join(
+        character if mask[index] else " "
+        for index, character in enumerate(binding_source)
+    )
+    assignment = re.match(
+        rf"\s*(?:export\s+)?(?:const|let|var)\s+{re.escape(name)}\s*=",
+        scan_text,
+    )
+    if assignment is None:
+        return binding_source
+    start = _skip_static_trivia(binding_source, assignment.end())
+    cursor = start
+    while cursor < len(binding_source):
+        if binding_source[cursor] in "\"'`":
+            cursor = _skip_string(binding_source, cursor)
+            continue
+        if binding_source[cursor] in "([{":
+            cursor = _skip_balanced(binding_source, cursor)
+            continue
+        if binding_source[cursor] == ";":
+            return binding_source[start:cursor]
+        cursor += 1
+    raise FrontendInventoryError("frontend runtime callback cannot be resolved safely")
 
 
 def _execution_posture_parts(
@@ -1281,14 +1325,19 @@ def _execution_posture_parts(
                 raise FrontendInventoryError(
                     "frontend runtime callback cannot be resolved safely"
                 )
-            callback_mask = _code_mask(resolved_callback)
-            callback_scan = "".join(
-                character if callback_mask[index] else " "
-                for index, character in enumerate(resolved_callback)
+            inline_callback = _resolved_callback_source(
+                resolved_callback,
+                callback_source,
             )
-            if re.search(
-                r"\b[A-Za-z_$][\w$]*\s*(?:\?\.|\.)\s*skip\b",
-                callback_scan,
+            callback_start, callback_end = arguments[callback_index]
+            synthetic_declaration = (
+                declaration_source[:callback_start]
+                + inline_callback
+                + declaration_source[callback_end:]
+            )
+            if _has_runtime_callback_skip(
+                synthetic_declaration,
+                _registration_argument_ranges(synthetic_declaration),
             ):
                 raise FrontendInventoryError(
                     "frontend runtime callback skip cannot be inventoried safely"
@@ -1299,22 +1348,25 @@ def _execution_posture_parts(
             raise FrontendInventoryError(
                 "frontend runtime callback cannot be resolved safely"
             )
-        elif (
-            re.search(r"\.\s*each\b", declaration_source[: arguments[0][0]]) is None
-            and (
+        elif re.search(
+            r"\.\s*each\b", declaration_source[: arguments[0][0]]
+        ) is None and (
+            (
                 "=>" in callback_source
                 and re.search(r"\bskip\b", callback_source.split("=>", 1)[0])
             )
             or (
                 re.match(
-                    r"\s*(?:async\s+)?(?:function\s*)?\(\s*\.\.\.", callback_source
+                    r"\s*(?:async\s+)?(?:function\s*)?\(\s*\.\.\.",
+                    callback_source,
                 )
                 and re.search(r"\[\s*0\s*\]\s*\.\s*skip\b", callback_source)
             )
             or (
                 re.match(r"\s*function\s*\(\s*\)", callback_source)
                 and re.search(
-                    r"\barguments\s*\[\s*0\s*\]\s*\.\s*skip\b", callback_source
+                    r"\barguments\s*\[\s*0\s*\]\s*\.\s*skip\b",
+                    callback_source,
                 )
             )
         ):
@@ -3092,6 +3144,12 @@ def _module_initializer_code_mask_bytes(
             )
         }
         class_receiver_names = {class_name}
+        class_expression_binding = re.search(
+            rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\s*=\s*$",
+            scan_text[: class_match.start()],
+        )
+        if class_expression_binding is not None:
+            class_receiver_names.add(class_expression_binding.group("name"))
         changed = True
         while changed:
             changed = False
@@ -3119,8 +3177,17 @@ def _module_initializer_code_mask_bytes(
         class_receivers = tuple(
             re.escape(name) for name in sorted(class_receiver_names)
         )
+        class_reference_source = external_source
+        if class_expression_binding is not None:
+            binding_start = class_expression_binding.start("name")
+            binding_end = class_expression_binding.end("name")
+            class_reference_source = (
+                external_source[:binding_start]
+                + " " * (binding_end - binding_start)
+                + external_source[binding_end:]
+            )
         class_object_referenced = any(
-            re.search(rf"(?<![.\w$]){receiver}\b", external_source) is not None
+            re.search(rf"(?<![.\w$]){receiver}\b", class_reference_source) is not None
             for receiver in class_receivers
         )
         prototype_receivers = tuple(
