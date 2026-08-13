@@ -437,7 +437,7 @@ class FoundationGateLegacyChecksPart044Mixin:
         return files
 
     def _read(self, path: Path) -> str:
-        if not path.exists() or not self._context.is_file(path):
+        if not self._context.is_file(path):
             return ""
         return self._context.read_text(path, encoding="utf-8")
 

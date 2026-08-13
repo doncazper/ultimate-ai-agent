@@ -1,5 +1,6 @@
 # ruff: noqa: E402,F401,F403,F405
 import importlib.util
+from functools import lru_cache
 from pathlib import Path
 import json
 import os
@@ -180,7 +181,10 @@ GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
 )
 
 
+@lru_cache(maxsize=512)
 def runtime_subprocess_fragment_allowed(rel: str, text: str, fragment: str) -> bool:
+    """Cache pure exact-source adapter checks across repeated static criteria."""
+
     return (
         sealed_fragment_allowed(rel, text, fragment)
         or portable_evidence_helper_fragment_allowed(rel, text, fragment)
