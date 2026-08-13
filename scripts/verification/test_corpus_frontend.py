@@ -4639,8 +4639,136 @@ def _unproven_registration_regions(
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
 
 
-def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
-    """Bind local Vitest setup hooks that can change test execution posture."""
+def _local_setup_hook_postures(
+    text: str,
+    scan_text: str,
+    suite_context_regions: tuple[tuple[int, int, str, str, tuple[str, ...]], ...],
+    unproven_block_regions: tuple[tuple[int, int], ...],
+    unproven_expression_regions: tuple[tuple[int, int], ...],
+    import_binding_resolver: ImportBindingResolver | None,
+) -> tuple[tuple[int, int, str], ...]:
+    """Bind reachable Vitest setup hooks to the suite region they affect."""
+
+    def local_declaration_source(name: str, before_offset: int) -> str | None:
+        pattern = re.compile(
+            rf"\b(?P<kind>const|let|var)\s+{re.escape(name)}\b"
+        )
+        matches = list(pattern.finditer(scan_text, 0, before_offset))
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise FrontendInventoryError(
+                "frontend setup hook binding is ambiguous"
+            )
+        match = matches[0]
+        cursor = match.end()
+        while cursor < before_offset:
+            if text[cursor] in "\"'`":
+                cursor = _skip_string(text, cursor)
+                continue
+            if text[cursor] in "([{":
+                cursor = _skip_balanced(text, cursor)
+                continue
+            if scan_text[cursor] == ";":
+                return text[match.start() : cursor + 1]
+            if scan_text[cursor] in "\r\n":
+                return text[match.start() : cursor]
+            cursor += 1
+        raise FrontendInventoryError(
+            "frontend setup hook binding cannot be resolved safely"
+        )
+
+    def local_function_source(name: str, before_offset: int) -> str | None:
+        pattern = re.compile(
+            rf"\b(?:async\s+)?function\s*\*?\s*{re.escape(name)}\s*"
+            r"(?P<parameters>\()"
+        )
+        matches = list(pattern.finditer(scan_text, 0, before_offset))
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise FrontendInventoryError(
+                "frontend setup hook binding is ambiguous"
+            )
+        match = matches[0]
+        parameters_end = _skip_balanced(text, match.start("parameters"))
+        body_start = _function_body_after_parameters(
+            text,
+            scan_text,
+            parameters_end,
+        )
+        if body_start is None or body_start >= before_offset:
+            raise FrontendInventoryError(
+                "frontend setup hook binding cannot be resolved safely"
+            )
+        return text[match.start() : _skip_balanced(text, body_start)]
+
+    def setup_binding_source(name: str, before_offset: int) -> str:
+        imported = _import_binding(text, scan_text, name, before_offset)
+        if imported is not None:
+            module, imported_name = imported
+            resolved = (
+                import_binding_resolver(module, imported_name)
+                if module.startswith(".") and import_binding_resolver is not None
+                else None
+            )
+            return "\n".join(
+                part
+                for part in (
+                    f"module={module}",
+                    f"imported={imported_name}",
+                    resolved,
+                )
+                if part
+            )
+        declaration = local_declaration_source(name, before_offset)
+        if declaration is not None:
+            return declaration
+        function = local_function_source(name, before_offset)
+        if function is not None:
+            return function
+        if name in {
+            "Array",
+            "Blob",
+            "BodyInit",
+            "Boolean",
+            "Date",
+            "Error",
+            "FormData",
+            "Headers",
+            "JSON",
+            "Map",
+            "Math",
+            "Number",
+            "Object",
+            "Promise",
+            "RegExp",
+            "Request",
+            "Response",
+            "ResponseInit",
+            "Set",
+            "String",
+            "URL",
+            "URLSearchParams",
+            "clearInterval",
+            "clearTimeout",
+            "console",
+            "crypto",
+            "document",
+            "fetch",
+            "localStorage",
+            "navigator",
+            "queueMicrotask",
+            "sessionStorage",
+            "setInterval",
+            "setTimeout",
+            "structuredClone",
+            "window",
+        }:
+            return f"host-global={name}"
+        raise FrontendInventoryError(
+            "frontend setup hook binding cannot be resolved safely"
+        )
 
     hook_names = {"afterAll", "afterEach", "beforeAll", "beforeEach"}
     for bindings, module in _named_imports(text, scan_text):
@@ -4664,7 +4792,8 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
         for alias_match in re.finditer(
             rf"(?<![.\w$])(?:const|let|var)\s+"
             rf"(?P<alias>{TEST_API_NAME})(?:\s*:\s*[^=;\r\n]+)?\s*=\s*"
-            rf"\(*\s*(?P<source>{source_pattern})\s*\)*\s*;",
+            rf"\(*\s*(?P<source>{source_pattern})\s*\)*[ \t]*"
+            rf"(?:;|(?=\r?\n|$))",
             scan_text,
         ):
             alias = alias_match.group("alias")
@@ -4673,7 +4802,8 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
                 changed = True
         for alias_match in re.finditer(
             rf"(?<![.\w$])(?P<alias>{TEST_API_NAME})\s*=\s*(?!=)"
-            rf"\(*\s*(?P<source>{source_pattern})\s*\)*\s*;",
+            rf"\(*\s*(?P<source>{source_pattern})\s*\)*[ \t]*"
+            rf"(?:;|(?=\r?\n|$))",
             scan_text,
         ):
             alias = alias_match.group("alias")
@@ -4686,7 +4816,7 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
     for binding_match in re.finditer(
         rf"(?<![.\w$])(?P<alias>{TEST_API_NAME})"
         rf"(?:\s*:\s*[^=;\r\n]+)?\s*=\s*(?!=)"
-        rf"(?P<value>[^;\r\n]+)\s*;",
+        rf"(?P<value>[^;\r\n]+?)[ \t]*(?:;|(?=\r?\n|$))",
         scan_text,
     ):
         if binding_match.group("alias") not in hook_names:
@@ -4701,7 +4831,7 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
     hook_pattern = (
         "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
     )
-    postures: list[str] = []
+    posture_regions: list[tuple[int, int, str]] = []
     for match in re.finditer(
         rf"(?<![.\w$]){hook_pattern}\s*(?P<arguments>\()",
         scan_text,
@@ -4709,13 +4839,127 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
         prefix = scan_text[max(0, match.start() - 32) : match.start()]
         if re.search(r"\bfunction\s*$", prefix) is not None:
             continue
+        if any(
+            start < match.start() < end for start, end in unproven_block_regions
+        ) or any(
+            start <= match.start() < end
+            for start, end in unproven_expression_regions
+        ):
+            continue
         call_end = _skip_balanced(text, match.start("arguments"))
         source = _normalized_javascript_expression(text[match.start() : call_end])
+        arguments = _call_argument_ranges(text, match.start("arguments"))
+        if not arguments:
+            raise FrontendInventoryError(
+                "frontend setup hook callback cannot be inventoried safely"
+            )
+        callback_source = text[arguments[0][0] : arguments[0][1]]
+        callback_parameters = set(_frontend_callback_parameters(callback_source))
+        local_bindings = set(
+            re.findall(
+                rf"\b(?:const|let|var|function|class)\s+(?P<name>{TEST_API_NAME})",
+                callback_source,
+            )
+        )
+        local_bindings.update(
+            re.findall(
+                rf"\bcatch\s*\(\s*(?P<name>{TEST_API_NAME})",
+                callback_source,
+            )
+        )
+        for parameters in re.findall(
+            r"\(([^()]*)\)\s*(?:=>|(?::\s*[^{}]+)?\{)",
+            callback_source,
+        ):
+            for parameter in parameters.split(","):
+                parameter_name = re.match(
+                    rf"\s*\.\.\.\s*(?P<rest>{TEST_API_NAME})"
+                    rf"|\s*(?P<plain>{TEST_API_NAME})",
+                    parameter,
+                )
+                if parameter_name is not None:
+                    local_bindings.add(
+                        parameter_name.group("rest")
+                        or parameter_name.group("plain")
+                    )
+        local_bindings.update(
+            re.findall(
+                rf"\b(?P<name>{TEST_API_NAME})\s*\([^()]*(?:\([^()]*\)[^()]*)*\)"
+                r"\s*(?::\s*[^{}]+)?\{",
+                callback_source,
+            )
+        )
+        javascript_keywords = {
+            "async",
+            "break",
+            "case",
+            "catch",
+            "class",
+            "const",
+            "continue",
+            "default",
+            "delete",
+            "do",
+            "else",
+            "export",
+            "extends",
+            "finally",
+            "for",
+            "function",
+            "if",
+            "in",
+            "let",
+            "of",
+            "return",
+            "static",
+            "super",
+            "switch",
+            "throw",
+            "try",
+            "var",
+            "while",
+            "yield",
+        }
+        binding_parts: list[str] = []
+        for name in _javascript_binding_names(
+            callback_source,
+            ignore_object_keys=True,
+        ):
+            if (
+                name in callback_parameters
+                or name in local_bindings
+                or name in javascript_keywords
+            ):
+                continue
+            binding_source = setup_binding_source(name, match.start())
+            binding_parts.append(f"binding:{name}={binding_source}")
+        if binding_parts:
+            source = "\n".join((source, *binding_parts))
         digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
         posture = f"local-hook:sha256:{digest}"
-        if posture not in postures:
-            postures.append(posture)
-    return tuple(postures)
+        containing_suites = tuple(
+            (start, end)
+            for start, end, _title, _source, _posture in suite_context_regions
+            if start < match.start() < end
+        )
+        scope_start, scope_end = (
+            min(containing_suites, key=lambda region: region[1] - region[0])
+            if containing_suites
+            else (0, len(text) + 1)
+        )
+        region = (scope_start, scope_end, posture)
+        if region not in posture_regions:
+            posture_regions.append(region)
+    return tuple(posture_regions)
+
+
+def _applicable_setup_hook_postures(
+    posture_regions: tuple[tuple[int, int, str], ...],
+    offset: int,
+) -> tuple[str, ...]:
+    return tuple(
+        posture for start, end, posture in posture_regions if start < offset < end
+    )
 
 
 def _registration_contexts(
@@ -4945,7 +5189,6 @@ def _frontend_inventory_entries(
     scan_text = "".join(
         character if code_mask[index] else " " for index, character in enumerate(text)
     )
-    local_setup_postures = _local_setup_hook_postures(text, scan_text)
     if any(
         match.group("module").startswith(".")
         and scan_text[match.start() : match.start() + len("import")] == "import"
@@ -5027,6 +5270,14 @@ def _frontend_inventory_entries(
         scan_text,
         suite_context_regions,
     )
+    local_setup_postures = _local_setup_hook_postures(
+        text,
+        scan_text,
+        suite_context_regions,
+        unproven_block_regions,
+        unproven_expression_regions,
+        import_binding_resolver,
+    )
     if _has_unproven_imported_registration_call(
         text,
         scan_text,
@@ -5101,7 +5352,10 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
-                            *local_setup_postures,
+                            *_applicable_setup_hook_postures(
+                                local_setup_postures,
+                                match.start(),
+                            ),
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -5170,7 +5424,10 @@ def _frontend_inventory_entries(
                         parameter_digest=digest,
                         execution_postures=(
                             *module_initialization_postures,
-                            *local_setup_postures,
+                            *_applicable_setup_hook_postures(
+                                local_setup_postures,
+                                offset,
+                            ),
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,
@@ -5217,7 +5474,10 @@ def _frontend_inventory_entries(
                         title,
                         execution_postures=(
                             *module_initialization_postures,
-                            *local_setup_postures,
+                            *_applicable_setup_hook_postures(
+                                local_setup_postures,
+                                offset,
+                            ),
                             *context.execution_postures,
                             *_execution_posture_parts(
                                 declaration_source,

@@ -1843,17 +1843,20 @@ def _is_pytest_collection_abort_call(
             # the abort posture instead of allowing collection to terminate
             # successfully without changing declaration identity.
             return True
-        literal_zero = any(
-            keyword.arg == "returncode"
-            and isinstance(keyword.value, ast.Constant)
-            and keyword.value.value == 0
+        explicit_return_codes = [
+            keyword.value
             for keyword in node.keywords
-        ) or (
-            len(node.args) >= 2
-            and isinstance(node.args[1], ast.Constant)
-            and node.args[1].value == 0
-        )
-        if literal_zero:
+            if keyword.arg == "returncode"
+        ]
+        if len(node.args) >= 2:
+            explicit_return_codes.append(node.args[1])
+        if any(
+            not isinstance(value, ast.Constant) or value.value == 0
+            for value in explicit_return_codes
+        ):
+            # A referenced or computed return code can change to zero without
+            # changing the call expression. Conservatively bind the call and
+            # let runtime-abort dependency identity bind its module globals.
             return True
         for keyword in node.keywords:
             if keyword.arg is not None:
@@ -5681,6 +5684,23 @@ def _parameterized_ref(
                     if skip_value:
                         runtime_unittest_skip_aliases.add(alias)
     runtime_unittest_method_skip_call_ids: set[int] = set()
+
+    def is_bound_unittest_skip_method(value: ast.AST) -> bool:
+        if isinstance(value, ast.Attribute) and value.attr == "skipTest":
+            return True
+        return (
+            isinstance(value, ast.Call)
+            and _is_builtin_getattr_reference(
+                value.func,
+                runtime_imports,
+                runtime_abort_aliases,
+            )
+            and len(value.args) in {2, 3}
+            and not value.keywords
+            and isinstance(value.args[1], ast.Constant)
+            and value.args[1].value == "skipTest"
+        )
+
     for function_scope in function_scopes:
         method_skip_aliases: set[str] = set()
         conditional_node_ids = conditional_execution_node_ids_by_scope[
@@ -5701,10 +5721,7 @@ def _parameterized_ref(
                         target,
                         execution_node.value,
                     ):
-                        if (
-                            isinstance(bound_value, ast.Attribute)
-                            and bound_value.attr == "skipTest"
-                        ) or (
+                        if is_bound_unittest_skip_method(bound_value) or (
                             isinstance(bound_value, ast.Name)
                             and bound_value.id in method_skip_aliases
                         ):
@@ -5836,6 +5853,27 @@ def _parameterized_ref(
             "runtime-abort="
             + ast.dump(node, annotate_fields=True, include_attributes=False)
         )
+        primary_scope_id = id(node)
+        runtime_referenced_names = {
+            scope_node.id
+            for scope_node in scope_execution_nodes_by_scope[primary_scope_id]
+            if isinstance(scope_node, ast.Name)
+        }
+        for referenced_name in sorted(runtime_referenced_names):
+            is_global = referenced_name in scope_globals_by_scope[primary_scope_id]
+            is_local = referenced_name in local_runtime_bindings_by_scope[
+                primary_scope_id
+            ]
+            if referenced_name in module_bindings and (is_global or not is_local):
+                serialized_parts.append(
+                    "runtime-abort-binding="
+                    + _python_local_binding_identity(
+                        referenced_name,
+                        module_bindings,
+                        imported_modules,
+                        {},
+                    )
+                )
 
     def runtime_helper_identity(
         helper: ast.FunctionDef | ast.AsyncFunctionDef,

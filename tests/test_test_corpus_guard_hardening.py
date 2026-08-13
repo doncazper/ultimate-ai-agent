@@ -571,6 +571,23 @@ def test_successful_pytest_exit_expanded_returncode_binds_runtime_posture() -> N
     assert aborting != running
 
 
+def test_named_pytest_exit_returncode_binds_runtime_posture() -> None:
+    zero = _python_test_ref(
+        "import pytest\n"
+        "RETURN_CODE = 0\n"
+        "def test_sample():\n"
+        "    pytest.exit('complete', returncode=RETURN_CODE)\n"
+    )
+    nonzero = _python_test_ref(
+        "import pytest\n"
+        "RETURN_CODE = 1\n"
+        "def test_sample():\n"
+        "    pytest.exit('complete', returncode=RETURN_CODE)\n"
+    )
+
+    assert zero != nonzero
+
+
 def test_successful_pytest_exit_starred_arguments_bind_runtime_posture() -> None:
     aborting = _python_test_ref(
         "import pytest\n"
@@ -653,6 +670,24 @@ def test_unittest_bound_skip_method_binds_runtime_posture() -> None:
     assert aborting != running
 
 
+def test_unittest_getattr_bound_skip_method_binds_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        skip = getattr(self, 'skipTest')\n"
+        "        skip('disabled')\n"
+    )
+    running = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        return None\n"
+    )
+
+    assert aborting != running
+
+
 def test_unittest_bound_skip_method_rebinding_clears_runtime_posture() -> None:
     rebound = _python_test_ref(
         "import unittest\n"
@@ -709,6 +744,25 @@ def test_module_lambda_skip_helper_binds_runtime_posture() -> None:
     assert aborting != running
 
 
+def test_runtime_abort_binds_referenced_module_global() -> None:
+    disabled = _python_test_ref(
+        "import pytest\n"
+        "DISABLED = True\n"
+        "def test_sample():\n"
+        "    if DISABLED:\n"
+        "        pytest.skip('disabled')\n"
+    )
+    enabled = _python_test_ref(
+        "import pytest\n"
+        "DISABLED = False\n"
+        "def test_sample():\n"
+        "    if DISABLED:\n"
+        "        pytest.skip('disabled')\n"
+    )
+
+    assert disabled != enabled
+
+
 def test_collect_ignore_glob_binds_collection_posture() -> None:
     first = _python_test_ref(
         "collect_ignore_glob = ['legacy_*.py']\n"
@@ -754,6 +808,82 @@ def test_aliased_local_vitest_setup_hook_binds_test_posture() -> None:
     )
 
     assert skipping != running
+
+
+def test_semicolonless_aliased_vitest_setup_hook_binds_test_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest"\n'
+        "const hook = beforeEach\n"
+        "hook(context => context.skip())\n"
+        'test("sample", () => {})\n'
+    )
+    running = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest"\n'
+        "const hook = beforeEach\n"
+        "hook(() => {})\n"
+        'test("sample", () => {})\n'
+    )
+
+    assert skipping != running
+
+
+def test_dormant_vitest_setup_hook_does_not_bind_test_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "function dormant() { beforeEach(context => context.skip()); }\n"
+        'test("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "function dormant() { beforeEach(() => {}); }\n"
+        'test("sample", () => {});\n'
+    )
+
+    assert skipping == running
+
+
+def test_vitest_setup_hook_binds_callback_dependencies() -> None:
+    skipping = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "const disabled = true;\n"
+        "beforeEach(context => { if (disabled) context.skip(); });\n"
+        'test("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "const disabled = false;\n"
+        "beforeEach(context => { if (disabled) context.skip(); });\n"
+        'test("sample", () => {});\n'
+    )
+
+    assert skipping != running
+
+
+def test_vitest_setup_hook_is_scoped_to_its_enclosing_suite() -> None:
+    skipping_source = (
+        'import { beforeEach, describe, test } from "vitest";\n'
+        'describe("nested", () => {\n'
+        "  beforeEach(context => context.skip());\n"
+        '  test("inside", () => {});\n'
+        "});\n"
+        'test("outside", () => {});\n'
+    )
+    running_source = skipping_source.replace(
+        "beforeEach(context => context.skip())",
+        "beforeEach(() => {})",
+    )
+    skipping = guard.parse_frontend_declarations(
+        "apps/control-center/src/sample.test.ts",
+        skipping_source,
+    )
+    running = guard.parse_frontend_declarations(
+        "apps/control-center/src/sample.test.ts",
+        running_source,
+    )
+
+    assert len(skipping) == len(running) == 2
+    assert skipping[0].ref != running[0].ref
+    assert skipping[1].ref == running[1].ref
 
 
 def test_shadowed_local_vitest_setup_hook_alias_fails_closed() -> None:
