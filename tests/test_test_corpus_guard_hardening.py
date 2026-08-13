@@ -782,6 +782,37 @@ def test_runtime_abort_binds_pytest_skip_exception(runtime_skip: str) -> None:
     assert skipped != running
 
 
+@pytest.mark.parametrize(
+    "runtime_skip",
+    (
+        "import pytest\ndef test_sample():\n"
+        "    vars(pytest)['skip']('disabled')\n",
+        "import pytest\ndef test_sample():\n"
+        "    namespace = vars(pytest)\n"
+        "    namespace['skip']('disabled')\n",
+        "import pytest\nfrom builtins import vars as namespace\n"
+        "def test_sample():\n"
+        "    namespace(pytest).get('skip')('disabled')\n",
+    ),
+)
+def test_runtime_abort_binds_indexed_pytest_callable(runtime_skip: str) -> None:
+    running = _python_test_ref("def test_sample():\n    return None\n")
+    skipped = _python_test_ref(runtime_skip)
+
+    assert skipped != running
+
+
+def test_dynamic_indexed_pytest_callable_fails_closed() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic pytest namespace lookup",
+    ):
+        _python_test_ref(
+            "import pytest\ndef test_sample(name):\n"
+            "    vars(pytest)[name]('disabled')\n"
+        )
+
+
 def test_collect_ignore_glob_binds_collection_posture() -> None:
     first = _python_test_ref(
         "collect_ignore_glob = ['legacy_*.py']\n"

@@ -1703,11 +1703,93 @@ def _is_builtin_getattr_reference(
     )
 
 
+def _is_builtin_vars_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    if isinstance(node, ast.Name):
+        return (
+            node.id == "vars"
+            or aliases.get(node.id) == "vars"
+            or "builtins.vars" in imported_modules.get(node.id, ())
+        )
+    if not isinstance(node, ast.Attribute) or node.attr != "vars":
+        return False
+    root = _root_name(node)
+    return root == "builtins" or (
+        root is not None and "builtins" in imported_modules.get(root, ())
+    )
+
+
+def _is_pytest_namespace_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    if isinstance(node, ast.Name) and aliases.get(node.id) == "pytest-namespace":
+        return True
+    if not isinstance(node, ast.Call):
+        return False
+    if (
+        not _is_builtin_vars_reference(node.func, imported_modules, aliases)
+        or len(node.args) != 1
+        or node.keywords
+    ):
+        return False
+    root = _root_name(node.args[0])
+    candidates = imported_modules.get(root, ()) if root is not None else ()
+    return root == "pytest" or "pytest" in candidates
+
+
 def _pytest_collection_abort_callable_name(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
     aliases: dict[str, str],
 ) -> str:
+
+    indexed_name: str | None = None
+    if isinstance(node, ast.Subscript) and _is_pytest_namespace_reference(
+        node.value,
+        imported_modules,
+        aliases,
+    ):
+        indexed_name = _static_string_expression(node.slice)
+    elif (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and _is_pytest_namespace_reference(
+            node.func.value,
+            imported_modules,
+            aliases,
+        )
+        and len(node.args) in {1, 2}
+        and not node.keywords
+    ):
+        indexed_name = _static_string_expression(node.args[0])
+    if indexed_name is not None:
+        return (
+            indexed_name
+            if indexed_name in {"exit", "importorskip", "skip", "xfail"}
+            else ""
+        )
+    if (
+        isinstance(node, ast.Subscript)
+        and _is_pytest_namespace_reference(node.value, imported_modules, aliases)
+    ) or (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "get"
+        and _is_pytest_namespace_reference(
+            node.func.value,
+            imported_modules,
+            aliases,
+        )
+    ):
+        raise TestCorpusGuardError(
+            "dynamic pytest namespace lookup cannot be inventoried safely"
+        )
 
     if (
         isinstance(node, ast.Call)
@@ -5237,10 +5319,26 @@ def _parameterized_ref(
                         runtime_imports,
                         runtime_abort_aliases,
                     )
-                    else _pytest_collection_abort_callable_name(
-                        bound_value,
-                        runtime_imports,
-                        runtime_abort_aliases,
+                    else (
+                        "vars"
+                        if _is_builtin_vars_reference(
+                            bound_value,
+                            runtime_imports,
+                            runtime_abort_aliases,
+                        )
+                        else (
+                            "pytest-namespace"
+                            if _is_pytest_namespace_reference(
+                                bound_value,
+                                runtime_imports,
+                                runtime_abort_aliases,
+                            )
+                            else _pytest_collection_abort_callable_name(
+                                bound_value,
+                                runtime_imports,
+                                runtime_abort_aliases,
+                            )
+                        )
                     )
                 )
                 if abort_name in {
@@ -5249,6 +5347,8 @@ def _parameterized_ref(
                     "skip",
                     "xfail",
                     "skip-exception",
+                    "pytest-namespace",
+                    "vars",
                     "xfail-exception",
                 }:
                     runtime_abort_aliases[alias] = abort_name
@@ -5597,21 +5697,38 @@ def _parameterized_ref(
                             runtime_abort_aliases,
                         )
                         else (
-                            f"{abort_name}-exception"
-                            if isinstance(bound_value, ast.Attribute)
-                            and bound_value.attr == "Exception"
-                            and (
-                                abort_name := _pytest_collection_abort_callable_name(
-                                    bound_value.value,
-                                    runtime_imports,
-                                    runtime_abort_aliases,
-                                )
-                            )
-                            in {"skip", "xfail"}
-                            else _pytest_collection_abort_callable_name(
+                            "vars"
+                            if _is_builtin_vars_reference(
                                 bound_value,
                                 runtime_imports,
                                 runtime_abort_aliases,
+                            )
+                            else (
+                                "pytest-namespace"
+                                if _is_pytest_namespace_reference(
+                                    bound_value,
+                                    runtime_imports,
+                                    runtime_abort_aliases,
+                                )
+                                else (
+                                    f"{abort_name}-exception"
+                                    if isinstance(bound_value, ast.Attribute)
+                                    and bound_value.attr == "Exception"
+                                    and (
+                                        abort_name
+                                        := _pytest_collection_abort_callable_name(
+                                            bound_value.value,
+                                            runtime_imports,
+                                            runtime_abort_aliases,
+                                        )
+                                    )
+                                    in {"skip", "xfail"}
+                                    else _pytest_collection_abort_callable_name(
+                                        bound_value,
+                                        runtime_imports,
+                                        runtime_abort_aliases,
+                                    )
+                                )
                             )
                         )
                     )
@@ -5622,6 +5739,8 @@ def _parameterized_ref(
                         "skip",
                         "xfail",
                         "skip-exception",
+                        "pytest-namespace",
+                        "vars",
                         "xfail-exception",
                     } and (runtime_abort_aliases.get(alias) != abort_name):
                         runtime_abort_aliases[alias] = abort_name
