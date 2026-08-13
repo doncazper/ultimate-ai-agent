@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 948,
+  "timed_file_count": 949,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1309,6 +1309,11 @@
       "path": "tests/test_gate_architecture_guard.py",
       "seconds": 0.99,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_gate_evaluation_context.py",
+      "seconds": 1.0,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_gate_evaluator_characterization.py",

@@ -267,8 +267,12 @@ class FoundationGateLegacyChecksPart001Mixin:
             'origin = f"http://{host}:{port or 80}"',
             'return f"https://{host}"',
         }
+        current_path = ""
+        source = ""
         for path, line_no, stripped in self._runtime_lines():
-            source = self._read(self.root / path)
+            if path != current_path:
+                current_path = path
+                source = self._read(self.root / path)
             if self._is_static_scanner_text(stripped):
                 continue
             if any(stripped.startswith(pattern) for pattern in forbidden_starts):
@@ -470,8 +474,12 @@ class FoundationGateLegacyChecksPart001Mixin:
             )
         }
         failures = []
+        current_path = ""
+        source = ""
         for path, line_no, stripped in self._runtime_lines():
-            source = self._read(self.root / path)
+            if path != current_path:
+                current_path = path
+                source = self._read(self.root / path)
             if self._is_static_scanner_text(stripped):
                 continue
             exact_allowed_path = (
