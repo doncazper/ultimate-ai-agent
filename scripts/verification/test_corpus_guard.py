@@ -4101,7 +4101,7 @@ def _parameterized_ref(
                 items
                 if items
                 and any(
-                    maybe_callable(item)
+                    unambiguously_maybe_callable(item)
                     or static_callable_container(item, containers) is not None
                     for item in items.values()
                 )
@@ -4121,7 +4121,7 @@ def _parameterized_ref(
                 items
                 if items
                 and any(
-                    maybe_callable(item)
+                    unambiguously_maybe_callable(item)
                     or static_callable_container(item, containers) is not None
                     for item in items.values()
                 )
@@ -4175,6 +4175,21 @@ def _parameterized_ref(
             )
         nested = static_callable_container(expression, {})
         return nested is not None
+
+    def unambiguously_maybe_callable(expression: ast.AST) -> bool:
+        resolved_expression, ambiguous = resolved_callable_alias(expression)
+        if ambiguous:
+            return False
+        return maybe_callable(resolved_expression)
+
+    def contains_ambiguous_callable_candidate(expression: ast.AST | None) -> bool:
+        if expression is None:
+            return False
+        return any(
+            isinstance(candidate, ast.Name)
+            and resolved_callable_alias(candidate)[1]
+            for candidate in ast.walk(expression)
+        )
 
     def is_non_aborting_local_callable(
         expression: ast.AST,
@@ -4294,6 +4309,12 @@ def _parameterized_ref(
             return False
         return not is_non_aborting_local_callable(expression)
 
+    def callable_is_proven_to_require_fail_closed(expression: ast.AST) -> bool:
+        resolved_expression, ambiguous = resolved_callable_alias(expression)
+        if ambiguous:
+            return False
+        return callable_requires_fail_closed(resolved_expression)
+
     def static_callable_container_target(
         expression: ast.AST,
         containers: dict[str, dict[object, ast.expr]],
@@ -4382,6 +4403,7 @@ def _parameterized_ref(
     called_helpers_by_call_id: dict[int, ast.FunctionDef | ast.AsyncFunctionDef] = {}
     callable_container_targets_by_call_id: dict[int, ast.expr] = {}
     callable_containers_by_scope: dict[int, dict[str, dict[object, ast.expr]]] = {}
+    ambiguous_callable_containers_by_scope: dict[int, set[str]] = {}
     pending_helper_scopes: list[ast.FunctionDef | ast.AsyncFunctionDef] = [node]
     while pending_helper_scopes:
         helper_scope = pending_helper_scopes.pop()
@@ -4395,6 +4417,11 @@ def _parameterized_ref(
             callable_containers_by_scope.get(id(lexical_parent), {})
             if lexical_parent is not None
             else {}
+        )
+        ambiguous_callable_containers = set(
+            ambiguous_callable_containers_by_scope.get(id(lexical_parent), set())
+            if lexical_parent is not None
+            else set()
         )
         empty_container_names: set[str] = set()
         direct_scope_node_ids = {id(item) for item in helper_scope.body}
@@ -4471,6 +4498,7 @@ def _parameterized_ref(
                     helper_aliases.pop(target_name, None)
                     container_abort_aliases.pop(target_name, None)
                     callable_containers.pop(target_name, None)
+                    ambiguous_callable_containers.discard(target_name)
                     empty_container_names.discard(target_name)
                 if has_destructured_target:
                     if (
@@ -4546,11 +4574,24 @@ def _parameterized_ref(
                             raise TestCorpusGuardError(
                                 "dynamic runtime helper container cannot be inventoried safely"
                             )
+                elif isinstance(value, (ast.List, ast.Tuple, ast.Dict, ast.Set)) and (
+                    contains_ambiguous_callable_candidate(value)
+                ):
+                    ambiguous_callable_containers.update(target_names)
                 elif any(
                     isinstance(target, ast.Subscript) for target in targets
-                ) and callable_requires_fail_closed(value):
+                ) and callable_is_proven_to_require_fail_closed(value):
                     raise TestCorpusGuardError(
                         "dynamic runtime helper container cannot be inventoried safely"
+                    )
+                elif any(
+                    isinstance(target, ast.Subscript) for target in targets
+                ) and contains_ambiguous_callable_candidate(value):
+                    ambiguous_callable_containers.update(
+                        root
+                        for target in targets
+                        if isinstance(target, ast.Subscript)
+                        and (root := callable_container_root(target)) is not None
                     )
                 resolved_helper = helper_for_expression(
                     value,
@@ -4567,6 +4608,14 @@ def _parameterized_ref(
             if not isinstance(execution_node, ast.Call):
                 continue
             call_target = execution_node.func
+            if (
+                isinstance(call_target, (ast.Subscript, ast.Call))
+                and callable_container_root(call_target)
+                in ambiguous_callable_containers
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             if any(
                 callable_container_root(argument) in callable_containers
                 for argument in (
@@ -4604,13 +4653,26 @@ def _parameterized_ref(
                 and call_target.attr
                 in {"append", "extend", "insert", "setdefault", "update"}
                 and any(
-                    callable_requires_fail_closed(argument)
+                    callable_is_proven_to_require_fail_closed(argument)
                     for argument in execution_node.args
                 )
             ):
                 raise TestCorpusGuardError(
                     "dynamic runtime helper container cannot be inventoried safely"
                 )
+            if (
+                isinstance(call_target, ast.Attribute)
+                and (
+                    root := callable_container_root(call_target.value)
+                ) in empty_container_names
+                and call_target.attr
+                in {"append", "extend", "insert", "setdefault", "update"}
+                and any(
+                    contains_ambiguous_callable_candidate(argument)
+                    for argument in execution_node.args
+                )
+            ):
+                ambiguous_callable_containers.add(root)
             container_target = static_callable_container_target(
                 call_target,
                 callable_containers,
@@ -4687,6 +4749,9 @@ def _parameterized_ref(
             )
             pending_helper_scopes.append(resolved_helper)
         callable_containers_by_scope[id(helper_scope)] = callable_containers
+        ambiguous_callable_containers_by_scope[id(helper_scope)] = (
+            ambiguous_callable_containers
+        )
         if helper_scope is not node:
             execution_nodes.extend(helper_nodes)
     function_execution_nodes = tuple(execution_nodes)

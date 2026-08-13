@@ -1153,6 +1153,74 @@ def test_python_inventory_allows_ordinary_noncallable_container_mutation() -> No
     assert len(declarations) == 1
 
 
+def test_python_inventory_allows_loop_bound_data_in_subscript_assignment() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "def test_case(request):\n"
+        "    cases = [[{'step': 1}], [{'step': 2}]]\n"
+        "    for steps in cases:\n"
+        "        payload = request.model_dump(mode='python')\n"
+        "        payload['steps'] = steps\n"
+        "        assert payload['steps'] == steps\n",
+    )
+
+    assert len(declarations) == 1
+
+
+def test_python_inventory_allows_loop_bound_data_appended_to_empty_list() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "def test_case():\n"
+        "    values = []\n"
+        "    for value in ('first', 'second'):\n"
+        "        values.append(value)\n"
+        "    assert values == ['first', 'second']\n",
+    )
+
+    assert len(declarations) == 1
+
+
+def test_python_inventory_allows_annotation_without_assignment_value() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_example.py",
+        "def test_case():\n"
+        "    values: list[str]\n"
+        "    values = ['ready']\n"
+        "    assert values\n",
+    )
+
+    assert len(declarations) == 1
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "def test_case():\n"
+        "    for callback in (lambda: None,):\n"
+        "        callbacks = [callback]\n"
+        "        callbacks[0]()\n",
+        "def test_case():\n"
+        "    callbacks = {}\n"
+        "    for callback in (lambda: None,):\n"
+        "        callbacks['run'] = callback\n"
+        "        callbacks['run']()\n",
+        "def test_case():\n"
+        "    callbacks = []\n"
+        "    for callback in (lambda: None,):\n"
+        "        callbacks.append(callback)\n"
+        "        callbacks[0]()\n",
+    ),
+)
+def test_python_inventory_rejects_ambiguous_loop_bound_callback_container(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="dynamic runtime helper container",
+    ):
+        guard.parse_python_declarations("tests/test_example.py", source)
+
+
 def test_python_inventory_allows_non_aborting_local_callback_registry() -> None:
     declarations = guard.parse_python_declarations(
         "tests/test_example.py",
