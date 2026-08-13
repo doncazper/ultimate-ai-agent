@@ -6093,6 +6093,15 @@ def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     runner_path = "scripts/verification/run_pytest_shards.py"
     prior_manifest = (
         'patterns = (\n                    "tests/**/test_*.py",\n)\n'
+        '                    "--hard-timeout-seconds",\n'
+        '                    "1800",\n'
+        '                    "--quiet",\n'
+        '                    "--safe-summary",\n'
+        "                ),\n"
+        '                (),\n'
+        '                "test",\n'
+        "                1830,\n"
+        "            ),\n"
         '                    "{temp_root}/uaa_static_verification_timings.json",\n'
         "                ),\n"
         '                (),\n'
@@ -6152,6 +6161,43 @@ def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     )
 
     assert aligned_with_static_timeout == {manifest_path, runner_path}
+    aligned_with_bounded_timeouts = guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest.replace(
+                '                    "1800",\n',
+                '                    "2050",\n',
+            ).replace(
+                "                1830,\n",
+                "                2080,\n",
+            ).replace(
+                "                900,\n",
+                "                1_800,\n",
+            ),
+            runner_path: current_runner,
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
+
+    assert aligned_with_bounded_timeouts == {manifest_path, runner_path}
+    assert not guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest.replace(
+                '                    "1800",\n',
+                '                    "2051",\n',
+            ).replace(
+                "                1830,\n",
+                "                2080,\n",
+            ),
+            runner_path: current_runner,
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
     assert not guard._safe_pytest_suffix_discovery_alignment_paths(
         current_by_path={
             manifest_path: current_manifest.replace(

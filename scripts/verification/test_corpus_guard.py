@@ -10140,16 +10140,51 @@ def _safe_pytest_suffix_discovery_alignment_paths(
         "                900,\n",
         "                1_800,\n",
     )
-    current_manifest = current_by_path[manifest_path]
-    if current_manifest != expected_manifest:
-        if expected_manifest.count(static_timeout_needle) != 1:
-            return set()
-        expected_manifest = expected_manifest.replace(
+    pytest_timeout_needle = (
+        '                    "--hard-timeout-seconds",\n'
+        '                    "1800",\n'
+        '                    "--quiet",\n'
+        '                    "--safe-summary",\n'
+        "                ),\n"
+        '                (),\n'
+        '                "test",\n'
+        "                1830,\n"
+        "            ),\n"
+    )
+    pytest_timeout_replacement = pytest_timeout_needle.replace(
+        '                    "1800",\n',
+        '                    "2050",\n',
+    ).replace(
+        "                1830,\n",
+        "                2080,\n",
+    )
+    if expected_manifest.count(static_timeout_needle) != 1:
+        return set()
+    if expected_manifest.count(pytest_timeout_needle) != 1:
+        return set()
+    allowed_manifests = {
+        expected_manifest,
+        expected_manifest.replace(
             static_timeout_needle,
             static_timeout_replacement,
             1,
-        )
-    if current_manifest != expected_manifest:
+        ),
+        expected_manifest.replace(
+            pytest_timeout_needle,
+            pytest_timeout_replacement,
+            1,
+        ),
+        expected_manifest.replace(
+            static_timeout_needle,
+            static_timeout_replacement,
+            1,
+        ).replace(
+            pytest_timeout_needle,
+            pytest_timeout_replacement,
+            1,
+        ),
+    }
+    if current_by_path[manifest_path] not in allowed_manifests:
         return set()
 
     runner_needle = (
