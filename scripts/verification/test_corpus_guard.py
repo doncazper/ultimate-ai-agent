@@ -3932,7 +3932,6 @@ def _parameterized_ref(
     module_callable_values: dict[str, ast.expr] = {}
     module_ambiguous_bindings: set[str] = set()
     callable_instance_lineage: set[str] = set()
-    simple_module_assignments: list[tuple[tuple[ast.AST, ...], ast.expr]] = []
     for candidate in tree.body:
         if isinstance(candidate, ast.Assign):
             targets = tuple(candidate.targets)
@@ -3954,36 +3953,31 @@ def _parameterized_ref(
                 continue
             module_ambiguous_bindings.update(_statement_binding_names(candidate))
             continue
-        simple_module_assignments.append((targets, value))
         for target in targets:
             for name, bound_value in _paired_binding_values(target, value):
-                module_callable_values[name] = bound_value
-    changed = True
-    while changed:
-        changed = False
-        for targets, value in simple_module_assignments:
-            direct_instance = (
-                isinstance(value, ast.Call)
-                and isinstance(value.func, ast.Name)
-                and value.func.id in local_class_definitions
-                and any(
-                    isinstance(member, helper_type) and member.name == "__call__"
-                    for member in local_class_definitions[value.func.id].body
+                captured_value = (
+                    module_callable_values.get(bound_value.id, bound_value)
+                    if isinstance(bound_value, ast.Name)
+                    else bound_value
                 )
-            )
-            alias_instance = (
-                isinstance(value, ast.Name) and value.id in callable_instance_lineage
-            )
-            if not (direct_instance or alias_instance):
-                continue
-            for target in targets:
-                for name in _binding_target_names(target):
-                    if name not in callable_instance_lineage:
-                        callable_instance_lineage.add(name)
-                        changed = True
+                module_callable_values[name] = captured_value
+                direct_instance = (
+                    isinstance(captured_value, ast.Call)
+                    and isinstance(captured_value.func, ast.Name)
+                    and captured_value.func.id in local_class_definitions
+                    and any(
+                        isinstance(member, helper_type) and member.name == "__call__"
+                        for member in local_class_definitions[
+                            captured_value.func.id
+                        ].body
+                    )
+                )
+                if direct_instance:
+                    callable_instance_lineage.add(name)
 
     local_callable_values: dict[str, ast.expr] = {}
     local_ambiguous_bindings: set[str] = set()
+    tracked_callable_instance_aliases = set(callable_instance_lineage)
     for candidate in node.body:
         if isinstance(candidate, ast.Assign):
             targets = tuple(candidate.targets)
@@ -4007,24 +4001,19 @@ def _parameterized_ref(
             continue
         for target in targets:
             for name, bound_value in _paired_binding_values(target, value):
-                local_callable_values[name] = bound_value
-    tracked_callable_instance_aliases = set(callable_instance_lineage)
-    changed = True
-    while changed:
-        changed = False
-        for name, value in local_callable_values.items():
-            if name in tracked_callable_instance_aliases:
-                continue
-            if (
-                isinstance(value, ast.Name)
-                and value.id in tracked_callable_instance_aliases
-            ) or (
-                isinstance(value, ast.Call)
-                and isinstance(value.func, ast.Name)
-                and value.func.id in local_class_definitions
-            ):
-                tracked_callable_instance_aliases.add(name)
-                changed = True
+                captured_value = bound_value
+                if isinstance(bound_value, ast.Name):
+                    captured_value = local_callable_values.get(
+                        bound_value.id,
+                        module_callable_values.get(bound_value.id, bound_value),
+                    )
+                local_callable_values[name] = captured_value
+                if (
+                    isinstance(captured_value, ast.Call)
+                    and isinstance(captured_value.func, ast.Name)
+                    and captured_value.func.id in local_class_definitions
+                ):
+                    tracked_callable_instance_aliases.add(name)
     container_abort_aliases = _pytest_collection_abort_aliases(
         tree,
         imported_modules,
@@ -5484,6 +5473,21 @@ def _parameterized_ref(
         if maybe_callable(reference) and not is_non_aborting_local_callable(reference):
             runtime_abort_aliases[alias] = "xfail"
         elif alias in callable_instance_lineage:
+            runtime_abort_aliases.pop(alias, None)
+    for alias, abort_name in container_abort_aliases.items():
+        if abort_name in {"importorskip", "skip", "xfail", "xfail-exception"}:
+            runtime_abort_aliases.setdefault(alias, abort_name)
+    for alias, captured_value in module_callable_values.items():
+        if alias in tracked_callable_instance_aliases:
+            continue
+        abort_name = _pytest_collection_abort_callable_name(
+            captured_value,
+            runtime_imports,
+            runtime_abort_aliases,
+        )
+        if abort_name in {"importorskip", "skip", "xfail", "xfail-exception"}:
+            runtime_abort_aliases[alias] = abort_name
+        else:
             runtime_abort_aliases.pop(alias, None)
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:

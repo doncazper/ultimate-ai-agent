@@ -653,6 +653,24 @@ def _has_runtime_callback_skip(
     destructured_parameter = None
     skip_aliases: set[str] = set()
     parameters = _frontend_callback_parameters(callback)
+    if context_parameter_index is not None:
+        for candidate in parameters:
+            rest_parameter = re.match(
+                rf"\.\.\.\s*(?P<name>{TEST_API_NAME})\b",
+                candidate,
+            )
+            if rest_parameter is not None and re.search(
+                rf"\b{re.escape(rest_parameter.group('name'))}\s*"
+                rf"\[\s*{context_parameter_index}\s*\]\s*(?:\?\.|\.)\s*skip\b",
+                callback_scan,
+            ):
+                return True
+        if re.search(
+            rf"\barguments\s*\[\s*{context_parameter_index}\s*\]\s*"
+            r"(?:\?\.|\.)\s*skip\b",
+            callback_scan,
+        ):
+            return True
     if context_parameter_index is not None and context_parameter_index < len(
         parameters
     ):
@@ -1074,6 +1092,10 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
             raise FrontendInventoryError(
                 "frontend callback context escape cannot be inventoried safely"
             )
+        if re.search(rf"\b{TEST_API_NAME}\s*\(", arguments_source):
+            raise FrontendInventoryError(
+                "frontend callback context escape cannot be inventoried safely"
+            )
         for candidate in re.finditer(TEST_API_NAME, arguments_source):
             candidate_name = candidate.group(0)
             if candidate_name in context_aliases or candidate_name in {
@@ -1112,6 +1134,27 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         raise FrontendInventoryError(
             "frontend callback context escape cannot be inventoried safely"
         )
+    for constructor in re.finditer(
+        rf"\bnew\s+{TEST_API_NAME}\s*(?P<arguments>\()",
+        scan_text,
+    ):
+        arguments_end = _skip_balanced(
+            body_source,
+            constructor.start("arguments"),
+        )
+        arguments_source = scan_text[
+            constructor.start("arguments") + 1 : arguments_end - 1
+        ]
+        if re.search(
+            rf"\b{parameter_pattern}\b",
+            arguments_source,
+        ) and re.match(
+            rf"\s*(?:\?\.|\.)\s*{TEST_API_NAME}\s*\(",
+            scan_text[arguments_end:],
+        ):
+            raise FrontendInventoryError(
+                "frontend callback context escape cannot be inventoried safely"
+            )
     for assignment in re.finditer(
         rf"(?P<statement>[^;\n]*(?:=|\|\|=|&&=|\?\?=)[^;\n]*"
         rf"\b(?:{parameter_pattern})\b[^;\n]*)",
@@ -1127,6 +1170,32 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
         ) and not re.search(r"(?:const|let|var)\s*$", prefix):
             escaped_context = True
             break
+    if escaped_context:
+        for member_call in re.finditer(
+            rf"\b{TEST_API_NAME}\s*(?:\.\s*{TEST_API_NAME}|\[[^\]]+\])"
+            rf"\s*(?P<arguments>\()",
+            scan_text,
+        ):
+            arguments_end = _skip_balanced(
+                body_source,
+                member_call.start("arguments"),
+            )
+            arguments_source = scan_text[
+                member_call.start("arguments") + 1 : arguments_end - 1
+            ]
+            if re.search(rf"\b{TEST_API_NAME}\s*\(", arguments_source):
+                raise FrontendInventoryError(
+                    "frontend callback context escape cannot be inventoried safely"
+                )
+            for candidate in re.finditer(TEST_API_NAME, arguments_source):
+                candidate_name = candidate.group(0)
+                if candidate_name not in context_aliases and candidate_name not in {
+                    "false",
+                    "null",
+                    "true",
+                    "undefined",
+                }:
+                    callable_argument_helpers.add(candidate_name)
     helpers: set[str] = {*member_helper_roots, *callable_argument_helpers}
     for helper_call in re.finditer(
         rf"(?<![.\w$])(?P<callee>{TEST_API_NAME})\s*(?P<arguments>\()",
@@ -1179,7 +1248,8 @@ def _resolved_callback_source(binding_source: str, name: str) -> str:
         for index, character in enumerate(binding_source)
     )
     assignment = re.match(
-        rf"\s*(?:export\s+)?(?:const|let|var)\s+{re.escape(name)}\s*=",
+        rf"\s*(?:export\s+)?(?:const|let|var)\s+{re.escape(name)}"
+        rf"(?:\s*[?!])?(?:\s*:\s*[^=;\n]+)?\s*=",
         scan_text,
     )
     if assignment is None:
@@ -1194,7 +1264,23 @@ def _resolved_callback_source(binding_source: str, name: str) -> str:
             cursor = _skip_balanced(binding_source, cursor)
             continue
         if binding_source[cursor] == ";":
-            return binding_source[start:cursor]
+            callback_source = binding_source[start:cursor].strip()
+            while callback_source.startswith("("):
+                end = _skip_balanced(callback_source, 0)
+                suffix = callback_source[end:].strip()
+                if not suffix or re.match(r"(?:as|satisfies)\b", suffix):
+                    callback_source = callback_source[1 : end - 1].strip()
+                    continue
+                break
+            alias = re.fullmatch(TEST_API_NAME, callback_source)
+            if alias is not None:
+                remainder = binding_source[cursor + 1 :].lstrip()
+                if remainder:
+                    return _resolved_callback_source(remainder, alias.group(0))
+                raise FrontendInventoryError(
+                    "frontend runtime callback cannot be resolved safely"
+                )
+            return callback_source
         cursor += 1
     raise FrontendInventoryError("frontend runtime callback cannot be resolved safely")
 
@@ -3145,11 +3231,20 @@ def _module_initializer_code_mask_bytes(
         }
         class_receiver_names = {class_name}
         class_expression_binding = re.search(
-            rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\s*=\s*$",
+            rf"(?:(?:\b(?:const|let|var)\s+)?"
+            rf"(?P<target>{TEST_API_NAME}(?:\s*\.\s*{TEST_API_NAME})*)"
+            rf"(?:\s*[?!])?(?:\s*:\s*[^=;\n]+)?\s*=\s*\(*\s*)$",
             scan_text[: class_match.start()],
         )
+        class_expression_target: str | None = None
         if class_expression_binding is not None:
-            class_receiver_names.add(class_expression_binding.group("name"))
+            class_expression_target = re.sub(
+                r"\s+",
+                "",
+                class_expression_binding.group("target"),
+            )
+            if "." not in class_expression_target:
+                class_receiver_names.add(class_expression_target)
         changed = True
         while changed:
             changed = False
@@ -3174,24 +3269,36 @@ def _module_initializer_code_mask_bytes(
         instance_receivers = tuple(
             re.escape(name) for name in sorted(instance_receiver_names)
         )
-        class_receivers = tuple(
-            re.escape(name) for name in sorted(class_receiver_names)
-        )
+        class_receivers = [re.escape(name) for name in sorted(class_receiver_names)]
+        class_expression_receiver: str | None = None
+        if class_expression_target is not None and "." in class_expression_target:
+            class_expression_receiver = r"\s*\.\s*".join(
+                re.escape(part) for part in class_expression_target.split(".")
+            )
+            class_receivers.append(class_expression_receiver)
+        class_receivers_tuple = tuple(class_receivers)
         class_reference_source = external_source
         if class_expression_binding is not None:
-            binding_start = class_expression_binding.start("name")
-            binding_end = class_expression_binding.end("name")
+            binding_start = class_expression_binding.start("target")
+            binding_end = class_expression_binding.end("target")
             class_reference_source = (
                 external_source[:binding_start]
                 + " " * (binding_end - binding_start)
                 + external_source[binding_end:]
             )
-        class_object_referenced = any(
+        immediate_class_member_access = (
+            re.match(
+                rf"\s*\)*\s*(?:\?\.|\.)\s*{TEST_API_NAME}\b",
+                external_source[class_end:],
+            )
+            is not None
+        )
+        class_object_referenced = immediate_class_member_access or any(
             re.search(rf"(?<![.\w$]){receiver}\b", class_reference_source) is not None
-            for receiver in class_receivers
+            for receiver in class_receivers_tuple
         )
         prototype_receivers = tuple(
-            rf"{receiver}\s*\.\s*prototype" for receiver in class_receivers
+            rf"{receiver}\s*\.\s*prototype" for receiver in class_receivers_tuple
         )
         direct_instance_receiver = rf"new\s+{class_pattern_text}\s*\([^)]*\)"
         instance_call_receivers = (
@@ -3237,7 +3344,7 @@ def _module_initializer_code_mask_bytes(
                     continue
                 if member_used(
                     external_source,
-                    class_receivers,
+                    class_receivers_tuple,
                     method_name,
                     require_call=False,
                     raw_source=external_text,

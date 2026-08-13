@@ -1351,6 +1351,78 @@ def test_python_inventory_allows_safe_static_callable_unpack(unpack: str) -> Non
     assert len(declarations) == 1
 
 
+def test_python_inventory_closes_aborting_named_container_unpack() -> None:
+    source = (
+        "import pytest\n"
+        "def test_case():\n"
+        "    callbacks = [pytest.xfail]\n"
+        "    stop, = callbacks\n"
+        "    stop('blocked')\n"
+    )
+
+    try:
+        declaration = guard.parse_python_declarations(
+            "tests/test_example.py",
+            source,
+        )[0]
+    except guard.TestCorpusGuardError:
+        return
+    assert declaration.ref != "tests/test_example.py::test_case"
+
+
+@pytest.mark.parametrize("local", (False, True))
+def test_python_inventory_captures_callable_alias_at_assignment_time(
+    local: bool,
+) -> None:
+    prefix = "import pytest\ndef safe():\n    return None\n"
+    indent = "    " if local else ""
+    opening = "def test_case():\n" if local else ""
+    closing = "" if local else "def test_case():\n"
+    aborting = (
+        prefix
+        + opening
+        + f"{indent}STOP = pytest.xfail\n"
+        + f"{indent}ALIAS = STOP\n"
+        + f"{indent}STOP = safe\n"
+        + closing
+        + "    ALIAS('blocked')\n"
+    )
+    safe = (
+        prefix
+        + opening
+        + f"{indent}STOP = safe\n"
+        + f"{indent}ALIAS = STOP\n"
+        + f"{indent}STOP = pytest.xfail\n"
+        + closing
+        + "    ALIAS('blocked')\n"
+    )
+
+    try:
+        aborting_declaration = guard.parse_python_declarations(
+            "tests/test_example.py",
+            aborting,
+        )[0]
+    except guard.TestCorpusGuardError:
+        aborting_declaration = None
+    assert aborting_declaration is None or (
+        aborting_declaration.ref != "tests/test_example.py::test_case"
+    )
+    safe_baseline = safe.replace(
+        f"{indent}STOP = pytest.xfail\n",
+        f"{indent}STOP = safe\n",
+    )
+    assert (
+        guard.parse_python_declarations(
+            "tests/test_example.py",
+            safe,
+        )[0].ref
+        == guard.parse_python_declarations(
+            "tests/test_example.py",
+            safe_baseline,
+        )[0].ref
+    )
+
+
 @pytest.mark.parametrize(
     "derived",
     (
@@ -3187,6 +3259,32 @@ def test_frontend_inventory_rejects_name_only_opaque_context_helper() -> None:
             "function stop(context) { return Promise.resolve(context).then(inner); }\n"
             'test("case", context => stop(context));',
         ),
+        (
+            "function inner(value) { return value; }\n"
+            "function stop(context) { const values = [context]; return values.map(inner); }\n"
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            "function stop(context) { const values = [context]; return values.map(inner); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "function inner(value) { return value; }\n"
+            "function stop(context) { return new Set([context]).forEach(inner); }\n"
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            "function stop(context) { return new Set([context]).forEach(inner); }\n"
+            'test("case", context => stop(context));',
+        ),
+        (
+            "function inner(value) { return value; }\n"
+            "function get() { return inner; }\n"
+            "function stop(context) { return Array.from([context], get()); }\n"
+            'test("case", context => stop(context));',
+            "function inner(value) { value.skip(); return value; }\n"
+            "function get() { return inner; }\n"
+            "function stop(context) { return Array.from([context], get()); }\n"
+            'test("case", context => stop(context));',
+        ),
     ),
 )
 def test_frontend_inventory_closes_escaped_context_flow(
@@ -3326,6 +3424,60 @@ def test_frontend_inventory_binds_imported_transitive_context_helper(
     assert active != skipped
 
 
+@pytest.mark.parametrize(
+    "active_helper, changed_helper",
+    (
+        (
+            "function inner(context: { skip(): void }) { return context; }\n"
+            "export function stop(context: { skip(): void }) { "
+            "const values = [context]; return values.map(inner); }\n",
+            "function inner(context: { skip(): void }) { "
+            "context.skip(); return context; }\n"
+            "export function stop(context: { skip(): void }) { "
+            "const values = [context]; return values.map(inner); }\n",
+        ),
+        (
+            "function inner(context: { skip(): void }) { return context; }\n"
+            "function get() { return inner; }\n"
+            "export function stop(context: { skip(): void }) { "
+            "return Array.from([context], get()); }\n",
+            "function inner(context: { skip(): void }) { "
+            "context.skip(); return context; }\n"
+            "function get() { return inner; }\n"
+            "export function stop(context: { skip(): void }) { "
+            "return Array.from([context], get()); }\n",
+        ),
+    ),
+)
+def test_frontend_inventory_closes_imported_derived_context_flow(
+    tmp_path: Path,
+    active_helper: str,
+    changed_helper: str,
+) -> None:
+    helper_path = tmp_path / "apps/control-center/src/helper.ts"
+    helper_path.parent.mkdir(parents=True)
+    helper_path.write_text(active_helper)
+    test_path = "apps/control-center/src/example.test.tsx"
+    test_source = (
+        'import { stop } from "./helper";\ntest("case", context => stop(context));'
+    )
+    try:
+        active = guard._parse_worktree_test_declarations(
+            tmp_path,
+            test_path,
+            test_source,
+        )[0].ref
+        helper_path.write_text(changed_helper)
+        changed = guard._parse_worktree_test_declarations(
+            tmp_path,
+            test_path,
+            test_source,
+        )[0].ref
+    except guard.TestCorpusGuardError:
+        return
+    assert active != changed
+
+
 def test_frontend_inventory_rejects_circular_context_helper_closure() -> None:
     with pytest.raises(
         guard.TestCorpusGuardError,
@@ -3362,6 +3514,54 @@ def test_frontend_inventory_rejects_opaque_runtime_callback_skip(
             "apps/control-center/src/example.test.tsx",
             source + f'test("case", {callback});',
         )
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        'test.for([[1]])("case", (...args) => args[1].skip());',
+        'test.for([[1]])("case", function () { arguments[1].skip(); });',
+        "const handler: TestCallback = (...args) => args[0].skip();\n"
+        'test("case", handler);',
+        "const handler = ((...args) => args[0].skip()) as TestCallback;\n"
+        'test("case", handler);',
+        "const handler = ((...args) => args[0].skip()) satisfies TestCallback;\n"
+        'test("case", handler);',
+        "const first = (...args) => args[0].skip();\n"
+        "const handler = first;\n"
+        'test("case", handler);',
+    ),
+)
+def test_frontend_inventory_rejects_indirect_runtime_callback_skip(
+    source: str,
+) -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime callback skip",
+    ):
+        guard.parse_frontend_declarations(
+            "apps/control-center/src/example.test.tsx",
+            source,
+        )
+
+
+@pytest.mark.parametrize(
+    "callback",
+    (
+        "(...args) => args[0].skip()",
+        "function () { arguments[0].skip(); }",
+    ),
+)
+def test_frontend_inventory_keeps_each_row_callback_active(callback: str) -> None:
+    assert (
+        len(
+            guard.parse_frontend_declarations(
+                "apps/control-center/src/example.test.tsx",
+                f'test.each([[{{skip() {{ return "row"; }}}}]])("case", {callback});',
+            )
+        )
+        == 1
+    )
 
 
 def test_frontend_inventory_binds_conditional_imported_initializer(
@@ -3770,6 +3970,18 @@ def test_frontend_inventory_binds_called_arrow_body_initializer() -> None:
         "static apply() { beforeEach(() => {}); return 1; } }; Factory.apply();",
         "const Factory = class Setup {\n"
         "static apply = () => { beforeEach(() => {}); return 1; } }; Factory.apply();",
+        "const Factory: {apply(): number} = class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }; Factory.apply();",
+        "const Factory = (class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }); Factory.apply();",
+        "let Factory; Factory = class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }; Factory.apply();",
+        "registry.Factory = class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }; registry.Factory.apply();",
+        "(class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }).apply();",
+        "(Factory = class Setup {\n"
+        "static apply() { beforeEach(() => {}); return 1; } }).apply();",
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
         'const setup = new Setup(); const key = "apply"; setup[key]();',
         "class Setup { apply() { beforeEach(() => {}); return 1; } }\n"
