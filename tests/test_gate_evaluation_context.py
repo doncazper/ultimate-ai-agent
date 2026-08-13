@@ -77,11 +77,11 @@ def test_runtime_safety_scans_read_each_source_once_per_criterion(
         original_read = evaluator._read
         source_reads = 0
 
-        def counted_read(path: Path) -> str:
+        def counted_read(path: Path, *, read=original_read) -> str:
             nonlocal source_reads
             if path == source:
                 source_reads += 1
-            return original_read(path)
+            return read(path)
 
         monkeypatch.setattr(evaluator, "_read", counted_read)
         result = getattr(evaluator, f"check_{criterion_id}")(criteria[criterion_id])
