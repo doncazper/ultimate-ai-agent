@@ -12,6 +12,7 @@ from functools import lru_cache
 
 TEST_API_NAME = r"[A-Za-z_$][\w$]*"
 MAX_CONTEXT_FORWARDING_HELPERS = 64
+MAX_CONTEXT_HELPER_IDENTITY_BYTES = 200_000
 TEST_MODIFIERS = r"(?:\s*\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
 EXECUTION_DISABLING_TEST_MODIFIERS = frozenset({"fixme", "skip", "todo"})
 CONDITIONAL_TEST_MODIFIERS = frozenset({"runIf", "skipIf"})
@@ -806,43 +807,226 @@ def _runtime_callback_context_helpers(
     return tuple(sorted(helpers))
 
 
-def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
-    """Return named helpers that receive a binding's callback-context argument."""
+def _context_helper_identity_source(binding_source: str) -> str:
+    """Mask uncalled nested helpers from a callback-helper identity."""
 
     mask = _code_mask(binding_source)
     scan_text = "".join(
         character if mask[index] else " "
         for index, character in enumerate(binding_source)
     )
+    outer = re.match(
+        rf"\s*(?:export\s+)?(?:async\s+)?function\s*\*?\s*"
+        rf"{TEST_API_NAME}\s*(?P<parameters>\()",
+        scan_text,
+    )
+    if outer is None:
+        return binding_source
+    parameters_end = _skip_balanced(binding_source, outer.start("parameters"))
+    body_start = _function_body_after_parameters(
+        binding_source,
+        scan_text,
+        parameters_end,
+    )
+    if body_start is None:
+        return binding_source
+    body_end = _skip_balanced(binding_source, body_start)
+    body_scan = scan_text[body_start + 1 : body_end - 1]
+    dormant_ranges: list[tuple[int, int]] = []
+    for nested in re.finditer(
+        rf"\bfunction\s+(?P<name>{TEST_API_NAME})\s*(?P<parameters>\()",
+        body_scan,
+    ):
+        nested_start = body_start + 1 + nested.start()
+        nested_parameters = body_start + 1 + nested.start("parameters")
+        nested_parameters_end = _skip_balanced(binding_source, nested_parameters)
+        nested_body_start = _function_body_after_parameters(
+            binding_source,
+            scan_text,
+            nested_parameters_end,
+        )
+        if nested_body_start is None:
+            continue
+        nested_body_end = _skip_balanced(binding_source, nested_body_start)
+        outside = (
+            scan_text[body_start + 1 : nested_start]
+            + " " * (nested_body_end - nested_start)
+            + scan_text[nested_body_end : body_end - 1]
+        )
+        if (
+            re.search(
+                rf"(?<![.\w$]){re.escape(nested.group('name'))}\s*\(",
+                outside,
+            )
+            is None
+        ):
+            dormant_ranges.append((nested_start, nested_body_end))
+    if not dormant_ranges:
+        return binding_source
+    parts: list[str] = []
+    cursor = 0
+    for start, end in dormant_ranges:
+        parts.extend((binding_source[cursor:start], "/*uaa-dormant-helper*/"))
+        cursor = end
+    parts.append(binding_source[cursor:])
+    return "".join(parts)
+
+
+def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
+    """Return named helpers that receive a binding's callback-context argument."""
+
+    binding_source = _context_helper_identity_source(binding_source)
+    mask = _code_mask(binding_source)
+    full_scan_text = "".join(
+        character if mask[index] else " "
+        for index, character in enumerate(binding_source)
+    )
     function_match = re.match(
         rf"\s*(?:export\s+)?(?:async\s+)?function\s*\*?\s*"
         rf"(?P<function_name>{TEST_API_NAME})\s*"
-        rf"\(\s*(?P<parameter>{TEST_API_NAME})\b",
-        scan_text,
+        rf"(?P<parameters>\()\s*{TEST_API_NAME}\b",
+        full_scan_text,
     )
     arrow_match = None
     if function_match is None:
         arrow_match = re.match(
             rf"\s*(?:export\s+)?(?:const|let|var)\s+"
             rf"(?P<arrow_name>{TEST_API_NAME})\s*=\s*"
-            rf"(?:async\s+)?(?:\(\s*(?P<parenthesized>{TEST_API_NAME})\b[^)]*\)"
+            rf"(?:async\s+)?(?:(?P<parameters>\()\s*{TEST_API_NAME}\b[^)]*\)"
             rf"|(?P<bare>{TEST_API_NAME})\b)\s*(?:\:\s*[^=]+)?=>",
-            scan_text,
+            full_scan_text,
         )
     if function_match is None and arrow_match is None:
         return ()
-    parameter = (
-        function_match.group("parameter")
-        if function_match is not None
-        else arrow_match.group("parenthesized") or arrow_match.group("bare")
+    parameter_match = function_match or arrow_match
+    parameters_start = parameter_match.start("parameters")
+    if parameters_start >= 0:
+        parameters_end = _skip_balanced(binding_source, parameters_start)
+        parameters_source = full_scan_text[parameters_start + 1 : parameters_end - 1]
+        parameters = tuple(
+            match.group("name")
+            for match in re.finditer(
+                rf"(?:^|,)\s*(?:\.\.\.\s*)?(?P<name>{TEST_API_NAME})\b",
+                parameters_source,
+            )
+        )
+    else:
+        parameters = (arrow_match.group("bare"),)
+    if not parameters:
+        return ()
+    if function_match is not None:
+        body_start = _function_body_after_parameters(
+            binding_source,
+            full_scan_text,
+            parameters_end,
+        )
+        if body_start is None:
+            return ()
+        body_end = _skip_balanced(binding_source, body_start)
+        body_source = binding_source[body_start + 1 : body_end - 1]
+    else:
+        arrow = full_scan_text.find("=>", arrow_match.start(), arrow_match.end())
+        body_start = _skip_static_trivia(binding_source, arrow + 2)
+        if body_start < len(binding_source) and binding_source[body_start] == "{":
+            body_end = _skip_balanced(binding_source, body_start)
+            body_source = binding_source[body_start + 1 : body_end - 1]
+        else:
+            body_source = binding_source[body_start:]
+    body_mask = bytearray(_runtime_import_code_mask_bytes(body_source))
+    body_scan = "".join(
+        character if body_mask[index] else " "
+        for index, character in enumerate(body_source)
+    )
+    nested_function = re.compile(
+        rf"\bfunction\s+(?P<name>{TEST_API_NAME})\s*(?P<parameters>\()"
+    )
+    for nested in nested_function.finditer(body_scan):
+        nested_parameters_end = _skip_balanced(
+            body_source,
+            nested.start("parameters"),
+        )
+        nested_body_start = _function_body_after_parameters(
+            body_source,
+            body_scan,
+            nested_parameters_end,
+        )
+        if nested_body_start is None:
+            continue
+        nested_body_end = _skip_balanced(body_source, nested_body_start)
+        outside = (
+            body_scan[: nested.start()]
+            + " " * (nested_body_end - nested.start())
+            + body_scan[nested_body_end:]
+        )
+        if (
+            re.search(
+                rf"(?<![.\w$]){re.escape(nested.group('name'))}\s*\(",
+                outside,
+            )
+            is None
+        ):
+            body_mask[nested.start() : nested_body_end] = b"\x00" * (
+                nested_body_end - nested.start()
+            )
+    scan_text = "".join(
+        character if body_mask[index] else " "
+        for index, character in enumerate(body_source)
     )
     binding_name = (
         function_match.group("function_name")
         if function_match is not None
         else arrow_match.group("arrow_name")
     )
-    parameter_pattern = re.escape(parameter)
-    helpers: set[str] = set()
+    context_aliases = set(parameters)
+    changed = True
+    while changed:
+        changed = False
+        alias_pattern = "(?:" + "|".join(map(re.escape, context_aliases)) + ")"
+        for alias in re.finditer(
+            rf"(?<![.\w$])(?:\b(?:const|let|var)\s+)?"
+            rf"(?P<target>{TEST_API_NAME})\s*=(?!=|>)\s*"
+            rf"(?P<source>{alias_pattern})\b",
+            scan_text,
+        ):
+            if alias.group("target") not in context_aliases:
+                context_aliases.add(alias.group("target"))
+                changed = True
+    parameter_pattern = "(?:" + "|".join(map(re.escape, context_aliases)) + ")"
+    member_helper_roots: set[str] = set()
+    for member_call in re.finditer(
+        rf"\b(?P<root>{TEST_API_NAME})\s*\.\s*{TEST_API_NAME}\s*"
+        rf"\((?P<arguments>[^)]*)\)",
+        scan_text,
+    ):
+        if not re.search(
+            rf"\b{parameter_pattern}\b",
+            member_call.group("arguments"),
+        ):
+            continue
+        root = member_call.group("root")
+        if root not in context_aliases and root not in {
+            "Array",
+            "JSON",
+            "Math",
+            "Object",
+            "Promise",
+            "Reflect",
+            "String",
+            "console",
+        }:
+            member_helper_roots.add(root)
+    escaped_context = False
+    for assignment in re.finditer(
+        rf"(?<![.\w$])(?P<target>{TEST_API_NAME})\s*=(?!=|>)\s*"
+        rf"(?:{parameter_pattern})\b",
+        scan_text,
+    ):
+        line_start = max(0, scan_text.rfind("\n", 0, assignment.start()) + 1)
+        prefix = scan_text[line_start : assignment.start()]
+        if not re.search(r"(?:const|let|var)\s*$", prefix):
+            escaped_context = True
+            break
+    helpers: set[str] = set(member_helper_roots)
     for helper_call in re.finditer(
         rf"(?<![.\w$])(?P<callee>{TEST_API_NAME})\s*(?P<arguments>\()",
         scan_text,
@@ -861,14 +1045,14 @@ def _context_forwarded_helper_names(binding_source: str) -> tuple[str, ...]:
             or helper_call.group("callee") == binding_name
         ):
             continue
-        arguments_end = _skip_balanced(
-            binding_source,
-            helper_call.start("arguments"),
-        )
+        arguments_end = _skip_balanced(body_source, helper_call.start("arguments"))
         arguments_source = scan_text[
             helper_call.start("arguments") + 1 : arguments_end - 1
         ]
-        if re.search(rf"\b{parameter_pattern}\b", arguments_source):
+        if escaped_context or re.search(
+            rf"\b{parameter_pattern}\b",
+            arguments_source,
+        ):
             helpers.add(helper_call.group("callee"))
     return tuple(sorted(helpers))
 
@@ -982,11 +1166,21 @@ def _execution_posture_parts(
                 declaration_source,
                 arguments,
             ):
-                helper_source = condition_binding_resolver(helper_name)
+                try:
+                    helper_source = condition_binding_resolver(helper_name)
+                except FrontendInventoryError as exc:
+                    if any(
+                        marker in str(exc)
+                        for marker in (
+                            "circular",
+                            "exceeds helper budget",
+                            "member dispatch",
+                        )
+                    ):
+                        raise
+                    helper_source = None
                 if helper_source is None:
-                    raise FrontendInventoryError(
-                        "frontend callback helper cannot be resolved safely"
-                    )
+                    continue
                 digest = hashlib.sha256(helper_source.encode("utf-8")).hexdigest()
                 parts.append(f"callback-helper:{helper_name}:sha256:{digest}")
         if re.fullmatch(TEST_API_NAME, callback_source):
@@ -2676,6 +2870,34 @@ def _module_initializer_code_mask_bytes(
                 continue
             if not require_call or re.match(suffix, source[match.end() :]):
                 return True
+        computed_member = re.compile(
+            rf"(?:{receiver_pattern})\s*(?:\?\.)?(?P<bracket>\[)"
+        )
+        for match in computed_member.finditer(raw_source):
+            if not source[match.start()] or source[match.start()].isspace():
+                continue
+            try:
+                access_end = _skip_balanced(
+                    raw_source,
+                    match.start("bracket"),
+                )
+                key_start = _skip_static_trivia(
+                    raw_source,
+                    match.start("bracket") + 1,
+                )
+                computed_name, key_end = _static_string_value(
+                    raw_source,
+                    key_start,
+                )
+                if _skip_static_trivia(raw_source, key_end) != access_end - 1:
+                    return True
+            except FrontendInventoryError:
+                # A dynamic key on a proven receiver can select any method.
+                return True
+            if computed_name != member:
+                continue
+            if not require_call or re.match(suffix, source[access_end:]):
+                return True
         reflect_get = re.compile(
             rf"\bReflect\s*\.\s*get\s*\(\s*(?:{receiver_pattern})\s*,"
         )
@@ -2699,7 +2921,8 @@ def _module_initializer_code_mask_bytes(
             if not require_call or re.match(suffix, source[closing + 1 :]):
                 return True
         destructuring = re.compile(
-            rf"\b(?:const|let|var)\s*\{{(?P<members>[^}}]*)\}}\s*=\s*"
+            rf"(?<![.\w$])(?:(?:const|let|var)\s+)?\(?\s*"
+            rf"\{{(?P<members>[^}}]*)\}}\s*\)?\s*=\s*"
             rf"(?:{receiver_pattern})\b"
         )
         for match in destructuring.finditer(source):
@@ -2716,6 +2939,35 @@ def _module_initializer_code_mask_bytes(
                 source[match.end() :],
             ):
                 return True
+        descriptor_get = re.compile(
+            rf"\bObject\s*\.\s*getOwnPropertyDescriptor\s*\(\s*"
+            rf"(?:{receiver_pattern})\s*,"
+        )
+        for match in descriptor_get.finditer(raw_source):
+            if not source[match.start()] or source[match.start()].isspace():
+                continue
+            key_start = _skip_static_trivia(raw_source, match.end())
+            try:
+                descriptor_name, _key_end = _static_string_value(
+                    raw_source,
+                    key_start,
+                )
+            except FrontendInventoryError:
+                return True
+            if descriptor_name == member:
+                return True
+        receiver_argument = re.compile(
+            rf"(?<![.\w$])(?P<callee>{TEST_API_NAME})\s*\("
+            rf"(?P<arguments>[^)]*(?:{receiver_pattern})[^)]*)\)"
+        )
+        if any(
+            match.group("callee")
+            not in {"Object", "Reflect", "String", "Boolean", "Number"}
+            for match in receiver_argument.finditer(source)
+        ):
+            # Passing a proven receiver to an opaque initializer helper may
+            # invoke any member; bind all methods conservatively.
+            return True
         return False
 
     for class_match in class_pattern.finditer(scan_text):
@@ -2725,10 +2977,13 @@ def _module_initializer_code_mask_bytes(
         except FrontendInventoryError:
             continue
         class_name = class_match.group("name")
+        initializer_source = "".join(
+            character if mask[index] else " " for index, character in enumerate(text)
+        )
         external_source = (
-            scan_text[: class_match.start()]
+            initializer_source[: class_match.start()]
             + " " * (class_end - class_match.start())
-            + scan_text[class_end:]
+            + initializer_source[class_end:]
         )
         external_text = (
             text[: class_match.start()]
@@ -2752,7 +3007,8 @@ def _module_initializer_code_mask_bytes(
         while changed:
             changed = False
             for match in re.finditer(
-                rf"\b(?:const|let|var)\s+(?P<name>{TEST_API_NAME})\s*=\s*"
+                rf"(?<![.\w$])(?:\b(?:const|let|var)\s+)?"
+                rf"(?P<name>{TEST_API_NAME})\s*=(?!=|>)\s*"
                 rf"(?P<source>{TEST_API_NAME})\b",
                 external_source,
             ):
@@ -2774,8 +3030,15 @@ def _module_initializer_code_mask_bytes(
         class_receivers = tuple(
             re.escape(name) for name in sorted(class_receiver_names)
         )
+        prototype_receivers = tuple(
+            rf"{receiver}\s*\.\s*prototype" for receiver in class_receivers
+        )
         direct_instance_receiver = rf"new\s+{class_pattern_text}\s*\([^)]*\)"
-        instance_call_receivers = (*instance_receivers, direct_instance_receiver)
+        instance_call_receivers = (
+            *instance_receivers,
+            *prototype_receivers,
+            direct_instance_receiver,
+        )
         class_source = scan_text[class_start + 1 : class_end - 1]
         for method in method_pattern.finditer(
             scan_text,
@@ -3034,7 +3297,22 @@ def _static_collection_source(
     import_binding_resolver: ImportBindingResolver | None,
     *,
     _seen_names: frozenset[str] = frozenset(),
+    _memo: dict[tuple[str, int], str] | None = None,
 ) -> str:
+    if _memo is None:
+        _memo = {}
+    memo_key = (name, before_offset)
+    if memo_key in _memo:
+        return _memo[memo_key]
+
+    def finish(source: str) -> str:
+        if len(source.encode("utf-8")) > MAX_CONTEXT_HELPER_IDENTITY_BYTES:
+            raise FrontendInventoryError(
+                "frontend callback helper identity exceeds byte budget"
+            )
+        _memo[memo_key] = source
+        return source
+
     if name in _seen_names:
         raise FrontendInventoryError("frontend registration loop bindings are circular")
     if len(_seen_names) >= MAX_CONTEXT_FORWARDING_HELPERS:
@@ -3049,11 +3327,17 @@ def _static_collection_source(
             before_offset,
         )
     except FrontendInventoryError as exc:
-        if "binding is dynamic" not in str(exc):
+        if not any(
+            marker in str(exc)
+            for marker in (
+                "binding is dynamic",
+                "unproven use before collection",
+            )
+        ):
             raise
         local_source = None
     if local_source is not None:
-        return local_source
+        return finish(local_source)
 
     function_pattern = re.compile(
         rf"\b(?:async\s+)?function\s*\*?\s*{re.escape(name)}\s*"
@@ -3077,7 +3361,9 @@ def _static_collection_source(
             raise FrontendInventoryError(
                 "frontend registration loop binding is mutated before collection"
             )
-        function_source = text[function.start() : body_end]
+        function_source = _context_helper_identity_source(
+            text[function.start() : body_end]
+        )
         dependency_sources = tuple(
             _static_collection_source(
                 text,
@@ -3086,10 +3372,11 @@ def _static_collection_source(
                 before_offset,
                 import_binding_resolver,
                 _seen_names=frozenset((*_seen_names, name)),
+                _memo=_memo,
             )
             for helper_name in _context_forwarded_helper_names(function_source)
         )
-        return "\n".join((function_source, *dependency_sources))
+        return finish("\n".join((function_source, *dependency_sources)))
 
     pattern = re.compile(rf"\bconst\s+{re.escape(name)}\b")
     matches = list(pattern.finditer(scan_text, 0, before_offset))
@@ -3107,10 +3394,25 @@ def _static_collection_source(
             scan_text[match.end() : statement_end],
         )
         initializer = scan_text[match.end() : statement_end]
+        equals = initializer.find("=")
+        initializer_start = (
+            _skip_static_trivia(
+                text,
+                match.end() + equals + 1,
+            )
+            if equals >= 0
+            else statement_end
+        )
+        static_object = (
+            alias is None
+            and initializer_start < statement_end
+            and text[initializer_start] == "{"
+            and _skip_balanced(text, initializer_start) == statement_end
+        )
         dynamic_callback = alias is None and _looks_like_frontend_callback(
             initializer.partition("=")[2].strip()
         )
-        if alias is None and not dynamic_callback:
+        if alias is None and not dynamic_callback and not static_object:
             raise FrontendInventoryError(
                 "frontend registration loop binding is dynamic"
             )
@@ -3124,10 +3426,12 @@ def _static_collection_source(
             raise FrontendInventoryError(
                 "frontend registration loop binding is mutated before collection"
             )
-        if re.search(rf"\b{escaped_name}\b", intervening):
+        if not static_object and re.search(rf"\b{escaped_name}\b", intervening):
             raise FrontendInventoryError(
                 "frontend registration loop alias has an unproven use before collection"
             )
+        if static_object:
+            return finish(text[match.start() : statement_end + 1])
         if dynamic_callback:
             callback_source = text[match.start() : statement_end + 1]
             dependency_sources = tuple(
@@ -3138,10 +3442,11 @@ def _static_collection_source(
                     before_offset,
                     import_binding_resolver,
                     _seen_names=frozenset((*_seen_names, name)),
+                    _memo=_memo,
                 )
                 for helper_name in _context_forwarded_helper_names(callback_source)
             )
-            return "\n".join((callback_source, *dependency_sources))
+            return finish("\n".join((callback_source, *dependency_sources)))
         dependency_source = _static_collection_source(
             text,
             scan_text,
@@ -3149,8 +3454,9 @@ def _static_collection_source(
             match.start(),
             import_binding_resolver,
             _seen_names=frozenset((*_seen_names, name)),
+            _memo=_memo,
         )
-        return f"{text[match.start() : statement_end + 1]}\n{dependency_source}"
+        return finish(f"{text[match.start() : statement_end + 1]}\n{dependency_source}")
 
     imported = _import_binding(text, scan_text, name, before_offset)
     if imported is None or import_binding_resolver is None:
@@ -3163,7 +3469,7 @@ def _static_collection_source(
         raise FrontendInventoryError(
             "frontend registration loop import cannot be resolved safely"
         )
-    return f"module={module}\nimported={imported_name}\n{imported_source}"
+    return finish(f"module={module}\nimported={imported_name}\n{imported_source}")
 
 
 def _static_collection_items(collection_source: str) -> tuple[str, ...]:

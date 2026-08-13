@@ -3967,9 +3967,10 @@ def _parameterized_ref(
                 else None
             )
         if isinstance(expression, (ast.List, ast.Tuple)):
+            items = {index: item for index, item in enumerate(expression.elts)}
             return (
-                {index: item for index, item in enumerate(expression.elts)}
-                if expression.elts
+                items
+                if items and any(maybe_callable(item) for item in items.values())
                 else None
             )
         if isinstance(expression, ast.Dict):
@@ -3982,8 +3983,46 @@ def _parameterized_ref(
                 ):
                     return None
                 items[key.value] = value
-            return items or None
+            return (
+                items
+                if items and any(maybe_callable(item) for item in items.values())
+                else None
+            )
         return None
+
+    def maybe_callable(expression: ast.AST) -> bool:
+        if helper_for_expression(expression, node, {}) is not None:
+            return True
+        if _pytest_collection_abort_callable_name(
+            expression,
+            imported_modules,
+            {},
+        ):
+            return True
+        if isinstance(expression, ast.Lambda):
+            return True
+        if (
+            isinstance(expression, ast.Name)
+            and expression.id in imported_modules
+            and (expression.id[0].islower() or expression.id[0] == "_")
+        ):
+            return True
+        nested = static_callable_container(expression, {})
+        return nested is not None
+
+    def is_non_aborting_local_callable(expression: ast.AST) -> bool:
+        helper = helper_for_expression(expression, node, {})
+        if helper is None:
+            return False
+        return not any(
+            isinstance(child, ast.Call)
+            and _pytest_collection_abort_callable_name(
+                child.func,
+                imported_modules,
+                {},
+            )
+            for child in ast.walk(helper)
+        )
 
     def static_callable_container_target(
         expression: ast.AST,
@@ -4012,12 +4051,17 @@ def _parameterized_ref(
         return container.get(key_expression.value) if container is not None else None
 
     def callable_container_root(expression: ast.AST) -> str | None:
-        if (
-            isinstance(expression, ast.Call)
-            and isinstance(expression.func, ast.Attribute)
-            and expression.func.attr == "get"
+        if isinstance(expression, ast.Call) and isinstance(
+            expression.func, ast.Attribute
         ):
             expression = expression.func.value
+        elif (
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Name)
+            and expression.func.id in {"dict", "list", "set", "tuple"}
+            and expression.args
+        ):
+            expression = expression.args[0]
         return _root_name(expression)
 
     execution_nodes = list(_scope_execution_nodes(node.body))
@@ -4045,6 +4089,7 @@ def _parameterized_ref(
             if lexical_parent is not None
             else {}
         )
+        empty_container_names: set[str] = set()
         direct_scope_node_ids = {id(item) for item in helper_scope.body}
         for execution_node in helper_nodes:
             mutation_targets: tuple[ast.AST, ...] = ()
@@ -4077,13 +4122,34 @@ def _parameterized_ref(
                     raise TestCorpusGuardError(
                         "dynamic runtime helper container cannot be inventoried safely"
                     )
+                for target in targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and callable_container_root(target) in empty_container_names
+                        and maybe_callable(value)
+                    ):
+                        raise TestCorpusGuardError(
+                            "dynamic runtime helper container cannot be inventoried safely"
+                        )
+                container = static_callable_container(value, callable_containers)
+                if (
+                    container is None
+                    and callable_container_root(value) in callable_containers
+                ):
+                    raise TestCorpusGuardError(
+                        "dynamic runtime helper container cannot be inventoried safely"
+                    )
                 target_names = {
                     name for target in targets for name in _binding_target_names(target)
                 }
                 for target_name in target_names:
                     helper_aliases.pop(target_name, None)
                     callable_containers.pop(target_name, None)
-                container = static_callable_container(value, callable_containers)
+                    empty_container_names.discard(target_name)
+                if isinstance(value, (ast.List, ast.Dict)) and not (
+                    value.elts if isinstance(value, ast.List) else value.keys
+                ):
+                    empty_container_names.update(target_names)
                 if (
                     container is not None
                     and id(execution_node) not in direct_scope_node_ids
@@ -4095,6 +4161,16 @@ def _parameterized_ref(
                     for target in targets:
                         if isinstance(target, ast.Name):
                             callable_containers[target.id] = container
+                        elif all(
+                            not maybe_callable(item)
+                            or is_non_aborting_local_callable(item)
+                            for item in container.values()
+                        ):
+                            continue
+                        else:
+                            raise TestCorpusGuardError(
+                                "dynamic runtime helper container cannot be inventoried safely"
+                            )
                 resolved_helper = helper_for_expression(
                     value,
                     helper_scope,
@@ -4110,6 +4186,16 @@ def _parameterized_ref(
             if not isinstance(execution_node, ast.Call):
                 continue
             call_target = execution_node.func
+            if any(
+                callable_container_root(argument) in callable_containers
+                for argument in (
+                    *execution_node.args,
+                    *(keyword.value for keyword in execution_node.keywords),
+                )
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             if (
                 isinstance(call_target, ast.Attribute)
                 and callable_container_root(call_target.value) in callable_containers
@@ -4131,6 +4217,16 @@ def _parameterized_ref(
                 raise TestCorpusGuardError(
                     "dynamic runtime helper container cannot be inventoried safely"
                 )
+            if (
+                isinstance(call_target, ast.Attribute)
+                and callable_container_root(call_target.value) in empty_container_names
+                and call_target.attr
+                in {"append", "extend", "insert", "setdefault", "update"}
+                and any(maybe_callable(argument) for argument in execution_node.args)
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic runtime helper container cannot be inventoried safely"
+                )
             container_target = static_callable_container_target(
                 call_target,
                 callable_containers,
@@ -4147,7 +4243,11 @@ def _parameterized_ref(
                 raise TestCorpusGuardError(
                     "dynamic runtime helper container cannot be inventoried safely"
                 )
-            elif isinstance(call_target, (ast.Subscript, ast.Call)):
+            elif isinstance(call_target, ast.Subscript) or (
+                isinstance(call_target, ast.Call)
+                and isinstance(call_target.func, ast.Attribute)
+                and call_target.func.attr in {"__getitem__", "get", "getitem"}
+            ):
                 root = callable_container_root(call_target)
                 if root in imported_modules or (
                     root is not None
