@@ -477,7 +477,7 @@ def test_tracked_timing_seed_is_safe_advisory_and_covers_most_current_files() ->
     assert all(path.startswith("tests/test_") for path in timings)
 
 
-def test_canonical_plan_binds_eight_shards_and_isolates_the_corpus_guard() -> None:
+def test_canonical_plan_binds_eight_shards_and_preserves_local_timeout_margin() -> None:
     runner = load_runner()
     files = runner.discover_test_files(ROOT)
     timings, _source = runner.load_timing_profiles([TIMING_SEED], files)
@@ -511,10 +511,31 @@ def test_canonical_plan_binds_eight_shards_and_isolates_the_corpus_guard() -> No
         "tests/test_sealed_calculation_isolation.py",
         "tests/test_sealed_calculation_mission.py",
     )
-    assert plans[2].files == ("tests/test_test_corpus_guard.py",)
-    assert plans[2].expected_seconds == pytest.approx(971.14)
     assert all(not plan.serialized_preflight for plan in plans[2:])
     assert method.endswith("+exclusive-resource-preflight")
+    assert (
+        sum(plan.expected_seconds for plan in plans[:2])
+        + max(plan.expected_seconds for plan in plans[2:])
+        < 1_200.0
+    )
+
+
+def test_canonical_plan_isolates_the_corpus_guard() -> None:
+    runner = load_runner()
+    files = runner.discover_test_files(ROOT)
+    timings, _source = runner.load_timing_profiles([TIMING_SEED], files)
+    affinity_groups = runner.discover_affinity_groups(files, ROOT)
+    exclusive_groups = runner.discover_serialized_preflight_groups(files, ROOT)
+    plans, _method = runner.assign_shards(
+        files,
+        runner.CANONICAL_PYTEST_SHARD_COUNT,
+        timings,
+        affinity_groups,
+        exclusive_affinity_groups=exclusive_groups,
+    )
+
+    assert plans[2].files == ("tests/test_test_corpus_guard.py",)
+    assert plans[2].expected_seconds == pytest.approx(971.14)
     assert (
         sum(plan.expected_seconds for plan in plans[:2])
         + max(plan.expected_seconds for plan in plans[2:])
