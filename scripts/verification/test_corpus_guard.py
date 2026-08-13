@@ -1837,7 +1837,7 @@ def _is_pytest_collection_abort_call(
     if name == "importorskip":
         return True
     if name == "exit":
-        return any(
+        literal_zero = any(
             keyword.arg == "returncode"
             and isinstance(keyword.value, ast.Constant)
             and keyword.value.value == 0
@@ -1847,6 +1847,38 @@ def _is_pytest_collection_abort_call(
             and isinstance(node.args[1], ast.Constant)
             and node.args[1].value == 0
         )
+        if literal_zero:
+            return True
+        for keyword in node.keywords:
+            if keyword.arg is not None:
+                continue
+            if isinstance(keyword.value, ast.Dict):
+                for key, value in zip(
+                    keyword.value.keys,
+                    keyword.value.values,
+                    strict=True,
+                ):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and key.value == "returncode"
+                        and isinstance(value, ast.Constant)
+                        and value.value == 0
+                    ):
+                        return True
+                if all(
+                    isinstance(key, ast.Constant) and isinstance(value, ast.Constant)
+                    for key, value in zip(
+                        keyword.value.keys,
+                        keyword.value.values,
+                        strict=True,
+                    )
+                ):
+                    continue
+            # An unresolved expansion could supply returncode=0. Bind it as an
+            # abort posture rather than allowing a successful collection exit
+            # to disappear from the declaration identity.
+            return True
+        return False
     return name == "skip" and (
         any(keyword.arg is None for keyword in node.keywords)
         or any(
@@ -5608,6 +5640,7 @@ def _parameterized_ref(
             for candidate in candidates
         )
     }
+    runtime_unittest_method_skip_aliases: set[str] = set()
     for _alias_pass in range(2):
         for execution_node in function_execution_nodes:
             if not isinstance(
@@ -5637,11 +5670,19 @@ def _parameterized_ref(
                 runtime_unittest_namespace_aliases,
             )
             for target in targets:
-                for alias in _binding_target_names(target):
+                for alias, bound_value in _paired_binding_values(target, value):
                     if namespace_value:
                         runtime_unittest_namespace_aliases.add(alias)
                     if skip_value:
                         runtime_unittest_skip_aliases.add(alias)
+                    if (
+                        isinstance(bound_value, ast.Attribute)
+                        and bound_value.attr == "skipTest"
+                    ) or (
+                        isinstance(bound_value, ast.Name)
+                        and bound_value.id in runtime_unittest_method_skip_aliases
+                    ):
+                        runtime_unittest_method_skip_aliases.add(alias)
 
     def is_runtime_abort(execution_node: ast.AST) -> bool:
         if isinstance(execution_node, ast.Call):
@@ -5671,7 +5712,15 @@ def _parameterized_ref(
                 "xfail-exception",
             }:
                 return True
-            if isinstance(call_target, ast.Attribute) and call_target.attr == "skipTest":
+            if (
+                isinstance(call_target, ast.Attribute)
+                and call_target.attr == "skipTest"
+            ):
+                return True
+            if (
+                isinstance(call_target, ast.Name)
+                and call_target.id in runtime_unittest_method_skip_aliases
+            ):
                 return True
             if isinstance(call_target, ast.Name):
                 captured = module_callable_values.get(call_target.id)

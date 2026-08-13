@@ -556,6 +556,21 @@ def test_successful_pytest_exit_binds_runtime_posture() -> None:
     assert aborting != running
 
 
+def test_successful_pytest_exit_expanded_returncode_binds_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    pytest.exit('complete', **{'returncode': 0})\n"
+    )
+    running = _python_test_ref(
+        "import pytest\n"
+        "def test_sample():\n"
+        "    return None\n"
+    )
+
+    assert aborting != running
+
+
 @pytest.mark.parametrize(
     "body",
     (
@@ -590,6 +605,24 @@ def test_unittest_body_skip_binds_runtime_posture(body: str) -> None:
         )
 
     assert _python_test_ref(aborting_source) != _python_test_ref(running_source)
+
+
+def test_unittest_bound_skip_method_binds_runtime_posture() -> None:
+    aborting = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        skip = self.skipTest\n"
+        "        skip('disabled')\n"
+    )
+    running = _python_test_ref(
+        "import unittest\n"
+        "class TestSample(unittest.TestCase):\n"
+        "    def test_sample(self):\n"
+        "        return None\n"
+    )
+
+    assert aborting != running
 
 
 def test_module_lambda_skip_helper_binds_runtime_posture() -> None:
@@ -633,6 +666,23 @@ def test_local_vitest_setup_hook_binds_test_posture() -> None:
     running = _frontend_test_ref(
         'import { beforeEach, test } from "vitest";\n'
         "beforeEach(() => {});\n"
+        'test("sample", () => {});\n'
+    )
+
+    assert skipping != running
+
+
+def test_aliased_local_vitest_setup_hook_binds_test_posture() -> None:
+    skipping = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "const hook = beforeEach;\n"
+        "hook(context => context.skip());\n"
+        'test("sample", () => {});\n'
+    )
+    running = _frontend_test_ref(
+        'import { beforeEach, test } from "vitest";\n'
+        "const hook = beforeEach;\n"
+        "hook(() => {});\n"
         'test("sample", () => {});\n'
     )
 

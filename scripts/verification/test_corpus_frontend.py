@@ -4655,9 +4655,34 @@ def _local_setup_hook_postures(text: str, scan_text: str) -> tuple[str, ...]:
                 raise FrontendInventoryError(
                     "frontend setup hook is shadowed by a non-runner import"
                 )
-    hook_pattern = "(?:" + "|".join(
-        re.escape(name) for name in sorted(hook_names)
-    ) + ")"
+    changed = True
+    while changed:
+        changed = False
+        source_pattern = (
+            "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
+        )
+        for alias_match in re.finditer(
+            rf"(?<![.\w$])(?:const|let|var)\s+"
+            rf"(?P<alias>{TEST_API_NAME})(?:\s*:\s*[^=;\r\n]+)?\s*=\s*"
+            rf"\(*\s*(?P<source>{source_pattern})\s*\)*\s*;",
+            scan_text,
+        ):
+            alias = alias_match.group("alias")
+            if alias not in hook_names:
+                hook_names.add(alias)
+                changed = True
+        for alias_match in re.finditer(
+            rf"(?<![.\w$])(?P<alias>{TEST_API_NAME})\s*=\s*(?!=)"
+            rf"\(*\s*(?P<source>{source_pattern})\s*\)*\s*;",
+            scan_text,
+        ):
+            alias = alias_match.group("alias")
+            if alias not in hook_names:
+                hook_names.add(alias)
+                changed = True
+    hook_pattern = (
+        "(?:" + "|".join(re.escape(name) for name in sorted(hook_names)) + ")"
+    )
     postures: list[str] = []
     for match in re.finditer(
         rf"(?<![.\w$]){hook_pattern}\s*(?P<arguments>\()",

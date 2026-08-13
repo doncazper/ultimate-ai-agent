@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -21,6 +22,7 @@ from scripts.verification.test_corpus_guard import (  # noqa: E402
 POLICY_PATH = "docs/verification/verification_maintainability_policy.json"
 MILESTONE_PATTERN = re.compile(r"UAA-P1-(\d{3})")
 LINE_BUDGET_ENFORCEMENTS = frozenset({"hard", "advisory"})
+TEST_CORPUS_GUARD_WRAPPER = "scripts/verify_test_corpus_guard.py"
 
 
 def _relative(path: Path) -> str:
@@ -150,6 +152,55 @@ def _append_test_corpus_guard_failures(
         failures.append("test corpus guard policy section is missing or invalid")
 
 
+def _test_corpus_guard_wrapper_contract_is_valid(source: str) -> bool:
+    """Validate the standalone guard invocation from an independent verifier."""
+
+    try:
+        tree = ast.parse(source, filename=TEST_CORPUS_GUARD_WRAPPER)
+        expected = ast.parse(
+            '"""Run the deterministic test-corpus inventory and retirement '
+            'guard."""\n'
+            "from __future__ import annotations\n"
+            "import json\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            "ROOT = Path(__file__).resolve().parents[1]\n"
+            "sys.path.insert(0, str(ROOT))\n"
+            "from scripts.verification.test_corpus_guard import (\n"
+            "    TestCorpusGuardError,\n"
+            "    verify_test_corpus_guard,\n"
+            ")\n"
+            "def main() -> int:\n"
+            "    try:\n"
+            "        result = verify_test_corpus_guard(ROOT)\n"
+            "    except TestCorpusGuardError as exc:\n"
+            '        print(f"test corpus guard failed: {exc}", file=sys.stderr)\n'
+            "        return 1\n"
+            "    print(json.dumps(result, indent=2, sort_keys=True))\n"
+            "    return 0\n"
+            'if __name__ == "__main__":\n'
+            "    raise SystemExit(main())\n"
+        )
+    except SyntaxError:
+        return False
+    return ast.dump(tree, include_attributes=False) == ast.dump(
+        expected,
+        include_attributes=False,
+    )
+
+
+def _append_test_corpus_wrapper_failures(
+    failures: list[str], source: str | None = None
+) -> None:
+    wrapper_source = (
+        read_text(repo_path(TEST_CORPUS_GUARD_WRAPPER)) if source is None else source
+    )
+    if not _test_corpus_guard_wrapper_contract_is_valid(wrapper_source):
+        failures.append(
+            "standalone test corpus guard wrapper invocation contract is invalid"
+        )
+
+
 def main() -> int:
     failures: list[str] = []
     warnings: list[str] = []
@@ -161,6 +212,7 @@ def main() -> int:
     _append_duplicate_helper_failures(failures, policy)
     _append_shared_api_lane_failures(failures, policy)
     _append_test_corpus_guard_failures(failures, policy)
+    _append_test_corpus_wrapper_failures(failures)
 
     for warning in warnings:
         print(f"WARNING: {warning}")

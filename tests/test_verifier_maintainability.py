@@ -72,12 +72,6 @@ def test_advisory_line_threshold_warns_without_failing(
             },
         },
     )
-    monkeypatch.setattr(
-        verifier,
-        "verify_test_corpus_guard",
-        lambda _root: {},
-    )
-
     assert verifier.main() == 0
     output = capsys.readouterr().out
     assert (
@@ -135,24 +129,22 @@ def test_unknown_line_budget_enforcement_fails_closed(enforcement: object) -> No
     assert warnings == []
 
 
-def test_test_corpus_guard_failure_is_part_of_maintainability_gate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_test_corpus_guard_failure_is_part_of_maintainability_gate() -> None:
     failures: list[str] = []
-    monkeypatch.setattr(
-        verifier,
-        "verify_test_corpus_guard",
-        lambda _root: (_ for _ in ()).throw(
-            verifier.TestCorpusGuardError("removed test is unaccounted")
-        ),
-    )
-
-    verifier._append_test_corpus_guard_failures(
+    verifier._append_test_corpus_wrapper_failures(
         failures,
-        {"test_corpus_guard": _test_corpus_policy()},
+        "def main() -> int:\n    return 0\n",
     )
 
-    assert failures == ["test corpus guard failed: removed test is unaccounted"]
+    assert failures == [
+        "standalone test corpus guard wrapper invocation contract is invalid"
+    ]
+
+
+def test_repository_test_corpus_guard_wrapper_contract_is_valid() -> None:
+    source = verifier.read_text(verifier.repo_path(verifier.TEST_CORPUS_GUARD_WRAPPER))
+
+    assert verifier._test_corpus_guard_wrapper_contract_is_valid(source)
 
 
 @pytest.mark.parametrize(
