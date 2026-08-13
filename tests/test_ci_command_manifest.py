@@ -333,6 +333,16 @@ def test_pytest_lock_setup_and_command_bounds_fit_the_job_timeout() -> None:
     assert job.timeout_minutes == 60
 
 
+def test_static_verification_timeout_covers_full_corpus_inventory() -> None:
+    job = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "static-verification"
+    )
+    command = manifest.command_registry()["command:static.verify-all"]
+
+    assert command.timeout_seconds == 1_800
+    assert command.timeout_seconds <= job.timeout_minutes * 60
+
+
 def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:
     lane_ref = "ci-pytest-shard-1-reproduce"
     command_ref = "command:pytest.shard-1-reproduce"

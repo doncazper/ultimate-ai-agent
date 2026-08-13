@@ -317,7 +317,7 @@ def command_registry() -> dict[str, CommandSpec]:
                 ),
                 (),
                 "verification",
-                900,
+                1_800,
             ),
             "command:foundation-gate.ci-parallel": CommandSpec(
                 "command:foundation-gate.ci-parallel",

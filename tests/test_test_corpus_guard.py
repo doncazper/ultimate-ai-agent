@@ -6091,7 +6091,15 @@ def test_changed_pytest_runner_configuration_fails_closed(
 def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     manifest_path = "scripts/verification/ci_command_manifest.py"
     runner_path = "scripts/verification/run_pytest_shards.py"
-    prior_manifest = 'patterns = (\n                    "tests/**/test_*.py",\n)\n'
+    prior_manifest = (
+        'patterns = (\n                    "tests/**/test_*.py",\n)\n'
+        '                    "{temp_root}/uaa_static_verification_timings.json",\n'
+        "                ),\n"
+        '                (),\n'
+        '                "verification",\n'
+        "                900,\n"
+        "            ),\n"
+    )
     current_manifest = prior_manifest.replace(
         '                    "tests/**/test_*.py",\n',
         '                    "tests/**/test_*.py",\n'
@@ -6129,6 +6137,34 @@ def test_exact_pytest_suffix_discovery_alignment_is_bounded() -> None:
     )
 
     assert aligned == {manifest_path, runner_path}
+    aligned_with_static_timeout = guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest.replace(
+                "                900,\n",
+                "                1_800,\n",
+            ),
+            runner_path: current_runner,
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
+
+    assert aligned_with_static_timeout == {manifest_path, runner_path}
+    assert not guard._safe_pytest_suffix_discovery_alignment_paths(
+        current_by_path={
+            manifest_path: current_manifest.replace(
+                "                900,\n",
+                "                1_801,\n",
+            ),
+            runner_path: current_runner,
+        },
+        prior_by_path={
+            manifest_path: prior_manifest,
+            runner_path: prior_runner,
+        },
+    )
     assert not guard._safe_pytest_suffix_discovery_alignment_paths(
         current_by_path={
             manifest_path: current_manifest,

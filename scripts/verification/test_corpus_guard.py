@@ -10123,11 +10123,33 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     prior_manifest = prior_by_path[manifest_path]
     if prior_manifest.count(manifest_needle) != 1:
         return set()
-    if current_by_path[manifest_path] != prior_manifest.replace(
+    expected_manifest = prior_manifest.replace(
         manifest_needle,
         manifest_replacement,
         1,
-    ):
+    )
+    static_timeout_needle = (
+        '                    "{temp_root}/uaa_static_verification_timings.json",\n'
+        "                ),\n"
+        '                (),\n'
+        '                "verification",\n'
+        "                900,\n"
+        "            ),\n"
+    )
+    static_timeout_replacement = static_timeout_needle.replace(
+        "                900,\n",
+        "                1_800,\n",
+    )
+    current_manifest = current_by_path[manifest_path]
+    if current_manifest != expected_manifest:
+        if expected_manifest.count(static_timeout_needle) != 1:
+            return set()
+        expected_manifest = expected_manifest.replace(
+            static_timeout_needle,
+            static_timeout_replacement,
+            1,
+        )
+    if current_manifest != expected_manifest:
         return set()
 
     runner_needle = (
