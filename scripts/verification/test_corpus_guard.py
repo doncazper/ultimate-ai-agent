@@ -1122,6 +1122,145 @@ def _post_definition_parametrize_targets(
     return targets
 
 
+def _post_definition_execution_mark_targets(
+    tree: ast.Module,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> set[str]:
+    """Return declarations mutated by post-definition pytest execution marks."""
+
+    pytest_names = {"pytest", *_pytest_module_aliases(tree)}
+
+    def is_execution_mark(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr in {*PYTEST_EXECUTION_DISABLING_MARKS, "xfail"}
+            and isinstance(node.value, ast.Attribute)
+            and node.value.attr == "mark"
+            and (
+                (root := _root_name(node)) in pytest_names
+                or (
+                    root is not None
+                    and "pytest" in imported_modules.get(root, ())
+                )
+            )
+        )
+
+    targets: set[str] = set()
+    for child in _module_execution_nodes(tree):
+        if not isinstance(child, ast.Call):
+            continue
+        decorator_call: ast.Call | None = None
+        decorated_arguments: tuple[ast.AST, ...] = ()
+        if is_execution_mark(child.func):
+            decorator_call = child
+            decorated_arguments = tuple(child.args[:1])
+        elif isinstance(child.func, ast.Call) and is_execution_mark(child.func.func):
+            decorator_call = child.func
+            decorated_arguments = tuple(child.args)
+        if decorator_call is None:
+            continue
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(child.lineno, child.col_offset),
+        )
+        for argument in decorated_arguments:
+            root = _root_name(argument)
+            if root is not None:
+                targets.add(name_aliases.get(root, root))
+    return targets
+
+
+def _helper_mediated_test_flag_targets(tree: ast.Module) -> set[str]:
+    """Return declarations passed to invoked helpers that mutate ``__test__``."""
+
+    local_functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    def mutates_parameter(
+        function: ast.FunctionDef | ast.AsyncFunctionDef,
+        parameter: str,
+    ) -> bool:
+        def parameter_root(node: ast.AST) -> bool:
+            return _root_name(node) == parameter
+
+        def target_mutates(node: ast.AST) -> bool:
+            if (
+                isinstance(node, ast.Attribute)
+                and node.attr == "__test__"
+                and parameter_root(node.value)
+            ):
+                return True
+            if not isinstance(node, ast.Subscript):
+                return False
+            if not (
+                isinstance(node.value, ast.Attribute)
+                and node.value.attr == "__dict__"
+                and parameter_root(node.value.value)
+            ):
+                return False
+            attribute = _static_string_expression(node.slice)
+            return attribute is None or attribute == "__test__"
+
+        for node in _scope_execution_nodes(function.body):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                targets = (node.target,)
+            elif isinstance(node, ast.Delete):
+                targets = node.targets
+            else:
+                targets = ()
+            if any(target_mutates(target) for target in targets):
+                return True
+            mutation = _mutated_attribute_call(node)
+            if (
+                mutation is not None
+                and parameter_root(mutation[0])
+                and (mutation[1] is None or mutation[1] == "__test__")
+            ):
+                return True
+        return False
+
+    targets: set[str] = set()
+    for child in _module_execution_nodes(tree):
+        if (
+            not isinstance(child, ast.Call)
+            or not isinstance(child.func, ast.Name)
+            or child.func.id not in local_functions
+        ):
+            continue
+        function = local_functions[child.func.id]
+        parameters = [
+            argument.arg
+            for argument in (*function.args.posonlyargs, *function.args.args)
+        ]
+        supplied: dict[str, ast.AST] = {
+            parameter: argument
+            for parameter, argument in zip(parameters, child.args)
+        }
+        supplied.update(
+            {
+                keyword.arg: keyword.value
+                for keyword in child.keywords
+                if keyword.arg is not None
+            }
+        )
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(child.lineno, child.col_offset),
+        )
+        for parameter, argument in supplied.items():
+            if not mutates_parameter(function, parameter):
+                continue
+            root = _root_name(argument)
+            if root is not None:
+                targets.add(name_aliases.get(root, root))
+    return targets
+
+
 def _post_definition_parameterized_fixture_targets(
     tree: ast.Module,
     fixture_aliases: set[str],
@@ -1824,7 +1963,12 @@ def _pytest_collection_abort_callable_name(
             imported_modules,
             aliases,
         )
-        return abort_name if abort_name in {"skip", "xfail"} else ""
+        return (
+            abort_name
+            if abort_name
+            in {"skip", "skip-exception", "xfail", "xfail-exception"}
+            else ""
+        )
     if (
         isinstance(node, ast.Call)
         and _is_builtin_getattr_reference(node.func, imported_modules, aliases)
@@ -2046,6 +2190,12 @@ def _has_module_level_pytest_collection_abort(
             continue
         raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
         if isinstance(raised, ast.Name) and raised.id in exception_aliases:
+            return True
+        if _pytest_collection_abort_callable_name(
+            raised,
+            resolved_modules,
+            aliases,
+        ) in {"skip-exception", "xfail-exception"}:
             return True
         if (
             isinstance(raised, ast.Attribute)
@@ -8032,6 +8182,16 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             "post-definition Python parametrization cannot be inventoried safely"
         )
+    if _post_definition_execution_mark_targets(tree, imported_modules) & (
+        declared_test_names | declared_test_class_names
+    ):
+        raise TestCorpusGuardError(
+            "post-definition Python execution mark cannot be inventoried safely"
+        )
+    if _helper_mediated_test_flag_targets(tree) & collected_binding_names:
+        raise TestCorpusGuardError(
+            "dynamic Python function __test__ mutation cannot be inventoried safely"
+        )
 
     for module_node in _module_execution_nodes(tree):
         if isinstance(module_node, ast.Assign):
@@ -10517,15 +10677,21 @@ def _has_conftest_test_declaration_mutation(source: str, path: str) -> bool:
         ) from exc
 
     def target_mutates_test_flag(target: ast.AST) -> bool:
-        return any(
-            (isinstance(child, ast.Attribute) and child.attr == "__test__")
-            or (
-                isinstance(child, ast.Subscript)
-                and isinstance(child.slice, ast.Constant)
-                and child.slice.value == "__test__"
-            )
-            for child in ast.walk(target)
-        )
+        for child in ast.walk(target):
+            if isinstance(child, ast.Attribute) and child.attr == "__test__":
+                return True
+            if not isinstance(child, ast.Subscript):
+                continue
+            attribute = _static_string_expression(child.slice)
+            if attribute == "__test__":
+                return True
+            if (
+                isinstance(child.value, ast.Attribute)
+                and child.value.attr == "__dict__"
+                and attribute is None
+            ):
+                return True
+        return False
 
     def call_mutates_test_flag(node: ast.Call) -> bool:
         attribute: ast.AST | None = None

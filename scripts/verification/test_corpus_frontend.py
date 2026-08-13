@@ -4778,6 +4778,28 @@ def _unproven_registration_regions(
             ):
                 expression_regions.add((statement_end, suite_end))
 
+        for exit_match in re.compile(r"\b(?:return|throw)\b").finditer(
+            scan_text,
+            suite_start + 1,
+            suite_end - 1,
+        ):
+            exit_start = exit_match.start()
+            if any(
+                start < exit_start < end
+                for start, end in (*block_regions, *expression_regions)
+            ) or any(
+                start < exit_start < end
+                for start, end in nested_suite_bodies
+                if (start, end) != (suite_start, suite_end)
+            ):
+                continue
+            statement_end = _unbraced_expression_end(
+                text,
+                scan_text,
+                exit_start,
+            )
+            expression_regions.add((statement_end, suite_end))
+
     return tuple(sorted(block_regions)), tuple(sorted(expression_regions))
 
 

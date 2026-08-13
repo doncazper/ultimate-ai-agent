@@ -2041,6 +2041,30 @@ if True:
         ),
         (
             "import pytest\n"
+            "def test_case(): pass\n"
+            "pytest.mark.skip(test_case)\n",
+            "post-definition Python execution mark",
+        ),
+        (
+            "import pytest\n"
+            "def test_case(): pass\n"
+            "pytest.mark.skipif(test_case)\n",
+            "post-definition Python execution mark",
+        ),
+        (
+            "import pytest\n"
+            "def test_case(): pass\n"
+            "pytest.mark.xfail(test_case)\n",
+            "post-definition Python execution mark",
+        ),
+        (
+            "def disable(function): function.__test__ = False\n"
+            "def test_case(): pass\n"
+            "disable(test_case)\n",
+            "dynamic Python function __test__ mutation",
+        ),
+        (
+            "import pytest\n"
             "def value(): return 1\n"
             "value = pytest.fixture(params=[1, 2])(value)\n"
             "def test_case(value): assert value\n",
@@ -7239,6 +7263,12 @@ def test_python_inventory_rejects_locally_imported_test_class(
         'raise Abort("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
         "import pytest\n"
+        "raise pytest.skip.Exception.__call__('unavailable')\n"
+        "def test_case(): pass\n",
+        "import pytest\n"
+        "raise pytest.xfail.Exception.__call__('unavailable')\n"
+        "def test_case(): pass\n",
+        "import pytest\n"
         'getattr(pytest, "skip")("unavailable", allow_module_level=True)\n'
         "def test_case(): pass\n",
         "import pytest as p\n"
@@ -7783,6 +7813,16 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
             "registration context",
         ),
         (
+            'describe("suite", () => { return; '
+            'test("case", () => {}); });\n',
+            "registration context",
+        ),
+        (
+            'describe("suite", () => { throw new Error(); '
+            'test("case", () => {}); });\n',
+            "registration context",
+        ),
+        (
             'class Helper { register<T>() { test("case", () => {}); } }\n',
             "registration context",
         ),
@@ -8129,6 +8169,8 @@ def test_changed_conftest_collection_hook_fails_closed(
         "def disable():\n"
         "    target.test_case.__test__ = False\n"
         "disable()\n",
+        "import tests.test_target as target\n"
+        "target.test_case.__dict__['__' + 'test__'] = False\n",
     ),
 )
 def test_changed_conftest_imported_test_mutation_fails_closed(
