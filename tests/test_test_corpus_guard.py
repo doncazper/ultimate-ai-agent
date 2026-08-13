@@ -2942,10 +2942,11 @@ test("declared test", async () => {
         "::execution-conditional:runIf:sha256:"
     )
     assert "::identity-sha256:" in refs[1]
-    assert refs[2:4] == [
-        "apps/control-center/src/example.test.tsx::runs in sequence",
-        "apps/control-center/src/example.test.tsx::records an expected failure",
-    ]
+    assert refs[2] == "apps/control-center/src/example.test.tsx::runs in sequence"
+    assert refs[3].startswith(
+        "apps/control-center/src/example.test.tsx::records an expected failure"
+        "::execution-expected-failure:fail::identity-sha256:"
+    )
     assert refs[4].startswith(
         "apps/control-center/src/example.test.tsx::records an unavailable case"
         "::execution-disabled:fixme::identity-sha256:"
@@ -2968,6 +2969,26 @@ def test_frontend_inventory_binds_execution_disabling_modifiers(
 
     assert active_ref != disabled_ref
     assert f"::execution-disabled:{modifier}::identity-sha256:" in disabled_ref
+
+
+@pytest.mark.parametrize("modifier", ("fail", "fails"))
+def test_frontend_inventory_binds_expected_failure_modifiers(
+    modifier: str,
+) -> None:
+    active_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        'test("case", () => {});',
+    )[0].ref
+    expected_failure_ref = guard.parse_frontend_declarations(
+        "apps/control-center/src/example.test.tsx",
+        f'test.{modifier}("case", () => {{ throw new Error("expected"); }});',
+    )[0].ref
+
+    assert active_ref != expected_failure_ref
+    assert (
+        f"::execution-expected-failure:{modifier}::identity-sha256:"
+        in expected_failure_ref
+    )
 
 
 @pytest.mark.parametrize("modifier", ("runIf", "skipIf"))
@@ -7179,6 +7200,12 @@ def test_python_inventory_rejects_module_collection_aborts(source: str) -> None:
         "    def prepare(self, method): pass\n"
         "    setup_method = prepare\n"
         "    def test_case(self): pass\n",
+        "def setUpModule(): pass\ndef test_case(): pass\n",
+        "def prepare(module): pass\n"
+        "setUpModule = prepare\n"
+        "def test_case(): pass\n",
+        "from tests.helper import prepare as setUpModule\n"
+        "def test_case(): pass\n",
     ),
 )
 def test_python_inventory_rejects_xunit_setup_hooks(source: str) -> None:
@@ -7968,6 +7995,7 @@ test.each([...CASES])("case %s", () => {});
         "    config.getini('python_functions').clear()\n",
         "def pytest_sessionstart(session):\n"
         "    session.config.getini('python_functions').clear()\n",
+        "def pytest_sessionfinish(session):\n    session.exitstatus = 0\n",
     ),
 )
 def test_changed_conftest_collection_hook_fails_closed(

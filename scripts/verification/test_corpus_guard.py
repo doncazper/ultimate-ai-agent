@@ -129,6 +129,7 @@ PYTEST_COLLECTION_HOOK_NAMES = frozenset(
         "pytest_configure",
         "pytest_load_initial_conftests",
         "pytest_plugin_registered",
+        "pytest_sessionfinish",
         "pytest_sessionstart",
     }
 )
@@ -7018,7 +7019,10 @@ def _python_inventory_entries(
                 return True
         return False
 
-    if binds_xunit_hook(tree.body, {"setup_module", "setup_function"}) or any(
+    if binds_xunit_hook(
+        tree.body,
+        {"setup_module", "setup_function", "setUpModule"},
+    ) or any(
         isinstance(node, ast.ClassDef)
         and binds_xunit_hook(node.body, {"setup_class", "setup_method"})
         for node in tree.body

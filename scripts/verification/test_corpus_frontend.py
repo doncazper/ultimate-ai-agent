@@ -15,6 +15,7 @@ MAX_CONTEXT_FORWARDING_HELPERS = 64
 MAX_CONTEXT_HELPER_IDENTITY_BYTES = 200_000
 TEST_MODIFIERS = r"(?:\s*\.(?:concurrent|fail|fails|fixme|only|sequential|skip|todo))*"
 EXECUTION_DISABLING_TEST_MODIFIERS = frozenset({"fixme", "skip", "todo"})
+EXPECTED_FAILURE_TEST_MODIFIERS = frozenset({"fail", "fails"})
 CONDITIONAL_TEST_MODIFIERS = frozenset({"runIf", "skipIf"})
 RUNNER_MODULES = {"vitest", "@playwright/test"}
 IMPORT_PATTERN = re.compile(
@@ -1416,6 +1417,11 @@ def _execution_posture_parts(
         for modifier in modifiers
         if modifier in EXECUTION_DISABLING_TEST_MODIFIERS
     )
+    expected_failure = tuple(
+        modifier
+        for modifier in modifiers
+        if modifier in EXPECTED_FAILURE_TEST_MODIFIERS
+    )
     conditional = next(
         (
             modifier
@@ -1425,6 +1431,7 @@ def _execution_posture_parts(
         None,
     )
     parts = [f"disabled:{modifier}" for modifier in disabling]
+    parts.extend(f"expected-failure:{modifier}" for modifier in expected_failure)
     if conditional is not None:
         condition_end = _skip_balanced(declaration_source, arguments_start)
         normalized_condition = _normalized_javascript_expression(
