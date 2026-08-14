@@ -113,7 +113,7 @@ def _append_launcher_contract_failures(
         'DESIGNATED_UI_TARGET = "control-center"',
         "PRIMARY_READY_SECONDARY_BLOCKED",
         "def service_identity_ready",
-        'url_status(f"{BACKEND_URL}/api/manifest") == 200',
+        'url_status(f"{backend_url()}/api/manifest") == 200',
         '"Ultimate AI Agent Control Center" in body',
         "def command_trial_boot",
         'command_launch_ui(root, target="control-center")',
