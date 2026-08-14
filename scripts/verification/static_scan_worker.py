@@ -50,9 +50,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(
-        f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
-    )
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -147,7 +145,10 @@ def run_worker(
             status = "passed"
             failure_ref: str | None = None
             try:
-                if product_snapshot is not None and spec.function_name in DIRECT_PRODUCT_VALIDATORS:
+                if (
+                    product_snapshot is not None
+                    and spec.function_name in DIRECT_PRODUCT_VALIDATORS
+                ):
                     product_snapshot.run(spec.function_name)
                 else:
                     legacy.run_timed(
@@ -183,6 +184,8 @@ def run_worker(
                 )
                 return 1
 
+    if resolve_repository_sha(ROOT) != plan.repository_sha:
+        raise ValueError("static scan worker repository identity changed")
     _write_json(
         progress_path,
         {

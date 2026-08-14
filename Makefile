@@ -2,7 +2,7 @@ PYTHON := .venv/bin/python
 FRONTEND_DIR := apps/control-center
 VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json
 VERIFY_DEV_FAST_JOBS ?= 4
-VERIFY_CPU_BUDGET ?= 4
+VERIFY_CPU_BUDGET ?= $(UAA_VERIFY_CPU_BUDGET)
 STATIC_SCAN_WORKERS ?= 4
 STATIC_SCAN_TIMEOUT_SECONDS ?= 60
 PYTEST_SHARDS ?= 8
@@ -49,7 +49,7 @@ verify:
 	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only
 
 verify-static:
-	$(PYTHON) scripts/verification/run_static_verification_lane.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON) --static-workers $(STATIC_SCAN_WORKERS) --cpu-budget $(VERIFY_CPU_BUDGET) --static-scan-timeout-seconds $(STATIC_SCAN_TIMEOUT_SECONDS)
+	$(PYTHON) scripts/verification/run_static_verification_lane.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON) --static-workers $(STATIC_SCAN_WORKERS) $(if $(VERIFY_CPU_BUDGET),--cpu-budget $(VERIFY_CPU_BUDGET),) --static-scan-timeout-seconds $(STATIC_SCAN_TIMEOUT_SECONDS)
 
 verify-gate-architecture:
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py

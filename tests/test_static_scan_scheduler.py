@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -21,6 +22,7 @@ from scripts.verification.run_static_scan_shards import (
     _ActiveWorker,
     StaticScanOutcome,
     _complete_outcomes,
+    _launch_worker,
     _parse_outcomes,
     _run_batch,
     _safe_run_root,
@@ -33,6 +35,7 @@ from scripts.verification.static_scan_plan import (
     APPROVED_PARALLEL_REGISTRY_FINGERPRINT,
     STATIC_PLAN_SCHEMA,
     StaticScanSpec,
+    StaticShardPlan,
     assign_static_shards,
     build_scan_specs,
     exclusive_plans,
@@ -65,6 +68,32 @@ def test_worker_count_never_exceeds_cpu_budget() -> None:
     assert capped_worker_count(8, 4) == 4
     with pytest.raises(ValueError, match="greater than zero"):
         capped_worker_count(0, 4)
+
+
+def test_make_static_lane_honors_cpu_budget_environment() -> None:
+    root = Path(__file__).resolve().parents[1]
+    inherited = dict(os.environ)
+    inherited.pop(CPU_BUDGET_ENV, None)
+    inherited.pop("VERIFY_CPU_BUDGET", None)
+    default_plan = subprocess.run(
+        ["make", "-n", "verify-static"],
+        cwd=root,
+        env=inherited,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    constrained_plan = subprocess.run(
+        ["make", "-n", "verify-static"],
+        cwd=root,
+        env={**inherited, CPU_BUDGET_ENV: "1"},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    assert "--cpu-budget" not in default_plan
+    assert "--cpu-budget 1" in constrained_plan
 
 
 def test_scan_registry_rejects_duplicate_names_and_functions() -> None:
@@ -258,6 +287,48 @@ def test_run_root_does_not_change_caller_owned_base_permissions(tmp_path: Path) 
     shutil.rmtree(run_root)
 
 
+def test_worker_launch_registers_owned_process_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _approved_specs((("one", "one_scan"),))[0]
+    plan = assign_static_shards((spec,), 1)[0]
+    run_root = tmp_path / "runs"
+    run_root.mkdir()
+    observed: dict[str, object] = {}
+
+    class Process:
+        pid = 12345
+        returncode = None
+
+    process = Process()
+
+    def spawn(command: list[str], **kwargs: object) -> Process:
+        observed["command"] = command
+        observed.update(kwargs)
+        return process
+
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "spawn_owned_process_group",
+        spawn,
+    )
+
+    worker = _launch_worker(
+        plan,
+        root=tmp_path,
+        run_root=run_root,
+        worker_ref="worker-0",
+        base_env={},
+        repository_sha="a" * 40,
+        registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+    )
+
+    assert worker.process is process
+    assert observed["command"][-2:] == ["--progress", str(worker.progress_path)]
+    assert "start_new_session" not in observed
+
+
 def test_worker_stops_after_first_failure_and_emits_safe_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -284,7 +355,12 @@ def test_worker_stops_after_first_failure_and_emits_safe_result(
     monkeypatch.setattr(
         static_scan_worker.legacy, "test_later", unreachable, raising=False
     )
-    repository_sha = resolve_repository_sha(Path(__file__).resolve().parents[1])
+    repository_sha = "a" * 40
+    monkeypatch.setattr(
+        static_scan_worker,
+        "resolve_repository_sha",
+        lambda root: repository_sha,
+    )
     registry_fingerprint = scan_registry_fingerprint(
         static_scan_worker.legacy.SCAN_SEQUENCE
     )
@@ -318,6 +394,53 @@ def test_worker_stops_after_first_failure_and_emits_safe_result(
     assert [item["status"] for item in payload["outcomes"]] == ["passed", "failed"]
     assert payload["outcomes"][1]["failure_ref"] == "exception-ref:SystemExit"
     assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_worker_revalidates_repository_after_scans(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_sha = "a" * 40
+    sequence = (("pass", "test_pass"),)
+    monkeypatch.setattr(static_scan_worker.legacy, "SCAN_SEQUENCE", sequence)
+    monkeypatch.setattr(
+        static_scan_worker.legacy,
+        "test_pass",
+        lambda: None,
+        raising=False,
+    )
+    identities = iter((repository_sha, "b" * 40))
+    monkeypatch.setattr(
+        static_scan_worker,
+        "resolve_repository_sha",
+        lambda root: next(identities),
+    )
+    registry_fingerprint = scan_registry_fingerprint(sequence)
+    specs = build_scan_specs(sequence)
+    context = StaticVerificationContext.capture(
+        static_scan_worker.ROOT,
+        tuple(spec.scan_ref for spec in specs),
+        repository_sha,
+        registry_fingerprint,
+    )
+    plan = tmp_path / "plan.json"
+    result = tmp_path / "result.json"
+    progress = tmp_path / "progress.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "schema_version": STATIC_PLAN_SCHEMA,
+                "context_ref": context.snapshot_ref,
+                "registry_fingerprint": registry_fingerprint,
+                "repository_sha": repository_sha,
+                "scan_indices": [0],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="repository identity changed"):
+        static_scan_worker.run_worker(plan, result, progress)
 
 
 def test_scan_timeout_stops_worker_and_emits_identity_bound_timeout(
@@ -477,6 +600,161 @@ def test_worker_result_identity_substitution_fails_closed(tmp_path: Path) -> Non
     assert len(outcomes) == 1
     assert outcomes[0].status == "failed"
     assert outcomes[0].failure_ref == "identity-ref:worker-result-mismatch"
+
+
+def test_nonzero_worker_cannot_publish_only_passing_outcomes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = _approved_specs((("one", "one_scan"),))[0]
+    plan = assign_static_shards((spec,), 1)[0]
+
+    class FailedProcess:
+        returncode = 2
+
+        def poll(self) -> int:
+            return self.returncode
+
+    worker = _ActiveWorker(
+        plan=plan,
+        process=FailedProcess(),  # type: ignore[arg-type]
+        result_path=tmp_path / "result.json",
+        progress_path=tmp_path / "progress.json",
+        context_ref="static-context-ref:sha256:" + "c" * 64,
+        registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+        repository_sha="a" * 40,
+        launched_at=time.perf_counter(),
+    )
+    worker.result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": static_scan_worker.RESULT_SCHEMA,
+                "context_ref": worker.context_ref,
+                "registry_fingerprint": worker.registry_fingerprint,
+                "repository_sha": worker.repository_sha,
+                "outcomes": [
+                    {
+                        "scan_index": spec.index,
+                        "scan_ref": spec.scan_ref,
+                        "name": spec.name,
+                        "function_name": spec.function_name,
+                        "status": "passed",
+                        "elapsed_ms": 1,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_launch_worker",
+        lambda *args, **kwargs: worker,
+    )
+
+    outcomes, timed_out = _run_batch(
+        (plan,),
+        root=tmp_path,
+        run_root=tmp_path,
+        base_env={},
+        scan_timeout_seconds=1,
+        deadline=time.perf_counter() + 10,
+        safe_summary=True,
+        batch_ref="nonzero-test",
+        repository_sha=worker.repository_sha,
+        registry_fingerprint=worker.registry_fingerprint,
+    )
+
+    completed = _complete_outcomes((spec,), outcomes)
+    assert timed_out is False
+    assert completed[0].status == "failed"
+    assert completed[0].failure_ref == "coverage-ref:duplicate-result"
+
+
+def test_scheduler_revalidates_repository_after_worker_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_sha = "a" * 40
+    identity_calls = 0
+
+    def resolve_identity(root: Path) -> str:
+        nonlocal identity_calls
+        identity_calls += 1
+        if identity_calls == 1:
+            return repository_sha
+        raise ValueError("static verification requires an exact clean revision")
+
+    def run_batch(
+        plans: tuple[StaticShardPlan, ...],
+        **kwargs: object,
+    ) -> tuple[list[StaticScanOutcome], bool]:
+        outcomes = [
+            StaticScanOutcome(
+                spec.index,
+                spec.scan_ref,
+                spec.name,
+                spec.function_name,
+                "passed",
+                1,
+            )
+            for plan in plans
+            for spec in plan.scans
+        ]
+        return outcomes, False
+
+    monkeypatch.setattr(
+        run_static_scan_shards, "resolve_repository_sha", resolve_identity
+    )
+    monkeypatch.setattr(run_static_scan_shards, "_run_batch", run_batch)
+
+    with pytest.raises(ValueError, match="exact clean revision"):
+        run_static_scan_shards.execute_static_scans(
+            (("one", "one_scan"),),
+            root=tmp_path,
+            repository_sha=repository_sha,
+        )
+
+    assert identity_calls == 2
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("nan")])
+def test_static_scheduler_rejects_non_finite_time_budgets(value: float) -> None:
+    with pytest.raises(ValueError, match="finite, positive, and ordered"):
+        run_static_scan_shards.execute_static_scans(
+            (("one", "one_scan"),),
+            scan_timeout_seconds=value,
+        )
+
+
+def test_local_static_lane_redacts_expected_scheduler_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    original = run_static_verification_lane.legacy.run_static_scans
+
+    monkeypatch.setattr(
+        run_static_verification_lane.legacy,
+        "main",
+        lambda argv: run_static_verification_lane.legacy.run_static_scans([]),
+    )
+
+    def fail_execute(*args: object, **kwargs: object) -> None:
+        raise ValueError("private source path must not escape")
+
+    monkeypatch.setattr(
+        run_static_verification_lane,
+        "execute_static_scans",
+        fail_execute,
+    )
+
+    with pytest.raises(SystemExit, match="1"):
+        run_static_verification_lane.main([])
+
+    captured = capsys.readouterr()
+    assert "failure-ref:ValueError" in captured.err
+    assert "private source path" not in captured.err
+    assert run_static_verification_lane.legacy.run_static_scans is original
 
 
 def test_ci_v4_static_command_keeps_exact_head_fenced_entrypoint() -> None:

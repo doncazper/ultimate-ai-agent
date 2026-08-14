@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import secrets
 import shutil
@@ -193,14 +194,13 @@ def _launch_worker(
     ]
     runtime_root = worker_root / "runtime"
     env = shard_processes.isolated_shard_environment(base_env, runtime_root)
-    process = subprocess.Popen(
+    process = shard_processes.spawn_owned_process_group(
         command,
         cwd=root,
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
         text=True,
-        start_new_session=os.name == "posix",
     )
     return _ActiveWorker(
         plan=plan,
@@ -320,8 +320,7 @@ def _run_batch(
                     worker.active_scan_observed_at = now
                 if (
                     worker.process.poll() is None
-                    and now
-                    - (worker.active_scan_observed_at or worker.launched_at)
+                    and now - (worker.active_scan_observed_at or worker.launched_at)
                     >= scan_timeout_seconds
                 ):
                     worker.timed_out = True
@@ -349,7 +348,8 @@ def _run_batch(
 
     outcomes: list[StaticScanOutcome] = []
     for worker in completed:
-        outcomes.extend(_parse_outcomes(worker))
+        worker_outcomes = _parse_outcomes(worker)
+        outcomes.extend(worker_outcomes)
         if worker.timed_out:
             spec = next(
                 (
@@ -370,11 +370,29 @@ def _run_batch(
                     failure_ref="timeout-ref:static-scan",
                 )
             )
-        if worker.process.returncode not in {0, None} and not safe_summary:
-            print(
-                f"FAIL: static worker {batch_ref} exited nonzero "
-                "(failure-ref:static-worker-process)"
+        if (
+            worker.process.returncode not in {0, None}
+            and not worker.timed_out
+            and worker_outcomes
+            and all(outcome.status == "passed" for outcome in worker_outcomes)
+        ):
+            first = worker.plan.scans[0]
+            outcomes.append(
+                StaticScanOutcome(
+                    scan_index=first.index,
+                    scan_ref=first.scan_ref,
+                    name=first.name,
+                    function_name=first.function_name,
+                    status="failed",
+                    elapsed_ms=0,
+                    failure_ref="process-ref:nonzero-exit",
+                )
             )
+            if not safe_summary:
+                print(
+                    f"FAIL: static worker {batch_ref} exited nonzero "
+                    "(failure-ref:static-worker-process)"
+                )
     return outcomes, timed_out
 
 
@@ -461,10 +479,17 @@ def execute_static_scans(
     serial_reference: bool = False,
     repository_sha: str | None = None,
 ) -> StaticRunReport:
-    if scan_timeout_seconds <= 0 or target_seconds <= 0:
-        raise ValueError("static scan time budgets must be greater than zero")
-    if hard_timeout_seconds <= target_seconds:
-        raise ValueError("static scan hard timeout must exceed the target")
+    if (
+        not math.isfinite(scan_timeout_seconds)
+        or scan_timeout_seconds <= 0
+        or not math.isfinite(target_seconds)
+        or target_seconds <= 0
+        or not math.isfinite(hard_timeout_seconds)
+        or hard_timeout_seconds <= target_seconds
+    ):
+        raise ValueError(
+            "static scan time budgets must be finite, positive, and ordered"
+        )
     specs = build_scan_specs(sequence)
     sequence_items = tuple((spec.name, spec.function_name) for spec in specs)
     registry_fingerprint = scan_registry_fingerprint(sequence_items)
@@ -530,6 +555,8 @@ def execute_static_scans(
                     break
     finally:
         shutil.rmtree(run_root)
+    if resolve_repository_sha(root) != resolved_repository_sha:
+        raise ValueError("static scan repository identity changed during execution")
     outcomes = _complete_outcomes(specs, raw_outcomes)
     elapsed = time.perf_counter() - started
     passed = not timed_out and all(outcome.status == "passed" for outcome in outcomes)
@@ -606,9 +633,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--write-report")
     parser.add_argument("--basetemp")
     parser.add_argument("--repository-sha")
-    parser.add_argument("--scan-timeout-seconds", type=float, default=DEFAULT_SCAN_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--scan-timeout-seconds", type=float, default=DEFAULT_SCAN_TIMEOUT_SECONDS
+    )
     parser.add_argument("--target-seconds", type=float, default=DEFAULT_TARGET_SECONDS)
-    parser.add_argument("--hard-timeout-seconds", type=float, default=DEFAULT_HARD_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--hard-timeout-seconds", type=float, default=DEFAULT_HARD_TIMEOUT_SECONDS
+    )
     parser.add_argument("--safe-summary", action="store_true")
     parser.add_argument("--equivalence", action="store_true")
     parser.add_argument("--repeat", type=int, default=1)
@@ -658,7 +689,12 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     if args.write_report:
         _write_report(Path(args.write_report), reports[-1])
-    return 0 if (reference is None or reference.passed) and all(report.passed for report in reports) else 1
+    return (
+        0
+        if (reference is None or reference.passed)
+        and all(report.passed for report in reports)
+        else 1
+    )
 
 
 if __name__ == "__main__":

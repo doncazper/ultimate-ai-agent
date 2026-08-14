@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import math
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -29,7 +31,11 @@ def _parse_scheduler_args(
     parser.add_argument("--static-basetemp")
     parser.add_argument("--repository-sha")
     args, legacy_argv = parser.parse_known_args(argv)
-    if args.static_workers <= 0 or args.static_scan_timeout_seconds <= 0:
+    if (
+        args.static_workers <= 0
+        or not math.isfinite(args.static_scan_timeout_seconds)
+        or args.static_scan_timeout_seconds <= 0
+    ):
         parser.error("static worker settings must be greater than zero")
     return args, legacy_argv
 
@@ -42,16 +48,24 @@ def main(argv: list[str] | None = None) -> None:
         if args.static_workers == 1:
             original_run_static_scans(timings)
             return
-        report = execute_static_scans(
-            legacy.SCAN_SEQUENCE,
-            root=legacy.ROOT,
-            max_workers=args.static_workers,
-            cpu_budget=args.cpu_budget,
-            basetemp=(Path(args.static_basetemp) if args.static_basetemp else None),
-            scan_timeout_seconds=args.static_scan_timeout_seconds,
-            repository_sha=args.repository_sha,
-            safe_summary=True,
-        )
+        try:
+            report = execute_static_scans(
+                legacy.SCAN_SEQUENCE,
+                root=legacy.ROOT,
+                max_workers=args.static_workers,
+                cpu_budget=args.cpu_budget,
+                basetemp=(Path(args.static_basetemp) if args.static_basetemp else None),
+                scan_timeout_seconds=args.static_scan_timeout_seconds,
+                repository_sha=args.repository_sha,
+                safe_summary=True,
+            )
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+            print(
+                "FAIL: static scheduler stopped safely "
+                f"(failure-ref:{type(exc).__name__})",
+                file=sys.stderr,
+            )
+            raise SystemExit(1) from None
         if timings is not None:
             timings.extend(report.timing_entries)
         if not report.passed:
