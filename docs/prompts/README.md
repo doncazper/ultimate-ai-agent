@@ -289,3 +289,15 @@ repository mutation, commit, push, and draft-PR creation remain separate exact
 capabilities subject to fresh request-scoped evaluation. Use
 `docs/prompts/uaa_developer_feedback/00_execute_all_review_verify_harden.prompt.md`
 for the finite merge-gated wrapper.
+
+## Governed self-improvement intake summary
+
+`docs/prompts/governed_self_improvement_intake.md` is a bounded, redacted intake
+record for a locally discovered implementation proposal. It is not an
+executable prompt and remains subordinate to the canonical
+`governed-self-improvement` item in
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`; that item's source remains
+not materialized and execution remains blocked pending the exact source. The
+summary preserves intent and authority requirements without creating a second
+queue or granting runtime, Git, skill, workflow, learning-write, or merge
+authority.
