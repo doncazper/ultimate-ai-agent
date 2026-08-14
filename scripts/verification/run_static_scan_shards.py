@@ -141,17 +141,24 @@ def _immutable_source_tree(
     repository_sha: str,
 ) -> Iterator[Path]:
     source_root = run_root / "source"
-    added = subprocess.run(
-        ("git", "worktree", "add", "--detach", str(source_root), repository_sha),
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    if added.returncode != 0:
-        raise ValueError("static scan immutable source checkout failed")
     try:
+        added = subprocess.run(
+            (
+                "git",
+                "worktree",
+                "add",
+                "--detach",
+                str(source_root),
+                repository_sha,
+            ),
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if added.returncode != 0:
+            raise ValueError("static scan immutable source checkout failed")
         source_root.chmod(0o700)
         if resolve_repository_sha(source_root) != repository_sha:
             raise ValueError("static scan immutable source identity mismatch")
@@ -159,16 +166,49 @@ def _immutable_source_tree(
         if resolve_repository_sha(source_root) != repository_sha:
             raise ValueError("static scan immutable source identity changed")
     finally:
-        removed = subprocess.run(
-            ("git", "worktree", "remove", "--force", str(source_root)),
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        pending_interrupt: StaticRunInterrupted | None = None
+        try:
+            removed = subprocess.run(
+                ("git", "worktree", "remove", "--force", str(source_root)),
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except StaticRunInterrupted as exc:
+            pending_interrupt = exc
+            removed = subprocess.run(
+                ("git", "worktree", "remove", "--force", str(source_root)),
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
         if removed.returncode != 0:
-            raise ValueError("static scan immutable source cleanup failed")
+            listed = subprocess.run(
+                (
+                    "git",
+                    "-c",
+                    "core.quotePath=false",
+                    "worktree",
+                    "list",
+                    "--porcelain",
+                ),
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            registered = listed.returncode != 0 or any(
+                line == f"worktree {source_root}" for line in listed.stdout.splitlines()
+            )
+            if source_root.exists() or registered:
+                raise ValueError("static scan immutable source cleanup failed")
+        if pending_interrupt is not None:
+            raise pending_interrupt
 
 
 def _write_plan(
@@ -577,12 +617,16 @@ def execute_static_scans(
         raise StaticRunInterrupted(signum)
 
     try:
-        with _immutable_source_tree(root, run_root, resolved_repository_sha) as source_root:
-            base_env = shard_processes.build_shard_env(source_root)
-            with shard_processes.installed_signal_handlers(
-                handled_signals,
-                interrupt_run,
-            ):
+        with shard_processes.installed_signal_handlers(
+            handled_signals,
+            interrupt_run,
+        ):
+            with _immutable_source_tree(
+                root,
+                run_root,
+                resolved_repository_sha,
+            ) as source_root:
+                base_env = shard_processes.build_shard_env(source_root)
                 raw_outcomes, timed_out = _run_batch(
                     parallel_plans,
                     root=source_root,

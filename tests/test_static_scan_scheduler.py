@@ -387,7 +387,9 @@ def test_scheduler_uses_detached_exact_source_tree_and_cleans_it(
     ) as immutable_root:
         assert immutable_root == source_root
         source.write_text("VALUE = 2\n", encoding="utf-8")
-        assert (immutable_root / "source.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+        assert (immutable_root / "source.py").read_text(
+            encoding="utf-8"
+        ) == "VALUE = 1\n"
         source.write_text("VALUE = 1\n", encoding="utf-8")
 
     assert not source_root.exists()
@@ -400,6 +402,74 @@ def test_scheduler_uses_detached_exact_source_tree_and_cleans_it(
     ).stdout
     assert str(source_root) not in worktrees
     shutil.rmtree(run_root)
+
+
+def test_immutable_source_tree_cleans_up_when_checkout_is_interrupted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[tuple[str, ...]] = []
+
+    def run(command: tuple[str, ...], **_kwargs: object) -> object:
+        commands.append(command)
+        if command[2:4] == ("add", "--detach"):
+            (tmp_path / "run" / "source").mkdir(parents=True)
+            raise run_static_scan_shards.StaticRunInterrupted(signal.SIGTERM)
+        (tmp_path / "run" / "source").rmdir()
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(run_static_scan_shards.subprocess, "run", run)
+
+    with pytest.raises(run_static_scan_shards.StaticRunInterrupted):
+        with run_static_scan_shards._immutable_source_tree(
+            tmp_path,
+            tmp_path / "run",
+            "a" * 40,
+        ):
+            pytest.fail("interrupted checkout must not yield a source tree")
+
+    assert commands[0][0:4] == ("git", "worktree", "add", "--detach")
+    assert commands[1][0:4] == ("git", "worktree", "remove", "--force")
+    assert not (tmp_path / "run" / "source").exists()
+
+
+def test_immutable_source_tree_retries_cleanup_after_interrupt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "run" / "source"
+    remove_calls = 0
+
+    def run(command: tuple[str, ...], **_kwargs: object) -> object:
+        nonlocal remove_calls
+        if command[2:4] == ("add", "--detach"):
+            source_root.mkdir(parents=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[1:4] == ("worktree", "remove", "--force"):
+            remove_calls += 1
+            if remove_calls == 1:
+                raise run_static_scan_shards.StaticRunInterrupted(signal.SIGTERM)
+            source_root.rmdir()
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected command: {command!r}")
+
+    monkeypatch.setattr(run_static_scan_shards.subprocess, "run", run)
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "resolve_repository_sha",
+        lambda _root: "a" * 40,
+    )
+
+    with pytest.raises(run_static_scan_shards.StaticRunInterrupted):
+        with run_static_scan_shards._immutable_source_tree(
+            tmp_path,
+            tmp_path / "run",
+            "a" * 40,
+        ):
+            pass
+
+    assert remove_calls == 2
+    assert not source_root.exists()
 
 
 def test_worker_launch_registers_owned_process_group(
@@ -777,15 +847,20 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
     repository_sha = "a" * 40
     captured: dict[str, object] = {}
     stopped: list[object] = []
+    lifecycle: list[str] = []
 
     @contextlib.contextmanager
     def installed_handlers(
         signals: object,
         handler: object,
     ) -> object:
+        lifecycle.append("handlers-enter")
         captured["signals"] = signals
         captured["handler"] = handler
-        yield
+        try:
+            yield
+        finally:
+            lifecycle.append("handlers-exit")
 
     class InterruptingProcess:
         returncode: int | None = None
@@ -818,7 +893,11 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
 
     @contextlib.contextmanager
     def immutable_source(root: Path, *_args: object) -> object:
-        yield root
+        lifecycle.append("worktree-enter")
+        try:
+            yield root
+        finally:
+            lifecycle.append("worktree-exit")
 
     monkeypatch.setattr(
         run_static_scan_shards,
@@ -858,6 +937,12 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
     assert signal.SIGTERM in captured["signals"]  # type: ignore[operator]
     assert captured["ignored"] == captured["signals"]
     assert stopped == [process]
+    assert lifecycle == [
+        "handlers-enter",
+        "worktree-enter",
+        "worktree-exit",
+        "handlers-exit",
+    ]
 
 
 def test_worker_result_identity_substitution_fails_closed(tmp_path: Path) -> None:
