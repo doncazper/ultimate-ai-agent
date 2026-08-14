@@ -1186,6 +1186,7 @@ def test_stop_includes_openwebui_before_frontend_and_backend(monkeypatch: pytest
     stopped: list[str] = []
 
     monkeypatch.setattr(launcher, "record_launcher_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(launcher, "preflight_stop_service", lambda _service: None)
     monkeypatch.setattr(launcher, "command_openwebui_stop", lambda root: stopped.append("openwebui") or 0)
     monkeypatch.setattr(
         launcher,
@@ -1244,6 +1245,7 @@ def test_openwebui_stop_propagates_endpoint_mismatch_without_docker_removal(
 def test_command_stop_propagates_openwebui_block(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     monkeypatch.setattr(launcher, "record_launcher_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(launcher, "preflight_stop_service", lambda _service: None)
     monkeypatch.setattr(launcher, "command_openwebui_stop", lambda _root: 1)
     monkeypatch.setattr(
         launcher,
@@ -1252,6 +1254,47 @@ def test_command_stop_propagates_openwebui_block(monkeypatch: pytest.MonkeyPatch
     )
 
     assert launcher.command_stop(ROOT) == 1
+
+
+def test_command_stop_preflights_all_endpoint_mismatches_before_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    services = [launcher.service_config(tmp_path, name) for name in ["openwebui", "frontend", "backend"]]
+    for index, service in enumerate(services, start=1):
+        pid = 12000 + index
+        service.pid_file.parent.mkdir(parents=True, exist_ok=True)
+        service.pid_file.write_text(f"{pid}\n", encoding="utf-8")
+        service.metadata_file.write_text(
+            json.dumps(
+                {
+                    "name": service.name,
+                    "pid": pid,
+                    "command": service.command,
+                    "cwd": str(service.cwd),
+                    "url": service.url,
+                }
+            ),
+            encoding="utf-8",
+        )
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        launcher,
+        "command_openwebui_stop",
+        lambda _root: pytest.fail("no service may stop after preflight mismatch"),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "stop_service",
+        lambda *_args, **_kwargs: pytest.fail("no service may stop after preflight mismatch"),
+    )
+
+    assert launcher.command_stop(tmp_path) == 1
+    assert all(service.pid_file.exists() for service in services)
+    assert all(service.metadata_file.exists() for service in services)
 
 
 def test_restart_does_not_start_after_blocked_stop(monkeypatch: pytest.MonkeyPatch) -> None:

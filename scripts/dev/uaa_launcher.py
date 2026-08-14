@@ -639,6 +639,24 @@ def metadata_matches_launcher_process(service: Service, pid: int) -> bool:
     )
 
 
+def _endpoint_mismatch_stop_result(service: Service, pid: int) -> str | None:
+    if metadata_matches_process(service, pid):
+        return None
+    if metadata_matches_launcher_process(service, pid):
+        return (
+            f"{service.name}: blocked; requested endpoint does not match the "
+            "running launcher process; ownership metadata retained"
+        )
+    return None
+
+
+def preflight_stop_service(service: Service) -> str | None:
+    pid = read_pid_file(service.pid_file)
+    if pid is None or not is_pid_running(pid):
+        return None
+    return _endpoint_mismatch_stop_result(service, pid)
+
+
 def metadata_matches_service(service: Service, pid: int) -> bool:
     if not metadata_matches_process(service, pid):
         return False
@@ -1166,11 +1184,9 @@ def stop_service(service: Service, root: Path | None = None) -> str:
     if pid is None:
         return f"{service.name}: not running"
     if not metadata_matches_process(service, pid):
-        if metadata_matches_launcher_process(service, pid):
-            return (
-                f"{service.name}: blocked; requested endpoint does not match the "
-                "running launcher process; ownership metadata retained"
-            )
+        endpoint_mismatch = _endpoint_mismatch_stop_result(service, pid)
+        if endpoint_mismatch is not None:
+            return endpoint_mismatch
         service.pid_file.unlink(missing_ok=True)
         service.metadata_file.unlink(missing_ok=True)
         return f"{service.name}: removed untrusted pid file"
@@ -1574,10 +1590,16 @@ def command_stop(root: Path) -> int:
         lifecycle_state="requested",
         reason_codes=["LAUNCHER_STOP_REQUESTED"],
     )
+    services = [service_config(root, name) for name in ["openwebui", "frontend", "backend"]]
+    for service in services:
+        endpoint_mismatch = preflight_stop_service(service)
+        if endpoint_mismatch is not None:
+            print(endpoint_mismatch)
+            return 1
     if command_openwebui_stop(root):
         return 1
-    for name in ["frontend", "backend"]:
-        stop_result = stop_service(service_config(root, name), root=root)
+    for service in services[1:]:
+        stop_result = stop_service(service, root=root)
         print(stop_result)
         if ": blocked;" in stop_result:
             return 1
