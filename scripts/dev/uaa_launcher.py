@@ -111,7 +111,7 @@ def validate_local_host(host: str) -> str:
     normalized = host.strip().lower()
     if normalized not in SAFE_HOSTS:
         raise ValueError(f"Host must be localhost-only, got: {host}")
-    return host
+    return normalized
 
 
 def _launcher_host(env_name: str, default_host: str) -> str:
@@ -546,17 +546,60 @@ def cleanup_stale_pid(pid_path: Path, is_running: Callable[[int], bool] = is_pid
     return "removed_stale"
 
 
-def metadata_matches_service(service: Service, pid: int) -> bool:
+def _read_service_metadata(service: Service) -> dict[str, Any] | None:
     try:
         data = json.loads(service.metadata_file.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _openwebui_identity_command(command: object) -> list[str] | None:
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return None
+    normalized: list[str] = []
+    for item in command:
+        matched = False
+        for key in ("OPENAI_API_BASE_URL", "OPENAI_API_BASE_URLS"):
+            prefix = f"{key}=http://{OPENWEBUI_GATEWAY_FOR_CONTAINER_HOST}:"
+            if not item.startswith(prefix) or not item.endswith("/v1"):
+                continue
+            raw_port = item[len(prefix) : -len("/v1")]
+            if not raw_port.isdigit() or not 1 <= int(raw_port) <= 65535:
+                continue
+            normalized.append(f"{key}=launcher-backend-endpoint")
+            matched = True
+            break
+        if not matched:
+            normalized.append(item)
+    return normalized
+
+
+def metadata_matches_process(service: Service, pid: int) -> bool:
+    data = _read_service_metadata(service)
+    if data is None:
         return False
+    recorded_command = data.get("command")
+    command_matches = recorded_command == service.command
+    if service.name == "openwebui":
+        command_matches = _openwebui_identity_command(recorded_command) == (
+            _openwebui_identity_command(service.command)
+        )
     return (
         data.get("name") == service.name
         and data.get("pid") == pid
-        and data.get("command") == service.command
+        and command_matches
         and data.get("cwd") == str(service.cwd)
     )
+
+
+def metadata_matches_service(service: Service, pid: int) -> bool:
+    if not metadata_matches_process(service, pid):
+        return False
+    if service.name != "frontend":
+        return True
+    data = _read_service_metadata(service)
+    return data is not None and data.get("backend_proxy_url") == backend_url()
 
 
 def _restore_running_service_endpoints(root: Path) -> None:
@@ -570,6 +613,8 @@ def _restore_running_service_endpoints(root: Path) -> None:
         metadata_file = base / f"{service_name}.json"
         try:
             data = json.loads(metadata_file.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
             if data.get("auto_selected_endpoint") is not True:
                 continue
             raw_url = data["url"]
@@ -896,6 +941,17 @@ def start_service(
         pid = read_pid_file(service.pid_file)
         if pid is not None and metadata_matches_service(service, pid):
             return f"{service.name}: already running (pid {pid})"
+        if (
+            service.name == "frontend"
+            and pid is not None
+            and metadata_matches_process(service, pid)
+        ):
+            stopped = stop_service(service, root=root)
+            return (
+                "frontend: backend proxy endpoint changed; "
+                f"{stopped}; restarting with {backend_url()}\n"
+                + start_service(root, service)
+            )
         return (
             f"{service.name}: blocked; running launcher metadata does not match "
             "the requested endpoint; stop it with the original endpoint settings "
@@ -998,21 +1054,20 @@ def start_service(
         reason_codes=["SERVICE_PROCESS_SPAWNED"],
     )
     service.pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+    metadata = {
+        "name": service.name,
+        "pid": process.pid,
+        "command": service.command,
+        "cwd": str(service.cwd),
+        "url": service.url,
+        "auto_selected_endpoint": auto_selected_endpoint,
+        "log_file": str(service.log_file),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if service.name == "frontend":
+        metadata["backend_proxy_url"] = backend_url()
     service.metadata_file.write_text(
-        json.dumps(
-            {
-                "name": service.name,
-                "pid": process.pid,
-                "command": service.command,
-                "cwd": str(service.cwd),
-                "url": service.url,
-                "auto_selected_endpoint": auto_selected_endpoint,
-                "log_file": str(service.log_file),
-                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            },
-            indent=2,
-            sort_keys=True,
-        )
+        json.dumps(metadata, indent=2, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
@@ -1053,7 +1108,7 @@ def stop_service(service: Service, root: Path | None = None) -> str:
     pid = read_pid_file(service.pid_file)
     if pid is None:
         return f"{service.name}: not running"
-    if not metadata_matches_service(service, pid):
+    if not metadata_matches_process(service, pid):
         service.pid_file.unlink(missing_ok=True)
         service.metadata_file.unlink(missing_ok=True)
         return f"{service.name}: removed untrusted pid file"

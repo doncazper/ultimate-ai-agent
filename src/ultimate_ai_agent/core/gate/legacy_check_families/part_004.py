@@ -199,7 +199,7 @@ class FoundationGateLegacyChecksPart004Mixin:
         local_proxy_target = 'target: "' + "http" + '://127.0.0.1:8000"'
         constrained_proxy_fragments = (
             'process.env.VITE_UAA_PROXY_TARGET ?? ""',
-            r"/^http:\/\/127\.0\.0\.1:\d{2,5}$/",
+            r"/^http:\/\/(?:127\.0\.0\.1|localhost):\d{2,5}$/",
             ': "http://127.0.0.1:8000"',
             "target: localProxyTarget",
         )
