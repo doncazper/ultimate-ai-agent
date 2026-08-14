@@ -94,11 +94,17 @@ non-backend-owned, mock/degraded, or otherwise invalid read model as
 `unavailable`:
 
 1. **Blocked or stale** when an explicit blocked/stale/unavailable
-   `plan_status`, expiry/staleness value, non-empty `blocked_authority_refs`,
+   `plan_status`, expiry/staleness value, item-specific lifecycle blocker,
    `missing_evidence_refs`, or `missing_field_states` identifies that posture.
+   Permanent safety-boundary entries in `blocked_authority_refs`—for example a
+   standing no-connector-write ref—do not make the item lifecycle-blocked by
+   themselves; only a backend-classified current blocker may do so.
 2. **Decision recorded** only when the authoritative receipt model supplies a
-   non-empty `decision_receipt_ref`, or the bridge supplies a non-empty
-   backend-validated `receipt_refs` entry for the item.
+   backend-validated committed safe receipt ref, or the bridge supplies such a
+   committed `receipt_refs` entry for the item. A value must satisfy the
+   established `receipt:` safe-ref semantics; sentinels such as `pending`,
+   `not_applicable`, `unavailable`, or an empty/malformed ref never count as a
+   recorded decision.
 3. **Review required** only when `plan_status` explicitly names a review
    requirement, or `review_only` is true and the authoritative approval
    envelope supplies an explicit `approval_requirement`.
@@ -237,7 +243,11 @@ Add focused assertions for:
 - visible safe next action, exact scope, risk, approval, expiry, evidence, and
   rollback/safe-disable posture;
 - retained safe receipt/Evidence Timeline detail;
-- desktop/mobile visual coverage after the accepted Today render is restored.
+- desktop/mobile visual coverage after the accepted Today render is restored;
+- new authoritative-fixture screenshot assertions for `/today`, `/plans`,
+  `/actions`, and `/evidence` in both desktop and mobile projects. Existing
+  fail-closed text checks on routes classified as `critical` are necessary but
+  are not visual acceptance evidence for the review-stage layouts.
 
 No OpenAPI or API-manifest check is required unless implementation deliberately
 and separately scopes a backend contract change. If that happens, stop this
