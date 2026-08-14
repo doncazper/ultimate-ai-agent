@@ -62,7 +62,8 @@ correctness, security, or license compatibility.
   identifiers, implementation phases, and detailed verification in the body.
 - Keep each pull request focused on one outcome and do not mix unrelated
   refactors.
-- Do not rewrite or remove historical release tags.
+- Do not rewrite or remove historical release tags without a separate explicit
+  remote-repair approval.
 - Include tests run, skipped checks, and known limitations.
 - Keep durable evidence redacted and use repository-safe references.
 

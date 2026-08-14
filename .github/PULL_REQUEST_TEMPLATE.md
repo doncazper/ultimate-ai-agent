@@ -20,7 +20,9 @@ Avoid phase-only titles such as "close final gaps", "refresh provenance", or
 
 ## Risk and authority
 
-- [ ] No runtime authority is added or broadened.
+- [ ] No runtime authority is added or broadened, or this PR implements only an
+      accepted exact governed authority-graduation lane and documents its scope
+      and safeguards below.
 - [ ] Any mutation remains exact-scoped, approval-bound, idempotent, auditable,
       rollback-aware, redacted, and tested.
 - [ ] Product language accurately distinguishes implemented, partial, planned,
@@ -34,7 +36,7 @@ Avoid phase-only titles such as "close final gaps", "refresh provenance", or
 
 - [ ] I have the right to submit every part of this contribution.
 - [ ] I identified third-party code, assets, data, and applicable licenses.
-- [ ] I disclosed material AI assistance and personally reviewed the result.
+- [ ] I disclosed any material AI assistance and personally reviewed the result.
 - [ ] This change contains no credentials, private data, raw prompts, raw model
       responses, raw provider payloads, raw logs, or machine-specific details.
 
