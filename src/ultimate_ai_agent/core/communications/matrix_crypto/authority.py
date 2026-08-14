@@ -19,7 +19,7 @@ from ultimate_ai_agent.core.authority import (
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
     build_authority_lease_approval_request,
-    validate_authority_lease_approval,
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -128,6 +128,8 @@ def issue_exact_matrix_crypto_lease(
         request,
         idempotency_ref=idempotency_ref,
     )
+    backend_approval_ref = None
+    approved_by_actor_id = "operator-ref:local-user"
     if requirement.approval_required:
         if approval_ref is None:
             raise ValueError("MATRIX_CRYPTO_LEASE_APPROVAL_REQUIRED")
@@ -139,16 +141,16 @@ def issue_exact_matrix_crypto_lease(
         grant = approval_authority.get_grant(approval_ref)
         if not decision.allowed or grant is None:
             raise ValueError("MATRIX_CRYPTO_LEASE_APPROVAL_INVALID")
-        request = request.model_copy(
-            update={
-                "approval_ref": grant.approval_ref,
-                "approval_grants": [grant.model_dump(mode="json")],
-            }
+        backend_approval_ref = grant.approval_ref
+        approved_by_actor_id = grant.approved_by_actor_id
+    _requirement, _grant, lease, receipt = (
+        issue_authority_lease_with_backend_approval(
+            store,
+            request,
+            idempotency_ref=idempotency_ref,
+            approved_by_actor_id=approved_by_actor_id,
+            approval_ref=backend_approval_ref,
         )
-    lease, receipt = store.issue_lease(
-        request,
-        idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
     )
     if lease is None or receipt.status not in {"issued", "replayed"}:
         raise ValueError("MATRIX_CRYPTO_EXACT_LEASE_ISSUANCE_DENIED")

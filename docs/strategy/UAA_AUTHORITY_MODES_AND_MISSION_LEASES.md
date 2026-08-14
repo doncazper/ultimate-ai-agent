@@ -61,6 +61,14 @@ surfaces are:
   explicit mapping row for every target AuthorityLease domain; unsupported
   adapters remain `planned_unsupported_adapter` rows that evaluate to deny and
   do not become executable.
+
+Authority-increasing lease issuance resolves `approval_ref` only through the
+backend-owned durable AuthorityLease approval store. The public lease request
+schema and `select-authority-mode` CLI do not accept approval-grant payloads.
+`approve-and-issue` and CLI `--approve` capture one exact-scoped durable record
+before normal lease validation; unknown, stale, tampered, or scope-mismatched
+records fail closed with redacted receipts. Control Center remains a shell over
+that backend truth and cannot mint approval state.
 - `GET /api/runtime/authority-state#decision_catalog` evaluates every
   capability mapping against the active AuthorityLease set and reports the
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with

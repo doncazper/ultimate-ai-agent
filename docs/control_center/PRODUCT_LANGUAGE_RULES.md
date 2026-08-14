@@ -113,9 +113,11 @@ concrete mode/domain/capability decisions or delegated mission plans through
 validation-only preview routes. For an issue-ready mission plan, `/settings` may
 call `POST /api/runtime/authority-leases/approve-and-issue` with the
 backend-generated `lease_issue_request`; the backend captures an exact
-LocalApprovalAuthority grant and then validates through the normal lease issue
-path. Draft-only, unsupported, or unapproved mission plans must not expose an
-enabled issue control. Preview copy must show required mode, required
+LocalApprovalAuthority grant in durable backend-owned state and then resolves
+its ref through the normal lease issue path. Caller-authored grant payloads are
+not accepted by API, CLI, or Control Center inputs. Draft-only, unsupported, or
+unapproved mission plans must not expose an enabled issue control. Preview copy
+must show required mode, required
 domain/capability refs,
 blocked/degraded reasons, receipt/audit refs,
 unsupported adapter refs, lease-issue readiness, and no-execution/no-mutation

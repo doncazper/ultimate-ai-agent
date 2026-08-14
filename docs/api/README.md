@@ -40,6 +40,13 @@ plus `POST /api/runtime/authority-leases` and
 approval-bound local lease selection receipt routes, and
 `POST /api/runtime/authority-leases/revoke` as the idempotency-bound
 safe-disable lease revocation route.
+The lower lease route accepts an approval ref as an identifier only and
+resolves it against backend-owned durable approval state; caller-authored grant
+objects are rejected by the OpenAPI schema. `approve-and-issue` is the bounded
+backend capture path and persists no caller grant payload. Unknown, expired,
+tampered, or exact-scope-mismatched approval state produces a redacted denial
+receipt. CLI `--approve` uses the same core path, and no AuthorityLease CLI
+option accepts grant JSON.
 `POST /api/runtime/hermes/chat` is also AuthorityLease-gated: exact guarded
 Hermes CLI chat requires active `workspace/execute` scope before Hermes
 discovery or subprocess execution, and records authority decision refs on the

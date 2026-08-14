@@ -109,6 +109,12 @@ Contract rules:
   AuthorityLease domain readiness projection as a focused read-only route with
   one row per target domain, active lease refs, issue-ready mode posture,
   blocked reason refs, unsupported adapter refs, and no mutation or execution.
+  `POST /api/runtime/authority-leases` accepts `approval_ref` as an identifier
+  only. Its request schema excludes approval-grant payloads, and lease issuance
+  resolves exact scope and currentness exclusively from backend-owned durable
+  approval state. `POST /api/runtime/authority-leases/approve-and-issue`
+  captures that backend record before invoking the same validation path;
+  Control Center and CLI inputs cannot import or mint grant objects.
   `GET /api/runtime/staged-orchestration` exposes a protected read-only
   Python Core staged orchestration plan/checkpoint/dependency read model and
   grants no scheduling, dispatch, background autonomy, model call, browser

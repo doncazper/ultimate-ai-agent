@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
 import pytest
@@ -36,7 +37,12 @@ from ultimate_ai_agent.core.authority import (
     evaluate_authority_request,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
+    AuthorityLeaseApprovalCapacityError,
+    AuthorityLeaseApprovalStore,
+    authority_lease_approval_validator,
     build_authority_lease_test_grant,
+    capture_authority_lease_backend_approval,
+    issue_authority_lease_from_backend_state,
     validate_authority_lease_approval,
 )
 from ultimate_ai_agent.core.communications.matrix_crypto import MATRIX_CRYPTO_LANES
@@ -56,23 +62,18 @@ def _approved_issue_request(
     *,
     idempotency_ref: str,
     approval_ref: str,
+    store: AuthorityLeaseStore | None = None,
 ) -> AuthorityLeaseIssueRequest:
-    requirement = build_authority_lease_approval_requirement_for_request(
+    _requirement, grant = capture_authority_lease_backend_approval(
+        store or AuthorityLeaseStore(),
         request,
         idempotency_ref=idempotency_ref,
-    )
-    if not requirement.approval_required:
-        return request
-    grant = build_authority_lease_test_grant(
-        requirement,
+        approved_by_actor_id="operator-ref:test-approver",
         approval_ref=approval_ref,
     )
-    return request.model_copy(
-        update={
-            "approval_ref": grant.approval_ref,
-            "approval_grants": [grant.model_dump(mode="json")],
-        }
-    )
+    if grant is None:
+        return request
+    return request.model_copy(update={"approval_ref": grant.approval_ref})
 
 
 def _approved_issue_payload(
@@ -1645,9 +1646,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             safe_local_request,
             idempotency_ref="idempotency-ref:test-safe-local-default",
             approval_ref="approval-ref:test-authority:safe-local-default",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-safe-local-default",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert safe_local_lease is not None
     assert safe_local_receipt.status == "issued"
@@ -1672,9 +1674,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             ask_request,
             idempotency_ref="idempotency-ref:test-ask-before-changes-default",
             approval_ref="approval-ref:test-authority:ask-before-changes-default",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-ask-before-changes-default",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert ask_lease is not None
     assert ask_receipt.status == "issued"
@@ -1744,9 +1747,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             full_local_request,
             idempotency_ref="idempotency-ref:test-full-local-default",
             approval_ref="approval-ref:test-authority:full-local-default",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-full-local-default",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert full_local_lease is not None
     assert full_local_receipt.status == "issued"
@@ -1838,9 +1842,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             full_machine_request,
             idempotency_ref="idempotency-ref:test-full-machine-default",
             approval_ref="approval-ref:test-authority:full-machine-default",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-full-machine-default",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert full_machine_lease is not None
     assert full_machine_receipt.status == "issued"
@@ -1935,9 +1940,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             ),
             idempotency_ref="idempotency-ref:test-full-machine-provider-explicit",
             approval_ref="approval-ref:test-authority:provider-explicit",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-full-machine-provider-explicit",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert provider_lease is not None
     assert provider_receipt.status == "issued"
@@ -1970,9 +1976,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
             delegated_request,
             idempotency_ref="idempotency-ref:test-delegated-default",
             approval_ref="approval-ref:test-authority:delegated-default",
+            store=store,
         ),
         idempotency_ref="idempotency-ref:test-delegated-default",
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert delegated_lease is not None
     assert delegated_receipt.status == "issued"
@@ -2088,9 +2095,10 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
             issue_request,
             idempotency_ref=idempotency_ref,
             approval_ref="approval-ref:test-authority:kill-switch",
+            store=store,
         ),
         idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
 
     assert lease is None
@@ -2936,16 +2944,18 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
         delegated_default_plan.required_capability_refs
     )
     delegated_issue_idempotency_ref = "idempotency-ref:test-delegated-default-plan"
-    delegated_lease, delegated_receipt = AuthorityLeaseStore(
-        tmp_path / "authority-delegated"
-    ).issue_lease(
+    delegated_store = AuthorityLeaseStore(tmp_path / "authority-delegated")
+    delegated_lease, delegated_receipt = delegated_store.issue_lease(
         _approved_issue_request(
             delegated_default_plan.lease_issue_request,
             idempotency_ref=delegated_issue_idempotency_ref,
             approval_ref="approval-ref:test-authority:delegated-default-plan",
+            store=delegated_store,
         ),
         idempotency_ref=delegated_issue_idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(
+            delegated_store.state_dir
+        ),
     )
     assert delegated_lease is not None
     assert delegated_lease.scope == "mission"
@@ -3022,14 +3032,18 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
         build_default_authority_leases(),
     )
     mission_issue_idempotency_ref = "idempotency-ref:test-core-workspace-mission-issue"
-    lease, receipt = AuthorityLeaseStore(tmp_path / "authority").issue_lease(
+    mission_store = AuthorityLeaseStore(tmp_path / "authority")
+    lease, receipt = mission_store.issue_lease(
         _approved_issue_request(
             issue_ready_plan.lease_issue_request,
             idempotency_ref=mission_issue_idempotency_ref,
             approval_ref="approval-ref:test-authority:core-workspace-mission",
+            store=mission_store,
         ),
         idempotency_ref=mission_issue_idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(
+            mission_store.state_dir
+        ),
     )
     assert issue_ready_plan.lease_issue_ready is True
     assert lease is not None
@@ -3473,6 +3487,399 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
     assert inline_grant.status_code == 422
 
 
+def test_authority_lease_public_issue_rejects_caller_supplied_unsigned_grant(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    idempotency_ref = "idempotency-ref:authority-forged-inline-grant"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ]
+        },
+        decision_reason_ref="reason-ref:authority-forged-inline-grant",
+        safe_summary="Attempt authority issuance with caller-authored approval data.",
+    )
+    requirement = build_authority_lease_approval_requirement_for_request(
+        issue_request,
+        idempotency_ref=idempotency_ref,
+    )
+    forged_grant = build_authority_lease_test_grant(
+        requirement,
+        approval_ref="approval-ref:authority-forged-inline-grant",
+        approved_by_actor_id="operator-ref:forged-caller",
+    )
+    payload = issue_request.model_dump(mode="json")
+    payload.update(
+        {
+            "approval_ref": forged_grant.approval_ref,
+            "approval_grants": [forged_grant.model_dump(mode="json")],
+        }
+    )
+
+    response = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert "extra_forbidden" in response.text
+    assert AuthorityLeaseStore(authority_state_dir).list_leases() == []
+
+    reference_only = client.post(
+        "/api/runtime/authority-leases",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:authority-forged-reference-only"
+            )
+        },
+        json={
+            **issue_request.model_dump(mode="json"),
+            "approval_ref": forged_grant.approval_ref,
+        },
+    )
+    assert reference_only.status_code == 200
+    assert reference_only.json()["success"] is False
+    assert reference_only.json()["data"]["lease"] is None
+    assert reference_only.json()["data"]["receipt"]["approval_reason_codes"] == [
+        "APPROVAL_REF_UNKNOWN"
+    ]
+    assert reference_only.json()["data"]["receipt"]["audit_ref"]
+    assert AuthorityLeaseStore(authority_state_dir).list_leases() == []
+
+
+def test_authority_lease_public_issue_resolves_exact_backend_owned_state(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    idempotency_ref = "idempotency-ref:authority-backend-approval-resolution"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ]
+        },
+        decision_reason_ref="reason-ref:authority-backend-approval-resolution",
+        safe_summary="Resolve one exact backend-owned authority approval.",
+    )
+    store = AuthorityLeaseStore(authority_state_dir)
+    requirement, grant = capture_authority_lease_backend_approval(
+        store,
+        issue_request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-resolution",
+    )
+    assert grant is not None
+
+    response = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={
+            **issue_request.model_dump(mode="json"),
+            "approval_ref": grant.approval_ref,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["receipt"]["approval_scope_ref"] == (
+        requirement.approval_scope_ref
+    )
+    records = AuthorityLeaseApprovalStore(authority_state_dir).list_records()
+    assert len(records) == 1
+    assert records[0].backend_owned is True
+    assert records[0].caller_payload_accepted is False
+    assert records[0].requirement == requirement
+
+
+def test_authority_lease_backend_approval_scope_substitution_is_audited_and_terminal(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    idempotency_ref = "idempotency-ref:authority-backend-scope-substitution"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.read]
+        },
+        decision_reason_ref="reason-ref:authority-backend-scope-original",
+        safe_summary="Approve one exact backend-owned read scope.",
+    )
+    store = AuthorityLeaseStore(authority_state_dir)
+    _requirement, grant = capture_authority_lease_backend_approval(
+        store,
+        issue_request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-scope-substitution",
+    )
+    assert grant is not None
+    substituted_request = issue_request.model_copy(
+        update={
+            "requested_domains": {
+                AuthorityDomain.workspace: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.write,
+                    AuthorityCapability.execute,
+                ]
+            }
+        }
+    )
+
+    substituted = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={
+            **substituted_request.model_dump(mode="json"),
+            "approval_ref": grant.approval_ref,
+        },
+    )
+    assert substituted.status_code == 200
+    substituted_body = substituted.json()
+    assert substituted_body["success"] is False
+    assert substituted_body["data"]["lease"] is None
+    assert "APPROVAL_BACKEND_SCOPE_MISMATCH" in (
+        substituted_body["data"]["receipt"]["approval_reason_codes"]
+    )
+    assert substituted_body["data"]["receipt"]["approval_status"] == "out_of_scope"
+    assert len(store.list_receipts(limit=10)) == 1
+
+    exact_retry = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={
+            **issue_request.model_dump(mode="json"),
+            "approval_ref": grant.approval_ref,
+        },
+    )
+    assert exact_retry.status_code == 200
+    assert exact_retry.json()["success"] is False
+    assert exact_retry.json()["error"]["code"] == (
+        "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
+    )
+    assert store.list_leases() == []
+
+
+def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import ultimate_ai_agent.core.approvals.authority as approval_authority_module
+
+    authority_state_dir = tmp_path / "authority"
+    idempotency_ref = "idempotency-ref:authority-backend-expired"
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-backend-expired",
+        safe_summary="Reject stale backend-owned approval state.",
+    )
+    store = AuthorityLeaseStore(authority_state_dir)
+    _requirement, grant = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-expired",
+    )
+    assert grant is not None
+    monkeypatch.setattr(
+        approval_authority_module,
+        "utc_now",
+        lambda: grant.expires_at + timedelta(seconds=1),
+    )
+    lease, expired_receipt = issue_authority_lease_from_backend_state(
+        store,
+        request.model_copy(update={"approval_ref": grant.approval_ref}),
+        idempotency_ref=idempotency_ref,
+    )
+    assert lease is None
+    assert expired_receipt.status == "denied"
+    assert expired_receipt.approval_status == "expired"
+    assert expired_receipt.approval_reason_codes == ["APPROVAL_EXPIRED"]
+
+    tamper_dir = tmp_path / "authority-tampered"
+    tamper_store = AuthorityLeaseStore(tamper_dir)
+    tamper_idempotency_ref = "idempotency-ref:authority-backend-tampered"
+    _requirement, tamper_grant = capture_authority_lease_backend_approval(
+        tamper_store,
+        request,
+        idempotency_ref=tamper_idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-tampered",
+    )
+    assert tamper_grant is not None
+    approval_store = AuthorityLeaseApprovalStore(tamper_dir)
+    state_payload = json.loads(approval_store.records_path.read_text(encoding="utf-8"))
+    state_payload["records"][0]["caller_payload_accepted"] = True
+    approval_store.records_path.write_text(
+        json.dumps(state_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    tampered_lease, tampered_receipt = issue_authority_lease_from_backend_state(
+        tamper_store,
+        request.model_copy(update={"approval_ref": tamper_grant.approval_ref}),
+        idempotency_ref=tamper_idempotency_ref,
+    )
+    assert tampered_lease is None
+    assert tampered_receipt.status == "denied"
+    assert tampered_receipt.approval_reason_codes == [
+        "APPROVAL_BACKEND_STATE_INVALID"
+    ]
+    assert tampered_receipt.raw_paths_included is False
+    assert tampered_receipt.raw_prompt_included is False
+    assert tampered_receipt.raw_response_included is False
+    assert tampered_receipt.raw_provider_payload_included is False
+    assert tampered_receipt.redactions_applied
+    assert tamper_store.list_leases() == []
+
+
+def test_authority_lease_backend_approval_store_is_bounded_and_idempotent(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import ultimate_ai_agent.core.authority.approval_validation as validation_module
+
+    monkeypatch.setattr(validation_module, "AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT", 1)
+    store = AuthorityLeaseStore(tmp_path / "authority")
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-backend-capacity",
+        safe_summary="Bound durable backend-owned approval state.",
+    )
+    requirement, first = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref="idempotency-ref:authority-backend-capacity-first",
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-capacity-first",
+    )
+    replay_requirement, replayed = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref="idempotency-ref:authority-backend-capacity-first",
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-backend-capacity-first",
+    )
+    assert first == replayed
+    assert requirement == replay_requirement
+    state_payload = json.loads(
+        AuthorityLeaseApprovalStore(store.state_dir).records_path.read_text(
+            encoding="utf-8"
+        )
+    )
+    assert state_payload["generation"] == 1
+    assert len(state_payload["records"]) == 1
+    with pytest.raises(
+        AuthorityLeaseApprovalCapacityError,
+        match="AUTHORITY_LEASE_APPROVAL_CAPACITY_EXHAUSTED",
+    ):
+        capture_authority_lease_backend_approval(
+            store,
+            request,
+            idempotency_ref="idempotency-ref:authority-backend-capacity-second",
+            approved_by_actor_id="operator-ref:test-backend-approver",
+            approval_ref="approval-ref:authority-backend-capacity-second",
+        )
+
+    api_state_dir = tmp_path / "authority-api-capacity"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(api_state_dir))
+    monkeypatch.setattr(validation_module, "AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT", 0)
+    response = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:authority-backend-capacity-api"
+            )
+        },
+        json={"lease_issue_request": request.model_dump(mode="json")},
+    )
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["data"]["lease"] is None
+    assert response.json()["data"]["approval_captured"] is False
+    assert response.json()["data"]["receipt"]["approval_reason_codes"] == [
+        "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
+    ]
+    assert AuthorityLeaseStore(api_state_dir).list_receipts(limit=10)
+
+
+def test_authority_lease_openapi_and_cli_reject_grant_payload_inputs(
+    capsys,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    schema = app.openapi()["components"]["schemas"]["AuthorityLeaseIssueRequest"]
+    assert "approval_ref" in schema["properties"]
+    assert "approval_grants" not in schema["properties"]
+    with pytest.raises(SystemExit) as exc_info:
+        uaa_runtime.main(
+            [
+                "select-authority-mode",
+                "--mode",
+                "approved_safe_local_work_session",
+                "--reason-ref",
+                "reason-ref:authority-cli-caller-grant-denied",
+                "--idempotency-ref",
+                "idempotency-ref:authority-cli-caller-grant-denied",
+                "--summary",
+                "Reject caller-authored approval grant data from the CLI.",
+                "--approval-ref",
+                "approval-ref:authority-cli-caller-grant-denied",
+                "--approval-grant-json",
+                "{}",
+            ]
+        )
+    assert exc_info.value.code == 2
+    assert "unrecognized arguments: --approval-grant-json" in capsys.readouterr().err
+
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    command = [
+        "select-authority-mode",
+        "--mode",
+        "approved_safe_local_work_session",
+        "--reason-ref",
+        "reason-ref:authority-cli-approval-conflict",
+        "--idempotency-ref",
+        "idempotency-ref:authority-cli-approval-conflict",
+        "--summary",
+        "Reject conflicting backend-owned approval provenance from the CLI.",
+        "--approve",
+        "--approved-by-actor-ref",
+    ]
+    assert uaa_runtime.main([*command, "operator-ref:first-cli-approver"]) == 0
+    capsys.readouterr()
+    assert uaa_runtime.main([*command, "operator-ref:second-cli-approver"]) == 2
+    conflict_output = capsys.readouterr()
+    assert conflict_output.out == ""
+    assert "backend-owned authority approval state conflicts" in conflict_output.err
+    assert str(tmp_path) not in conflict_output.err
+    assert len(AuthorityLeaseStore(authority_state_dir).list_leases()) == 1
+    assert len(AuthorityLeaseStore(authority_state_dir).list_receipts(limit=10)) == 1
+
+
 def _exact_workspace_constraints(*, path_ref: str) -> list[AuthorityConstraint]:
     return [
         AuthorityConstraint(
@@ -3678,25 +4085,25 @@ def test_constraint_scope_binds_approval_lease_identity_and_idempotency(
         changed,
         idempotency_ref=idempotency_ref,
     )
+    store = AuthorityLeaseStore(tmp_path / "authority")
     approved = _approved_issue_request(
         base,
         idempotency_ref=idempotency_ref,
         approval_ref="approval-ref:test-constrained-lease-issue",
+        store=store,
     )
     approved_changed = approved.model_copy(
         update={"authority_constraints": changed.authority_constraints}
     )
-    store = AuthorityLeaseStore(tmp_path / "authority")
-
     lease, receipt = store.issue_lease(
         approved,
         idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     replayed_lease, replayed_receipt = store.issue_lease(
         approved,
         idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
 
     assert base_requirement.approval_scope_ref != changed_requirement.approval_scope_ref
@@ -3720,7 +4127,7 @@ def test_constraint_scope_binds_approval_lease_identity_and_idempotency(
     old_replayed_lease, old_replayed_receipt = store.issue_lease(
         approved,
         idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
+        approval_validator=authority_lease_approval_validator(store.state_dir),
     )
     assert old_replayed_lease == lease
     assert old_replayed_receipt.status == "replayed"
@@ -3731,7 +4138,7 @@ def test_constraint_scope_binds_approval_lease_identity_and_idempotency(
         store.issue_lease(
             approved_changed,
             idempotency_ref=idempotency_ref,
-            approval_validator=validate_authority_lease_approval,
+            approval_validator=authority_lease_approval_validator(store.state_dir),
         )
     store._append_receipt(
         receipt.model_copy(
@@ -3750,7 +4157,7 @@ def test_constraint_scope_binds_approval_lease_identity_and_idempotency(
         store.issue_lease(
             approved,
             idempotency_ref=idempotency_ref,
-            approval_validator=validate_authority_lease_approval,
+            approval_validator=authority_lease_approval_validator(store.state_dir),
         )
 
 
@@ -3777,6 +4184,7 @@ def test_denied_issue_idempotency_cannot_be_reused_with_later_approval(
         request,
         idempotency_ref=idempotency_ref,
         approval_ref="approval-ref:test-denied-then-approved-conflict",
+        store=store,
     )
 
     assert lease is None
@@ -3788,5 +4196,5 @@ def test_denied_issue_idempotency_cannot_be_reused_with_later_approval(
         store.issue_lease(
             approved,
             idempotency_ref=idempotency_ref,
-            approval_validator=validate_authority_lease_approval,
+            approval_validator=authority_lease_approval_validator(store.state_dir),
         )

@@ -36,8 +36,9 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     TrustMode,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
-    build_authority_lease_operator_approval_grant,
-    validate_authority_lease_approval,
+    AuthorityLeaseApprovalConflictError,
+    issue_authority_lease_from_backend_state,
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
     build_runtime_parity_loop_read_model,
@@ -2685,11 +2686,10 @@ def _authority_mission_requirement(plan: Any) -> str:
 
 
 def _select_authority_mode(args: argparse.Namespace) -> int:
-    approval_grants = [json.loads(value) for value in (args.approval_grant_json or [])]
-    if args.approve and (args.approval_ref or approval_grants):
+    if args.approve and args.approval_ref:
         print(
             "ERROR: --approve captures an exact local approval grant; do not also pass "
-            "--approval-ref or --approval-grant-json.",
+            "--approval-ref.",
             file=sys.stderr,
         )
         return 2
@@ -2702,33 +2702,37 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         duration_minutes=args.duration_minutes,
         safe_summary=args.summary,
         approval_ref=args.approval_ref,
-        approval_grants=approval_grants,
     )
     approval_requirement = None
     approval_captured = False
     approval_ref = args.approval_ref
+    store = AuthorityLeaseStore()
     if args.approve:
-        approval_requirement, approval_grant = (
-            build_authority_lease_operator_approval_grant(
-                request,
-                idempotency_ref=args.idempotency_ref,
-                approved_by_actor_id=args.approved_by_actor_ref,
+        try:
+            approval_requirement, approval_grant, lease, receipt = (
+                issue_authority_lease_with_backend_approval(
+                    store,
+                    request,
+                    idempotency_ref=args.idempotency_ref,
+                    approved_by_actor_id=args.approved_by_actor_ref,
+                )
             )
-        )
+        except AuthorityLeaseApprovalConflictError:
+            print(
+                "ERROR: exact backend-owned authority approval state conflicts "
+                "with this request.",
+                file=sys.stderr,
+            )
+            return 2
         if approval_grant is not None:
             approval_captured = True
             approval_ref = approval_grant.approval_ref
-            request = request.model_copy(
-                update={
-                    "approval_ref": approval_grant.approval_ref,
-                    "approval_grants": [approval_grant.model_dump(mode="json")],
-                }
-            )
-    lease, receipt = AuthorityLeaseStore().issue_lease(
-        request,
-        idempotency_ref=args.idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
-    )
+    else:
+        lease, receipt = issue_authority_lease_from_backend_state(
+            store,
+            request,
+            idempotency_ref=args.idempotency_ref,
+        )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-select-authority-mode",
@@ -2742,6 +2746,7 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         "approval_captured": approval_captured,
         "approval_ref": approval_ref,
         "approval_grant_payload_persisted": False,
+        "backend_approval_state_persisted": approval_captured,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
