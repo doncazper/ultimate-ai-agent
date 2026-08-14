@@ -2465,6 +2465,20 @@ def test_python_inventory_allows_shadowed_imported_mark_name() -> None:
     assert [item.ref for item in declarations] == ["tests/test_sample.py::test_case"]
 
 
+def test_python_inventory_rejects_destructured_imported_mark_alias() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="post-definition Python execution mark",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "from pytest import mark\n"
+            "def test_case(): pass\n"
+            "mark, unused = (mark, 1)\n"
+            "mark.skip(test_case)\n",
+        )
+
+
 def test_python_inventory_allows_mark_on_non_test_unittest_member() -> None:
     declarations = guard.parse_python_declarations(
         "tests/test_sample.py",
@@ -2493,6 +2507,21 @@ def test_python_inventory_rejects_mark_on_unittest_test_member() -> None:
             "class Cases(unittest.TestCase):\n"
             "    def test_case(self): pass\n"
             "pytest.mark.skip(Cases.test_case)\n",
+        )
+
+
+def test_python_inventory_rejects_mark_on_inherited_test_member() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="post-definition Python execution mark",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            "class TestBase:\n"
+            "    def test_inherited(self): pass\n"
+            "class TestChild(TestBase): pass\n"
+            "pytest.mark.skip(TestChild.test_inherited)\n",
         )
 
 

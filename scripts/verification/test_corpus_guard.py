@@ -1132,6 +1132,29 @@ def _post_definition_execution_mark_targets(
 
     def mark_aliases_before(before: tuple[int, int]) -> set[str]:
         aliases: set[str] = set()
+
+        def update_assignment_aliases(
+            target: ast.expr,
+            value: ast.expr | None,
+            source_aliases: frozenset[str],
+        ) -> None:
+            if isinstance(target, ast.Name):
+                if isinstance(value, ast.Name) and value.id in source_aliases:
+                    aliases.add(target.id)
+                else:
+                    aliases.discard(target.id)
+                return
+            if (
+                isinstance(target, (ast.List, ast.Tuple))
+                and isinstance(value, (ast.List, ast.Tuple))
+                and len(target.elts) == len(value.elts)
+            ):
+                for target_item, value_item in zip(target.elts, value.elts, strict=True):
+                    update_assignment_aliases(target_item, value_item, source_aliases)
+                return
+            for name in _binding_target_names(target):
+                aliases.discard(name)
+
         for node in tree.body:
             position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
             if position >= before:
@@ -1162,15 +1185,9 @@ def _post_definition_execution_mark_targets(
                 value = None
             else:
                 continue
-            target_names = {
-                name for target in targets for name in _binding_target_names(target)
-            }
-            resolves = isinstance(value, ast.Name) and value.id in aliases
-            for name in target_names:
-                if resolves:
-                    aliases.add(name)
-                else:
-                    aliases.discard(name)
+            source_aliases = frozenset(aliases)
+            for target in targets:
+                update_assignment_aliases(target, value, source_aliases)
         return aliases
 
     def is_execution_mark(
@@ -8207,14 +8224,31 @@ def _python_inventory_entries(
         if isinstance(node, ast.ClassDef)
         and (node.name.startswith("Test") or node.name in unittest_classes)
     }
+    local_classes = {
+        node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
+    }
+
+    def collected_test_methods(class_name: str, visiting: frozenset[str]) -> set[str]:
+        if class_name in visiting:
+            return set()
+        class_node = local_classes[class_name]
+        next_visiting = visiting | {class_name}
+        methods = {
+            child.name
+            for child in class_node.body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and child.name.startswith("test")
+        }
+        for base in class_node.bases:
+            if isinstance(base, ast.Name) and base.id in local_classes:
+                methods.update(collected_test_methods(base.id, next_visiting))
+        return methods
+
     collected_execution_mark_targets = collected_binding_names | {
-        f"{node.name}.{child.name}"
-        for node in tree.body
-        if isinstance(node, ast.ClassDef)
-        and (node.name.startswith("Test") or node.name in unittest_classes)
-        for child in node.body
-        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and child.name.startswith("test")
+        f"{class_name}.{method_name}"
+        for class_name in collected_binding_names
+        if class_name in local_classes
+        for method_name in collected_test_methods(class_name, frozenset())
     }
 
     for module_node in _module_execution_nodes(tree):
