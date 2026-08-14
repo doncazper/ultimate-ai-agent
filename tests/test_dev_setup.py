@@ -378,6 +378,8 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     setup = load_setup()
+    repo = tmp_path / "repo"
+    repo.mkdir()
     home = tmp_path / "home"
     receipt_path = home / ".local" / "state" / "uaa" / "openwebui-receipt.json"
     token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
@@ -387,7 +389,7 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     monkeypatch.setattr(sys, "stdin", io.StringIO("install openwebui\n"))
 
     token_exit = setup.command_setup(
-        tmp_path,
+        repo,
         _setup_args(
             setup_action="install",
             target="openwebui",
@@ -411,7 +413,7 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     )
 
     install_exit = setup.command_setup(
-        tmp_path,
+        repo,
         _setup_args(
             setup_action="install",
             target="openwebui",
@@ -430,6 +432,10 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     assert payload["receipt"] == "~/.local/state/uaa/openwebui-receipt.json"
     assert payload["receipt_scope_ref"].startswith("receipt-path-sha256:")
     assert payload["preview_hash"] == token_payload["preview_hash"]
+    assert payload["rollback_steps"][-1] == (
+        "Receipt cleanup should remove only the exact reviewed receipt at "
+        "~/.local/state/uaa/openwebui-receipt.json."
+    )
     assert str(home) not in captured.out
     assert str(home) not in receipt_path.read_text(encoding="utf-8")
     assert stat.S_IMODE(receipt_path.stat().st_mode) == 0o600
@@ -548,6 +554,79 @@ def test_setup_install_custom_receipt_write_rejects_substituted_symlink(
         )
 
     assert outside.read_text(encoding="utf-8") == "keep"
+
+
+def test_setup_install_custom_receipt_rejects_approval_token_alias(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    shared_path = home / "state" / "shared.json"
+    shared_path.parent.mkdir()
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        SimpleNamespace(
+            readline=lambda: pytest.fail(
+                "alias validation must happen before approval prompting"
+            )
+        ),
+    )
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(shared_path),
+            write_approval_token=str(shared_path),
+        ),
+    )
+
+    assert exit_code == 2
+    assert "must not alias --write-approval-token" in capsys.readouterr().out
+    assert not shared_path.exists()
+
+
+def test_setup_install_custom_receipt_is_reserved_before_docker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    locked = home / "locked"
+    locked.mkdir(parents=True)
+    locked.chmod(0o500)
+    receipt_path = locked / "receipt.json"
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(
+        setup,
+        "_resolve_command",
+        lambda command: pytest.fail("Docker must not be resolved before receipt reservation"),
+    )
+
+    try:
+        exit_code = setup.command_setup(
+            tmp_path,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                receipt=str(receipt_path),
+            ),
+        )
+    finally:
+        locked.chmod(0o700)
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "could not be reserved safely" in captured.out
+    assert str(home) not in captured.out
+    assert not receipt_path.exists()
 
 
 def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

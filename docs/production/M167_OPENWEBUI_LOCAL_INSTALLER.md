@@ -24,8 +24,9 @@ The only new CLI surface is:
 
 ```bash
 uaa setup install --target openwebui
-uaa setup install --target openwebui --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
-uaa setup install --target openwebui --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json"
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
 ```
 
 No API route, Control Center control, backend route, provider route, OpenWebUI
@@ -41,7 +42,8 @@ Allowed:
 - require explicit typed operator approval or a matching preview-bound
   approval token for `--yes`
 - run the exact OpenWebUI image pull command
-- write a redacted local receipt under `.uaa/dev/setup-install-receipts/`
+- write a redacted local receipt under `.uaa/dev/setup-install-receipts/` by
+  default, or to an explicit safe user-scope `--receipt` path
 
 Denied:
 
@@ -78,7 +80,8 @@ install openwebui
 captured as a chmod `0600`, single-use, unexpired preview-bound approval
 token. Bare `--yes` fails closed before Docker is resolved. Tokens bind the
 milestone ref, target, action, digest-pinned image ref, exact command preview,
-rollback scope, and preview hash. Tokens are marked used before any Docker
+receipt scope, rollback scope, and preview hash. A custom receipt destination
+must be identical when writing and consuming the token. Tokens are marked used before any Docker
 pull and fail closed when missing, expired, replayed, mismatched, malformed,
 symlinked, or not chmod `0600`.
 
@@ -90,9 +93,13 @@ notes, and replay notes. The receipt grants no reusable runtime authority.
 ## Persistence Model
 
 The Docker image is stored in the local Docker image cache. Setup install
-receipts are stored under `.uaa/dev/setup-install-receipts/`, which is ignored
-local developer state. The command does not create OpenWebUI data state; that
-state is created only by the launcher when OpenWebUI is started.
+receipts are stored under `.uaa/dev/setup-install-receipts/` by default, which
+is ignored local developer state. `--receipt` may instead select one exact
+nonexistent path beneath the current user's home. Symlinked, outside-home, and
+world-writable paths are denied; the exact custom destination is reserved
+before approval is consumed or Docker is resolved. The command does not create
+OpenWebUI data state; that state is created only by the launcher when OpenWebUI
+is started.
 
 ## Redacted Receipt Model
 
@@ -106,6 +113,7 @@ Each receipt records safe summary fields only:
 - preview hash
 - approval mode
 - approval authority decision ref
+- safe receipt summary and hashed receipt scope ref
 - exact command label
 - status
 - result summary
@@ -129,7 +137,10 @@ Focused tests must cover:
   fail before Docker is resolved
 - Docker-not-ready path does not pull
 - install and approval receipts are chmod `0600`, exact-scope, and redacted
-- rollback text is present
+- a custom receipt is preview-bound, token-paired, safely reserved before
+  Docker, no-follow/exclusive-created, and never printed as a raw home path
+- receipt/token destination aliases and unsafe or reused custom paths fail closed
+- rollback text is present and names the selected safe receipt scope
 - plain `uaa setup` remains diagnostic and does not run install paths
 - launcher still refuses missing images and points to the setup install command
 

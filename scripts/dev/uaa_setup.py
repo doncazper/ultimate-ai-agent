@@ -328,7 +328,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="Approval-token writing cannot be combined with --yes; no pull command was run.",
             )
             print("FAIL: --write-approval-token cannot be combined with --yes.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         if not _read_install_approval():
             _record_setup_approval_decision(
@@ -346,12 +346,18 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="Operator approval was not provided; no approval token was written.",
             )
             print("Install approval token refused. No download or install command was run.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         token_path = write_setup_install_approval_token(root, plan, plan["write_approval_token_path"])
         print(f"Preview-bound approval token written: {_safe_path_summary(token_path)}")
         print("No download or install command was run.")
         return 0
+
+    try:
+        _reserve_custom_install_receipt(root, plan)
+    except (OSError, ValueError):
+        print("FAIL: Custom receipt destination could not be reserved safely; no install command was run.")
+        return 2
 
     approval_mode = "typed"
     if getattr(args, "yes", False):
@@ -371,7 +377,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="--yes requires a matching preview-bound approval token; no image pull command was run.",
             )
             print("FAIL: --yes requires an approval token from --approval-token with a matching preview hash.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         try:
             _consume_setup_install_approval_token(root, plan, plan["approval_token_path"])
@@ -392,7 +398,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary=f"Approval token was rejected: {safe_error}",
             )
             print(f"FAIL: Approval token was rejected: {safe_error}")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         approval_mode = "preview-token"
     elif not _read_install_approval():
@@ -411,7 +417,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Operator approval was not provided; no download or install command was run.",
         )
         print("Install refused. No download or install command was run.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
     plan["approval_mode"] = approval_mode
 
@@ -426,7 +432,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary=f"Approval authority denied the scoped image pull: {safe_error}",
         )
         print(f"FAIL: Approval authority denied the scoped image pull: {safe_error}")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     docker = _resolve_command("docker")
@@ -438,7 +444,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Docker CLI was not available; no image pull command was run.",
         )
         print("FAIL: Docker CLI is not available on PATH.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
     engine = _run_probe([str(docker), "info", "--format", "{{.ServerVersion}}"], timeout_seconds=3.0)
     if engine["returncode"] != 0:
@@ -449,7 +455,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Docker engine was not ready; no image pull command was run.",
         )
         print("FAIL: Docker engine is not ready. Open Docker Desktop, finish setup, then retry.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     command = [str(docker), "pull", OPENWEBUI_IMAGE]
@@ -465,7 +471,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary=f"Docker pull failed safely: {safe_summary}",
         )
         print(f"FAIL: Docker pull failed safely: {safe_summary}")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     receipt_path = write_setup_install_receipt(
@@ -475,7 +481,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
         result_summary="Configured OpenWebUI Docker image pull completed.",
     )
     print("OpenWebUI local image install completed.")
-    print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+    print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
     print("Rollback:")
     for step in plan["rollback_steps"]:
         print(f"- {step}")
@@ -1911,7 +1917,10 @@ def write_setup_install_receipt(
     _write_json_0600(
         target,
         payload,
-        exclusive=plan["receipt_scope_ref"] != "receipt-scope:default-generated",
+        exclusive=(
+            plan["receipt_scope_ref"] != "receipt-scope:default-generated"
+            and not plan.get("receipt_reserved", False)
+        ),
     )
     return target
 
@@ -2954,8 +2963,30 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
             root,
             Path(str(receipt_path)).expanduser(),
         )
+        for token_option, token_path in (
+            ("--approval-token", plan.get("approval_token_path")),
+            ("--write-approval-token", plan.get("write_approval_token_path")),
+        ):
+            if token_path is not None and token_path == plan["receipt_path"]:
+                raise ValueError(f"--receipt must not alias {token_option}")
         plan["receipt_scope_ref"] = _install_receipt_scope_ref(plan["receipt_path"])
+        plan["rollback_steps"][-1] = (
+            "Receipt cleanup should remove only the exact reviewed receipt at "
+            f"{_safe_path_summary(plan['receipt_path'])}."
+        )
         plan["preview_hash"] = _install_preview_hash(plan)
+
+
+def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
+    if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
+        return
+    write_setup_install_receipt(
+        root,
+        plan,
+        status="reserved",
+        result_summary="Custom receipt destination reserved; no install command has run.",
+    )
+    plan["receipt_reserved"] = True
 
 
 def _install_preview_hash(plan: dict[str, Any]) -> str:
