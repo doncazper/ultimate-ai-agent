@@ -210,6 +210,11 @@ def add_setup_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     install_parser.add_argument("--approval-token", default=None)
     install_parser.add_argument("--write-approval-token", default=None)
+    install_parser.add_argument(
+        "--receipt",
+        default=None,
+        help="Write the setup install receipt to an explicit existing-safe path.",
+    )
     bootstrap_parser = setup_subparsers.add_parser(
         "bootstrap",
         help="Download and run a pinned, verified UAA GitHub Release bootstrap artifact after approval.",
@@ -315,6 +320,14 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     print(render_install_plan(plan))
 
     if getattr(args, "write_approval_token", None):
+        try:
+            _prepare_custom_install_receipt(plan)
+        except (OSError, ValueError):
+            print(
+                "FAIL: Custom receipt destination could not be prepared safely; "
+                "no approval token or install command was run."
+            )
+            return 2
         if getattr(args, "yes", False):
             receipt_path = write_setup_install_receipt(
                 root,
@@ -323,7 +336,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="Approval-token writing cannot be combined with --yes; no pull command was run.",
             )
             print("FAIL: --write-approval-token cannot be combined with --yes.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         if not _read_install_approval():
             _record_setup_approval_decision(
@@ -341,12 +354,18 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="Operator approval was not provided; no approval token was written.",
             )
             print("Install approval token refused. No download or install command was run.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         token_path = write_setup_install_approval_token(root, plan, plan["write_approval_token_path"])
         print(f"Preview-bound approval token written: {_safe_path_summary(token_path)}")
         print("No download or install command was run.")
         return 0
+
+    try:
+        _reserve_custom_install_receipt(root, plan)
+    except (OSError, ValueError):
+        print("FAIL: Custom receipt destination could not be reserved safely; no install command was run.")
+        return 2
 
     approval_mode = "typed"
     if getattr(args, "yes", False):
@@ -366,7 +385,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary="--yes requires a matching preview-bound approval token; no image pull command was run.",
             )
             print("FAIL: --yes requires an approval token from --approval-token with a matching preview hash.")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         try:
             _consume_setup_install_approval_token(root, plan, plan["approval_token_path"])
@@ -387,7 +406,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
                 result_summary=f"Approval token was rejected: {safe_error}",
             )
             print(f"FAIL: Approval token was rejected: {safe_error}")
-            print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+            print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
             return 1
         approval_mode = "preview-token"
     elif not _read_install_approval():
@@ -406,7 +425,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Operator approval was not provided; no download or install command was run.",
         )
         print("Install refused. No download or install command was run.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
     plan["approval_mode"] = approval_mode
 
@@ -421,7 +440,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary=f"Approval authority denied the scoped image pull: {safe_error}",
         )
         print(f"FAIL: Approval authority denied the scoped image pull: {safe_error}")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     docker = _resolve_command("docker")
@@ -433,7 +452,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Docker CLI was not available; no image pull command was run.",
         )
         print("FAIL: Docker CLI is not available on PATH.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
     engine = _run_probe([str(docker), "info", "--format", "{{.ServerVersion}}"], timeout_seconds=3.0)
     if engine["returncode"] != 0:
@@ -444,7 +463,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary="Docker engine was not ready; no image pull command was run.",
         )
         print("FAIL: Docker engine is not ready. Open Docker Desktop, finish setup, then retry.")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     command = [str(docker), "pull", OPENWEBUI_IMAGE]
@@ -460,7 +479,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
             result_summary=f"Docker pull failed safely: {safe_summary}",
         )
         print(f"FAIL: Docker pull failed safely: {safe_summary}")
-        print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+        print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
         return 1
 
     receipt_path = write_setup_install_receipt(
@@ -470,7 +489,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
         result_summary="Configured OpenWebUI Docker image pull completed.",
     )
     print("OpenWebUI local image install completed.")
-    print(f"Redacted receipt written: {_display_path(root, receipt_path)}")
+    print(f"Redacted receipt written: {_safe_path_summary(receipt_path)}")
     print("Rollback:")
     for step in plan["rollback_steps"]:
         print(f"- {step}")
@@ -1000,7 +1019,7 @@ def _consume_setup_approval_token(
         raise ValueError("approval token must not be a symlink")
     if stat.S_IMODE(token_path.stat().st_mode) & 0o077:
         raise ValueError("approval token must be chmod 0600")
-    lock_path = token_path.with_name(f"{token_path.name}.lock")
+    lock_path = _setup_approval_token_lock_path(token_path)
     lock_fd: int | None = None
     try:
         try:
@@ -1352,7 +1371,16 @@ def _validate_bootstrap_dir_path(root: Path, value: Path | str, *, option_name: 
 
 
 def _validate_bootstrap_receipt_path(root: Path, value: Path | str) -> Path:
-    path = _canonical_user_scope_path(root, value, option_name="--receipt")
+    raw = Path(value)
+    candidate = raw if raw.is_absolute() else root / raw
+    if candidate.is_symlink():
+        raise ValueError("--receipt must not be a symlink")
+    if any(parent.is_symlink() for parent in candidate.parents):
+        raise ValueError("--receipt could not be resolved safely")
+    try:
+        path = _canonical_user_scope_path(root, value, option_name="--receipt")
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("--receipt could not be resolved safely") from exc
     if path.exists():
         raise ValueError("--receipt already exists; refusing to overwrite an unrelated receipt file")
     if path.parent.exists() and not path.parent.is_dir():
@@ -1854,7 +1882,7 @@ def render_install_plan(plan: dict[str, Any]) -> str:
             "- Use --write-approval-token PATH after typed approval to create a single-use token without pulling the image.",
             "",
             "Receipt:",
-            f"- A redacted local receipt will be written under {SETUP_INSTALL_RECEIPT_DIR}.",
+            f"- A redacted local receipt will be written to {_safe_path_summary(plan['receipt_path'])}.",
             "",
             "Rollback:",
         ]
@@ -1871,7 +1899,7 @@ def write_setup_install_receipt(
     status: str,
     result_summary: str,
 ) -> Path:
-    target = _install_receipt_path(root, target=plan["target"])
+    target = plan["receipt_path"]
     payload = {
         "schema": "uaa.setup_install_receipt.v1",
         "target": plan["target"],
@@ -1880,6 +1908,8 @@ def write_setup_install_receipt(
         "action": plan["action"],
         "status": status,
         "result_summary": _safe_summary_text(result_summary),
+        "receipt": _safe_path_summary(target),
+        "receipt_scope_ref": plan["receipt_scope_ref"],
         "image_ref": plan["image_ref"],
         "preview_hash": plan["preview_hash"],
         "approval_mode": plan.get("approval_mode", "not-approved"),
@@ -1892,7 +1922,14 @@ def write_setup_install_receipt(
         "created_at": _utc_timestamp(),
         "redaction": "safe summary only; no credentials, provider keys, environment dump, raw prompts, raw responses, or raw logs",
     }
-    _write_json_0600(target, payload)
+    _write_json_0600(
+        target,
+        payload,
+        exclusive=(
+            plan["receipt_scope_ref"] != "receipt-scope:default-generated"
+            and not plan.get("receipt_reserved", False)
+        ),
+    )
     return target
 
 
@@ -2869,7 +2906,6 @@ def _env_summary_from_findings(findings: list[SetupFinding]) -> str:
 
 
 def _openwebui_install_plan(root: Path) -> dict[str, Any]:
-    _ = root
     command = ["docker", "pull", OPENWEBUI_IMAGE]
     plan = {
         "target": "openwebui",
@@ -2887,7 +2923,7 @@ def _openwebui_install_plan(root: Path) -> dict[str, Any]:
         ),
         "side_effects_allowed": [
             "Docker may download and store the configured OpenWebUI image in the local Docker image cache.",
-            "A redacted local receipt may be written under .uaa/dev/setup-install-receipts.",
+            "A redacted local receipt may be written under .uaa/dev/setup-install-receipts by default, or to --receipt.",
         ],
         "side_effects_denied": [
             "Python install",
@@ -2902,6 +2938,8 @@ def _openwebui_install_plan(root: Path) -> dict[str, Any]:
             "tool/function authority",
             "memory write",
         ],
+        "receipt_path": _install_receipt_path(root, target="openwebui"),
+        "receipt_scope_ref": _install_receipt_scope_ref(None),
         "rollback_steps": [
             "./scripts/dev/uaa openwebui stop",
             f"Optional image rollback after review: docker image rm {OPENWEBUI_IMAGE}",
@@ -2927,6 +2965,110 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
             root,
             Path(str(write_approval_token)).expanduser(),
         )
+    receipt_path = getattr(args, "receipt", None)
+    if receipt_path:
+        if _has_path_control_character(str(receipt_path)):
+            raise ValueError("--receipt must not contain control characters")
+        plan["receipt_path"] = _validate_bootstrap_receipt_path(
+            root,
+            Path(str(receipt_path)).expanduser(),
+        )
+        for token_option, token_path in (
+            ("--approval-token", plan.get("approval_token_path")),
+            ("--write-approval-token", plan.get("write_approval_token_path")),
+        ):
+            if token_path is not None and any(
+                _macos_paths_overlap(plan["receipt_path"], token_artifact)
+                for token_artifact in (
+                    token_path,
+                    _setup_approval_token_lock_path(token_path),
+                )
+            ):
+                raise ValueError(
+                    f"--receipt must not overlap {token_option} or its consumption lock"
+                )
+        for evidence_directory in (
+            SETUP_INSTALL_RECEIPT_DIR,
+            SETUP_BOOTSTRAP_RECEIPT_DIR,
+            SETUP_APPROVAL_RECEIPT_DIR,
+        ):
+            if _macos_path_is_same_or_ancestor(
+                plan["receipt_path"],
+                (root / evidence_directory).resolve(strict=False),
+            ):
+                raise ValueError(
+                    "--receipt must not occupy a required setup evidence directory"
+                )
+        plan["receipt_scope_ref"] = _install_receipt_scope_ref(plan["receipt_path"])
+        plan["rollback_steps"][-1] = (
+            "Receipt cleanup should remove only the exact reviewed receipt at "
+            f"{_safe_path_summary(plan['receipt_path'])}."
+        )
+        plan["preview_hash"] = _install_preview_hash(plan)
+
+
+def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
+    if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
+        return
+    _prepare_custom_install_receipt(plan)
+    write_setup_install_receipt(
+        root,
+        plan,
+        status="reserved",
+        result_summary="Custom receipt destination reserved; no install command has run.",
+    )
+    plan["receipt_reserved"] = True
+
+
+def _prepare_custom_install_receipt(plan: dict[str, Any]) -> None:
+    if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
+        return
+    _prepare_custom_install_receipt_parent(plan["receipt_path"])
+
+
+def _prepare_custom_install_receipt_parent(receipt_path: Path) -> None:
+    home = _bootstrap_user_home().resolve(strict=False)
+    try:
+        relative_parent = receipt_path.parent.relative_to(home)
+    except ValueError as exc:
+        raise ValueError("custom receipt parent is outside the user scope") from exc
+    current = home
+    for part in relative_parent.parts:
+        current = current / part
+        try:
+            current.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        if current.is_symlink() or not current.is_dir():
+            raise ValueError("custom receipt parent could not be prepared safely")
+        if stat.S_IMODE(current.stat().st_mode) & stat.S_IWOTH:
+            raise ValueError("custom receipt parent is world-writable")
+
+
+def _setup_approval_token_lock_path(token_path: Path) -> Path:
+    return token_path.with_name(f"{token_path.name}.lock")
+
+
+def _macos_path_alias_key(path: Path) -> str:
+    return str(path).casefold()
+
+
+def _macos_path_is_same_or_ancestor(candidate: Path, descendant: Path) -> bool:
+    candidate_key = _macos_path_alias_key(candidate).rstrip(os.sep)
+    descendant_key = _macos_path_alias_key(descendant).rstrip(os.sep)
+    return descendant_key == candidate_key or descendant_key.startswith(
+        f"{candidate_key}{os.sep}"
+    )
+
+
+def _macos_paths_overlap(first: Path, second: Path) -> bool:
+    return _macos_path_is_same_or_ancestor(first, second) or _macos_path_is_same_or_ancestor(
+        second, first
+    )
+
+
+def _has_path_control_character(value: str) -> bool:
+    return any(ord(character) < 32 or ord(character) == 127 for character in value)
 
 
 def _install_preview_hash(plan: dict[str, Any]) -> str:
@@ -2937,10 +3079,20 @@ def _install_preview_hash(plan: dict[str, Any]) -> str:
         "action": plan["action"],
         "image_ref": plan["image_ref"],
         "commands": [_shell_preview(command) for command in plan["commands"]],
+        "receipt_scope_ref": plan["receipt_scope_ref"],
         "rollback_steps": plan["rollback_steps"],
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _install_receipt_scope_ref(receipt_path: Path | None) -> str:
+    if receipt_path is None:
+        return "receipt-scope:default-generated"
+    digest = hashlib.sha256(
+        str(receipt_path.resolve(strict=False)).encode("utf-8")
+    ).hexdigest()
+    return f"receipt-path-sha256:{digest}"
 
 
 def write_setup_install_approval_token(
@@ -2964,7 +3116,7 @@ def write_setup_install_approval_token(
         "used_at": None,
         "redaction": "safe approval metadata only; no credentials, env values, usernames, raw logs, prompts, or provider payloads",
     }
-    _write_json_0600(token_path, payload)
+    _write_json_0600(token_path, payload, exclusive=True)
     return token_path
 
 
@@ -3029,18 +3181,28 @@ def _safe_summary_text(value: str) -> str:
     return safe[:500]
 
 
-def _write_json_0600(target: Path, payload: dict[str, Any]) -> None:
+def _write_json_0600(
+    target: Path,
+    payload: dict[str, Any],
+    *,
+    exclusive: bool = False,
+) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     data = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    flags = os.O_WRONLY | os.O_CREAT
+    flags |= os.O_EXCL if exclusive else os.O_TRUNC
+    flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(data)
-    finally:
-        try:
-            os.chmod(target, 0o600)
-        except FileNotFoundError:
-            pass
+        fd = os.open(target, flags, 0o600)
+    except FileExistsError as exc:
+        raise ValueError("refusing to overwrite an existing setup evidence file") from exc
+    except OSError as exc:
+        if target.is_symlink():
+            raise ValueError("refusing to follow a setup evidence symlink") from exc
+        raise
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        os.fchmod(handle.fileno(), 0o600)
+        handle.write(data)
 
 
 def _display_path(root: Path, path: Path) -> str:
