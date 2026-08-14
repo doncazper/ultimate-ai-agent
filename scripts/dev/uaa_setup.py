@@ -2688,17 +2688,29 @@ def _next_steps(*, profile: str, mode: str, model_id: str, hf_repo: str, hf_file
             "Run: uaa start",
         ]
     if profile == "frontend-only":
+        frontend_url = _launcher_endpoint(
+            UAA_LAUNCHER_FRONTEND_HOST_ENV,
+            UAA_LAUNCHER_FRONTEND_PORT_ENV,
+            FRONTEND_HOST,
+            FRONTEND_PORT,
+        )[2]
         return [
             "Resolve Python and Control Center dependency checks first.",
             "Run: uaa start",
-            "Open http://127.0.0.1:5173.",
+            f"Open {frontend_url}.",
         ]
     if mode == "smoke":
+        openwebui_url = _launcher_endpoint(
+            UAA_LAUNCHER_OPENWEBUI_HOST_ENV,
+            UAA_LAUNCHER_OPENWEBUI_PORT_ENV,
+            OPENWEBUI_HOST,
+            OPENWEBUI_PORT,
+        )[2]
         return [
             "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 uaa start",
             "uaa openwebui doctor",
             "uaa openwebui start",
-            "Open http://127.0.0.1:3000 and select uaa-safe-local.",
+            f"Open {openwebui_url} and select uaa-safe-local.",
         ]
     if mode == "frontier":
         return [
@@ -2706,13 +2718,19 @@ def _next_steps(*, profile: str, mode: str, model_id: str, hf_repo: str, hf_file
             "Use OpenWebUI's own provider configuration only if you accept that it is outside UAA-governed routing.",
             "Create a scoped milestone before adding governed provider setup to UAA.",
         ]
+    openwebui_url = _launcher_endpoint(
+        UAA_LAUNCHER_OPENWEBUI_HOST_ENV,
+        UAA_LAUNCHER_OPENWEBUI_PORT_ENV,
+        OPENWEBUI_HOST,
+        OPENWEBUI_PORT,
+    )[2]
     return [
         f"Source {LOCAL_ENV_PATH} so consolidated model cache paths are active.",
         f"Start llama-server with --hf-repo {hf_repo}, --hf-file {hf_file}, and --alias {model_id}.",
         "Run: uaa start",
         "Run: uaa openwebui doctor",
         "Run: uaa openwebui start",
-        f"Open http://127.0.0.1:3000 and select {model_id}.",
+        f"Open {openwebui_url} and select {model_id}.",
     ]
 
 

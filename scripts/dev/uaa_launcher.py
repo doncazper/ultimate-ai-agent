@@ -511,7 +511,7 @@ def _observability_helpers(root: Path) -> tuple[Any, ...] | None:
 def read_pid_file(pid_path: Path) -> int | None:
     try:
         text = pid_path.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
+    except (FileNotFoundError, UnicodeDecodeError):
         return None
     if not text:
         return None
@@ -604,6 +604,11 @@ def metadata_matches_service(service: Service, pid: int) -> bool:
     if service.name == "openwebui":
         return data.get("command") == service.command
     return True
+
+
+def launcher_owns_service(service: Service) -> bool:
+    pid = read_pid_file(service.pid_file)
+    return pid is not None and is_pid_running(pid) and metadata_matches_service(service, pid)
 
 
 def _restore_running_service_endpoints(root: Path) -> None:
@@ -946,12 +951,14 @@ def start_service(
         if pid is not None and metadata_matches_service(service, pid):
             return f"{service.name}: already running (pid {pid})"
         if pid is not None and metadata_matches_process(service, pid) and service.name in {"frontend", "openwebui"}:
+            metadata = _read_service_metadata(service)
+            preserve_auto_selected = metadata is not None and metadata.get("auto_selected_endpoint") is True
             stopped = stop_service(service, root=root)
             dependency = "backend proxy endpoint" if service.name == "frontend" else "backend gateway endpoint"
             return (
                 f"{service.name}: {dependency} changed; "
                 f"{stopped}; restarting with {backend_url()}\n"
-                + start_service(root, service)
+                + start_service(root, service, auto_selected_endpoint=preserve_auto_selected)
             )
         return (
             f"{service.name}: blocked; running launcher metadata does not match "
@@ -966,7 +973,7 @@ def start_service(
     }
     host, port = service_ports[service.name]
     if is_port_open(host, port):
-        if service_identity_ready(service):
+        if service_identity_ready(service) and service.name != "frontend":
             return f"{service.name}: {service.url} is already UAA-ready; not starting a duplicate"
         if _env_flag_enabled(UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, default=False):
             alternative_port = _next_open_port(host, port)
@@ -1327,11 +1334,19 @@ def command_launch_openwebui(root: Path) -> int:
         print("OpenWebUI was not launched. Run uaa setup install --target openwebui to approve the scoped image pull.")
         return 1
 
+    backend_result = start_service(root, service_config(root, "backend"))
+    print(backend_result)
+    if ": blocked;" in backend_result:
+        return 1
+
+    backend_service = service_config(root, "backend")
+    if not launcher_owns_service(backend_service):
+        print("FAIL: backend ownership could not be proven; the local gateway bearer was not sent")
+        return 1
     backend_status = url_status(f"{backend_url()}{BACKEND_HEALTH_PATH}")
     if backend_status != 200:
-        print(start_service(root, service_config(root, "backend")))
-    else:
-        print(f"backend: already reachable at {backend_url()}")
+        print(f"FAIL: launcher-owned backend is not ready (status {backend_status})")
+        return 1
 
     gateway_status = url_status(
         f"{backend_url()}/v1/models",

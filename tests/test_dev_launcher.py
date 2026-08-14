@@ -700,6 +700,14 @@ def test_launcher_treats_undecodable_metadata_as_untrusted(
     launcher._restore_running_service_endpoints(tmp_path)
 
 
+def test_launcher_treats_undecodable_pid_file_as_untrusted(tmp_path: Path) -> None:
+    launcher = load_launcher()
+    pid_path = tmp_path / "backend.pid"
+    pid_path.write_bytes(b"\xff")
+
+    assert launcher.read_pid_file(pid_path) is None
+
+
 def test_launcher_restores_frontend_endpoint_before_proxy_dependency_validation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -752,6 +760,7 @@ def test_running_frontend_restarts_when_backend_proxy_endpoint_changes(
                 "command": service.command,
                 "cwd": str(service.cwd),
                 "url": service.url,
+                "auto_selected_endpoint": True,
                 "backend_proxy_url": "http://127.0.0.1:8000",
             }
         ),
@@ -786,6 +795,22 @@ def test_running_frontend_restarts_when_backend_proxy_endpoint_changes(
     assert "running at http://127.0.0.1:5173" in result
     metadata = json.loads(requested.metadata_file.read_text(encoding="utf-8"))
     assert metadata["backend_proxy_url"] == "http://127.0.0.1:8001"
+    assert metadata["auto_selected_endpoint"] is True
+
+
+def test_running_unowned_frontend_is_not_reused_when_proxy_binding_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "frontend")
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "missing")
+    monkeypatch.setattr(launcher, "is_port_open", lambda *_args: True)
+    monkeypatch.setattr(launcher, "service_identity_ready", lambda _service: True)
+
+    result = launcher.start_service(ROOT, service)
+
+    assert "blocked" in result
+    assert "unverified local process" in result
 
 
 def test_openwebui_process_identity_ignores_only_backend_gateway_port(
@@ -945,7 +970,7 @@ def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch: pytest.Mo
     started = []
     opened = []
     statuses = {
-        f"{launcher.BACKEND_URL}{launcher.BACKEND_HEALTH_PATH}": None,
+        f"{launcher.BACKEND_URL}{launcher.BACKEND_HEALTH_PATH}": 200,
         f"{launcher.BACKEND_URL}/v1/models": 200,
     }
     monkeypatch.delenv(launcher.UAA_OPENWEBUI_TEST_GATEWAY_ENV, raising=False)
@@ -953,6 +978,7 @@ def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch: pytest.Mo
     monkeypatch.setattr(launcher, "docker_image_present", lambda: (True, "OpenWebUI image present locally"))
     monkeypatch.setattr(launcher, "url_status", lambda url, **kwargs: statuses.get(url))
     monkeypatch.setattr(launcher, "start_service", lambda root, service: started.append(service.name) or f"{service.name}: started")
+    monkeypatch.setattr(launcher, "launcher_owns_service", lambda _service: True)
     monkeypatch.setattr(launcher.webbrowser, "open", lambda url: opened.append(url))
 
     code = launcher.command_launch_ui(ROOT, target="openwebui")
@@ -963,6 +989,36 @@ def test_launch_ui_openwebui_starts_backend_and_openwebui(monkeypatch: pytest.Mo
     assert opened == [launcher.OPENWEBUI_URL]
     assert f"{launcher.UAA_OPENWEBUI_TEST_GATEWAY_ENV}=1" in captured.out
     assert "No packages were installed and no images were pulled" in captured.out
+
+
+def test_launch_ui_openwebui_never_sends_bearer_to_unowned_backend(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+    started: list[str] = []
+    requested: list[tuple[str, dict[str, str] | None]] = []
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "docker_image_present", lambda: (True, "OpenWebUI image present locally"))
+    monkeypatch.setattr(
+        launcher,
+        "start_service",
+        lambda _root, service: started.append(service.name) or f"{service.name}: already UAA-ready",
+    )
+    monkeypatch.setattr(launcher, "launcher_owns_service", lambda _service: False)
+    monkeypatch.setattr(
+        launcher,
+        "url_status",
+        lambda url, headers=None, **_kwargs: requested.append((url, headers)) or 200,
+    )
+
+    code = launcher.command_launch_ui(ROOT, target="openwebui")
+    captured = capsys.readouterr()
+
+    assert code == 1
+    assert started == ["backend"]
+    assert requested == []
+    assert "bearer was not sent" in captured.out
 
 
 def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch: pytest.MonkeyPatch) -> None:

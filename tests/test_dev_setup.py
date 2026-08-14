@@ -764,6 +764,23 @@ def test_setup_probes_honor_launcher_endpoint_overrides(
     assert gateway.status == "pass"
     assert requested_urls == ["http://127.0.0.1:8100/v1/models"]
 
+    frontend_steps = setup._next_steps(
+        profile="frontend-only",
+        mode="smoke",
+        model_id="uaa-safe-local",
+        hf_repo="unused",
+        hf_file="unused",
+    )
+    smoke_steps = setup._next_steps(
+        profile="openwebui-smoke",
+        mode="smoke",
+        model_id="uaa-safe-local",
+        hf_repo="unused",
+        hf_file="unused",
+    )
+    assert "Open http://127.0.0.1:5273." in frontend_steps
+    assert "Open http://127.0.0.1:3100 and select uaa-safe-local." in smoke_steps
+
 
 def test_setup_rejects_unsupported_launcher_ipv6_override(
     monkeypatch: pytest.MonkeyPatch,
