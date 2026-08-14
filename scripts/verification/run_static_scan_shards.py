@@ -686,19 +686,28 @@ def main(argv: list[str] | None = None) -> int:
         "hard_timeout_seconds": args.hard_timeout_seconds,
         "safe_summary": args.safe_summary,
     }
-    reference = (
-        execute_static_scans(SCAN_SEQUENCE, serial_reference=True, **common)
-        if args.equivalence
-        else None
-    )
-    reports = [
-        execute_static_scans(
-            SCAN_SEQUENCE,
-            shuffle_seed=index if args.equivalence else None,
-            **common,
+    try:
+        reference = (
+            execute_static_scans(SCAN_SEQUENCE, serial_reference=True, **common)
+            if args.equivalence
+            else None
         )
-        for index in range(args.repeat)
-    ]
+        reports = [
+            execute_static_scans(
+                SCAN_SEQUENCE,
+                shuffle_seed=index if args.equivalence else None,
+                **common,
+            )
+            for index in range(args.repeat)
+        ]
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        if not args.safe_summary:
+            raise
+        print(
+            f"FAIL: static scheduler stopped safely (failure-ref:{type(exc).__name__})",
+            file=sys.stderr,
+        )
+        return 1
     if args.equivalence:
         assert reference is not None
         expected = tuple((item.scan_ref, item.status) for item in reference.outcomes)

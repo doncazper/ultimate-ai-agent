@@ -4,6 +4,7 @@ import hashlib
 import importlib
 import inspect
 import json
+import locale
 import re
 import subprocess
 from contextlib import contextmanager
@@ -156,12 +157,44 @@ class StaticVerificationContext:
 
     @contextmanager
     def cached_repository_view(self) -> Iterator[None]:
-        """Install a worker-local immutable view of repository walks and reads."""
+        """Install a worker-local view whose tracked text comes from the exact Git tree."""
         original_rglob = Path.rglob
         original_read_text = Path.read_text
         rglob_cache: dict[tuple[Path, str], tuple[Path, ...]] = {}
         read_text_cache: dict[tuple[Path, tuple[Any, ...], tuple[Any, ...]], str] = {}
         cacheable_paths: dict[Path, bool] = {}
+        cat_file = subprocess.Popen(
+            ("git", "cat-file", "--batch"),
+            cwd=self.root,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        if cat_file.stdin is None or cat_file.stdout is None:
+            cat_file.kill()
+            raise ValueError("static verification Git snapshot is unavailable")
+
+        def git_blob(path: Path) -> bytes:
+            try:
+                relative = path.resolve().relative_to(self.root).as_posix()
+            except (OSError, RuntimeError, ValueError):
+                raise FileNotFoundError from None
+            if not relative or "\n" in relative or "\r" in relative:
+                raise FileNotFoundError from None
+            cat_file.stdin.write(f"{self.repository_sha}:{relative}\n".encode("utf-8"))
+            cat_file.stdin.flush()
+            header = cat_file.stdout.readline()
+            if not header or header.rstrip().endswith(b" missing"):
+                raise FileNotFoundError from None
+            fields = header.rstrip(b"\n").rsplit(b" ", 2)
+            if len(fields) != 3 or fields[1] != b"blob" or not fields[2].isdigit():
+                raise ValueError("static verification Git snapshot is invalid")
+            size = int(fields[2])
+            content = cat_file.stdout.read(size)
+            terminator = cat_file.stdout.read(1)
+            if len(content) != size or terminator != b"\n":
+                raise ValueError("static verification Git snapshot is truncated")
+            return content
 
         def is_cacheable(path: Path) -> bool:
             if path not in cacheable_paths:
@@ -184,7 +217,12 @@ class StaticVerificationContext:
                 return original_read_text(path, *args, **kwargs)
             key = (path, args, tuple(sorted(kwargs.items())))
             if key not in read_text_cache:
-                read_text_cache[key] = original_read_text(path, *args, **kwargs)
+                encoding = args[0] if args else kwargs.get("encoding")
+                errors = args[1] if len(args) > 1 else kwargs.get("errors")
+                read_text_cache[key] = git_blob(path).decode(
+                    encoding or locale.getpreferredencoding(False),
+                    errors or "strict",
+                )
             return read_text_cache[key]
 
         Path.rglob = cached_rglob
@@ -194,6 +232,8 @@ class StaticVerificationContext:
         finally:
             Path.rglob = original_rglob
             Path.read_text = original_read_text
+            cat_file.stdin.close()
+            cat_file.wait(timeout=10)
 
 
 def resolve_repository_sha(root: Path) -> str:

@@ -124,13 +124,12 @@ def run_worker(
         "outcomes": outcomes,
     }
     _write_json(result_path, result_payload)
-    product_snapshot = (
-        ProductVerificationSnapshot.capture(ROOT)
-        if any(spec.function_name in DIRECT_PRODUCT_VALIDATORS for spec in selected)
-        else None
-    )
-
     with context.cached_repository_view():
+        product_snapshot = (
+            ProductVerificationSnapshot.capture(ROOT)
+            if any(spec.function_name in DIRECT_PRODUCT_VALIDATORS for spec in selected)
+            else None
+        )
         for spec in selected:
             _write_json(
                 progress_path,

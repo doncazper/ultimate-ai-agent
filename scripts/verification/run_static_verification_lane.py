@@ -13,9 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification import run_all_legacy as legacy  # noqa: E402
-from scripts.verification.static_scan_context import (  # noqa: E402
-    resolve_repository_sha,
-)
 from scripts.verification.run_static_scan_shards import (  # noqa: E402
     execute_static_scans,
 )
@@ -33,6 +30,7 @@ def _parse_scheduler_args(
     parser.add_argument("--static-scan-timeout-seconds", type=float, default=60.0)
     parser.add_argument("--static-basetemp")
     parser.add_argument("--repository-sha")
+    parser.add_argument("--timings-json")
     args, legacy_argv = parser.parse_known_args(argv)
     if (
         args.static_workers <= 0
@@ -40,6 +38,8 @@ def _parse_scheduler_args(
         or args.static_scan_timeout_seconds <= 0
     ):
         parser.error("static worker settings must be greater than zero")
+    if args.timings_json:
+        legacy_argv.extend(("--timings-json", args.timings_json))
     return args, legacy_argv
 
 
@@ -49,20 +49,12 @@ def main(argv: list[str] | None = None) -> None:
 
     def run_static_scans(timings: Any | None = None) -> None:
         try:
-            if args.static_workers == 1:
-                actual_sha = resolve_repository_sha(legacy.ROOT)
-                if (
-                    args.repository_sha is not None
-                    and args.repository_sha != actual_sha
-                ):
-                    raise ValueError("static scan repository identity mismatch")
-                original_run_static_scans(timings)
-                return
             report = execute_static_scans(
                 legacy.SCAN_SEQUENCE,
                 root=legacy.ROOT,
                 max_workers=args.static_workers,
                 cpu_budget=args.cpu_budget,
+                timings_path=(Path(args.timings_json) if args.timings_json else None),
                 basetemp=(Path(args.static_basetemp) if args.static_basetemp else None),
                 scan_timeout_seconds=args.static_scan_timeout_seconds,
                 repository_sha=args.repository_sha,

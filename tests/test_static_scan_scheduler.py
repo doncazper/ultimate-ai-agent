@@ -228,26 +228,50 @@ def test_complete_outcomes_fails_closed_for_missing_or_duplicate_results() -> No
     assert unexpected_outcomes[0].failure_ref == "coverage-ref:unexpected-result"
 
 
-def test_static_context_caches_reads_and_restores_path_methods(
+def test_static_context_reads_exact_git_tree_and_restores_path_methods(
     tmp_path: Path,
 ) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     source = tmp_path / "sample.txt"
     source.write_text("first", encoding="utf-8")
+    subprocess.run(["git", "add", "sample.txt"], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=UAA Test",
+            "-c",
+            "user.email=uaa-test@example.invalid",
+            "commit",
+            "-qm",
+            "test immutable snapshot",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    repository_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    source.write_text("second", encoding="utf-8")
     original_read_text = Path.read_text
     context = StaticVerificationContext.capture(
         tmp_path,
         ("scan-ref:test",),
-        "a" * 40,
+        repository_sha,
         "static-registry-ref:sha256:" + "b" * 64,
     )
 
     with context.cached_repository_view():
         assert source.read_text(encoding="utf-8") == "first"
-        source.write_text("second", encoding="utf-8")
+        source.write_text("third", encoding="utf-8")
         assert source.read_text(encoding="utf-8") == "first"
 
     assert Path.read_text is original_read_text
-    assert source.read_text(encoding="utf-8") == "second"
+    assert source.read_text(encoding="utf-8") == "third"
 
 
 def test_repository_identity_rejects_dirty_or_nested_source(
@@ -980,15 +1004,13 @@ def test_local_static_serial_lane_rejects_mismatched_repository_sha(
         "main",
         lambda argv: run_static_verification_lane.legacy.run_static_scans([]),
     )
+
+    def reject_mismatch(*args: object, **kwargs: object) -> None:
+        calls.append((args, kwargs))
+        raise ValueError("private repository identity mismatch")
+
     monkeypatch.setattr(
-        run_static_verification_lane,
-        "resolve_repository_sha",
-        lambda root: "a" * 40,
-    )
-    monkeypatch.setattr(
-        run_static_verification_lane,
-        "execute_static_scans",
-        lambda *args, **kwargs: calls.append((args, kwargs)),
+        run_static_verification_lane, "execute_static_scans", reject_mismatch
     )
 
     with pytest.raises(SystemExit, match="1"):
@@ -1003,8 +1025,10 @@ def test_local_static_serial_lane_rejects_mismatched_repository_sha(
 
     captured = capsys.readouterr()
     assert "failure-ref:ValueError" in captured.err
-    assert "repository identity mismatch" not in captured.err
-    assert calls == []
+    assert "private repository identity mismatch" not in captured.err
+    assert len(calls) == 1
+    assert calls[0][1]["max_workers"] == 1  # type: ignore[index]
+    assert calls[0][1]["repository_sha"] == "b" * 40  # type: ignore[index]
     assert run_static_verification_lane.legacy.run_static_scans is original
 
 
@@ -1055,6 +1079,8 @@ def test_local_static_lane_replaces_only_static_stage_and_restores_legacy(
     run_static_verification_lane.main(
         [
             "--skip-ruff",
+            "--timings-json",
+            "/tmp/static-timings.json",
             "--static-workers",
             "3",
             "--cpu-budget",
@@ -1067,34 +1093,43 @@ def test_local_static_lane_replaces_only_static_stage_and_restores_legacy(
     assert observed["sequence"] is run_static_verification_lane.legacy.SCAN_SEQUENCE
     assert observed["max_workers"] == 3
     assert observed["cpu_budget"] == "2"
+    assert observed["timings_path"] == Path("/tmp/static-timings.json")
     assert observed["scan_timeout_seconds"] == 9
-    assert observed["legacy_argv"] == ["--skip-ruff"]
+    assert observed["legacy_argv"] == [
+        "--skip-ruff",
+        "--timings-json",
+        "/tmp/static-timings.json",
+    ]
     assert observed["timings"] == [{"name": "static_scan:one", "elapsed_ms": 1}]
     assert run_static_verification_lane.legacy.run_static_scans is original
 
 
-def test_local_static_lane_keeps_serial_diagnostic_path(
+def test_local_static_lane_keeps_bounded_serial_diagnostic_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[object] = []
+    observed: dict[str, object] = {}
+    timings: list[dict[str, object]] = []
 
     def serial_runner(timings: object) -> None:
-        calls.append("serial")
+        pytest.fail("legacy serial runner should be replaced locally")
+
+    def execute(sequence: object, **kwargs: object) -> SimpleNamespace:
+        observed["sequence"] = sequence
+        observed.update(kwargs)
+        return SimpleNamespace(
+            passed=True,
+            timing_entries=[{"name": "static_scan:one", "elapsed_ms": 1}],
+        )
 
     monkeypatch.setattr(
         run_static_verification_lane.legacy,
         "main",
-        lambda argv: run_static_verification_lane.legacy.run_static_scans(calls),
+        lambda argv: run_static_verification_lane.legacy.run_static_scans(timings),
     )
     monkeypatch.setattr(
         run_static_verification_lane,
         "execute_static_scans",
-        lambda *args, **kwargs: pytest.fail("parallel scheduler should not run"),
-    )
-    monkeypatch.setattr(
-        run_static_verification_lane,
-        "resolve_repository_sha",
-        lambda root: "a" * 40,
+        execute,
     )
     monkeypatch.setattr(
         run_static_verification_lane.legacy,
@@ -1102,7 +1137,27 @@ def test_local_static_lane_keeps_serial_diagnostic_path(
         serial_runner,
     )
 
-    run_static_verification_lane.main(["--static-workers", "1"])
+    run_static_verification_lane.main(
+        ["--static-workers", "1", "--static-scan-timeout-seconds", "7"]
+    )
 
-    assert calls == ["serial"]
+    assert observed["sequence"] is run_static_verification_lane.legacy.SCAN_SEQUENCE
+    assert observed["max_workers"] == 1
+    assert observed["scan_timeout_seconds"] == 7
+    assert timings == [{"name": "static_scan:one", "elapsed_ms": 1}]
     assert run_static_verification_lane.legacy.run_static_scans is serial_runner
+
+
+def test_standalone_safe_summary_redacts_expected_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_execute(*args: object, **kwargs: object) -> None:
+        raise ValueError("private source path must not escape")
+
+    monkeypatch.setattr(run_static_scan_shards, "execute_static_scans", fail_execute)
+
+    assert run_static_scan_shards.main(["--safe-summary"]) == 1
+    captured = capsys.readouterr()
+    assert "failure-ref:ValueError" in captured.err
+    assert "private source path" not in captured.err
