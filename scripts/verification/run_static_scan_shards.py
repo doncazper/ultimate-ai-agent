@@ -61,6 +61,10 @@ class StaticRunInterrupted(RuntimeError):
         self.signum = signum
 
 
+class StaticSourceCleanupError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class StaticScanOutcome:
     scan_index: int
@@ -218,6 +222,15 @@ def _immutable_source_tree(
                 timeout=60,
             )
         if removed.returncode != 0:
+            removed = subprocess.run(
+                ("git", "worktree", "remove", "--force", str(source_root)),
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        if removed.returncode != 0:
             listed = subprocess.run(
                 (
                     "git",
@@ -237,7 +250,9 @@ def _immutable_source_tree(
                 line == f"worktree {source_root}" for line in listed.stdout.splitlines()
             )
             if source_root.exists() or registered:
-                raise ValueError("static scan immutable source cleanup failed")
+                raise StaticSourceCleanupError(
+                    "static scan immutable source cleanup failed"
+                )
         if pending_interrupt is not None:
             raise pending_interrupt
 
@@ -400,8 +415,14 @@ def _run_batch(
     registry_fingerprint: str,
 ) -> tuple[list[StaticScanOutcome], bool]:
     active: list[_ActiveWorker] = []
+    timed_out = False
     try:
         for index, plan in enumerate(plans):
+            if time.perf_counter() >= deadline:
+                timed_out = True
+                for worker in active:
+                    worker.timed_out = True
+                break
             active.append(
                 _launch_worker(
                     plan,
@@ -420,8 +441,14 @@ def _run_batch(
         )
         raise
     completed: list[_ActiveWorker] = []
-    timed_out = False
     try:
+        if timed_out and active:
+            shard_processes.stop_processes(
+                (worker.process for worker in active),
+                DEFAULT_TERMINATION_GRACE_SECONDS,
+            )
+            completed.extend(active)
+            active.clear()
         while active:
             now = time.perf_counter()
             if now >= deadline:
@@ -642,6 +669,7 @@ def execute_static_scans(
     deadline = started + hard_timeout_seconds
     handled_signals = shard_processes.cancellation_signals()
     run_root: Path | None = None
+    remove_run_root = True
 
     def interrupt_run(signum: int, _frame: Any) -> None:
         shard_processes.ignore_signals(handled_signals)
@@ -695,8 +723,11 @@ def execute_static_scans(
                         timed_out = timed_out or batch_timed_out
                         if timed_out:
                             break
+        except StaticSourceCleanupError:
+            remove_run_root = False
+            raise
         finally:
-            if run_root is not None:
+            if run_root is not None and remove_run_root:
                 _remove_run_root(run_root)
     if resolve_repository_sha(root) != resolved_repository_sha:
         raise ValueError("static scan repository identity changed during execution")

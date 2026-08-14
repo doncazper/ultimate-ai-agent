@@ -483,6 +483,91 @@ def test_immutable_source_tree_retries_cleanup_after_interrupt(
     assert not source_root.exists()
 
 
+def test_immutable_source_tree_retries_nonzero_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "run" / "source"
+    remove_calls = 0
+
+    def run(command: tuple[str, ...], **_kwargs: object) -> object:
+        nonlocal remove_calls
+        if command[2:4] == ("add", "--detach"):
+            source_root.mkdir(parents=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[1:4] == ("worktree", "remove", "--force"):
+            remove_calls += 1
+            if remove_calls == 1:
+                return SimpleNamespace(returncode=1, stdout="", stderr="busy")
+            source_root.rmdir()
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected command: {command!r}")
+
+    monkeypatch.setattr(run_static_scan_shards.subprocess, "run", run)
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "resolve_repository_sha",
+        lambda _root: "a" * 40,
+    )
+
+    with run_static_scan_shards._immutable_source_tree(
+        tmp_path,
+        tmp_path / "run",
+        "a" * 40,
+    ):
+        pass
+
+    assert remove_calls == 2
+    assert not source_root.exists()
+
+
+def test_scheduler_retains_run_root_when_worktree_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_sha = "a" * 40
+
+    @contextlib.contextmanager
+    def immutable_source(
+        root: Path, run_root: Path, *_args: object, **_kwargs: object
+    ) -> object:
+        yield root
+        raise run_static_scan_shards.StaticSourceCleanupError(
+            "static scan immutable source cleanup failed"
+        )
+
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "resolve_repository_sha",
+        lambda _root: repository_sha,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_immutable_source_tree",
+        immutable_source,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_run_batch",
+        lambda *_args, **_kwargs: ([], False),
+    )
+
+    with pytest.raises(
+        run_static_scan_shards.StaticSourceCleanupError,
+        match="immutable source cleanup failed",
+    ):
+        run_static_scan_shards.execute_static_scans(
+            (("one", "one_scan"),),
+            root=tmp_path,
+            basetemp=tmp_path,
+            repository_sha=repository_sha,
+        )
+
+    run_roots = list(tmp_path.glob("uaa-static-scan-*"))
+    assert len(run_roots) == 1
+    shutil.rmtree(run_roots[0])
+
+
 def test_run_root_cleanup_retries_after_interrupt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -947,6 +1032,65 @@ def test_partial_worker_launch_failure_stops_started_processes(
     assert stopped == [process]
 
 
+def test_batch_stops_launching_workers_at_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = _approved_specs((("one", "one_scan"), ("two", "two_scan")))
+    plans = assign_static_shards(specs, 2)
+
+    class RunningProcess:
+        returncode: int | None = None
+
+    process = RunningProcess()
+    launches: list[StaticShardPlan] = []
+    stopped: list[object] = []
+
+    def launch(plan: StaticShardPlan, **_kwargs: object) -> _ActiveWorker:
+        launches.append(plan)
+        return _ActiveWorker(
+            plan=plan,
+            process=process,  # type: ignore[arg-type]
+            result_path=tmp_path / "result.json",
+            progress_path=tmp_path / "progress.json",
+            context_ref="static-context-ref:sha256:" + "c" * 64,
+            registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+            repository_sha="a" * 40,
+            launched_at=0.0,
+        )
+
+    clock = iter((0.0, 2.0))
+    monkeypatch.setattr(
+        run_static_scan_shards.time, "perf_counter", lambda: next(clock)
+    )
+    monkeypatch.setattr(run_static_scan_shards, "_launch_worker", launch)
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "stop_processes",
+        lambda processes, _grace: stopped.extend(processes),
+    )
+
+    outcomes, timed_out = _run_batch(
+        plans,
+        root=tmp_path,
+        run_root=tmp_path,
+        base_env={},
+        scan_timeout_seconds=1,
+        deadline=1.0,
+        safe_summary=True,
+        batch_ref="deadline-test",
+        repository_sha="a" * 40,
+        registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+    )
+
+    assert launches == [plans[0]]
+    assert stopped == [process]
+    assert timed_out is True
+    assert [(outcome.scan_ref, outcome.status) for outcome in outcomes] == [
+        (specs[0].scan_ref, "timed_out")
+    ]
+
+
 def test_scheduler_signal_cancellation_stops_active_worker_group(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1000,9 +1144,7 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
         process.returncode = -15
 
     @contextlib.contextmanager
-    def immutable_source(
-        root: Path, *_args: object, **_kwargs: object
-    ) -> object:
+    def immutable_source(root: Path, *_args: object, **_kwargs: object) -> object:
         lifecycle.append("worktree-enter")
         try:
             yield root
@@ -1200,9 +1342,7 @@ def test_scheduler_revalidates_repository_after_worker_completion(
         return outcomes, False
 
     @contextlib.contextmanager
-    def immutable_source(
-        root: Path, *_args: object, **_kwargs: object
-    ) -> object:
+    def immutable_source(root: Path, *_args: object, **_kwargs: object) -> object:
         yield root
 
     monkeypatch.setattr(
