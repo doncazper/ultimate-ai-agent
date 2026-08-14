@@ -1129,13 +1129,49 @@ def _post_definition_execution_mark_targets(
     """Return declarations mutated by post-definition pytest execution marks."""
 
     pytest_names = {"pytest", *_pytest_module_aliases(tree)}
-    imported_mark_names = {
-        imported.asname or imported.name
-        for node in tree.body
-        if isinstance(node, ast.ImportFrom) and node.module == "pytest"
-        for imported in node.names
-        if imported.name == "mark"
-    }
+
+    def mark_aliases_before(before: tuple[int, int]) -> set[str]:
+        aliases: set[str] = set()
+        for node in tree.body:
+            position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+            if position >= before:
+                break
+            if isinstance(node, ast.ImportFrom):
+                for imported in node.names:
+                    name = imported.asname or imported.name
+                    if node.module == "pytest" and imported.name == "mark":
+                        aliases.add(name)
+                    else:
+                        aliases.discard(name)
+                continue
+            if isinstance(node, ast.Import):
+                for imported in node.names:
+                    aliases.discard(imported.asname or imported.name.split(".", 1)[0])
+                continue
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                aliases.discard(node.name)
+                continue
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+                value = node.value
+            elif isinstance(node, ast.AnnAssign):
+                targets = (node.target,)
+                value = node.value
+            elif isinstance(node, (ast.AugAssign, ast.Delete)):
+                targets = node.targets if isinstance(node, ast.Delete) else (node.target,)
+                value = None
+            else:
+                continue
+            target_names = {
+                name for target in targets for name in _binding_target_names(target)
+            }
+            resolves = isinstance(value, ast.Name) and value.id in aliases
+            for name in target_names:
+                if resolves:
+                    aliases.add(name)
+                else:
+                    aliases.discard(name)
+        return aliases
 
     def is_execution_mark(
         node: ast.AST,
@@ -1154,8 +1190,7 @@ def _post_definition_execution_mark_targets(
             )
         if not isinstance(node.value, ast.Name):
             return False
-        aliases = _module_name_aliases(tree, before=before)
-        return aliases.get(node.value.id, node.value.id) in imported_mark_names
+        return node.value.id in mark_aliases_before(before)
 
     targets: set[str] = set()
     for child in _module_execution_nodes(tree):
@@ -1182,7 +1217,13 @@ def _post_definition_execution_mark_targets(
         for argument in decorated_arguments:
             root = _root_name(argument)
             if root is not None:
-                targets.add(name_aliases.get(root, root))
+                resolved_root = name_aliases.get(root, root)
+                targets.add(
+                    f"{resolved_root}.{argument.attr}"
+                    if isinstance(argument, ast.Attribute)
+                    and isinstance(argument.value, ast.Name)
+                    else resolved_root
+                )
     return targets
 
 
@@ -8166,6 +8207,15 @@ def _python_inventory_entries(
         if isinstance(node, ast.ClassDef)
         and (node.name.startswith("Test") or node.name in unittest_classes)
     }
+    collected_execution_mark_targets = collected_binding_names | {
+        f"{node.name}.{child.name}"
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and (node.name.startswith("Test") or node.name in unittest_classes)
+        for child in node.body
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and child.name.startswith("test")
+    }
 
     for module_node in _module_execution_nodes(tree):
         mutation = _mutated_attribute_call(module_node)
@@ -8200,8 +8250,9 @@ def _python_inventory_entries(
         raise TestCorpusGuardError(
             "post-definition Python parametrization cannot be inventoried safely"
         )
-    if _post_definition_execution_mark_targets(tree, imported_modules) & (
-        declared_test_names | collected_binding_names
+    if (
+        _post_definition_execution_mark_targets(tree, imported_modules)
+        & collected_execution_mark_targets
     ):
         raise TestCorpusGuardError(
             "post-definition Python execution mark cannot be inventoried safely"

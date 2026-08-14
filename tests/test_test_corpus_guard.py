@@ -2451,6 +2451,51 @@ def test_python_inventory_rejects_dynamic_collection_rebinding(
         guard.parse_python_declarations("tests/test_sample.py", source)
 
 
+def test_python_inventory_allows_shadowed_imported_mark_name() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "from pytest import mark\n"
+        "class mark:\n"
+        "    @staticmethod\n"
+        "    def skip(function): return function\n"
+        "def test_case(): pass\n"
+        "mark.skip(test_case)\n",
+    )
+
+    assert [item.ref for item in declarations] == ["tests/test_sample.py::test_case"]
+
+
+def test_python_inventory_allows_mark_on_non_test_unittest_member() -> None:
+    declarations = guard.parse_python_declarations(
+        "tests/test_sample.py",
+        "import pytest\n"
+        "import unittest\n"
+        "class Cases(unittest.TestCase):\n"
+        "    def helper(self): pass\n"
+        "    def test_case(self): pass\n"
+        "pytest.mark.skip(Cases.helper)\n",
+    )
+
+    assert [item.ref for item in declarations] == [
+        "tests/test_sample.py::Cases::test_case"
+    ]
+
+
+def test_python_inventory_rejects_mark_on_unittest_test_member() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="post-definition Python execution mark",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            "import unittest\n"
+            "class Cases(unittest.TestCase):\n"
+            "    def test_case(self): pass\n"
+            "pytest.mark.skip(Cases.test_case)\n",
+        )
+
+
 @pytest.mark.parametrize(
     "function_body",
     (
@@ -7848,6 +7893,16 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         (
             'describe("suite", () => {\n  return\n  '
             'test("case", () => {});\n});\n',
+            "registration context",
+        ),
+        (
+            'describe("suite", () => { return\u2028'
+            'test("case", () => {}); });\n',
+            "registration context",
+        ),
+        (
+            'describe("suite", () => { return\u2029'
+            'test("case", () => {}); });\n',
             "registration context",
         ),
         (

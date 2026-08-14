@@ -4798,6 +4798,8 @@ def _unproven_registration_regions(
                 for offset in (
                     text.find("\r", exit_match.end()),
                     text.find("\n", exit_match.end()),
+                    text.find("\u2028", exit_match.end()),
+                    text.find("\u2029", exit_match.end()),
                 )
                 if offset >= 0
             )
