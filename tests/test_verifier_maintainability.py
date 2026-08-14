@@ -7,6 +7,23 @@ import pytest
 from scripts import verify_verifier_maintainability as verifier
 
 
+def _test_corpus_policy() -> dict[str, object]:
+    return {
+        "schema_version": "uaa.test_corpus_retirements.v1",
+        "retirement_ledger": "docs/verification/test_corpus_retirements.json",
+        "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+        "enforcement": "fail_closed_when_exact_base_is_available",
+        "required_evidence": [
+            "replacement_refs",
+            "assertion_equivalence_artifact",
+            "assertion_equivalence_ref",
+            "evidence_artifact",
+            "evidence_ref",
+            "reason",
+        ],
+    }
+
+
 def _oversized_module(tmp_path: Path) -> Path:
     path = tmp_path / "sample_verifier.py"
     path.write_text("pass\n" * 701, encoding="utf-8")
@@ -38,10 +55,23 @@ def test_advisory_line_threshold_warns_without_failing(
                     "enforcement": "advisory",
                     "globs": ["scripts/verification/**/*.py"],
                 }
-            }
+            },
+            "test_corpus_guard": {
+                "schema_version": "uaa.test_corpus_retirements.v1",
+                "retirement_ledger": "docs/verification/test_corpus_retirements.json",
+                "comparison_base_env": "UAA_VERIFICATION_BASE_SHA",
+                "enforcement": "fail_closed_when_exact_base_is_available",
+                "required_evidence": [
+                    "replacement_refs",
+                    "assertion_equivalence_artifact",
+                    "assertion_equivalence_ref",
+                    "evidence_artifact",
+                    "evidence_ref",
+                    "reason",
+                ],
+            },
         },
     )
-
     assert verifier.main() == 0
     output = capsys.readouterr().out
     assert (
@@ -97,3 +127,44 @@ def test_unknown_line_budget_enforcement_fails_closed(enforcement: object) -> No
         f"verifier_modules has unsupported line budget enforcement {enforcement!r}"
     ]
     assert warnings == []
+
+
+def test_test_corpus_guard_failure_is_part_of_maintainability_gate() -> None:
+    failures: list[str] = []
+    verifier._append_test_corpus_wrapper_failures(
+        failures,
+        "def main() -> int:\n    return 0\n",
+    )
+
+    assert failures == [
+        "standalone test corpus guard wrapper invocation contract is invalid"
+    ]
+
+
+def test_repository_test_corpus_guard_wrapper_contract_is_valid() -> None:
+    source = verifier.read_text(verifier.repo_path(verifier.TEST_CORPUS_GUARD_WRAPPER))
+
+    assert verifier._test_corpus_guard_wrapper_contract_is_valid(source)
+
+
+@pytest.mark.parametrize(
+    "policy",
+    (
+        {},
+        {"test_corpus_guard": {}},
+        {
+            "test_corpus_guard": {
+                **_test_corpus_policy(),
+                "enforcement": "optional",
+            }
+        },
+    ),
+)
+def test_test_corpus_guard_policy_is_required_and_exact(
+    policy: dict[str, object],
+) -> None:
+    failures: list[str] = []
+
+    verifier._append_test_corpus_guard_failures(failures, policy)
+
+    assert failures == ["test corpus guard policy section is missing or invalid"]

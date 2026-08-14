@@ -399,7 +399,7 @@ product-truth ledgers.
 | Product claims and gaps | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md` |
 | Canonical navigation | `docs/DOCUMENTATION_INDEX.md`, `docs/canonical/CANONICAL_DOC_MAP.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md` |
-| Verification maintainability and independent hardening | `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification maintainability and independent hardening | `docs/verification/FAST_LOCAL_VERIFICATION.md`, `docs/verification/TEST_CORPUS_MODERNIZATION.md`, `docs/verification/test_corpus_retirements.json`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md`, `docs/security/PUBLIC_SOURCE_READINESS_AUDIT.md` |
 | Documentation policy | `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md` |
@@ -502,7 +502,7 @@ provider payload export, or no-secret-output regression.
 | Local model production-readiness lane | `docs/production/M166_PRODUCTION_AUTHORITY_GATE.md`, `docs/production/M167_LIVE_MODEL_PRODUCTION_HARDENING.md`, `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
 | Local model operations | `docs/production/LLAMA_SERVER_PACKAGING_PROVENANCE_CHECKLIST.md`, `docs/production/LOCAL_MODEL_OPERATIONAL_RUNBOOK.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Release verification and evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md`, `docs/developer/GITHUB_HOSTED_CI.md`, `docs/production/BACKUP_RESTORE_VERIFICATION.md`, `docs/production/LOCAL_STATE_ROLLBACK_RUNBOOK.md`, `docs/production/LOCAL_RUNTIME_PACKAGING.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md` |
-| Verification maintainability and independent hardening | `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
+| Verification maintainability and independent hardening | `docs/verification/TEST_CORPUS_MODERNIZATION.md`, `docs/verification/test_corpus_retirements.json`, `docs/verification/PRODUCT_HARDENING_EVIDENCE_GATE.md`, `docs/verification/milestone_status_manifest.json`, `docs/verification/verification_maintainability_policy.json` |
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Performance and API cache | `docs/production/RELEASE_LATENCY_BASELINE_HARNESS.md`, `docs/api/SAFE_STATIC_MANIFEST_CACHING.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |

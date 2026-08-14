@@ -20,6 +20,22 @@ SHA = subprocess.run(
 ).stdout.strip()
 
 
+def test_test_inventory_fingerprint_includes_pytest_suffix_modules(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text("")
+    suffix_test = tests_root / "case_test.py"
+    suffix_test.write_text("def test_case(): pass\n")
+
+    before = manifest.test_inventory_fingerprint(tmp_path)
+    suffix_test.write_text("def test_case(): assert True\n")
+
+    assert manifest.test_inventory_fingerprint(tmp_path) != before
+
+
 def test_canonical_ci_definition_is_valid_deterministic_and_complete() -> None:
     assert manifest.validate_definition() == []
     assert manifest.definition_fingerprint() == manifest.definition_fingerprint()
@@ -315,6 +331,34 @@ def test_pytest_lock_setup_and_command_bounds_fit_the_job_timeout() -> None:
 
     assert bounded_total <= job.timeout_minutes * 60
     assert job.timeout_minutes == 60
+    hard_timeout_index = command.argv.index("--hard-timeout-seconds") + 1
+    assert command.argv[hard_timeout_index] == "1800"
+    assert command.timeout_seconds == 1830
+
+
+def test_static_verification_timeout_covers_full_corpus_inventory() -> None:
+    job = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "static-verification"
+    )
+    registry = manifest.command_registry()
+    corpus_guard = registry["command:static.test-corpus-guard"]
+    verify_all = registry["command:static.verify-all"]
+    lane = manifest.lane_registry()["ci-static"]
+
+    assert lane.command_refs == (
+        "command:static.test-corpus-guard",
+        "command:static.verify-all",
+    )
+    assert corpus_guard.argv == (
+        ".venv/bin/python",
+        "scripts/verify_test_corpus_guard.py",
+    )
+    assert corpus_guard.timeout_seconds == 1_200
+    assert verify_all.timeout_seconds == 1_200
+    assert (
+        corpus_guard.timeout_seconds + verify_all.timeout_seconds
+        <= job.timeout_minutes * 60
+    )
 
 
 def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:

@@ -47,9 +47,11 @@ def test_test_discovery_is_recursive_and_sorted(tmp_path: Path) -> None:
     (tmp_path / "tests/nested").mkdir(parents=True)
     (tmp_path / "tests/test_z.py").write_text("", encoding="utf-8")
     (tmp_path / "tests/nested/test_a.py").write_text("", encoding="utf-8")
+    (tmp_path / "tests/nested/case_test.py").write_text("", encoding="utf-8")
     (tmp_path / "tests/nested/helper.py").write_text("", encoding="utf-8")
 
     assert runner.discover_test_files(tmp_path) == [
+        "tests/nested/case_test.py",
         "tests/nested/test_a.py",
         "tests/test_z.py",
     ]
@@ -514,7 +516,30 @@ def test_canonical_plan_binds_eight_shards_and_preserves_local_timeout_margin() 
     assert (
         sum(plan.expected_seconds for plan in plans[:2])
         + max(plan.expected_seconds for plan in plans[2:])
-        < runner.DEFAULT_HARD_TIMEOUT_SECONDS
+        < 1_200.0
+    )
+
+
+def test_canonical_plan_isolates_the_corpus_guard() -> None:
+    runner = load_runner()
+    files = runner.discover_test_files(ROOT)
+    timings, _source = runner.load_timing_profiles([TIMING_SEED], files)
+    affinity_groups = runner.discover_affinity_groups(files, ROOT)
+    exclusive_groups = runner.discover_serialized_preflight_groups(files, ROOT)
+    plans, _method = runner.assign_shards(
+        files,
+        runner.CANONICAL_PYTEST_SHARD_COUNT,
+        timings,
+        affinity_groups,
+        exclusive_affinity_groups=exclusive_groups,
+    )
+
+    assert plans[2].files == ("tests/test_test_corpus_guard.py",)
+    assert plans[2].expected_seconds == pytest.approx(971.14)
+    assert (
+        sum(plan.expected_seconds for plan in plans[:2])
+        + max(plan.expected_seconds for plan in plans[2:])
+        < 1_200.0
     )
 
 

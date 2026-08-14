@@ -146,8 +146,9 @@ def assert_matrix_loopback_test_resource_available() -> None:
 def discover_test_files(root: Path = ROOT) -> list[str]:
     return sorted(
         path.relative_to(root).as_posix()
-        for path in (root / "tests").rglob("test_*.py")
+        for path in (root / "tests").rglob("*.py")
         if path.is_file()
+        and (path.name.startswith("test_") or path.name.endswith("_test.py"))
     )
 
 
@@ -896,7 +897,7 @@ def main(argv: list[str] | None = None) -> int:
 
     files = discover_test_files(ROOT)
     if not files:
-        print("FAIL: no tests/test_*.py files discovered", file=sys.stderr)
+        print("FAIL: no canonical Python test files discovered", file=sys.stderr)
         return 1
 
     timing_paths = [

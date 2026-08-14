@@ -317,7 +317,17 @@ def command_registry() -> dict[str, CommandSpec]:
                 ),
                 (),
                 "verification",
-                900,
+                1_200,
+            ),
+            "command:static.test-corpus-guard": CommandSpec(
+                "command:static.test-corpus-guard",
+                (
+                    ".venv/bin/python",
+                    "scripts/verify_test_corpus_guard.py",
+                ),
+                (),
+                "verification",
+                1_200,
             ),
             "command:foundation-gate.ci-parallel": CommandSpec(
                 "command:foundation-gate.ci-parallel",
@@ -422,7 +432,10 @@ def lane_registry() -> dict[str, LaneSpec]:
             "ci-static": LaneSpec(
                 "ci-static",
                 "Static Verification",
-                ("command:static.verify-all",),
+                (
+                    "command:static.test-corpus-guard",
+                    "command:static.verify-all",
+                ),
             ),
             "ci-control-center-frontend": LaneSpec(
                 "ci-control-center-frontend",
@@ -1311,6 +1324,7 @@ def test_inventory_fingerprint(repo: Path) -> str:
                 path.relative_to(repo).as_posix()
                 for pattern in (
                     "tests/**/test_*.py",
+                    "tests/**/*_test.py",
                     "apps/control-center/src/**/*.test.ts",
                     "apps/control-center/src/**/*.test.tsx",
                     "apps/control-center/tests/**/*.ts",
