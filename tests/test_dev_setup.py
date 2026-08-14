@@ -1140,7 +1140,6 @@ def _setup_args(**overrides: Any) -> Any:
         "yes": False,
         "approval_token": None,
         "write_approval_token": None,
-        "receipt": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
