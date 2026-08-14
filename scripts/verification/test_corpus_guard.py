@@ -70,6 +70,10 @@ PYTEST_COLLECTION_CONFIG_PATHS = {
     "tox.ini",
 }
 PYTEST_DEPENDENCY_LOCK_PATHS = {"uv.lock"}
+PYTHON_APPLICATION_SOURCE_PREFIXES = (
+    "scripts/dev/",
+    "src/ultimate_ai_agent/",
+)
 PYTEST_RUNNER_CONFIG_PATHS = {
     ".github/actions/setup-toolchain/action.yml",
     ".github/workflows/ci.yml",
@@ -3876,6 +3880,35 @@ def _python_local_binding_identity(
     return f"binding={binding_name}\n" + "\n".join(serialized_parts)
 
 
+def _python_local_fixture_dependency_identity(
+    path: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None],
+) -> tuple[str, ...]:
+    """Bind module-local fixtures to the exact imported bindings they consume."""
+
+    try:
+        tree = ast.parse(source, filename=path)
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "module-local pytest fixture dependency cannot be inventoried safely"
+        ) from exc
+    fixture_bindings = _python_local_fixture_bindings(tree)
+    module = _python_module_name_for_path(path)
+    rooted_source = f"path={path}\n{source}"
+    return tuple(
+        sorted(
+            _python_imported_binding_source(
+                module,
+                rooted_source,
+                binding_name,
+                import_source_resolver,
+            )
+            for binding_name in set(fixture_bindings.values())
+        )
+    )
+
+
 def _python_fixture_binding_exports(source: str) -> dict[str, str]:
     source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
     if "fixture" not in source_text or re.search(r"\bname\s*=", source_text) is None:
@@ -4122,6 +4155,7 @@ def _parameterized_ref(
     shadowed_import_names: frozenset[str] = frozenset(),
     module_side_effect_identities: tuple[str, ...] = (),
     relative_package: str | None = None,
+    normalize_non_aborting_runtime_helpers: bool = False,
 ) -> str:
     candidate_decorators = (*container_decorators, *node.decorator_list)
     relative_import_bindings = {
@@ -6424,7 +6458,14 @@ def _parameterized_ref(
                                 f"binding={resolved_name};source-sha256="
                                 f"{hashlib.sha256(imported_source.encode('utf-8')).hexdigest()}"
                             )
-        return "\n".join(dict.fromkeys(helper_parts))
+        identity = "\n".join(dict.fromkeys(helper_parts))
+        if (
+            normalize_non_aborting_runtime_helpers
+            and not helper_has_runtime_abort
+            and "runtime-abort-posture=true" not in identity.splitlines()
+        ):
+            return f"non-aborting-runtime-helper={helper.name}"
+        return identity
 
     serialized_parts.extend(
         "runtime-helper=" + runtime_helper_identity(helper)
@@ -7005,6 +7046,8 @@ def _python_inventory_entries(
     path: str,
     text: str,
     import_source_resolver: Callable[[str], str | None] | None = None,
+    *,
+    normalize_non_aborting_runtime_helpers: bool = False,
 ) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
         tree = ast.parse(text, filename=path)
@@ -8758,6 +8801,9 @@ def _python_inventory_entries(
                     container_decorators=tuple(module_pytestmark_decorators),
                     module_side_effect_identities=tuple(module_side_effect_identities),
                     relative_package=relative_package,
+                    normalize_non_aborting_runtime_helpers=(
+                        normalize_non_aborting_runtime_helpers
+                    ),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
@@ -8880,6 +8926,9 @@ def _python_inventory_entries(
                 shadowed_import_names=frozenset(class_shadowed_import_names),
                 module_side_effect_identities=tuple(module_side_effect_identities),
                 relative_package=relative_package,
+                normalize_non_aborting_runtime_helpers=(
+                    normalize_non_aborting_runtime_helpers
+                ),
             )
             raw_ref = bind_autouse_fixture_identity(raw_ref)
             entries.append(
@@ -11423,7 +11472,9 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 raise TestCorpusGuardError(
                     "changed registered pytest fixtures cannot be inventoried safely"
                 )
-            if current != prior:
+            if current != prior and not plugin_path.startswith(
+                PYTHON_APPLICATION_SOURCE_PREFIXES
+            ):
                 raise TestCorpusGuardError(
                     "changed registered pytest dependency cannot be inventoried safely"
                 )
@@ -11474,6 +11525,14 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 changed.add(test_path)
     if changed_python_sources:
         python_dependency_cache: dict[str, tuple[set[str], set[str]]] = {}
+        current_fixture_resolver = _python_import_resolver(
+            lambda candidate: (
+                _read_worktree_text(repo, candidate)
+                if (repo / candidate).is_file()
+                else None
+            )
+        )
+        prior_fixture_resolver: Callable[[str], str | None] | None = None
         for test_path in discover_test_files(repo):
             if not test_path.endswith(".py") or test_path in changed:
                 continue
@@ -11504,8 +11563,48 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 python_dependency_cache,
             )
             dependency_candidates.update(_python_package_initializer_paths(test_path))
-            if dependency_candidates & changed_python_sources:
-                if _python_local_fixture_bindings(tree):
+            changed_dependencies = dependency_candidates & changed_python_sources
+            if changed_dependencies:
+                test_owned_changed_dependencies = {
+                    dependency
+                    for dependency in changed_dependencies
+                    if not dependency.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
+                }
+                fixture_bindings = _python_local_fixture_bindings(tree)
+                prior_text: str | None = None
+                if fixture_bindings and test_owned_changed_dependencies:
+                    if prior_fixture_resolver is None:
+                        base_paths = _base_file_paths(repo, base_sha)
+                        prior_fixture_resolver = _python_import_resolver(
+                            lambda candidate: (
+                                _read_worktree_text(repo, candidate)
+                                if candidate.startswith(
+                                    PYTHON_APPLICATION_SOURCE_PREFIXES
+                                )
+                                and (repo / candidate).is_file()
+                                else _base_text(repo, base_sha, candidate)
+                                if candidate in base_paths
+                                else None
+                            )
+                        )
+                    prior_text = _base_text(repo, base_sha, test_path)
+                if (
+                    fixture_bindings
+                    and test_owned_changed_dependencies
+                    and (
+                        prior_text is None
+                        or _python_local_fixture_dependency_identity(
+                            test_path,
+                            text,
+                            current_fixture_resolver,
+                        )
+                        != _python_local_fixture_dependency_identity(
+                            test_path,
+                            prior_text,
+                            prior_fixture_resolver,
+                        )
+                    )
+                ):
                     raise TestCorpusGuardError(
                         "changed module-local pytest fixture dependency cannot be "
                         "inventoried safely"
@@ -11762,9 +11861,18 @@ def _historical_source_refs(ledger: dict[str, Any]) -> dict[str, str]:
 def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
-    base_import_source_resolver = _python_import_resolver(
-        lambda candidate: _base_text(repo, base_sha, candidate)
-    )
+
+    def read_base_python_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if (
+            candidate.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
+            and target.is_file()
+            and _worktree_path_has_exact_case(repo, candidate)
+        ):
+            return _read_worktree_text(repo, candidate)
+        return _base_text(repo, base_sha, candidate)
+
+    base_import_source_resolver = _python_import_resolver(read_base_python_import)
     base_module_counts: dict[str, int] = {}
     base_python_paths_seen = 0
     for path in _base_file_paths(repo, base_sha):
@@ -11803,36 +11911,70 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior = _base_text(repo, base_sha, path)
         if prior is None:
             continue
-        prior_refs = {
-            item.ref
-            for item in _parse_base_test_declarations(
-                repo,
-                base_sha,
-                path,
-                prior,
-                base_import_source_resolver,
-                base_frontend_source_cache,
-                base_frontend_initializer_cache,
-                base_frontend_runtime_dependency_cache,
-            )
-        }
+        prior_declarations = _parse_base_test_declarations(
+            repo,
+            base_sha,
+            path,
+            prior,
+            base_import_source_resolver,
+            base_frontend_source_cache,
+            base_frontend_initializer_cache,
+            base_frontend_runtime_dependency_cache,
+        )
+        prior_refs = {item.ref for item in prior_declarations}
         if path in current_paths:
             current_text = _read_worktree_text(repo, path)
-            current_refs = {
-                item.ref
-                for item in _parse_worktree_test_declarations(
-                    repo,
+            current_declarations = _parse_worktree_test_declarations(
+                repo,
+                path,
+                current_text,
+                worktree_import_source_resolver,
+                worktree_frontend_source_cache,
+                worktree_frontend_initializer_cache,
+                worktree_frontend_runtime_dependency_cache,
+            )
+            current_refs = {item.ref for item in current_declarations}
+        else:
+            current_text = None
+            current_declarations = ()
+            current_refs = set()
+        path_removed = prior_refs - current_refs
+        if path.endswith(".py") and current_text is not None and path_removed:
+            normalized_prior = tuple(
+                declaration
+                for declaration, _source in _python_inventory_entries(
+                    path,
+                    prior,
+                    base_import_source_resolver,
+                    normalize_non_aborting_runtime_helpers=True,
+                )
+            )
+            normalized_current = tuple(
+                declaration
+                for declaration, _source in _python_inventory_entries(
                     path,
                     current_text,
                     worktree_import_source_resolver,
-                    worktree_frontend_source_cache,
-                    worktree_frontend_initializer_cache,
-                    worktree_frontend_runtime_dependency_cache,
+                    normalize_non_aborting_runtime_helpers=True,
                 )
-            }
-        else:
-            current_refs = set()
-        removed.update(prior_refs - current_refs)
+            )
+            if len(normalized_prior) != len(prior_declarations) or len(
+                normalized_current
+            ) != len(current_declarations):
+                raise TestCorpusGuardError(
+                    "normalized Python test inventory is inconsistent"
+                )
+            current_normalized_refs = {item.ref for item in normalized_current}
+            path_removed.difference_update(
+                declaration.ref
+                for declaration, normalized in zip(
+                    prior_declarations,
+                    normalized_prior,
+                    strict=True,
+                )
+                if normalized.ref in current_normalized_refs
+            )
+        removed.update(path_removed)
     return tuple(sorted(removed))
 
 

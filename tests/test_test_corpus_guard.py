@@ -5243,6 +5243,173 @@ def test_removed_declarations_indexes_base_and_worktree_submodules(
     assert guard.removed_declarations(tmp_path, "a" * 40) == ()
 
 
+def test_removed_declarations_do_not_fingerprint_application_subject_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    test_source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import VALUES\n"
+        "@pytest.mark.parametrize('value', VALUES)\n"
+        "def test_case(value): assert value\n"
+    )
+    current_sources = {
+        test_path: test_source,
+        package_path: "",
+        module_path: "VALUES = (1, 2)\n",
+    }
+    base_sources = {
+        **current_sources,
+        module_path: "VALUES = (1,)\n",
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_normalize_non_aborting_runtime_helper_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = "tests/test_sample.py"
+    current = (
+        "def prepare_value(): return 'current'\n"
+        "def test_case(tmp_path): assert prepare_value()\n"
+    )
+    prior = (
+        "def prepare_value(): return 'prior'\n"
+        "def test_case(tmp_path): assert prepare_value()\n"
+    )
+    target = tmp_path / path
+    target.parent.mkdir(parents=True)
+    target.write_text(current)
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, candidate: prior if candidate == path else None,
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_bind_runtime_helper_abort_posture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = "tests/test_sample.py"
+    current = (
+        "import pytest\n"
+        "def prepare_value(): pytest.skip('disabled')\n"
+        "def test_case(tmp_path): assert prepare_value()\n"
+    )
+    prior = (
+        "import pytest\n"
+        "def prepare_value(): return 'enabled'\n"
+        "def test_case(tmp_path): assert prepare_value()\n"
+    )
+    target = tmp_path / path
+    target.parent.mkdir(parents=True)
+    target.write_text(current)
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, candidate: prior if candidate == path else None,
+    )
+
+    removed = guard.removed_declarations(tmp_path, "a" * 40)
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{path}::test_case::parametrize-sha256:")
+
+
+def test_removed_declarations_bind_parameter_data_during_helper_normalization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = "tests/test_sample.py"
+    current = (
+        "import pytest\n"
+        "def prepare_value(): return 'current'\n"
+        "@pytest.mark.parametrize('value', (2,))\n"
+        "def test_case(value): assert prepare_value() and value\n"
+    )
+    prior = (
+        "import pytest\n"
+        "def prepare_value(): return 'prior'\n"
+        "@pytest.mark.parametrize('value', (1,))\n"
+        "def test_case(value): assert prepare_value() and value\n"
+    )
+    target = tmp_path / path
+    target.parent.mkdir(parents=True)
+    target.write_text(current)
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, candidate: prior if candidate == path else None,
+    )
+
+    removed = guard.removed_declarations(tmp_path, "a" * 40)
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{path}::test_case::parametrize-sha256:")
+
+
 def test_removed_declarations_bounds_base_module_index(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -8883,12 +9050,127 @@ def test_changed_module_local_fixture_import_dependency_fails_closed(
             args=[], returncode=0, stdout=next(outputs), stderr=b""
         ),
     )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def fixture_value(): return 'prior'\n"
+            if path == "tests/fixture_helper.py"
+            else (tmp_path / path).read_text()
+            if (tmp_path / path).is_file()
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base: {
+            "tests/fixture_helper.py",
+            "tests/test_case.py",
+        },
+    )
 
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed module-local pytest fixture dependency",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_application_subject_used_by_module_local_fixture_is_inventoried(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_case.py").write_text(
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import fixture_value\n"
+        "@pytest.fixture\n"
+        "def value(): return fixture_value()\n"
+        "def test_case(value): pass\n"
+    )
+    source_root = tmp_path / "src/ultimate_ai_agent"
+    source_root.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("")
+    (source_root / "subject.py").write_text("def fixture_value(): return 'current'\n")
+    outputs = iter(
+        (
+            b"src/ultimate_ai_agent/subject.py\0",
+            b"",
+            b"",
+            b"",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_case.py",)
+
+
+def test_changed_unrelated_import_in_module_with_local_fixture_is_inventoried(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_case.py").write_text(
+        "import pytest\n"
+        "from tests.fixture_helper import fixture_value\n"
+        "from tests.unrelated_helper import unrelated_value\n"
+        "@pytest.fixture\n"
+        "def value(): return fixture_value()\n"
+        "def test_case(value): assert value != unrelated_value()\n"
+    )
+    (tests_root / "fixture_helper.py").write_text(
+        "def fixture_value(): return 'stable'\n"
+    )
+    (tests_root / "unrelated_helper.py").write_text(
+        "def unrelated_value(): return 'current'\n"
+    )
+    outputs = iter(
+        (
+            b"tests/unrelated_helper.py\0",
+            b"",
+            b"",
+            b"",
+            b"tests/fixture_helper.py\0tests/test_case.py\0tests/unrelated_helper.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def unrelated_value(): return 'prior'\n"
+            if path == "tests/unrelated_helper.py"
+            else (tmp_path / path).read_text()
+            if (tmp_path / path).is_file()
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base: {
+            "tests/fixture_helper.py",
+            "tests/test_case.py",
+            "tests/unrelated_helper.py",
+        },
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ("tests/test_case.py",)
 
 
 def test_python_inventory_binds_autouse_fixture_package_initializer() -> None:
@@ -10673,6 +10955,101 @@ def test_changed_registered_pytest_fixture_helper_dependency_fails_closed(
     with pytest.raises(
         guard.TestCorpusGuardError,
         match="changed registered pytest dependency",
+    ):
+        guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_changed_application_subject_used_by_fixture_is_not_frozen(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import shared_value_impl\n"
+        "@pytest.fixture\n"
+        "def shared_value(): return shared_value_impl()\n"
+    )
+    source_root = tmp_path / "src/ultimate_ai_agent"
+    source_root.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("")
+    subject_path = source_root / "subject.py"
+    subject_path.write_text("def shared_value_impl(): return 'current'\n")
+    outputs = iter(
+        (
+            b"src/ultimate_ai_agent/subject.py\0",
+            b"",
+            b"",
+            b"",
+            b"src/ultimate_ai_agent/subject.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def shared_value_impl(): return 'prior'\n"
+            if path == "src/ultimate_ai_agent/subject.py"
+            else None
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
+
+
+def test_changed_application_subject_pytest_hook_still_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "conftest.py").write_text(
+        "from ultimate_ai_agent.subject import pytest_collection_modifyitems\n"
+    )
+    source_root = tmp_path / "src/ultimate_ai_agent"
+    source_root.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("")
+    subject_path = source_root / "subject.py"
+    subject_path.write_text(
+        "def pytest_collection_modifyitems(items):\n    items.clear()\n"
+    )
+    outputs = iter(
+        (
+            b"src/ultimate_ai_agent/subject.py\0",
+            b"",
+            b"",
+            b"",
+            b"src/ultimate_ai_agent/subject.py\0",
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base, path: (
+            "def pytest_collection_modifyitems(items):\n    items[:] = items\n"
+            if path == "src/ultimate_ai_agent/subject.py"
+            else None
+        ),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="changed registered pytest collection hooks",
     ):
         guard._changed_test_paths(tmp_path, "a" * 40)
 
