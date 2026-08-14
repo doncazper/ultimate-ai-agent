@@ -110,10 +110,10 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     assert "VERIFY_DEV_FAST_JOBS ?= 4" in text
     assert "PYTEST_SHARD_WORKERS ?= 4" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
-    assert "$(PYTHON) scripts/verify_all.py" in text
+    assert "$(PYTHON) scripts/verification/run_static_verification_lane.py" in text
     assert (
-        "$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)"
-        in text
+        "$(PYTHON) scripts/verification/run_static_verification_lane.py "
+        "--skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)" in text
     )
     assert (
         "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture"
