@@ -311,7 +311,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     if target != "openwebui":
         print(f"Unsupported setup install target: {target}")
         return 2
-    plan = _openwebui_install_plan(root, args)
+    plan = _openwebui_install_plan(root)
     try:
         _attach_install_approval_paths(root, plan, args)
     except ValueError as exc:
@@ -1361,7 +1361,10 @@ def _validate_bootstrap_receipt_path(root: Path, value: Path | str) -> Path:
     candidate = raw if raw.is_absolute() else root / raw
     if candidate.is_symlink():
         raise ValueError("--receipt must not be a symlink")
-    path = _canonical_user_scope_path(root, value, option_name="--receipt")
+    try:
+        path = _canonical_user_scope_path(root, value, option_name="--receipt")
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("--receipt could not be resolved safely") from exc
     if path.exists():
         raise ValueError("--receipt already exists; refusing to overwrite an unrelated receipt file")
     if path.parent.exists() and not path.parent.is_dir():
@@ -2879,10 +2882,7 @@ def _env_summary_from_findings(findings: list[SetupFinding]) -> str:
     return "safe env comparison found " + ", ".join(parts)
 
 
-def _openwebui_install_plan(root: Path, args: argparse.Namespace | None = None) -> dict[str, Any]:
-    plan_args = args or argparse.Namespace(receipt=None)
-    requested_receipt = getattr(plan_args, "receipt", None)
-    requested_receipt_path = Path(str(requested_receipt)).expanduser() if requested_receipt else None
+def _openwebui_install_plan(root: Path) -> dict[str, Any]:
     command = ["docker", "pull", OPENWEBUI_IMAGE]
     plan = {
         "target": "openwebui",
@@ -2915,12 +2915,8 @@ def _openwebui_install_plan(root: Path, args: argparse.Namespace | None = None) 
             "tool/function authority",
             "memory write",
         ],
-        "receipt_path": (
-            requested_receipt_path
-            if requested_receipt_path is not None
-            else _install_receipt_path(root, target="openwebui")
-        ),
-        "receipt_scope_ref": _install_receipt_scope_ref(requested_receipt_path),
+        "receipt_path": _install_receipt_path(root, target="openwebui"),
+        "receipt_scope_ref": _install_receipt_scope_ref(None),
         "rollback_steps": [
             "./scripts/dev/uaa openwebui stop",
             f"Optional image rollback after review: docker image rm {OPENWEBUI_IMAGE}",

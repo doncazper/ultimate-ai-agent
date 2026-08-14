@@ -449,9 +449,11 @@ def test_setup_install_custom_receipt_mismatch_fails_closed(
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
-    plan = setup._openwebui_install_plan(
+    plan = setup._openwebui_install_plan(tmp_path)
+    setup._attach_install_approval_paths(
         tmp_path,
-        SimpleNamespace(receipt=str(first_receipt)),
+        plan,
+        _setup_args(receipt=str(first_receipt)),
     )
     setup.write_setup_install_approval_token(tmp_path, plan, token_path)
 
@@ -488,12 +490,15 @@ def test_setup_install_custom_receipt_rejects_unsafe_paths(
     existing.write_text("keep", encoding="utf-8")
     symlink = home / "symlink.json"
     symlink.symlink_to(home / "missing-target.json")
+    loop_parent = home / "loop"
+    loop_parent.symlink_to(loop_parent)
     world_writable = home / "shared"
     world_writable.mkdir(mode=0o777)
     world_writable.chmod(0o777)
     unsafe = [
         (existing, "already exists"),
         (symlink, "must not be a symlink"),
+        (loop_parent / "receipt.json", "could not be resolved safely"),
         (tmp_path / "outside.json", "current user's home"),
         (world_writable / "receipt.json", "world-writable"),
     ]
