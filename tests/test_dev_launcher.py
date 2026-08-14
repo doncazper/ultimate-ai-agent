@@ -916,6 +916,52 @@ def test_command_start_does_not_restart_frontend_after_backend_is_blocked(
     assert "backend: blocked" in capsys.readouterr().out
 
 
+def test_command_ui_refuses_endpoint_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    opened: list[str] = []
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda _path: 12345)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda _service, _pid: False)
+    monkeypatch.setattr(launcher.webbrowser, "open", opened.append)
+
+    code = launcher.command_ui(ROOT)
+
+    assert code == 1
+    assert opened == []
+
+
+def test_gateway_diagnostics_never_send_bearer_to_unowned_backend(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+    requested: list[tuple[str, dict[str, str] | None]] = []
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "is_port_open", lambda *_args: False)
+    monkeypatch.setattr(launcher, "launcher_owns_service", lambda _service: False)
+    monkeypatch.setattr(
+        launcher,
+        "url_status",
+        lambda url, headers=None, **_kwargs: requested.append((url, headers)) or 200,
+    )
+
+    _ok, failures = launcher.check_openwebui_doctor(ROOT)
+
+    assert any("bearer was not sent" in failure for failure in failures)
+    assert requested == [(f"{launcher.backend_url()}{launcher.BACKEND_HEALTH_PATH}", None)]
+
+    requested.clear()
+    monkeypatch.setattr(launcher, "status_for_service", lambda _service: "openwebui: not running")
+    code = launcher.command_openwebui_status(ROOT)
+    captured = capsys.readouterr()
+
+    assert code == 1
+    assert requested == []
+    assert "bearer not sent" in captured.out
+
+
 def test_running_service_requires_exact_requested_endpoint(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1190,6 +1236,40 @@ def test_stop_service_discards_untrusted_pid_metadata(monkeypatch: pytest.Monkey
     assert result == "backend: removed untrusted pid file"
     assert not service.pid_file.exists()
     assert not service.metadata_file.exists()
+    assert kill_calls == []
+
+
+def test_stop_service_retains_owned_metadata_on_endpoint_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    launcher = load_launcher()
+    running = launcher.service_config(tmp_path, "backend")
+    running.pid_file.parent.mkdir(parents=True)
+    running.pid_file.write_text("12345\n", encoding="utf-8")
+    running.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": running.name,
+                "pid": 12345,
+                "command": running.command,
+                "cwd": str(running.cwd),
+                "url": running.url,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    requested = launcher.service_config(tmp_path, "backend")
+    kill_calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher.os, "killpg", lambda pid, sig: kill_calls.append((pid, sig)))
+
+    result = launcher.stop_service(requested, root=tmp_path)
+
+    assert "ownership metadata retained" in result
+    assert running.pid_file.exists()
+    assert running.metadata_file.exists()
     assert kill_calls == []
 
 

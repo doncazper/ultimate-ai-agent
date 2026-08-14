@@ -724,6 +724,7 @@ def test_backend_port_distinguishes_uaa_health_from_generic_http(monkeypatch: py
 
 def test_setup_probes_honor_launcher_endpoint_overrides(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     setup = load_setup()
     monkeypatch.setenv(setup.UAA_LAUNCHER_BACKEND_HOST_ENV, "localhost")
@@ -758,8 +759,9 @@ def test_setup_probes_honor_launcher_endpoint_overrides(
         "_url_status",
         lambda url, **_kwargs: requested_urls.append(url) or 200,
     )
+    monkeypatch.setattr(setup, "_launcher_owns_backend", lambda _root, _url: True)
 
-    gateway = setup._probe_uaa_gateway_status(mode="smoke")
+    gateway = setup._probe_uaa_gateway_status(tmp_path, mode="smoke")
 
     assert gateway.status == "pass"
     assert requested_urls == ["http://127.0.0.1:8100/v1/models"]
@@ -780,6 +782,66 @@ def test_setup_probes_honor_launcher_endpoint_overrides(
     )
     assert "Open http://127.0.0.1:5273." in frontend_steps
     assert "Open http://127.0.0.1:3100 and select uaa-safe-local." in smoke_steps
+
+
+def test_setup_gateway_probe_never_sends_bearer_to_unowned_backend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    requested: list[str] = []
+    monkeypatch.setattr(setup, "_is_port_open", lambda _host, _port: True)
+    monkeypatch.setattr(setup, "_launcher_owns_backend", lambda _root, _url: False)
+    monkeypatch.setattr(
+        setup,
+        "_url_status",
+        lambda url, **_kwargs: requested.append(url) or 200,
+    )
+
+    finding = setup._probe_uaa_gateway_status(tmp_path, mode="smoke")
+
+    assert finding.status == "manual"
+    assert "bearer was not sent" in finding.summary
+    assert requested == []
+
+
+def test_setup_backend_ownership_requires_exact_launcher_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    state = tmp_path / ".uaa" / "dev"
+    (state / "pids").mkdir(parents=True)
+    pid_file = state / "pids" / "backend.pid"
+    pid_file.write_text("0\n", encoding="utf-8")
+    assert setup._launcher_owns_backend(tmp_path, setup.BACKEND_URL) is False
+
+    pid_file.write_text("12345\n", encoding="utf-8")
+    url = setup.BACKEND_URL
+    metadata = {
+        "name": "backend",
+        "pid": 12345,
+        "command": [
+            str(tmp_path / ".venv" / "bin" / "python"),
+            "-m",
+            "uvicorn",
+            "ultimate_ai_agent.api.app:app",
+            "--host",
+            setup.BACKEND_HOST,
+            "--port",
+            str(setup.BACKEND_PORT),
+        ],
+        "cwd": str(tmp_path),
+        "url": url,
+    }
+    (state / "backend.json").write_text(json.dumps(metadata), encoding="utf-8")
+    monkeypatch.setattr(setup.os, "kill", lambda _pid, _sig: None)
+
+    assert setup._launcher_owns_backend(tmp_path, url)
+
+    metadata["url"] = "http://127.0.0.1:8001"
+    (state / "backend.json").write_text(json.dumps(metadata), encoding="utf-8")
+    assert setup._launcher_owns_backend(tmp_path, url) is False
 
 
 def test_setup_rejects_unsupported_launcher_ipv6_override(

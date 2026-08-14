@@ -593,6 +593,52 @@ def metadata_matches_process(service: Service, pid: int) -> bool:
     )
 
 
+def _endpoint_agnostic_command(service_name: str, command: object) -> list[str] | None:
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return None
+    normalized = list(command)
+    if service_name in {"backend", "frontend"}:
+        try:
+            host_index = normalized.index("--host") + 1
+            port_index = normalized.index("--port") + 1
+            validate_local_host(normalized[host_index])
+            port = int(normalized[port_index])
+            if not 1 <= port <= 65535:
+                return None
+        except (ValueError, IndexError):
+            return None
+        normalized[host_index] = "launcher-service-host"
+        normalized[port_index] = "launcher-service-port"
+        return normalized
+    if service_name == "openwebui":
+        normalized = _openwebui_identity_command(normalized) or []
+        try:
+            publish_index = normalized.index("-p") + 1
+            host, raw_port, container_port = normalized[publish_index].split(":")
+            validate_local_host(host)
+            port = int(raw_port)
+            if not 1 <= port <= 65535 or container_port != "8080":
+                return None
+        except (ValueError, IndexError):
+            return None
+        normalized[publish_index] = "launcher-service-endpoint:8080"
+        return normalized
+    return None
+
+
+def metadata_matches_launcher_process(service: Service, pid: int) -> bool:
+    data = _read_service_metadata(service)
+    if data is None:
+        return False
+    return (
+        data.get("name") == service.name
+        and data.get("pid") == pid
+        and data.get("cwd") == str(service.cwd)
+        and _endpoint_agnostic_command(service.name, data.get("command"))
+        == _endpoint_agnostic_command(service.name, service.command)
+    )
+
+
 def metadata_matches_service(service: Service, pid: int) -> bool:
     if not metadata_matches_process(service, pid):
         return False
@@ -810,6 +856,9 @@ def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
 
     if not gateway_key:
         failures.append(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set when using the llama.cpp gateway")
+        return ok, failures
+    if not launcher_owns_service(service_config(root, "backend")):
+        failures.append("UAA backend ownership is unproven; the local gateway bearer was not sent")
         return ok, failures
 
     gateway_status = url_status(
@@ -1117,6 +1166,11 @@ def stop_service(service: Service, root: Path | None = None) -> str:
     if pid is None:
         return f"{service.name}: not running"
     if not metadata_matches_process(service, pid):
+        if metadata_matches_launcher_process(service, pid):
+            return (
+                f"{service.name}: blocked; requested endpoint does not match the "
+                "running launcher process; ownership metadata retained"
+            )
         service.pid_file.unlink(missing_ok=True)
         service.metadata_file.unlink(missing_ok=True)
         return f"{service.name}: removed untrusted pid file"
@@ -1265,6 +1319,10 @@ def command_ui(root: Path) -> int:
     frontend = service_config(root, "frontend")
     if cleanup_stale_pid(frontend.pid_file) != "running":
         print("Control Center is not running. Run: uaa start")
+        return 1
+    pid = read_pid_file(frontend.pid_file)
+    if pid is None or not metadata_matches_service(frontend, pid):
+        print("Control Center endpoint does not match the running launcher process. Run: uaa status")
         return 1
     webbrowser.open(frontend.url)
     print(f"Opened {frontend.url}")
@@ -1416,6 +1474,9 @@ def command_openwebui_status(root: Path) -> int:
     gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
     if not gateway_key:
         print(f"uaa-gateway: not ready ({UAA_LLAMA_CPP_GATEWAY_KEY_ENV} is unset)")
+        return 1
+    if not launcher_owns_service(service_config(root, "backend")):
+        print("uaa-gateway: not ready (backend ownership unproven; bearer not sent)")
         return 1
     gateway_status = url_status(
         f"{backend_url()}/v1/models",

@@ -1702,7 +1702,7 @@ def build_setup_report(
             [
                 _probe_local_llama_gateway_env(model_id),
                 _probe_model_alias(mode=effective_mode, model_id=model_id),
-                _probe_uaa_gateway_status(mode=effective_mode),
+                _probe_uaa_gateway_status(root, mode=effective_mode),
                 _probe_llama_server(),
                 _probe_llama_server_port(),
             ]
@@ -1712,7 +1712,7 @@ def build_setup_report(
             [
                 _probe_smoke_gateway_env(),
                 _probe_model_alias(mode=effective_mode, model_id=model_id),
-                _probe_uaa_gateway_status(mode=effective_mode),
+                _probe_uaa_gateway_status(root, mode=effective_mode),
             ]
         )
     elif mode == "frontier":
@@ -2595,7 +2595,48 @@ def _report_model_alias(report: SetupReport) -> str:
     return report.model_id
 
 
-def _probe_uaa_gateway_status(*, mode: str) -> SetupFinding:
+def _launcher_owns_backend(root: Path, url: str) -> bool:
+    pid_file = root / ".uaa" / "dev" / "pids" / "backend.pid"
+    metadata_file = root / ".uaa" / "dev" / "backend.json"
+    try:
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
+    except (FileNotFoundError, UnicodeDecodeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    try:
+        metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(metadata, dict):
+        return False
+    parsed = urllib_parse.urlsplit(url)
+    expected_command = [
+        str(root / ".venv" / "bin" / "python"),
+        "-m",
+        "uvicorn",
+        "ultimate_ai_agent.api.app:app",
+        "--host",
+        parsed.hostname or BACKEND_HOST,
+        "--port",
+        str(parsed.port or BACKEND_PORT),
+    ]
+    return (
+        metadata.get("name") == "backend"
+        and metadata.get("pid") == pid
+        and metadata.get("command") == expected_command
+        and metadata.get("cwd") == str(root)
+        and metadata.get("url") == url
+    )
+
+
+def _probe_uaa_gateway_status(root: Path, *, mode: str) -> SetupFinding:
     if mode == "frontier":
         return SetupFinding(
             "UAA local gateway",
@@ -2625,6 +2666,13 @@ def _probe_uaa_gateway_status(*, mode: str) -> SetupFinding:
             "manual",
             f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} is not exported, so /v1/models was not checked.",
             f"Source {LOCAL_ENV_PATH} before running uaa start.",
+        )
+    if not _launcher_owns_backend(root, url):
+        return SetupFinding(
+            "UAA local gateway",
+            "manual",
+            "UAA backend ownership is unproven, so the configured local bearer was not sent.",
+            "Run uaa status and restart the backend with the requested endpoint before retrying setup.",
         )
     status = _url_status(
         f"{url}/v1/models",
