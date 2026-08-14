@@ -289,3 +289,16 @@ repository mutation, commit, push, and draft-PR creation remain separate exact
 capabilities subject to fresh request-scoped evaluation. Use
 `docs/prompts/uaa_developer_feedback/00_execute_all_review_verify_harden.prompt.md`
 for the finite merge-gated wrapper.
+
+## Governed self-improvement end-to-end prompt
+
+The single operator-run integration prompt at
+`docs/prompts/governed_self_improvement_end_to_end.prompt.md` connects UAA's
+existing health recommendations, Action Inbox decisions, Evidence lifecycle,
+task and patch conversion, workflow promotion, agent-created skill proposals,
+bounded implementation runner, validation/repair, exact Git and draft-PR
+handoff, outcome evaluation, and reversible learning updates. It requires real
+backend-owned end-to-end proof instead of planned, partial, mock, or read-model
+completion. The prompt grants no runtime authority by itself: implementation,
+Git, skill activation, recurring workflow activation, and any consequential
+mutation remain exact approval-bound capabilities, and merge remains manual.
