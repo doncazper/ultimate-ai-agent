@@ -4793,10 +4793,27 @@ def _unproven_registration_regions(
                 if (start, end) != (suite_start, suite_end)
             ):
                 continue
-            statement_end = _unbraced_expression_end(
-                text,
-                scan_text,
-                exit_start,
+            newline_offsets = tuple(
+                offset
+                for offset in (
+                    text.find("\r", exit_match.end()),
+                    text.find("\n", exit_match.end()),
+                )
+                if offset >= 0
+            )
+            line_end = min(newline_offsets) if newline_offsets else len(text)
+            bare_return = (
+                exit_match.group(0) == "return"
+                and not scan_text[exit_match.end() : line_end].strip()
+            )
+            statement_end = (
+                line_end
+                if bare_return
+                else _unbraced_expression_end(
+                    text,
+                    scan_text,
+                    exit_start,
+                )
             )
             expression_regions.add((statement_end, suite_end))
 

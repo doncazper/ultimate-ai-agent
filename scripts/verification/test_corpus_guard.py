@@ -1129,21 +1129,33 @@ def _post_definition_execution_mark_targets(
     """Return declarations mutated by post-definition pytest execution marks."""
 
     pytest_names = {"pytest", *_pytest_module_aliases(tree)}
+    imported_mark_names = {
+        imported.asname or imported.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module == "pytest"
+        for imported in node.names
+        if imported.name == "mark"
+    }
 
-    def is_execution_mark(node: ast.AST) -> bool:
-        return (
+    def is_execution_mark(
+        node: ast.AST,
+        *,
+        before: tuple[int, int],
+    ) -> bool:
+        if not (
             isinstance(node, ast.Attribute)
             and node.attr in {*PYTEST_EXECUTION_DISABLING_MARKS, "xfail"}
-            and isinstance(node.value, ast.Attribute)
-            and node.value.attr == "mark"
-            and (
-                (root := _root_name(node)) in pytest_names
-                or (
-                    root is not None
-                    and "pytest" in imported_modules.get(root, ())
-                )
+        ):
+            return False
+        if isinstance(node.value, ast.Attribute) and node.value.attr == "mark":
+            root = _root_name(node)
+            return root in pytest_names or (
+                root is not None and "pytest" in imported_modules.get(root, ())
             )
-        )
+        if not isinstance(node.value, ast.Name):
+            return False
+        aliases = _module_name_aliases(tree, before=before)
+        return aliases.get(node.value.id, node.value.id) in imported_mark_names
 
     targets: set[str] = set()
     for child in _module_execution_nodes(tree):
@@ -1151,10 +1163,14 @@ def _post_definition_execution_mark_targets(
             continue
         decorator_call: ast.Call | None = None
         decorated_arguments: tuple[ast.AST, ...] = ()
-        if is_execution_mark(child.func):
+        position = (child.lineno, child.col_offset)
+        if is_execution_mark(child.func, before=position):
             decorator_call = child
             decorated_arguments = tuple(child.args[:1])
-        elif isinstance(child.func, ast.Call) and is_execution_mark(child.func.func):
+        elif isinstance(child.func, ast.Call) and is_execution_mark(
+            child.func.func,
+            before=position,
+        ):
             decorator_call = child.func
             decorated_arguments = tuple(child.args)
         if decorator_call is None:
@@ -1229,10 +1245,16 @@ def _helper_mediated_test_flag_targets(tree: ast.Module) -> set[str]:
         if (
             not isinstance(child, ast.Call)
             or not isinstance(child.func, ast.Name)
-            or child.func.id not in local_functions
         ):
             continue
-        function = local_functions[child.func.id]
+        name_aliases = _module_name_aliases(
+            tree,
+            before=(child.lineno, child.col_offset),
+        )
+        helper_name = name_aliases.get(child.func.id, child.func.id)
+        if helper_name not in local_functions:
+            continue
+        function = local_functions[helper_name]
         parameters = [
             argument.arg
             for argument in (*function.args.posonlyargs, *function.args.args)
@@ -1247,10 +1269,6 @@ def _helper_mediated_test_flag_targets(tree: ast.Module) -> set[str]:
                 for keyword in child.keywords
                 if keyword.arg is not None
             }
-        )
-        name_aliases = _module_name_aliases(
-            tree,
-            before=(child.lineno, child.col_offset),
         )
         for parameter, argument in supplied.items():
             if not mutates_parameter(function, parameter):
@@ -8183,7 +8201,7 @@ def _python_inventory_entries(
             "post-definition Python parametrization cannot be inventoried safely"
         )
     if _post_definition_execution_mark_targets(tree, imported_modules) & (
-        declared_test_names | declared_test_class_names
+        declared_test_names | collected_binding_names
     ):
         raise TestCorpusGuardError(
             "post-definition Python execution mark cannot be inventoried safely"

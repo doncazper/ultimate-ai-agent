@@ -2058,10 +2058,38 @@ if True:
             "post-definition Python execution mark",
         ),
         (
+            "from pytest import mark\n"
+            "def test_case(): pass\n"
+            'mark.skip(reason="retired")(test_case)\n',
+            "post-definition Python execution mark",
+        ),
+        (
+            "from pytest import mark\n"
+            "execution_mark = mark\n"
+            "def test_case(): pass\n"
+            'execution_mark.xfail(reason="retired")(test_case)\n',
+            "post-definition Python execution mark",
+        ),
+        (
             "def disable(function): function.__test__ = False\n"
             "def test_case(): pass\n"
             "disable(test_case)\n",
             "dynamic Python function __test__ mutation",
+        ),
+        (
+            "def disable(function): function.__test__ = False\n"
+            "def test_case(): pass\n"
+            "mask = disable\n"
+            "mask(test_case)\n",
+            "dynamic Python function __test__ mutation",
+        ),
+        (
+            "import pytest\n"
+            "import unittest\n"
+            "class Cases(unittest.TestCase):\n"
+            "    def test_case(self): pass\n"
+            'pytest.mark.skip(reason="retired")(Cases)\n',
+            "post-definition Python execution mark",
         ),
         (
             "import pytest\n"
@@ -7815,6 +7843,11 @@ def test_frontend_inventory_rejects_additional_unproven_collection_shapes(
         (
             'describe("suite", () => { return; '
             'test("case", () => {}); });\n',
+            "registration context",
+        ),
+        (
+            'describe("suite", () => {\n  return\n  '
+            'test("case", () => {});\n});\n',
             "registration context",
         ),
         (
