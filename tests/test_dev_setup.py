@@ -362,7 +362,7 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     assert token_payload["used_at"]
     assert payload["side_effects_allowed"] == [
         "Docker may download and store the configured OpenWebUI image in the local Docker image cache.",
-        "A redacted local receipt may be written under .uaa/dev/setup-install-receipts.",
+        "A redacted local receipt may be written under .uaa/dev/setup-install-receipts by default, or to --receipt.",
     ]
     assert "docker image rm" in "\n".join(payload["rollback_steps"])
     assert "explicit canonical-path review" in captured.out
@@ -370,6 +370,149 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     assert "secret-value" not in captured.out
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
     assert "secret-value" not in approval_receipt.read_text(encoding="utf-8")
+
+
+def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    receipt_path = home / ".local" / "state" / "uaa" / "openwebui-receipt.json"
+    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
+    receipt_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
+    monkeypatch.setattr(sys, "stdin", io.StringIO("install openwebui\n"))
+
+    token_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(receipt_path),
+            write_approval_token=str(token_path),
+        ),
+    )
+    token_payload = json.loads(token_path.read_text(encoding="utf-8"))
+
+    calls = []
+    monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker"))
+    monkeypatch.setattr(
+        setup,
+        "_run_probe",
+        lambda command, **kwargs: {"returncode": 0, "stdout": "27.0.0\n", "stderr": ""},
+    )
+    monkeypatch.setattr(
+        setup,
+        "_run_install_command",
+        lambda command: calls.append(command) or {"returncode": 0, "summary": "completed"},
+    )
+
+    install_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            yes=True,
+            approval_token=str(token_path),
+            receipt=str(receipt_path),
+        ),
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+
+    assert token_exit == 0
+    assert install_exit == 0
+    assert calls == [[str(Path("/tmp/docker")), "pull", setup.OPENWEBUI_IMAGE]]
+    assert payload["status"] == "installed"
+    assert payload["receipt"] == "~/.local/state/uaa/openwebui-receipt.json"
+    assert payload["receipt_scope_ref"].startswith("receipt-path-sha256:")
+    assert payload["preview_hash"] == token_payload["preview_hash"]
+    assert str(home) not in captured.out
+    assert str(home) not in receipt_path.read_text(encoding="utf-8")
+    assert stat.S_IMODE(receipt_path.stat().st_mode) == 0o600
+
+
+def test_setup_install_custom_receipt_mismatch_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    first_receipt = home / "state" / "first.json"
+    second_receipt = home / "state" / "second.json"
+    token_path = home / "state" / "approval.json"
+    first_receipt.parent.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
+    monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
+    plan = setup._openwebui_install_plan(
+        tmp_path,
+        SimpleNamespace(receipt=str(first_receipt)),
+    )
+    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            yes=True,
+            approval_token=str(token_path),
+            receipt=str(second_receipt),
+        ),
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(second_receipt.read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert payload["status"] == "failed"
+    assert "preview hash mismatch" in captured.out.lower()
+    assert payload["receipt"] == "~/state/second.json"
+
+
+def test_setup_install_custom_receipt_rejects_unsafe_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+
+    existing = home / "existing.json"
+    existing.write_text("keep", encoding="utf-8")
+    symlink = home / "symlink.json"
+    symlink.symlink_to(home / "missing-target.json")
+    world_writable = home / "shared"
+    world_writable.mkdir(mode=0o777)
+    world_writable.chmod(0o777)
+    unsafe = [
+        (existing, "already exists"),
+        (symlink, "must not be a symlink"),
+        (tmp_path / "outside.json", "current user's home"),
+        (world_writable / "receipt.json", "world-writable"),
+    ]
+
+    for receipt_path, expected in unsafe:
+        exit_code = setup.command_setup(
+            tmp_path,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                receipt=str(receipt_path),
+            ),
+        )
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert expected in captured.out
+
+    assert existing.read_text(encoding="utf-8") == "keep"
+    assert not (world_writable / "receipt.json").exists()
 
 
 def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -929,7 +1072,17 @@ def test_launcher_parser_exposes_setup_install_command() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(
-        ["setup", "install", "--target", "openwebui", "--yes", "--approval-token", "~/.local/state/uaa/install-approval.json"]
+        [
+            "setup",
+            "install",
+            "--target",
+            "openwebui",
+            "--yes",
+            "--approval-token",
+            "~/.local/state/uaa/install-approval.json",
+            "--receipt",
+            "~/.local/state/uaa/openwebui-receipt.json",
+        ]
     )
 
     assert args.command == "setup"
@@ -937,6 +1090,7 @@ def test_launcher_parser_exposes_setup_install_command() -> None:
     assert args.target == "openwebui"
     assert args.yes is True
     assert args.approval_token == "~/.local/state/uaa/install-approval.json"
+    assert args.receipt == "~/.local/state/uaa/openwebui-receipt.json"
 
 
 def _stable_report(setup: Any) -> Any:
@@ -981,6 +1135,7 @@ def _setup_args(**overrides: Any) -> Any:
         "yes": False,
         "approval_token": None,
         "write_approval_token": None,
+        "receipt": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)

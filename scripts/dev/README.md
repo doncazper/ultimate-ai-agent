@@ -82,11 +82,13 @@ OpenWebUI Docker image:
 
 ```bash
 uaa setup install --target openwebui
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json"
 ```
 
 That command prints the exact `docker pull` command, asks you to type
-`install openwebui` before running it, and writes a redacted receipt under
-`.uaa/dev/setup-install-receipts/`. For noninteractive automation, first write
+`install openwebui` before running it, and writes a redacted receipt (default:
+`.uaa/dev/setup-install-receipts/`, or a custom path with `--receipt`). For
+noninteractive automation, first write
 a preview-bound approval token after typed approval:
 
 ```bash

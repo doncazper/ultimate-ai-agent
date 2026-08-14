@@ -210,6 +210,11 @@ def add_setup_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     install_parser.add_argument("--approval-token", default=None)
     install_parser.add_argument("--write-approval-token", default=None)
+    install_parser.add_argument(
+        "--receipt",
+        default=None,
+        help="Write the setup install receipt to an explicit existing-safe path.",
+    )
     bootstrap_parser = setup_subparsers.add_parser(
         "bootstrap",
         help="Download and run a pinned, verified UAA GitHub Release bootstrap artifact after approval.",
@@ -306,7 +311,7 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     if target != "openwebui":
         print(f"Unsupported setup install target: {target}")
         return 2
-    plan = _openwebui_install_plan(root)
+    plan = _openwebui_install_plan(root, args)
     try:
         _attach_install_approval_paths(root, plan, args)
     except ValueError as exc:
@@ -1352,6 +1357,10 @@ def _validate_bootstrap_dir_path(root: Path, value: Path | str, *, option_name: 
 
 
 def _validate_bootstrap_receipt_path(root: Path, value: Path | str) -> Path:
+    raw = Path(value)
+    candidate = raw if raw.is_absolute() else root / raw
+    if candidate.is_symlink():
+        raise ValueError("--receipt must not be a symlink")
     path = _canonical_user_scope_path(root, value, option_name="--receipt")
     if path.exists():
         raise ValueError("--receipt already exists; refusing to overwrite an unrelated receipt file")
@@ -1854,7 +1863,7 @@ def render_install_plan(plan: dict[str, Any]) -> str:
             "- Use --write-approval-token PATH after typed approval to create a single-use token without pulling the image.",
             "",
             "Receipt:",
-            f"- A redacted local receipt will be written under {SETUP_INSTALL_RECEIPT_DIR}.",
+            f"- A redacted local receipt will be written to {_safe_path_summary(plan['receipt_path'])}.",
             "",
             "Rollback:",
         ]
@@ -1871,7 +1880,7 @@ def write_setup_install_receipt(
     status: str,
     result_summary: str,
 ) -> Path:
-    target = _install_receipt_path(root, target=plan["target"])
+    target = plan["receipt_path"]
     payload = {
         "schema": "uaa.setup_install_receipt.v1",
         "target": plan["target"],
@@ -1880,6 +1889,8 @@ def write_setup_install_receipt(
         "action": plan["action"],
         "status": status,
         "result_summary": _safe_summary_text(result_summary),
+        "receipt": _safe_path_summary(target),
+        "receipt_scope_ref": plan["receipt_scope_ref"],
         "image_ref": plan["image_ref"],
         "preview_hash": plan["preview_hash"],
         "approval_mode": plan.get("approval_mode", "not-approved"),
@@ -2868,8 +2879,10 @@ def _env_summary_from_findings(findings: list[SetupFinding]) -> str:
     return "safe env comparison found " + ", ".join(parts)
 
 
-def _openwebui_install_plan(root: Path) -> dict[str, Any]:
-    _ = root
+def _openwebui_install_plan(root: Path, args: argparse.Namespace | None = None) -> dict[str, Any]:
+    plan_args = args or argparse.Namespace(receipt=None)
+    requested_receipt = getattr(plan_args, "receipt", None)
+    requested_receipt_path = Path(str(requested_receipt)).expanduser() if requested_receipt else None
     command = ["docker", "pull", OPENWEBUI_IMAGE]
     plan = {
         "target": "openwebui",
@@ -2887,7 +2900,7 @@ def _openwebui_install_plan(root: Path) -> dict[str, Any]:
         ),
         "side_effects_allowed": [
             "Docker may download and store the configured OpenWebUI image in the local Docker image cache.",
-            "A redacted local receipt may be written under .uaa/dev/setup-install-receipts.",
+            "A redacted local receipt may be written under .uaa/dev/setup-install-receipts by default, or to --receipt.",
         ],
         "side_effects_denied": [
             "Python install",
@@ -2902,6 +2915,12 @@ def _openwebui_install_plan(root: Path) -> dict[str, Any]:
             "tool/function authority",
             "memory write",
         ],
+        "receipt_path": (
+            requested_receipt_path
+            if requested_receipt_path is not None
+            else _install_receipt_path(root, target="openwebui")
+        ),
+        "receipt_scope_ref": _install_receipt_scope_ref(requested_receipt_path),
         "rollback_steps": [
             "./scripts/dev/uaa openwebui stop",
             f"Optional image rollback after review: docker image rm {OPENWEBUI_IMAGE}",
@@ -2927,6 +2946,14 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
             root,
             Path(str(write_approval_token)).expanduser(),
         )
+    receipt_path = getattr(args, "receipt", None)
+    if receipt_path:
+        plan["receipt_path"] = _validate_bootstrap_receipt_path(
+            root,
+            Path(str(receipt_path)).expanduser(),
+        )
+        plan["receipt_scope_ref"] = _install_receipt_scope_ref(plan["receipt_path"])
+        plan["preview_hash"] = _install_preview_hash(plan)
 
 
 def _install_preview_hash(plan: dict[str, Any]) -> str:
@@ -2937,10 +2964,20 @@ def _install_preview_hash(plan: dict[str, Any]) -> str:
         "action": plan["action"],
         "image_ref": plan["image_ref"],
         "commands": [_shell_preview(command) for command in plan["commands"]],
+        "receipt_scope_ref": plan["receipt_scope_ref"],
         "rollback_steps": plan["rollback_steps"],
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _install_receipt_scope_ref(receipt_path: Path | None) -> str:
+    if receipt_path is None:
+        return "receipt-scope:default-generated"
+    digest = hashlib.sha256(
+        str(receipt_path.resolve(strict=False)).encode("utf-8")
+    ).hexdigest()
+    return f"receipt-path-sha256:{digest}"
 
 
 def write_setup_install_approval_token(
