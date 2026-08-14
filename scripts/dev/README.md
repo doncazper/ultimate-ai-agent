@@ -250,13 +250,17 @@ default browser, prints status and log locations, and waits for a key before
 closing. The generated desktop launcher enables
 `UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1` so if a requested launcher port is
 already occupied by an unverified local process, it transparently switches to a
-nearby free port and continues.
+nearby free port and continues. Later status and stop commands reuse that
+endpoint only when its running PID and existing launcher metadata still match
+the exact reconstructed service command.
 
 ## Safety Boundary
 
 - localhost-only: backend default `127.0.0.1:8000`, frontend default
   `127.0.0.1:5173`. Both can be overridden via `UAA_LAUNCHER_*` environment
-  variables.
+  variables. Host overrides accept only `127.0.0.1` or `localhost`; IPv6
+  loopback is not implemented. Setup probes and the Control Center proxy use
+  the same validated endpoints.
 - optional OpenWebUI test shell is localhost-only at default
   `127.0.0.1:3000` and can also be overridden with
   `UAA_LAUNCHER_OPENWEBUI_*`.

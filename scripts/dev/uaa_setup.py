@@ -92,6 +92,12 @@ OPENWEBUI_PORT = 3000
 BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
 FRONTEND_URL = f"http://{FRONTEND_HOST}:{FRONTEND_PORT}"
 OPENWEBUI_URL = f"http://{OPENWEBUI_HOST}:{OPENWEBUI_PORT}"
+UAA_LAUNCHER_BACKEND_HOST_ENV = "UAA_LAUNCHER_BACKEND_HOST"
+UAA_LAUNCHER_BACKEND_PORT_ENV = "UAA_LAUNCHER_BACKEND_PORT"
+UAA_LAUNCHER_FRONTEND_HOST_ENV = "UAA_LAUNCHER_FRONTEND_HOST"
+UAA_LAUNCHER_FRONTEND_PORT_ENV = "UAA_LAUNCHER_FRONTEND_PORT"
+UAA_LAUNCHER_OPENWEBUI_HOST_ENV = "UAA_LAUNCHER_OPENWEBUI_HOST"
+UAA_LAUNCHER_OPENWEBUI_PORT_ENV = "UAA_LAUNCHER_OPENWEBUI_PORT"
 OPENWEBUI_IMAGE_REPOSITORY = "ghcr.io/open-webui/open-webui"
 OPENWEBUI_IMAGE_DIGEST = "sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e93813d61768ea9184e"
 OPENWEBUI_IMAGE = f"{OPENWEBUI_IMAGE_REPOSITORY}@{OPENWEBUI_IMAGE_DIGEST}"
@@ -112,6 +118,7 @@ DEVELOPER_TOOL_PATHS = (
     Path("/Applications/Docker.app/Contents/Resources/bin"),
 )
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+LAUNCHER_HOSTS = {"127.0.0.1", "localhost"}
 
 
 @dataclass(frozen=True)
@@ -2312,47 +2319,80 @@ def _probe_llama_server_port() -> SetupFinding:
     )
 
 
+def _launcher_endpoint(
+    host_env: str,
+    port_env: str,
+    default_host: str,
+    default_port: int,
+) -> tuple[str, int, str]:
+    host = os.environ.get(host_env, "").strip() or default_host
+    if host.lower() not in LAUNCHER_HOSTS:
+        raise ValueError(f"{host_env} must be 127.0.0.1 or localhost.")
+    raw_port = os.environ.get(port_env, "").strip()
+    if raw_port:
+        if not raw_port.isdigit():
+            raise ValueError(f"{port_env} must be an integer port value.")
+        port = int(raw_port)
+        if not 1 <= port <= 65535:
+            raise ValueError(f"{port_env} must be between 1 and 65535.")
+    else:
+        port = default_port
+    return host, port, f"http://{host}:{port}"
+
+
 def _probe_backend_port() -> SetupFinding:
-    if not _is_port_open(BACKEND_HOST, BACKEND_PORT):
+    host, port, url = _launcher_endpoint(
+        UAA_LAUNCHER_BACKEND_HOST_ENV,
+        UAA_LAUNCHER_BACKEND_PORT_ENV,
+        BACKEND_HOST,
+        BACKEND_PORT,
+    )
+    if not _is_port_open(host, port):
         return SetupFinding(
             "backend port",
             "pass",
-            f"Backend port is free at {BACKEND_URL}.",
+            f"Backend port is free at {url}.",
             "Run uaa start after blocked prerequisites are resolved.",
         )
-    health_status = _url_status(f"{BACKEND_URL}/health")
+    health_status = _url_status(f"{url}/health")
     if health_status == 200:
         return SetupFinding(
             "backend port",
             "pass",
-            f"UAA likely running; /health answered HTTP 200 at {BACKEND_URL}.",
+            f"UAA likely running; /health answered HTTP 200 at {url}.",
             "Run uaa status to confirm it is the expected local UAA backend.",
         )
-    root_status = _url_status(BACKEND_URL)
+    root_status = _url_status(url)
     if root_status is not None:
         return SetupFinding(
             "backend port",
             "warn",
             f"HTTP server answered on backend port, but UAA /health returned {health_status or 'no status'}.",
-            "Confirm the process on 127.0.0.1:8000 before running uaa start.",
+            f"Confirm the process on {host}:{port} before running uaa start.",
         )
     return SetupFinding(
         "backend port",
         "warn",
-        f"Socket is open on backend port, but no HTTP response was confirmed at {BACKEND_URL}.",
-        "Confirm the process on 127.0.0.1:8000 before running uaa start.",
+        f"Socket is open on backend port, but no HTTP response was confirmed at {url}.",
+        f"Confirm the process on {host}:{port} before running uaa start.",
     )
 
 
 def _probe_frontend_port() -> SetupFinding:
-    if not _is_port_open(FRONTEND_HOST, FRONTEND_PORT):
+    host, port, url = _launcher_endpoint(
+        UAA_LAUNCHER_FRONTEND_HOST_ENV,
+        UAA_LAUNCHER_FRONTEND_PORT_ENV,
+        FRONTEND_HOST,
+        FRONTEND_PORT,
+    )
+    if not _is_port_open(host, port):
         return SetupFinding(
             "frontend port",
             "pass",
-            f"Control Center port is free at {FRONTEND_URL}.",
+            f"Control Center port is free at {url}.",
             "Run uaa start after blocked prerequisites are resolved.",
         )
-    status = _url_status(FRONTEND_URL)
+    status = _url_status(url)
     if status is not None:
         return SetupFinding(
             "frontend port",
@@ -2363,31 +2403,37 @@ def _probe_frontend_port() -> SetupFinding:
     return SetupFinding(
         "frontend port",
         "warn",
-        f"Socket is open on Control Center port, but no HTTP response was confirmed at {FRONTEND_URL}.",
-        "Confirm the process on 127.0.0.1:5173 before running uaa start.",
+        f"Socket is open on Control Center port, but no HTTP response was confirmed at {url}.",
+        f"Confirm the process on {host}:{port} before running uaa start.",
     )
 
 
 def _probe_openwebui_port() -> SetupFinding:
-    if not _is_port_open(OPENWEBUI_HOST, OPENWEBUI_PORT):
+    host, port, url = _launcher_endpoint(
+        UAA_LAUNCHER_OPENWEBUI_HOST_ENV,
+        UAA_LAUNCHER_OPENWEBUI_PORT_ENV,
+        OPENWEBUI_HOST,
+        OPENWEBUI_PORT,
+    )
+    if not _is_port_open(host, port):
         return SetupFinding(
             "OpenWebUI port",
             "pass",
-            f"OpenWebUI is not listening; port is free at {OPENWEBUI_URL}.",
+            f"OpenWebUI is not listening; port is free at {url}.",
             "Run uaa openwebui start only after the local UAA gateway checks pass.",
         )
-    status = _url_status(OPENWEBUI_URL)
+    status = _url_status(url)
     if status is None:
         return SetupFinding(
             "OpenWebUI port",
             "warn",
-            f"Port {OPENWEBUI_PORT} is listening, but OpenWebUI did not answer an HTTP status probe.",
-            "Confirm the process on 127.0.0.1:3000 before starting OpenWebUI again.",
+            f"Port {port} is listening, but OpenWebUI did not answer an HTTP status probe.",
+            f"Confirm the process on {host}:{port} before starting OpenWebUI again.",
         )
     return SetupFinding(
         "OpenWebUI port",
         "pass",
-        f"HTTP server answered on OpenWebUI port with HTTP {status} at {OPENWEBUI_URL}.",
+        f"HTTP server answered on OpenWebUI port with HTTP {status} at {url}.",
         "No action needed if this is the intended local OpenWebUI shell.",
     )
 
@@ -2555,7 +2601,13 @@ def _probe_uaa_gateway_status(*, mode: str) -> SetupFinding:
             "Frontier provider routing is not exposed through setup.",
             "Create a scoped milestone before adding governed frontier provider gateway checks.",
         )
-    if not _is_port_open(BACKEND_HOST, BACKEND_PORT):
+    host, port, url = _launcher_endpoint(
+        UAA_LAUNCHER_BACKEND_HOST_ENV,
+        UAA_LAUNCHER_BACKEND_PORT_ENV,
+        BACKEND_HOST,
+        BACKEND_PORT,
+    )
+    if not _is_port_open(host, port):
         return SetupFinding(
             "UAA local gateway",
             "manual",
@@ -2572,7 +2624,10 @@ def _probe_uaa_gateway_status(*, mode: str) -> SetupFinding:
             f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} is not exported, so /v1/models was not checked.",
             f"Source {LOCAL_ENV_PATH} before running uaa start.",
         )
-    status = _url_status(f"{BACKEND_URL}/v1/models", headers={"Authorization": f"Bearer {gateway_key}"})
+    status = _url_status(
+        f"{url}/v1/models",
+        headers={"Authorization": f"Bearer {gateway_key}"},
+    )
     if status == 200:
         return SetupFinding("UAA local gateway", "pass", "UAA /v1/models accepted the configured local bearer.", "No action needed.")
     if status == 401:

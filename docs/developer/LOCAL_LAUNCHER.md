@@ -49,6 +49,12 @@ UAA_LAUNCHER_FRONTEND_PORT=5174 UAA_LAUNCHER_OPENWEBUI_PORT=3001 ./scripts/dev/u
 ```
 
 The macOS `.command` launcher enables `UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1` so it automatically tries a nearby free port for any service when the requested port is occupied by an unverified local process.
+Host overrides are limited to `127.0.0.1` and `localhost`; `::1` is rejected
+because this launcher does not implement IPv6 URL or socket handling. Setup
+probes and the Control Center proxy use the same validated endpoints. A later
+`status` or `stop` process reloads an auto-selected endpoint only while the PID
+is running and the existing launcher metadata matches the exact reconstructed
+service command.
 
 ## Commands
 

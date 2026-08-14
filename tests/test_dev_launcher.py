@@ -30,10 +30,10 @@ def load_launcher() -> Any:
 def test_launcher_rejects_non_loopback_hosts() -> None:
     launcher = load_launcher()
 
-    for host in ["127.0.0.1", "localhost", "::1"]:
+    for host in ["127.0.0.1", "localhost"]:
         assert launcher.validate_local_host(host) == host
 
-    for host in ["0.0.0.0", "192.168.1.20", "control-center.local", "example.com"]:
+    for host in ["0.0.0.0", "192.168.1.20", "control-center.local", "example.com", "::1"]:
         with pytest.raises(ValueError):
             launcher.validate_local_host(host)
 
@@ -113,6 +113,9 @@ def test_launcher_applies_loopback_host_and_port_overrides(
         "http://host.docker.internal:8100/v1"
     )
     assert launcher.service_config(ROOT, "frontend").url == "http://127.0.0.1:5273"
+    assert launcher.safe_env(ROOT, "frontend")["VITE_UAA_PROXY_TARGET"] == (
+        "http://localhost:8100"
+    )
 
 
 @pytest.mark.parametrize("value", ["0", "65536", "-1", "not-a-port"])
@@ -521,6 +524,10 @@ def test_start_service_switches_to_next_free_port_when_explicitly_enabled(
     assert "running at http://127.0.0.1:8001" in result
     assert launcher.backend_port() == 8001
     assert launcher.service_config(tmp_path, "backend").command[-1] == "8001"
+    metadata = json.loads(
+        (tmp_path / launcher.STATE_DIR / "backend.json").read_text(encoding="utf-8")
+    )
+    assert metadata["auto_selected_endpoint"] is True
 
 
 def test_start_service_bounds_alternate_port_search(
@@ -543,6 +550,140 @@ def test_start_service_bounds_alternate_port_search(
 
     assert "no safe alternate port was found" in result
     assert probes == [launcher.BACKEND_PORT, *range(8001, 8033)]
+
+
+def test_launcher_restores_auto_selected_endpoint_from_exact_running_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    service = launcher.service_config(tmp_path, "backend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    service.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": service.name,
+                "pid": 12345,
+                "command": service.command,
+                "cwd": str(service.cwd),
+                "url": service.url,
+                "auto_selected_endpoint": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV)
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+
+    launcher._restore_running_service_endpoints(tmp_path)
+
+    restored = launcher.service_config(tmp_path, "backend")
+    assert restored.url == "http://127.0.0.1:8001"
+    assert launcher.metadata_matches_service(restored, 12345)
+
+    kill_calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: False)
+    monkeypatch.setattr(
+        launcher.os,
+        "killpg",
+        lambda pid, sig: kill_calls.append((pid, sig)),
+    )
+    result = launcher.stop_service(restored)
+
+    assert result == "backend: stopped launcher pid 12345"
+    assert kill_calls == [(12345, launcher.signal.SIGTERM)]
+
+
+def test_launcher_does_not_restore_tampered_endpoint_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(tmp_path, "backend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    service.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": service.name,
+                "pid": 12345,
+                "command": service.command,
+                "cwd": str(service.cwd),
+                "url": "http://127.0.0.1:8001",
+                "auto_selected_endpoint": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+
+    launcher._restore_running_service_endpoints(tmp_path)
+
+    assert launcher.UAA_LAUNCHER_BACKEND_PORT_ENV not in launcher.os.environ
+
+
+def test_launcher_does_not_persist_explicit_endpoint_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    service = launcher.service_config(tmp_path, "backend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    service.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": service.name,
+                "pid": 12345,
+                "command": service.command,
+                "cwd": str(service.cwd),
+                "url": service.url,
+                "auto_selected_endpoint": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV)
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+
+    launcher._restore_running_service_endpoints(tmp_path)
+
+    assert launcher.backend_port() == launcher.BACKEND_PORT
+
+
+def test_running_service_requires_exact_requested_endpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    running = launcher.service_config(tmp_path, "backend")
+    running.pid_file.parent.mkdir(parents=True)
+    running.pid_file.write_text("12345\n", encoding="utf-8")
+    running.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": running.name,
+                "pid": 12345,
+                "command": running.command,
+                "cwd": str(running.cwd),
+                "url": running.url,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8100")
+    requested = launcher.service_config(tmp_path, "backend")
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+
+    result = launcher.start_service(tmp_path, requested)
+
+    assert "blocked; running launcher metadata does not match" in result
+    assert "stop it with the original endpoint settings" in result
 
 
 def test_launch_ui_openwebui_refuses_missing_image(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

@@ -1180,13 +1180,13 @@ def verify(root: Path = ROOT) -> list[str]:
             fragment in text
             for fragment in (
                 'process.env.VITE_UAA_PROXY_TARGET ?? ""',
-                r"/^http:\/\/127\.0\.0\.1:\d{2,5}$/",
+                r"/^http:\/\/(?:127\.0\.0\.1|localhost):\d{2,5}$/",
                 ': "http://127.0.0.1:8000"',
                 "target: localProxyTarget",
             )
         )
         if not fixed_loopback_target and not constrained_loopback_target:
-            failures.append("Vite dev proxy must target only http://127.0.0.1:8000")
+            failures.append("Vite dev proxy must target only an explicit loopback HTTP endpoint")
         required_proxy_routes = [
             '"/control-center"',
             '"/runtime/readiness"',

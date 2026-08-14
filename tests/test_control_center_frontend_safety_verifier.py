@@ -602,7 +602,11 @@ def test_control_center_frontend_verifier_blocks_external_proxy_targets_and_url_
     verifier = load_verifier()
     failures = verifier.verify(tmp_path)
 
-    assert any("Vite dev proxy must target only http://127.0.0.1:8000" in failure for failure in failures)
+    assert any(
+        "Vite dev proxy must target only an explicit loopback HTTP endpoint"
+        in failure
+        for failure in failures
+    )
     assert any("forbidden URL credentials" in failure for failure in failures)
 
 

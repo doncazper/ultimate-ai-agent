@@ -68,7 +68,7 @@ UAA_LLAMA_CPP_API_KEY_ENV = "UAA_LLAMA_CPP_API_KEY"
 UAA_BUILD_COMMIT_ENV = "UAA_BUILD_COMMIT"
 UAA_LLAMA_CPP_DEFAULT_MODEL_ID = "uaa-llama-cpp-local"
 DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
-SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
+SAFE_HOSTS = {"127.0.0.1", "localhost"}
 STATE_DIR = Path(".uaa") / "dev"
 BACKEND_HEALTH_PATH = "/health"
 SECRET_ENV_MARKERS = (
@@ -145,6 +145,16 @@ def _service_port_env_name(service_name: str) -> str:
         return UAA_LAUNCHER_FRONTEND_PORT_ENV
     if service_name == "openwebui":
         return UAA_LAUNCHER_OPENWEBUI_PORT_ENV
+    raise ValueError(f"Unknown service: {service_name}")
+
+
+def _service_host_env_name(service_name: str) -> str:
+    if service_name == "backend":
+        return UAA_LAUNCHER_BACKEND_HOST_ENV
+    if service_name == "frontend":
+        return UAA_LAUNCHER_FRONTEND_HOST_ENV
+    if service_name == "openwebui":
+        return UAA_LAUNCHER_OPENWEBUI_HOST_ENV
     raise ValueError(f"Unknown service: {service_name}")
 
 
@@ -354,6 +364,7 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
                 sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
         env["VITE_UAA_API_BASE_URL"] = ""
+        env["VITE_UAA_PROXY_TARGET"] = backend_url()
     if service_name == "openwebui" and llama_cpp_gateway_requested():
         openwebui_env, secret_env_keys = openwebui_container_env()
         for key in secret_env_keys:
@@ -546,6 +557,67 @@ def metadata_matches_service(service: Service, pid: int) -> bool:
         and data.get("command") == service.command
         and data.get("cwd") == str(service.cwd)
     )
+
+
+def _restore_running_service_endpoints(root: Path) -> None:
+    """Reload exact auto-selected endpoints from existing trusted metadata."""
+
+    base, pid_dir, _ = runtime_paths(root)
+    for service_name in ("backend", "frontend", "openwebui"):
+        pid = read_pid_file(pid_dir / f"{service_name}.pid")
+        if pid is None or not is_pid_running(pid):
+            continue
+        metadata_file = base / f"{service_name}.json"
+        try:
+            data = json.loads(metadata_file.read_text(encoding="utf-8"))
+            if data.get("auto_selected_endpoint") is not True:
+                continue
+            raw_url = data["url"]
+            if not isinstance(raw_url, str):
+                continue
+            parsed = urllib.parse.urlsplit(raw_url)
+            if (
+                parsed.scheme != "http"
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+                or parsed.path
+            ):
+                continue
+            host = parsed.hostname
+            port = parsed.port
+            if host is None or port is None or not 1 <= port <= 65535:
+                continue
+            validate_local_host(host)
+            if raw_url != f"http://{host}:{port}":
+                continue
+        except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError):
+            continue
+
+        endpoint_env = {
+            _service_host_env_name(service_name): host,
+            _service_port_env_name(service_name): str(port),
+        }
+        injected: dict[str, str | None] = {}
+        for env_name, value in endpoint_env.items():
+            if not os.environ.get(env_name, "").strip():
+                injected[env_name] = os.environ.get(env_name)
+                os.environ[env_name] = value
+        try:
+            trusted = metadata_matches_service(
+                service_config(root, service_name),
+                pid,
+            )
+        except (RuntimeError, ValueError):
+            trusted = False
+        if trusted:
+            continue
+        for env_name, previous in injected.items():
+            if previous is None:
+                os.environ.pop(env_name, None)
+            else:
+                os.environ[env_name] = previous
 
 
 def is_port_open(host: str, port: int, timeout: float = 0.25) -> bool:
@@ -803,7 +875,12 @@ def docker_image_present(image: str = OPENWEBUI_IMAGE, timeout_seconds: float = 
     return False, f"OpenWebUI image is not present locally: {image}; no image was pulled"
 
 
-def start_service(root: Path, service: Service) -> str:
+def start_service(
+    root: Path,
+    service: Service,
+    *,
+    auto_selected_endpoint: bool = False,
+) -> str:
     ensure_state_dirs(root)
     start_clock = time.perf_counter()
     record_launcher_event(
@@ -816,7 +893,14 @@ def start_service(root: Path, service: Service) -> str:
     )
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
-        return f"{service.name}: already running (pid {read_pid_file(service.pid_file)})"
+        pid = read_pid_file(service.pid_file)
+        if pid is not None and metadata_matches_service(service, pid):
+            return f"{service.name}: already running (pid {pid})"
+        return (
+            f"{service.name}: blocked; running launcher metadata does not match "
+            "the requested endpoint; stop it with the original endpoint settings "
+            "before restarting"
+        )
 
     service_ports = {
         "backend": (backend_host(), backend_port()),
@@ -835,7 +919,11 @@ def start_service(root: Path, service: Service) -> str:
                 return (
                     f"{service.name}: requested port {port} blocked by unverified local process; "
                     f"switching to next free port {alternative_port}."
-                ) + "\n" + start_service(root, alternative_service)
+                ) + "\n" + start_service(
+                    root,
+                    alternative_service,
+                    auto_selected_endpoint=True,
+                )
             return (
                 f"{service.name}: blocked; {service.url} is occupied by an unverified "
                 "local process and no safe alternate port was found"
@@ -918,6 +1006,7 @@ def start_service(root: Path, service: Service) -> str:
                 "command": service.command,
                 "cwd": str(service.cwd),
                 "url": service.url,
+                "auto_selected_endpoint": auto_selected_endpoint,
                 "log_file": str(service.log_file),
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             },
@@ -1002,8 +1091,14 @@ def status_for_service(service: Service) -> str:
     log_ref = f"launcher-log:{service.name}"
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
+        pid = read_pid_file(service.pid_file)
+        if pid is None or not metadata_matches_service(service, pid):
+            return (
+                f"{service.name}: blocked; running launcher metadata does not match "
+                f"the requested endpoint log_ref={log_ref} log={service.log_file}"
+            )
         return (
-            f"{service.name}: running pid={read_pid_file(service.pid_file)} "
+            f"{service.name}: running pid={pid} "
             f"url={service.url} log_ref={log_ref} log={service.log_file}"
         )
     if state == "removed_stale":
@@ -1416,6 +1511,7 @@ def main(argv: list[str] | None = None) -> int:
         return uaa_runtime.main(["actions", *action_args])
     args = parse_args(raw_argv)
     root = repo_root()
+    _restore_running_service_endpoints(root)
     command = args.command or "help"
     try:
         if command == "help":

@@ -722,6 +722,59 @@ def test_backend_port_distinguishes_uaa_health_from_generic_http(monkeypatch: py
     assert "HTTP server answered on backend port" in finding.summary
 
 
+def test_setup_probes_honor_launcher_endpoint_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    monkeypatch.setenv(setup.UAA_LAUNCHER_BACKEND_HOST_ENV, "localhost")
+    monkeypatch.setenv(setup.UAA_LAUNCHER_BACKEND_PORT_ENV, "8100")
+    monkeypatch.setenv(setup.UAA_LAUNCHER_FRONTEND_PORT_ENV, "5273")
+    monkeypatch.setenv(setup.UAA_LAUNCHER_OPENWEBUI_PORT_ENV, "3100")
+    probes: list[tuple[str, int]] = []
+
+    def free(host: str, port: int) -> bool:
+        probes.append((host, port))
+        return False
+
+    monkeypatch.setattr(setup, "_is_port_open", free)
+
+    backend = setup._probe_backend_port()
+    frontend = setup._probe_frontend_port()
+    openwebui = setup._probe_openwebui_port()
+
+    assert "http://localhost:8100" in backend.summary
+    assert "http://127.0.0.1:5273" in frontend.summary
+    assert "http://127.0.0.1:3100" in openwebui.summary
+    assert probes == [
+        ("localhost", 8100),
+        ("127.0.0.1", 5273),
+        ("127.0.0.1", 3100),
+    ]
+
+    requested_urls: list[str] = []
+    monkeypatch.setattr(setup, "_is_port_open", lambda host, port: (host, port) == ("localhost", 8100))
+    monkeypatch.setattr(
+        setup,
+        "_url_status",
+        lambda url, **_kwargs: requested_urls.append(url) or 200,
+    )
+
+    gateway = setup._probe_uaa_gateway_status(mode="smoke")
+
+    assert gateway.status == "pass"
+    assert requested_urls == ["http://localhost:8100/v1/models"]
+
+
+def test_setup_rejects_unsupported_launcher_ipv6_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    monkeypatch.setenv(setup.UAA_LAUNCHER_BACKEND_HOST_ENV, "::1")
+
+    with pytest.raises(ValueError, match="127.0.0.1 or localhost"):
+        setup._probe_backend_port()
+
+
 def test_openwebui_data_dir_reports_prior_state_without_creating(tmp_path: Path) -> None:
     setup = load_setup()
 
