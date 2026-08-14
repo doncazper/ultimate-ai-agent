@@ -92,6 +92,51 @@ def _docker_env(command: list[str]) -> dict[str, str]:
     return values
 
 
+def test_launcher_applies_loopback_host_and_port_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_HOST_ENV, "localhost")
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8100")
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_FRONTEND_PORT_ENV, "5273")
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_OPENWEBUI_PORT_ENV, "3100")
+
+    backend = launcher.build_backend_command(ROOT)
+    frontend = launcher.build_frontend_command(ROOT)
+    openwebui = launcher.build_openwebui_command(ROOT)
+
+    assert backend[backend.index("--host") + 1] == "localhost"
+    assert backend[backend.index("--port") + 1] == "8100"
+    assert frontend[frontend.index("--port") + 1] == "5273"
+    assert openwebui[openwebui.index("-p") + 1] == "127.0.0.1:3100:8080"
+    assert _docker_env(openwebui)["OPENAI_API_BASE_URL"] == (
+        "http://host.docker.internal:8100/v1"
+    )
+    assert launcher.service_config(ROOT, "frontend").url == "http://127.0.0.1:5273"
+
+
+@pytest.mark.parametrize("value", ["0", "65536", "-1", "not-a-port"])
+def test_launcher_rejects_invalid_port_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, value)
+
+    with pytest.raises(ValueError, match="must be"):
+        launcher.build_backend_command(ROOT)
+
+
+def test_launcher_rejects_non_loopback_host_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_HOST_ENV, "0.0.0.0")
+
+    with pytest.raises(ValueError, match="localhost-only"):
+        launcher.build_backend_command(ROOT)
+
+
 def test_launcher_builds_m164_openwebui_command_without_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
     launcher = load_launcher()
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
@@ -247,6 +292,7 @@ def test_macos_launcher_content_is_relative_and_safe() -> None:
     assert "launchctl" not in content
     assert "LaunchAgent" not in content
     assert "/usr/local/bin" not in content
+    assert "UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1" in content
 
 
 def test_launcher_openwebui_service_config_is_localhost_only() -> None:
@@ -440,6 +486,63 @@ def test_start_service_reuses_verified_uaa_port_occupant(monkeypatch: pytest.Mon
     result = launcher.start_service(ROOT, service)
 
     assert "already UAA-ready" in result
+
+
+def test_start_service_switches_to_next_free_port_when_explicitly_enabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("", encoding="utf-8")
+    service = launcher.service_config(tmp_path, "backend")
+
+    class Process:
+        pid = 12345
+
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, "1")
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8000")
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _pid_path: "missing")
+    monkeypatch.setattr(
+        launcher,
+        "is_port_open",
+        lambda _host, port, **_kwargs: port == launcher.BACKEND_PORT,
+    )
+    monkeypatch.setattr(launcher, "service_identity_ready", lambda _service: False)
+    monkeypatch.setattr(launcher, "safe_env", lambda _root, _name: {})
+    monkeypatch.setattr(launcher, "wait_for_url", lambda _url: True)
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+
+    result = launcher.start_service(tmp_path, service)
+
+    assert "switching to next free port 8001" in result
+    assert "running at http://127.0.0.1:8001" in result
+    assert launcher.backend_port() == 8001
+    assert launcher.service_config(tmp_path, "backend").command[-1] == "8001"
+
+
+def test_start_service_bounds_alternate_port_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(ROOT, "backend")
+    probes: list[int] = []
+
+    def occupied(_host: str, port: int, **_kwargs: object) -> bool:
+        probes.append(port)
+        return True
+
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, "true")
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _pid_path: "missing")
+    monkeypatch.setattr(launcher, "is_port_open", occupied)
+    monkeypatch.setattr(launcher, "service_identity_ready", lambda _service: False)
+
+    result = launcher.start_service(ROOT, service)
+
+    assert "no safe alternate port was found" in result
+    assert probes == [launcher.BACKEND_PORT, *range(8001, 8033)]
 
 
 def test_launch_ui_openwebui_refuses_missing_image(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

@@ -122,7 +122,9 @@ uaa launch-ui
 ```
 
 `uaa launch-ui` starts or reuses the local backend and Control Center, verifies
-that the occupied ports are UAA-owned, opens `http://127.0.0.1:5173`, and keeps
+that the occupied ports are UAA-owned, opens the configured Control Center URL
+(defaults to `http://127.0.0.1:5173` and can be overridden with
+`UAA_LAUNCHER_*` variables), and keeps
 the launch localhost-only. It does not install packages, download models, pull
 Docker images, or collect credentials.
 
@@ -132,10 +134,18 @@ OpenWebUI can still be launched explicitly as the secondary local shell:
 uaa launch-ui --target openwebui
 ```
 
-That path verifies the local `/v1` gateway, opens `http://127.0.0.1:3000`, and
+That path verifies the local `/v1` gateway, opens the configured OpenWebUI URL
+(default `http://127.0.0.1:3000`, overridable with
+`UAA_LAUNCHER_OPENWEBUI_*`), and
 fails closed if the OpenWebUI image is not already present locally. It points to
 `uaa setup install --target openwebui` for the separate approval-bound image
 pull path.
+
+Launcher ports can be switched per run:
+
+```bash
+UAA_LAUNCHER_FRONTEND_PORT=5174 UAA_LAUNCHER_OPENWEBUI_PORT=3001 ./scripts/dev/uaa launch-ui --target openwebui
+```
 
 Optional M151 local OpenWebUI test shell commands:
 
@@ -237,12 +247,19 @@ Or create one on the Desktop:
 Double-clicking `Ultimate AI Agent.command` runs doctor checks, starts the
 local backend and Control Center if needed, opens the Control Center in the
 default browser, prints status and log locations, and waits for a key before
-closing.
+closing. The generated desktop launcher enables
+`UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1` so if a requested launcher port is
+already occupied by an unverified local process, it transparently switches to a
+nearby free port and continues.
 
 ## Safety Boundary
 
-- localhost-only: backend `127.0.0.1:8000`, frontend `127.0.0.1:5173`.
-- optional OpenWebUI test shell is localhost-only at `127.0.0.1:3000`.
+- localhost-only: backend default `127.0.0.1:8000`, frontend default
+  `127.0.0.1:5173`. Both can be overridden via `UAA_LAUNCHER_*` environment
+  variables.
+- optional OpenWebUI test shell is localhost-only at default
+  `127.0.0.1:3000` and can also be overridden with
+  `UAA_LAUNCHER_OPENWEBUI_*`.
 - no `0.0.0.0` binding.
 - no tool, action, task, shell, browser, mobile, remote, plugin, model/provider,
   or production execution authority.

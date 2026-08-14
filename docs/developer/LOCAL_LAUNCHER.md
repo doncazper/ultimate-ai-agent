@@ -28,12 +28,27 @@ first-party product surface and OpenWebUI is the secondary local shell.
 
 | Service | URL | Command family |
 |---|---|---|
-| Backend API | `http://127.0.0.1:8000` | `.venv/bin/python -m uvicorn ultimate_ai_agent.api.app:app` |
-| Control Center | `http://127.0.0.1:5173` | `npm run dev` inside `apps/control-center/` |
-| OpenWebUI local shell | `http://127.0.0.1:3000` | pinned Docker image, started only when already present locally |
+| Backend API | `http://127.0.0.1:8000` (default, configurable) | `.venv/bin/python -m uvicorn ultimate_ai_agent.api.app:app` |
+| Control Center | `http://127.0.0.1:5173` (default, configurable) | `npm run dev` inside `apps/control-center/` |
+| OpenWebUI local shell | `http://127.0.0.1:3000` (default, configurable) | pinned Docker image, started only when already present locally |
 
 Both services bind to localhost only. The launcher refuses non-loopback hosts
 and never binds to `0.0.0.0`.
+
+You can switch all launcher ports at runtime with environment overrides:
+
+- `UAA_LAUNCHER_BACKEND_HOST` / `UAA_LAUNCHER_BACKEND_PORT`
+- `UAA_LAUNCHER_FRONTEND_HOST` / `UAA_LAUNCHER_FRONTEND_PORT`
+- `UAA_LAUNCHER_OPENWEBUI_HOST` / `UAA_LAUNCHER_OPENWEBUI_PORT`
+- `UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK` (set to `1`, `true`, `on`, or `yes`)
+
+Example:
+
+```bash
+UAA_LAUNCHER_FRONTEND_PORT=5174 UAA_LAUNCHER_OPENWEBUI_PORT=3001 ./scripts/dev/uaa trial-boot
+```
+
+The macOS `.command` launcher enables `UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1` so it automatically tries a nearby free port for any service when the requested port is occupied by an unverified local process.
 
 ## Commands
 
@@ -152,7 +167,8 @@ npm install
 
 If a port is already in use, `uaa start` will not start a duplicate launcher
 process on that port. Use `uaa status`, inspect the reported process/log state,
-or stop the unrelated process manually if it is not launcher-owned.
+or stop the unrelated process manually if it is not launcher-owned. You can also
+switch to free ports using the env vars above and relaunch.
 
 Always stop launcher-owned services with:
 
