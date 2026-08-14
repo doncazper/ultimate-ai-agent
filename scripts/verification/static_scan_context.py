@@ -7,6 +7,7 @@ import json
 import locale
 import re
 import subprocess
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -163,6 +164,7 @@ class StaticVerificationContext:
         rglob_cache: dict[tuple[Path, str], tuple[Path, ...]] = {}
         read_text_cache: dict[tuple[Path, tuple[Any, ...], tuple[Any, ...]], str] = {}
         cacheable_paths: dict[Path, bool] = {}
+        cache_lock = threading.RLock()
         cat_file = subprocess.Popen(
             ("git", "cat-file", "--batch"),
             cwd=self.root,
@@ -181,49 +183,55 @@ class StaticVerificationContext:
                 raise FileNotFoundError from None
             if not relative or "\n" in relative or "\r" in relative:
                 raise FileNotFoundError from None
-            cat_file.stdin.write(f"{self.repository_sha}:{relative}\n".encode("utf-8"))
-            cat_file.stdin.flush()
-            header = cat_file.stdout.readline()
-            if not header or header.rstrip().endswith(b" missing"):
-                raise FileNotFoundError from None
-            fields = header.rstrip(b"\n").rsplit(b" ", 2)
-            if len(fields) != 3 or fields[1] != b"blob" or not fields[2].isdigit():
-                raise ValueError("static verification Git snapshot is invalid")
-            size = int(fields[2])
-            content = cat_file.stdout.read(size)
-            terminator = cat_file.stdout.read(1)
+            with cache_lock:
+                cat_file.stdin.write(
+                    f"{self.repository_sha}:{relative}\n".encode("utf-8")
+                )
+                cat_file.stdin.flush()
+                header = cat_file.stdout.readline()
+                if not header or header.rstrip().endswith(b" missing"):
+                    raise FileNotFoundError from None
+                fields = header.rstrip(b"\n").rsplit(b" ", 2)
+                if len(fields) != 3 or fields[1] != b"blob" or not fields[2].isdigit():
+                    raise ValueError("static verification Git snapshot is invalid")
+                size = int(fields[2])
+                content = cat_file.stdout.read(size)
+                terminator = cat_file.stdout.read(1)
             if len(content) != size or terminator != b"\n":
                 raise ValueError("static verification Git snapshot is truncated")
             return content
 
         def is_cacheable(path: Path) -> bool:
-            if path not in cacheable_paths:
-                try:
-                    cacheable_paths[path] = path.resolve().is_relative_to(self.root)
-                except (OSError, RuntimeError):
-                    cacheable_paths[path] = False
-            return cacheable_paths[path]
+            with cache_lock:
+                if path not in cacheable_paths:
+                    try:
+                        cacheable_paths[path] = path.resolve().is_relative_to(self.root)
+                    except (OSError, RuntimeError):
+                        cacheable_paths[path] = False
+                return cacheable_paths[path]
 
         def cached_rglob(path: Path, pattern: str) -> Iterator[Path]:
             if not is_cacheable(path):
                 return original_rglob(path, pattern)
             key = (path, pattern)
-            if key not in rglob_cache:
-                rglob_cache[key] = tuple(original_rglob(path, pattern))
-            return iter(rglob_cache[key])
+            with cache_lock:
+                if key not in rglob_cache:
+                    rglob_cache[key] = tuple(original_rglob(path, pattern))
+                return iter(rglob_cache[key])
 
         def cached_read_text(path: Path, *args: Any, **kwargs: Any) -> str:
             if not is_cacheable(path):
                 return original_read_text(path, *args, **kwargs)
             key = (path, args, tuple(sorted(kwargs.items())))
-            if key not in read_text_cache:
-                encoding = args[0] if args else kwargs.get("encoding")
-                errors = args[1] if len(args) > 1 else kwargs.get("errors")
-                read_text_cache[key] = git_blob(path).decode(
-                    encoding or locale.getpreferredencoding(False),
-                    errors or "strict",
-                )
-            return read_text_cache[key]
+            with cache_lock:
+                if key not in read_text_cache:
+                    encoding = args[0] if args else kwargs.get("encoding")
+                    errors = args[1] if len(args) > 1 else kwargs.get("errors")
+                    read_text_cache[key] = git_blob(path).decode(
+                        encoding or locale.getpreferredencoding(False),
+                        errors or "strict",
+                    )
+                return read_text_cache[key]
 
         Path.rglob = cached_rglob
         Path.read_text = cached_read_text

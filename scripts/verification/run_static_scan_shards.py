@@ -115,9 +115,31 @@ def _safe_run_root(base: Path | None) -> Path:
     parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if parent.is_symlink() or not stat.S_ISDIR(parent.lstat().st_mode):
         raise ValueError("static scan basetemp must be a regular directory")
-    run_root = Path(tempfile.mkdtemp(prefix="uaa-static-scan-", dir=parent))
-    run_root.chmod(0o700)
-    return run_root
+    run_root: Path | None = None
+    try:
+        run_root = Path(tempfile.mkdtemp(prefix="uaa-static-scan-", dir=parent))
+        run_root.chmod(0o700)
+        return run_root
+    except BaseException:
+        if run_root is not None:
+            _remove_run_root(run_root)
+        raise
+
+
+def _remove_run_root(run_root: Path) -> None:
+    pending_interrupt: StaticRunInterrupted | None = None
+    try:
+        shutil.rmtree(run_root)
+    except StaticRunInterrupted as exc:
+        pending_interrupt = exc
+        try:
+            shutil.rmtree(run_root)
+        except FileNotFoundError:
+            pass
+    except FileNotFoundError:
+        pass
+    if pending_interrupt is not None:
+        raise pending_interrupt
 
 
 def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
@@ -139,23 +161,32 @@ def _immutable_source_tree(
     root: Path,
     run_root: Path,
     repository_sha: str,
+    *,
+    deadline: float | None = None,
 ) -> Iterator[Path]:
     source_root = run_root / "source"
     try:
+        checkout_command = (
+            "git",
+            "worktree",
+            "add",
+            "--detach",
+            str(source_root),
+            repository_sha,
+        )
+        checkout_timeout = 60.0
+        if deadline is not None:
+            remaining_seconds = deadline - time.perf_counter()
+            if remaining_seconds <= 0:
+                raise subprocess.TimeoutExpired(checkout_command, timeout=0)
+            checkout_timeout = min(checkout_timeout, remaining_seconds)
         added = subprocess.run(
-            (
-                "git",
-                "worktree",
-                "add",
-                "--detach",
-                str(source_root),
-                repository_sha,
-            ),
+            checkout_command,
             cwd=root,
             check=False,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=checkout_timeout,
         )
         if added.returncode != 0:
             raise ValueError("static scan immutable source checkout failed")
@@ -607,26 +638,33 @@ def execute_static_scans(
     )
     serial_plans = () if serial_reference else exclusive_plans(specs)
     all_plans = (*parallel_plans, *serial_plans)
-    run_root = _safe_run_root(basetemp)
     started = time.perf_counter()
     deadline = started + hard_timeout_seconds
     handled_signals = shard_processes.cancellation_signals()
+    run_root: Path | None = None
 
     def interrupt_run(signum: int, _frame: Any) -> None:
         shard_processes.ignore_signals(handled_signals)
         raise StaticRunInterrupted(signum)
 
-    try:
-        with shard_processes.installed_signal_handlers(
-            handled_signals,
-            interrupt_run,
-        ):
+    with shard_processes.installed_signal_handlers(
+        handled_signals,
+        interrupt_run,
+    ):
+        try:
+            run_root = _safe_run_root(basetemp)
             with _immutable_source_tree(
                 root,
                 run_root,
                 resolved_repository_sha,
+                deadline=deadline,
             ) as source_root:
                 base_env = shard_processes.build_shard_env(source_root)
+                if time.perf_counter() >= deadline:
+                    raise subprocess.TimeoutExpired(
+                        "static scan immutable setup",
+                        timeout=hard_timeout_seconds,
+                    )
                 raw_outcomes, timed_out = _run_batch(
                     parallel_plans,
                     root=source_root,
@@ -657,8 +695,9 @@ def execute_static_scans(
                         timed_out = timed_out or batch_timed_out
                         if timed_out:
                             break
-    finally:
-        shutil.rmtree(run_root)
+        finally:
+            if run_root is not None:
+                _remove_run_root(run_root)
     if resolve_repository_sha(root) != resolved_repository_sha:
         raise ValueError("static scan repository identity changed during execution")
     outcomes = _complete_outcomes(specs, raw_outcomes)

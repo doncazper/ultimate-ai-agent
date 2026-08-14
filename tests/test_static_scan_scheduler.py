@@ -7,6 +7,7 @@ import signal
 import shutil
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -233,8 +234,10 @@ def test_static_context_reads_exact_git_tree_and_restores_path_methods(
 ) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     source = tmp_path / "sample.txt"
+    second = tmp_path / "second.txt"
     source.write_text("first", encoding="utf-8")
-    subprocess.run(["git", "add", "sample.txt"], cwd=tmp_path, check=True)
+    second.write_text("other", encoding="utf-8")
+    subprocess.run(["git", "add", "sample.txt", "second.txt"], cwd=tmp_path, check=True)
     subprocess.run(
         [
             "git",
@@ -269,6 +272,14 @@ def test_static_context_reads_exact_git_tree_and_restores_path_methods(
         assert source.read_text(encoding="utf-8") == "first"
         source.write_text("third", encoding="utf-8")
         assert source.read_text(encoding="utf-8") == "first"
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            reads = tuple(
+                executor.map(
+                    lambda path: path.read_text(encoding="utf-8"),
+                    (source, second) * 50,
+                )
+            )
+        assert reads == ("first", "other") * 50
 
     assert Path.read_text is original_read_text
     assert source.read_text(encoding="utf-8") == "third"
@@ -470,6 +481,102 @@ def test_immutable_source_tree_retries_cleanup_after_interrupt(
 
     assert remove_calls == 2
     assert not source_root.exists()
+
+
+def test_run_root_cleanup_retries_after_interrupt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    remove_calls = 0
+
+    def remove(path: Path) -> None:
+        nonlocal remove_calls
+        assert path == run_root
+        remove_calls += 1
+        if remove_calls == 1:
+            raise run_static_scan_shards.StaticRunInterrupted(signal.SIGTERM)
+        path.rmdir()
+
+    monkeypatch.setattr(run_static_scan_shards.shutil, "rmtree", remove)
+
+    with pytest.raises(run_static_scan_shards.StaticRunInterrupted):
+        run_static_scan_shards._remove_run_root(run_root)
+
+    assert remove_calls == 2
+    assert not run_root.exists()
+
+
+def test_immutable_checkout_uses_remaining_hard_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkout_timeouts: list[float] = []
+
+    def run(command: tuple[str, ...], **kwargs: object) -> object:
+        if command[2:4] == ("add", "--detach"):
+            timeout = float(kwargs["timeout"])
+            checkout_timeouts.append(timeout)
+            raise subprocess.TimeoutExpired(command, timeout=timeout)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(run_static_scan_shards.subprocess, "run", run)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        with run_static_scan_shards._immutable_source_tree(
+            tmp_path,
+            tmp_path / "run",
+            "a" * 40,
+            deadline=time.perf_counter() + 1.0,
+        ):
+            pytest.fail("timed-out checkout must not yield a source tree")
+
+    assert len(checkout_timeouts) == 1
+    assert 0 < checkout_timeouts[0] <= 1.0
+
+
+def test_scheduler_does_not_launch_workers_after_setup_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_sha = "a" * 40
+    clock = iter((0.0, 2.0))
+
+    @contextlib.contextmanager
+    def immutable_source(root: Path, *_args: object, **_kwargs: object) -> object:
+        yield root
+
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "resolve_repository_sha",
+        lambda _root: repository_sha,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_immutable_source_tree",
+        immutable_source,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards.time,
+        "perf_counter",
+        lambda: next(clock),
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_run_batch",
+        lambda *_args, **_kwargs: pytest.fail("workers must not launch after deadline"),
+    )
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_static_scan_shards.execute_static_scans(
+            (("one", "one_scan"),),
+            root=tmp_path,
+            basetemp=tmp_path,
+            repository_sha=repository_sha,
+            target_seconds=0.5,
+            hard_timeout_seconds=1.0,
+        )
 
 
 def test_worker_launch_registers_owned_process_group(
@@ -848,6 +955,7 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
     captured: dict[str, object] = {}
     stopped: list[object] = []
     lifecycle: list[str] = []
+    original_rmtree = run_static_scan_shards.shutil.rmtree
 
     @contextlib.contextmanager
     def installed_handlers(
@@ -892,12 +1000,18 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
         process.returncode = -15
 
     @contextlib.contextmanager
-    def immutable_source(root: Path, *_args: object) -> object:
+    def immutable_source(
+        root: Path, *_args: object, **_kwargs: object
+    ) -> object:
         lifecycle.append("worktree-enter")
         try:
             yield root
         finally:
             lifecycle.append("worktree-exit")
+
+    def remove_run_root(path: Path) -> None:
+        lifecycle.append("run-root-remove")
+        original_rmtree(path)
 
     monkeypatch.setattr(
         run_static_scan_shards,
@@ -910,6 +1024,7 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
         "_immutable_source_tree",
         immutable_source,
     )
+    monkeypatch.setattr(run_static_scan_shards.shutil, "rmtree", remove_run_root)
     monkeypatch.setattr(
         run_static_scan_shards.shard_processes,
         "installed_signal_handlers",
@@ -941,6 +1056,7 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
         "handlers-enter",
         "worktree-enter",
         "worktree-exit",
+        "run-root-remove",
         "handlers-exit",
     ]
 
@@ -1084,7 +1200,9 @@ def test_scheduler_revalidates_repository_after_worker_completion(
         return outcomes, False
 
     @contextlib.contextmanager
-    def immutable_source(root: Path, *_args: object) -> object:
+    def immutable_source(
+        root: Path, *_args: object, **_kwargs: object
+    ) -> object:
         yield root
 
     monkeypatch.setattr(
