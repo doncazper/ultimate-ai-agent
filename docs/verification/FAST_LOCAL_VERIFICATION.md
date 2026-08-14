@@ -32,6 +32,26 @@ or counts as release evidence. GitHub affected preflight reports a Tier 3 full
 gate without starting a duplicate complete suite; the repository-scoped GitHub
 jobs normally own that exact-SHA resource.
 
+## Static scan process scheduler
+
+`make verify-static` preserves the canonical `SCAN_SEQUENCE` but may execute
+reviewed entries in four process-isolated workers. It uses a dedicated local
+verification entry point so the current v4 hosted CI command and its outer
+exact-head execution fence remain unchanged. The scheduler binds worker plans
+and structured results to the repository HEAD, the exact scan-registry
+fingerprint, and a per-shard context ref. Any registry addition or rename that
+has not updated the reviewed fingerprint fails closed to one serial lane; it
+is never assumed parallel-safe.
+
+Every declared scan must return exactly one identity-matching result. Missing,
+duplicate, substituted, failed, and timed-out results fail the run. The worker
+count is capped by `UAA_VERIFY_CPU_BUDGET` and the detected logical CPU count;
+`STATIC_SCAN_WORKERS=1 make verify-static` remains the serial diagnostic path.
+Worker state lives in a private ephemeral directory and is removed after
+aggregation. Raw worker output is not retained; failure reporting uses bounded
+safe refs. This local scheduler does not change hosted CI command authority,
+create a second command registry, or grant merge evidence on its own.
+
 `make test-sharded`, `make test-sharded-profile`, and `make frontend-check`
 remain available for intentional local complete verification. They execute the
 canonical pytest or frontend lane on a clean exact SHA through the host-wide
