@@ -12,9 +12,10 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -131,6 +132,43 @@ def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     temp.replace(path)
+
+
+@contextmanager
+def _immutable_source_tree(
+    root: Path,
+    run_root: Path,
+    repository_sha: str,
+) -> Iterator[Path]:
+    source_root = run_root / "source"
+    added = subprocess.run(
+        ("git", "worktree", "add", "--detach", str(source_root), repository_sha),
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if added.returncode != 0:
+        raise ValueError("static scan immutable source checkout failed")
+    try:
+        source_root.chmod(0o700)
+        if resolve_repository_sha(source_root) != repository_sha:
+            raise ValueError("static scan immutable source identity mismatch")
+        yield source_root
+        if resolve_repository_sha(source_root) != repository_sha:
+            raise ValueError("static scan immutable source identity changed")
+    finally:
+        removed = subprocess.run(
+            ("git", "worktree", "remove", "--force", str(source_root)),
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if removed.returncode != 0:
+            raise ValueError("static scan immutable source cleanup failed")
 
 
 def _write_plan(
@@ -530,7 +568,6 @@ def execute_static_scans(
     serial_plans = () if serial_reference else exclusive_plans(specs)
     all_plans = (*parallel_plans, *serial_plans)
     run_root = _safe_run_root(basetemp)
-    base_env = shard_processes.build_shard_env(root)
     started = time.perf_counter()
     deadline = started + hard_timeout_seconds
     handled_signals = shard_processes.cancellation_signals()
@@ -540,40 +577,42 @@ def execute_static_scans(
         raise StaticRunInterrupted(signum)
 
     try:
-        with shard_processes.installed_signal_handlers(
-            handled_signals,
-            interrupt_run,
-        ):
-            raw_outcomes, timed_out = _run_batch(
-                parallel_plans,
-                root=root,
-                run_root=run_root,
-                base_env=base_env,
-                scan_timeout_seconds=scan_timeout_seconds,
-                deadline=deadline,
-                safe_summary=safe_summary,
-                batch_ref="parallel",
-                repository_sha=resolved_repository_sha,
-                registry_fingerprint=registry_fingerprint,
-            )
-            if not timed_out:
-                for index, plan in enumerate(serial_plans):
-                    batch_outcomes, batch_timed_out = _run_batch(
-                        (plan,),
-                        root=root,
-                        run_root=run_root,
-                        base_env=base_env,
-                        scan_timeout_seconds=scan_timeout_seconds,
-                        deadline=deadline,
-                        safe_summary=safe_summary,
-                        batch_ref=f"exclusive-{index}",
-                        repository_sha=resolved_repository_sha,
-                        registry_fingerprint=registry_fingerprint,
-                    )
-                    raw_outcomes.extend(batch_outcomes)
-                    timed_out = timed_out or batch_timed_out
-                    if timed_out:
-                        break
+        with _immutable_source_tree(root, run_root, resolved_repository_sha) as source_root:
+            base_env = shard_processes.build_shard_env(source_root)
+            with shard_processes.installed_signal_handlers(
+                handled_signals,
+                interrupt_run,
+            ):
+                raw_outcomes, timed_out = _run_batch(
+                    parallel_plans,
+                    root=source_root,
+                    run_root=run_root,
+                    base_env=base_env,
+                    scan_timeout_seconds=scan_timeout_seconds,
+                    deadline=deadline,
+                    safe_summary=safe_summary,
+                    batch_ref="parallel",
+                    repository_sha=resolved_repository_sha,
+                    registry_fingerprint=registry_fingerprint,
+                )
+                if not timed_out:
+                    for index, plan in enumerate(serial_plans):
+                        batch_outcomes, batch_timed_out = _run_batch(
+                            (plan,),
+                            root=source_root,
+                            run_root=run_root,
+                            base_env=base_env,
+                            scan_timeout_seconds=scan_timeout_seconds,
+                            deadline=deadline,
+                            safe_summary=safe_summary,
+                            batch_ref=f"exclusive-{index}",
+                            repository_sha=resolved_repository_sha,
+                            registry_fingerprint=registry_fingerprint,
+                        )
+                        raw_outcomes.extend(batch_outcomes)
+                        timed_out = timed_out or batch_timed_out
+                        if timed_out:
+                            break
     finally:
         shutil.rmtree(run_root)
     if resolve_repository_sha(root) != resolved_repository_sha:

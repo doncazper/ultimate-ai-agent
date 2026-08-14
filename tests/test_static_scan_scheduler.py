@@ -353,6 +353,55 @@ def test_run_root_does_not_change_caller_owned_base_permissions(tmp_path: Path) 
     shutil.rmtree(run_root)
 
 
+def test_scheduler_uses_detached_exact_source_tree_and_cleans_it(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repository, check=True)
+    source = repository / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "source.py"], cwd=repository, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=UAA Test",
+            "-c",
+            "user.email=uaa-test@example.invalid",
+            "commit",
+            "-qm",
+            "test immutable scheduler source",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    repository_sha = resolve_repository_sha(repository)
+    run_root = _safe_run_root(tmp_path)
+    source_root = run_root / "source"
+
+    with run_static_scan_shards._immutable_source_tree(
+        repository,
+        run_root,
+        repository_sha,
+    ) as immutable_root:
+        assert immutable_root == source_root
+        source.write_text("VALUE = 2\n", encoding="utf-8")
+        assert (immutable_root / "source.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+        source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert not source_root.exists()
+    worktrees = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert str(source_root) not in worktrees
+    shutil.rmtree(run_root)
+
+
 def test_worker_launch_registers_owned_process_group(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -392,6 +441,7 @@ def test_worker_launch_registers_owned_process_group(
 
     assert worker.process is process
     assert observed["command"][-2:] == ["--progress", str(worker.progress_path)]
+    assert observed["cwd"] == tmp_path
     assert "start_new_session" not in observed
 
 
@@ -766,12 +816,21 @@ def test_scheduler_signal_cancellation_stops_active_worker_group(
         stopped.extend(processes)  # type: ignore[arg-type]
         process.returncode = -15
 
+    @contextlib.contextmanager
+    def immutable_source(root: Path, *_args: object) -> object:
+        yield root
+
     monkeypatch.setattr(
         run_static_scan_shards,
         "resolve_repository_sha",
         lambda root: repository_sha,
     )
     monkeypatch.setattr(run_static_scan_shards, "_launch_worker", launch)
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_immutable_source_tree",
+        immutable_source,
+    )
     monkeypatch.setattr(
         run_static_scan_shards.shard_processes,
         "installed_signal_handlers",
@@ -939,8 +998,17 @@ def test_scheduler_revalidates_repository_after_worker_completion(
         ]
         return outcomes, False
 
+    @contextlib.contextmanager
+    def immutable_source(root: Path, *_args: object) -> object:
+        yield root
+
     monkeypatch.setattr(
         run_static_scan_shards, "resolve_repository_sha", resolve_identity
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_immutable_source_tree",
+        immutable_source,
     )
     monkeypatch.setattr(run_static_scan_shards, "_run_batch", run_batch)
 
