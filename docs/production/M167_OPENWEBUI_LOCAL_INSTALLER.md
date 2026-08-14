@@ -139,7 +139,8 @@ Focused tests must cover:
 - install and approval receipts are chmod `0600`, exact-scope, and redacted
 - a custom receipt is preview-bound, token-paired, safely reserved before
   Docker, no-follow/exclusive-created, and never printed as a raw home path
-- receipt/token destination aliases and unsafe or reused custom paths fail closed
+- receipt/token destination aliases, including the token consumption lock path,
+  and unsafe or reused custom paths fail closed
 - rollback text is present and names the selected safe receipt scope
 - plain `uaa setup` remains diagnostic and does not run install paths
 - launcher still refuses missing images and points to the setup install command

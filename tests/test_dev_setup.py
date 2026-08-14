@@ -591,6 +591,23 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
     assert "must not alias --write-approval-token" in capsys.readouterr().out
     assert not shared_path.exists()
 
+    token_path = home / "state" / "approval.json"
+    lock_path = token_path.with_name(f"{token_path.name}.lock")
+    lock_alias_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(lock_path),
+            write_approval_token=str(token_path),
+        ),
+    )
+
+    assert lock_alias_exit == 2
+    assert "or its consumption lock" in capsys.readouterr().out
+    assert not token_path.exists()
+    assert not lock_path.exists()
+
 
 def test_setup_install_custom_receipt_is_reserved_before_docker(
     tmp_path: Path,

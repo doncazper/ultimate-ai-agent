@@ -1011,7 +1011,7 @@ def _consume_setup_approval_token(
         raise ValueError("approval token must not be a symlink")
     if stat.S_IMODE(token_path.stat().st_mode) & 0o077:
         raise ValueError("approval token must be chmod 0600")
-    lock_path = token_path.with_name(f"{token_path.name}.lock")
+    lock_path = _setup_approval_token_lock_path(token_path)
     lock_fd: int | None = None
     try:
         try:
@@ -2967,8 +2967,13 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
             ("--approval-token", plan.get("approval_token_path")),
             ("--write-approval-token", plan.get("write_approval_token_path")),
         ):
-            if token_path is not None and token_path == plan["receipt_path"]:
-                raise ValueError(f"--receipt must not alias {token_option}")
+            if token_path is not None and plan["receipt_path"] in (
+                token_path,
+                _setup_approval_token_lock_path(token_path),
+            ):
+                raise ValueError(
+                    f"--receipt must not alias {token_option} or its consumption lock"
+                )
         plan["receipt_scope_ref"] = _install_receipt_scope_ref(plan["receipt_path"])
         plan["rollback_steps"][-1] = (
             "Receipt cleanup should remove only the exact reviewed receipt at "
@@ -2987,6 +2992,10 @@ def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
         result_summary="Custom receipt destination reserved; no install command has run.",
     )
     plan["receipt_reserved"] = True
+
+
+def _setup_approval_token_lock_path(token_path: Path) -> Path:
+    return token_path.with_name(f"{token_path.name}.lock")
 
 
 def _install_preview_hash(plan: dict[str, Any]) -> str:
