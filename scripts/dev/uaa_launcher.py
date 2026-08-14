@@ -33,12 +33,26 @@ FRONTEND_HOST = "127.0.0.1"
 FRONTEND_PORT = 5173
 OPENWEBUI_HOST = "127.0.0.1"
 OPENWEBUI_PORT = 3000
+# Stable default URL constants remain part of the launcher inspection/test
+# contract. Runtime helpers below still honor the exact localhost-only host and
+# port overrides.
+BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+FRONTEND_URL = f"http://{FRONTEND_HOST}:{FRONTEND_PORT}"
+OPENWEBUI_URL = f"http://{OPENWEBUI_HOST}:{OPENWEBUI_PORT}"
+OPENWEBUI_GATEWAY_FOR_CONTAINER = "http://host.docker.internal:8000/v1"
+UAA_LAUNCHER_BACKEND_HOST_ENV = "UAA_LAUNCHER_BACKEND_HOST"
+UAA_LAUNCHER_BACKEND_PORT_ENV = "UAA_LAUNCHER_BACKEND_PORT"
+UAA_LAUNCHER_FRONTEND_HOST_ENV = "UAA_LAUNCHER_FRONTEND_HOST"
+UAA_LAUNCHER_FRONTEND_PORT_ENV = "UAA_LAUNCHER_FRONTEND_PORT"
+UAA_LAUNCHER_OPENWEBUI_HOST_ENV = "UAA_LAUNCHER_OPENWEBUI_HOST"
+UAA_LAUNCHER_OPENWEBUI_PORT_ENV = "UAA_LAUNCHER_OPENWEBUI_PORT"
+UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV = "UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK"
 OPENWEBUI_CONTAINER_NAME = "uaa-openwebui-local"
 OPENWEBUI_IMAGE_REPOSITORY = "ghcr.io/open-webui/open-webui"
 OPENWEBUI_IMAGE_DIGEST = "sha256:7f1b0a1a50cfbac23da3b16f96bc968fd757b26dc9e54e93813d61768ea9184e"
 OPENWEBUI_IMAGE = f"{OPENWEBUI_IMAGE_REPOSITORY}@{OPENWEBUI_IMAGE_DIGEST}"
 OPENWEBUI_MODEL_ID = "uaa-safe-local"
-OPENWEBUI_GATEWAY_FOR_CONTAINER = "http://host.docker.internal:8000/v1"
+OPENWEBUI_GATEWAY_FOR_CONTAINER_HOST = "host.docker.internal"
 DESIGNATED_UI_TARGET = "control-center"
 UI_TARGETS = ("control-center", "openwebui")
 PRIMARY_READY_SECONDARY_BLOCKED = "primary_ready_secondary_blocked"
@@ -57,9 +71,6 @@ DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
 SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
 STATE_DIR = Path(".uaa") / "dev"
 BACKEND_HEALTH_PATH = "/health"
-FRONTEND_URL = f"http://{FRONTEND_HOST}:{FRONTEND_PORT}"
-BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
-OPENWEBUI_URL = f"http://{OPENWEBUI_HOST}:{OPENWEBUI_PORT}"
 SECRET_ENV_MARKERS = (
     "TOKEN",
     "SECRET",
@@ -98,42 +109,138 @@ def repo_root() -> Path:
 
 def validate_local_host(host: str) -> str:
     normalized = host.strip().lower()
-    if normalized not in SAFE_HOSTS:
+    if normalized == "::1" or normalized not in SAFE_HOSTS:
         raise ValueError(f"Host must be localhost-only, got: {host}")
-    return host
+    return BACKEND_HOST if normalized == "localhost" else normalized
+
+
+def _launcher_host(env_name: str, default_host: str) -> str:
+    host = os.environ.get(env_name, "").strip()
+    return validate_local_host(host or default_host)
+
+
+def _launcher_port(env_name: str, default_port: int) -> int:
+    raw = os.environ.get(env_name, "").strip()
+    if not raw:
+        return default_port
+    if not raw.isdigit():
+        raise ValueError(f"{env_name} must be an integer port value.")
+    port = int(raw)
+    if not 1 <= port <= 65535:
+        raise ValueError(f"{env_name} must be between 1 and 65535.")
+    return port
+
+
+def _env_flag_enabled(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def _service_port_env_name(service_name: str) -> str:
+    if service_name == "backend":
+        return UAA_LAUNCHER_BACKEND_PORT_ENV
+    if service_name == "frontend":
+        return UAA_LAUNCHER_FRONTEND_PORT_ENV
+    if service_name == "openwebui":
+        return UAA_LAUNCHER_OPENWEBUI_PORT_ENV
+    raise ValueError(f"Unknown service: {service_name}")
+
+
+def _service_host_env_name(service_name: str) -> str:
+    if service_name == "backend":
+        return UAA_LAUNCHER_BACKEND_HOST_ENV
+    if service_name == "frontend":
+        return UAA_LAUNCHER_FRONTEND_HOST_ENV
+    if service_name == "openwebui":
+        return UAA_LAUNCHER_OPENWEBUI_HOST_ENV
+    raise ValueError(f"Unknown service: {service_name}")
+
+
+def _next_open_port(host: str, start_port: int, max_checks: int = 32) -> int | None:
+    validate_local_host(host)
+    attempts = 0
+    current_port = start_port + 1
+    while current_port <= 65535 and attempts < max_checks:
+        if not is_port_open(host, current_port):
+            return current_port
+        current_port += 1
+        attempts += 1
+    return None
+
+
+def backend_host() -> str:
+    return _launcher_host(UAA_LAUNCHER_BACKEND_HOST_ENV, BACKEND_HOST)
+
+
+def backend_port() -> int:
+    return _launcher_port(UAA_LAUNCHER_BACKEND_PORT_ENV, BACKEND_PORT)
+
+
+def backend_url() -> str:
+    return f"http://{backend_host()}:{backend_port()}"
+
+
+def frontend_host() -> str:
+    return _launcher_host(UAA_LAUNCHER_FRONTEND_HOST_ENV, FRONTEND_HOST)
+
+
+def frontend_port() -> int:
+    return _launcher_port(UAA_LAUNCHER_FRONTEND_PORT_ENV, FRONTEND_PORT)
+
+
+def frontend_url() -> str:
+    return f"http://{frontend_host()}:{frontend_port()}"
+
+
+def openwebui_host() -> str:
+    return _launcher_host(UAA_LAUNCHER_OPENWEBUI_HOST_ENV, OPENWEBUI_HOST)
+
+
+def openwebui_port() -> int:
+    return _launcher_port(UAA_LAUNCHER_OPENWEBUI_PORT_ENV, OPENWEBUI_PORT)
+
+
+def openwebui_url() -> str:
+    return f"http://{openwebui_host()}:{openwebui_port()}"
+
+
+def openwebui_gateway_for_container() -> str:
+    return f"http://{OPENWEBUI_GATEWAY_FOR_CONTAINER_HOST}:{backend_port()}/v1"
 
 
 def build_backend_command(root: Path) -> list[str]:
-    validate_local_host(BACKEND_HOST)
+    validate_local_host(backend_host())
     return [
         str(root / ".venv" / "bin" / "python"),
         "-m",
         "uvicorn",
         "ultimate_ai_agent.api.app:app",
         "--host",
-        BACKEND_HOST,
+        backend_host(),
         "--port",
-        str(BACKEND_PORT),
+        str(backend_port()),
     ]
 
 
 def build_frontend_command(root: Path) -> list[str]:
     _ = root
-    validate_local_host(FRONTEND_HOST)
+    validate_local_host(frontend_host())
     return [
         _developer_tool("npm"),
         "run",
         "dev",
         "--",
         "--host",
-        FRONTEND_HOST,
+        frontend_host(),
         "--port",
-        str(FRONTEND_PORT),
+        str(frontend_port()),
     ]
 
 
 def build_openwebui_command(root: Path) -> list[str]:
-    validate_local_host(OPENWEBUI_HOST)
+    validate_local_host(openwebui_host())
     data_dir = root / STATE_DIR / "openwebui-data"
     openwebui_env, secret_env_keys = openwebui_container_env()
     env_args = [
@@ -148,7 +255,7 @@ def build_openwebui_command(root: Path) -> list[str]:
         "--name",
         OPENWEBUI_CONTAINER_NAME,
         "-p",
-        f"{OPENWEBUI_HOST}:{OPENWEBUI_PORT}:8080",
+        f"{openwebui_host()}:{openwebui_port()}:8080",
         "-v",
         f"{data_dir}:/app/backend/data",
         *env_args,
@@ -171,8 +278,8 @@ def openwebui_container_env() -> tuple[dict[str, str], set[str]]:
         "ENABLE_OLLAMA_API": "False",
         "ENABLE_OPENAI_API": "True",
         "ENABLE_PERSISTENT_CONFIG": "False",
-        "OPENAI_API_BASE_URL": OPENWEBUI_GATEWAY_FOR_CONTAINER,
-        "OPENAI_API_BASE_URLS": OPENWEBUI_GATEWAY_FOR_CONTAINER,
+        "OPENAI_API_BASE_URL": openwebui_gateway_for_container(),
+        "OPENAI_API_BASE_URLS": openwebui_gateway_for_container(),
         "OPENAI_API_KEY": gateway_key,
         "OPENAI_API_KEYS": gateway_key,
         "WEBUI_AUTH": "False",
@@ -191,10 +298,11 @@ def runtime_paths(root: Path) -> tuple[Path, Path, Path]:
 def service_config(root: Path, name: str) -> Service:
     base, pid_dir, log_dir = runtime_paths(root)
     if name == "backend":
+        backend_service_url = backend_url()
         return Service(
             name="backend",
-            url=BACKEND_URL,
-            health_url=f"{BACKEND_URL}{BACKEND_HEALTH_PATH}",
+            url=backend_service_url,
+            health_url=f"{backend_service_url}{BACKEND_HEALTH_PATH}",
             pid_file=pid_dir / "backend.pid",
             log_file=log_dir / "backend.log",
             metadata_file=base / "backend.json",
@@ -203,10 +311,11 @@ def service_config(root: Path, name: str) -> Service:
         )
     if name == "frontend":
         app_root = root / "apps" / "control-center"
+        frontend_service_url = frontend_url()
         return Service(
             name="frontend",
-            url=FRONTEND_URL,
-            health_url=FRONTEND_URL,
+            url=frontend_service_url,
+            health_url=frontend_service_url,
             pid_file=pid_dir / "frontend.pid",
             log_file=log_dir / "frontend.log",
             metadata_file=base / "frontend.json",
@@ -214,10 +323,11 @@ def service_config(root: Path, name: str) -> Service:
             command=build_frontend_command(root),
         )
     if name == "openwebui":
+        openwebui_service_url = openwebui_url()
         return Service(
             name="openwebui",
-            url=OPENWEBUI_URL,
-            health_url=OPENWEBUI_URL,
+            url=openwebui_service_url,
+            health_url=openwebui_service_url,
             pid_file=pid_dir / "openwebui.pid",
             log_file=log_dir / "openwebui.log",
             metadata_file=base / "openwebui.json",
@@ -254,6 +364,7 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
                 sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
         env["VITE_UAA_API_BASE_URL"] = ""
+        env["VITE_UAA_PROXY_TARGET"] = backend_url()
     if service_name == "openwebui" and llama_cpp_gateway_requested():
         openwebui_env, secret_env_keys = openwebui_container_env()
         for key in secret_env_keys:
@@ -400,7 +511,7 @@ def _observability_helpers(root: Path) -> tuple[Any, ...] | None:
 def read_pid_file(pid_path: Path) -> int | None:
     try:
         text = pid_path.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
+    except (FileNotFoundError, UnicodeDecodeError):
         return None
     if not text:
         return None
@@ -415,7 +526,7 @@ def is_pid_running(pid: int) -> bool:
         return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, OverflowError):
         return False
     except PermissionError:
         return True
@@ -435,17 +546,196 @@ def cleanup_stale_pid(pid_path: Path, is_running: Callable[[int], bool] = is_pid
     return "removed_stale"
 
 
-def metadata_matches_service(service: Service, pid: int) -> bool:
+def _read_service_metadata(service: Service) -> dict[str, Any] | None:
     try:
         data = json.loads(service.metadata_file.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _openwebui_identity_command(command: object) -> list[str] | None:
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return None
+    normalized: list[str] = []
+    for item in command:
+        matched = False
+        for key in ("OPENAI_API_BASE_URL", "OPENAI_API_BASE_URLS"):
+            prefix = f"{key}=http://{OPENWEBUI_GATEWAY_FOR_CONTAINER_HOST}:"
+            if not item.startswith(prefix) or not item.endswith("/v1"):
+                continue
+            raw_port = item[len(prefix) : -len("/v1")]
+            if not raw_port.isdigit() or not 1 <= int(raw_port) <= 65535:
+                continue
+            normalized.append(f"{key}=launcher-backend-endpoint")
+            matched = True
+            break
+        if not matched:
+            normalized.append(item)
+    return normalized
+
+
+def metadata_matches_process(service: Service, pid: int) -> bool:
+    data = _read_service_metadata(service)
+    if data is None:
+        return False
+    recorded_command = data.get("command")
+    command_matches = recorded_command == service.command
+    if service.name == "openwebui":
+        command_matches = _openwebui_identity_command(recorded_command) == (
+            _openwebui_identity_command(service.command)
+        )
+    return (
+        data.get("name") == service.name
+        and data.get("pid") == pid
+        and command_matches
+        and data.get("cwd") == str(service.cwd)
+    )
+
+
+def _endpoint_agnostic_command(service_name: str, command: object) -> list[str] | None:
+    if not isinstance(command, list) or not all(isinstance(item, str) for item in command):
+        return None
+    normalized = list(command)
+    if service_name in {"backend", "frontend"}:
+        try:
+            host_index = normalized.index("--host") + 1
+            port_index = normalized.index("--port") + 1
+            validate_local_host(normalized[host_index])
+            port = int(normalized[port_index])
+            if not 1 <= port <= 65535:
+                return None
+        except (ValueError, IndexError):
+            return None
+        normalized[host_index] = "launcher-service-host"
+        normalized[port_index] = "launcher-service-port"
+        return normalized
+    if service_name == "openwebui":
+        normalized = _openwebui_identity_command(normalized) or []
+        try:
+            publish_index = normalized.index("-p") + 1
+            host, raw_port, container_port = normalized[publish_index].split(":")
+            validate_local_host(host)
+            port = int(raw_port)
+            if not 1 <= port <= 65535 or container_port != "8080":
+                return None
+        except (ValueError, IndexError):
+            return None
+        normalized[publish_index] = "launcher-service-endpoint:8080"
+        return normalized
+    return None
+
+
+def metadata_matches_launcher_process(service: Service, pid: int) -> bool:
+    data = _read_service_metadata(service)
+    if data is None:
         return False
     return (
         data.get("name") == service.name
         and data.get("pid") == pid
-        and data.get("command") == service.command
         and data.get("cwd") == str(service.cwd)
+        and _endpoint_agnostic_command(service.name, data.get("command"))
+        == _endpoint_agnostic_command(service.name, service.command)
     )
+
+
+def _endpoint_mismatch_stop_result(service: Service, pid: int) -> str | None:
+    if metadata_matches_process(service, pid):
+        return None
+    if metadata_matches_launcher_process(service, pid):
+        return (
+            f"{service.name}: blocked; requested endpoint does not match the "
+            "running launcher process; ownership metadata retained"
+        )
+    return None
+
+
+def preflight_stop_service(service: Service) -> str | None:
+    pid = read_pid_file(service.pid_file)
+    if pid is None or not is_pid_running(pid):
+        return None
+    return _endpoint_mismatch_stop_result(service, pid)
+
+
+def metadata_matches_service(service: Service, pid: int) -> bool:
+    if not metadata_matches_process(service, pid):
+        return False
+    data = _read_service_metadata(service)
+    if data is None:
+        return False
+    if service.name == "frontend":
+        return data.get("backend_proxy_url") == backend_url()
+    if service.name == "openwebui":
+        return data.get("command") == service.command
+    return True
+
+
+def launcher_owns_service(service: Service) -> bool:
+    pid = read_pid_file(service.pid_file)
+    return pid is not None and is_pid_running(pid) and metadata_matches_service(service, pid)
+
+
+def _restore_running_service_endpoints(root: Path) -> None:
+    """Reload exact auto-selected endpoints from existing trusted metadata."""
+
+    base, pid_dir, _ = runtime_paths(root)
+    for service_name in ("backend", "frontend", "openwebui"):
+        pid = read_pid_file(pid_dir / f"{service_name}.pid")
+        if pid is None or not is_pid_running(pid):
+            continue
+        metadata_file = base / f"{service_name}.json"
+        try:
+            data = json.loads(metadata_file.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
+            if data.get("auto_selected_endpoint") is not True:
+                continue
+            raw_url = data["url"]
+            if not isinstance(raw_url, str):
+                continue
+            parsed = urllib.parse.urlsplit(raw_url)
+            if (
+                parsed.scheme != "http"
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+                or parsed.path
+            ):
+                continue
+            host = parsed.hostname
+            port = parsed.port
+            if host is None or port is None or not 1 <= port <= 65535:
+                continue
+            validate_local_host(host)
+            if raw_url != f"http://{host}:{port}":
+                continue
+        except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError):
+            continue
+
+        endpoint_env = {
+            _service_host_env_name(service_name): host,
+            _service_port_env_name(service_name): str(port),
+        }
+        injected: dict[str, str | None] = {}
+        for env_name, value in endpoint_env.items():
+            if not os.environ.get(env_name, "").strip():
+                injected[env_name] = os.environ.get(env_name)
+                os.environ[env_name] = value
+        try:
+            trusted = metadata_matches_process(
+                service_config(root, service_name),
+                pid,
+            )
+        except (RuntimeError, ValueError):
+            trusted = False
+        if trusted:
+            continue
+        for env_name, previous in injected.items():
+            if previous is None:
+                os.environ.pop(env_name, None)
+            else:
+                os.environ[env_name] = previous
 
 
 def is_port_open(host: str, port: int, timeout: float = 0.25) -> bool:
@@ -496,11 +786,11 @@ def url_text(
 def service_identity_ready(service: Service) -> bool:
     if service.name == "backend":
         return (
-            url_status(f"{BACKEND_URL}/api/manifest") == 200
-            and url_status(f"{BACKEND_URL}/version") == 200
+            url_status(f"{backend_url()}/api/manifest") == 200
+            and url_status(f"{backend_url()}/version") == 200
         )
     if service.name == "frontend":
-        status, body = url_text(FRONTEND_URL)
+        status, body = url_text(frontend_url())
         return status == 200 and "Ultimate AI Agent Control Center" in body
     if service.name == "openwebui":
         pid = read_pid_file(service.pid_file)
@@ -544,14 +834,14 @@ def check_doctor(root: Path) -> tuple[list[str], list[str]]:
     else:
         ok.append("npm found on PATH")
 
-    if is_port_open(BACKEND_HOST, BACKEND_PORT):
-        ok.append(f"backend port already in use on {BACKEND_URL}")
+    if is_port_open(backend_host(), backend_port()):
+        ok.append(f"backend port already in use on {backend_url()}")
     else:
-        ok.append(f"backend port is free: {BACKEND_URL}")
-    if is_port_open(FRONTEND_HOST, FRONTEND_PORT):
-        ok.append(f"frontend port already in use on {FRONTEND_URL}")
+        ok.append(f"backend port is free: {backend_url()}")
+    if is_port_open(frontend_host(), frontend_port()):
+        ok.append(f"frontend port already in use on {frontend_url()}")
     else:
-        ok.append(f"frontend port is free: {FRONTEND_URL}")
+        ok.append(f"frontend port is free: {frontend_url()}")
 
     return ok, failures
 
@@ -565,12 +855,12 @@ def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
     else:
         failures.append(docker_message)
 
-    if is_port_open(OPENWEBUI_HOST, OPENWEBUI_PORT):
-        ok.append(f"OpenWebUI port already in use on {OPENWEBUI_URL}")
+    if is_port_open(openwebui_host(), openwebui_port()):
+        ok.append(f"OpenWebUI port already in use on {openwebui_url()}")
     else:
-        ok.append(f"OpenWebUI port is free: {OPENWEBUI_URL}")
+        ok.append(f"OpenWebUI port is free: {openwebui_url()}")
 
-    health_status = url_status(f"{BACKEND_URL}{BACKEND_HEALTH_PATH}")
+    health_status = url_status(f"{backend_url()}{BACKEND_HEALTH_PATH}")
     gateway_mode, gateway_key, model_id = openwebui_gateway_runtime_config()
     if health_status is None:
         if gateway_mode == "m164":
@@ -578,16 +868,19 @@ def check_openwebui_doctor(root: Path) -> tuple[list[str], list[str]]:
         else:
             failures.append("UAA backend is not reachable; run: UAA_OPENWEBUI_TEST_GATEWAY_ENABLED=1 ./scripts/dev/uaa start")
     elif 200 <= health_status < 500:
-        ok.append(f"UAA backend reachable at {BACKEND_URL}")
+        ok.append(f"UAA backend reachable at {backend_url()}")
     else:
         failures.append(f"UAA backend health returned HTTP {health_status}")
 
     if not gateway_key:
         failures.append(f"{UAA_LLAMA_CPP_GATEWAY_KEY_ENV} must be set when using the llama.cpp gateway")
         return ok, failures
+    if not launcher_owns_service(service_config(root, "backend")):
+        failures.append("UAA backend ownership is unproven; the local gateway bearer was not sent")
+        return ok, failures
 
     gateway_status = url_status(
-        f"{BACKEND_URL}/v1/models",
+        f"{backend_url()}/v1/models",
         headers={"Authorization": f"Bearer {gateway_key}"},
     )
     if gateway_status == 200:
@@ -703,7 +996,12 @@ def docker_image_present(image: str = OPENWEBUI_IMAGE, timeout_seconds: float = 
     return False, f"OpenWebUI image is not present locally: {image}; no image was pulled"
 
 
-def start_service(root: Path, service: Service) -> str:
+def start_service(
+    root: Path,
+    service: Service,
+    *,
+    auto_selected_endpoint: bool = False,
+) -> str:
     ensure_state_dirs(root)
     start_clock = time.perf_counter()
     record_launcher_event(
@@ -716,17 +1014,51 @@ def start_service(root: Path, service: Service) -> str:
     )
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
-        return f"{service.name}: already running (pid {read_pid_file(service.pid_file)})"
+        pid = read_pid_file(service.pid_file)
+        if pid is not None and metadata_matches_service(service, pid):
+            return f"{service.name}: already running (pid {pid})"
+        if pid is not None and metadata_matches_process(service, pid) and service.name in {"frontend", "openwebui"}:
+            metadata = _read_service_metadata(service)
+            preserve_auto_selected = metadata is not None and metadata.get("auto_selected_endpoint") is True
+            stopped = stop_service(service, root=root)
+            dependency = "backend proxy endpoint" if service.name == "frontend" else "backend gateway endpoint"
+            return (
+                f"{service.name}: {dependency} changed; "
+                f"{stopped}; restarting with {backend_url()}\n"
+                + start_service(root, service, auto_selected_endpoint=preserve_auto_selected)
+            )
+        return (
+            f"{service.name}: blocked; running launcher metadata does not match "
+            "the requested endpoint; stop it with the original endpoint settings "
+            "before restarting"
+        )
 
     service_ports = {
-        "backend": (BACKEND_HOST, BACKEND_PORT),
-        "frontend": (FRONTEND_HOST, FRONTEND_PORT),
-        "openwebui": (OPENWEBUI_HOST, OPENWEBUI_PORT),
+        "backend": (backend_host(), backend_port()),
+        "frontend": (frontend_host(), frontend_port()),
+        "openwebui": (openwebui_host(), openwebui_port()),
     }
     host, port = service_ports[service.name]
     if is_port_open(host, port):
-        if service_identity_ready(service):
+        if service_identity_ready(service) and service.name != "frontend":
             return f"{service.name}: {service.url} is already UAA-ready; not starting a duplicate"
+        if _env_flag_enabled(UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, default=False):
+            alternative_port = _next_open_port(host, port)
+            if alternative_port is not None:
+                os.environ[_service_port_env_name(service.name)] = str(alternative_port)
+                alternative_service = service_config(root, service.name)
+                return (
+                    f"{service.name}: requested port {port} blocked by unverified local process; "
+                    f"switching to next free port {alternative_port}."
+                ) + "\n" + start_service(
+                    root,
+                    alternative_service,
+                    auto_selected_endpoint=True,
+                )
+            return (
+                f"{service.name}: blocked; {service.url} is occupied by an unverified "
+                "local process and no safe alternate port was found"
+            )
         return (
             f"{service.name}: blocked; {service.url} is occupied by an unverified "
             "local process; not starting a duplicate"
@@ -797,20 +1129,20 @@ def start_service(root: Path, service: Service) -> str:
         reason_codes=["SERVICE_PROCESS_SPAWNED"],
     )
     service.pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+    metadata = {
+        "name": service.name,
+        "pid": process.pid,
+        "command": service.command,
+        "cwd": str(service.cwd),
+        "url": service.url,
+        "auto_selected_endpoint": auto_selected_endpoint,
+        "log_file": str(service.log_file),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if service.name == "frontend":
+        metadata["backend_proxy_url"] = backend_url()
     service.metadata_file.write_text(
-        json.dumps(
-            {
-                "name": service.name,
-                "pid": process.pid,
-                "command": service.command,
-                "cwd": str(service.cwd),
-                "url": service.url,
-                "log_file": str(service.log_file),
-                "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            },
-            indent=2,
-            sort_keys=True,
-        )
+        json.dumps(metadata, indent=2, sort_keys=True)
         + "\n",
         encoding="utf-8",
     )
@@ -851,7 +1183,10 @@ def stop_service(service: Service, root: Path | None = None) -> str:
     pid = read_pid_file(service.pid_file)
     if pid is None:
         return f"{service.name}: not running"
-    if not metadata_matches_service(service, pid):
+    if not metadata_matches_process(service, pid):
+        endpoint_mismatch = _endpoint_mismatch_stop_result(service, pid)
+        if endpoint_mismatch is not None:
+            return endpoint_mismatch
         service.pid_file.unlink(missing_ok=True)
         service.metadata_file.unlink(missing_ok=True)
         return f"{service.name}: removed untrusted pid file"
@@ -889,8 +1224,14 @@ def status_for_service(service: Service) -> str:
     log_ref = f"launcher-log:{service.name}"
     state = cleanup_stale_pid(service.pid_file)
     if state == "running":
+        pid = read_pid_file(service.pid_file)
+        if pid is None or not metadata_matches_service(service, pid):
+            return (
+                f"{service.name}: blocked; running launcher metadata does not match "
+                f"the requested endpoint log_ref={log_ref} log={service.log_file}"
+            )
         return (
-            f"{service.name}: running pid={read_pid_file(service.pid_file)} "
+            f"{service.name}: running pid={pid} "
             f"url={service.url} log_ref={log_ref} log={service.log_file}"
         )
     if state == "removed_stale":
@@ -912,10 +1253,11 @@ set -u
 SCRIPT_DIR="${{0:A:h}}"
 {repo_cd}
 
-echo "Ultimate AI Agent local launcher"
-echo "Developer-only, localhost-only, non-production."
-echo
-./scripts/dev/uaa doctor
+	echo "Ultimate AI Agent local launcher"
+	echo "Developer-only, localhost-only, non-production."
+	export UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK=1
+	echo
+	./scripts/dev/uaa doctor
 DOCTOR_STATUS=$?
 if [ "$DOCTOR_STATUS" -ne 0 ]; then
   echo
@@ -967,7 +1309,7 @@ def command_doctor(root: Path) -> int:
 
 
 def command_start(root: Path) -> int:
-    for host in [BACKEND_HOST, FRONTEND_HOST]:
+    for host in [backend_host(), frontend_host()]:
         validate_local_host(host)
     record_launcher_event(
         root,
@@ -980,8 +1322,11 @@ def command_start(root: Path) -> int:
     for name in ["backend", "frontend"]:
         result = start_service(root, service_config(root, name))
         print(result)
-        blocked = blocked or ": blocked;" in result
-    print(f"\nControl Center: {FRONTEND_URL}")
+        service_blocked = ": blocked;" in result
+        blocked = blocked or service_blocked
+        if name == "backend" and service_blocked:
+            break
+    print(f"\nControl Center: {frontend_url()}")
     print(f"Logs: {root / STATE_DIR / 'logs'}")
     return 1 if blocked else 0
 
@@ -990,6 +1335,10 @@ def command_ui(root: Path) -> int:
     frontend = service_config(root, "frontend")
     if cleanup_stale_pid(frontend.pid_file) != "running":
         print("Control Center is not running. Run: uaa start")
+        return 1
+    pid = read_pid_file(frontend.pid_file)
+    if pid is None or not metadata_matches_service(frontend, pid):
+        print("Control Center endpoint does not match the running launcher process. Run: uaa status")
         return 1
     webbrowser.open(frontend.url)
     print(f"Opened {frontend.url}")
@@ -1002,7 +1351,7 @@ def command_launch_ui(root: Path, target: str = DESIGNATED_UI_TARGET) -> int:
         if start_code:
             return start_code
         webbrowser.open(control_center_session_url())
-        print(f"Opened designated UI: {FRONTEND_URL}")
+        print(f"Opened designated UI: {frontend_url()}")
         return 0
     if target == "openwebui":
         return command_launch_openwebui(root)
@@ -1012,9 +1361,9 @@ def command_launch_ui(root: Path, target: str = DESIGNATED_UI_TARGET) -> int:
 def control_center_session_url() -> str:
     bearer = os.environ.get(UAA_API_LOCAL_BEARER_ENV, "").strip()
     if not bearer:
-        return FRONTEND_URL
+        return frontend_url()
     encoded = urllib.parse.quote(bearer, safe="")
-    return f"{FRONTEND_URL}#{CONTROL_CENTER_SESSION_FRAGMENT_KEY}={encoded}"
+    return f"{frontend_url()}#{CONTROL_CENTER_SESSION_FRAGMENT_KEY}={encoded}"
 
 
 def command_trial_boot(root: Path) -> int:
@@ -1059,14 +1408,22 @@ def command_launch_openwebui(root: Path) -> int:
         print("OpenWebUI was not launched. Run uaa setup install --target openwebui to approve the scoped image pull.")
         return 1
 
-    backend_status = url_status(f"{BACKEND_URL}{BACKEND_HEALTH_PATH}")
+    backend_result = start_service(root, service_config(root, "backend"))
+    print(backend_result)
+    if ": blocked;" in backend_result:
+        return 1
+
+    backend_service = service_config(root, "backend")
+    if not launcher_owns_service(backend_service):
+        print("FAIL: backend ownership could not be proven; the local gateway bearer was not sent")
+        return 1
+    backend_status = url_status(f"{backend_url()}{BACKEND_HEALTH_PATH}")
     if backend_status != 200:
-        print(start_service(root, service_config(root, "backend")))
-    else:
-        print(f"backend: already reachable at {BACKEND_URL}")
+        print(f"FAIL: launcher-owned backend is not ready (status {backend_status})")
+        return 1
 
     gateway_status = url_status(
-        f"{BACKEND_URL}/v1/models",
+        f"{backend_url()}/v1/models",
         headers={"Authorization": f"Bearer {gateway_key}"},
     )
     if gateway_status != 200:
@@ -1078,8 +1435,8 @@ def command_launch_openwebui(root: Path) -> int:
     print(openwebui_result)
     if ": blocked;" in openwebui_result:
         return 1
-    webbrowser.open(OPENWEBUI_URL)
-    print(f"\nOpened designated UI: {OPENWEBUI_URL}")
+    webbrowser.open(openwebui_url())
+    print(f"\nOpened designated UI: {openwebui_url()}")
     print(f"Gateway mode: {gateway_mode}")
     print(f"Model: {model_id}")
     print("No packages were installed and no images were pulled by uaa launch-ui.")
@@ -1117,8 +1474,8 @@ def command_openwebui_start(root: Path) -> int:
     print(result)
     if ": blocked;" in result:
         return 1
-    print(f"\nOpenWebUI: {OPENWEBUI_URL}")
-    print(f"UAA gateway for OpenWebUI: {OPENWEBUI_GATEWAY_FOR_CONTAINER}")
+    print(f"\nOpenWebUI: {openwebui_url()}")
+    print(f"UAA gateway for OpenWebUI: {openwebui_gateway_for_container()}")
     print(f"Gateway mode: {gateway_mode}")
     print(f"Model: {model_id}")
     if gateway_mode == "m164-llama-cpp":
@@ -1134,8 +1491,11 @@ def command_openwebui_status(root: Path) -> int:
     if not gateway_key:
         print(f"uaa-gateway: not ready ({UAA_LLAMA_CPP_GATEWAY_KEY_ENV} is unset)")
         return 1
+    if not launcher_owns_service(service_config(root, "backend")):
+        print("uaa-gateway: not ready (backend ownership unproven; bearer not sent)")
+        return 1
     gateway_status = url_status(
-        f"{BACKEND_URL}/v1/models",
+        f"{backend_url()}/v1/models",
         headers={"Authorization": f"Bearer {gateway_key}"},
     )
     print(
@@ -1173,7 +1533,10 @@ def command_openwebui_logs(root: Path, follow: bool = False) -> int:
 
 def command_openwebui_stop(root: Path) -> int:
     service = service_config(root, "openwebui")
-    print(stop_service(service, root=root))
+    stop_result = stop_service(service, root=root)
+    print(stop_result)
+    if ": blocked;" in stop_result:
+        return 1
     docker_ready, _ = docker_engine_status(timeout_seconds=1.5)
     if docker_ready:
         try:
@@ -1227,9 +1590,19 @@ def command_stop(root: Path) -> int:
         lifecycle_state="requested",
         reason_codes=["LAUNCHER_STOP_REQUESTED"],
     )
-    command_openwebui_stop(root)
-    for name in ["frontend", "backend"]:
-        print(stop_service(service_config(root, name), root=root))
+    services = [service_config(root, name) for name in ["openwebui", "frontend", "backend"]]
+    for service in services:
+        endpoint_mismatch = preflight_stop_service(service)
+        if endpoint_mismatch is not None:
+            print(endpoint_mismatch)
+            return 1
+    if command_openwebui_stop(root):
+        return 1
+    for service in services[1:]:
+        stop_result = stop_service(service, root=root)
+        print(stop_result)
+        if ": blocked;" in stop_result:
+            return 1
     return 0
 
 
@@ -1302,6 +1675,7 @@ def main(argv: list[str] | None = None) -> int:
         return uaa_runtime.main(["actions", *action_args])
     args = parse_args(raw_argv)
     root = repo_root()
+    _restore_running_service_endpoints(root)
     command = args.command or "help"
     try:
         if command == "help":
@@ -1371,8 +1745,9 @@ def main(argv: list[str] | None = None) -> int:
             return command_stop(root)
         if command == "restart":
             stop_code = command_stop(root)
-            start_code = command_start(root)
-            return stop_code or start_code
+            if stop_code:
+                return stop_code
+            return command_start(root)
         if command == "install-shell-command":
             return install_shell_command(root, Path(args.bin_dir).expanduser())
     except (RuntimeError, ValueError) as exc:
