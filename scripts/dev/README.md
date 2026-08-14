@@ -87,13 +87,18 @@ uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui
 
 That command prints the exact `docker pull` command, asks you to type
 `install openwebui` before running it, and writes a redacted receipt (default:
-`.uaa/dev/setup-install-receipts/`, or a custom path with `--receipt`). For
-noninteractive automation, first write
-a preview-bound approval token after typed approval:
+`.uaa/dev/setup-install-receipts/`, or a custom path with `--receipt`). A custom
+path must be under your home directory, must not already exist or cross a
+symlink, and must not cross a world-writable directory. Reusing the same custom
+receipt path fails closed with exit code 2.
+
+The receipt destination is bound into the preview hash. For noninteractive
+automation with a custom destination, pass the same `--receipt` value when you
+write the approval token and when you consume it:
 
 ```bash
-uaa setup install --target openwebui --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
-uaa setup install --target openwebui --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
+uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
 ```
 
 Bare `--yes` fails closed before Docker is resolved.

@@ -1361,6 +1361,8 @@ def _validate_bootstrap_receipt_path(root: Path, value: Path | str) -> Path:
     candidate = raw if raw.is_absolute() else root / raw
     if candidate.is_symlink():
         raise ValueError("--receipt must not be a symlink")
+    if any(parent.is_symlink() for parent in candidate.parents):
+        raise ValueError("--receipt could not be resolved safely")
     try:
         path = _canonical_user_scope_path(root, value, option_name="--receipt")
     except (OSError, RuntimeError) as exc:
@@ -1906,7 +1908,11 @@ def write_setup_install_receipt(
         "created_at": _utc_timestamp(),
         "redaction": "safe summary only; no credentials, provider keys, environment dump, raw prompts, raw responses, or raw logs",
     }
-    _write_json_0600(target, payload)
+    _write_json_0600(
+        target,
+        payload,
+        exclusive=plan["receipt_scope_ref"] != "receipt-scope:default-generated",
+    )
     return target
 
 
@@ -2997,7 +3003,7 @@ def write_setup_install_approval_token(
         "used_at": None,
         "redaction": "safe approval metadata only; no credentials, env values, usernames, raw logs, prompts, or provider payloads",
     }
-    _write_json_0600(token_path, payload)
+    _write_json_0600(token_path, payload, exclusive=True)
     return token_path
 
 
@@ -3062,18 +3068,28 @@ def _safe_summary_text(value: str) -> str:
     return safe[:500]
 
 
-def _write_json_0600(target: Path, payload: dict[str, Any]) -> None:
+def _write_json_0600(
+    target: Path,
+    payload: dict[str, Any],
+    *,
+    exclusive: bool = False,
+) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     data = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    flags = os.O_WRONLY | os.O_CREAT
+    flags |= os.O_EXCL if exclusive else os.O_TRUNC
+    flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(data)
-    finally:
-        try:
-            os.chmod(target, 0o600)
-        except FileNotFoundError:
-            pass
+        fd = os.open(target, flags, 0o600)
+    except FileExistsError as exc:
+        raise ValueError("refusing to overwrite an existing setup evidence file") from exc
+    except OSError as exc:
+        if target.is_symlink():
+            raise ValueError("refusing to follow a setup evidence symlink") from exc
+        raise
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        os.fchmod(handle.fileno(), 0o600)
+        handle.write(data)
 
 
 def _display_path(root: Path, path: Path) -> str:

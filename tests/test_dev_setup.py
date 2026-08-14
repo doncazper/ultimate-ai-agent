@@ -520,6 +520,36 @@ def test_setup_install_custom_receipt_rejects_unsafe_paths(
     assert not (world_writable / "receipt.json").exists()
 
 
+def test_setup_install_custom_receipt_write_rejects_substituted_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    receipt_path = home / "receipt.json"
+    outside = home / "outside.json"
+    outside.write_text("keep", encoding="utf-8")
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    plan = setup._openwebui_install_plan(tmp_path)
+    setup._attach_install_approval_paths(
+        tmp_path,
+        plan,
+        _setup_args(receipt=str(receipt_path)),
+    )
+    receipt_path.symlink_to(outside)
+
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        setup.write_setup_install_receipt(
+            tmp_path,
+            plan,
+            status="failed",
+            result_summary="No command was run.",
+        )
+
+    assert outside.read_text(encoding="utf-8") == "keep"
+
+
 def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     home = tmp_path / "home"
