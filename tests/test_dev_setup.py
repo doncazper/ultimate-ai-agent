@@ -2,6 +2,7 @@ from typing import Any
 import importlib.util
 import io
 import json
+import os
 import stat
 import sys
 from types import SimpleNamespace
@@ -507,6 +508,7 @@ def test_setup_install_custom_receipt_rejects_unsafe_paths(
         (loop_parent / "receipt.json", "could not be resolved safely"),
         (tmp_path / "outside.json", "current user's home"),
         (world_writable / "receipt.json", "world-writable"),
+        (home / "line\nbreak.json", "control characters"),
     ]
 
     for receipt_path, expected in unsafe:
@@ -608,6 +610,22 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
     assert not token_path.exists()
     assert not lock_path.exists()
 
+    case_variant_lock = token_path.with_name("Approval.json.lock")
+    case_alias_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(case_variant_lock),
+            write_approval_token=str(token_path),
+        ),
+    )
+
+    assert case_alias_exit == 2
+    assert "or its consumption lock" in capsys.readouterr().out
+    assert not token_path.exists()
+    assert not case_variant_lock.exists()
+
 
 def test_setup_install_custom_receipt_is_reserved_before_docker(
     tmp_path: Path,
@@ -644,6 +662,26 @@ def test_setup_install_custom_receipt_is_reserved_before_docker(
     assert "could not be reserved safely" in captured.out
     assert str(home) not in captured.out
     assert not receipt_path.exists()
+
+    private_receipt = home / "private" / "nested" / "receipt.json"
+    monkeypatch.setattr(setup, "_read_install_approval", lambda: False)
+    previous_umask = os.umask(0)
+    try:
+        private_exit = setup.command_setup(
+            tmp_path,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                receipt=str(private_receipt),
+            ),
+        )
+    finally:
+        os.umask(previous_umask)
+
+    assert private_exit == 1
+    assert stat.S_IMODE(private_receipt.parent.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(private_receipt.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(private_receipt.stat().st_mode) == 0o600
 
 
 def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

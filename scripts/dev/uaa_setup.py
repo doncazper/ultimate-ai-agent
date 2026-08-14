@@ -2959,18 +2959,21 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
         )
     receipt_path = getattr(args, "receipt", None)
     if receipt_path:
+        if _has_path_control_character(str(receipt_path)):
+            raise ValueError("--receipt must not contain control characters")
         plan["receipt_path"] = _validate_bootstrap_receipt_path(
             root,
             Path(str(receipt_path)).expanduser(),
         )
+        receipt_alias_key = _macos_path_alias_key(plan["receipt_path"])
         for token_option, token_path in (
             ("--approval-token", plan.get("approval_token_path")),
             ("--write-approval-token", plan.get("write_approval_token_path")),
         ):
-            if token_path is not None and plan["receipt_path"] in (
-                token_path,
-                _setup_approval_token_lock_path(token_path),
-            ):
+            if token_path is not None and receipt_alias_key in {
+                _macos_path_alias_key(token_path),
+                _macos_path_alias_key(_setup_approval_token_lock_path(token_path)),
+            }:
                 raise ValueError(
                     f"--receipt must not alias {token_option} or its consumption lock"
                 )
@@ -2985,6 +2988,7 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
 def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
     if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
         return
+    _prepare_custom_install_receipt_parent(plan["receipt_path"])
     write_setup_install_receipt(
         root,
         plan,
@@ -2994,8 +2998,35 @@ def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
     plan["receipt_reserved"] = True
 
 
+def _prepare_custom_install_receipt_parent(receipt_path: Path) -> None:
+    home = _bootstrap_user_home().resolve(strict=False)
+    try:
+        relative_parent = receipt_path.parent.relative_to(home)
+    except ValueError as exc:
+        raise ValueError("custom receipt parent is outside the user scope") from exc
+    current = home
+    for part in relative_parent.parts:
+        current = current / part
+        try:
+            current.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        if current.is_symlink() or not current.is_dir():
+            raise ValueError("custom receipt parent could not be prepared safely")
+        if stat.S_IMODE(current.stat().st_mode) & stat.S_IWOTH:
+            raise ValueError("custom receipt parent is world-writable")
+
+
 def _setup_approval_token_lock_path(token_path: Path) -> Path:
     return token_path.with_name(f"{token_path.name}.lock")
+
+
+def _macos_path_alias_key(path: Path) -> str:
+    return str(path).casefold()
+
+
+def _has_path_control_character(value: str) -> bool:
+    return any(ord(character) < 32 or ord(character) == 127 for character in value)
 
 
 def _install_preview_hash(plan: dict[str, Any]) -> str:
