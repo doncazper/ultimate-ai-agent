@@ -108,6 +108,59 @@ Likely files touched:
 
 PR size: one frontend PR after Task 2.
 
+## Task 3a - FCC-LOOP-003 Review-Stage Readability Refinement
+
+Type: frontend/test/docs
+
+Status: proposed. Begin after `FCC-TODAY-RENDER-001` restores the accepted
+Today composition. This is a subordinate refinement of the implemented
+`FCC-LOOP-001` readable loop, not a replacement roadmap.
+
+Plan: [`FCC_LOOP_003_REVIEW_STAGE_READABILITY_IMPLEMENTATION_PLAN.md`](FCC_LOOP_003_REVIEW_STAGE_READABILITY_IMPLEMENTATION_PLAN.md)
+
+Shape the existing Plans, Action Inbox, Today, and Evidence views into one
+readable review journey: proposal, exact review required, recorded decision,
+then receipt or explicit block. Compose only the established read models and
+preserve their controls, route guards, decision reconciliation, and redacted
+evidence references.
+
+New authority: none. Do not add routes, API clients, OpenAPI changes,
+React-owned lifecycle truth, action execution, approvals, grant or lease
+issuance, tool/shell/browser use, plugin or connector execution,
+model/provider calls, memory retrieval, raw context/evidence display,
+telemetry upload, or dependencies.
+
+Acceptance criteria:
+
+- Plan and action cards lead with the current stage and the operator's safe
+  next review step.
+- Missing, stale, preview, mocked, or blocked state remains explicit and
+  cannot render as a positive decision or completed mutation.
+- Detail views expose the existing scope, risk, approval, expiry, rollback,
+  receipt, and redacted evidence references without inventing lifecycle data.
+- Existing approval controls retain their route-side-effect guards and
+  post-decision reconciliation behavior.
+
+Tests to add/update:
+
+- Focused component and application coverage for each supported stage,
+  degraded states, detail references, and retained decision guard behavior.
+- Desktop and narrow-width review after the Today rendering work lands.
+- `make frontend-check`, `scripts/verify_control_center_frontend.py`,
+  documentation integrity verification, and `git diff --check`.
+
+Likely files touched:
+
+- `apps/control-center/src/components/FounderLoopPanels.tsx` and narrowly
+  extracted presentational components
+- Focused Control Center component/application tests
+- `docs/control_center/OPERATOR_SHELL_GAP_MAP.md` only if
+  implemented-versus-planned wording changes
+
+PR size: keep the pure presentation mapping and Plans/Inbox composition as one
+small frontend PR; treat Today/Evidence wayfinding as a follow-up after
+`FCC-TODAY-RENDER-001` acceptance.
+
 ## Task 4 - FCC-P0-003 Implement Morning Briefing Workflow Skeleton
 
 Type: frontend with possible backend aggregation later
