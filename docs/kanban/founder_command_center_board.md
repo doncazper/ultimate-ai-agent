@@ -1201,6 +1201,49 @@ provider/model, public-release, or production authority. Preserve truthful
 empty, partial, blocked, and fallback states while removing developer-facing
 diagnostic treatment from the primary operator experience.
 
+### FCC-LOOP-003 - P0 - Review-Stage Readability Refinement
+
+Epic: Product/UX Safety
+
+Status: proposed. Dependent on `FCC-TODAY-RENDER-001`; this refines the
+accepted `FCC-LOOP-001` product loop rather than creating a parallel workflow.
+
+Description: Make the existing Plans, Action Inbox, Today, and Evidence
+surfaces read as one review journey: proposed, exact review required, decision
+recorded, then receipt or explicit block. Use only existing governed read
+models and redacted references.
+
+Implementation plan:
+[`FCC_LOOP_003_REVIEW_STAGE_READABILITY_IMPLEMENTATION_PLAN.md`](../implementation/FCC_LOOP_003_REVIEW_STAGE_READABILITY_IMPLEMENTATION_PLAN.md)
+
+Acceptance criteria:
+
+- Plan/action cards prioritize stage and safe next review step over diagnostic
+  detail.
+- Degraded, preview, stale, blocked, and missing state is explicit; it never
+  implies a decision, receipt, or executed mutation.
+- Existing scope, risk, approval, expiry, rollback, receipt, and evidence
+  references remain inspectable through progressive disclosure.
+- Existing approval controls, route guards, and post-decision reconciliation
+  remain unchanged in behavior.
+
+Required tests:
+
+- Focused component/application coverage for stage mapping, degraded states,
+  references, and retained decision guards.
+- Desktop and narrow-width review after the Today rendering restoration.
+- `make frontend-check`, `scripts/verify_control_center_frontend.py`,
+  documentation integrity verification, and `git diff --check`.
+
+Safety notes:
+
+- No backend/API/OpenAPI changes, React-owned workflow truth, approval or grant
+  issuance, action execution, plugin/connector runtime, tool/shell/browser
+  authority, model/provider calls, memory retrieval, raw context/evidence
+  display, telemetry upload, or dependencies.
+- Do not promote preview or read-model data into authority; retain the current
+  Python-core contract and existing route classifications.
+
 ### UAA-P1-070 - Memory Source And Provenance Model
 
 Epic: Memory/Knowledge, Safety/Permissions
