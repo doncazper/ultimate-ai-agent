@@ -35,7 +35,8 @@ Avoid phase-only titles such as "close final gaps", "refresh provenance", or
 ## Contribution provenance
 
 - [ ] I have the right to submit every part of this contribution.
-- [ ] I identified third-party code, assets, data, and applicable licenses.
+- [ ] I identified any third-party code, assets, or data and the applicable
+      licenses.
 - [ ] I disclosed any material AI assistance and personally reviewed the result.
 - [ ] This change contains no credentials, private data, raw prompts, raw model
       responses, raw provider payloads, raw logs, or machine-specific details.

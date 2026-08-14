@@ -42,11 +42,12 @@ truthfully instead of weakening or skipping the assertion.
 ## AI-assisted contributions
 
 AI assistance does not reduce the contributor's responsibility. Contributors
-must personally review, understand, and test the submitted change; have the
-right to submit every part of it; disclose material AI assistance; identify
-known third-party sources or licenses; and avoid confidential, secret, copied,
-or memorized material. Generated output is not evidence of originality,
-correctness, security, or license compatibility.
+must personally review and understand the submitted change; test it or report
+any required-environment or dependency blocker; have the right to submit every
+part of it; disclose material AI assistance; identify known third-party sources
+or licenses; and avoid confidential or secret material, memorized content, and
+unauthorized or unattributed copied material. Generated output is not evidence
+of originality, correctness, security, or license compatibility.
 
 ## Commit and pull-request quality
 
