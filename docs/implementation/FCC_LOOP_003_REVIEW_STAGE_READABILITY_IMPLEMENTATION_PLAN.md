@@ -89,6 +89,26 @@ This is a display grammar, not a new domain lifecycle. Stage labels must map
 only to existing backend values and refs. Never derive a positive state from a
 missing field, optimistic POST response, mock fixture, or browser state.
 
+Apply the following fail-closed precedence after rejecting any absent,
+non-backend-owned, mock/degraded, or otherwise invalid read model as
+`unavailable`:
+
+1. **Blocked or stale** when an explicit blocked/stale/unavailable
+   `plan_status`, expiry/staleness value, non-empty `blocked_authority_refs`,
+   `missing_evidence_refs`, or `missing_field_states` identifies that posture.
+2. **Decision recorded** only when the authoritative receipt model supplies a
+   non-empty `decision_receipt_ref`, or the bridge supplies a non-empty
+   backend-validated `receipt_refs` entry for the item.
+3. **Review required** only when `plan_status` explicitly names a review
+   requirement, or `review_only` is true and the authoritative approval
+   envelope supplies an explicit `approval_requirement`.
+4. **Proposed** only when `plan_status` explicitly names a proposed or
+   proposal-only posture, or `proposal_only` is true.
+
+Return `unavailable` for every missing or unmapped combination. In particular,
+an absent ref, empty blocker list, or optimistic/default boolean is never
+evidence for a positive stage.
+
 ### First-read hierarchy
 
 The default card layout should contain, in this order:
@@ -96,21 +116,29 @@ The default card layout should contain, in this order:
 1. Plain-language safe summary and `why proposed` context.
 2. Stage label and the exact next safe action.
 3. Exact scope, risk class, approval requirement, and expiry/staleness.
-4. Evidence/missing-evidence and rollback/safe-disable posture.
-5. A link/ref to the appropriate Action Inbox, receipt, and Evidence Timeline
+4. Paid-cost state and bounds—including `estimated_cost_usd`,
+   `max_approved_cost_usd`, `cost_state_label`, and
+   `unknown_paid_cost_requires_explicit_approval`—plus the `idempotency_ref`
+   and current blocking posture.
+5. Evidence/missing-evidence and rollback/safe-disable posture.
+6. A link/ref to the appropriate Action Inbox, receipt, and Evidence Timeline
    detail when those backend refs exist.
 
-Secondary items—route refs, provider/cost details, task-decomposition refs,
-authority receipt fields, conflict/replay posture, and all blocker lists—move
-to an expandable **Review detail** section. They remain visible and searchable;
-they are not discarded or rewritten into raw JSON.
+Secondary items—route refs, provider/model implementation metadata,
+task-decomposition refs, authority receipt fields, conflict/replay posture,
+and expanded blocker detail—move to an expandable **Review detail** section.
+Approval-critical cost limits, idempotency, and the presence of blockers stay
+in the first-read hierarchy; the expanded section may add safe-ref detail but
+must not be the only place those decision facts appear. Nothing is discarded
+or rewritten into raw JSON.
 
 ### Truthful unavailable state
 
 When a required backend read model is absent, non-authoritative, or degraded,
-the card must say which review surface is unavailable and direct the operator to
-the current next-safe action. It must not show a completed stage, active
-authority, receipt eligibility, or mutation control from a fallback fixture.
+the card must say which review surface is unavailable. If `next_safe_action` is
+absent or invalid, show **No safe action available**; do not infer an action or
+use fallback-fixture data. This neutral state must not show a completed stage,
+active authority, receipt eligibility, or any mutation control.
 
 ## Delivery Sequence
 
@@ -191,8 +219,10 @@ Run focused checks per slice, then the appropriate full frontend/documentation
 checks:
 
 ```bash
-cd apps/control-center && npm test -- --run
+(cd apps/control-center && npm test -- --run)
 make frontend-check
+make frontend-visual-check
+(cd apps/control-center && ./node_modules/.bin/playwright test --config=playwright.visual.config.ts --project=mobile)
 .venv/bin/python scripts/verify_control_center_frontend.py
 .venv/bin/python scripts/verify_documentation_integrity.py
 git diff --check
