@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -196,6 +197,53 @@ def test_static_context_caches_reads_and_restores_path_methods(
 
     assert Path.read_text is original_read_text
     assert source.read_text(encoding="utf-8") == "second"
+
+
+def test_repository_identity_rejects_dirty_or_nested_source(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    source = tmp_path / "source.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "source.py"], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=UAA Test",
+            "-c",
+            "user.email=uaa-test@example.invalid",
+            "commit",
+            "-qm",
+            "test source identity",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    expected = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert resolve_repository_sha(tmp_path) == expected
+
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    with pytest.raises(ValueError, match="exact clean repository"):
+        resolve_repository_sha(nested)
+
+    untracked = tmp_path / "untracked.py"
+    untracked.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact clean repository"):
+        resolve_repository_sha(tmp_path)
+    untracked.unlink()
+
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact clean repository"):
+        resolve_repository_sha(tmp_path)
 
 
 def test_run_root_does_not_change_caller_owned_base_permissions(tmp_path: Path) -> None:

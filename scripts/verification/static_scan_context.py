@@ -195,15 +195,39 @@ class StaticVerificationContext:
 
 
 def resolve_repository_sha(root: Path) -> str:
-    result = subprocess.run(
-        ("git", "rev-parse", "HEAD"),
+    identity = subprocess.run(
+        ("git", "rev-parse", "--show-toplevel", "HEAD"),
         cwd=root,
         check=False,
         capture_output=True,
         text=True,
         timeout=10,
     )
-    sha = result.stdout.strip()
-    if result.returncode != 0 or SHA_PATTERN.fullmatch(sha) is None:
-        raise ValueError("static verification repository SHA is unavailable")
+    status = subprocess.run(
+        ("git", "status", "--porcelain", "--untracked-files=all"),
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    identity_lines = identity.stdout.splitlines()
+    sha = identity_lines[-1].strip() if identity_lines else ""
+    try:
+        top_level = Path(identity_lines[0]).resolve()
+        resolved_root = root.resolve()
+    except (OSError, RuntimeError):
+        top_level = None
+        resolved_root = None
+    if (
+        identity.returncode != 0
+        or status.returncode != 0
+        or len(identity_lines) != 2
+        or top_level != resolved_root
+        or SHA_PATTERN.fullmatch(sha) is None
+        or status.stdout.strip()
+    ):
+        raise ValueError(
+            "static verification requires an exact clean repository revision"
+        )
     return sha
