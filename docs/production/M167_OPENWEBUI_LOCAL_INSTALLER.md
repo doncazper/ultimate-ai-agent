@@ -97,11 +97,13 @@ receipts are stored under `.uaa/dev/setup-install-receipts/` by default, which
 is ignored local developer state. `--receipt` may instead select one exact
 nonexistent path beneath the current user's home. Symlinked, outside-home, and
 world-writable paths are denied; missing parents are created mode `0700`.
-Control characters and case-equivalent token or consumption-lock aliases are
-denied before preview, and the exact custom destination is reserved before
-approval is consumed or Docker is resolved. The command does not create
-OpenWebUI data state; that state is created only by the launcher when OpenWebUI
-is started.
+Control characters, token or consumption-lock ancestry overlaps (including
+case variants), and paths that would occupy required setup evidence directories
+are denied before preview. Missing custom-receipt parents are prepared privately
+even for early token-writing failures, and the exact custom destination is
+reserved before approval is consumed or Docker is resolved. The command does
+not create OpenWebUI data state; that state is created only by the launcher when
+OpenWebUI is started.
 
 ## Redacted Receipt Model
 
@@ -141,9 +143,10 @@ Focused tests must cover:
 - install and approval receipts are chmod `0600`, exact-scope, and redacted
 - a custom receipt is preview-bound, token-paired, safely reserved before
   Docker, no-follow/exclusive-created, and never printed as a raw home path
-- receipt/token destination aliases, including case variants and the token
-  consumption lock path, control characters, and unsafe or reused custom paths
-  fail closed; missing parents remain private under a permissive umask
+- receipt/token destination aliases or ancestry overlaps, including case
+  variants and the token consumption lock path, control characters, internal
+  evidence directory occupancy, and unsafe or reused custom paths fail closed;
+  missing parents remain private under a permissive umask on all receipt writes
 - rollback text is present and names the selected safe receipt scope
 - plain `uaa setup` remains diagnostic and does not run install paths
 - launcher still refuses missing images and points to the setup install command

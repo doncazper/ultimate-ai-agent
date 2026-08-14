@@ -590,7 +590,7 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
     )
 
     assert exit_code == 2
-    assert "must not alias --write-approval-token" in capsys.readouterr().out
+    assert "must not overlap --write-approval-token" in capsys.readouterr().out
     assert not shared_path.exists()
 
     token_path = home / "state" / "approval.json"
@@ -625,6 +625,135 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
     assert "or its consumption lock" in capsys.readouterr().out
     assert not token_path.exists()
     assert not case_variant_lock.exists()
+
+    receipt_parent = home / "nested-receipt"
+    nested_token = receipt_parent / "approval.json"
+    parent_overlap_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(receipt_parent),
+            write_approval_token=str(nested_token),
+        ),
+    )
+
+    assert parent_overlap_exit == 2
+    assert "must not overlap --write-approval-token" in capsys.readouterr().out
+    assert not receipt_parent.exists()
+
+    token_parent = home / "nested-token"
+    nested_receipt = token_parent / "receipt.json"
+    child_overlap_exit = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(nested_receipt),
+            write_approval_token=str(token_parent),
+        ),
+    )
+
+    assert child_overlap_exit == 2
+    assert "must not overlap --write-approval-token" in capsys.readouterr().out
+    assert not token_parent.exists()
+
+
+def test_setup_install_custom_receipt_rejects_internal_evidence_directory_occupancy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    repo = home / "repo"
+    repo.mkdir(parents=True)
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        SimpleNamespace(
+            readline=lambda: pytest.fail(
+                "evidence-directory validation must happen before approval prompting"
+            )
+        ),
+    )
+
+    internal_directories = (
+        setup.SETUP_INSTALL_RECEIPT_DIR,
+        setup.SETUP_BOOTSTRAP_RECEIPT_DIR,
+        setup.SETUP_APPROVAL_RECEIPT_DIR,
+    )
+    for internal_directory in internal_directories:
+        receipt_path = repo / internal_directory
+        exit_code = setup.command_setup(
+            repo,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                receipt=str(receipt_path),
+            ),
+        )
+
+        assert exit_code == 2
+        assert (
+            "must not occupy a required setup evidence directory"
+            in capsys.readouterr().out
+        )
+        assert not receipt_path.exists()
+
+    shared_parent = repo / ".uaa" / "dev"
+    parent_exit = setup.command_setup(
+        repo,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            receipt=str(shared_parent),
+        ),
+    )
+
+    assert parent_exit == 2
+    assert (
+        "must not occupy a required setup evidence directory" in capsys.readouterr().out
+    )
+    assert not shared_parent.exists()
+
+
+@pytest.mark.parametrize("with_yes", [True, False])
+def test_setup_install_custom_receipt_early_token_exit_keeps_parents_private(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    with_yes: bool,
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    receipt_path = home / ("yes" if with_yes else "refused") / "nested" / "receipt.json"
+    token_path = home / "tokens" / f"{with_yes}.json"
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    if not with_yes:
+        monkeypatch.setattr(setup, "_read_install_approval", lambda: False)
+
+    previous_umask = os.umask(0)
+    try:
+        exit_code = setup.command_setup(
+            tmp_path,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                yes=with_yes,
+                receipt=str(receipt_path),
+                write_approval_token=str(token_path),
+            ),
+        )
+    finally:
+        os.umask(previous_umask)
+
+    assert exit_code == 1
+    assert stat.S_IMODE(receipt_path.parent.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(receipt_path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(receipt_path.stat().st_mode) == 0o600
+    assert not token_path.exists()
 
 
 def test_setup_install_custom_receipt_is_reserved_before_docker(

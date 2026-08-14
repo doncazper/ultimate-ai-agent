@@ -320,6 +320,14 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     print(render_install_plan(plan))
 
     if getattr(args, "write_approval_token", None):
+        try:
+            _prepare_custom_install_receipt(plan)
+        except (OSError, ValueError):
+            print(
+                "FAIL: Custom receipt destination could not be prepared safely; "
+                "no approval token or install command was run."
+            )
+            return 2
         if getattr(args, "yes", False):
             receipt_path = write_setup_install_receipt(
                 root,
@@ -2965,17 +2973,31 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
             root,
             Path(str(receipt_path)).expanduser(),
         )
-        receipt_alias_key = _macos_path_alias_key(plan["receipt_path"])
         for token_option, token_path in (
             ("--approval-token", plan.get("approval_token_path")),
             ("--write-approval-token", plan.get("write_approval_token_path")),
         ):
-            if token_path is not None and receipt_alias_key in {
-                _macos_path_alias_key(token_path),
-                _macos_path_alias_key(_setup_approval_token_lock_path(token_path)),
-            }:
+            if token_path is not None and any(
+                _macos_paths_overlap(plan["receipt_path"], token_artifact)
+                for token_artifact in (
+                    token_path,
+                    _setup_approval_token_lock_path(token_path),
+                )
+            ):
                 raise ValueError(
-                    f"--receipt must not alias {token_option} or its consumption lock"
+                    f"--receipt must not overlap {token_option} or its consumption lock"
+                )
+        for evidence_directory in (
+            SETUP_INSTALL_RECEIPT_DIR,
+            SETUP_BOOTSTRAP_RECEIPT_DIR,
+            SETUP_APPROVAL_RECEIPT_DIR,
+        ):
+            if _macos_path_is_same_or_ancestor(
+                plan["receipt_path"],
+                (root / evidence_directory).resolve(strict=False),
+            ):
+                raise ValueError(
+                    "--receipt must not occupy a required setup evidence directory"
                 )
         plan["receipt_scope_ref"] = _install_receipt_scope_ref(plan["receipt_path"])
         plan["rollback_steps"][-1] = (
@@ -2988,7 +3010,7 @@ def _attach_install_approval_paths(root: Path, plan: dict[str, Any], args: argpa
 def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
     if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
         return
-    _prepare_custom_install_receipt_parent(plan["receipt_path"])
+    _prepare_custom_install_receipt(plan)
     write_setup_install_receipt(
         root,
         plan,
@@ -2996,6 +3018,12 @@ def _reserve_custom_install_receipt(root: Path, plan: dict[str, Any]) -> None:
         result_summary="Custom receipt destination reserved; no install command has run.",
     )
     plan["receipt_reserved"] = True
+
+
+def _prepare_custom_install_receipt(plan: dict[str, Any]) -> None:
+    if plan["receipt_scope_ref"] == "receipt-scope:default-generated":
+        return
+    _prepare_custom_install_receipt_parent(plan["receipt_path"])
 
 
 def _prepare_custom_install_receipt_parent(receipt_path: Path) -> None:
@@ -3023,6 +3051,20 @@ def _setup_approval_token_lock_path(token_path: Path) -> Path:
 
 def _macos_path_alias_key(path: Path) -> str:
     return str(path).casefold()
+
+
+def _macos_path_is_same_or_ancestor(candidate: Path, descendant: Path) -> bool:
+    candidate_key = _macos_path_alias_key(candidate).rstrip(os.sep)
+    descendant_key = _macos_path_alias_key(descendant).rstrip(os.sep)
+    return descendant_key == candidate_key or descendant_key.startswith(
+        f"{candidate_key}{os.sep}"
+    )
+
+
+def _macos_paths_overlap(first: Path, second: Path) -> bool:
+    return _macos_path_is_same_or_ancestor(first, second) or _macos_path_is_same_or_ancestor(
+        second, first
+    )
 
 
 def _has_path_control_character(value: str) -> bool:
