@@ -39,6 +39,33 @@ PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 If a required environment or dependency is unavailable, report the blocker
 truthfully instead of weakening or skipping the assertion.
 
+## AI-assisted contributions
+
+AI assistance does not reduce the contributor's responsibility. Contributors
+must personally review, understand, and test the submitted change; have the
+right to submit every part of it; disclose material AI assistance; identify
+known third-party sources or licenses; and avoid confidential, secret, copied,
+or memorized material. Generated output is not evidence of originality,
+correctness, security, or license compatibility.
+
+## Commit and pull-request quality
+
+- Use a concise, behavior-first pull-request title:
+
+  ```text
+  type(area): concrete behavior or prevented failure
+  ```
+
+- Prefer `feat`, `fix`, `perf`, `test`, `ci`, `docs`, `refactor`,
+  or `chore` for `type`, and the smallest stable subsystem for `area`.
+- Name the observable result rather than an internal phase. Put milestone
+  identifiers, implementation phases, and detailed verification in the body.
+- Keep each pull request focused on one outcome and do not mix unrelated
+  refactors.
+- Do not rewrite or remove historical release tags.
+- Include tests run, skipped checks, and known limitations.
+- Keep durable evidence redacted and use repository-safe references.
+
 ## Product language
 
 Public source availability under the MIT License is not a public beta,
