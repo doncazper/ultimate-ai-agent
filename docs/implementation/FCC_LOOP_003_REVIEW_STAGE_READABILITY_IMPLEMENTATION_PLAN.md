@@ -101,7 +101,9 @@ non-backend-owned, mock/degraded, or otherwise invalid read model as
    `decision_receipt_ref:pending` or pending local-task receipt fields do not.
    Permanent safety-boundary entries in `blocked_authority_refs`—for example a
    standing no-connector-write ref—do not make the item lifecycle-blocked by
-   themselves; only a backend-classified current blocker may do so.
+   themselves; only a backend-classified lifecycle-invalidating current
+   blocker may do so. A mutation waiting for approval, exact scope, or a
+   required recheck is a review gate, not a terminal lifecycle blocker.
 2. **Decision recorded** only when the authoritative receipt model supplies a
    backend-validated committed safe receipt ref, or the bridge supplies such a
    committed `receipt_refs` entry for the item. A value must satisfy the
@@ -118,12 +120,15 @@ Use surface-specific authoritative inputs. Plan bridge items use
 `plan_status`, `review_only`, and `proposal_only`. Action Inbox items instead
 use their existing backend-owned `status`, `approval_required`,
 `approval_envelope_status`, `state_change_readiness`, `blocked_state`, and
-`stale_state`: explicit blocked/stale values take the first branch;
-`review_ready` or a valid required approval envelope maps to **Review
-required**; and only an explicit `proposed`, `proposal_only`, or draft-only
-status maps to **Proposed**. If those existing fields cannot express a needed
-distinction, add a separately scoped Python read-model field and its API/CLI
-contract before rendering it; React must not infer the distinction.
+`stale_state`. An explicit terminal/lifecycle-invalidating status such as
+`blocked`, `expired`, `stale`, or `superseded` takes the first branch, but a
+`blocked_state`, `state_change_readiness`, or recheck posture that merely says
+mutation awaits approval remains **Review required**. `review_ready` or a valid
+required approval envelope maps to **Review required**; only an explicit
+`proposed`, `proposal_only`, or draft-only status maps to **Proposed**. If those
+existing fields cannot express a needed distinction, add a separately scoped
+Python read-model field and its API/CLI contract before rendering it; React
+must not infer the distinction.
 
 Return `unavailable` for every missing or unmapped combination. In particular,
 an absent ref, empty blocker list, or optimistic/default boolean is never
