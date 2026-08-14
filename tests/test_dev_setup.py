@@ -742,17 +742,17 @@ def test_setup_probes_honor_launcher_endpoint_overrides(
     frontend = setup._probe_frontend_port()
     openwebui = setup._probe_openwebui_port()
 
-    assert "http://localhost:8100" in backend.summary
+    assert "http://127.0.0.1:8100" in backend.summary
     assert "http://127.0.0.1:5273" in frontend.summary
     assert "http://127.0.0.1:3100" in openwebui.summary
     assert probes == [
-        ("localhost", 8100),
+        ("127.0.0.1", 8100),
         ("127.0.0.1", 5273),
         ("127.0.0.1", 3100),
     ]
 
     requested_urls: list[str] = []
-    monkeypatch.setattr(setup, "_is_port_open", lambda host, port: (host, port) == ("localhost", 8100))
+    monkeypatch.setattr(setup, "_is_port_open", lambda host, port: (host, port) == ("127.0.0.1", 8100))
     monkeypatch.setattr(
         setup,
         "_url_status",
@@ -762,7 +762,7 @@ def test_setup_probes_honor_launcher_endpoint_overrides(
     gateway = setup._probe_uaa_gateway_status(mode="smoke")
 
     assert gateway.status == "pass"
-    assert requested_urls == ["http://localhost:8100/v1/models"]
+    assert requested_urls == ["http://127.0.0.1:8100/v1/models"]
 
 
 def test_setup_rejects_unsupported_launcher_ipv6_override(

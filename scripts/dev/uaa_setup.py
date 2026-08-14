@@ -2325,9 +2325,11 @@ def _launcher_endpoint(
     default_host: str,
     default_port: int,
 ) -> tuple[str, int, str]:
-    host = os.environ.get(host_env, "").strip() or default_host
-    if host.lower() not in LAUNCHER_HOSTS:
+    host = (os.environ.get(host_env, "").strip() or default_host).lower()
+    if host not in LAUNCHER_HOSTS:
         raise ValueError(f"{host_env} must be 127.0.0.1 or localhost.")
+    if host == "localhost":
+        host = BACKEND_HOST
     raw_port = os.environ.get(port_env, "").strip()
     if raw_port:
         if not raw_port.isdigit():

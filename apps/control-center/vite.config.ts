@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const rootDirectory = fileURLToPath(new URL(".", import.meta.url));
 const configuredProxyTarget = process.env.VITE_UAA_PROXY_TARGET ?? "";
-const localProxyTarget = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{2,5}$/.test(
+const localProxyTarget = /^http:\/\/127\.0\.0\.1:\d{2,5}$/.test(
   configuredProxyTarget,
 )
   ? configuredProxyTarget

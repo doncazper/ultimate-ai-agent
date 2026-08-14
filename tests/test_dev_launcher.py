@@ -30,8 +30,8 @@ def load_launcher() -> Any:
 def test_launcher_rejects_non_loopback_hosts() -> None:
     launcher = load_launcher()
 
-    for host in ["127.0.0.1", "localhost"]:
-        assert launcher.validate_local_host(host) == host
+    assert launcher.validate_local_host("127.0.0.1") == "127.0.0.1"
+    assert launcher.validate_local_host("localhost") == "127.0.0.1"
 
     for host in ["0.0.0.0", "192.168.1.20", "control-center.local", "example.com", "::1"]:
         with pytest.raises(ValueError):
@@ -105,7 +105,7 @@ def test_launcher_applies_loopback_host_and_port_overrides(
     frontend = launcher.build_frontend_command(ROOT)
     openwebui = launcher.build_openwebui_command(ROOT)
 
-    assert backend[backend.index("--host") + 1] == "localhost"
+    assert backend[backend.index("--host") + 1] == "127.0.0.1"
     assert backend[backend.index("--port") + 1] == "8100"
     assert frontend[frontend.index("--port") + 1] == "5273"
     assert openwebui[openwebui.index("-p") + 1] == "127.0.0.1:3100:8080"
@@ -114,7 +114,7 @@ def test_launcher_applies_loopback_host_and_port_overrides(
     )
     assert launcher.service_config(ROOT, "frontend").url == "http://127.0.0.1:5273"
     assert launcher.safe_env(ROOT, "frontend")["VITE_UAA_PROXY_TARGET"] == (
-        "http://localhost:8100"
+        "http://127.0.0.1:8100"
     )
 
 
@@ -125,9 +125,9 @@ def test_launcher_normalizes_case_variant_localhost_for_frontend_proxy(
     monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_HOST_ENV, "LOCALHOST")
     monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8100")
 
-    assert launcher.backend_url() == "http://localhost:8100"
+    assert launcher.backend_url() == "http://127.0.0.1:8100"
     assert launcher.safe_env(ROOT, "frontend")["VITE_UAA_PROXY_TARGET"] == (
-        "http://localhost:8100"
+        "http://127.0.0.1:8100"
     )
 
 
@@ -685,6 +685,55 @@ def test_launcher_treats_non_object_metadata_as_untrusted(
     launcher._restore_running_service_endpoints(tmp_path)
 
 
+def test_launcher_treats_undecodable_metadata_as_untrusted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    service = launcher.service_config(tmp_path, "backend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    service.metadata_file.write_bytes(b"\xff")
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+
+    assert launcher.metadata_matches_service(service, 12345) is False
+    launcher._restore_running_service_endpoints(tmp_path)
+
+
+def test_launcher_restores_frontend_endpoint_before_proxy_dependency_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_FRONTEND_PORT_ENV, "5174")
+    service = launcher.service_config(tmp_path, "frontend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    service.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": service.name,
+                "pid": 12345,
+                "command": service.command,
+                "cwd": str(service.cwd),
+                "url": service.url,
+                "auto_selected_endpoint": True,
+                "backend_proxy_url": "http://127.0.0.1:8001",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV)
+    monkeypatch.delenv(launcher.UAA_LAUNCHER_FRONTEND_PORT_ENV)
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: True)
+
+    launcher._restore_running_service_endpoints(tmp_path)
+
+    assert launcher.frontend_port() == 5174
+    assert launcher.metadata_matches_process(launcher.service_config(tmp_path, "frontend"), 12345)
+
+
 def test_running_frontend_restarts_when_backend_proxy_endpoint_changes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -763,12 +812,83 @@ def test_openwebui_process_identity_ignores_only_backend_gateway_port(
     monkeypatch.delenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV)
     requested = launcher.service_config(tmp_path, "openwebui")
 
-    assert launcher.metadata_matches_service(requested, 12345)
+    assert launcher.metadata_matches_process(requested, 12345)
+    assert launcher.metadata_matches_service(requested, 12345) is False
 
     tampered = json.loads(running.metadata_file.read_text(encoding="utf-8"))
     tampered["command"][-1] = "untrusted-image"
     running.metadata_file.write_text(json.dumps(tampered), encoding="utf-8")
     assert launcher.metadata_matches_service(requested, 12345) is False
+
+
+def test_running_openwebui_restarts_when_backend_gateway_endpoint_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8000")
+    running = launcher.service_config(tmp_path, "openwebui")
+    running.pid_file.parent.mkdir(parents=True)
+    running.pid_file.write_text("12345\n", encoding="utf-8")
+    running.metadata_file.write_text(
+        json.dumps(
+            {
+                "name": running.name,
+                "pid": 12345,
+                "command": running.command,
+                "cwd": str(running.cwd),
+                "url": running.url,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(launcher.UAA_LAUNCHER_BACKEND_PORT_ENV, "8001")
+    requested = launcher.service_config(tmp_path, "openwebui")
+    states = iter(("running", "missing"))
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: next(states))
+    monkeypatch.setattr(launcher, "is_port_open", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(launcher, "wait_for_url", lambda _url: True)
+    monkeypatch.setattr(launcher, "docker_engine_status", lambda: (True, "Docker ready"))
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+
+    stopped: list[str] = []
+
+    def stop_owned(openwebui: Any, root: Path | None = None) -> str:
+        stopped.append(openwebui.name)
+        openwebui.pid_file.unlink()
+        openwebui.metadata_file.unlink()
+        return "openwebui: stopped launcher pid 12345"
+
+    class Process:
+        pid = 12346
+
+    monkeypatch.setattr(launcher, "stop_service", stop_owned)
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+
+    result = launcher.start_service(tmp_path, requested)
+
+    assert stopped == ["openwebui"]
+    assert "backend gateway endpoint changed" in result
+    assert "running at http://127.0.0.1:3000" in result
+
+
+def test_command_start_does_not_restart_frontend_after_backend_is_blocked(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    launcher = load_launcher()
+    started: list[str] = []
+
+    def start(_root: Path, service: Any) -> str:
+        started.append(service.name)
+        return f"{service.name}: blocked; requested endpoint mismatch"
+
+    monkeypatch.setattr(launcher, "start_service", start)
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+
+    assert launcher.command_start(ROOT) == 1
+    assert started == ["backend"]
+    assert "backend: blocked" in capsys.readouterr().out
 
 
 def test_running_service_requires_exact_requested_endpoint(

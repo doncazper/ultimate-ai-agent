@@ -68,7 +68,7 @@ UAA_LLAMA_CPP_API_KEY_ENV = "UAA_LLAMA_CPP_API_KEY"
 UAA_BUILD_COMMIT_ENV = "UAA_BUILD_COMMIT"
 UAA_LLAMA_CPP_DEFAULT_MODEL_ID = "uaa-llama-cpp-local"
 DOCKER_ENGINE_CHECK_TIMEOUT_SECONDS = 3.0
-SAFE_HOSTS = {"127.0.0.1", "localhost"}
+SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
 STATE_DIR = Path(".uaa") / "dev"
 BACKEND_HEALTH_PATH = "/health"
 SECRET_ENV_MARKERS = (
@@ -109,9 +109,9 @@ def repo_root() -> Path:
 
 def validate_local_host(host: str) -> str:
     normalized = host.strip().lower()
-    if normalized not in SAFE_HOSTS:
+    if normalized == "::1" or normalized not in SAFE_HOSTS:
         raise ValueError(f"Host must be localhost-only, got: {host}")
-    return normalized
+    return BACKEND_HOST if normalized == "localhost" else normalized
 
 
 def _launcher_host(env_name: str, default_host: str) -> str:
@@ -549,7 +549,7 @@ def cleanup_stale_pid(pid_path: Path, is_running: Callable[[int], bool] = is_pid
 def _read_service_metadata(service: Service) -> dict[str, Any] | None:
     try:
         data = json.loads(service.metadata_file.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) else None
 
@@ -596,10 +596,14 @@ def metadata_matches_process(service: Service, pid: int) -> bool:
 def metadata_matches_service(service: Service, pid: int) -> bool:
     if not metadata_matches_process(service, pid):
         return False
-    if service.name != "frontend":
-        return True
     data = _read_service_metadata(service)
-    return data is not None and data.get("backend_proxy_url") == backend_url()
+    if data is None:
+        return False
+    if service.name == "frontend":
+        return data.get("backend_proxy_url") == backend_url()
+    if service.name == "openwebui":
+        return data.get("command") == service.command
+    return True
 
 
 def _restore_running_service_endpoints(root: Path) -> None:
@@ -637,7 +641,7 @@ def _restore_running_service_endpoints(root: Path) -> None:
             validate_local_host(host)
             if raw_url != f"http://{host}:{port}":
                 continue
-        except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError):
+        except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError):
             continue
 
         endpoint_env = {
@@ -650,7 +654,7 @@ def _restore_running_service_endpoints(root: Path) -> None:
                 injected[env_name] = os.environ.get(env_name)
                 os.environ[env_name] = value
         try:
-            trusted = metadata_matches_service(
+            trusted = metadata_matches_process(
                 service_config(root, service_name),
                 pid,
             )
@@ -941,14 +945,11 @@ def start_service(
         pid = read_pid_file(service.pid_file)
         if pid is not None and metadata_matches_service(service, pid):
             return f"{service.name}: already running (pid {pid})"
-        if (
-            service.name == "frontend"
-            and pid is not None
-            and metadata_matches_process(service, pid)
-        ):
+        if pid is not None and metadata_matches_process(service, pid) and service.name in {"frontend", "openwebui"}:
             stopped = stop_service(service, root=root)
+            dependency = "backend proxy endpoint" if service.name == "frontend" else "backend gateway endpoint"
             return (
-                "frontend: backend proxy endpoint changed; "
+                f"{service.name}: {dependency} changed; "
                 f"{stopped}; restarting with {backend_url()}\n"
                 + start_service(root, service)
             )
@@ -1244,7 +1245,10 @@ def command_start(root: Path) -> int:
     for name in ["backend", "frontend"]:
         result = start_service(root, service_config(root, name))
         print(result)
-        blocked = blocked or ": blocked;" in result
+        service_blocked = ": blocked;" in result
+        blocked = blocked or service_blocked
+        if name == "backend" and service_blocked:
+            break
     print(f"\nControl Center: {frontend_url()}")
     print(f"Logs: {root / STATE_DIR / 'logs'}")
     return 1 if blocked else 0

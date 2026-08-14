@@ -480,7 +480,7 @@ class FoundationGateLegacyChecksPart010Mixin:
                 failures.append(
                     "M41 launcher safety check cannot prove localhost-only refusal"
                 )
-            for fragment in ['"127.0.0.1"', '"localhost"']:
+            for fragment in ['"127.0.0.1"', '"localhost"', '"::1"']:
                 if fragment not in launcher_source:
                     failures.append(
                         f"M41 launcher missing safe host fragment: {fragment}"
