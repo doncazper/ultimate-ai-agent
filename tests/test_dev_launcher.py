@@ -708,6 +708,19 @@ def test_launcher_treats_undecodable_pid_file_as_untrusted(tmp_path: Path) -> No
     assert launcher.read_pid_file(pid_path) is None
 
 
+def test_launcher_treats_out_of_range_pid_as_not_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setattr(
+        launcher.os,
+        "kill",
+        lambda _pid, _sig: (_ for _ in ()).throw(OverflowError()),
+    )
+
+    assert launcher.is_pid_running(1 << 100) is False
+
+
 def test_launcher_restores_frontend_endpoint_before_proxy_dependency_validation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1208,6 +1221,51 @@ def test_openwebui_stop_removes_only_named_local_container(monkeypatch: pytest.M
 
     assert code == 0
     assert docker_calls == [["/tmp/docker", "rm", "-f", launcher.OPENWEBUI_CONTAINER_NAME]]
+
+
+def test_openwebui_stop_propagates_endpoint_mismatch_without_docker_removal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setattr(
+        launcher,
+        "stop_service",
+        lambda _service, root=None: "openwebui: blocked; ownership metadata retained",
+    )
+    monkeypatch.setattr(
+        launcher,
+        "docker_engine_status",
+        lambda **_kwargs: pytest.fail("Docker must not be touched after a blocked stop"),
+    )
+
+    assert launcher.command_openwebui_stop(ROOT) == 1
+
+
+def test_command_stop_propagates_openwebui_block(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(launcher, "command_openwebui_stop", lambda _root: 1)
+    monkeypatch.setattr(
+        launcher,
+        "stop_service",
+        lambda *_args, **_kwargs: pytest.fail("service stop must abort after OpenWebUI block"),
+    )
+
+    assert launcher.command_stop(ROOT) == 1
+
+
+def test_restart_does_not_start_after_blocked_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = load_launcher()
+    monkeypatch.setattr(launcher, "repo_root", lambda: ROOT)
+    monkeypatch.setattr(launcher, "_restore_running_service_endpoints", lambda _root: None)
+    monkeypatch.setattr(launcher, "command_stop", lambda _root: 1)
+    monkeypatch.setattr(
+        launcher,
+        "command_start",
+        lambda _root: pytest.fail("restart must not start after a blocked stop"),
+    )
+
+    assert launcher.main(["restart"]) == 1
 
 
 def test_stop_service_discards_untrusted_pid_metadata(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

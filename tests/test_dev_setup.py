@@ -816,6 +816,14 @@ def test_setup_backend_ownership_requires_exact_launcher_metadata(
     pid_file.write_text("0\n", encoding="utf-8")
     assert setup._launcher_owns_backend(tmp_path, setup.BACKEND_URL) is False
 
+    pid_file.write_text(f"{1 << 100}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        setup.os,
+        "kill",
+        lambda _pid, _sig: (_ for _ in ()).throw(OverflowError()),
+    )
+    assert setup._launcher_owns_backend(tmp_path, setup.BACKEND_URL) is False
+
     pid_file.write_text("12345\n", encoding="utf-8")
     url = setup.BACKEND_URL
     metadata = {

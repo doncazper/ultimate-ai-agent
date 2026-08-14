@@ -526,7 +526,7 @@ def is_pid_running(pid: int) -> bool:
         return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, OverflowError):
         return False
     except PermissionError:
         return True
@@ -1517,7 +1517,10 @@ def command_openwebui_logs(root: Path, follow: bool = False) -> int:
 
 def command_openwebui_stop(root: Path) -> int:
     service = service_config(root, "openwebui")
-    print(stop_service(service, root=root))
+    stop_result = stop_service(service, root=root)
+    print(stop_result)
+    if ": blocked;" in stop_result:
+        return 1
     docker_ready, _ = docker_engine_status(timeout_seconds=1.5)
     if docker_ready:
         try:
@@ -1571,9 +1574,13 @@ def command_stop(root: Path) -> int:
         lifecycle_state="requested",
         reason_codes=["LAUNCHER_STOP_REQUESTED"],
     )
-    command_openwebui_stop(root)
+    if command_openwebui_stop(root):
+        return 1
     for name in ["frontend", "backend"]:
-        print(stop_service(service_config(root, name), root=root))
+        stop_result = stop_service(service_config(root, name), root=root)
+        print(stop_result)
+        if ": blocked;" in stop_result:
+            return 1
     return 0
 
 
@@ -1716,8 +1723,9 @@ def main(argv: list[str] | None = None) -> int:
             return command_stop(root)
         if command == "restart":
             stop_code = command_stop(root)
-            start_code = command_start(root)
-            return stop_code or start_code
+            if stop_code:
+                return stop_code
+            return command_start(root)
         if command == "install-shell-command":
             return install_shell_command(root, Path(args.bin_dir).expanduser())
     except (RuntimeError, ValueError) as exc:

@@ -2606,7 +2606,7 @@ def _launcher_owns_backend(root: Path, url: str) -> bool:
         return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, OverflowError):
         return False
     except PermissionError:
         pass
