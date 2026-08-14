@@ -80,7 +80,9 @@ class ProductVerificationSnapshot:
             "milestone_status": self.milestone_status,
             "include_memory_review_verifier": False,
         }
-        kwargs = {name: value for name, value in available.items() if name in parameters}
+        kwargs = {
+            name: value for name, value in available.items() if name in parameters
+        }
         failures = verifier(self.root, **kwargs)
         self.assert_unchanged()
         if failures:
@@ -214,7 +216,9 @@ def resolve_repository_sha(root: Path) -> str:
     identity_lines = identity.stdout.splitlines()
     sha = identity_lines[-1].strip() if identity_lines else ""
     try:
-        top_level = Path(identity_lines[0]).resolve()
+        top_level = (
+            Path(identity_lines[0]).resolve() if len(identity_lines) == 2 else None
+        )
         resolved_root = root.resolve()
     except (OSError, RuntimeError):
         top_level = None

@@ -150,11 +150,16 @@ def load_static_timings(
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
+    if not isinstance(payload, dict):
+        return {}
     if payload.get("schema_version") != STATIC_TIMING_SCHEMA:
+        return {}
+    raw_timings = payload.get("timings")
+    if not isinstance(raw_timings, list):
         return {}
     known = {f"static_scan:{spec.name}": spec.function_name for spec in specs}
     timings: dict[str, float] = {}
-    for item in payload.get("timings", []):
+    for item in raw_timings:
         if not isinstance(item, dict) or item.get("name") not in known:
             continue
         elapsed = item.get("elapsed_ms")
@@ -186,7 +191,9 @@ def assign_static_shards(
 ) -> tuple[StaticShardPlan, ...]:
     if worker_count <= 0:
         raise ValueError("static scan worker count must be greater than zero")
-    parallel_specs = tuple(spec for spec in specs if spec.execution_class == "parallel_safe")
+    parallel_specs = tuple(
+        spec for spec in specs if spec.execution_class == "parallel_safe"
+    )
     if not parallel_specs:
         return ()
     count = min(worker_count, len(parallel_specs))
@@ -194,7 +201,10 @@ def assign_static_shards(
     items = _assignment_items(parallel_specs)
     items.sort(
         key=lambda item: (
-            -sum(values.get(spec.function_name, DEFAULT_SCAN_MILLISECONDS) for spec in item),
+            -sum(
+                values.get(spec.function_name, DEFAULT_SCAN_MILLISECONDS)
+                for spec in item
+            ),
             item[0].index,
         )
     )

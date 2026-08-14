@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification import run_all_legacy as legacy  # noqa: E402
+from scripts.verification.static_scan_context import (  # noqa: E402
+    resolve_repository_sha,
+)
 from scripts.verification.run_static_scan_shards import (  # noqa: E402
     execute_static_scans,
 )
@@ -45,10 +48,16 @@ def main(argv: list[str] | None = None) -> None:
     original_run_static_scans = legacy.run_static_scans
 
     def run_static_scans(timings: Any | None = None) -> None:
-        if args.static_workers == 1:
-            original_run_static_scans(timings)
-            return
         try:
+            if args.static_workers == 1:
+                actual_sha = resolve_repository_sha(legacy.ROOT)
+                if (
+                    args.repository_sha is not None
+                    and args.repository_sha != actual_sha
+                ):
+                    raise ValueError("static scan repository identity mismatch")
+                original_run_static_scans(timings)
+                return
             report = execute_static_scans(
                 legacy.SCAN_SEQUENCE,
                 root=legacy.ROOT,

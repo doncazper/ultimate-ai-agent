@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import signal
 import shutil
 import subprocess
 import time
@@ -10,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.verification import static_scan_worker
+from scripts.verification import static_scan_context, static_scan_worker
 from scripts.verification.cpu_budget import (
     CPU_BUDGET_ENV,
     capped_worker_count,
@@ -34,11 +36,13 @@ from scripts.verification.static_scan_context import (
 from scripts.verification.static_scan_plan import (
     APPROVED_PARALLEL_REGISTRY_FINGERPRINT,
     STATIC_PLAN_SCHEMA,
+    STATIC_TIMING_SCHEMA,
     StaticScanSpec,
     StaticShardPlan,
     assign_static_shards,
     build_scan_specs,
     exclusive_plans,
+    load_static_timings,
     plan_fingerprint,
     scan_registry_fingerprint,
 )
@@ -174,6 +178,24 @@ def test_current_registry_is_exact_and_unknown_scans_fail_closed_serial() -> Non
     assert len(serial[0].scans) == len(drifted)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    (
+        [],
+        {"schema_version": STATIC_TIMING_SCHEMA, "timings": {}},
+    ),
+)
+def test_static_timing_history_ignores_structurally_invalid_json(
+    tmp_path: Path,
+    payload: object,
+) -> None:
+    path = tmp_path / "timings.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    specs = _approved_specs((("one", "one_scan"),))
+
+    assert load_static_timings(path, specs) == {}
+
+
 def test_complete_outcomes_fails_closed_for_missing_or_duplicate_results() -> None:
     specs = build_scan_specs((("one", "one_scan"), ("two", "two_scan")))
     duplicate = StaticScanOutcome(
@@ -271,6 +293,26 @@ def test_repository_identity_rejects_dirty_or_nested_source(
     untracked.unlink()
 
     source.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact clean repository"):
+        resolve_repository_sha(tmp_path)
+
+
+def test_repository_identity_empty_git_output_fails_with_bounded_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    results = iter(
+        (
+            SimpleNamespace(returncode=1, stdout="", stderr="bounded"),
+            SimpleNamespace(returncode=0, stdout="", stderr=""),
+        )
+    )
+    monkeypatch.setattr(
+        static_scan_context.subprocess,
+        "run",
+        lambda *args, **kwargs: next(results),
+    )
+
     with pytest.raises(ValueError, match="exact clean repository"):
         resolve_repository_sha(tmp_path)
 
@@ -510,6 +552,95 @@ def test_scan_timeout_stops_worker_and_emits_identity_bound_timeout(
     assert outcomes[0].failure_ref == "timeout-ref:static-scan"
 
 
+def test_timeout_targets_first_unreported_scan_after_completed_progress(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = _approved_specs((("done", "done_scan"), ("next", "next_scan")))
+    plan = assign_static_shards(specs, 1)[0]
+
+    class HangingProcess:
+        returncode: int | None = None
+        pid = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+    process = HangingProcess()
+    worker = _ActiveWorker(
+        plan=plan,
+        process=process,  # type: ignore[arg-type]
+        result_path=tmp_path / "result.json",
+        progress_path=tmp_path / "progress.json",
+        context_ref="static-context-ref:sha256:" + "c" * 64,
+        registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+        repository_sha="a" * 40,
+        launched_at=time.perf_counter() - 1,
+        active_scan_index=specs[0].index,
+        active_scan_observed_at=time.perf_counter() - 1,
+    )
+    worker.result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": static_scan_worker.RESULT_SCHEMA,
+                "context_ref": worker.context_ref,
+                "registry_fingerprint": worker.registry_fingerprint,
+                "repository_sha": worker.repository_sha,
+                "outcomes": [
+                    {
+                        "scan_index": specs[0].index,
+                        "scan_ref": specs[0].scan_ref,
+                        "name": specs[0].name,
+                        "function_name": specs[0].function_name,
+                        "status": "passed",
+                        "elapsed_ms": 1,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_launch_worker",
+        lambda *args, **kwargs: worker,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "_progress_scan_index",
+        lambda active: specs[0].index,
+    )
+
+    def stop_processes(processes: object, grace_seconds: float) -> None:
+        assert grace_seconds >= 0
+        process.returncode = -15
+
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "stop_processes",
+        stop_processes,
+    )
+
+    outcomes, timed_out = _run_batch(
+        (plan,),
+        root=tmp_path,
+        run_root=tmp_path,
+        base_env={},
+        scan_timeout_seconds=0.001,
+        deadline=time.perf_counter() + 1,
+        safe_summary=True,
+        batch_ref="timeout-progress-test",
+        repository_sha=worker.repository_sha,
+        registry_fingerprint=worker.registry_fingerprint,
+    )
+
+    assert timed_out is True
+    assert [(outcome.scan_ref, outcome.status) for outcome in outcomes] == [
+        (specs[0].scan_ref, "passed"),
+        (specs[1].scan_ref, "timed_out"),
+    ]
+
+
 def test_partial_worker_launch_failure_stops_started_processes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -562,6 +693,87 @@ def test_partial_worker_launch_failure_stops_started_processes(
             registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
         )
 
+    assert stopped == [process]
+
+
+def test_scheduler_signal_cancellation_stops_active_worker_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_sha = "a" * 40
+    captured: dict[str, object] = {}
+    stopped: list[object] = []
+
+    @contextlib.contextmanager
+    def installed_handlers(
+        signals: object,
+        handler: object,
+    ) -> object:
+        captured["signals"] = signals
+        captured["handler"] = handler
+        yield
+
+    class InterruptingProcess:
+        returncode: int | None = None
+        pid = 12345
+
+        def poll(self) -> int | None:
+            handler = captured["handler"]
+            assert callable(handler)
+            handler(signal.SIGTERM, None)
+            return self.returncode
+
+    process = InterruptingProcess()
+
+    def launch(plan: StaticShardPlan, **kwargs: object) -> _ActiveWorker:
+        return _ActiveWorker(
+            plan=plan,
+            process=process,  # type: ignore[arg-type]
+            result_path=tmp_path / "result.json",
+            progress_path=tmp_path / "progress.json",
+            context_ref="static-context-ref:sha256:" + "c" * 64,
+            registry_fingerprint="static-registry-ref:sha256:" + "b" * 64,
+            repository_sha=repository_sha,
+            launched_at=time.perf_counter(),
+        )
+
+    def stop_processes(processes: object, grace_seconds: float) -> None:
+        assert grace_seconds >= 0
+        stopped.extend(processes)  # type: ignore[arg-type]
+        process.returncode = -15
+
+    monkeypatch.setattr(
+        run_static_scan_shards,
+        "resolve_repository_sha",
+        lambda root: repository_sha,
+    )
+    monkeypatch.setattr(run_static_scan_shards, "_launch_worker", launch)
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "installed_signal_handlers",
+        installed_handlers,
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "ignore_signals",
+        lambda signals: captured.update(ignored=signals),
+    )
+    monkeypatch.setattr(
+        run_static_scan_shards.shard_processes,
+        "stop_processes",
+        stop_processes,
+    )
+
+    with pytest.raises(run_static_scan_shards.StaticRunInterrupted):
+        run_static_scan_shards.execute_static_scans(
+            (("one", "one_scan"),),
+            root=tmp_path,
+            basetemp=tmp_path,
+            repository_sha=repository_sha,
+        )
+
+    assert signal.SIGTERM in captured["signals"]  # type: ignore[operator]
+    assert captured["ignored"] == captured["signals"]
     assert stopped == [process]
 
 
@@ -757,6 +969,45 @@ def test_local_static_lane_redacts_expected_scheduler_failure(
     assert run_static_verification_lane.legacy.run_static_scans is original
 
 
+def test_local_static_serial_lane_rejects_mismatched_repository_sha(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    original = run_static_verification_lane.legacy.run_static_scans
+    calls: list[object] = []
+    monkeypatch.setattr(
+        run_static_verification_lane.legacy,
+        "main",
+        lambda argv: run_static_verification_lane.legacy.run_static_scans([]),
+    )
+    monkeypatch.setattr(
+        run_static_verification_lane,
+        "resolve_repository_sha",
+        lambda root: "a" * 40,
+    )
+    monkeypatch.setattr(
+        run_static_verification_lane,
+        "execute_static_scans",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    with pytest.raises(SystemExit, match="1"):
+        run_static_verification_lane.main(
+            [
+                "--static-workers",
+                "1",
+                "--repository-sha",
+                "b" * 40,
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert "failure-ref:ValueError" in captured.err
+    assert "repository identity mismatch" not in captured.err
+    assert calls == []
+    assert run_static_verification_lane.legacy.run_static_scans is original
+
+
 def test_ci_v4_static_command_keeps_exact_head_fenced_entrypoint() -> None:
     from scripts.verification.ci_command_manifest import (
         SCHEMA_VERSION,
@@ -839,6 +1090,11 @@ def test_local_static_lane_keeps_serial_diagnostic_path(
         run_static_verification_lane,
         "execute_static_scans",
         lambda *args, **kwargs: pytest.fail("parallel scheduler should not run"),
+    )
+    monkeypatch.setattr(
+        run_static_verification_lane,
+        "resolve_repository_sha",
+        lambda root: "a" * 40,
     )
     monkeypatch.setattr(
         run_static_verification_lane.legacy,

@@ -54,6 +54,12 @@ DEFAULT_HARD_TIMEOUT_SECONDS = 180.0
 DEFAULT_TERMINATION_GRACE_SECONDS = 2.0
 
 
+class StaticRunInterrupted(RuntimeError):
+    def __init__(self, signum: int) -> None:
+        super().__init__(f"static scan run interrupted by signal {signum}")
+        self.signum = signum
+
+
 @dataclass(frozen=True)
 class StaticScanOutcome:
     scan_index: int
@@ -351,25 +357,30 @@ def _run_batch(
         worker_outcomes = _parse_outcomes(worker)
         outcomes.extend(worker_outcomes)
         if worker.timed_out:
-            spec = next(
-                (
-                    candidate
-                    for candidate in worker.plan.scans
-                    if candidate.index == worker.active_scan_index
-                ),
-                worker.plan.scans[0],
+            reported_indices = {outcome.scan_index for outcome in worker_outcomes}
+            unreported = tuple(
+                spec for spec in worker.plan.scans if spec.index not in reported_indices
             )
-            outcomes.append(
-                StaticScanOutcome(
-                    scan_index=spec.index,
-                    scan_ref=spec.scan_ref,
-                    name=spec.name,
-                    function_name=spec.function_name,
-                    status="timed_out",
-                    elapsed_ms=round(scan_timeout_seconds * 1000),
-                    failure_ref="timeout-ref:static-scan",
+            if unreported:
+                spec = next(
+                    (
+                        candidate
+                        for candidate in unreported
+                        if candidate.index == worker.active_scan_index
+                    ),
+                    unreported[0],
                 )
-            )
+                outcomes.append(
+                    StaticScanOutcome(
+                        scan_index=spec.index,
+                        scan_ref=spec.scan_ref,
+                        name=spec.name,
+                        function_name=spec.function_name,
+                        status="timed_out",
+                        elapsed_ms=round(scan_timeout_seconds * 1000),
+                        failure_ref="timeout-ref:static-scan",
+                    )
+                )
         if (
             worker.process.returncode not in {0, None}
             and not worker.timed_out
@@ -522,37 +533,47 @@ def execute_static_scans(
     base_env = shard_processes.build_shard_env(root)
     started = time.perf_counter()
     deadline = started + hard_timeout_seconds
+    handled_signals = shard_processes.cancellation_signals()
+
+    def interrupt_run(signum: int, _frame: Any) -> None:
+        shard_processes.ignore_signals(handled_signals)
+        raise StaticRunInterrupted(signum)
+
     try:
-        raw_outcomes, timed_out = _run_batch(
-            parallel_plans,
-            root=root,
-            run_root=run_root,
-            base_env=base_env,
-            scan_timeout_seconds=scan_timeout_seconds,
-            deadline=deadline,
-            safe_summary=safe_summary,
-            batch_ref="parallel",
-            repository_sha=resolved_repository_sha,
-            registry_fingerprint=registry_fingerprint,
-        )
-        if not timed_out:
-            for index, plan in enumerate(serial_plans):
-                batch_outcomes, batch_timed_out = _run_batch(
-                    (plan,),
-                    root=root,
-                    run_root=run_root,
-                    base_env=base_env,
-                    scan_timeout_seconds=scan_timeout_seconds,
-                    deadline=deadline,
-                    safe_summary=safe_summary,
-                    batch_ref=f"exclusive-{index}",
-                    repository_sha=resolved_repository_sha,
-                    registry_fingerprint=registry_fingerprint,
-                )
-                raw_outcomes.extend(batch_outcomes)
-                timed_out = timed_out or batch_timed_out
-                if timed_out:
-                    break
+        with shard_processes.installed_signal_handlers(
+            handled_signals,
+            interrupt_run,
+        ):
+            raw_outcomes, timed_out = _run_batch(
+                parallel_plans,
+                root=root,
+                run_root=run_root,
+                base_env=base_env,
+                scan_timeout_seconds=scan_timeout_seconds,
+                deadline=deadline,
+                safe_summary=safe_summary,
+                batch_ref="parallel",
+                repository_sha=resolved_repository_sha,
+                registry_fingerprint=registry_fingerprint,
+            )
+            if not timed_out:
+                for index, plan in enumerate(serial_plans):
+                    batch_outcomes, batch_timed_out = _run_batch(
+                        (plan,),
+                        root=root,
+                        run_root=run_root,
+                        base_env=base_env,
+                        scan_timeout_seconds=scan_timeout_seconds,
+                        deadline=deadline,
+                        safe_summary=safe_summary,
+                        batch_ref=f"exclusive-{index}",
+                        repository_sha=resolved_repository_sha,
+                        registry_fingerprint=registry_fingerprint,
+                    )
+                    raw_outcomes.extend(batch_outcomes)
+                    timed_out = timed_out or batch_timed_out
+                    if timed_out:
+                        break
     finally:
         shutil.rmtree(run_root)
     if resolve_repository_sha(root) != resolved_repository_sha:

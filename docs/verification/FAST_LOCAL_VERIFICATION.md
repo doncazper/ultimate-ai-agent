@@ -32,7 +32,7 @@ or counts as release evidence. GitHub affected preflight reports a Tier 3 full
 gate without starting a duplicate complete suite; the repository-scoped GitHub
 jobs normally own that exact-SHA resource.
 
-### Static scan process scheduler
+## Static scan process scheduler
 
 `make verify-static` preserves the canonical `SCAN_SEQUENCE` but may execute
 reviewed entries in four process-isolated workers. It uses a dedicated local
