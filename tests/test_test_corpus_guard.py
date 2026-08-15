@@ -6199,6 +6199,40 @@ def test_base_file_paths_parse_bounded_git_tree(
     assert captured == [["ls-tree", "-r", "--name-only", "-z", "a" * 40]]
 
 
+def test_verifier_base_tree_snapshot_bounds_base_text_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[list[str]] = []
+
+    def completed(
+        _repo: Path,
+        args: list[str],
+    ) -> subprocess.CompletedProcess[bytes]:
+        captured.append(args)
+        output = (
+            b"100644 blob "
+            + (b"a" * 40)
+            + b" 7\ttests/helper.py\0"
+            if args[0] == "ls-tree"
+            else b"content"
+        )
+        return subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=output,
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(guard, "_run_git", completed)
+
+    guard._load_base_tree_entries(Path("."), "b" * 40)
+    assert guard._base_text(Path("."), "b" * 40, "tests/helper.py") == "content"
+    assert captured == [
+        ["ls-tree", "-r", "-l", "-z", "b" * 40],
+        ["show", f"{'b' * 40}:tests/helper.py"],
+    ]
+
+
 def test_changed_test_paths_disable_rename_collapsing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -12234,6 +12268,22 @@ def test_python_inventory_rejects_transitive_collection_aborts(
         match="module-level pytest collection abort",
     ):
         guard.parse_python_declarations("tests/test_sample.py", source)
+
+
+def test_python_inventory_rejects_callable_alias_collection_abort() -> None:
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="module-level pytest collection abort",
+    ):
+        guard.parse_python_declarations(
+            "tests/test_sample.py",
+            "import pytest\n"
+            "def stop():\n"
+            '    pytest.skip("disabled", allow_module_level=True)\n'
+            "abort = stop\n"
+            "abort()\n"
+            "def test_case(): pass\n",
+        )
 
 
 @pytest.mark.parametrize("hook_name", ("setUp", "setUpClass"))

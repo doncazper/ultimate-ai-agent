@@ -65,11 +65,25 @@ AUTHORITY_LEASE_APPROVAL_RECORD_SCHEMA_VERSION = (
 AUTHORITY_LEASE_APPROVALS_FILE = "authority_lease_approvals.json"
 AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR = ".uaa-authority-approval-secrets"
 AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT = 512
+AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES = 8 * 1024 * 1024
 AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES = 32
 
 
 class AuthorityLeaseApprovalStateError(RuntimeError):
     """Raised when backend-owned authority approval state is not trustworthy."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        approval_captured: bool = False,
+        approval_ref: str | None = None,
+        approval_scope_ref: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.approval_captured = approval_captured
+        self.approval_ref = approval_ref
+        self.approval_scope_ref = approval_scope_ref
 
 
 class AuthorityLeaseApprovalConflictError(RuntimeError):
@@ -451,9 +465,49 @@ class AuthorityLeaseApprovalStore:
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_STATE_FILE_INVALID"
                 )
-            with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
-                descriptor = -1
-                payload = json.load(handle)
+            if (
+                metadata.st_size <= 0
+                or metadata.st_size > AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_STATE_SIZE_INVALID"
+                )
+            chunks: list[bytes] = []
+            bytes_read = 0
+            while bytes_read <= AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES:
+                chunk = os.read(
+                    descriptor,
+                    min(
+                        64 * 1024,
+                        AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES + 1 - bytes_read,
+                    ),
+                )
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                bytes_read += len(chunk)
+            closed_over = os.fstat(descriptor)
+            closed_over_link = os.lstat(self.records_path)
+            if (
+                bytes_read != metadata.st_size
+                or bytes_read > AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES
+                or (
+                    closed_over.st_size,
+                    closed_over.st_mtime_ns,
+                    closed_over.st_ctime_ns,
+                )
+                != (
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    metadata.st_ctime_ns,
+                )
+                or (closed_over.st_dev, closed_over.st_ino)
+                != (closed_over_link.st_dev, closed_over_link.st_ino)
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_STATE_CHANGED_DURING_READ"
+                )
+            payload = json.loads(b"".join(chunks))
         except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
             if isinstance(exc, AuthorityLeaseApprovalStateError):
                 raise
@@ -939,6 +993,51 @@ def issue_authority_lease_with_backend_approval(
 ]:
     try:
         with store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            replay_requirement = build_authority_lease_approval_requirement_for_request(
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+            replay_request = request
+            if replay_requirement.approval_required:
+                replay_approval_ref = (
+                    approval_ref
+                    or build_authority_lease_backend_approval_ref(
+                        replay_requirement,
+                        idempotency_ref=idempotency_ref,
+                    )
+                )
+                replay_request = request.model_copy(
+                    update={"approval_ref": replay_approval_ref}
+                )
+            recorded_result = store._recorded_issue_result(
+                replay_request,
+                idempotency_ref=idempotency_ref,
+            )
+            if recorded_result is not None:
+                lease, receipt = recorded_result
+                if receipt.status != "denied":
+                    if replay_request.approval_ref is None:
+                        raise AuthorityLeaseApprovalStateError(
+                            "AUTHORITY_LEASE_APPROVAL_REPLAY_STATE_INVALID"
+                        )
+                    replay_record = AuthorityLeaseApprovalStore(
+                        store.state_dir
+                    ).resolve(replay_request.approval_ref)
+                    if (
+                        replay_record is None
+                        or replay_record.requirement != replay_requirement
+                    ):
+                        raise AuthorityLeaseApprovalStateError(
+                            "AUTHORITY_LEASE_APPROVAL_REPLAY_STATE_INVALID"
+                        )
+                    if (
+                        replay_record.grant.approved_by_actor_id
+                        != approved_by_actor_id
+                    ):
+                        raise AuthorityLeaseApprovalConflictError(
+                            "AUTHORITY_LEASE_APPROVAL_REF_CONFLICT"
+                        )
+                return replay_requirement, None, lease, receipt
             try:
                 requirement, grant = capture_authority_lease_backend_approval(
                     store,
@@ -991,11 +1090,22 @@ def issue_authority_lease_with_backend_approval(
                 if grant is not None
                 else request
             )
-            lease, receipt = issue_authority_lease_from_backend_state(
-                store,
-                approved_request,
-                idempotency_ref=idempotency_ref,
-            )
+            try:
+                lease, receipt = issue_authority_lease_from_backend_state(
+                    store,
+                    approved_request,
+                    idempotency_ref=idempotency_ref,
+                )
+            except AuthorityLeaseApprovalStateError as exc:
+                if grant is None:
+                    raise
+                approval_was_captured = True
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_ISSUE_STATE_INVALID",
+                    approval_captured=approval_was_captured,
+                    approval_ref=grant.approval_ref,
+                    approval_scope_ref=requirement.approval_scope_ref,
+                ) from exc
             return requirement, grant, lease, receipt
     except OSError as exc:
         raise AuthorityLeaseApprovalStateError(

@@ -2429,7 +2429,8 @@ def post_api_runtime_authority_lease_approve_and_issue(
                 approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
             )
         )
-    except AuthorityLeaseApprovalStateError:
+    except AuthorityLeaseApprovalStateError as exc:
+        approval_captured = exc.approval_captured
         return ResultEnvelope(
             success=False,
             operation="api_runtime_authority_lease_approve_and_issue",
@@ -2439,13 +2440,31 @@ def post_api_runtime_authority_lease_approve_and_issue(
                 code="APPROVAL_BACKEND_STATE_INVALID",
                 category=ErrorCategory.security_blocked,
                 safe_message=(
-                    "Backend-owned approval state is unavailable; no approval "
+                    "The backend-owned approval was captured, but authority "
+                    "lease persistence was not confirmed; no success is reported."
+                    if approval_captured
+                    else "Backend-owned approval state is unavailable; no approval "
                     "or authority lease was issued."
                 ),
                 severity=Severity.high,
                 retryable=False,
                 details_redacted=True,
                 source="GovernedRuntimeAPI",
+            ),
+            data=(
+                {
+                    "lease": None,
+                    "approval_captured": True,
+                    "approval_ref": exc.approval_ref,
+                    "approval_scope_ref": exc.approval_scope_ref,
+                    "approval_grant_payload_persisted": False,
+                    "backend_approval_state_persisted": True,
+                    "lease_persistence_confirmed": False,
+                    "execution_performed": False,
+                    "unknown_authority_default": "deny",
+                }
+                if approval_captured
+                else None
             ),
             redactions_applied=["safe_refs_only", "raw_local_paths_omitted"],
         )

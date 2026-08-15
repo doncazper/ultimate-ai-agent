@@ -2718,12 +2718,19 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
                     approved_by_actor_id=args.approved_by_actor_ref,
                 )
             )
-        except AuthorityLeaseApprovalStateError:
-            print(
-                "ERROR: backend-owned authority approval state is unavailable; "
-                "no approval or authority lease was issued.",
-                file=sys.stderr,
-            )
+        except AuthorityLeaseApprovalStateError as exc:
+            if exc.approval_captured:
+                print(
+                    "ERROR: the backend-owned approval was captured, but authority "
+                    "lease persistence was not confirmed; no success is reported.",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "ERROR: backend-owned authority approval state is unavailable; "
+                    "no approval or authority lease was issued.",
+                    file=sys.stderr,
+                )
             return 1
         except AuthorityLeaseApprovalConflictError:
             print(

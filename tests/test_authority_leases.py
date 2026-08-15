@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.authority import (
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
     AuthorityLeaseApprovalCapacityError,
+    AuthorityLeaseApprovalStateError,
     AuthorityLeaseApprovalStore,
     authority_lease_approval_validator,
     build_authority_lease_test_grant,
@@ -4038,7 +4039,102 @@ def test_authority_lease_backend_approval_store_is_bounded_and_idempotent(
     assert retry.json()["data"]["receipt"]["approval_reason_codes"] == [
         "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
     ]
+    assert retry.json()["data"]["approval_captured"] is False
+    assert AuthorityLeaseApprovalStore(api_state_dir).list_records() == []
     assert AuthorityLeaseStore(api_state_dir).list_leases() == []
+
+
+def test_authority_lease_approval_state_rejects_oversized_input_before_parsing(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import ultimate_ai_agent.core.authority.approval_validation as validation_module
+
+    state_dir = tmp_path / "authority-oversized-approval-state"
+    state_dir.mkdir()
+    records_path = state_dir / "authority_lease_approvals.json"
+    monkeypatch.setattr(validation_module, "AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES", 64)
+    records_path.write_text("{" + (" " * 64) + "}", encoding="utf-8")
+    records_path.chmod(0o600)
+
+    def unexpected_unbounded_parse(*_args, **_kwargs):
+        raise AssertionError("oversized approval state reached JSON parsing")
+
+    monkeypatch.setattr(validation_module.json, "load", unexpected_unbounded_parse)
+
+    with pytest.raises(
+        AuthorityLeaseApprovalStateError,
+        match="AUTHORITY_LEASE_APPROVAL_STATE_SIZE_INVALID",
+    ):
+        AuthorityLeaseApprovalStore(state_dir).list_records()
+
+
+def test_authority_lease_partial_capture_failure_is_truthful_across_api_and_cli(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    def fail_lease_write(*_args, **_kwargs):
+        raise OSError("local-path-details-must-not-escape")
+
+    monkeypatch.setattr(AuthorityLeaseStore, "_write_leases", fail_lease_write)
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-partial-capture",
+        safe_summary="Report captured approval truth when lease persistence fails.",
+    )
+    api_state_dir = tmp_path / "authority-partial-capture-api"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(api_state_dir))
+
+    response = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:authority-partial-capture-api"
+        },
+        json={"lease_issue_request": request.model_dump(mode="json")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["error"]["code"] == "APPROVAL_BACKEND_STATE_INVALID"
+    assert "approval was captured" in response.json()["error"]["safe_message"].lower()
+    assert response.json()["data"]["approval_captured"] is True
+    assert response.json()["data"]["backend_approval_state_persisted"] is True
+    assert response.json()["data"]["lease_persistence_confirmed"] is False
+    assert response.json()["data"]["approval_ref"].startswith(
+        "approval-ref:authority-lease:"
+    )
+    assert "local-path-details" not in response.text
+    assert len(AuthorityLeaseApprovalStore(api_state_dir).list_records()) == 1
+
+    cli_state_dir = tmp_path / "authority-partial-capture-cli"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(cli_state_dir))
+    cli_result = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--domain",
+            "workspace:execute",
+            "--reason-ref",
+            "reason-ref:authority-partial-capture-cli",
+            "--idempotency-ref",
+            "idempotency-ref:authority-partial-capture-cli",
+            "--summary",
+            "Report captured approval truth without claiming lease success.",
+            "--approve",
+        ]
+    )
+    cli_output = capsys.readouterr()
+    assert cli_result == 1
+    assert cli_output.out == ""
+    assert "approval was captured" in cli_output.err.lower()
+    assert "lease persistence was not confirmed" in cli_output.err.lower()
+    assert "local-path-details" not in cli_output.err
+    assert len(AuthorityLeaseApprovalStore(cli_state_dir).list_records()) == 1
 
 
 def test_authority_lease_lock_failures_are_redacted_across_api_and_cli(

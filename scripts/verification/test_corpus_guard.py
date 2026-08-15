@@ -1893,12 +1893,20 @@ def _scope_execution_nodes(body: list[ast.stmt]) -> tuple[ast.AST, ...]:
 
 
 def _module_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
-    return _scope_execution_nodes(tree.body)
+    cached_nodes = getattr(tree, "_uaa_module_execution_nodes", None)
+    if isinstance(cached_nodes, tuple):
+        return cached_nodes
+    resolved_nodes = _scope_execution_nodes(tree.body)
+    setattr(tree, "_uaa_module_execution_nodes", resolved_nodes)
+    return resolved_nodes
 
 
 def _module_collection_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
     """Return nodes that can execute while pytest imports a test module."""
 
+    cached_nodes = getattr(tree, "_uaa_module_collection_execution_nodes", None)
+    if isinstance(cached_nodes, tuple):
+        return cached_nodes
     local_functions: dict[
         str,
         list[ast.FunctionDef | ast.AsyncFunctionDef],
@@ -1906,6 +1914,34 @@ def _module_collection_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             local_functions.setdefault(node.name, []).append(node)
+    callable_aliases = {name: name for name in local_functions}
+    callable_alias_edges: list[tuple[str, str]] = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = (node.target,)
+            value = node.value
+        else:
+            continue
+        if not isinstance(value, ast.Name):
+            continue
+        callable_alias_edges.extend(
+            (name, value.id)
+            for target in targets
+            for name in _binding_target_names(target)
+        )
+    changed = True
+    while changed:
+        changed = False
+        for alias_name, source_name in callable_alias_edges:
+            if source_name not in callable_aliases:
+                continue
+            resolved_name = callable_aliases[source_name]
+            if callable_aliases.get(alias_name) != resolved_name:
+                callable_aliases[alias_name] = resolved_name
+                changed = True
     pending: list[ast.AST] = list(reversed(tree.body))
     nodes: list[ast.AST] = []
     expanded_functions: set[str] = set()
@@ -1918,24 +1954,26 @@ def _module_collection_execution_nodes(tree: ast.Module) -> tuple[ast.AST, ...]:
         if isinstance(node, ast.ClassDef):
             pending.extend(reversed((*_definition_time_nodes(node), *node.body)))
             continue
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in local_functions
-            and node.func.id not in expanded_functions
-        ):
-            expanded_functions.add(node.func.id)
+        call_target = (
+            callable_aliases.get(node.func.id)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            else None
+        )
+        if call_target in local_functions and call_target not in expanded_functions:
+            expanded_functions.add(call_target)
             pending.extend(
                 reversed(
                     tuple(
                         statement
-                        for function in local_functions[node.func.id]
+                        for function in local_functions[call_target]
                         for statement in function.body
                     )
                 )
             )
         pending.extend(reversed(tuple(ast.iter_child_nodes(node))))
-    return tuple(nodes)
+    resolved_nodes = tuple(nodes)
+    setattr(tree, "_uaa_module_collection_execution_nodes", resolved_nodes)
+    return resolved_nodes
 
 
 def _is_builtin_getattr_reference(
@@ -11959,19 +11997,90 @@ def _validate_test_ref(value: str) -> None:
         raise TestCorpusEvidenceError("retired test ref is invalid")
 
 
+_BASE_TREE_ENTRY_CACHE_LIMIT = 8
+_BASE_TREE_ENTRY_CACHE: dict[
+    tuple[Path, str, Callable[..., object]],
+    dict[str, tuple[str, int | None]],
+] = {}
+
+
+def _base_tree_entry_cache_key(
+    repo: Path,
+    base_sha: str,
+) -> tuple[Path, str, Callable[..., object]]:
+    return repo.absolute(), base_sha, _run_git
+
+
+def _load_base_tree_entries(
+    repo: Path,
+    base_sha: str,
+) -> dict[str, tuple[str, int | None]]:
+    cache_key = _base_tree_entry_cache_key(repo, base_sha)
+    cached = _BASE_TREE_ENTRY_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    result = _run_git(
+        repo,
+        ["ls-tree", "-r", "-l", "-z", base_sha],
+    )
+    if result.returncode != 0:
+        raise TestCorpusGuardError("cannot inspect base repository paths")
+    entries: dict[str, tuple[str, int | None]] = {}
+    for raw_entry in result.stdout.split(b"\0"):
+        if not raw_entry:
+            continue
+        metadata, separator, raw_path = raw_entry.partition(b"\t")
+        fields = metadata.split()
+        if not separator or len(fields) != 4:
+            raise TestCorpusGuardError("base repository paths are malformed")
+        try:
+            object_type = fields[1].decode("ascii")
+            size = None if fields[3] == b"-" else int(fields[3])
+            path = raw_path.decode("utf-8")
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise TestCorpusGuardError("base repository paths are malformed") from exc
+        if (
+            object_type not in {"blob", "commit"}
+            or (object_type == "blob") != (size is not None)
+            or (size is not None and size < 0)
+            or path in entries
+            or path.startswith("/")
+            or "\\" in path
+            or any(part in {"", ".", ".."} for part in Path(path).parts)
+            or any(ord(character) < 32 for character in path)
+        ):
+            raise TestCorpusGuardError("base repository paths are malformed")
+        entries[path] = (object_type, size)
+    if len(_BASE_TREE_ENTRY_CACHE) >= _BASE_TREE_ENTRY_CACHE_LIMIT:
+        del _BASE_TREE_ENTRY_CACHE[next(iter(_BASE_TREE_ENTRY_CACHE))]
+    _BASE_TREE_ENTRY_CACHE[cache_key] = entries
+    return entries
+
+
 def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
-    size = _run_git(repo, ["cat-file", "-s", f"{base_sha}:{path}"])
-    if size.returncode != 0:
-        return None
-    try:
-        byte_count = int(size.stdout.decode("ascii").strip())
-    except (UnicodeDecodeError, ValueError) as exc:
-        raise TestCorpusGuardError(f"base test size is invalid: {path}") from exc
+    cached_entries = _BASE_TREE_ENTRY_CACHE.get(
+        _base_tree_entry_cache_key(repo, base_sha)
+    )
+    if cached_entries is None:
+        size = _run_git(repo, ["cat-file", "-s", f"{base_sha}:{path}"])
+        if size.returncode != 0:
+            return None
+        try:
+            byte_count = int(size.stdout.decode("ascii").strip())
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise TestCorpusGuardError(f"base test size is invalid: {path}") from exc
+    else:
+        entry = cached_entries.get(path)
+        if entry is None or entry[0] != "blob" or entry[1] is None:
+            return None
+        byte_count = entry[1]
     if byte_count > MAX_TEST_FILE_BYTES:
         raise TestCorpusGuardError(f"base test file exceeds byte budget: {path}")
     result = _run_git(repo, ["show", f"{base_sha}:{path}"])
     if result.returncode != 0:
         raise TestCorpusGuardError(f"cannot read base test file: {path}")
+    if len(result.stdout) != byte_count:
+        raise TestCorpusGuardError(f"base test size is invalid: {path}")
     try:
         return result.stdout.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -11979,6 +12088,11 @@ def _base_text(repo: Path, base_sha: str, path: str) -> str | None:
 
 
 def _base_file_paths(repo: Path, base_sha: str) -> frozenset[str]:
+    cached_entries = _BASE_TREE_ENTRY_CACHE.get(
+        _base_tree_entry_cache_key(repo, base_sha)
+    )
+    if cached_entries is not None:
+        return frozenset(cached_entries)
     result = _run_git(
         repo,
         ["ls-tree", "-r", "--name-only", "-z", base_sha],
@@ -12512,6 +12626,8 @@ def verify_test_corpus_guard(
         repo,
         base_sha if base_sha is not None else os.environ.get(BASE_SHA_ENV),
     )
+    if resolved_base is not None:
+        _load_base_tree_entries(repo, resolved_base)
     worktree_snapshot = _inventory_worktree_snapshot(repo)
     declarations = worktree_snapshot.declarations
     current_refs = {item.ref for item in declarations}

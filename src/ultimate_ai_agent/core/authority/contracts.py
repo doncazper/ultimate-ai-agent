@@ -3691,22 +3691,12 @@ class AuthorityLeaseStore:
         approval_validator: AuthorityLeaseApprovalValidator | None = None,
     ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
         validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
-        request_fingerprint_ref = _authority_lease_operation_fingerprint_ref(
-            "issue", request
+        recorded_result = self._recorded_issue_result(
+            request,
+            idempotency_ref=idempotency_ref,
         )
-        existing = self._receipt_for_idempotency(idempotency_ref)
-        if existing is not None:
-            if (
-                existing.operation != "issue"
-                or existing.request_fingerprint_ref != request_fingerprint_ref
-            ):
-                raise AuthorityLeaseConflictError(
-                    "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
-                )
-            lease = self._lease_by_ref(existing.lease_ref)
-            if existing.status == "denied":
-                return None, existing.model_copy(deep=True)
-            return lease, existing.model_copy(update={"status": "replayed"})
+        if recorded_result is not None:
+            return recorded_result
         if (
             request.requested_lease_ref is not None
             and self._lease_by_ref(request.requested_lease_ref) is not None
@@ -3875,6 +3865,30 @@ class AuthorityLeaseStore:
         )
         self._append_receipt(receipt)
         return lease, receipt
+
+    def _recorded_issue_result(
+        self,
+        request: AuthorityLeaseIssueRequest,
+        *,
+        idempotency_ref: str,
+    ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt] | None:
+        request_fingerprint_ref = _authority_lease_operation_fingerprint_ref(
+            "issue", request
+        )
+        existing = self._receipt_for_idempotency(idempotency_ref)
+        if existing is None:
+            return None
+        if (
+            existing.operation != "issue"
+            or existing.request_fingerprint_ref != request_fingerprint_ref
+        ):
+            raise AuthorityLeaseConflictError(
+                "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
+            )
+        lease = self._lease_by_ref(existing.lease_ref)
+        if existing.status == "denied":
+            return None, existing.model_copy(deep=True)
+        return lease, existing.model_copy(update={"status": "replayed"})
 
     def revoke_lease(
         self,
