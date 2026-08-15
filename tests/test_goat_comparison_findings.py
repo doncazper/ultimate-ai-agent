@@ -19,10 +19,17 @@ ARTIFACT = (
     / "runtime_capability_foundation"
     / "goat_comparison_20260712.json"
 )
+PROVENANCE_REPLACEMENT = (
+    ARTIFACT.parent / "goat_comparison_20260712.provenance-0001.json"
+)
 
 
 def _data() -> dict[str, object]:
     return json.loads(ARTIFACT.read_text(encoding="utf-8"))
+
+
+def _provenance_replacement() -> dict[str, object]:
+    return json.loads(PROVENANCE_REPLACEMENT.read_text(encoding="utf-8"))
 
 
 def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
@@ -46,6 +53,129 @@ def test_comparison_findings_verify_exact_scores_and_bounded_result() -> None:
     assert data["implementation_result"]["external_evidence_posture"] == (
         "opt_in_root_required"
     )
+
+
+def test_provenance_replacement_preserves_the_historical_artifact() -> None:
+    proof = _provenance_replacement()
+
+    assert verifier._sha256_ref(ARTIFACT.read_bytes()) == (
+        verifier.HISTORICAL_ARTIFACT_DIGEST
+    )
+    assert proof["generation"] == 1
+    assert (
+        proof["historical_binding"]["source_commit"]
+        == (_data()["implementation_result"]["uaa_source_commit"])
+    )
+    assert proof["reachable_replacement"]["source_commit"] == (
+        verifier.PROVENANCE_REPAIR_BASE_COMMIT
+    )
+    assert proof["contract_transition"]["comparison_findings_changed"] is False
+    assert proof["contract_transition"]["score_changed"] is False
+    assert proof["contract_transition"]["report_projection_changed"] is False
+    assert proof["authority_granted"] is False
+
+
+def test_provenance_replacement_never_accepts_the_historical_sha_as_current(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ancestry_calls: list[str] = []
+    digest_calls: list[str] = []
+    original_ancestry = verifier.evaluation_source_commit_is_ancestor
+    original_digest = verifier.evaluation_source_digest_at_commit
+
+    def guarded_ancestry(commit: str) -> bool:
+        ancestry_calls.append(commit)
+        assert commit == verifier.PROVENANCE_REPAIR_BASE_COMMIT
+        return original_ancestry(commit)
+
+    def guarded_digest(commit: str) -> str:
+        digest_calls.append(commit)
+        assert commit == verifier.PROVENANCE_REPAIR_BASE_COMMIT
+        return original_digest(commit)
+
+    monkeypatch.setattr(
+        verifier, "evaluation_source_commit_is_ancestor", guarded_ancestry
+    )
+    monkeypatch.setattr(verifier, "evaluation_source_digest_at_commit", guarded_digest)
+
+    verifier.verify_data(_data())
+
+    assert ancestry_calls == [verifier.PROVENANCE_REPAIR_BASE_COMMIT]
+    assert digest_calls == [verifier.PROVENANCE_REPAIR_BASE_COMMIT]
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "replacement", "error"),
+    (
+        (None, "generation", 2, "generation drift"),
+        (
+            "comparison_artifact",
+            "artifact_sha256",
+            "sha256:" + ("0" * 64),
+            "artifact replacement binding drift",
+        ),
+        (
+            "historical_binding",
+            "source_commit",
+            "0" * 40,
+            "historical evaluator source digest substitution",
+        ),
+        (
+            "reachable_replacement",
+            "source_commit",
+            "0" * 40,
+            "source commit substitution",
+        ),
+        (
+            "contract_transition",
+            "current_evaluator_source_digest",
+            "sha256:" + ("0" * 64),
+            "stale.*current evaluator",
+        ),
+        (
+            "contract_transition",
+            "changed_source_refs",
+            ["repo-ref:uaa:scripts/run_agent_capability_evaluation.py"],
+            "source substitution",
+        ),
+    ),
+)
+def test_provenance_replacement_rejects_substitution(
+    section: str | None,
+    field: str,
+    replacement: object,
+    error: str,
+) -> None:
+    proof = copy.deepcopy(_provenance_replacement())
+    target = proof if section is None else proof[section]
+    target[field] = replacement
+
+    with pytest.raises(verifier.VerificationError, match=error):
+        verifier.verify_data(_data(), provenance_replacement=proof)
+
+
+def test_provenance_replacement_rejects_extra_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    canonical = tmp_path / "goat_comparison_20260712.provenance-0001.json"
+    canonical.write_text("{}\n", encoding="utf-8")
+    (tmp_path / "goat_comparison_20260712.provenance-0002.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(verifier, "PROVENANCE_REPLACEMENT", canonical)
+
+    with pytest.raises(verifier.VerificationError, match="exactly one bounded"):
+        verifier._load_provenance_replacement()
+
+
+def test_verification_rejects_noncanonical_artifact_substitution(
+    tmp_path: Path,
+) -> None:
+    substituted = tmp_path / ARTIFACT.name
+    substituted.write_bytes(ARTIFACT.read_bytes())
+
+    with pytest.raises(verifier.VerificationError, match="path is not canonical"):
+        verifier.verify(substituted)
 
 
 def test_comparison_findings_reject_score_evidence_and_authority_drift() -> None:
@@ -256,4 +386,22 @@ def test_refresh_requires_an_exact_clean_worktree(
     )
 
     with pytest.raises(verifier.VerificationError, match="exact clean committed"):
+        verifier.refresh_uaa_evaluation()
+
+
+def test_refresh_cannot_rewrite_the_historical_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b"",
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(verifier.VerificationError, match="historical.*immutable"):
         verifier.refresh_uaa_evaluation()
