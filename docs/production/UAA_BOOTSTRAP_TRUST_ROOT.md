@@ -146,13 +146,13 @@ Before execution, `uaa setup bootstrap` must verify:
 
 Any mismatch must abort before installer code runs.
 
-## Approval Token Binding
+## Interactive Approval Binding
 
-Noninteractive `--yes` requires a chmod `0600`, single-use approval token whose
-preview hash matches the current bootstrap preview. Tokens bind release tag,
-asset, digest, signature reference, provenance mode, target, safe path
-summaries, milestone ref, approved repo, and pinned OpenWebUI image. Tokens
-expire after 15 minutes and are marked used before any download.
+Unattended `--yes` and the deprecated `--approval-token` and
+`--write-approval-token` shortcuts are disabled. They fail before download,
+token paths are not read or written, and token structure, preview hashes,
+expiry, or replay fields cannot create approval authority. The operator must
+review the current preview and type the exact interactive confirmation.
 
 Approved bootstrap and OpenWebUI image-pull decisions are additionally routed
 through the local PolicyEngine plus LocalApprovalAuthority adapter. The adapter

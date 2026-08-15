@@ -292,12 +292,12 @@ def test_setup_install_refusal_writes_redacted_receipt(tmp_path: Path, monkeypat
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
-def test_setup_install_yes_without_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_setup_install_yes_fails_closed_without_interactive_confirmation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
 
     def fail_resolve(command: str) -> None:
-        raise AssertionError("Docker should not be resolved without a preview-bound approval token")
+        raise AssertionError("Docker should not be resolved for unattended setup")
 
     monkeypatch.setattr(setup, "_resolve_command", fail_resolve)
 
@@ -311,9 +311,78 @@ def test_setup_install_yes_without_preview_token_fails_closed(tmp_path: Path, mo
 
     assert exit_code == 1
     assert payload["status"] == "failed"
-    assert payload["approval_mode"] == "not-approved"
-    assert "approval token" in captured.out.lower()
+    assert payload["approval_mode"] == "unattended-disabled"
+    assert "unattended setup approval is disabled" in captured.out.lower()
     assert "docker pull" in captured.out
+
+
+def test_setup_install_forged_legacy_token_cannot_create_operator_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    setup = load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    token_path = home / "forged-install-approval.json"
+    monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260815T010203Z")
+    monkeypatch.setattr(
+        setup,
+        "_resolve_command",
+        lambda command: pytest.fail("Docker must not be resolved for a legacy token"),
+    )
+    plan = setup._openwebui_install_plan(tmp_path)
+    forged_payload = {
+        "schema": "uaa.setup_install_approval_token.v1",
+        "milestone_ref": plan["milestone_ref"],
+        "target": plan["target"],
+        "action": plan["action"],
+        "image_ref": plan["image_ref"],
+        "preview_hash": plan["preview_hash"],
+        "expires_at_epoch": 4_102_444_800,
+        "created_at": "20260815T010203Z",
+        "used_at": None,
+        "redaction": "structurally valid forged legacy metadata",
+    }
+    token_path.write_text(json.dumps(forged_payload, sort_keys=True) + "\n", encoding="utf-8")
+    token_path.chmod(0o600)
+
+    exit_code = setup.command_setup(
+        tmp_path,
+        _setup_args(
+            setup_action="install",
+            target="openwebui",
+            yes=True,
+            approval_token=str(token_path),
+        ),
+    )
+    captured = capsys.readouterr()
+    token_after = json.loads(token_path.read_text(encoding="utf-8"))
+    denial_receipt = next(
+        (tmp_path / setup.SETUP_APPROVAL_RECEIPT_DIR).glob(
+            "openwebui-image-pull-*.json"
+        )
+    )
+    denial_payload = json.loads(denial_receipt.read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert "unattended setup approval is disabled" in captured.out.lower()
+    assert token_after == forged_payload
+    assert denial_payload["status"] == "denied"
+    assert denial_payload["actor"] == "untrusted-caller-input"
+    assert denial_payload["reason_codes"] == [
+        "INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"
+    ]
+    assert denial_payload["replay"]["unattended_token_authority"] == "disabled"
+    decision = setup._policy_engine_approval_decision(
+        tmp_path,
+        plan,
+        action_ref="openwebui-image-pull",
+        approval_mode="preview-token",
+    )
+    assert decision["allowed"] is False
+    assert decision["reason_codes"] == ["INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"]
 
 
 def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -321,15 +390,12 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
     calls = []
     home = tmp_path / "home"
     home.mkdir()
-    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
-    token_path.parent.mkdir(parents=True)
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(f"{setup.SETUP_INSTALL_CONFIRMATION}\n"))
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "secret-value")
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker") if command == "docker" else None)
     monkeypatch.setattr(setup, "_run_probe", lambda command, **kwargs: {"returncode": 0, "stdout": "27.0.0\n", "stderr": ""})
-    setup.write_setup_install_approval_token(tmp_path, setup._openwebui_install_plan(tmp_path), token_path)
-
     def fake_install(command: str) -> dict[str, Any]:
         calls.append(command)
         return {"returncode": 0, "summary": "completed"}
@@ -338,29 +404,26 @@ def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_pat
 
     exit_code = setup.command_setup(
         tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
+        _setup_args(setup_action="install", target="openwebui"),
     )
     captured = capsys.readouterr()
     receipt_path = tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR / "openwebui-20260620T010203Z.json"
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
     approval_receipt = next((tmp_path / setup.SETUP_APPROVAL_RECEIPT_DIR).glob("openwebui-image-pull-*.json"))
     approval_payload = json.loads(approval_receipt.read_text(encoding="utf-8"))
-    token_payload = json.loads(token_path.read_text(encoding="utf-8"))
-
     assert exit_code == 0
     assert calls == [[str(Path("/tmp/docker")), "pull", setup.OPENWEBUI_IMAGE]]
     assert payload["status"] == "installed"
     assert payload["action"] == "docker-image-pull"
-    assert payload["approval_mode"] == "preview-token"
+    assert payload["approval_mode"] == "typed"
     assert payload["approval_authority"] == "PolicyEngine+LocalApprovalAuthority"
     assert payload["approval_decision_ref"] == approval_payload["decision_ref"]
-    assert payload["preview_hash"] == token_payload["preview_hash"]
+    assert payload["preview_hash"] == approval_payload["scope"]["preview_hash"]
     assert approval_payload["schema"] == "uaa.setup_approval_receipt.v1"
     assert approval_payload["status"] == "allowed"
     assert approval_payload["scope"]["image_ref"] == setup.OPENWEBUI_IMAGE
     assert approval_payload["scope"]["preview_hash"] == payload["preview_hash"]
     assert stat.S_IMODE(approval_receipt.stat().st_mode) == 0o600
-    assert token_payload["used_at"]
     assert payload["side_effects_allowed"] == [
         "Docker may download and store the configured OpenWebUI image in the local Docker image cache.",
         "A redacted local receipt may be written under .uaa/dev/setup-install-receipts by default, or to --receipt.",
@@ -383,22 +446,10 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     repo.mkdir()
     home = tmp_path / "home"
     receipt_path = home / ".local" / "state" / "uaa" / "openwebui-receipt.json"
-    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
     receipt_path.parent.mkdir(parents=True)
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(sys, "stdin", io.StringIO("install openwebui\n"))
-
-    token_exit = setup.command_setup(
-        repo,
-        _setup_args(
-            setup_action="install",
-            target="openwebui",
-            receipt=str(receipt_path),
-            write_approval_token=str(token_path),
-        ),
-    )
-    token_payload = json.loads(token_path.read_text(encoding="utf-8"))
 
     calls = []
     monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker"))
@@ -418,21 +469,18 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
         _setup_args(
             setup_action="install",
             target="openwebui",
-            yes=True,
-            approval_token=str(token_path),
             receipt=str(receipt_path),
         ),
     )
     captured = capsys.readouterr()
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
 
-    assert token_exit == 0
     assert install_exit == 0
     assert calls == [[str(Path("/tmp/docker")), "pull", setup.OPENWEBUI_IMAGE]]
     assert payload["status"] == "installed"
     assert payload["receipt"] == "~/.local/state/uaa/openwebui-receipt.json"
     assert payload["receipt_scope_ref"].startswith("receipt-path-sha256:")
-    assert payload["preview_hash"] == token_payload["preview_hash"]
+    assert payload["approval_mode"] == "typed"
     assert payload["rollback_steps"][-1] == (
         "Receipt cleanup should remove only the exact reviewed receipt at "
         "~/.local/state/uaa/openwebui-receipt.json."
@@ -442,45 +490,37 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     assert stat.S_IMODE(receipt_path.stat().st_mode) == 0o600
 
 
-def test_setup_install_custom_receipt_mismatch_fails_closed(
+def test_setup_install_custom_receipt_legacy_token_path_is_not_read(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     setup = load_setup()
     home = tmp_path / "home"
-    first_receipt = home / "state" / "first.json"
-    second_receipt = home / "state" / "second.json"
-    token_path = home / "state" / "approval.json"
-    first_receipt.parent.mkdir(parents=True)
+    receipt_path = home / "state" / "denied.json"
+    token_path = home / "state" / "missing-legacy-token.json"
+    receipt_path.parent.mkdir(parents=True)
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
-    plan = setup._openwebui_install_plan(tmp_path)
-    setup._attach_install_approval_paths(
-        tmp_path,
-        plan,
-        _setup_args(receipt=str(first_receipt)),
-    )
-    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
-
     exit_code = setup.command_setup(
         tmp_path,
         _setup_args(
             setup_action="install",
             target="openwebui",
-            yes=True,
             approval_token=str(token_path),
-            receipt=str(second_receipt),
+            receipt=str(receipt_path),
         ),
     )
     captured = capsys.readouterr()
-    payload = json.loads(second_receipt.read_text(encoding="utf-8"))
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
 
     assert exit_code == 1
     assert payload["status"] == "failed"
-    assert "preview hash mismatch" in captured.out.lower()
-    assert payload["receipt"] == "~/state/second.json"
+    assert payload["approval_mode"] == "unattended-disabled"
+    assert "unattended setup approval is disabled" in captured.out.lower()
+    assert payload["receipt"] == "~/state/denied.json"
+    assert not token_path.exists()
 
 
 def test_setup_install_custom_receipt_rejects_unsafe_paths(
@@ -558,7 +598,7 @@ def test_setup_install_custom_receipt_write_rejects_substituted_symlink(
     assert outside.read_text(encoding="utf-8") == "keep"
 
 
-def test_setup_install_custom_receipt_rejects_approval_token_alias(
+def test_setup_install_deprecated_token_writer_never_creates_requested_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -566,15 +606,16 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
     setup = load_setup()
     home = tmp_path / "home"
     home.mkdir()
-    shared_path = home / "state" / "shared.json"
-    shared_path.parent.mkdir()
+    receipt_path = home / "state" / "denied.json"
+    token_path = home / "tokens" / "legacy.json"
+    receipt_path.parent.mkdir()
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(
         sys,
         "stdin",
         SimpleNamespace(
             readline=lambda: pytest.fail(
-                "alias validation must happen before approval prompting"
+                "deprecated token handling must not prompt"
             )
         ),
     )
@@ -584,79 +625,16 @@ def test_setup_install_custom_receipt_rejects_approval_token_alias(
         _setup_args(
             setup_action="install",
             target="openwebui",
-            receipt=str(shared_path),
-            write_approval_token=str(shared_path),
-        ),
-    )
-
-    assert exit_code == 2
-    assert "must not overlap --write-approval-token" in capsys.readouterr().out
-    assert not shared_path.exists()
-
-    token_path = home / "state" / "approval.json"
-    lock_path = token_path.with_name(f"{token_path.name}.lock")
-    lock_alias_exit = setup.command_setup(
-        tmp_path,
-        _setup_args(
-            setup_action="install",
-            target="openwebui",
-            receipt=str(lock_path),
+            receipt=str(receipt_path),
             write_approval_token=str(token_path),
         ),
     )
 
-    assert lock_alias_exit == 2
-    assert "or its consumption lock" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "unattended setup approval is disabled" in captured.out.lower()
+    assert receipt_path.exists()
     assert not token_path.exists()
-    assert not lock_path.exists()
-
-    case_variant_lock = token_path.with_name("Approval.json.lock")
-    case_alias_exit = setup.command_setup(
-        tmp_path,
-        _setup_args(
-            setup_action="install",
-            target="openwebui",
-            receipt=str(case_variant_lock),
-            write_approval_token=str(token_path),
-        ),
-    )
-
-    assert case_alias_exit == 2
-    assert "or its consumption lock" in capsys.readouterr().out
-    assert not token_path.exists()
-    assert not case_variant_lock.exists()
-
-    receipt_parent = home / "nested-receipt"
-    nested_token = receipt_parent / "approval.json"
-    parent_overlap_exit = setup.command_setup(
-        tmp_path,
-        _setup_args(
-            setup_action="install",
-            target="openwebui",
-            receipt=str(receipt_parent),
-            write_approval_token=str(nested_token),
-        ),
-    )
-
-    assert parent_overlap_exit == 2
-    assert "must not overlap --write-approval-token" in capsys.readouterr().out
-    assert not receipt_parent.exists()
-
-    token_parent = home / "nested-token"
-    nested_receipt = token_parent / "receipt.json"
-    child_overlap_exit = setup.command_setup(
-        tmp_path,
-        _setup_args(
-            setup_action="install",
-            target="openwebui",
-            receipt=str(nested_receipt),
-            write_approval_token=str(token_parent),
-        ),
-    )
-
-    assert child_overlap_exit == 2
-    assert "must not overlap --write-approval-token" in capsys.readouterr().out
-    assert not token_parent.exists()
 
 
 def test_setup_install_custom_receipt_rejects_internal_evidence_directory_occupancy(
@@ -813,7 +791,20 @@ def test_setup_install_custom_receipt_is_reserved_before_docker(
     assert stat.S_IMODE(private_receipt.stat().st_mode) == 0o600
 
 
-def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    "legacy_payload",
+    [
+        {"expires_at_epoch": 0},
+        {"preview_hash": "f" * 64},
+        {"used_at": "20260620T010203Z"},
+    ],
+)
+def test_setup_install_stale_mismatched_and_replayed_legacy_tokens_are_equally_non_authorizing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    legacy_payload: dict[str, Any],
+) -> None:
     setup = load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -822,43 +813,16 @@ def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(tmp_p
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
 
-    plan = setup._openwebui_install_plan(tmp_path)
-    setup.write_setup_install_approval_token(tmp_path, plan, token_path, ttl_seconds=-1)
-    exit_code = setup.command_setup(
-        tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
-    )
-    stale = capsys.readouterr()
-    assert exit_code == 1
-    assert "expired" in stale.out.lower()
-
-    token_path.unlink()
-    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
-    payload = json.loads(token_path.read_text(encoding="utf-8"))
-    payload["preview_hash"] = "f" * 64
-    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    token_path.write_text(json.dumps(legacy_payload, sort_keys=True) + "\n", encoding="utf-8")
     token_path.chmod(0o600)
     exit_code = setup.command_setup(
         tmp_path,
         _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
     )
-    mismatch = capsys.readouterr()
+    captured = capsys.readouterr()
     assert exit_code == 1
-    assert "preview hash mismatch" in mismatch.out.lower()
-
-    token_path.unlink()
-    setup.write_setup_install_approval_token(tmp_path, plan, token_path)
-    payload = json.loads(token_path.read_text(encoding="utf-8"))
-    payload["used_at"] = "20260620T010203Z"
-    token_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    token_path.chmod(0o600)
-    exit_code = setup.command_setup(
-        tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
-    )
-    replay = capsys.readouterr()
-    assert exit_code == 1
-    assert "already used" in replay.out.lower()
+    assert "unattended setup approval is disabled" in captured.out.lower()
+    assert json.loads(token_path.read_text(encoding="utf-8")) == legacy_payload
 
 
 def test_setup_install_docker_not_ready_does_not_pull(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -866,18 +830,15 @@ def test_setup_install_docker_not_ready_does_not_pull(tmp_path: Path, monkeypatc
     calls = []
     home = tmp_path / "home"
     home.mkdir()
-    token_path = home / ".local" / "state" / "uaa" / "install-approval.json"
-    token_path.parent.mkdir(parents=True)
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(f"{setup.SETUP_INSTALL_CONFIRMATION}\n"))
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
     monkeypatch.setattr(setup, "_resolve_command", lambda command: Path("/tmp/docker") if command == "docker" else None)
     monkeypatch.setattr(setup, "_run_probe", lambda command, **kwargs: {"returncode": 1, "stdout": "", "stderr": "daemon unavailable"})
     monkeypatch.setattr(setup, "_run_install_command", lambda command: calls.append(command) or {"returncode": 0, "summary": "completed"})
-    setup.write_setup_install_approval_token(tmp_path, setup._openwebui_install_plan(tmp_path), token_path)
-
     exit_code = setup.command_setup(
         tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
+        _setup_args(setup_action="install", target="openwebui"),
     )
     captured = capsys.readouterr()
     receipt_path = tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR / "openwebui-20260620T010203Z.json"
@@ -1366,7 +1327,7 @@ def test_launcher_parser_exposes_setup_command() -> None:
     assert args.plan is True
 
 
-def test_launcher_parser_exposes_setup_install_command() -> None:
+def test_launcher_parser_keeps_deprecated_setup_inputs_for_truthful_denial() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(

@@ -3,7 +3,7 @@
 Status: scoped implementation slice; downloader available only through
 `uaa setup bootstrap` with a pinned M167 release tag, exact platform asset name,
 explicit SHA-256, detached minisign signature or explicit local-dev provenance,
-typed approval or preview-bound approval token, and fail-closed provenance
+typed approval after the exact preview, and fail-closed provenance
 mode.
 
 This scoped M167+ milestone defines the authority boundary for a
@@ -104,13 +104,12 @@ Allowed options:
   after canonicalized user-scope path validation
 - `--receipt PATH`, defaulting to ignored local UAA state, only after
   canonicalized user-scope path validation
-- `--approval-token PATH`, required for noninteractive `--yes`
-- `--write-approval-token PATH`, which writes a preview-bound approval token
-  after typed approval and exits without downloading
+- `--approval-token PATH`, deprecated and denied without reading the path
+- `--write-approval-token PATH`, deprecated and denied without writing a token
 - `--provenance-mode minisign|local-dev-json`; `minisign` is public
   bootstrap mode with the repo-pinned key and deterministic verifier, while
   `local-dev-json` is explicit local-dev/test-only
-- `--yes`, only with a matching preview-bound approval token
+- `--yes`, deprecated and denied; interactive exact confirmation is required
 - `--no-profile-edit`, to skip shell profile PATH changes
 
 All path options must reject symlink escapes, path traversal, world-writable
@@ -205,13 +204,13 @@ The operator must approve with:
 install uaa openwebui bootstrap
 ```
 
-`--yes` may be accepted only with a chmod `0600`, single-use, unexpired
-approval token whose preview hash matches the current preview. The preview hash
-is computed over safe canonical fields: milestone ref, approved repo, release
-tag, asset, SHA-256, signature/provenance reference, provenance mode, target,
-safe path summaries, and the pinned OpenWebUI image ref. Tokens expire after
-15 minutes, are marked used before any download, and must fail closed when
-missing, expired, replayed, or mismatched.
+Unattended bootstrap approval is disabled. The deprecated `--yes`,
+`--approval-token`, and `--write-approval-token` inputs always fail before any
+download and record `INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED`. No token
+path is read or written, and no structurally valid, hash-matching, stale,
+replayed, forged, malformed, or arbitrary token can mint a
+LocalApprovalAuthority grant. The operator must rerun without those options and
+type the exact interactive confirmation after reviewing the current preview.
 
 Approved bootstrap and scoped OpenWebUI image-pull actions are routed through a
 local PolicyEngine plus LocalApprovalAuthority adapter. The adapter records a
@@ -323,7 +322,7 @@ The bootstrapper must fail closed for:
 - missing Python baseline
 - missing checksum or signature
 - checksum/signature/provenance mismatch
-- missing, expired, replayed, or mismatched approval token for `--yes`
+- any unattended `--yes` or deprecated setup-token input
 - cryptographic verifier missing or unavailable in public provenance mode
 - mutable branch, `main`, or `latest` source
 - arbitrary URL input
@@ -368,8 +367,10 @@ Tests must also prove:
   verification failure before any installer code runs
 - digest-pinned OpenWebUI image appears in setup install preview, receipt, and
   launch command
-- `--yes` fails without a matching preview-bound approval token
-- stale, mismatched, and replayed approval tokens fail before download
+- `--yes` and all deprecated setup-token inputs fail before download
+- structurally valid, forged, stale, mismatched, replayed, arbitrary-path, and
+  token-writer inputs remain non-authorizing and are not read or written
+- exact interactive confirmation preserves the verified bootstrap path
 - JSON provenance is accepted only under explicit `local-dev-json` mode
 - public `minisign` mode rejects JSON-only provenance before extraction
 - public `minisign` mode succeeds only when the deterministic verifier accepts

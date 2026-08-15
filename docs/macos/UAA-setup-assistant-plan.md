@@ -34,6 +34,13 @@ background-service installation/load/start, bridge enablement, provider/model
 calls, credential capture, shell/subprocess execution, receipt persistence,
 audit persistence, rollback execution, or production authority.
 
+The separate M167 CLI setup mutation lanes remain parity contracts beneath any
+future macOS shell: they show the exact preview and require the exact
+interactive operator confirmation. Deprecated unattended `--yes` and setup
+token inputs are fail-closed and cannot be submitted by the Setup Assistant.
+The read-only Control Center preview neither mints nor consumes setup approval
+tokens.
+
 ## Queue03 Phase03 Authority-Blocked Lifecycle Foundation
 
 Implemented:
