@@ -337,8 +337,8 @@ def command_setup_install(root: Path, args: argparse.Namespace) -> int:
     if any(
         (
             getattr(args, "yes", False),
-            getattr(args, "approval_token", None),
-            getattr(args, "write_approval_token", None),
+            getattr(args, "approval_token", None) is not None,
+            getattr(args, "write_approval_token", None) is not None,
         )
     ):
         try:
@@ -480,8 +480,8 @@ def command_setup_bootstrap(root: Path, args: argparse.Namespace) -> int:
     if any(
         (
             getattr(args, "yes", False),
-            getattr(args, "approval_token", None),
-            getattr(args, "write_approval_token", None),
+            getattr(args, "approval_token", None) is not None,
+            getattr(args, "write_approval_token", None) is not None,
         )
     ):
         plan["approval_mode"] = "unattended-disabled"

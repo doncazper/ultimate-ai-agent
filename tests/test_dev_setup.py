@@ -316,6 +316,48 @@ def test_setup_install_yes_without_preview_token_fails_closed(tmp_path: Path, mo
     assert "docker pull" in captured.out
 
 
+@pytest.mark.parametrize("option_name", ("approval_token", "write_approval_token"))
+def test_setup_install_empty_deprecated_option_cannot_reach_operator_authority(
+    option_name: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = load_setup()
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(f"{setup.SETUP_INSTALL_CONFIRMATION}\n"),
+    )
+    monkeypatch.setattr(
+        setup,
+        "_authorize_setup_action",
+        lambda *args, **kwargs: pytest.fail(
+            "empty deprecated option must fail before authority construction"
+        ),
+    )
+    monkeypatch.setattr(
+        setup,
+        "_resolve_command",
+        lambda command: pytest.fail(
+            "empty deprecated option must fail before Docker resolution"
+        ),
+    )
+    args = _setup_args(setup_action="install", target="openwebui")
+    setattr(args, option_name, "")
+
+    exit_code = setup.command_setup(tmp_path, args)
+    receipt = json.loads(
+        next((tmp_path / setup.SETUP_INSTALL_RECEIPT_DIR).glob("*.json")).read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert exit_code == 1
+    assert receipt["approval_mode"] == "unattended-disabled"
+    assert receipt["approval_authority"] == "none"
+    assert receipt["approval_decision_source"] == "pre-authority-input-guard"
+
+
 def test_setup_install_forged_legacy_token_cannot_create_operator_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

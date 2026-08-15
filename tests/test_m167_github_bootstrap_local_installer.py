@@ -566,6 +566,51 @@ def test_bootstrap_yes_without_preview_token_fails_before_download(tmp_path: Pat
     assert "unattended setup approval is disabled" in captured.out.lower()
 
 
+@pytest.mark.parametrize("option_name", ("approval_token", "write_approval_token"))
+def test_bootstrap_empty_deprecated_option_cannot_reach_operator_authority(
+    option_name: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setup = _load_setup()
+    home = tmp_path / "home"
+    home.mkdir()
+    _patch_supported_home(setup, monkeypatch, home)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(f"{setup.SETUP_BOOTSTRAP_CONFIRMATION}\n"),
+    )
+    monkeypatch.setattr(
+        setup,
+        "_authorize_setup_action",
+        lambda *args, **kwargs: pytest.fail(
+            "empty deprecated option must fail before authority construction"
+        ),
+    )
+    monkeypatch.setattr(
+        setup,
+        "_download_bootstrap_file",
+        lambda *args, **kwargs: pytest.fail(
+            "empty deprecated option must fail before bootstrap download"
+        ),
+    )
+    args = _bootstrap_args(tmp_path)
+    setattr(args, option_name, "")
+
+    exit_code = setup.command_setup(tmp_path, args)
+    receipt = json.loads(
+        (home / ".local/state/uaa/bootstrap-receipt.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert exit_code == 1
+    assert receipt["approval_mode"] == "unattended-disabled"
+    assert receipt["approval_authority"] == "none"
+    assert receipt["approval_decision_source"] == "pre-authority-input-guard"
+
+
 def test_bootstrap_forged_legacy_token_cannot_create_operator_authority(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
