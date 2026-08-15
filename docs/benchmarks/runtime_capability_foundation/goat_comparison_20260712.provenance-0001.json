@@ -1,0 +1,38 @@
+{
+  "schema_version": "uaa_goat_comparison_provenance_replacement.v1",
+  "generation": 1,
+  "comparison_artifact": {
+    "artifact_ref": "artifact-ref:uaa-goat-comparison:20260712",
+    "artifact_sha256": "sha256:e5145cb1c1cbd92aa222d0d4fa19ca1def82b54e1593cc673cf8db433a97b751",
+    "immutable": true
+  },
+  "historical_binding": {
+    "source_commit": "6cc93dda152a4e10e1849a50099d4fbe13856150",
+    "evaluator_source_digest": "sha256:1e5ff24331d4260c32a5259a32c278420ac2775ad794fefe654f5bd0069d0c66",
+    "evaluator_source_file_count": 53,
+    "posture": "historical_unreachable_or_missing_from_fresh_main"
+  },
+  "reachable_replacement": {
+    "source_commit": "5a07d3cff7a0d6cce5780378b8c1624bd8417d74",
+    "evaluator_source_digest": "sha256:1e5ff24331d4260c32a5259a32c278420ac2775ad794fefe654f5bd0069d0c66",
+    "evaluator_source_file_count": 53,
+    "posture": "reachable_ancestor_digest_equivalent"
+  },
+  "contract_transition": {
+    "current_evaluator_source_digest": "sha256:de2b8eedd7d847f767ecbfb2a897904539136bcbb641a449a2c922e0024a92f2",
+    "current_evaluator_source_file_count": 53,
+    "changed_source_refs": [
+      "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
+      "repo-ref:uaa:tests/test_goat_comparison_findings.py"
+    ],
+    "posture": "provenance_verifier_only_no_runtime_evaluator_change",
+    "comparison_findings_changed": false,
+    "score_changed": false,
+    "report_projection_changed": false
+  },
+  "retention_posture": "append_only_predecessor_retained",
+  "generation_posture": "single_generation_fail_closed",
+  "cross_surface_parity": "not_applicable_provenance_only",
+  "reason_ref": "reason-ref:goat-comparison-orphaned-squash-source-binding",
+  "authority_granted": false
+}
