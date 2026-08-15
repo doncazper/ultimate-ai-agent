@@ -3491,6 +3491,44 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
     assert inline_grant.status_code == 422
 
 
+def test_authority_lease_approve_and_issue_api_replays_approval_free_lease(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    authority_state_dir = tmp_path / "authority-read-only-replay"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    idempotency_ref = "idempotency-ref:authority-read-only-replay"
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.read_only,
+        decision_reason_ref="reason-ref:authority-read-only-replay",
+        safe_summary="Replay one approval-free read-only authority lease safely.",
+    )
+
+    first = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={"lease_issue_request": issue_request.model_dump(mode="json")},
+    )
+    replay = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={"lease_issue_request": issue_request.model_dump(mode="json")},
+    )
+
+    assert first.status_code == 200
+    assert first.json()["success"] is True
+    assert first.json()["data"]["receipt"]["status"] == "issued"
+    assert first.json()["data"]["receipt"]["approval_required"] is False
+    assert first.json()["data"]["approval_captured"] is False
+    assert replay.status_code == 200
+    assert replay.json()["success"] is True
+    assert replay.json()["data"]["receipt"]["status"] == "replayed"
+    assert replay.json()["data"]["receipt"]["approval_required"] is False
+    assert replay.json()["data"]["approval_captured"] is False
+    assert replay.json()["data"]["lease"] == first.json()["data"]["lease"]
+    assert AuthorityLeaseApprovalStore(authority_state_dir).list_records() == []
+
+
 def test_authority_lease_public_issue_rejects_caller_supplied_unsigned_grant(
     tmp_path,
     monkeypatch,
@@ -4067,6 +4105,76 @@ def test_authority_lease_approval_state_rejects_oversized_input_before_parsing(
         match="AUTHORITY_LEASE_APPROVAL_STATE_SIZE_INVALID",
     ):
         AuthorityLeaseApprovalStore(state_dir).list_records()
+
+
+def test_authority_lease_approval_state_rejects_oversized_write_before_replace(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import ultimate_ai_agent.core.authority.approval_validation as validation_module
+
+    store = AuthorityLeaseStore(tmp_path / "authority-oversized-approval-write")
+    approval_store = AuthorityLeaseApprovalStore(store.state_dir)
+    initial_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-approval-write-initial",
+        safe_summary="Persist one valid backend-owned approval generation.",
+    )
+    _requirement, initial_grant = capture_authority_lease_backend_approval(
+        store,
+        initial_request,
+        idempotency_ref="idempotency-ref:authority-approval-write-initial",
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-approval-write-initial",
+    )
+    assert initial_grant is not None
+    initial_state = approval_store.records_path.read_bytes()
+    monkeypatch.setattr(
+        validation_module,
+        "AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES",
+        len(initial_state) + 512,
+    )
+    oversized_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        authority_constraints=[
+            AuthorityConstraint(
+                constraint_ref="authority-constraint-ref:oversized-write",
+                kind=AuthorityConstraintKind.resource_refs,
+                allowed_refs=[
+                    f"resource-ref:oversized-write-{index}-{'a' * 128}"
+                    for index in range(64)
+                ],
+                safe_summary="Exercise the bounded approval-state writer.",
+            )
+        ],
+        decision_reason_ref="reason-ref:authority-approval-write-oversized",
+        safe_summary="Reject an oversized approval generation before publication.",
+    )
+
+    with pytest.raises(
+        AuthorityLeaseApprovalStateError,
+        match="AUTHORITY_LEASE_APPROVAL_STATE_SIZE_INVALID",
+    ):
+        capture_authority_lease_backend_approval(
+            store,
+            oversized_request,
+            idempotency_ref="idempotency-ref:authority-approval-write-oversized",
+            approved_by_actor_id="operator-ref:test-backend-approver",
+            approval_ref="approval-ref:authority-approval-write-oversized",
+        )
+
+    assert approval_store.records_path.read_bytes() == initial_state
+    assert approval_store.resolve(initial_grant.approval_ref) is not None
+    assert len(approval_store.list_records()) == 1
+    assert list(
+        store.state_dir.glob(".authority_lease_approvals.json.*.tmp")
+    ) == []
 
 
 def test_authority_lease_partial_capture_failure_is_truthful_across_api_and_cli(

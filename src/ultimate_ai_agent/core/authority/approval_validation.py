@@ -617,6 +617,14 @@ class AuthorityLeaseApprovalStore:
             signing_key,
             payload,
         )
+        serialized_payload = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+        if (
+            len(serialized_payload.encode("utf-8"))
+            > AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES
+        ):
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_STATE_SIZE_INVALID"
+            )
         temp_path = self.records_path.with_name(
             f".{self.records_path.name}.{uuid.uuid4().hex}.tmp"
         )
@@ -633,7 +641,7 @@ class AuthorityLeaseApprovalStore:
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
                 descriptor = -1
                 os.fchmod(handle.fileno(), 0o600)
-                handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+                handle.write(serialized_payload)
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temp_path, self.records_path)
@@ -1015,7 +1023,10 @@ def issue_authority_lease_with_backend_approval(
             )
             if recorded_result is not None:
                 lease, receipt = recorded_result
-                if receipt.status != "denied":
+                if (
+                    receipt.status != "denied"
+                    and replay_requirement.approval_required
+                ):
                     if replay_request.approval_ref is None:
                         raise AuthorityLeaseApprovalStateError(
                             "AUTHORITY_LEASE_APPROVAL_REPLAY_STATE_INVALID"

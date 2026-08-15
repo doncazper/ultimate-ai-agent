@@ -4605,7 +4605,7 @@ export async function approveAndIssueAuthorityLease(
     response,
   )) as ResultEnvelope<AuthorityLeaseMutationResult>;
   const result = data.result ?? data.data;
-  if (!response.ok || !result) {
+  if (!response.ok || !result || !result.receipt) {
     throw new Error(
       sanitizeForDisplay(
         extractErrorMessage(
